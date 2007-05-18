@@ -21,7 +21,6 @@ THEFILES   = `find . \( -name '*.C' -o -name '*.c' -o -name '*.f' -o -name '*.a'
 
 %.dep: %.f
 	@set -e; touch $@
-	
 
 CXXOBJS    = BcFcnCore.o \
              CommunicatorCore.o \
@@ -34,21 +33,26 @@ CXXOBJS    = BcFcnCore.o \
              DomainCore.o \
              EdgeCore.o \
              FaceCore.o \
+             FaceTriaCore.o \
+             FaceQuadCore.o \
+             ElemCore.o \
+             ElemPriCore.o \
+             ElemTetCore.o \
              FemEquationTermDesc.o \
              FluxFcnDesc.o \
              FluxFcnDescPerfectGas.o \
              FluxFcnDescWaterCompressible.o \
              FluxFcnDescGasInGas.o \
              FluxFcnDescLiquidInLiquid.o \
-	     FluxFcnDescGasInLiquid.o \
+             FluxFcnDescGasInLiquid.o \
              GeoData.o \
              GeoSource.o \
              GeoState.o \
              HeatTransferHandlerCore.o \
              InletNodeCore.o \
              IoDataCore.o \
-	     KspConvCriterion.o \
-	     LevelSetCore.o \
+             KspConvCriterion.o \
+             LevelSetCore.o \
              MacroCellCore.o \
              MatchNodeCore.o \
              MemoryPool.o \
@@ -60,10 +64,9 @@ CXXOBJS    = BcFcnCore.o \
              PostFcn.o \
              RefVal.o \
              SmagorinskyLESTerm.o \
-	     DynamicLESTerm.o \
-	     StructExc.o \
+             DynamicLESTerm.o \
+             StructExc.o \
              SubDomainCore.o \
-             TetCore.o \
              TimeData.o \
              Timer.o \
              TsInput.o \
@@ -72,10 +75,12 @@ CXXOBJS    = BcFcnCore.o \
              VarFcn.o \
              VMSLESTerm.o \
              VolumicForceTerm.o \
-	     DynamicVMSTerm.o \
+             DynamicVMSTerm.o \
              WallFcnCore.o \
-	     BCApplierCore.o \
-	     BCond.o 
+             BCApplierCore.o \
+             BCond.o \
+             BlockAlloc.o \
+             GearHandler.o
 
 # INTEL
 # -----
@@ -166,8 +171,8 @@ endif
 DYNLINKFLAGS = -rdynamic --export-dynamic
 
 MPIFLAG       = -DUSE_MPI -DMPI_NO_CPPBIND \
-                 -DUSE_STDARG -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDARG_H=1 \
-                 -DUSE_STDARG=1 -DMALLOC_RET_VOID=1 -DHAVE_MPI_CPP -fexceptions #-I/opt/mpich/myrinet/gnu/include/mpi2c++ -fexceptions -I/opt/mpich/myrinet/gnu/include
+                -DUSE_STDARG -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDARG_H=1 \
+                -DUSE_STDARG=1 -DMALLOC_RET_VOID=1 -DHAVE_MPI_CPP -fexceptions #-I/opt/mpich/myrinet/gnu/include/mpi2c++ -fexceptions -I/opt/mpich/myrinet/gnu/include
 OMPFLAG       = $(OMPFLAGS) #-mp
 CCFLAGS       = $(CXXFLAGS)
 
