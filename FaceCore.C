@@ -346,4 +346,3 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
 
 }
 
-//------------------------------------------------------------------------------
