@@ -26,7 +26,6 @@ class DistExactRiemannSolver {
   ExactRiemannSolver<dim> **subExactRiemannSolver;
 
 
-//functions
 public:
   DistExactRiemannSolver(IoData &iod, Domain *dom);
   ~DistExactRiemannSolver();

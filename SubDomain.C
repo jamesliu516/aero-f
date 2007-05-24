@@ -419,48 +419,6 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
-{
-  int i, j, k;
-
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  for(i=0; i<Phi.size(); i++)
-    for(k=1; k<4; k++)
-       Vgf[i][k] = V[i][k];
-
-  for (int l=0; l<edges.size(); l++){
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-
-    if(Phi[i]*Phi[j]<=0.0){ //at interface
-      if(Vgf[i][0]<0.0){
-        Vgf[i][0] = V[j][0];
-        Vgf[i][4] = V[j][4];
-      }else{
-        Vgf[i][0] = 0.5*(Vgf[i][0]+ V[j][0]);
-        Vgf[i][4] = 0.5*(Vgf[i][4]+ V[j][4]);
-      }
-
-      if(Vgf[j][0]<0.0){
-        Vgf[j][0] = V[i][0];
-        Vgf[j][4] = V[i][4];
-      }else{
-        Vgf[j][0] = 0.5*(Vgf[j][0]+V[i][0]);
-        Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
-      }
-    }
-   
-    //if(locToGlobNodeMap[i]+1==336614 || locToGlobNodeMap[j]+1==336614){
-    //  fprintf(stdout, "Vgf[%d [%d]] = %f with %f\n", locToGlobNodeMap[i]+1,i, Vgf[i][0], Phi[i]);
-    //  fprintf(stdout, "Vgf[%d [%d]] = %f with %f\n", locToGlobNodeMap[j]+1,j, Vgf[j][0], Phi[j]);
-    //}
-  }
-
-}
-//------------------------------------------------------------------------------
 
 /*
 @INPROCEEDINGS{dervieux-85,
@@ -2030,8 +1988,8 @@ void SubDomain::minRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
       for (int j = 0; j < dim; ++j)
-	if (buffer[iNode][j] < w[ (*sharedNodes)[iSub][iNode] ][j])
-	  w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
+        if (buffer[iNode][j] < w[ (*sharedNodes)[iSub][iNode] ][j])
+          w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
 
   }
 
@@ -2048,15 +2006,40 @@ void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
 
-    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode){
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
       for (int j = 0; j < dim; ++j)
-	if (buffer[iNode][j] > w[ (*sharedNodes)[iSub][iNode] ][j])
-	  w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
-    }
+        if (buffer[iNode][j] > w[ (*sharedNodes)[iSub][iNode] ][j])
+          w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
   }
 
 }
 
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::maxAbsRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
+{
+  // only called for levelset reinitialization so dim = 1 
+	/* if positive values, take the max
+	** if negative values, take the min
+	** values with different signs should never happen
+	*/
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
+      if ((w[ (*sharedNodes)[iSub][iNode] ][0] > 0.0 &&
+              buffer[iNode][0] > w[ (*sharedNodes)[iSub][iNode] ][0]) ||
+          (w[ (*sharedNodes)[iSub][iNode] ][0] < 0.0 &&
+              buffer[iNode][0] < w[ (*sharedNodes)[iSub][iNode] ][0])  )
+        w[ (*sharedNodes)[iSub][iNode] ][0] = buffer[iNode][0];
+
+  }
+
+}
+	
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -2824,8 +2807,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &P
         ++ierr;
       }
     }
-
-    //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+    if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
 
 
@@ -3190,6 +3172,93 @@ void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
   }
 
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
+{
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for(i=0; i<Phi.size(); i++)
+    for(k=1; k<4; k++)
+       Vgf[i][k] = V[i][k];
+
+  for (int l=0; l<edges.size(); l++){
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+    if(Phi[i]*Phi[j]<=0.0){ //at interface
+      if(Vgf[i][0]<0.0){
+        Vgf[i][0] = V[j][0];
+        Vgf[i][4] = V[j][4];
+      }else{
+        Vgf[i][0] = 0.5*(Vgf[i][0]+ V[j][0]);
+        Vgf[i][4] = 0.5*(Vgf[i][4]+ V[j][4]);
+      }
+
+      if(Vgf[j][0]<0.0){
+        Vgf[j][0] = V[i][0];
+        Vgf[j][4] = V[i][4];
+      }else{
+        Vgf[j][0] = 0.5*(Vgf[j][0]+V[i][0]);
+        Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
+      }
+    }
+		if(i==1481)
+			fprintf(stdout, "Vgf[%d] = %e %e %e -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4], j);
+		if(j==1481)
+			fprintf(stdout, "Vgf[%d] = %e %e %e -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4], i);
+   
+  }
+
+}
+//--------------------------------------------------------------------------
+template<int dim>
+void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
+                               Vec<double> &weight, Vec<double> &Phi)
+{
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); l++){
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+    if(Phi[i]*Phi[j]<=0.0){ //at interface
+      if(weight[i]<1.e-6){
+				weight[i] = 1.0;
+				for(k=0; k<5; k++)
+          Vgf[i][k] = Vg[j][k];
+      }else{
+				weight[i] += 1.0;
+				for(k=0; k<5; k++)
+          Vgf[i][k] += Vg[j][k];
+      }
+
+      if(weight[j]<1.e-6){
+				weight[j] = 1.0;
+				for(k=0; k<5; k++)
+          Vgf[j][k] = Vg[i][k];
+      }else{
+				weight[j] += 1.0;
+				for(k=0; k<5; k++)
+          Vgf[j][k] += Vg[i][k];
+      }
+    }
+
+		if(i==1481)
+			fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4],weight[i], j);
+		if(j==1481)
+			fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4],weight[j], i);
+   
+  }
+
+}
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
@@ -3267,13 +3336,13 @@ void SubDomain::printInletVariable(SVec<double,dim> &V)
 //-----------------------------------------------------------------------------
                                                                                                   
 template<int dim>
-void SubDomain::printAllVariable(SVec<int,1> &X, SVec<double,dim> &U, int numSub, int it)
+void SubDomain::printAllVariable(Vec<int> &X, SVec<double,dim> &U, int numSub, int it)
 {
 
     int glob, phi;
     for (int i=0; i<nodes.size(); i++){
-      glob = locToGlobNodeMap[i]+1;
-        fprintf(stdout, "phi[%d]=%d \n", glob, X[i][0]);
+        glob = locToGlobNodeMap[i]+1;
+        fprintf(stdout, "Tag[%d,%d] = %d\n", i, glob, X[i]);
     }
 
 }

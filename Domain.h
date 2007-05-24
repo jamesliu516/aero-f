@@ -132,7 +132,8 @@ public:
   CommPattern<double> *getCommPat(DistSVec<double,dim> &vec) { return vecPat; }
   template<int dim>
   CommPattern<bcomp> *getCommPat(DistSVec<bcomp,dim> &vec) { return compVecPat; }
-  CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
+  //CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
+	// should return volPat....
 
   Communicator *getCommunicator() const { return com; }
   Communicator *getStrCommunicator() { return strCom; }
@@ -156,8 +157,6 @@ public:
   void makeRotationOwnership(IoData &);
   void setFaceToElementConnectivity();
   void printElementStatistics();
-  template<int dim>  
-  void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
   int computeControlVolumes(double, DistSVec<double,3> &, DistVec<double> &);
   void computeFaceNormals(DistSVec<double,3> &, DistVec<Vec3D> &);
   void computeNormalsGCL1(DistSVec<double,3> &, DistSVec<double,3> &, 
@@ -258,8 +257,16 @@ public:
                              DistSVec<bcomp,3>&, DistVec<bcomp>&) {
 	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
-  void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level, bool lastlevel);
+  void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level);
+	void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
+	
+  template<int dim>  
+  void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
+	template<int dim>
+	void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
+                              DistVec<double> &weight, DistVec<double> &Phi);
+	
   template<int dim>
   void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
 			  DistVec<double> &Phi, DistSVec<double,dim> &Psi,
@@ -512,7 +519,7 @@ public:
   template<int dim>
   void printInletVariable(DistSVec<double,dim>&);
   template<int dim>
-  void printAllVariable(DistSVec<int,1> &, DistSVec<double,dim>&, int );
+  void printAllVariable(DistVec<int> &, DistSVec<double,dim>&, int );
 
   void printPhi(DistSVec<double,3> &, DistVec<double> &, int);
 

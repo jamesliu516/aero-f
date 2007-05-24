@@ -63,10 +63,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
 PreconditionData::PreconditionData()
 {
-
- mach = 1.0;
- k = 1.0;
- betav = 0.0;
+  mach = 1.0;
+  k = 1.0;
+  betav = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -533,9 +532,9 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
 			       reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
 			       "Ideal", 0, "Stiffened", 1);
   new ClassDouble<GasModelData>(ca, "SpecificHeatRatio", this, 
-				&GasModelData::specificHeatRatio);
+                                &GasModelData::specificHeatRatio);
   new ClassDouble<GasModelData>(ca, "IdealGasConstant", this, 
-				&GasModelData::idealGasConstant);
+                                &GasModelData::idealGasConstant);
   new ClassDouble<GasModelData>(ca, "PressureConstant", this,
                                 &GasModelData::pressureConstant);
 
@@ -572,10 +571,11 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
                                                                                                   
   new ClassToken<LiquidModelData>(ca, "Type", this,
-                               reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1, "Compressible", 0);
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1,
+            "Compressible", 0);
   new ClassToken<LiquidModelData>(ca, "Check", this,
-                               reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2, "Yes", 0, "No", 1);
-                                                                                                  
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
+            "Yes", 0, "No", 1);
   new ClassDouble<LiquidModelData>(ca, "SpecificHeatRatio", this,
                                 &LiquidModelData::specificHeatRatio);
   new ClassDouble<LiquidModelData>(ca, "Cv", this, &LiquidModelData::Cv);
@@ -595,7 +595,6 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
-
   pmin = -1.e6;
                                                                                                   
 }
@@ -637,8 +636,8 @@ void ViscosityModelData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ViscosityModelData>
     (ca, "Type", this, reinterpret_cast<int ViscosityModelData::*>
-     (&ViscosityModelData::type), 4,
-     "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
+                       (&ViscosityModelData::type), 4,
+                       "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this, 
 				      &ViscosityModelData::sutherlandReferenceTemperature);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this, 
@@ -664,12 +663,12 @@ void ThermalCondModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 2, father);
  
   new ClassToken<ThermalCondModelData>
-    (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
+     (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
      (&ThermalCondModelData::type), 2,
      "ConstantPrandtl", 0, "Water", 1);
 
   new ClassDouble<ThermalCondModelData>
-    (ca, "Prandtl", this, &ThermalCondModelData::prandtl);
+     (ca, "Prandtl", this, &ThermalCondModelData::prandtl);
 
 }
 
@@ -1234,6 +1233,7 @@ MultiFluidData::MultiFluidData()
 
   method = GHOSTFLUID_FOR_POOR;
 	problem = BUBBLE;
+	typePhaseChange = RIEMANN_SOLUTION;
   localtime  = GLOBAL;
   typeTracking = LINEAR;
   bandlevel = 3;
@@ -1249,24 +1249,27 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
-                         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
-                         "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2,
-			 "RealFluidMethod", 3);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
+             "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2,
+             "RealFluidMethod", 3);
   new ClassToken<MultiFluidData>(ca, "Problem", this,
-                         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
-												 "Bubble", 0, "ShockTube", 1);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
+             "Bubble", 0, "ShockTube", 1);
+	new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
+             "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
-                         "Global", 0, "Local", 1);
+             "Global", 0, "Local", 1);
   new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
-                         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),2,
-                         "Linear", 0, "Gradient", 1);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),2,
+             "Linear", 0, "Gradient", 1);
   new ClassInt<MultiFluidData>(ca, "BandLevel", this,
-			 &MultiFluidData::bandlevel);
+             &MultiFluidData::bandlevel);
   new ClassInt<MultiFluidData>(ca, "SubIt", this,
-			 &MultiFluidData::subIt);
+             &MultiFluidData::subIt);
   new ClassInt<MultiFluidData>(ca, "Frequency", this,
-			 &MultiFluidData::frequency);
+             &MultiFluidData::frequency);
                                                                                                         
   icd.setup("InitialConditions", ca);
                                                                                                         
@@ -2611,20 +2614,26 @@ void IoData::resetInputValues()
   }
   else if (eqs.numPhase == 2) {
      com->fprintf(stderr, " ----- TWO-PHASE FLOW SIMULATION -----\n");
-     if (eqs.fluidModel.fluid == FluidModelData::GAS && eqs.fluidModel2.fluid == FluidModelData::GAS)
-       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
+     if (eqs.fluidModel.fluid == FluidModelData::GAS &&
+         eqs.fluidModel2.fluid == FluidModelData::GAS)
+       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+           eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ----- PERFECT GAS-PERFECT GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED && eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
+               eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ----- STIFFENED GAS-STIFFENED GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL && eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+               eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ----- PERFECT GAS-STIFFENED GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED && eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
+       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
+               eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ----- STIFFENED GAS-PERFECT GAS SIMULATION -----\n");
        else{
          com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
          exit(1);
        }
-     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID && eqs.fluidModel2.fluid == FluidModelData::GAS)
+     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+              eqs.fluidModel2.fluid == FluidModelData::GAS)
        if (eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
        else if (eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
@@ -2633,7 +2642,8 @@ void IoData::resetInputValues()
          com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
          exit(1);
        }
-     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID && eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+              eqs.fluidModel2.fluid == FluidModelData::LIQUID)
        com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
      else{
        com->fprintf(stderr, " ----- GAS-LIQUID SIMULATIONS ARE NOT DEFINED -----\n -----> exiting program");
@@ -2649,7 +2659,8 @@ void IoData::resetInputValues()
   }
                                                                                                   
   if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    if(schemes.bc.type == BoundarySchemeData::STEGER_WARMING && bc.inlet.type != BcsFreeStreamData::INTERNAL){
+    if(schemes.bc.type == BoundarySchemeData::STEGER_WARMING &&
+       bc.inlet.type != BcsFreeStreamData::INTERNAL){
       com->fprintf(stderr, "*** Error: for an hydrodynamic simulation, numerical treatment of boundary conditions needs to be an extrapolation method\n");
       exit(1);
     }

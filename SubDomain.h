@@ -229,8 +229,6 @@ public:
 
   // spatial discretization
   template<int dim>
-  void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
-  template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
                        double, double, double);
@@ -601,6 +599,9 @@ public:
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
   template<class Scalar, int dim>
+  void maxAbsRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim>
   void sndDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
 
   template<class Scalar, int dim>
@@ -677,20 +678,28 @@ public:
   int *getRotOwn() { return rotOwn; }
   NodeSet &getNodes() { return nodes; }
 
-  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level, bool lastlevel);
+  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level);
+  void FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level);
+
+	template<int dim>
+  void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
+                      Vec<double> &weight, Vec<double> &Phi);
+
+  template<int dim>
+  void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
   void computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
                           Vec<double> &Phi, SVec<double,dim> &Psi,
-			  Vec<int> &Tag,
+                          Vec<int> &Tag,
                           Vec<double> &w, Vec<double> &beta, 
-			  SVec<double,dim> &PsiRes, int typeTracking);
+                          SVec<double,dim> &PsiRes, int typeTracking);
   template<int dim>
   void computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-			   SVec<double,dim> &PsiRes);
+                           SVec<double,dim> &PsiRes);
   template<int dim>
   void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-			   SVec<double,dim> &PsiRes,bool localdt);
+                           SVec<double,dim> &PsiRes,bool localdt);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,
@@ -703,7 +712,7 @@ public:
   void printInletVariable(SVec<double,dim>&);
                                                                                                   
   template<int dim>
-  void printAllVariable(SVec<int,1> &, SVec<double,dim>&, int , int);
+  void printAllVariable(Vec<int> &, SVec<double,dim>&, int , int);
                                                                                                   
   void printPhi(SVec<double,3> &, Vec<double>&, int );
                                                                                                   

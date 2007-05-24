@@ -195,7 +195,7 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
     this->varFcn->primitiveToConservative(this->Vg, U, &(this->Phi), &(this->LS->Phin), &this->Vg);
   }*/
 
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin);
+	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
 
   checkSolution(U);
 

@@ -13,9 +13,9 @@ template<int dim>
 DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom)
 {
 
-  if(ioData.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR)
-		updatePhase = false;
-	else
+	updatePhase = false;
+	if(ioData.mf.method          == MultiFluidData::GHOSTFLUID_WITH_RIEMANN &&
+     ioData.mf.typePhaseChange == MultiFluidData::RIEMANN_SOLUTION)
 		updatePhase = true;
 
   numLocSub = dom->getNumLocSub();

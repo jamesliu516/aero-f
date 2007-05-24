@@ -104,12 +104,12 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       //fprintf(stdout, "TsSolver.h 3\n");
       probDesc->computeMeshMetrics();
 
-      //fprintf(stdout, "TsSolver.h 4\n");
+      fprintf(stdout, "TsSolver.h 4\n");
       // Fluid Solution
       itNl += probDesc->solveNonLinearSystem(U);
 
       // compute the current aerodynamic force
-//      fprintf(stdout, "TsSolver.h 5\n");
+      fprintf(stdout, "TsSolver.h 5\n");
       probDesc->updateOutputToStructure(dt, dtLeft, U);
 
 //      fprintf(stdout, "TsSolver.h 6\n");

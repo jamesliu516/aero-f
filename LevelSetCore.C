@@ -76,7 +76,7 @@ bool LevelSet::checkConvergencePsi(int iteration, double &res0)
     res0 = res;
 
   double target = eps*res0;
-  if(res < target || iteration >= subIt){
+  if(res < target || iteration >= subIt || res < 1.e-12){
 		com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
     return true;
 	}

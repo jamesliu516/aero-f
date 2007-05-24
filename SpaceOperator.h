@@ -111,7 +111,7 @@ public:
   FemEquationTerm *getFemEquationTerm() { return fet;}
 
   void storeGhost(DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &);
+                       DistSVec<double,dim> &, DistVec<double> &);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -122,8 +122,12 @@ public:
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
+	void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
+		                         	DistVec<double> &Phi,
+                              DistSVec<double,dim> *Vgf, DistVec<double> *weight);
 	void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
-                         DistVec<double> &Phi, DistVec<double> &Phin);
+                         DistVec<double> &Phi, DistVec<double> &Phin,
+                         DistSVec<double,dim> *Vgf, DistVec<double> *weight);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,

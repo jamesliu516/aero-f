@@ -35,8 +35,8 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
         //phi[i] = 2.0*sin(phi[i]/4.0)+1.3;
 			}else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
       //for shock tube (comments: cf LevelSetCore.C)
-        phi[i] = xb*(x[i][0] - r) + yb*sin(x[i][0] - r);
-        //phi[i] = 0.5*sin(3.0*(x[i][0]-0.50005))+0.35;
+        phi[i] = x[i][0] - r;
+        //phi[i] = xb*sin(zb*(x[i][0]-0.50005))+yb;
         //phi[i] = fabs(x[i][0]-xb) - r;
 			}
       phi[i] *= u[i][0];
@@ -133,27 +133,36 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
   ** to converge the solution, we solve
   ** dpsi/dtau + sign(phi)*(abs(grad(phi))-1.0) = 0.0
   ** and psi(tau = 0.0) = phi
+	**
+	** it is not always possible to solve this equation using
+	** local time stepping, especially far from the interface.
+	** Since the distance function is needed only close to the
+	** interface, one solves this equation for nodes close to
+	** that interface (those nodes are tagged first). The
+	** remaining nodes are set to an arbitrary value. Here
+	** we chose to give them the highest value among its neighbors.
   */
 
   // initialize Psi
   Psi = Phi;
 
   // tag nodes that are close to interface up to level 'levelTot'
-	//debug strategy: verify what is tagged
-	//                do one simulation with all tagged -> does that change solution? last nodes should not work?...
-	//                do one simulation with a few tagged -> expected to work...
-	//                do one simulation with half tagged -> close to interface ok, tagged far not ok, not tagged untouched?
-  bool lastlevel = false;
-  for(int level=0; level<bandlevel; level++){
-    if(level==bandlevel-1) lastlevel = true;
-    domain->TagInterfaceNodes(Tag,Phi,level,lastlevel);
-  }
+	int level = 0;
+  for (level=0; level<bandlevel; level++)
+    //domain->TagInterfaceNodes(Tag,Phi0,level);
+    domain->TagInterfaceNodes(Tag,Phi,level);
 
-  // steady state solution
+  // steady state solution over tagged nodes
   //computeSteadyState(geoState, X, ctrlVol, U, Phi0); // for testing only!!
   computeSteadyState(geoState, X, ctrlVol, U, Phi);
 
-	// psi is set to max(values of neighbours with tag>0) is tag is 0
+	// psi is set to max(values of neighbours with tag>0) if tag is 0
+  bool lastlevel = false;
+	while(!lastlevel){
+    domain->FinishReinitialization(Tag,Psi,level);
+    level += 1;
+    lastlevel = (Tag.min()==0 ? false : true);
+  }
 
   // set Phi to the new distance function
   DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));

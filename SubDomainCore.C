@@ -3113,8 +3113,7 @@ void SubDomain::completeRotateSurfaceOwnership(CommPattern<int>&cpat)  {
 //------------------------------------------------------------------------------
 //             LEVEL SET SOLUTION AND REINITIALIZATION                       ---
 //------------------------------------------------------------------------------
-void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level,
-				  bool lastlevel)
+void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level)
 {
   if(!NodeToNode)
      NodeToNode = createNodeToNodeConnectivity();
@@ -3122,7 +3121,7 @@ void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level,
   if(level==0){
   // tag nodes that are closest to interface by looking at phi[i]*phi[j]
     Tag = 0;
-    edges.TagInterfaceNodes(Tag,Phi,lastlevel);
+    edges.TagInterfaceNodes(Tag,Phi);
 
   }else{
   // tag nodes that are neighbours of already tagged nodes.
@@ -3135,6 +3134,34 @@ void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level,
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
           if(Tag[nei]==0) Tag[nei] = level+1;
+        }
+
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level)
+{
+
+	if(!NodeToNode)
+    NodeToNode = createNodeToNodeConnectivity();
+
+	int nNeighs,nei,k;
+	for (int i=0; i<nodes.size(); i++){
+    if (Tag[i]==level){
+
+      nNeighs = NodeToNode->num(i);
+      for (k=0; k<nNeighs; k++){
+        nei = (*NodeToNode)[i][k];
+        if(Tag[nei]==0){
+          Tag[nei] = level+1;
+          Psi[nei][0] = Psi[i][0];
+        }else if(Tag[nei]==level+1){
+					if( (Psi[i][0] > 0.0 && Psi[i][0] > Psi[nei][0]) ||
+              (Psi[i][0] < 0.0 && Psi[i][0] < Psi[nei][0])  )
+            Psi[nei][0] = Psi[i][0];
         }
 
       }
