@@ -47,7 +47,6 @@ public:
   ~ImplicitSegTsDesc();
 
   void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void computeJacobianLS(int, DistVec<double> &, DistVec<double> &,  DistVec<double> &, DistVec<double> &) {};
   void setOperators(DistSVec<double,dim> &);
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
 

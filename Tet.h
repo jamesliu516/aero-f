@@ -4,6 +4,7 @@
 //#include <Face.h>
 #include <MacroCell.h>
 #include <Vector.h>
+#include <Vector3D.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -24,7 +25,6 @@ class GeoState;
 class FaceSet;
 class Face;
 
-struct Vec3D;
 
 template<class Scalar, int dim> class GenMat;
 
@@ -68,6 +68,7 @@ public:
 
   double computeLongestEdge(SVec<double,3> &);
   double computeVolume(SVec<double,3> &);
+  double computeGeometricVolume(Vec3D , Vec3D , Vec3D , Vec3D );
   double computeControlVolumes(SVec<double,3> &, Vec<double> &);
   void printInvalidElement(int, double, int, int *, int *, SVec<double,3> &, SVec<double,3> &);
   void numberEdges(EdgeSet &);
@@ -82,10 +83,16 @@ public:
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, SVec<double,9> &);
   double computeGradientP1Function(SVec<double,3> &, double [4][3]);
+  double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, double [4][3]);
   void computeStiffAndForce(double [4][3], double [12][12], 
 			    SVec<double, 3> &, SVec<double,3> &, double volStiff = 0.0);
   void computeStiffAndForceLIN(double [4][3], double [12][12],
 			       SVec<double,3> &, SVec<double,3> &);
+  void computePsiResidualSubTet(double psi[4], double phi[4],
+                                Vec3D A, Vec3D B, Vec3D C, Vec3D D,
+                                double locdphi[4], double locw[4],
+                                double locbeta[4], bool debug);
+
 
 //-----functions in Tet.h
 
@@ -164,6 +171,42 @@ public:
   void computeCsValues(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, SVec<double,2> &, Vec<double> &,
 		       SVec<double,3> &, double, double);
 
+  template<int dim>
+  int findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
+                              SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+ 			      SVec<double,3> &X,
+                              int reorder[4], Vec3D P[4], int typeTracking);
+  template<int dim>
+  void findLSIntersectionPointLinear(Vec<double> &Phi, SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+  template<int dim>
+  void findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,SVec<double,dim> &ddz,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking);
+
+  template<int dim>
+  void computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
+  template<int dim>
+  void computePsiResidual1(int reorder[4], Vec3D P[4],
+                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
+  template<int dim>
+  void computePsiResidual2(int reorder[4], Vec3D P[4],
+                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
 };
 
 //------------------------------------------------------------------------------
@@ -193,7 +236,7 @@ public:
   void computeDynamicVMSTerm(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,3> &,
                              SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, Vec<double> &,
                              Vec<double> *, Vec<double> &);
-                                                                                                                          
+
   template<int dim>
   void computeMBarAndM(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,1> **, SVec<double,3> &,
                        SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
@@ -219,6 +262,13 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
 				   Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+			  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+			  SVec<double,dim> &ddz, Vec<int> &Tag,
+			  Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking);
 
   int size() const { return numTets; }
   
@@ -275,6 +325,66 @@ double Tet::computeGradientP1Function(SVec<double,3> &nodes, double nGrad[4][3])
   nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
 
   return sixth * dOmega;
+
+}
+
+//------------------------------------------------------------------------------
+
+inline
+double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
+                                      double nGrad[4][3])
+{
+
+  
+  double jac[3][3];
+
+  //Jacobian
+  // J_ij = dx_i/dxi_j
+  double v = B[0];
+  jac[0][0] = B[0] - A[0];
+  jac[0][1] = C[0] - A[0];
+  jac[0][2] = D[0] - A[0];
+  jac[1][0] = B[1] - A[1];
+  jac[1][1] = C[1] - A[1];
+  jac[1][2] = D[1] - A[1];
+  jac[2][0] = B[2] - A[2];
+  jac[2][1] = C[2] - A[2];
+  jac[2][2] = D[2] - A[2];
+
+  // compute determinant of jac
+  double dOmega = jac[0][0] * (jac[1][1] * jac[2][2] - jac[1][2] * jac[2][1]) +
+                  jac[1][0] * (jac[0][2] * jac[2][1] - jac[0][1] * jac[2][2]) +
+                  jac[2][0] * (jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1]);
+
+  // compute inverse matrix of jac
+  // Maple code used
+  double t17 = -1.0/dOmega;
+
+  //compute shape function gradients
+  nGrad[1][0] =  (-jac[1][1] * jac[2][2] + jac[1][2] * jac[2][1] ) * t17;
+  nGrad[1][1] =  ( jac[0][1] * jac[2][2] - jac[0][2] * jac[2][1] ) * t17;
+  nGrad[1][2] = -( jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1] ) * t17;
+
+  nGrad[2][0] = -(-jac[1][0] * jac[2][2] + jac[1][2] * jac[2][0] ) * t17;
+  nGrad[2][1] = -( jac[0][0] * jac[2][2] - jac[0][2] * jac[2][0] ) * t17;
+  nGrad[2][2] =  ( jac[0][0] * jac[1][2] - jac[0][2] * jac[1][0] ) * t17;
+
+  nGrad[3][0] = -( jac[1][0] * jac[2][1] - jac[1][1] * jac[2][0] ) * t17;
+  nGrad[3][1] =  ( jac[0][0] * jac[2][1] - jac[0][1] * jac[2][0] ) * t17;
+  nGrad[3][2] = -( jac[0][0] * jac[1][1] - jac[0][1] * jac[1][0] ) * t17;
+
+  // Shape function gradients dN_i/dx_i = dN/dxi * transpose(jInv)
+  // Note: 1st index = shape function #
+  // 2nd index = direction (0=x, 1=y, 2=z)
+
+  nGrad[0][0] = -( nGrad[1][0] + nGrad[2][0] + nGrad[3][0] );
+  nGrad[0][1] = -( nGrad[1][1] + nGrad[2][1] + nGrad[3][1] );
+  nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
+
+  return sixth * dOmega;
+
+
+
 
 }
 
@@ -580,6 +690,7 @@ void Tet::computeVelocityGradient(double dp1dxj[4][3],
 }
                                                                                                                                           
 //-----------------------------------------------------------------------
+
 
 #ifdef TEMPLATE_FIX
 #include <Tet.C>

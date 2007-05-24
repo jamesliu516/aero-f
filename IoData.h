@@ -25,6 +25,7 @@ struct InputData {
   const char *perturbed;
   const char *solutions;
   const char *positions;
+  const char *levelsets;
   const char *rstdata;
   const char *podFile;
   const char *podFile2;
@@ -111,6 +112,7 @@ struct RestartData {
 
   const char *solutions;
   const char *positions;
+  const char *levelsets;
   const char *data;
 
   int frequency;
@@ -188,11 +190,7 @@ struct ProblemData {
 struct PreconditionData {
 
   double mach;
-  double k1;
-  double k2;
-  double alpha;
-  double delta;
-  double beta;
+  double k;
   double betav;
 
   PreconditionData();
@@ -207,6 +205,7 @@ struct PreconditionData {
 struct ReferenceStateData {
 
   double mach;
+  double velocity;
   double density;
   double pressure;
   double temperature;
@@ -230,6 +229,7 @@ struct BcsFreeStreamData {
   enum Type {EXTERNAL = 0, INTERNAL = 1} type;
 
   double mach;
+	double velocity;
   double density;
   double pressure;
   double temperature;
@@ -616,7 +616,7 @@ struct SphereData {
    
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
   double cen_x, cen_y, cen_z, r;
-  double p, rho, t, mach;  
+  double p, rho, t, mach, vel;  
 
   SphereData();
   ~SphereData() {}
@@ -677,6 +677,12 @@ struct ICData {
                                                                                               
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
+  enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
+  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1} typeTracking;
+  int bandlevel;
+  int subIt;
+	int frequency;
+	enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   ICData icd;
 
   MultiFluidData();
@@ -686,7 +692,7 @@ struct MultiFluidData {
 
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct EquationsData {
                                                                                               
   int dimension;

@@ -106,7 +106,7 @@ void roejacexact3D(int type, double gamma, VarFcn* varFcn, FluxFcn::Type typeJac
   double dfdVL[dim2], dfdVR[dim2];
   double n[3] = {normal[0], normal[1], normal[2]};
   
-  if (varFcn->getType() == VarFcn::GAS || varFcn->getType() == VarFcn::GASINGAS){
+  if (varFcn->getType() == VarFcn::GAS){ // || varFcn->getType() == VarFcn::GASINGAS){
     F77NAME(roejac5)(type, gamma, varFcn->getGamma(), varFcn->getPressureConstant(), n, normalVel, VL, VR, dfdVL);
     n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
     F77NAME(roejac5)(type, gamma, varFcn->getGamma(), varFcn->getPressureConstant(), n, -normalVel, VR, VL, dfdVR);
@@ -128,7 +128,7 @@ void roejacexact3D(int type, double gamma, VarFcn* varFcn, FluxFcn::Type typeJac
 
   if (type == 1 || type == 2) {
     double f1;
-    if(varFcn->getType() == VarFcn::GAS || varFcn->getType() == VarFcn::GASINGAS)
+    if(varFcn->getType() == VarFcn::GAS) // || varFcn->getType() == VarFcn::GASINGAS)
       F77NAME(roeflux1)(gamma, varFcn->getGamma(), varFcn->getPressureConstant(), normal, normalVel, VL, VR, &f1,1.0,1.0,0.0,0.0,0);
     else if (varFcn->getType() == VarFcn::LIQUID || varFcn->getType() == VarFcn::LIQUIDINLIQUID){
       //F77NAME(roeflux1water)(gamma, varFcn->getCv(), varFcn->getPrefWater(), varFcn->getAlphaWater(),
@@ -654,32 +654,11 @@ void FluxFcnWallEuler3D::computePerfectGas(double *normal, double normalVel,
 }
 //------------------------------------------------------------------------------
 
-void FluxFcnWallEuler3D::computeLS(double *normal, double normalVel,
-                                 double *V, double Phi, double &flux)
-{
-
-  flux = 0.0;
-
-}
-
-//------------------------------------------------------------------------------
-
 void FluxFcnGhidagliaEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux)
 {
 
   F77NAME(genbcfluxgas)(0, vfgam, vfp, normal, normalVel, V, Ub, flux);
-
-}
-
-//------------------------------------------------------------------------------
-
-void FluxFcnGhidagliaEuler3D::computeLS(double *normal, double normalVel,
-                                   double *V, double Phi, double &flux)
-{
-
-  double  Uf   = V[1]*normal[0] + V[2]*normal[1] +V[3]*normal[2];
-  flux         = V[0]*Uf*Phi;
 
 }
 
@@ -693,31 +672,11 @@ void FluxFcnInflowEuler3D::computePerfectGas(double vfgam, double vfp, double *n
 }
 //------------------------------------------------------------------------------
 
-void FluxFcnInflowEuler3D::computeLS(double *normal, double normalVel,
-                                   double *V, double Phi, double &flux)
-{
-  double  Uf   = V[1]*normal[0] + V[2]*normal[1] +V[3]*normal[2];
-  flux         = V[0]*Uf*Phi;
-}
-
-//------------------------------------------------------------------------------
-
 void FluxFcnOutflowEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 				    double *V, double *Ub, double *flux)
 {
 
   F77NAME(boundflux5)(0, vfgam, normal, normalVel, V, Ub, flux);
-
-}
-
-//------------------------------------------------------------------------------
-
-void FluxFcnOutflowEuler3D::computeLS(double *normal, double normalVel,
-                                   double *V, double Phi, double &flux)
-{
-
-  double  Uf   = V[1]*normal[0] + V[2]*normal[1] +V[3]*normal[2];
-  flux         = V[0]*Uf*Phi;
 
 }
 
@@ -751,7 +710,6 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
 
   double Vb[dim];
   varFcn->conservativeToPrimitive(Ub, Vb, dflag);
-  //varFcn->conservativeToPrimitive(Ub, Vb); // must be used for shock tube due to set up
  
   double rho, u, v, w, p, nut, eps, k;
   
@@ -844,7 +802,6 @@ void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac,
 
   double Vb[dim];
   varFcn->conservativeToPrimitive(Ub, Vb, dflag);
-  //varFcn->conservativeToPrimitive(Ub,Vb);   //for shockTube
   double rho, u, v, w, p;
 
   if(V[1]*n[0]+V[2]*n[1]+V[3]*n[2]<= 0.0){
@@ -942,16 +899,6 @@ void FluxFcnInternalInflowEuler3D::computeJacobianPerfectGas(double vfgam, doubl
 }
 
 //------------------------------------------------------------------------------
-void FluxFcnInternalInflowEuler3D::computeLS(double *normal, double normalVel,
-                                   double *V, double Phi, double &flux)
-{
-
-  double  Uf   = V[1]*normal[0] + V[2]*normal[1] +V[3]*normal[2];
-  flux         = V[0]*Uf*Phi;
-
-}
-
-//------------------------------------------------------------------------------
 
 void FluxFcnInternalOutflowEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 					    double *V, double *Ub, double *flux, int flag)
@@ -968,17 +915,6 @@ void FluxFcnInternalOutflowEuler3D::computeJacobianPerfectGas(double vfgam, doub
 {
 
   jacinflux3D<5>(0, vf, type, normal, normalVel, V, Ub, jacL, flag);
-
-}
-
-//------------------------------------------------------------------------------
-
-void FluxFcnInternalOutflowEuler3D::computeLS(double *normal, double normalVel,
-                                   double *V, double Phi, double &flux)
-{
-
-  double  Uf   = V[1]*normal[0] + V[2]*normal[1] +V[3]*normal[2];
-  flux         = V[0]*Uf*Phi;
 
 }
 
@@ -1315,8 +1251,9 @@ template<int dim>
 inline
 void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, double vfa, 
                   double vfb, double vfp, FluxFcn::Type typeJac, double* normal, 
-		  double normalVel, double* VL, double* VR, double* jacL, 
-		  double* jacR, double irey, double betaRef, double k1, double cmach, int prec, int flag)
+		              double normalVel, double* VL, double* VR, double* jacL, 
+		              double* jacR, double irey, double betaRef, double k1, 
+									double cmach, int prec, int flag)
 {
 
   const int dimm1 = dim-1;
@@ -1326,11 +1263,14 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
 
 
   double dfdUL[dim2], dfdUR[dim2];
+  for (int kk = 0; kk<dim2; kk++) dfdUR[kk] = 0.0;
   double n[3] = {normal[0], normal[1], normal[2]};
 
-  F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, normalVel, VL, VR, dfdUL, betaRef, k1, cmach, irey, prec);
+  F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, normalVel, 
+			                          VL, VR, dfdUL, betaRef, k1, cmach, irey, prec);
   n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
-  F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, -normalVel, VR, VL, dfdUR, betaRef, k1, cmach, irey, prec);
+  F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, -normalVel,
+		                          	VR, VL, dfdUR, betaRef, k1, cmach, irey, prec);
 
   for (int k=0; k<dim2; k++)
     dfdUR[k] = -dfdUR[k];
@@ -1367,6 +1307,13 @@ void FluxFcnApprJacRoeEuler3D::computeBarotropicLiquid(double irey, double vfCv,
                                      double vfb, double *normal, double normalVel, 
 				     double *VL, double *VR, double *flux)
 {
+	 /*fprintf(stdout, "Vl[0] = %e\n", VL[0]);
+	 fprintf(stdout, "Vl[1] = %e\n", VL[1]);
+	 fprintf(stdout, "Vl[4] = %e\n", VL[4]);
+	 fprintf(stdout, "Vr[0] = %e\n", VR[0]);
+	 fprintf(stdout, "Vr[1] = %e\n", VR[1]);
+	 fprintf(stdout, "Vr[4] = %e\n", VR[4]);
+	 */
    F77NAME(roeflux5waterdissprec)(0, gamma, vfCv, vfPr, vfa, vfb,
         normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
 }

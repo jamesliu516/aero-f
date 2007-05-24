@@ -4,7 +4,7 @@
 class IoData;
 class RefVal;
 class DistGeoState;
-class LandingMeshMotionHandler;
+class LevelSet;
 
 template<int dim> class DistTimeState;
 
@@ -25,6 +25,7 @@ public:
 
   char *solutions[3];
   char *positions[3];
+  char *levelsets[3];
   char *data[3];
 
   int frequency;
@@ -35,7 +36,9 @@ public:
   TsRestart();
 
   template<int dim>
-  void writeToDisk(int, bool, int, double, double, DistTimeState<dim> &, DistGeoState &);
+  void writeToDisk(int, bool, int, double, double, 
+		   DistTimeState<dim> &, DistGeoState &, 
+		   LevelSet *LS);
 
 };
 

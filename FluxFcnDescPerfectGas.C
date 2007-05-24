@@ -14,6 +14,12 @@ using std::max;
 #endif
 
 
+/* Note:
+** flag is a dummy index for this class.
+** It is only used for multiphase flows.
+** It does not need to be specified for single phase flows.
+*/
+
 //------------------------------------------------------------------------------
 
 void FluxFcnPerfectGasFDJacRoeEuler3D::compute(double irey, double *normal, double normalVel,

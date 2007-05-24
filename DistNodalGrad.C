@@ -12,7 +12,7 @@
 #include <alloca.h>
 
 //------------------------------------------------------------------------------
-
+// constructor for primitive variables
 template<int dim, class Scalar>
 DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(dom)
 {
@@ -282,9 +282,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 }
 
 //------------------------------------------------------------------------------
-                                                                                                      
+// constructor for levelset variable (ie phi or rhophi)
+// no need for fixes since phi can be both positive or negative
 template<int dim, class Scalar>
-DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : domain(dom)
+DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int whichone) : domain(dom)
 {
                                                                                                       
   int iSub;
@@ -323,19 +324,34 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : 
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
-                                                                                                      
-  if (typeGradient == SchemeData::LEAST_SQUARES) {
-    R = new DistSVec<double,6>(domain->getNodeDistInfo());
-    wii = wij = wji = 0;
-  }
-  else if (typeGradient == SchemeData::GALERKIN) {
+
+  if(whichone==3){
+    //select galerkin gradient
     R = 0;
     wii = new DistSVec<double,3>(domain->getNodeDistInfo());
     wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
     wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+    typeGradient = SchemeData::GALERKIN;
+  }else if(whichone==2){
+    //select least square gradient
+    R = new DistSVec<double,6>(domain->getNodeDistInfo());
+    wii = wij = wji = 0;
+    typeGradient = SchemeData::LEAST_SQUARES;
+  } else {
+    if (typeGradient == SchemeData::LEAST_SQUARES) {
+      R = new DistSVec<double,6>(domain->getNodeDistInfo());
+      wii = wij = wji = 0;
+    }
+    else if (typeGradient == SchemeData::GALERKIN) {
+      R = 0;
+      wii = new DistSVec<double,3>(domain->getNodeDistInfo());
+      wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
+      wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+    }
   }
-                                                                                                      
+
   subNodalGrad = new NodalGrad<dim, Scalar>*[numLocSub];
+  lastConfig = -1;
                                                                                                       
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
@@ -416,31 +432,37 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistVec<double> &Phi,
                                  DistSVec<Scalar2, dim> &V)
 {
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
 
   domain->computeWeightsLeastSquares(X, Phi, *R);
-
   domain->computeGradientsLeastSquares(X, Phi, *R, V, *ddx, *ddy, *ddz);
 
 }
 //------------------------------------------------------------------------------
-                                                                                                                              
+/*
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::computeLS(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistSVec<Scalar2, dim> &V)
 {
-                                                                                                                              
-  computeWeights(X);
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
+  domain->computeWeightsLeastSquares(X,*R);
+  domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);
 
-  if (typeGradient == SchemeData::LEAST_SQUARES)
-    domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);
-  else if (typeGradient == SchemeData::GALERKIN)
-    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);
-                                                                                                                              
 }
-
+*/
 //------------------------------------------------------------------------------
+template<int dim, class Scalar>
+void DistNodalGrad<dim, Scalar>::compute(DistSVec<double,3> &X,
+				         DistSVec<double,1> &Psi)
+{
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
 
+  domain->computeWeightsLeastSquares(X,*R);
+  domain->computeGradientsLeastSquares(X, *R, Psi, *ddx, *ddy, *ddz);
+
+}
+//------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
 template<class Scalar2>

@@ -35,6 +35,18 @@ TsInput::TsInput(IoData &iod)
     sprintf(positions, "");
   }
 
+  if (iod.input.levelsets[0] != 0) {
+    levelsets = new char[sp + strlen(iod.input.levelsets)];
+    if (strncmp(iod.input.levelsets, "/", 1) == 0)
+      sprintf(levelsets, "%s", iod.input.levelsets);
+    else
+      sprintf(levelsets, "%s%s", iod.input.prefix, iod.input.levelsets);
+  }
+  else {
+    levelsets = new char[1];
+    sprintf(levelsets, "");
+  }
+
   if (iod.input.podFile[0] != 0) {
     podFile = new char[sp + strlen(iod.input.podFile)];
     sprintf(podFile, "%s%s", iod.input.prefix, iod.input.podFile);
@@ -52,6 +64,7 @@ TsInput::~TsInput()
 
   if (solutions) delete [] solutions;
   if (positions) delete [] positions;
+  if (levelsets) delete [] levelsets;
   if (podFile)   delete [] podFile;
 
 }

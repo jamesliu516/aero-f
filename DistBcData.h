@@ -94,6 +94,7 @@ private:
   void setBoundaryConditionsGasGas(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsLiquidLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
   void setBoundaryConditionsGasLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
+  void setBoundaryConditionsLiquidGas(IoData &, VarFcn *, DistSVec<double,3> &);
 
   void updateFarField(DistSVec<double,3> &);
   void updateFarFieldGas(DistSVec<double,3> &);

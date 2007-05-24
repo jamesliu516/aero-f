@@ -11,7 +11,6 @@ class RefVal;
 class Domain;
 class RigidMeshMotionHandler;
 class AccMeshMotionHandler;
-class LandingMeshMotionHandler;
 class Communicator;
 class LevelSet;
 
@@ -103,8 +102,8 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
                                 DistVec<double> &);
-  void writeBinaryVectorsToDiskLS(bool, int, double, DistSVec<double,3> &,
-                                DistVec<double> &, DistSVec<double,dim> &, LevelSet *);
+//  void writeBinaryVectorsToDiskLS(bool, int, double, DistSVec<double,3> &,
+//                                DistVec<double> &, DistSVec<double,dim> &, LevelSet *);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

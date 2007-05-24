@@ -42,6 +42,7 @@ template<class T> class CommPattern;
 template<class Scalar> class DistVec;
 template<class Scalar, int dim> class DistSVec;
 template<class Scalar, int dim> class DistMat;
+template<int dim> class DistExactRiemannSolver;
 
 #ifndef _DNDGRAD_TMPL_
 #define _DNDGRAD_TMPL_
@@ -151,6 +152,7 @@ public:
   void numberEdges();
   void setNodeType(IoData &);
   void setInletNodes(IoData &);
+  void createNodeToTetConnectivity();
   void makeRotationOwnership(IoData &);
   void setFaceToElementConnectivity();
   void printElementStatistics();
@@ -253,15 +255,19 @@ public:
   void computePressureSensor(double, DistSVec<double,3>&,
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
-                             DistSVec<bcomp,3>&, DistVec<bcomp>&) { cout << "computePressureSensor not implemented for complex operations" <<endl; }
+                             DistSVec<bcomp,3>&, DistVec<bcomp>&) {
+	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
+
+  void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level, bool lastlevel);
 
   template<int dim>
-  double reinitLS(DistSVec<double,3> &X, DistVec<double> &Phi, DistSVec<double,dim> &U, int iti);
-                                                                                                              
-  void solveLSequation(DistSVec<double,3> &X, DistVec<double> &Phi, DistSVec<double,6> &ddx,DistSVec<double,6> &ddy, DistSVec<double,6> &ddz, DistVec<double> &PhiF);
+  void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
+			  DistVec<double> &Phi, DistSVec<double,dim> &Psi,
+			  DistVec<int> &Tag,
+			  DistVec<double> &w, DistVec<double> &beta,
+			  DistSVec<double,dim> &PsiRes, bool localdt,
+			  int typeTracking);
 
-  void solveLS(DistVec<double> &b, DistVec<double> &dPhi, double);
- 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 
 			       DistSVec<double,3>&, DistSVec<double,dim>&, 
@@ -269,17 +275,19 @@ public:
 			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
-  void computeFiniteVolumeTerm(DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistSVec<double,dim>&, int, int);
+                               DistNodalGrad<1>&,
+                               DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistNodalGrad<dim>&, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &);
+                               DistNodalGrad<dim>&, DistNodalGrad<1>&, DistEdgeGrad<dim>*,
+                               DistSVec<double,1> &, DistVec<double> &);
 
   template<int dim>
   void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, 
@@ -296,6 +304,7 @@ public:
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &,
+				       DistNodalGrad<dim>&, DistNodalGrad<1>&,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, DistVec<double> &);
   template<int dim>
@@ -503,7 +512,7 @@ public:
   template<int dim>
   void printInletVariable(DistSVec<double,dim>&);
   template<int dim>
-  void printAllVariable(DistSVec<double,3> &, DistSVec<double,dim>&, int );
+  void printAllVariable(DistSVec<int,1> &, DistSVec<double,dim>&, int );
 
   void printPhi(DistSVec<double,3> &, DistVec<double> &, int);
 

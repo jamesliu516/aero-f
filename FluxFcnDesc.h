@@ -109,7 +109,6 @@ public:
 protected:
   void computePerfectGas(double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);
 };
 
 //------------------------------------------------------------------------------
@@ -125,7 +124,6 @@ public:
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);
 };
 
 //------------------------------------------------------------------------------
@@ -141,7 +139,6 @@ public:
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);
 };
 
 //------------------------------------------------------------------------------
@@ -159,7 +156,6 @@ protected:
   void computeJacobianPerfectGas(double, double, double *, double, double *, double *, double *, int);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
   void computeJacobianBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);
 };
 
 //------------------------------------------------------------------------------
@@ -175,7 +171,6 @@ public:
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);  
 };
 
 //------------------------------------------------------------------------------
@@ -193,7 +188,6 @@ protected:
   void computeJacobianPerfectGas(double, double, double *, double, double *, double *, double *, int);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
   void computeJacobianBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
-  void computeLS(double *, double, double *, double, double &);
 };
 
 //------------------------------------------------------------------------------

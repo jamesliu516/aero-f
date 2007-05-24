@@ -35,14 +35,11 @@ private:
 
   double gam;
   double pstiff;
-  double beta;
+
   bool prec;
-  double mach;
+  double beta;
   double cmach;
   double k1;
-  double k2;
-  double alpha;
-  double delta;
   double betav;
   double viscousCst;
 
@@ -96,7 +93,7 @@ public:
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistVec<double> &, DistVec<double> &, DistVec<double> &, 
-			 DistVec<double> &);
+			 DistVec<double> &, DistVec<double> &);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -137,6 +134,7 @@ public:
   DistVec<double>* getInvReynolds(){ return irey; }
                                                                                                                           
   void multiplyByTimeStep(DistSVec<double,dim>&);
+  void multiplyByTimeStep(DistVec<double>&);
   void multiplyByPreconditioner(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerPerfectGas(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerLiquid(DistSVec<double,dim> &, DistSVec<double,dim>&);

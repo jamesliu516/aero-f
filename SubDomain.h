@@ -59,6 +59,7 @@ template<int dim, class Scalar> class NodalGrad;
 template<int dim> class EdgeGrad;
 template<int dim> class Extrapolation;
 template<int dim> class BcData;
+template<int dim> class ExactRiemannSolver;
 template<class Scalar> class Vec;
 template<class Scalar> class CommPattern;
 template<class Scalar, int dim> class SVec;
@@ -129,7 +130,8 @@ class SubDomain {
   int *rotOwn;
 
   int **nodeFlag;
-  Connectivity *nodeToNode;
+  Connectivity *NodeToNode;
+  Connectivity *nodeToTet;
 
   int **totalNeiData;
 
@@ -142,9 +144,11 @@ public:
   // topology
   int *getNodeMap()  { return locToGlobNodeMap; }
   int getGlobSubNum()  { return globSubNum; }
+  int getLocSubNum()  { return locSubNum; }
   int numberEdges();
 
   Connectivity *createNodeToNodeConnectivity();
+  void createNodeToTetConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
   void createSharedInletNodeConnectivity1();
@@ -177,7 +181,9 @@ public:
   void computeSmoothedSensor(SVec<double,3>&, Vec<double>&, SVec<double,3>&);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
-  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, Vec<double> &, SVec<double,6> &);
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, Vec<double> &, 
+					  SVec<int,1> &, SVec<double,6> &);
+  void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, Vec<double> &, SVec<double,9> &);
@@ -276,17 +282,17 @@ public:
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&,
                               EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int, int);
   template<int dim>
-  int computeFiniteVolumeTerm(FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
-                              NodalGrad<dim>&, EdgeGrad<dim>*, SVec<double,dim>&,
-                              SVec<int,2>&, int, int);
-
+                              NodalGrad<dim>&, EdgeGrad<dim>*, 
+                              NodalGrad<1>&,
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
-                               NodalGrad<dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, Vec<double>&,
-                               Vec<double>&, SVec<double,dim> &);
-
+                               NodalGrad<dim>&, NodalGrad<1>&, EdgeGrad<dim>*, SVec<double,1>&,
+                               Vec<double>&);
   template<int dim>
   int computeFiniteVolumeBar_Step1(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&, SVec<double,3>& ,
                                     SVec<double,dim>&, NodalGrad<dim> &, EdgeGrad<dim>* , SVec<double,dim>&,
@@ -302,7 +308,8 @@ public:
                                        CommPattern<double> *);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, Vec<double> &,
+  void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
+				       NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        Vec<double> &, CommPattern<double> *);
   template<int dim>
@@ -670,17 +677,21 @@ public:
   int *getRotOwn() { return rotOwn; }
   NodeSet &getNodes() { return nodes; }
 
+  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level, bool lastlevel);
+
   template<int dim>
-  double reinitLS(SVec<double,3>& , Vec<double> &, SVec<double,dim> &, int );
+  void computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
+                          Vec<double> &Phi, SVec<double,dim> &Psi,
+			  Vec<int> &Tag,
+                          Vec<double> &w, Vec<double> &beta, 
+			  SVec<double,dim> &PsiRes, int typeTracking);
   template<int dim>
-  void reinitLS(SVec<double,3>& , Vec<double> &, SVec<double,dim> &, double, int );
-                                                                                                  
-                                                                                                  
-  void SolveLSequation(SVec<double,3>& , Vec<double> &, SVec<double,6> &, 
-		       SVec<double,6> &, SVec<double,6> &, Vec<double> &);
-                                                                                                  
-  void solveLS(Vec<double>& , Vec<double> &, double );
-                                                                                                  
+  void computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
+			   SVec<double,dim> &PsiRes);
+  template<int dim>
+  void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
+			   SVec<double,dim> &PsiRes,bool localdt);
+
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,
                                BcData<dim>&, GeoState&);
@@ -692,7 +703,7 @@ public:
   void printInletVariable(SVec<double,dim>&);
                                                                                                   
   template<int dim>
-  void printAllVariable(SVec<double,3> &, SVec<double,dim>&, int , int);
+  void printAllVariable(SVec<int,1> &, SVec<double,dim>&, int , int);
                                                                                                   
   void printPhi(SVec<double,3> &, Vec<double>&, int );
                                                                                                   

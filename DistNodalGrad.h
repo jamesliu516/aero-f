@@ -72,8 +72,10 @@ public:
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<double> &, DistSVec<Scalar2,dim> &);
 
-  template<class Scalar2>
-  void computeLS(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &);
+  //template<class Scalar2>
+  //void computeLS(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &);
+
+  void compute(DistSVec<double,3> &X, DistSVec<double,1> &Psi);
 
   template<class Scalar2> 
   void computeT(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &, 

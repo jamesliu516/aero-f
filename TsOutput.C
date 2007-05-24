@@ -10,7 +10,6 @@
 #include <MeshMotionHandler.h>
 #include <DistVector.h>
 #include <BinFileHandler.h>
-#include <LevelSet.h>
 
 //------------------------------------------------------------------------------
 
@@ -1290,41 +1289,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
                                                                                                       
 }
 
-//------------------------------------------------------------------------------
-                                                                                                              
-template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDiskLS(bool lastIt, int it, double t, DistSVec<double,3> &X,
-                                             DistVec<double> &A, DistSVec<double,dim> &U, LevelSet* LS)
-{
-                                                                                                              
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
-      //tag = it*LS->timestep;
-                                                                                                              
-//    if (solutions)
-//      domain->writeVectorToFileLS(solutions, step, tag, LS);
-                                                                                                              
-    int i;
-    for (i=13; i<PostFcn::SSIZE; ++i) {
-      if (scalars[i]) {
-        if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        *Qs = LS->getPhi();
-        DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
-        domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
-      }
-    }
-  }
-}
 //------------------------------------------------------------------------------
 
 template<int dim>

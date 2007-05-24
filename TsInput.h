@@ -9,6 +9,7 @@ struct TsInput {
 
   char *solutions;
   char *positions;
+  char *levelsets;
   char *podFile;
 
   TsInput(IoData &);

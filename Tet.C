@@ -854,6 +854,580 @@ void Tet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4],
+				 int typeTracking)
+{
+
+  // 1 - find which case we are dealing with, ie how many nodes have
+  //     positive phis and how many have negative phis
+  int positive = 0;
+  int negative = 0;
+  int zero     = 0;
+  for (int i=0; i<4; i++)
+    if (Phi[nodeNum[i]]<0.0)
+      negative++;
+    else if(Phi[nodeNum[i]]>0.0)
+      positive++;
+    else
+      zero++;
+  assert(negative>0 || positive>0);
+
+  // 2 - orient the tet if necessary (node renumbering from 0 to 3,
+  //         which is different again from the local node numbering!)
+  //     if all nodes have same phi sign --> nothing to do
+  //     if one node is different from the others --> make it be the node 0
+  //     if two nodes are different --> first node is unchanged ie reorder[0]=0
+  //                                    make sure that reoder[1] has same sign of phi as reorder[0]
+  int scenario;                         // which configuration to run
+
+  if(negative==0 || positive==0)
+    scenario = 0;
+  else if(positive==2 && negative==2){
+    scenario = 2;
+    if(Phi[nodeNum[0]]*Phi[nodeNum[1]]<0.0){
+    //swap if need be so that reorder[0] and reorder[1] have same sign
+      if(Phi[nodeNum[0]]*Phi[nodeNum[2]]>0.0){
+        reorder[1] = 2;
+        reorder[2] = 3;
+        reorder[3] = 1;
+      }else{
+        reorder[1] = 3;
+        reorder[2] = 1;
+        reorder[3] = 2;
+      }
+    }
+  }
+  else{//1-vs-3 case including zero cases
+    scenario = 1;
+    int tempi = 0;
+    if(positive==1){ // we want to find i such that Phi[nodeNum[i]]>0.0
+      while(!(Phi[nodeNum[tempi]]>0.0))
+        tempi++;
+    }
+    else if(negative==1){
+      while(!(Phi[nodeNum[tempi]]<0.0))
+        tempi++;
+    }
+    if(tempi==1){
+      reorder[0] = 1;
+      reorder[1] = 2;
+      reorder[2] = 0;
+      reorder[3] = 3;
+    }else if(tempi==2){
+      reorder[0] = 2;
+      reorder[1] = 0;
+      reorder[2] = 1;
+      reorder[3] = 3;
+    }else if(tempi==3){
+      reorder[0] = 3;
+      reorder[1] = 0;
+      reorder[2] = 2;
+      reorder[3] = 1;
+    }
+
+
+  }
+
+  if(typeTracking == MultiFluidData::LINEAR){
+    findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    return scenario;
+  }
+  else if(typeTracking == MultiFluidData::GRADIENT){
+    findLSIntersectionPointGradient(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    return scenario;
+  }else{
+    fprintf(stdout, "Problem in Tet\n");
+    exit(1);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario)
+{
+
+  Vec3D C0  = X[nodeNum[reorder[0]]];
+  Vec3D C1  = X[nodeNum[reorder[1]]];
+  Vec3D C2  = X[nodeNum[reorder[2]]];
+  Vec3D C3  = X[nodeNum[reorder[3]]];
+
+  double ksi[4] = {-1.0, -1.0, -1.0, -1.0};
+
+  // 3 - find the intersection point when they exist
+  if (scenario==0){ //sign(phi) is constant in tet
+  }
+  else if (scenario==2){
+  // nodes reorder[0] and reorder[1] have same sign1
+  // nodes reorder[2] and reorder[3] have same sign2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  //                                 reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
+  //                                 reorder[1]-reorder[2] in P0
+
+    //parametric coordinates of P0, P1, P2, P3
+    ksi[0] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[1] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[3]]]);
+    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[3] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
+    P[0] = (1.0-ksi[0])* C1 + ksi[0] * C2;
+    P[1] = (1.0-ksi[1])* C1 + ksi[1] * C3;
+    P[2] = (1.0-ksi[2])* C0 + ksi[2] * C2;
+    P[3] = (1.0-ksi[3])* C0 + ksi[3] * C3;
+
+  }
+  else if (scenario==1){
+  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  // Note that Pk can be reorder[k] itself (k=1,2,3)
+
+    //parametric coordinates of P1, P2, P3 on their edge
+    ksi[0] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[1]]]);
+    ksi[1] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
+
+    //physical coordinates of P1, P2, P3
+    P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
+    P[1] = (1.0-ksi[1]) * C0 + ksi[1] * C2;
+    P[2] = (1.0-ksi[2]) * C0 + ksi[2] * C3;
+    //P[3] = C3 is not modified and should not be used later.
+
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario)
+{
+// the variation of phi is not assumed to be linear in the tet.
+// we approximate the variations of phi around point i as a linear function,
+// for which the zero is found. Same is done for point j. Then the mean of those
+// two zeros is considered as the intersection of the phi=0 plane and the edges
+// considered, ie i-j
+
+  Vec3D C[4];
+  for(int i=0;i<4;i++)
+    C[i]  = X[nodeNum[reorder[i]]];
+
+  if(scenario==0){
+  // nothing to do since sign(phi) = constant in tet
+
+  }else if(scenario==1){
+  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  // Note that Pk can be reorder[k] itself (k=1,2,3)
+    double phii,phij,gradi,gradj;
+    Vec3D nedge,dphij;
+    Vec3D dphii(ddx[nodeNum[reorder[0]]][0],ddy[nodeNum[reorder[0]]][0],ddz[nodeNum[reorder[0]]][0]);
+
+    for(int j=0; j<3; j++){
+      nedge = C[j+1] - C[0];
+      dphij[0] = ddx[nodeNum[reorder[j+1]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j+1]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j+1]]][0];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  0]]]/gradi;
+      phij = Phi[nodeNum[reorder[j+1]]]/gradj;
+      P[j] = 0.5*(C[0] + C[j+1] - (phii+phij)*nedge);
+    }
+
+
+  }else if(scenario==2){
+  // nodes reorder[0] and reorder[1] have same sign1
+  // nodes reorder[2] and reorder[3] have same sign2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  //                                 reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
+  //                                 reorder[1]-reorder[2] in P0
+    double phii,phij,gradi,gradj;
+    Vec3D nedge,dphij,dphii;
+
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[0];
+      dphii[0] = ddx[nodeNum[reorder[0]]][0];
+      dphii[1] = ddy[nodeNum[reorder[0]]][0];
+      dphii[2] = ddz[nodeNum[reorder[0]]][0];
+      dphij[0] = ddx[nodeNum[reorder[j]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j]]][0];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  0]]]/gradi;
+      phij = Phi[nodeNum[reorder[  j]]]/gradj;
+      P[j] = 0.5*(C[0] + C[j] - (phii+phij)*nedge);
+    }
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[1];
+      dphii[0] = ddx[nodeNum[reorder[1]]][0];
+      dphii[1] = ddy[nodeNum[reorder[1]]][0];
+      dphii[2] = ddz[nodeNum[reorder[1]]][0];
+      dphij[0] = ddx[nodeNum[reorder[j]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j]]][0];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  1]]]/gradi;
+      phij = Phi[nodeNum[reorder[  j]]]/gradj;
+      P[j-2] = 0.5*(C[1] + C[j] - (phii+phij)*nedge);
+    }
+
+  }
+
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Tet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double,dim> &Psi,
+                             SVec<double,dim> &ddx, SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                             Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			     int typeTracking)
+{
+
+  //find what kind of tetrahedron this is:
+  //  0 - no levelset phi=0 in it
+  //  1 - levelset phi=0 separates tet in 1 and 3 nodes
+  //  2 - levelset phi=0 separates tet in 2 and 2 nodes
+  int reorder[4] = {0,1,2,3}; //no change in ordering
+  Vec3D P[4] = {X[nodeNum[0]],X[nodeNum[1]],X[nodeNum[2]],X[nodeNum[3]]};
+  bool debugtag = false;
+  
+  int type = findLSIntersectionPoint(Phi,ddx,ddy,ddz,X,reorder,P,typeTracking);
+  if(nodeNum[0]+1==11598||nodeNum[1]+1==11598||nodeNum[2]+1==11598||nodeNum[3]+1==11598){
+    debugtag = true;
+  }
+  debugtag = false;
+
+  // compute scheme for each different case
+  if(type==0){
+    computePsiResidual0(X,Phi,Psi,w,beta,PsiRes,debugtag);
+  }else if(type==1){
+    computePsiResidual1(reorder,P,X,Phi,Psi,w,beta,PsiRes,debugtag);
+  }else if(type==2){
+    computePsiResidual2(reorder,P,X,Phi,Psi,w,beta,PsiRes,debugtag);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Tet::computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                              Vec<double> &w,Vec<double> &beta, 
+                              SVec<double,dim> &PsiRes, bool debug)
+{
+  // no phi=0 plane cuts the tet and the integral is easy to compute
+  double locdphi[4];
+  double locw[4];
+  double locbeta[4];
+
+  double psi[4];
+  double phi[4];
+
+
+  for(int i=0; i<4; i++){
+    psi[i] = Psi[nodeNum[i]][0];
+    phi[i] = Phi[nodeNum[i]];
+  }
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[0]],X[nodeNum[1]],
+			   X[nodeNum[2]],X[nodeNum[3]],
+			   locdphi,locw,locbeta,debug);
+
+  for(int i=0; i<4; i++){
+    PsiRes[nodeNum[i]][0] += locdphi[i];
+    w[nodeNum[i]] += locw[i];
+    beta[nodeNum[i]] += locbeta[i];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Tet::computePsiResidual1(int reorder[4], Vec3D P[4],
+			     SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                             Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+                             bool debug)
+{
+
+  // phi=0 plane cuts the tet in 3 points specified by P[0],P[1],P[2]
+  // P[0] is on edge nodeNum[reorder[0]]-nodeNum[reorder[1]]
+  // P[1] is on edge nodeNum[reorder[0]]-nodeNum[reorder[2]]
+  // P[2] is on edge nodeNum[reorder[0]]-nodeNum[reorder[3]]
+  // Note that P[3] is not to be used in that case.
+
+  // There are two domains separated by that plane.
+  // Domain low  = (nodeNum[reorder[0]],P[0],P[1],P[2]) = tet
+  // Domain high = (nodeNum[reorder[1]],nodeNum[reorder[2]],nodeNum[reorder[3]],
+  //			P[0],P[1],P[2]) = three tets = T0 + T1 + T2
+  //		 = (nodeNum[reorder[3]],P[1],P[0],P[2]) + 
+  //		   (nodeNum[reorder[3]],nodeNum[reorder[2]],P[0],P[1]) +
+  //		   (nodeNum[reorder[3]],nodeNum[reorder[2]],nodeNum[reorder[1]],P[0])
+  // Each domain is treated separately.
+
+  // As each domain is decomposed in sub-tetrahedra, we call a routine
+  // computePsiResidualSubTet, that will return the dphi and
+  // the weights for the four nodes of the sub-tet. Only the 'nodes that 
+  // are part of the mesh' will get that information in the actual dphi
+  // and weights.
+  double locdphi[4];
+  double locw[4];
+  double locbeta[4];
+
+  double psi[4];
+  double phi[4];
+
+
+  // Domain low = (nodeNum[reorder[0]],P[0],P[1],P[2])
+  psi[0] = Psi[nodeNum[reorder[0]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+  
+  
+  phi[0] = Phi[nodeNum[reorder[0]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[0],P[1],P[2],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
+  w[nodeNum[reorder[0]]] += locw[0];
+  beta[nodeNum[reorder[0]]] += locbeta[0];
+
+  // Domain high
+  // T0 = (nodeNum[reorder[3]],P[1],P[0],P[2]
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[1],P[0],P[2],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+
+  //T1 = (nodeNum[reorder[3]],nodeNum[reorder[2]],P[0],P[1]
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = Psi[nodeNum[reorder[2]]][0];
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = Phi[nodeNum[reorder[2]]];
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],P[0],P[1],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+  PsiRes[nodeNum[reorder[2]]][0] += locdphi[1];
+  w[nodeNum[reorder[2]]] += locw[1];
+  beta[nodeNum[reorder[2]]] += locbeta[1];
+
+  //T2 = (nodeNum[reorder[3]],nodeNum[reorder[2]],nodeNum[reorder[1]],P[0]
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = Psi[nodeNum[reorder[2]]][0];
+  psi[2] = Psi[nodeNum[reorder[1]]][0];
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = Phi[nodeNum[reorder[2]]];
+  phi[2] = Phi[nodeNum[reorder[1]]];
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],X[nodeNum[reorder[1]]],P[0],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+  PsiRes[nodeNum[reorder[2]]][0] += locdphi[1];
+  w[nodeNum[reorder[2]]] += locw[1];
+  beta[nodeNum[reorder[2]]] += locbeta[1];
+  PsiRes[nodeNum[reorder[1]]][0] += locdphi[2];
+  w[nodeNum[reorder[1]]] += locw[2];
+  beta[nodeNum[reorder[1]]] += locbeta[2];
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
+			     SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                             Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+                             bool debug)
+{
+
+  // phi=0 plane cuts the tet in 4 points specified by P[0],P[1],P[2],P[3]
+  // P[0] is on edge nodeNum[reorder[1]]-nodeNum[reorder[2]]
+  // P[1] is on edge nodeNum[reorder[1]]-nodeNum[reorder[3]]
+  // P[2] is on edge nodeNum[reorder[0]]-nodeNum[reorder[2]]
+  // P[3] is on edge nodeNum[reorder[0]]-nodeNum[reorder[3]]
+
+  // There are two domains separated by that plane.
+  // Domain low  = (nodeNum[reorder[0]],nodeNum[reorder[1]],P[0],P[1],P[2],P[3])
+  //             = Tlow0 + Tlow1 + Tlow2
+  //             = (nodeNum[reorder[0]],nodeNum[reorder[1]],P[0],P[1]) +
+  //		   (nodeNum[reorder[0]],P[0],P[2],P[1]) +
+  //		   (nodeNum[reorder[0]],P[1],P[2],P[3])
+  // Domain high = (nodeNum[reorder[2]],nodeNum[reorder[3]],P[0],P[1],P[2],P[3])
+  //             = Thigh0 + Thigh1 + Thigh2
+  //             = (nodeNum[reorder[3]],nodeNum[reorder[2]],P[0],P[2]) +
+  //		   (nodeNum[reorder[3]],P[0],P[1],P[2]) +
+  //		   (nodeNum[reorder[3]],P[1],P[3],P[2])
+  // Each domain is treated separately.
+
+
+  double locdphi[4];
+  double locw[4];
+  double locbeta[4];
+
+  double psi[4];
+  double phi[4];
+
+
+  // Domain low
+  //Tlow0 = (nodeNum[reorder[0]],nodeNum[reorder[1]],P[0],P[1])
+  psi[0] = Psi[nodeNum[reorder[0]]][0];
+  psi[1] = Psi[nodeNum[reorder[1]]][0];
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[0]]];
+  phi[1] = Phi[nodeNum[reorder[1]]];
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],X[nodeNum[reorder[1]]],P[0],P[1],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
+  w[nodeNum[reorder[0]]] += locw[0];
+  beta[nodeNum[reorder[0]]] += locbeta[0];
+  PsiRes[nodeNum[reorder[1]]][0] += locdphi[1];
+  w[nodeNum[reorder[1]]] += locw[1];
+  beta[nodeNum[reorder[1]]] += locbeta[1];
+
+  //Tlow1 = (nodeNum[reorder[0]],P[0],P[2],P[1])
+  psi[0] = Psi[nodeNum[reorder[0]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[0]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[0],P[2],P[1],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
+  w[nodeNum[reorder[0]]] += locw[0];
+  beta[nodeNum[reorder[0]]] += locbeta[0];
+
+  //Tlow2 = (nodeNum[reorder[0]],P[1],P[2],P[3])
+  psi[0] = Psi[nodeNum[reorder[0]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[0]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[1],P[2],P[3],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
+  w[nodeNum[reorder[0]]] += locw[0];
+  beta[nodeNum[reorder[0]]] += locbeta[0];
+
+  //Domain high
+  //Thigh0 = (nodeNum[reorder[3]],nodeNum[reorder[2]],P[0],P[2])
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = Psi[nodeNum[reorder[2]]][0];
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = Phi[nodeNum[reorder[2]]];
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],P[0],P[2],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+  PsiRes[nodeNum[reorder[2]]][0] += locdphi[1];
+  w[nodeNum[reorder[2]]] += locw[1];
+  beta[nodeNum[reorder[2]]] += locbeta[1];
+
+  //Thigh1 = (nodeNum[reorder[3]],P[0],P[1],P[2])
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[0],P[1],P[2],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+
+
+  //Thigh2 = (nodeNum[reorder[3]],P[1],P[3],P[2])
+  psi[0] = Psi[nodeNum[reorder[3]]][0];
+  psi[1] = 0.0;
+  psi[2] = 0.0;
+  psi[3] = 0.0;
+
+  phi[0] = Phi[nodeNum[reorder[3]]];
+  phi[1] = 0.0;
+  phi[2] = 0.0;
+  phi[3] = 0.0;
+
+  computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[1],P[3],P[2],locdphi,locw,locbeta,debug);
+
+  PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
+  w[nodeNum[reorder[3]]] += locw[0];
+  beta[nodeNum[reorder[3]]] += locbeta[0];
+
+}
+
+//------------------------------------------------------------------------------
 //--------------functions in TetSet class
 //------------------------------------------------------------------------------
 
@@ -982,6 +1556,25 @@ void TetSet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
 
  for (int i=0; i<numTets; ++i)
    tets[i].computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TetSet::computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+				SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+			   	SVec<double,dim> &ddz, Vec<int> &Tag,
+                                Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+ 				int typeTracking)
+{
+
+  for (int i=0; i<numTets; i++){
+    if(Tag[tets[i][0]]>0 && Tag[tets[i][1]]>0 &&
+       Tag[tets[i][2]]>0 && Tag[tets[i][3]]>0){
+      tets[i].computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,w,beta,PsiRes,typeTracking);
+    }
+  }
 
 }
 

@@ -7,12 +7,14 @@
 #include <DistTimeState.h>
 #include <DistGeoState.h>
 #include <MeshMotionHandler.h>
+#include <LevelSet.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt, DistTimeState<dim> &timeState, 
-                            DistGeoState &geoState)
+void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt,
+			    DistTimeState<dim> &timeState, DistGeoState &geoState,
+			    LevelSet *levelSet)
 {
 
   iteration = it;
@@ -29,6 +31,8 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       timeState.writeToDisk(solutions[index]);
     if (positions[index][0] != 0)
       geoState.writeToDisk(positions[index]);
+    if (levelsets[index][0] != 0 && levelSet)
+      levelSet->writeToDisk(levelsets[index]);
   
     if (cpuNum == 0 && data[index][0] != 0) {
       FILE *fp = fopen(data[index], "w");

@@ -45,34 +45,24 @@ protected:
     Communicator> *createKrylovSolver(const DistInfo &, KspData &, MatVecProd<dim,neq> *, 
 				      KspPrec<neq> *, Communicator *);
 
-  template<int neq>
-  KspSolver<DistVec<double>, MatVecProd<dim,1>, KspPrec<neq,double>, 
-  Communicator, double> *createKrylovSolverLS(const DistInfo &, KspData &, MatVecProd<dim,1> *, 
-			      KspPrec<neq,double> *, Communicator *);
 public:
   
   ImplicitTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitTsDesc();
 
   virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
-  virtual void computeJacobianLS(int, DistVec<double> &, DistVec<double> &, 
-                                 DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &) { };
   virtual void setOperators(DistSVec<double,dim> &) = 0;
   virtual int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
-  virtual int solveLinearSystemLS(int, DistVec<double> &, DistVec<double> &) { };
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &);
-  virtual void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);  
-  virtual void computeFunctionLS(int, DistVec<double> &, DistVec<double> &,  DistVec<double> &,
-                         DistSVec<double,dim> &,DistVec<double> &){ }; 
-  virtual void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  int solveNonLinearSystem(DistSVec<double,dim> &);
+  void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);  
+  void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  virtual int checkFailSafe(DistSVec<double,dim>&);
-  virtual void resetFixesTag();
+  int checkFailSafe(DistSVec<double,dim>&);
+  void resetFixesTag();
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }
 
-  double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti);
 };
 
 //------------------------------------------------------------------------------

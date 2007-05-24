@@ -94,7 +94,7 @@ public:
   double computePositionVector(bool *, int, double);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics();
-  virtual void updateStateVectors(DistSVec<double,dim> &);
+  virtual void updateStateVectors(DistSVec<double,dim> &, int);
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double, 
@@ -106,8 +106,8 @@ public:
 		    DistSVec<double,dim> &);
 
   void outputPositionVectorToDisk();
-  virtual void resetOutputToStructure(DistSVec<double,dim> &);
-  virtual  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+  void resetOutputToStructure(DistSVec<double,dim> &);
+  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &U) { return 0; }
   virtual int checkSolution(DistSVec<double,dim> &);
@@ -116,9 +116,7 @@ public:
   double getInitialTime() const { return restart->etime; }
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   DistInfo &getInletVecInfo() const {return domain->getInletNodeDistInfo(); }
-  int getNumPhase() { return numPhase; }
 
-  virtual double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti) { };
 };
 
 //------------------------------------------------------------------------------

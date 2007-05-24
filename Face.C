@@ -311,7 +311,7 @@ void Face::computeScalarQuantity(PostFcn::ScalarType type, TetSet& tets, PostFcn
 template<int dim>
 void Face::computeTimeStep(VarFcn *varFcn, Vec3D &normal, double normalVel,
 			   SVec<double,dim> &V, Vec<double> &dt, double beta,
-                           double k1, double cmach)
+                           double k1, double cmach, Vec<double> &Phi)
 {
 
   double S = sqrt(normal * normal);
@@ -322,9 +322,9 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec3D &normal, double normalVel,
 
   for (int l=0; l<3; ++l) {
     Vec3D u = varFcn->getVelocity(V[ nodeNum[l] ]);
-    double a = varFcn->computeSoundSpeed(V[ nodeNum[l] ]);
+    double a = varFcn->computeSoundSpeed(V[ nodeNum[l] ], Phi[nodeNum[l]]);
     double un = u * n - ndot;
-    double locMach = varFcn->computeMachNumber(V[ nodeNum[l] ]);
+    double locMach = varFcn->computeMachNumber(V[ nodeNum[l] ], Phi[nodeNum[l]]);
     //double locMach = fabs(un/a); //local Preconditioning (ARL)
     beta = fmin(fmax(k1*locMach, beta), cmach);
     
@@ -356,7 +356,6 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec3D &normal, 
     double a = varFcn->computeSoundSpeed(V[ nodeNum[l] ]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum[l] ]);
-    //double locMach = fabs(un/a); //local Preconditioning (ARL)
     beta = fmin(fmax(k1*locMach, beta), cmach);
     
     double beta2 = beta * beta;
@@ -409,6 +408,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal,
         fluxFcn[code]->compute(0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, 1);
       if (Phi[nodeNum[l]] <  0.0) 
         fluxFcn[code]->compute(0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, -1);
+
       for (int k=0; k<dim; ++k)
         fluxes[ nodeNum[l] ][k] += third * flux[k];
     }
@@ -423,22 +423,23 @@ template<int dim>
 inline
 void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec3D &normal,
                                    double normalVel, SVec<double,dim> &V,
-                                   Vec<double> &Phi, Vec<double> &PhiF)
+                                   SVec<double,1> &Phi, Vec<double> &PhiF)
 {
-  double flux;
-  double PhiF1, Uf;                                                                                                           
-  for (int l=0; l<3; ++l) {
-//    fluxFcn[code]->computeLS(normal, normalVel, V[nodeNum[l]], Phi[nodeNum[l]], flux);
-    Uf   = V[nodeNum[l]][1]*normal[0] + V[nodeNum[l]][2]*normal[1] +V[nodeNum[l]][3]*normal[2];
-//    Un   = 0.5*(Uf  +fabs(Uf));
-    PhiF1  = Uf*Phi[nodeNum[l]];
-    for (int k=0; k<1; ++k)
-//      PhiF[ nodeNum[l] ] += third * flux;
-      PhiF[ nodeNum[l] ] += third * PhiF1;
-    if (isnan(Uf)) fprintf(stderr, "in face computeFiniteVolumeTerm for Uf %d \n",nodeNum[l]);
-    if (isnan(PhiF1)) fprintf(stderr, "in face computeFiniteVolumeTerm %d \n",nodeNum[l]);
+  double Uf = 0.0;
+	if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+      code == BC_ADIABATIC_WALL_MOVING || code == BC_ADIABATIC_WALL_FIXED) {
+    for (int l=0; l<3; ++l) {
+			//at wall either U.n = 0 (Euler) or U = 0 (Navier-Stokes)
+		  Uf = -normalVel;
+      PhiF[ nodeNum[l] ] += third * Uf*Phi[nodeNum[l]][0];
+    }
+  }else{
+		for (int l=0; l<3; ++l) {
+			Uf = V[nodeNum[l]][1]*normal[0] + V[nodeNum[l]][2]*normal[1] +V[nodeNum[l]][3]*normal[2];
+      Uf -= normalVel;
+			PhiF[ nodeNum[l] ] += third * Uf*Phi[nodeNum[l]][0];
+    }
   }
-
 }
 //------------------------------------------------------------------------------
 
@@ -484,6 +485,50 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+inline
+void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal, 
+					   double normalVel, SVec<double,dim> &V, 
+					   double *Ub, GenMat<Scalar,neq> &A, Vec<double> &Phi)
+{
+
+  double jac[neq*neq];
+  for (int l=0; l<3; ++l) {
+    fluxFcn[code]->computeJacobian(0.0, normal, normalVel, V[nodeNum[l]], Ub, jac);
+    Scalar *Aii = A.getElem_ii(nodeNum[l]);
+    for (int k=0; k<neq*neq; ++k) 
+      Aii[k] += third * jac[k];
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+inline
+void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal,
+                                           double normalVel, SVec<double,dim> &V,
+                                           double *Ub, GenMat<Scalar,neq> &A, 
+																					 Vec<double> &Phi, int* nodeType)
+{
+
+  double jac[neq*neq];
+  for (int l=0; l<3; ++l) {
+    if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
+         code == BC_INLET_FIXED  || code == BC_OUTLET_FIXED)) {
+
+      fluxFcn[code]->computeJacobian(0.0, normal, normalVel, V[nodeNum[l]], Ub, jac);
+      Scalar *Aii = A.getElem_ii(nodeNum[l]);
+      for (int k=0; k<neq*neq; ++k)
+        Aii[k] += third * jac[k];
+
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
 template<int dim, class Scalar>
 inline
 void Face::computeJacobianFiniteVolumeTermLS(Vec3D &normal,
@@ -493,9 +538,9 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec3D &normal,
 
   double jac;
   for (int l=0; l<3; ++l) {
-//    fluxFcn[code]->computeJacobian(normal, normalVel, V[nodeNum[l]], Ub, jac);
     jac  = V[nodeNum[l]][1]*normal[0]  + V[nodeNum[l]][2]*normal[1]  + V[nodeNum[l]][3]*normal[2];
-    jac *= V[nodeNum[l]][0];
+    jac *= V[nodeNum[l]][0]; // why did sriram write this? not true!!!
+		exit(145);
     Scalar *Aii = A.getElem_ii(nodeNum[l]);
     for (int k=0; k<1; ++k)
       Aii[k] += third * jac;
@@ -599,14 +644,14 @@ void Face::computeJacobianGalerkinTerm(TetSet &tets, FemEquationTerm *fet,
 template<int dim>
 void FaceSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState, 
 			      SVec<double,dim> &V, Vec<double> &dt,
-                              double beta, double k1, double cmach)
+                              double beta, double k1, double cmach, Vec<double> &Phi)
 {
 
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i].computeTimeStep(varFcn, n[i], ndot[i], V, dt, beta, k1, cmach);
+    faces[i].computeTimeStep(varFcn, n[i], ndot[i], V, dt, beta, k1, cmach,Phi);
 
 }
 
@@ -664,7 +709,7 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 template<int dim>
 void FaceSet::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, BcData<dim> &bcData,
                                       GeoState &geoState, SVec<double,dim> &V,
-                                      Vec<double> &Phi, Vec<double> &PhiF)
+                                      SVec<double,1> &Phi, Vec<double> &PhiF)
 {
                                                                                                                                         
   Vec<Vec3D> &n = geoState.getFaceNormal();
@@ -689,7 +734,7 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
   Vec<double> &ndot = geoState.getFaceNormalVel();
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
 
-  for (int i=0; i<numFaces; ++i) 
+  for (int i=0; i<numFaces; ++i)
     faces[i].computeJacobianFiniteVolumeTerm(fluxFcn, n[i], ndot[i], V, Ub[i], A);
 
 }
@@ -707,6 +752,39 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
                                                                                                   
   for (int i=0; i<numFaces; ++i)
     faces[i].computeJacobianFiniteVolumeTerm(fluxFcn, n[i], ndot[i], V, Ub[i], A, nodeType);
+                                                                                                  
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+					      GeoState &geoState, SVec<double,dim> &V, 
+					      GenMat<Scalar,neq> &A, Vec<double> &Phi)
+{
+
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i].computeJacobianFiniteVolumeTerm(fluxFcn, n[i], ndot[i], V, Ub[i], A, Phi);
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+                                              GeoState &geoState, SVec<double,dim> &V,
+                                              GenMat<Scalar,neq> &A, Vec<double> &Phi,
+																							int* nodeType)
+{
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+                                                                                                  
+  for (int i=0; i<numFaces; ++i)
+    faces[i].computeJacobianFiniteVolumeTerm(fluxFcn, n[i], ndot[i], V, Ub[i], A, Phi, nodeType);
                                                                                                   
 }
 

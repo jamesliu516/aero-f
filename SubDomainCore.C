@@ -14,7 +14,6 @@
 #include <MatchNode.h> 
 #include <LinkF77.h>
 #include <Extrapolation.h>
-#include <LevelSet.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -69,6 +68,8 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   rotOwn = 0;
   nodesToMCNodes = 0;
   sharedInletNodes = 0;
+  nodeToTet = 0;
+  NodeToNode = 0;
 
 }
 
@@ -216,6 +217,67 @@ Connectivity *SubDomain::createNodeToNodeConnectivity()
   Connectivity *nodeToNode = new Connectivity(numNodes, ia, ja);
 
   return nodeToNode;
+
+}
+
+//------------------------------------------------------------------------------
+void SubDomain::createNodeToTetConnectivity()
+{
+  int numNodes = nodes.size();
+  int *numTet = new int[numNodes];
+  int i, tet, n;
+
+  for(i=0; i<numNodes; i++)
+    numTet[i] = 0;
+
+  for(int tet=0; tet<tets.size(); tet++)
+    for(i=0; i<4; i++)
+      numTet[tets[tet][i]]++;
+
+  //  construction of ia
+  //  ia stores the the number of tets each node belongs to
+  int *ia = new int[numNodes+1];
+  ia[0] = 0;
+
+  for(i=0; i<numNodes; i++)
+    ia[i+1] = ia[i] + numTet[i];
+
+  //  checking that ia[numNodes+1] has correct value
+  if (ia[numNodes] != 4*tets.size() ) {
+    fprintf(stdout,"*** Error: wrong number in nodesToTetConnectivity (%d and %d)\n", ia[numNodes],4*tets.size());
+    exit(1);
+  }
+
+  //  construction of ja
+  //  ja stores the tet number
+  //  the first ia[1] numbers are tets that node 1 belongs to
+  //  the next ia[2]-ia[1] numbers are tets that node 2 belongs to
+  //  and so on
+  for(i=0; i<numNodes; i++)
+    numTet[i] = 0;
+
+  int *ja = new int[ia[numNodes]];
+
+  for(tet=0; tet<tets.size(); tet++)
+    for(i=0; i<4; i++){
+      n = tets[tet][i];
+      ja[ ia[n] + numTet[n] ] = tet;
+      numTet[n]++;
+    }
+
+
+  for (i=0; i<numNodes; ++i)
+#ifdef OLD_STL
+    sort(ja+ia[i], ja+ia[i+1]);
+#else
+    stable_sort(ja+ia[i], ja+ia[i+1]);
+#endif
+
+  if(nodeToTet==0)
+    nodeToTet = new Connectivity(numNodes, ia, ja);
+  else
+    fprintf(stdout, "nodeToTet connectivity has already been created\n");
+
 
 }
 
@@ -665,12 +727,38 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<doubl
 }
 
 //------------------------------------------------------------------------------
+
+void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
+{
+
+  for (int i=0; i<R.size(); ++i) {
+
+    double r11  = sqrt(R[i][0]);
+    double or11 = 1.0 / r11;
+    double r12  = R[i][1] * or11;
+    double r13  = R[i][2] * or11;
+    double r22  = sqrt(R[i][3] - r12*r12);
+    double r23  = (R[i][4] - r12*r13) / r22;
+    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+
+    R[i][0] = r11;
+    R[i][1] = r12;
+    R[i][2] = r13;
+    R[i][3] = r22;
+    R[i][4] = r23;
+    R[i][5] = r33;
+
+  }
+
+}
+//------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, Vec<double> &Phi,
-                                                   SVec<double,6> &R)
+                                                   SVec<int,1> &count, SVec<double,6> &R)
 {
 
   R = 0.0;
+  count = 0;
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
@@ -683,6 +771,8 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, Vec<double
     int j = edgePtr[l][1];
 
     if( !(Phi[i]*Phi[j]>0.0) ) continue;
+    count[i][0]++;
+    count[j][0]++;
 
     double dx[3];
     dx[0] = X[j][0] - X[i][0];
@@ -720,25 +810,57 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, Vec<double
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
+void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<double,6> &R)
 {
 
   for (int i=0; i<R.size(); ++i) {
 
-    double r11  = sqrt(R[i][0]);
-    double or11 = 1.0 / r11;
-    double r12  = R[i][1] * or11;
-    double r13  = R[i][2] * or11;
-    double r22  = sqrt(R[i][3] - r12*r12);
-    double r23  = (R[i][4] - r12*r13) / r22;
-    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+		if(count[i][0]>2){ //enough neighbours to get a least square problem
 
-    R[i][0] = r11;
-    R[i][1] = r12;
-    R[i][2] = r13;
-    R[i][3] = r22;
-    R[i][4] = r23;
-    R[i][5] = r33;
+      double r11, or11, r12, r13, r22, r23, r33;
+      if(!(R[i][0]>0.0)){
+        r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+        //fprintf(stdout, "Warning: gradient = 0.0 - coplanar nodes for node %d\n", locToGlobNodeMap[i]+1);
+      }else{
+        r11  = sqrt(R[i][0]);
+        or11 = 1.0 / r11;
+        r12  = R[i][1] * or11;
+        r13  = R[i][2] * or11;
+        if(!(R[i][3] - r12*r12>0.0)){
+          r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+          //fprintf(stdout, "*** Warning: gradient = 0.0 - coplanar nodes for node %d\n", locToGlobNodeMap[i]+1);
+																																														        }else{
+          r22  = sqrt(R[i][3] - r12*r12);
+          r23  = (R[i][4] - r12*r13) / r22;
+          r33 = R[i][5] - (r13*r13 + r23*r23);
+          if(!(r33>0.0)){
+            r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
+            //fprintf(stdout, "*** Warning: gradient = 0.0\n");
+          }else
+            r33  = sqrt(r33);
+        }
+      }
+
+      R[i][0] = r11;
+      R[i][1] = r12;
+      R[i][2] = r13;
+      R[i][3] = r22;
+      R[i][4] = r23;
+      R[i][5] = r33;
+    }else{
+    // not enough neighbours to get a least square problem
+    // this case should rarely happen, most likely at a corner
+    // of the domain (either farfield or structure) where
+    // we have a lot of fluid1 and little of fluid2
+      //fprintf(stdout, "*** Warning: gradient = 0.0 - not enough same-fluid nodes for node %d\n", locToGlobNodeMap[i]+1);
+
+      R[i][0] = 0.0;
+      R[i][1] = 0.0;
+      R[i][2] = 0.0;
+      R[i][3] = 0.0;
+      R[i][4] = 0.0;
+      R[i][5] = 0.0;
+    }
 
   }
 
@@ -1688,9 +1810,10 @@ void SubDomain::findEdgeTetrahedra(SVec<double,3>& X, V6NodeData (*&v6data)[2])
 }
 
 //------------------------------------------------------------------------------
-bool SubDomain::findNormalTet1(Vec3D a, Vec3D b, Vec3D c, Vec3D d, Vec3D e, int tt, int tf, ExtrapolationNodeData &data, bool adaptive)
+bool SubDomain::findNormalTet1(Vec3D a, Vec3D b, Vec3D c, Vec3D d, Vec3D e, 
+			       int tt, int tf, ExtrapolationNodeData &data,
+			       bool adaptive)
 {
-                                                                                                  
         int pierce = checkPiercePoint(a, b, c, d, e, adaptive);
         if (pierce >= -3 && pierce <= 3) {
                 double r, t;
@@ -1701,14 +1824,8 @@ bool SubDomain::findNormalTet1(Vec3D a, Vec3D b, Vec3D c, Vec3D d, Vec3D e, int 
                 data.t = t;
                 return true;
         }
-                                                                                                  
         return false;
-                                                                                                  
 }
-                                                                                                  
-                                                                                                  
-                                                                                                  
-                                                                                                  
 //------------------------------------------------------------------------------
                                                                                                   
 inline
@@ -1752,9 +1869,9 @@ void SubDomain::findNormalTet2( int* itet, Vec3D d, Vec3D e, int tt,
     }
   }
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 bool SubDomain::findNormalTetrahedron(int node, Vec3D normal,
                                         int *list, int *list2, int num,
                                         SVec<double,3> X,
@@ -2363,6 +2480,8 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
 
       int glLeft  = sharedEdges[iSub][iEdge].glLeft;
       int glRight = sharedEdges[iSub][iEdge].glRight;
+      //fprintf(stdout, "glLeft = %d\n", glLeft);
+      //fprintf(stdout, "glRight = %d\n", glRight);
 
       while (2*nIndex < sInfo.len && 
 	     (sInfo.data[2*nIndex] < glLeft ||
@@ -2374,6 +2493,20 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
 	sharedEdges[iSub][myIndex] = sharedEdges[iSub][iEdge];
 	myIndex++;
       }
+     // while(2*nIndex < sInfo.len){
+     //   if(sInfo.data[2*nIndex] < glLeft ||
+     //        (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] < glRight))
+     //     nIndex++;
+     //   else
+     //     break;
+     // }
+
+     // if (2*nIndex < sInfo.len)
+     //   if(sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] == glRight){
+     //     sharedEdges[iSub][myIndex] = sharedEdges[iSub][iEdge];
+     //    myIndex++;
+     //  }
+
 
     }
 
@@ -2386,7 +2519,6 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
   }
 
   edges.setMasterFlag(edgeMasterFlag);
-
 }
 
 //------------------------------------------------------------------------------
@@ -2979,70 +3111,37 @@ void SubDomain::completeRotateSurfaceOwnership(CommPattern<int>&cpat)  {
 }
 
 //------------------------------------------------------------------------------
-/*
-double SubDomain::reinitLS(SVec<double,3>& X, Vec<double> &Phi, SVec<double,dim> &U, int iti)
+//             LEVEL SET SOLUTION AND REINITIALIZATION                       ---
+//------------------------------------------------------------------------------
+void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level,
+				  bool lastlevel)
 {
-                                                                                                  
-  int i,j;
-  int (*edgePtr)[2] = edges.getPtr();
-  int l;
-  double r1, r2, rb;
-  rb  = 0.0;
-                                                                                                  
-  for (l=0; l<edges.size(); ++l) {
-    i =  edgePtr[l][0];
-    j =  edgePtr[l][1];
-    if (Phi[i]*Phi[j] < 0.0) {
-      r1  = sqrt((X[i][0]*X[i][0]  + X[i][1]*X[i][1]  +X[i][2]*X[i][2]));
-      r2  = sqrt((X[j][0]*X[j][0]  + X[j][1]*X[j][1]  +X[j][2]*X[j][2]));
-      rb  = (fabs(Phi[i])*r2  +fabs(Phi[j])*r1)/fabs(fabs(Phi[i])  +fabs(Phi[j]));
+  if(!NodeToNode)
+     NodeToNode = createNodeToNodeConnectivity();
+
+  if(level==0){
+  // tag nodes that are closest to interface by looking at phi[i]*phi[j]
+    Tag = 0;
+    edges.TagInterfaceNodes(Tag,Phi,lastlevel);
+
+  }else{
+  // tag nodes that are neighbours of already tagged nodes.
+    int nNeighs,nei,k;
+    for(int i=0; i<nodes.size(); i++){
+
+      if(Tag[i]==level){
+
+        nNeighs = NodeToNode->num(i);
+        for(k=0;k<nNeighs;k++){
+          nei = (*NodeToNode)[i][k];
+          if(Tag[nei]==0) Tag[nei] = level+1;
+        }
+
+      }
     }
   }
-//  printf("radius = %f \n",rb);
-  return rb;
-                                                                                                  
+
 }
-//--------------------------------------------------------------------------
-void SubDomain::reinitLS(SVec<double,3>& X, Vec<double> &Phi, SVec<double,dim> &U, double rbg, int iti)
-{
-                                                                                                  
-  int numNodes = X.size();
-  int i;
-  double r1;
-                                                                                                  
-  for (i=0; i<numNodes; i++){
-     r1  = sqrt((X[i][0]*X[i][0]  + X[i][1]*X[i][1]  +X[i][2]*X[i][2]));
-     if (iti < 1500) Phi[i] = (-rbg +  r1)*U[i][0];
-  }
-//  printf("new radius = %f \n",rbg);
-}
-*/
-//-------------------------------------------------------------------------- 
-void SubDomain::SolveLSequation(SVec<double,3>& X, Vec<double> &Phi, SVec<double,6> &ddx, 
-                                SVec<double,6> &ddy, SVec<double,6> &ddz, Vec<double> &PhiF)
-{
-  int numNodes = X.size();
-                                                                                                  
-                                                                                                  
-  double F = 0.001;
-                                                                                                  
-                                                                                                  
-  for (int i= 0 ; i < numNodes ; i++)
-//    PhiF[i] = F*(ddx[i][1]*ddx[i][1] + ddy[i][1]*ddy[i][1]  +ddz[i][1]*ddz[i][1]);
-    PhiF[i] = F*ddx[i][1];
-}
-//--------------------------------------------------------------------------
-void SubDomain::solveLS(Vec<double>& b, Vec<double> &dPhi, double dt)
-{
-  int numNodes = dPhi.size();
-  double F = 0.01;
-                                                                                                  
-  for (int i= 0 ; i < numNodes ; i++){
-    dPhi[i] = dt*b[i]/(1 + F*dt);
-  }
-//    Phitilde[i] = F*ddx[i][1];
-}
-                                                                                                  
 //------------------------------------------------------------------------------
 void SubDomain::printPhi(SVec<double, 3> &X, Vec<double> &Phi, int it)
 {

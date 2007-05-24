@@ -135,6 +135,20 @@ double Tet::computeVolume(SVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+double Tet::computeGeometricVolume(Vec3D P0, Vec3D P1, Vec3D P2, Vec3D P3)
+{
+
+  Vec3D v1 = P1-P0;
+  Vec3D v2 = P2-P0;
+  Vec3D v3 = P3-P0;
+
+  double volume = sixth * (v3 * (v1 ^ v2));
+
+  return fabs(volume);
+
+}
+//------------------------------------------------------------------------------
+
 double Tet::computeControlVolumes(SVec<double,3> &X, Vec<double> &ctrlVol)
 {
 
@@ -1017,4 +1031,331 @@ void Tet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq,
 
 
 //------------------------------------------------------------------------------
+/*
+int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx, 
+				 SVec<double,dim> &ddy, SVec<double,dim> &ddz, 
+				 SVec<double,3> &X, 
+				 int reorder[4], Vec3D P[4])
+{
 
+  // 1 - find which case we are dealing with, ie how many nodes have
+  //     positive phis and how many have negative phis
+  int positive = 0;
+  int negative = 0;
+  int zero     = 0;
+  for (int i=0; i<4; i++)
+    if (Phi[nodeNum[i]]<0.0)
+      negative++;
+    else if(Phi[nodeNum[i]]>0.0)
+      positive++;
+    else
+      zero++;
+  assert(negative>0 || positive>0);
+
+  // 2 - orient the tet if necessary (node renumbering from 0 to 3,
+  //         which is different again from the local node numbering!)
+  //     if all nodes have same phi sign --> nothing to do
+  //     if one node is different from the others --> make it be the node 0
+  //     if two nodes are different --> first node is unchanged ie reorder[0]=0
+  //                                    make sure that reoder[1] has same sign of phi as reorder[0]
+  int scenario;                         // which configuration to run
+
+  if(negative==0 || positive==0)
+    scenario = 0;
+  else if(positive==2 && negative==2){
+    scenario = 2;
+    if(Phi[nodeNum[0]]*Phi[nodeNum[1]]<0.0){
+    //swap if need be so that reorder[0] and reorder[1] have same sign
+      if(Phi[nodeNum[0]]*Phi[nodeNum[2]]>0.0){
+        reorder[1] = 2;
+        reorder[2] = 3;
+        reorder[3] = 1;
+      }else{
+        reorder[1] = 3;
+        reorder[2] = 1;
+        reorder[3] = 2;
+      }
+    }
+  }
+  else{//1-vs-3 case including zero cases
+    scenario = 1;
+    int tempi = 0;
+    if(positive==1){ // we want to find i such that Phi[nodeNum[i]]>0.0
+      while(!(Phi[nodeNum[tempi]]>0.0))
+        tempi++;
+    }
+    else if(negative==1){
+      while(!(Phi[nodeNum[tempi]]<0.0))
+        tempi++;
+    }
+    if(tempi==1){
+      reorder[0] = 1;
+      reorder[1] = 2;
+      reorder[2] = 0;
+      reorder[3] = 3;
+    }else if(tempi==2){
+      reorder[0] = 2;
+      reorder[1] = 0;
+      reorder[2] = 1;
+      reorder[3] = 3;
+    }else if(tempi==3){
+      reorder[0] = 3;
+      reorder[1] = 0;
+      reorder[2] = 2;
+      reorder[3] = 1;
+    }
+  
+ 
+  }
+
+  if(true){
+    findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    return scenario;
+  }
+  else if(true){
+    findLSIntersectionPointGradient(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    return scenario;
+  }else{
+    fprintf(stdout, "Problem in Tet\n");
+    exit(1);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario)
+{
+
+  Vec3D C0  = X[nodeNum[reorder[0]]];
+  Vec3D C1  = X[nodeNum[reorder[1]]];
+  Vec3D C2  = X[nodeNum[reorder[2]]];
+  Vec3D C3  = X[nodeNum[reorder[3]]];
+
+  double ksi[4] = {-1.0, -1.0, -1.0, -1.0};
+
+  // 3 - find the intersection point when they exist
+  if (scenario==0){ //sign(phi) is constant in tet
+  }
+  else if (scenario==2){
+  // nodes reorder[0] and reorder[1] have same sign1
+  // nodes reorder[2] and reorder[3] have same sign2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  //                                 reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
+  //                                 reorder[1]-reorder[2] in P0
+
+    //parametric coordinates of P0, P1, P2, P3
+    ksi[0] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[1] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[3]]]);
+    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[3] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
+    P[0] = (1.0-ksi[0])* C1 + ksi[0] * C2;
+    P[1] = (1.0-ksi[1])* C1 + ksi[1] * C3;
+    P[2] = (1.0-ksi[2])* C0 + ksi[2] * C2;
+    P[3] = (1.0-ksi[3])* C0 + ksi[3] * C3;
+
+  }
+  else if (scenario==1){
+  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  // Note that Pk can be reorder[k] itself (k=1,2,3)
+
+    //parametric coordinates of P1, P2, P3 on their edge
+    ksi[0] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[1]]]);
+    ksi[1] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
+    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
+
+    //physical coordinates of P1, P2, P3
+    P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
+    P[1] = (1.0-ksi[1]) * C0 + ksi[1] * C2;
+    P[2] = (1.0-ksi[2]) * C0 + ksi[2] * C3;
+    //P[3] = C3 is not modified and should not be used later.
+
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario)
+{
+// the variation of phi is not assumed to be linear in the tet.
+// we approximate the variations of phi around point i as a linear function,
+// for which the zero is found. Same is done for point j. Then the mean of those
+// two zeros is considered as the intersection of the phi=0 plane and the edges
+// considered, ie i-j
+
+  Vec3D C[4];
+  for(int i=0;i<4;i++)
+    C[i]  = X[nodeNum[reorder[i]]];
+
+  Vec3D dphii;
+  Vec3D dphij;
+
+  if(scenario==0){
+  // nothing to do since sign(phi) = constant in tet
+
+  }else if(scenario==1){
+  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  // Note that Pk can be reorder[k] itself (k=1,2,3)
+    double phii,phij,gradi,gradj;
+    Vec3D nedge;
+  
+    for(int j=0; j<3; j++){
+      nedge = C[j+1] - C[0];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  0]]]/gradi;
+      phij = Phi[nodeNum[reorder[j+1]]]/gradj;
+      P[j] = 0.5*(C[0] + C[j+1] - (phii+phij)*nedge);
+    }
+
+
+  }else if(scenario==2){
+  // nodes reorder[0] and reorder[1] have same sign1
+  // nodes reorder[2] and reorder[3] have same sign2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  //                                 reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
+  //                                 reorder[1]-reorder[2] in P0
+    double phii,phij,gradi,gradj;
+    Vec3D nedge;
+
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[0];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  0]]]/gradi;
+      phij = Phi[nodeNum[reorder[  j]]]/gradj;
+      P[j] = 0.5*(C[0] + C[j] - (phii+phij)*nedge);
+    }
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[1];
+      gradi = dphii*nedge;
+      gradj = dphij*nedge;
+      phii = Phi[nodeNum[reorder[  1]]]/gradi;
+      phij = Phi[nodeNum[reorder[  j]]]/gradj;
+      P[j-2] = 0.5*(C[1] + C[j] - (phii+phij)*nedge);
+    }
+
+  }
+
+
+}*/
+//------------------------------------------------------------------------------
+
+void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
+				   Vec3D A, Vec3D B, Vec3D C, Vec3D D,
+				   double locdphi[4], double locw[4],
+ 				   double locbeta[4], bool debug)
+{
+
+  //A,B,C,D are supposed to be the nodes of an oriented tet
+  //cf Barth and Sethian for method (JCP, 1998)
+  // input notation is like our code
+  // implementation notation is same as paper by Barth & Sethian
+  for(int i=0; i<4; i++){
+    locdphi[i] = 0.0;
+    locw[i]    = 0.0;
+    locbeta[i] = 0.0;
+  }
+
+  //compute gradient of shape functions
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(A,B,C,D, dp1dxj);
+  assert(vol>0);
+
+  double n[4][3];
+  for (int i=0; i<4; i++)
+    for (int j=0; j<3; j++)
+      n[i][j] = vol*dp1dxj[i][j];
+
+  //compute of gradient of Psi in tet and its norm
+  double grad[3];
+  for (int i=0; i<3; i++){
+    grad[i] = 0.0;
+    for (int j=0; j<4; j++)
+      grad[i] += dp1dxj[j][i]*psi[j];
+  }
+  double oonormg = sqrt(grad[0]*grad[0]+grad[1]*grad[1]+grad[2]*grad[2]);
+  assert(oonormg>0.0);
+  oonormg = 1.0/oonormg;
+
+  //phitet tells sign of phi in tet, 
+  //it is averaged for cases when some nodes are phi=0.0
+  double phitet = 0.25*(phi[0]+phi[1]+phi[2]+phi[3]);
+  if(debug){
+    fprintf(stdout, "gradpsi = %e %e %e\n", grad[0],grad[1],grad[2]);
+    fprintf(stdout, "phitet = %e\n", phitet);
+  }
+
+  double Fadv, Fsrc;
+  if(phitet>0.0)
+    Fadv = 1.0;
+  else
+    Fadv = -1.0;
+  Fsrc = Fadv;
+
+  //compute K for each vertex of the tet
+  double K[4], Kp[4], Km[4];
+  for (int i=0; i<4; i++){
+    K[i] = Fadv*(grad[0]*n[i][0]+grad[1]*n[i][1]+grad[2]*n[i][2])*oonormg;
+    Kp[i] = max(K[i],0.0);
+    Km[i] = min(K[i],0.0);
+    if(debug){
+      fprintf(stdout, "K = %e - Kp = %e - Km = %e\n", K[i],Kp[i],Km[i]);
+    }
+  }
+  double oosumKm = Km[0]+Km[1]+Km[2]+Km[3];
+  assert(oosumKm<0.0);
+  oosumKm = 1.0/oosumKm;
+
+  //compute deltaphi for tet
+  double dphi = K[0]*psi[0]+K[1]*psi[1]+K[2]*psi[2]+K[3]*psi[3];
+
+  //compute deltaphi for each node
+  double dphii[4];
+  for (int i=0; i<4; i++){
+    dphii[i] = 0.0;
+    for (int j=0; j<4; j++)
+      dphii[i] += Km[j]*(psi[i]-psi[j]);
+    dphii[i] *= (Kp[i]*oosumKm);
+  }
+
+  //compute alpha coefficients
+  double alphatot = max(0.0,dphii[0]/dphi)+max(0.0,dphii[1]/dphi)+
+                    max(0.0,dphii[2]/dphi)+max(0.0,dphii[3]/dphi);
+  assert(alphatot!=0.0);
+  alphatot = 1.0/alphatot;
+  double alpha[4];
+  for (int i=0; i<4; i++){
+    alpha[i] = max(0.0, dphii[i]/dphi)*alphatot;
+    //fprintf(stdout, "alpha[ilocal=%d] = %e\n", i, alpha[i]);
+  }
+  if(debug){
+    fprintf(stdout, "dphi = %e - alpha = %e %e %e %e\n", dphi, alpha[0],alpha[1],alpha[2],alpha[3]);
+  }
+
+
+  //update PsiRes and w and beta
+  for (int i=0; i<4; i++){
+    locdphi[i] += alpha[i]*(dphi - Fsrc*vol);
+    locw[i] += alpha[i]*vol;
+    if (alpha[i]>0.0)
+      locbeta[i] += Kp[i]/alphatot;
+  }
+
+
+
+}

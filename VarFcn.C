@@ -15,6 +15,8 @@ VarFcn::VarFcn(IoData &iod)
 {
   pmin  = iod.eqs.fluidModel.pmin;
   pminp = iod.eqs.fluidModel2.pmin;
+  verif_clipping = false;
+  node_change = true;
 
   gravity = 0.0;
   ngravity[0] = cos(iod.bc.hydro.alpha)*cos(iod.bc.hydro.beta);
@@ -520,18 +522,21 @@ void VarFcn::extrapolatePrimitiveGasEulerPUT(double un, double c, double *Vb,
 }
 //---------------------------------------------------------------------------
 
-void VarFcn::VerificationGasEuler(double pmin, double gam, double Pstiff,
+int VarFcn::VerificationGasEuler(int glob, double pmin, double gam, double Pstiff,
 	     double *U, double *V)
 {
 //verification of pressure value
 //if pressure < pmin, set pressure to pmin
 //and rewrite V and U!!
   if(V[4]<pmin){
-    fprintf(stdout, "clipping pressure values at pmin\n");
+    if (verif_clipping)
+      fprintf(stdout, "clip pressure[%d] in gas from %e to %e\n", glob, V[4], pmin);
     V[4] = pmin;
     U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
           +(pmin+gam*Pstiff)/(gam-1.0);
+    return 1;
   }
+  return 0;
 
 }
 
@@ -750,7 +755,7 @@ void VarFcn::postMultiplyBydUdVGasSA(double invg1, double *V, double *mat, doubl
 }
 //---------------------------------------------------------------------------
 
-void VarFcn::VerificationGasSA(double pmin, double gam1, double *U, double *V)
+int VarFcn::VerificationGasSA(int glob, double pmin, double gam1, double *U, double *V)
 {
 //verification of pressure value
 //if pressure < pmin, set pressure to pmin
@@ -759,7 +764,9 @@ void VarFcn::VerificationGasSA(double pmin, double gam1, double *U, double *V)
     V[4] = pmin;
     U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
           +pmin/gam1;
+    return 1;
   }
+  return 0;
 
 }
 
@@ -982,7 +989,7 @@ void VarFcn::postMultiplyBydUdVGasKE(double invg1, double *V, double *mat, doubl
 
 //---------------------------------------------------------------------------
 
-void VarFcn::VerificationGasKE(double pmin, double gam1, double *U, double *V)
+int VarFcn::VerificationGasKE(int glob, double pmin, double gam1, double *U, double *V)
 {
 //verification of pressure value
 //if pressure < pmin, set pressure to pmin
@@ -991,7 +998,9 @@ void VarFcn::VerificationGasKE(double pmin, double gam1, double *U, double *V)
     V[4] = pmin;
     U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
           +pmin/gam1;
+    return 1;
   }
+  return 0;
 
 }
 
@@ -1414,7 +1423,7 @@ void VarFcn::extrapolateCharacteristicLiquidEuler(double cv, double Pr,
 
 }
 //---------------------------------------------------------------------------
-void VarFcn::VerificationLiquidEuler(double pmin, double a, double b, double Pr,
+int VarFcn::VerificationLiquidEuler(int glob, double pmin, double a, double b, double Pr,
 	     double oocv, double *U, double *V)
 {
 //verification of pressure value
@@ -1422,14 +1431,17 @@ void VarFcn::VerificationLiquidEuler(double pmin, double a, double b, double Pr,
 //and rewrite V and U!!
   double locPressure = Pr+a*pow(V[0],b);
   if(locPressure<pmin){
-    fprintf(stdout, "clipping pressure values at pmin\n");
+    if(verif_clipping)
+      fprintf(stdout, "clip pressure[%d] in tait from %e to %e\n", glob, locPressure, pmin);
     V[0] = pow((pmin-Pr)/a, 1.0/b);
     U[0] = V[0];
     U[1] = V[0]*V[1];
     U[2] = V[0]*V[2];
     U[3] = V[0]*V[3];
     U[4] = V[0]*V[4]/oocv+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    return 1;
   }
+  return 0;
 
 }
 

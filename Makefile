@@ -172,12 +172,10 @@ OMPFLAG       = $(OMPFLAGS) #-mp
 CCFLAGS       = $(CXXFLAGS)
 
 default: $(CXXOBJS) f77src parser utils
-	mkdir -p bin
 	$(CXX) $(CXXFLAGS) -c Main.C
 	$(CXX) $(CXXFLAGS) -o $(EXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(MPLIBS) $(FORTLIBS)
 
 fluid.so: $(CXXOBJS) f77src parser utils
-	mkdir -p bin
 	$(CXX) $(CXXFLAGS) -DCREATE_DSO -c Main.C
 	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(FORTLIBS)
 

@@ -2,7 +2,6 @@
 #define _TS_SOLVER_H_
 
 # include<IoData.h>
-# include<LevelSet.h>
 
 class IoData;
 
@@ -93,22 +92,28 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       itSc++;
 
       // compute fluid subcyling time step
+      //fprintf(stdout, "TsSolver.h 1\n");
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
       // estimate mesh position in subcycle
+      //fprintf(stdout, "TsSolver.h 2\n");
       probDesc->interpolatePositionVector(dt, dtLeft);
 
       // compute control volumes and velocities
+      //fprintf(stdout, "TsSolver.h 3\n");
       probDesc->computeMeshMetrics();
 
+      //fprintf(stdout, "TsSolver.h 4\n");
       // Fluid Solution
       itNl += probDesc->solveNonLinearSystem(U);
 
       // compute the current aerodynamic force
+//      fprintf(stdout, "TsSolver.h 5\n");
       probDesc->updateOutputToStructure(dt, dtLeft, U);
 
-      probDesc->updateStateVectors(U);
+//      fprintf(stdout, "TsSolver.h 6\n");
+      probDesc->updateStateVectors(U, it);
 
     } while (dtLeft != 0.0);
 

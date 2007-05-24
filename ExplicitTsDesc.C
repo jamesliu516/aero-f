@@ -117,8 +117,3 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-double ExplicitTsDesc<dim>::reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti)
-{
-  return this->spaceOp->reinitLS(*this->X, Phi, U, iti);
-}

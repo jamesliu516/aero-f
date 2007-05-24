@@ -30,6 +30,7 @@ using std::max;
 #include <NodalGrad.h>
 #include <EdgeGrad.h>
 #include <Extrapolation.h>
+#include <ExactRiemannSolver.h>
 #include <BcData.h>
 #include <GeoState.h>
 #include <Vector.h>
@@ -60,7 +61,6 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
-
   edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
   faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
 
@@ -77,12 +77,12 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
                                 double beta, double k1, double cmach,
 				Vec<double> &Phi)
 {
-                                                                                                        
+
   dt = 0.0;
-                                                                                                        
-  edges.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi);
-  faces.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach);
-                                                                                                        
+
+  edges.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi, globSubNum);
+  faces.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi);
+
 }
 
 //------------------------------------------------------------------------------
@@ -161,7 +161,6 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
 
-  fprintf(stdout, "doing levelset leastsquare\n");
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
   ddz = (Scalar) 0.0;
@@ -182,10 +181,22 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     Scalar deltaVar;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    computeLocalWeightsLeastSquares(dx, R[i], Wi);
+    if(R[i][0]>0.0) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[i], Wi);
+    else{ // gradient is set to 0.0
+      Wi[0] = 0.0;
+      Wi[1] = 0.0;
+      Wi[2] = 0.0;
+    }
 
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    computeLocalWeightsLeastSquares(dx, R[j], Wj);
+    if(R[j][0]>0.0) // should be positive for a well posed least square problem
+      computeLocalWeightsLeastSquares(dx, R[j], Wj);
+    else{ // gradient is set to 0.0
+      Wj[0] = 0.0;
+      Wj[1] = 0.0;
+      Wj[2] = 0.0;
+    }
 
     for (int k=0; k<dim; ++k) {
       deltaVar = var[j][k] - var[i][k];
@@ -411,7 +422,43 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
 template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {
-  edges.storeGhost(V, Vgf, Phi);
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for(i=0; i<Phi.size(); i++)
+    for(k=1; k<4; k++)
+       Vgf[i][k] = V[i][k];
+
+  for (int l=0; l<edges.size(); l++){
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+    if(Phi[i]*Phi[j]<=0.0){ //at interface
+      if(Vgf[i][0]<0.0){
+        Vgf[i][0] = V[j][0];
+        Vgf[i][4] = V[j][4];
+      }else{
+        Vgf[i][0] = 0.5*(Vgf[i][0]+ V[j][0]);
+        Vgf[i][4] = 0.5*(Vgf[i][4]+ V[j][4]);
+      }
+
+      if(Vgf[j][0]<0.0){
+        Vgf[j][0] = V[i][0];
+        Vgf[j][4] = V[i][4];
+      }else{
+        Vgf[j][0] = 0.5*(Vgf[j][0]+V[i][0]);
+        Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
+      }
+    }
+   
+    //if(locToGlobNodeMap[i]+1==336614 || locToGlobNodeMap[j]+1==336614){
+    //  fprintf(stdout, "Vgf[%d [%d]] = %f with %f\n", locToGlobNodeMap[i]+1,i, Vgf[i][0], Phi[i]);
+    //  fprintf(stdout, "Vgf[%d [%d]] = %f with %f\n", locToGlobNodeMap[j]+1,j, Vgf[j][0], Phi[j]);
+    //}
+  }
+
 }
 //------------------------------------------------------------------------------
 
@@ -465,17 +512,21 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
 
 //------------------------------------------------------------------------------
 template<int dim>
-int SubDomain::computeFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
-                                        BcData<dim>& bcData, GeoState& geoState,
-                                        SVec<double,3>& X, SVec<double,dim>& V,
-                                        Vec<double> &Phi,
-                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                        SVec<double,dim>& fluxes, SVec<int,2>& tag,
-                                       int failsafe, int rshift)
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       Vec<double> &Phi,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       NodalGrad<1>& ngradLS, 
+                                       SVec<double,dim>& fluxes, int it,
+                                       SVec<int,2>& tag, int failsafe, int rshift)
 {
                                                                                                   
-  int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, fluxFcn, recFcn, tets, geoState,  
-                                           X, V, Phi, ngrad, egrad, fluxes, tag, failsafe, rshift);
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn, 
+                                           recFcn, tets, geoState, X, V, Phi,
+                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
  
   return ierr;
@@ -485,15 +536,14 @@ int SubDomain::computeFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
-                                          BcData<dim>& bcData, GeoState& geoState,
-                                          SVec<double,3>& X, SVec<double,dim>& V,
-                                          NodalGrad<dim>& ngrad, NodalGrad<dim> &ngrad1,
-                                          EdgeGrad<dim>* egrad,
-                                          Vec<double>& Phi, Vec<double> &PhiF,
-                                          SVec<double,dim> &PhiS)
+                                        BcData<dim>& bcData, GeoState& geoState,
+                                        SVec<double,3>& X, SVec<double,dim>& V,
+                                        NodalGrad<dim>& ngrad, NodalGrad<1> &ngradLS,
+                                        EdgeGrad<dim>* egrad,
+                                        SVec<double,1>& Phi, Vec<double> &PhiF)
 {
-  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, tets, geoState, X, V, ngrad, ngrad1,
-                                  egrad, Phi, PhiF, PhiS);
+  edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, tets, geoState, X, V, ngrad, ngradLS,
+                                  egrad, Phi, PhiF);
                                                                                                   
                                                                                                   
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
@@ -609,16 +659,18 @@ void SubDomain::checkRHS(Scalar (*rhs)[dim])
                                                                                               
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
-                                                GeoState &geoState, Vec<double> &ctrlVol,
+                                                GeoState &geoState, 
+                                                NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                                Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 Vec<double> &Phi, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ctrlVol, V, A, Phi);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ctrlVol, V, A, Phi, nodeType);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi, nodeType);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
   }
                                                                                               
   for (int i=0; i<ctrlVol.size(); ++i) {
@@ -1251,6 +1303,7 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
                           GeoState &geoState, Vec<double> &ctrlVol,
                           SVec<double,dim> &V, GenMat<Scalar,dim> &A)
 {
+  fprintf(stdout, "GOING THROUGH H1\n");
 
   int k;
 
@@ -1995,11 +2048,11 @@ void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
 
-    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode){
       for (int j = 0; j < dim; ++j)
 	if (buffer[iNode][j] > w[ (*sharedNodes)[iSub][iNode] ][j])
 	  w[ (*sharedNodes)[iSub][iNode] ][j] = buffer[iNode][j];
-
+    }
   }
 
 }
@@ -2711,7 +2764,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     double V[dim];
     varFcn->conservativeToPrimitive(U[i], V);
     double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
+    double p = varFcn->checkPressure(V);
 
     if (rho <= 0.0) {
       fprintf(stderr, "*** Error: negative density (%e) for node %d\n", 
@@ -2734,30 +2787,47 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &Phi)
 {
-                                                                                                                                                           
-  int ierr = 0;
-                                                                                                                                                           
-  for (int i=0; i<U.size(); ++i) {
 
-    double V[dim];
-    if (!(varFcn->doVerification()))
+  int ierr = 0;
+  int numclipping= 0;
+  double V[dim];
+  double rho, p;
+
+  if (!(varFcn->doVerification())){
+    for (int i=0; i<U.size(); ++i) {
+
       varFcn->conservativeToPrimitive(U[i], V, Phi[i]);
-    else
-      varFcn->conservativeToPrimitiveVerification(U[i], V, Phi[i]);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V, Phi[i]);
-                                                                                                                                                           
-    if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+      rho = varFcn->getDensity(V);
+      p = varFcn->checkPressure(V, Phi[i]);
+
+      if (!(rho > 0.0)) {
+        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
               rho, locToGlobNodeMap[i] + 1);
-      ++ierr;
-    }
-    if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n",
-              p, locToGlobNodeMap[i] + 1);
-      ++ierr;
+        ++ierr;
+      }
+      if (p < 0.0) {
+        fprintf(stderr, "*** Error: negative pressure (%e) for node %d(%e)\n",
+              p, locToGlobNodeMap[i] + 1,Phi[i]);
+       ++ierr;
+      }
     }
   }
+  else{
+    for (int i=0; i<U.size(); ++i) {
+
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, Phi[i]);
+      rho = varFcn->getDensity(V);
+
+      if (!(rho > 0.0)) {
+        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%e\n",
+              rho, locToGlobNodeMap[i] + 1, Phi[i]);
+        ++ierr;
+      }
+    }
+
+    //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+  }
+
 
   return ierr;
 
@@ -3122,56 +3192,66 @@ void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 }
 //--------------------------------------------------------------------------
 template<int dim>
-double SubDomain::reinitLS(SVec<double,3>& X, Vec<double> &Phi, SVec<double,dim> &U, int iti)
+void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
+                                   Vec<double> &Phi, SVec<double,dim> &Psi,
+				   Vec<int> &Tag,
+                         	   Vec<double> &w, Vec<double> &beta,
+				   SVec<double,dim> &PsiRes, int typeTracking)
 {
-  int i,j;
-                                                                                              
-                                                                                              
-  int (*edgePtr)[2] = edges.getPtr();
-                                                                                              
-                                                                                              
-  int l;
-  double r1, r2, rb;
-  rb  = 0.0;
-                                                                                              
-                                                                                              
-  for (l=0; l<edges.size(); ++l) {
-    i =  edgePtr[l][0];
-    j =  edgePtr[l][1];
-                                                                                              
-                                                                                              
-    if (Phi[i]*Phi[j] < 0.0) {
-      r1  = sqrt((X[i][0]*X[i][0]  + X[i][1]*X[i][1]  +X[i][2]*X[i][2]));
-      r2  = sqrt((X[j][0]*X[j][0]  + X[j][1]*X[j][1]  +X[j][2]*X[j][2]));
-      rb  = (fabs(Phi[i])*r2  +fabs(Phi[j])*r1)/fabs(fabs(Phi[i])  +fabs(Phi[j]));
-    }
-  }
-                                                                                              
-                                                                                              
-//  printf("radius = %f \n",rb);
-  return rb;
-}
-//--------------------------------------------------------------------------
-template<int dim>
-void SubDomain::reinitLS(SVec<double,3>& X, Vec<double> &Phi, SVec<double,dim> &U, double rbg, int iti)
-{
-  int numNodes = X.size();
-  int i;
-  double r1, phi;
-                                                                                              
-                                                                                              
-  for (i=0; i<numNodes; i++){
-     r1  = sqrt((X[i][0]*X[i][0]  + X[i][1]*X[i][1]  +X[i][2]*X[i][2]));
-     phi = Phi[i]/U[i][0];
-//     if (phi > 0.001  && phi < -0.001)
-        if (iti < 4500) Phi[i] = (-rbg +  r1)*U[i][0];
-        Phi[i] = (-rbg +  r1)*U[i][0];
-  }
-//  printf("new radius = %f \n",rbg);
-                                                                                              
-                                                                                              
+
+  PsiRes = 0.0;
+  w = 0.0;
+  beta = 0.0;
+
+  SVec<double,dim>& ddx  = grad.getX();
+  SVec<double,dim>& ddy  = grad.getY();
+  SVec<double,dim>& ddz  = grad.getZ();
+
+  tets.computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
 }
 
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta, 
+				    SVec<double,dim> &PsiRes)
+{
+
+//  for(int i=0; i<nodes.size();i++)
+//    if(Tag[i]>0) fprintf(stdout, "Tag[%d (%d)] = %d -- beta = %e\n", locToGlobNodeMap[i]+1,i,Tag[i],beta[i]);
+
+  for(int i=0; i<nodes.size(); i++){
+    if(Tag[i]==0 && (PsiRes[i][0]!=0.0 || w[i]!=0.0 || beta[i]!=0.0)){
+      fprintf(stdout, "this untagged node (%d) should not have a residual!\n", locToGlobNodeMap[i]+1);
+      // can happen for nodes that belong to an active tet but are not tagged nodes
+      PsiRes[i][0]=0.0;
+      beta[i] = 0.0;
+      w[i] = 0.0;
+    }
+  }
+   
+
+  for(int i=0; i<nodes.size(); i++){
+    if(Tag[i]>0){
+      if(w[i]!=0.0)
+        PsiRes[i][0] /= w[i];
+
+      if(beta[i]!=0.0)
+        beta[i] = w[i]/beta[i];
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
+                                    SVec<double,dim> &PsiRes, bool localdt)
+{
+  if(!localdt)
+    for(int i=0; i<nodes.size(); i++){
+      if(!(beta[i]>0.0))
+        beta[i] = bmax;
+    }
+}
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::printVariable(SVec<double,dim> &V, VarFcn *vf)
@@ -3187,16 +3267,15 @@ void SubDomain::printInletVariable(SVec<double,dim> &V)
 //-----------------------------------------------------------------------------
                                                                                                   
 template<int dim>
-void SubDomain::printAllVariable(SVec<double,3> &X, SVec<double,dim> &U, int numSub, int it)
+void SubDomain::printAllVariable(SVec<int,1> &X, SVec<double,dim> &U, int numSub, int it)
 {
 
     int glob, phi;
     for (int i=0; i<nodes.size(); i++){
       glob = locToGlobNodeMap[i]+1;
-      fprintf(stdout, "%d %d %d\n", locSubNum, glob, i);
-      //fprintf(stdout, "loc[%d]=%d with coordinates %f %f %f\n", glob, i, X[i][0],X[i][1],X[i][2]);
+        fprintf(stdout, "phi[%d]=%d \n", glob, X[i][0]);
     }
-                                                                                                  
+
 }
 //------------------------------------------------------------------------------
 template<int dim>

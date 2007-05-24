@@ -29,9 +29,9 @@ public:
   ImplicitCoupledTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitCoupledTsDesc();
 
-  virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  virtual void setOperators(DistSVec<double,dim> &);
-  virtual int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void setOperators(DistSVec<double,dim> &);
+  int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   
 };
 
