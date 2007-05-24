@@ -683,6 +683,7 @@ struct MultiFluidData {
   int subIt;
 	int frequency;
 	enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
+	enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   ICData icd;
 
   MultiFluidData();

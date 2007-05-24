@@ -864,11 +864,13 @@ void SpaceOperator<dim>::resetTag()
 
 template<int dim>
 void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &U, DistVec<double> &Phi,
-                       DistSVec<double,dim> &Vgf)
+                       DistSVec<double,dim> &Vgf, DistVec<double> &weight)
 {
-  Vgf = -3.0;
-  varFcn->conservativeToPrimitive(U, *V, &Phi);
-  domain->storeGhost(*V,Vgf,Phi);
+  Vgf = -1.0;
+	weight = 1.0;
+  //varFcn->conservativeToPrimitive(U, *V, &Phi);
+  //domain->storeGhost(*V,Vgf,Phi);
+  domain->storeGhost(U,Vgf,Phi);
 }
 
 //------------------------------------------------------------------------------
@@ -1104,8 +1106,29 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
-		                         DistVec<double> &Phi, DistVec<double> &Phin)
+void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U, 
+                                DistSVec<double,dim> &Vg, DistVec<double> &Phi,
+                                DistSVec<double,dim> *Vgf, DistVec<double> *weight)
+{
+
+	varFcn->conservativeToPrimitive(U, Vg, &Phi);
+	//if(riemann->RiemannUpdatePhase())
+    //nothing to do, everything has been done when computing the fluxes
+  if(Vgf && weight){
+    *Vgf = 0.0;
+		*weight = 0.0;
+    //domain->storePrimitive(Vg,*Vgf,*weight,Phi);
+		storeGhost(Vg,Phi,*Vgf,*weight);
+  }
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg, 
+                             DistSVec<double,dim> &U,
+		                         DistVec<double> &Phi, DistVec<double> &Phin,
+                             DistSVec<double,dim> *Vgf, DistVec<double> *weight)
 {
 
 	if (riemann->DoUpdatePhase())
@@ -1113,6 +1136,12 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<do
 		// that changed nature (fluid1 to fluid2 or vice versa)
 		// **** GFMPAR-like ****
     varFcn->updatePhaseChange(Vg, U, Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
+
+  else if (Vgf && weight)
+		// an extrapolation is used to replace values of a node
+		// that changed nature (fluid1 to fluid2 or vice versa)
+		// **** GFMPAR-variation ****
+    varFcn->updatePhaseChange(Vg, U, Phi, Phin, *Vgf, *weight);
 
 	else
 		// no solution of the riemann problem was computed and we just use
@@ -1502,7 +1531,7 @@ void SpaceOperator<dim>::printAllVariable(DistSVec<double,3> &X, DistSVec<double
 
   //DistSVec<double,dim> *V = new DistSVec<double,dim>(domain->getNodeDistInfo());
   //varFcn->conservativeToPrimitive(U,*V);
-  domain->printAllVariable(X,U,it);
+  //domain->printAllVariable(X,U,it);
 
 }
 //------------------------------------------------------------------------------

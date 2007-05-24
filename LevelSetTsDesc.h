@@ -21,10 +21,11 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
   LevelSet *LS;
-  DistVec<double> Phi; //conservative variables
-  DistVec<double> PhiV;//primitive variables
-  DistSVec<double,dim> Vg;
-  DistSVec<double,dim> *Vgf;
+  DistVec<double> Phi;           //conservative variables
+  DistVec<double> PhiV;          //primitive variables
+  DistSVec<double,dim> Vg;       //primitive V for GFMP
+  DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
+  DistVec<double> *Vgfweight;
 
 	// frequency for reinitialization of level set
 	int frequencyLS;

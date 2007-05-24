@@ -135,7 +135,7 @@ public:
   virtual int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0) = 0; 
   //virtual void primitiveToConservative(double *, double *, double = 0.0, double* = 0, double* = 0, int = 0) = 0;
   virtual void primitiveToConservative(double *, double *, double = 0.0) = 0;
-	virtual void updatePhaseChange(double *, double *, double, double, double *, double){};
+	virtual bool updatePhaseChange(double *, double *, double, double, double *, double){};
   bool doVerification(){ return !(pmin<0 && pminp<0); }
   
   virtual void multiplyBydVdU(double *, double *, double *, double = 0.0) {
@@ -816,8 +816,10 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &U, DistSVec<double,dim> &V,
 		double *phin = Phin.subData(iSub);
     double (*r)[dim] = Riemann.subData(iSub);
 		double *w = weight.subData(iSub);
-    for ( int i=0; i<U.subSize(iSub); ++i)
-			updatePhaseChange(u[i],v[i],phi[i],phin[i],r[i],w[i]);
+		bool change = false;
+    for ( int i=0; i<U.subSize(iSub); ++i){
+			change = updatePhaseChange(u[i],v[i],phi[i],phin[i],r[i],w[i]);
+		}
 	}
 
 

@@ -336,25 +336,6 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
 
 }
 //------------------------------------------------------------------------------
-                                                                                                                                                         
-template<int dim>
-void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)
-{
-  int iSub;
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->storeGhost(V(iSub), Vgf(iSub), Phi(iSub));
-    subDomain[iSub]->sndData(*vecPat, Vgf.subData(iSub));
-  }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->maxRcvData(*vecPat, Vgf.subData(iSub));
-
-}
-//------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& irey,
@@ -2143,7 +2124,7 @@ void Domain::printInletVariable(DistSVec<double,dim>&V)
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void Domain::printAllVariable(DistSVec<int,1> &X, DistSVec<double,dim>&V, int it)
+void Domain::printAllVariable(DistVec<int> &X, DistSVec<double,dim>&V, int it)
 {
   com->barrier();
 #pragma omp parallel for
@@ -2215,13 +2196,62 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 }
 
 //------------------------------------------------------------------------------
+                                                                                                                                                         
+template<int dim>
+void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->storeGhost(V(iSub), Vgf(iSub), Phi(iSub));
+    subDomain[iSub]->sndData(*vecPat, Vgf.subData(iSub));
+  }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxRcvData(*vecPat, Vgf.subData(iSub));
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
+                            DistVec<double> &weight, DistVec<double> &Phi)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),Phi(iSub));
+		//subDomain[iSub]->sndData(*vecPat, Vgf.subData(iSub));
+  }
+/*
+	vecPat->exchange();
+
+#pragma omp parallel for
+	for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->addRcvData(*vecPat, Vgf.subData(iSub));
+    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(weight.subData(iSub)));
+  }
+
+	volPat->exchange();
+
+#pragma omp parallel for
+	for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(weight.subData(iSub)));
+*/
+  assemble(vecPat, Vgf);
+	assemble(volPat, weight);
+
+}
+//------------------------------------------------------------------------------
 template<int dim>
 void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
                                 DistVec<double> &Phi, DistSVec<double,dim> &Psi,
-				DistVec<int> &Tag,
+                                DistVec<int> &Tag,
                                 DistVec<double> &w, DistVec<double> &beta,
                                 DistSVec<double,dim> &PsiRes, bool localdt,
- 				int typeTracking)
+                                int typeTracking)
 {
 
   int iSub;
@@ -2229,9 +2259,13 @@ void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgra
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computePsiResidual(X(iSub), lsgrad(iSub), Phi(iSub),
                                         Psi(iSub), Tag(iSub), w(iSub), 
-					beta(iSub), PsiRes(iSub),typeTracking);
+                                        beta(iSub), PsiRes(iSub),typeTracking);
     subDomain[iSub]->sndData(*vecPat, PsiRes.subData(iSub));
   }
+
+	//assemble(vecPat,PsiRes);
+	//assemble(volPat,beta);
+	//assemble(volPat,w);
 
   vecPat->exchange();
 

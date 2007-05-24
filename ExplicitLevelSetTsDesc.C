@@ -57,11 +57,11 @@ int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 	
   solveNonLinearSystemEuler(U);
 
-  this->varFcn->conservativeToPrimitive(U, this->Vg, &(this->Phi));
+  this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
 
   solveNonLinearSystemLevelSet(U);
 
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin);
+	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
 
   checkSolution(U);
 

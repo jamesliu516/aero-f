@@ -511,7 +511,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	void updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double);
                                                                                             
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -578,7 +578,7 @@ void VarFcnGasInGasEuler3D::primitiveToConservative(double *V, double *U, double
 }
 //------------------------------------------------------------------------------    
 inline
-void VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
+bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
                             double phin, double *Riemann, double weight)
 {
 
@@ -701,7 +701,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	void updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -767,7 +767,7 @@ void VarFcnLiquidInLiquidEuler3D::primitiveToConservative(double *V, double *U, 
 }
 //------------------------------------------------------------------------------    
 inline
-void VarFcnLiquidInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
+bool VarFcnLiquidInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
                                   double phin, double *Riemann, double weight)
 {
 
@@ -892,7 +892,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	void updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -961,7 +961,7 @@ void VarFcnGasInLiquidEuler3D::primitiveToConservative(double *V, double *U, dou
 }
 //------------------------------------------------------------------------------    
 inline
-void VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
+bool VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
                                double phin, double *Riemann, double weight)
 {
 
@@ -970,20 +970,24 @@ void VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double ph
 		if(phi>=0.0)
 			primitiveToConservativeLiquidEuler(Cv, V, U);
 		else primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+		return false;
 
 	//nature of fluid at this node has changed over time
 	}else{
 
-		assert(weight>0.0);
+		//assert(weight>0.0);
 		// from Fluid2 to Fluid1, ie Gas To Liquid
 		if(phi>=0.0 && phin<0.0){
+			fprintf(stdout, "V1 = %e %e %e\n", V[0],V[1],V[4]);
   		for(int k=0; k<5; k++)
 	  		V[k] = Riemann[k]/weight;
-			assert(V[0]>0.0);
+			fprintf(stdout, "V2 = %e %e %e\n", V[0],V[1],V[4]);
+			//assert(V[0]>0.0);
 			primitiveToConservativeLiquidEuler(Cv,V,U);
 
 		// from Fluid1 to Fluid2, ie Liquid To Gas
 		}else{
+			fprintf(stdout, "tata\n");
 			V[4] = getPressure(V,phin);
 			primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
 
@@ -992,6 +996,7 @@ void VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double ph
       //assert(V[0]>0.0);
 			//primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
 		}
+		return true;
 	}
 
 

@@ -1102,14 +1102,13 @@ void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsD
 //------------------------------------------------------------------------------
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
-void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level,
-			       bool lastlevel)
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level)
 {
 
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->TagInterfaceNodes(Tag(iSub),Phi(iSub),level,lastlevel);
+    subDomain[iSub]->TagInterfaceNodes(Tag(iSub),Phi(iSub),level);
     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
   }
 
@@ -1120,6 +1119,27 @@ void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int leve
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
 
 
+
+}
+//------------------------------------------------------------------------------
+void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
+                                    int level)
+{
+
+	int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
+    subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
+    //subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(Psi.subData(iSub)));
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxAbsRcvData(*volPat, Psi.subData(iSub));
+    //subDomain[iSub]->maxAbsRcvData(*volPat, reinterpret_cast<double (*)[1]>(Psi.subData(iSub)));
 
 }
 //------------------------------------------------------------------------------

@@ -182,11 +182,10 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
 }
 //------------------------------------------------------------------------------
-void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, bool lastlevel)
+void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
 {
 
   int tag = 1;
-  if(lastlevel) tag = 2;
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];

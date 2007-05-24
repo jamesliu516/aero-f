@@ -35,8 +35,15 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
-  Vgf = new DistSVec<double,dim>(this->getVecInfo());
-  *Vgf =-3.0;
+
+	Vgf = 0;
+  Vgfweight = 0;
+	if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
+    Vgf = new DistSVec<double,dim>(this->getVecInfo());
+    Vgfweight = new DistVec<double>(this->getVecInfo());
+    *Vgf =-1.0;
+    *Vgfweight =0.0;
+  }
 
 	frequencyLS = ioData.mf.frequency;
 
@@ -110,9 +117,9 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   LS->update(Phi);
   this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2);
   if(frequencyLS > 0 && it%frequencyLS == 0){
-		LS->conservativeToPrimitive(Phi,PhiV,U);
+    LS->conservativeToPrimitive(Phi,PhiV,U);
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
-		LS->primitiveToConservative(PhiV,Phi,U);
+    LS->primitiveToConservative(PhiV,Phi,U);
   }
 
 }

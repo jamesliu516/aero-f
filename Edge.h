@@ -133,7 +133,7 @@ public:
                               FluxFcn** fluxFcn, double *dfdUi, double *dfdUj);
 */
 
-  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, bool lastlevel);
+  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }
