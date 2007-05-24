@@ -1,0 +1,43 @@
+ARPACKDIR     = .
+ARPACKLIB     = $(ARPACKDIR)/libarpack_SUN4.a
+OFLAGS        = -O2 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DSYNCHRO_WRITE #-mfpmath=sse -msse -msse2 #-ffloat-store #-DEDGE_LENGTH
+#OFLAGS       = -g -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DHB_MESHMOTION_DEBUG #-DEDGE_LENGTH
+SOFLAGS       = -shared
+LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB)
+MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -L/opt/gm/lib/ -lgm -lpthread
+DLLIBS        = -ldl
+SAR           = ar cr
+LD            = g++
+
+# Intel C/C++ & Fortran compiler
+#compiler = intel
+#useomp = true
+ifeq ($(compiler), intel)
+  #CXXDIR = $(ICCHOME)
+  CXXDIR = /opt/intel/cc/9.0
+  CXX    = $(CXXDIR)/bin/icpc
+  CC     = $(CXXDIR)/bin/icc
+  FXX    = ifort
+  FXXLIB = /opt/intel/fc/9.0/lib
+  LINKLIBS = -L/usr/lib/gcc-lib/i386-pc-linux/3.2.3/ -L$(FXXLIB) -lifcore
+  LIBS = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB) -L$(FXXLIB) -lifcore
+  LD = $(CXXDIR)/bin/icpc -L$(FXXLIB) -lifcore
+endif
+
+
+# Intel C/C++ & Fortran compilers
+#CXXDIR      = /opt/intel/fc/9.0/ # directory of Intel C/C++ compiler ($(CXXDIR)/bin/icpc)   
+#FXXDIR      = /opt/intel/fc/9.0/
+#CXX         = $(CXXDIR)/bin/icpc
+#F77         = $(FXXDIR)/bin/ifort
+#FCC         = $(FXXDIR)/bin/ifort
+#OMPFLAGS    = -openmp -openmp_report2 # to enable OpenMP
+#FORTLIBS    = -L$(FXXDIR)/lib -lifcore -lg2c
+
+ifeq ($(compiler),intel)
+	LOCALMPIFLAG= $(MPIFLAG) -I/share/apps/mpich/gnu/include/mpi2c++ -I/share/apps/mpich/gnu/include
+	CXXFLAGS    = -Wno-deprecated -I. $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS) 
+else
+	LOCALMPIFLAG= $(MPIFLAG) -I/opt/mpich/myrinet/gnu/include/mpi2c++ -I/opt/mpich/myrinet/gnu/include
+        CXXFLAGS    = -Wno-deprecated -I. -I/usr/lib/gcc/i386-redhat-linux/3.4.4/include/ $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS)
+endif
