@@ -243,6 +243,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   SVec<double,1>& dPdz = ngradLS.getZ();
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double gradphi[3];
+  double gphii[3];
+  double gphij[3];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
   int ierr=0;
@@ -253,22 +256,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     int i = ptr[l][0];
     int j = ptr[l][1];
-
-    double gradphi[3];
-    double gphii[3];
-    double gphij[3];
-    //ngradLS returns nodal gradients of primitive phi
-    gphii[0] = dPdx[i][0];
-    gphii[1] = dPdy[i][0];
-    gphii[2] = dPdz[i][0];
-    gphij[0] = dPdx[j][0];
-    gphij[1] = dPdy[j][0];
-    gphij[2] = dPdz[j][0];
-    for (int k=0; k<3; k++)
-      gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-    double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
-    for (int k=0; k<3; k++)
-      gradphi[k] /= normgradphi;
 
   //fprintf(stdout, "Edge.C5\n");
     //if (egrad)
@@ -309,6 +296,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
+      //ngradLS returns nodal gradients of primitive phi
+      gphii[0] = dPdx[i][0];
+      gphii[1] = dPdy[i][0];
+      gphii[2] = dPdz[i][0];
+      gphij[0] = dPdx[j][0];
+      gphij[1] = dPdy[j][0];
+        gphij[2] = dPdz[j][0];
+      for (int k=0; k<3; k++)
+        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+      for (int k=0; k<3; k++)
+        gradphi[k] /= normgradphi;
 
       int epsi = 0;
       int epsj = 0;
