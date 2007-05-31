@@ -1130,16 +1130,18 @@ void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
     subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
-    //subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(Psi.subData(iSub)));
   }
 
+  levelPat->exchange();
   volPat->exchange();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
     subDomain[iSub]->maxAbsRcvData(*volPat, Psi.subData(iSub));
-    //subDomain[iSub]->maxAbsRcvData(*volPat, reinterpret_cast<double (*)[1]>(Psi.subData(iSub)));
+  }
 
 }
 //------------------------------------------------------------------------------
