@@ -1165,15 +1165,72 @@ struct AeroelasticData {
 
 //------------------------------------------------------------------------------
 
-struct ForcedData {
+struct HeavingData {
 
-  enum Type {RIGID = 0, FLEXIBLE = 1} type;
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double ax;
+  double ay;
+  double az;
+
+  HeavingData();
+  ~HeavingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct PitchingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double alpha_in;
+  double alpha_max;
+  double x1;
+  double y1;
+  double z1;
+  double x2;
+  double y2;
+  double z2;
+
+  PitchingData();
+  ~PitchingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct DeformingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
 
   const char *positions;
 
   double amplification;
+
+  DeformingData();
+  ~DeformingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct ForcedData {
+
+  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+
   double frequency;
   double timestep;
+
+  HeavingData hv;
+  PitchingData pt;
+  DeformingData df;
 
   ForcedData();
   ~ForcedData() {}

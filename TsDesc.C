@@ -200,8 +200,14 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
   else if (ioData.problem.type[ProblemData::FORCED]) {
     if (ioData.problem.type[ProblemData::ACCELERATED])
       _mmh = new AccForcedMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
-    else
-      _mmh = new ForcedMeshMotionHandler(ioData, domain);
+    else {
+      if (ioData.forced.type == ForcedData::HEAVING)
+        _mmh = new HeavingMeshMotionHandler(ioData, domain);
+      else if (ioData.forced.type  == ForcedData::PITCHING)
+        _mmh = new PitchingMeshMotionHandler(ioData, domain);
+      else if (ioData.forced.type  == ForcedData::DEFORMING)
+        _mmh = new DeformingMeshMotionHandler(ioData, domain);
+    }
   }
   else if (ioData.problem.type[ProblemData::ACCELERATED])
     _mmh = new AccMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(), domain);
@@ -248,11 +254,18 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
   //timeState->setup(input->solutions, bcData->getInletConservativeState(), *X, *U);  //Uin
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
-  ForcedMeshMotionHandler* _fmmh = dynamic_cast<ForcedMeshMotionHandler*>(mmh);
-  if (_mmh) 
+  DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
+  HeavingMeshMotionHandler* _hmmh = dynamic_cast<HeavingMeshMotionHandler*>(mmh);
+  PitchingMeshMotionHandler* _pmmh = dynamic_cast<PitchingMeshMotionHandler*>(mmh);
+
+  if (_mmh)
     _mmh->setup(&restart->frequency, &data->maxTime, postOp, *X, *U);
-  else if (_fmmh) 
-    _fmmh->setup(*X);
+  else if (_dmmh) 
+    _dmmh->setup(*X);
+  else if (_hmmh)
+    _hmmh->setup(*X);
+  else if (_pmmh)
+    _pmmh->setup(*X);
 
   if (hth)
     hth->setup(&restart->frequency, &data->maxTime);

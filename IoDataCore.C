@@ -2055,9 +2055,7 @@ void AeroelasticData::setup(const char *name, ClassAssigner *father)
 ForcedData::ForcedData()
 {
 
-  type = FLEXIBLE;
-  positions = "";
-  amplification = 1.0;
+  type = HEAVING;
   frequency = -1.0;
   timestep = -1.0;
 
@@ -2068,17 +2066,117 @@ ForcedData::ForcedData()
 void ForcedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
-  
-  new ClassToken<ForcedData>
-    (ca, "Type", this, 
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 2,
-     "Rigid", 0, "Flexible", 1);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
-  new ClassStr<ForcedData>(ca, "Position", this, &ForcedData::positions);
-  new ClassDouble<ForcedData>(ca, "Amplification", this, &ForcedData::amplification);
+  new ClassToken<ForcedData>
+    (ca, "Type", this,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 3,
+     "Heaving", 0, "Pitching", 1, "Deforming", 2);
+
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
+
+  hv.setup("Heaving", ca);
+  pt.setup("Pitching", ca);
+  df.setup("Deforming", ca);
+
+}
+
+//------------------------------------------------------------------------------
+
+HeavingData::HeavingData()
+{
+
+  domain = VOLUME;
+  ax = 0.0;
+  ay = 0.0;
+  az = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void HeavingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<HeavingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int HeavingData::*>(&HeavingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<HeavingData>(ca, "AX", this, &HeavingData::ax);
+  new ClassDouble<HeavingData>(ca, "AY", this, &HeavingData::ay);
+  new ClassDouble<HeavingData>(ca, "AZ", this, &HeavingData::az);
+
+}
+
+//------------------------------------------------------------------------------
+
+PitchingData::PitchingData()
+{
+
+  domain = VOLUME;
+  alpha_in = 0.0;
+  alpha_max = 0.0;
+  x1 =  0.0;
+  y1 = -1.0;
+  z1 =  0.0;
+  x2 =  0.0;
+  y2 =  1.0;
+  z2 =  0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void PitchingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+
+  new ClassToken<PitchingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int PitchingData::*>(&PitchingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<PitchingData>(ca, "Alpha0", this, &PitchingData::alpha_in);
+  new ClassDouble<PitchingData>(ca, "AlphaMax", this, &PitchingData::alpha_max);
+  new ClassDouble<PitchingData>(ca, "X1", this, &PitchingData::x1);
+  new ClassDouble<PitchingData>(ca, "Y1", this, &PitchingData::y1);
+  new ClassDouble<PitchingData>(ca, "Z1", this, &PitchingData::z1);
+  new ClassDouble<PitchingData>(ca, "X2", this, &PitchingData::x2);
+  new ClassDouble<PitchingData>(ca, "Y2", this, &PitchingData::y2);
+  new ClassDouble<PitchingData>(ca, "Z2", this, &PitchingData::z2);
+
+}
+
+//------------------------------------------------------------------------------
+
+DeformingData::DeformingData()
+{
+
+  domain = VOLUME;
+  positions = "";
+  amplification = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void DeformingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassToken<DeformingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int DeformingData::*>(&DeformingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassStr<DeformingData>(ca, "Position", this, &DeformingData::positions);
+  new ClassDouble<DeformingData>(ca, "Amplification", this, &DeformingData::amplification);
 
 }
 

@@ -667,32 +667,34 @@ double AccAeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
 //------------------------------------------------------------------------------
 
-ForcedMeshMotionHandler::ForcedMeshMotionHandler(IoData &iod, Domain *dom) : 
-                         MeshMotionHandler(iod, dom), dXmax(0)  {
+DeformingMeshMotionHandler::DeformingMeshMotionHandler(IoData &iod, Domain *dom) :
+                            MeshMotionHandler(iod, dom), dXmax(0)
+{
 
   dt = iod.forced.timestep;
   omega = 2.0 * acos(-1.0) * iod.forced.frequency;
 
-  if (iod.forced.positions[0] != 0) {
+  if (iod.forced.df.positions[0] != 0) {
     dXmax = new DistSVec<double,3>(dom->getNodeDistInfo());
-    domain->readVectorFromFile(iod.forced.positions, 0, 0, *dXmax, &oolscale);
-    *dXmax = iod.forced.amplification * (*dXmax - X0);
+    domain->readVectorFromFile(iod.forced.df.positions, 0, 0, *dXmax, &oolscale);
+    *dXmax = iod.forced.df.amplification * (*dXmax - X0);
   }
 
-  if (iod.forced.type == ForcedData::RIGID)
+  if (iod.forced.df.domain == DeformingData::VOLUME)
     mms = 0;
-  else if (iod.forced.type == ForcedData::FLEXIBLE)  {
+  else if (iod.forced.df.domain == DeformingData::SURFACE)  {
     mms = new TetMeshMotionSolver(iod.dmesh, 0, domain, 0); //HB: as we passed not MatchNodeSet, it will create the dofType array
                                                             //(see SubDomain::getMeshMotionDofType) considering the nodes labelled
                                                             //as moving as "matched" nodes (i.e. nodes with given (non-zero) displacement)
                                                             //Another option, would have been to create an MatchNodeSet using the "moving" nodes
   }
 
+
 }
 
 //------------------------------------------------------------------------------
 
-ForcedMeshMotionHandler::~ForcedMeshMotionHandler()
+DeformingMeshMotionHandler::~DeformingMeshMotionHandler()
 {
 
   if (dXmax) delete dXmax;
@@ -702,20 +704,22 @@ ForcedMeshMotionHandler::~ForcedMeshMotionHandler()
 
 //------------------------------------------------------------------------------
 
-void
-ForcedMeshMotionHandler::setup(DistSVec<double,3> &X)  {
+void DeformingMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
 
-  mms->setup(X);
+  if(mms) mms->setup(X);
 
 }
 
 //------------------------------------------------------------------------------
 
-double ForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
-				       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+
   Timer *timer;
   timer = domain->getTimer();
+
 
   if (*lastIt) return dt;
 
@@ -723,7 +727,7 @@ double ForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
     dX = sin(omega * (t + dt)) * (*dXmax) - (X - X0);
     Xdot = omega * cos(omega * (t + dt)) * (*dXmax);
   }
-  else 
+  else
   {
     static const double pi = acos(-1.0);
     double dxmax = 0.05;
@@ -734,29 +738,27 @@ double ForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 
     int numLocSub = domain->getNumLocSub();
     #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) 
+    for (int iSub=0; iSub<numLocSub; ++iSub)
     {
       double (*x)[3] = X.subData(iSub);
-      for (int i=0; i<X.subSize(iSub); ++i) 
+      for (int i=0; i<X.subSize(iSub); ++i)
       {
-	x[i][0] += dx * cos(pi*x[i][0]);
-	x[i][1] += dy * cos(pi*x[i][1]);
+        x[i][0] += dx * cos(pi*x[i][0]);
+        x[i][1] += dy * cos(pi*x[i][1]);
       }
     }
   }
 
-  
-  
-  if (mms) 
+  if (mms)
   { //HB: changed to use dofType array instead of nodeType array
     int numLocSub = domain->getNumLocSub();
-    BCApplier* meshMotionBCs = domain->getMeshMotionBCs(); 
-    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0; 
-   
-    if(DofType) 
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
     {
       #pragma omp parallel for
-      for(int iSub=0; iSub<numLocSub; ++iSub) 
+      for(int iSub=0; iSub<numLocSub; ++iSub)
       {
         double (*dx)[3] = dX.subData(iSub);
         int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
@@ -764,40 +766,320 @@ double ForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
           for(int l=0; l<3; l++)
             if(dofType[i][l]!=BC_MATCHED) dx[i][l] = 0.0;
       }
-    } 
-
+    }
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
-    
+
   }
   else
     X += dX;
 
   return dt;
+
 }
 
 //------------------------------------------------------------------------------
 
-double ForcedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                       DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+double DeformingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+
   return dt;
+
 }
 
 //------------------------------------------------------------------------------
 
-double ForcedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+double DeformingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+ return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
+
+PitchingMeshMotionHandler::PitchingMeshMotionHandler(IoData &iod, Domain *dom) :
+                            MeshMotionHandler(iod, dom)
+{
+
+  dt = iod.forced.timestep;
+  omega = 2.0 * acos(-1.0) * iod.forced.frequency;
+
+  alpha_in  = (acos(-1.0)*iod.forced.pt.alpha_in) / 180.0;  // initial angle of rotation
+  alpha_max = (acos(-1.0)*iod.forced.pt.alpha_max) / 180.0;  // maximum angle of rotation
+
+  x1[0] = iod.forced.pt.x1;
+  x1[1] = iod.forced.pt.y1;
+  x1[2] = iod.forced.pt.z1;
+
+  x2[0] = iod.forced.pt.x2;
+  x2[1] = iod.forced.pt.y2;
+  x2[2] = iod.forced.pt.z2;
+
+  u = x2[0]-x1[0];
+  v = x2[1]-x1[1];
+  w = x2[2]-x1[2];
+
+  // unit normals of axis of rotation //
+
+  ix = u/sqrt(u*u+v*v+w*w);
+  iy = v/sqrt(u*u+v*v+w*w);
+  iz = w/sqrt(u*u+v*v+w*w);
+
+  if (iod.forced.pt.domain == PitchingData::VOLUME)
+    mms = 0;
+  else if (iod.forced.pt.domain == PitchingData::SURFACE)
+    mms = new TetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+PitchingMeshMotionHandler::~PitchingMeshMotionHandler()
+{
+
+  if (mms) delete mms;
+
+}
+
+//------------------------------------------------------------------------------
+
+void PitchingMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
+
+  if(mms) mms->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+
+double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
+                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  if (*lastIt) return dt;
+
+  double theta = alpha_in + alpha_max * sin(omega * (t + dt));
+  double costheta = cos(theta);
+  double sintheta = sin(theta);
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    double (*dx)[3] = dX.subData(iSub);
+    double (*x0)[3] = X0.subData(iSub);
+
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = 0.0; dx[i][1] = 0.0; dx[i][2] = 0.0;
+
+      double p[3];
+      p[0] = x0[i][0] -  x1[0];
+      p[1] = x0[i][1] -  x1[1];
+      p[2] = x0[i][2] -  x1[2];
+
+      dx[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
+      dx[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
+      dx[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
+
+      dx[i][1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];
+      dx[i][1] += (costheta + (1 - costheta) * iy * iy) * p[1];
+      dx[i][1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];
+
+      dx[i][2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];
+      dx[i][2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];
+      dx[i][2] += (costheta + (1 - costheta) * iz * iz) * p[2];
+
+      dx[i][0] += x1[0];
+      dx[i][1] += x1[1];
+      dx[i][2] += x1[2];
+
+    }
+
+  }
+
+  dX -= X;
+
+  if (mms)
+  { //HB: changed to use dofType array instead of nodeType array
+    int numLocSub = domain->getNumLocSub();
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
+    {
+      #pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; ++iSub)
+      {
+        double (*dx)[3] = dX.subData(iSub);
+        int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+        for(int i=0;i<dX.subSize(iSub); i++)
+          for(int l=0; l<3; l++)
+            if(dofType[i][l]!=BC_MATCHED) dx[i][l] = 0.0;
+      }
+    }
+
+
+    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+
+  }
+  else
+    X += dX;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double PitchingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double PitchingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
+}
+
+//------------------------------------------------------------------------------
+
+HeavingMeshMotionHandler::HeavingMeshMotionHandler(IoData &iod, Domain *dom) :
+                            MeshMotionHandler(iod, dom)
+{
+
+  dt = iod.forced.timestep;
+  omega = 2.0 * acos(-1.0) * iod.forced.frequency;
+
+  delta[0] = iod.forced.hv.ax;
+  delta[1] = iod.forced.hv.ay;
+  delta[2] = iod.forced.hv.az;
+
+  if (iod.forced.hv.domain == HeavingData::VOLUME)
+    mms = 0;
+  else if (iod.forced.hv.domain == HeavingData::SURFACE)
+    mms = new TetMeshMotionSolver(iod.dmesh, 0, domain, 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+HeavingMeshMotionHandler::~HeavingMeshMotionHandler()
+{
+
+  if (mms) delete mms;
+
+}
+
+//------------------------------------------------------------------------------
+
+void HeavingMeshMotionHandler::setup(DistSVec<double,3> &X)
+{
+
+  if(mms) mms->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+
+double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
- return update(lastIt, it, t, Xdot, X); 
+
+  if (*lastIt) return dt;
+
+  double hsintheta = sin(omega * (t + dt));
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    double (*dx)[3] = dX.subData(iSub);
+    double (*x0)[3] = X0.subData(iSub);
+
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = x0[i][0] + delta[0]*hsintheta;
+      dx[i][1] = x0[i][1] + delta[1]*hsintheta;
+      dx[i][2] = x0[i][2] + delta[2]*hsintheta;
+
+    }
+
+  }
+
+  dX -= X;
+
+  if (mms)
+  { //HB: changed to use dofType array instead of nodeType array
+    int numLocSub = domain->getNumLocSub();
+    BCApplier* meshMotionBCs = domain->getMeshMotionBCs();
+    int** DofType = (meshMotionBCs) ? meshMotionBCs->getDofType(): 0;
+
+    if(DofType)
+    {
+      #pragma omp parallel for
+      for(int iSub=0; iSub<numLocSub; ++iSub)
+      {
+        double (*dx)[3] = dX.subData(iSub);
+        int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType[iSub]);
+        for(int i=0;i<dX.subSize(iSub); i++)
+          for(int l=0; l<3; l++)
+            if(dofType[i][l]!=BC_MATCHED) dx[i][l] = 0.0;
+      }
+    }
+
+
+    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+
+  }
+  else
+    X += dX;
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double HeavingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return dt;
+
+}
+
+//------------------------------------------------------------------------------
+
+double HeavingMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+
+  return update(lastIt, it, t, Xdot, X);
+
 }
 
 //------------------------------------------------------------------------------
 
 AccForcedMeshMotionHandler::
 AccForcedMeshMotionHandler(IoData &iod, VarFcn *vf, double *Vin, Domain *dom) :
-  ForcedMeshMotionHandler(iod, dom), RigidMeshMotionHandler(iod, vf, Vin, dom)
+  DeformingMeshMotionHandler(iod, dom), RigidMeshMotionHandler(iod, vf, Vin, dom)
 {
 
 }
@@ -810,7 +1092,7 @@ double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
 
-  double _dt = ForcedMeshMotionHandler::update(lastIt, it, t, Xdot, Xrel);
+  double _dt = DeformingMeshMotionHandler::update(lastIt, it, t, Xdot, Xrel);
 
   if (*lastIt) return _dt;
 
@@ -836,7 +1118,7 @@ double AccForcedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
 
-  double _dt = ForcedMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
+  double _dt = DeformingMeshMotionHandler::updateStep2(lastIt, it, t, Xdot, Xrel);
 
   if (*lastIt) return _dt;
 

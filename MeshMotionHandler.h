@@ -174,7 +174,7 @@ public:
 
 //------------------------------------------------------------------------------
 
-class ForcedMeshMotionHandler : public MeshMotionHandler {
+class DeformingMeshMotionHandler : public MeshMotionHandler {
 
   double dt;
   double omega;
@@ -185,19 +185,75 @@ class ForcedMeshMotionHandler : public MeshMotionHandler {
 
 public:
 
-  ForcedMeshMotionHandler(IoData &, Domain *);
-  ~ForcedMeshMotionHandler();
+  DeformingMeshMotionHandler(IoData &, Domain *);
+  ~DeformingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  void setup(DistSVec<double, 3> &X); 
+
+  void setup(DistSVec<double, 3> &X);
 
 };
 
 //------------------------------------------------------------------------------
 
-class AccForcedMeshMotionHandler : public ForcedMeshMotionHandler, 
+class PitchingMeshMotionHandler : public MeshMotionHandler {
+
+  double alpha_in;
+  double alpha_max;
+
+  double dt;
+  double omega;
+
+  double x1[3];
+  double x2[3];
+
+  double u, v, w;
+  double ix, iy, iz;
+
+  MeshMotionSolver *mms;
+
+public:
+
+  PitchingMeshMotionHandler(IoData &, Domain *);
+  ~PitchingMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  void setup(DistSVec<double, 3> &X);
+
+};
+
+//------------------------------------------------------------------------------
+
+class HeavingMeshMotionHandler : public MeshMotionHandler {
+
+  double dt;
+  double omega;
+
+  double delta[3];
+
+  MeshMotionSolver *mms;
+
+public:
+
+  HeavingMeshMotionHandler(IoData &, Domain *);
+  ~HeavingMeshMotionHandler();
+
+  double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  void setup(DistSVec<double, 3> &X);
+
+};
+
+//------------------------------------------------------------------------------
+
+class AccForcedMeshMotionHandler : public DeformingMeshMotionHandler, 
 				   public RigidMeshMotionHandler {
 
 public:
