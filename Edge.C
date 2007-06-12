@@ -243,6 +243,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   SVec<double,1>& dPdz = ngradLS.getZ();
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double Wi[2*dim], Wj[2*dim];
+  double fluxi[dim], fluxj[dim];
   double gradphi[3];
   double gphii[3];
   double gphij[3];
@@ -277,8 +279,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     if (ierr) continue;
 
-    int k;
-    for (k=0; k<dim; ++k) {
+    for (int k=0; k<dim; ++k) {
       Vi[k+dim] = V[i][k];
       Vj[k+dim] = V[j][k];
     }
@@ -290,7 +291,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (Phi[i] < 0.0 && Phi[j] < 0.0)  {
         fluxFcn[BC_INTERNAL]->compute(0.0, normal[l], normalVel[l], Vi, Vj, flux, -1);
       }
-      for (k=0; k<dim; ++k) {
+      for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
       }
@@ -302,7 +303,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       gphii[2] = dPdz[i][0];
       gphij[0] = dPdx[j][0];
       gphij[1] = dPdy[j][0];
-        gphij[2] = dPdz[j][0];
+      gphij[2] = dPdz[j][0];
       for (int k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -311,15 +312,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       int epsi = 0;
       int epsj = 0;
-      double Wi[2*dim], Wj[2*dim];
-      double fluxi[dim], fluxj[dim];
       riemann.computeRiemannSolution(Vi,Vj,Phi[i],Phi[j],gradphi,varFcn,
                                     epsi,epsj,Wi,Wj,i,j);
       fluxFcn[BC_INTERNAL]->compute(0.0, normal[l], normalVel[l],
                                     Vi, Wi, fluxi, epsi);
       fluxFcn[BC_INTERNAL]->compute(0.0, normal[l], normalVel[l],
                                     Wj, Vj, fluxj, epsj);
-      for (k=0; k<dim; k++){
+      for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
