@@ -278,7 +278,8 @@ public:
     double popr = V[4]*gam*machr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double opmachr = 1.0 + 0.5*gam1*machr2;
-    return popr*pow(opmach/opmachr, gam*invgam1);
+    //return popr*pow(opmach/opmachr, gam*invgam1);
+    return V[4] * pow(opmach, gam*invgam1);
   }
 
 };

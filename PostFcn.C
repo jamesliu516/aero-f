@@ -67,6 +67,9 @@ PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
   nGravity[1] = cos(alpha)*sin(beta);
   nGravity[2] = sin(alpha);
 
+  refRho = iod.ref.rv.density;
+  refPressure = iod.ref.rv.pressure;
+  refVel = iod.ref.rv.velocity;
 }
 
 //------------------------------------------------------------------------------
@@ -77,24 +80,35 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   double q = 0.0;
   double n[3];
 
-  if (type == DENSITY)
+  if (type == DENSITY)  {
     q = varFcn->getDensity(V);
+    q *= refRho;
+  }
   else if (type == MACH)
     q = varFcn->computeMachNumber(V, phi);
   else if (type == WTMACH)
     q = varFcn->computeWtMachNumber(V, phi);
-  else if (type == SPEED)
+  else if (type == SPEED)  {
     q = sqrt(varFcn->computeU2(V));
-  else if (type == WTSPEED)
+    q *= refVel;
+  }
+  else if (type == WTSPEED)  {
     q = sqrt(varFcn->computeWtU2(V));
-  else if (type == PRESSURE)
+    q *= refVel;
+  }
+  else if (type == PRESSURE)  {
     q = varFcn->getPressure(V, phi);
-  else if (type == DIFFPRESSURE)
+    q *= refPressure;
+  }
+  else if (type == DIFFPRESSURE)  {
     q = varFcn->getPressure(V, phi)-pinfty;
+  }
   else if (type == TEMPERATURE)
     q = varFcn->computeTemperature(V, phi);
-  else if (type == TOTPRESSURE)
+  else if (type == TOTPRESSURE)  {
     q = varFcn->computeTotalPressure(mach, V, phi);
+    q *= refPressure;
+  }
   else if (type == NUT_TURB)
     q = varFcn->getTurbulentNuTilde(V);
   else if (type == K_TURB)

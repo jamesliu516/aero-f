@@ -66,6 +66,9 @@ protected:
   double alpha;
   double beta;
   double nGravity[3];
+  double refRho;
+  double refPressure;
+  double refVel;
 
 public:
 
