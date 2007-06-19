@@ -384,6 +384,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   com->fprintf(stderr, " ... Read Perturbed solution: W = %e\n", delW.norm());
 
   tOutput->writeForcesToDisk(0, 0, 0, 0, 0.0, com->cpuNum(), tRestart->energy, deltmp, delW);
+  tOutput->writeBinaryVectorsToDisk(false, 0, 0, deltmp, controlVol, delW, tState);
 
   delW -= Uref;
   delWnm1 = delW;
@@ -477,6 +478,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     int ierr = domain.checkSolution(varFcn, delWtmp);
 
     tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, cntp1*dt, com->cpuNum(), tRestart->energy, deltmp, delWtmp);
+    tOutput->writeBinaryVectorsToDisk(false, cntp1, cntp1*dt, deltmp, controlVol, delWtmp, tState);
 
     if (ierr)  {
       com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);

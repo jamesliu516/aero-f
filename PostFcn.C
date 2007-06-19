@@ -102,6 +102,7 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   }
   else if (type == DIFFPRESSURE)  {
     q = varFcn->getPressure(V, phi)-pinfty;
+    q *= refPressure;
   }
   else if (type == TEMPERATURE)
     q = varFcn->computeTemperature(V, phi);
