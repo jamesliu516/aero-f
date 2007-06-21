@@ -1,6 +1,6 @@
 c     *******************************************************************
 c 
-      subroutine GetSingleTet(ele, coor, nu, ktetglob)
+      subroutine TorsionSpring(ele, coor, nu, ktetglob)
       IMPLICIT NONE
       real*8 coor(3,*)
       integer nu(4)

@@ -63,17 +63,18 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   else
     *d2wall = 0.0;
 
-  edgeNorm = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-  faceNorm = new DistVec<Vec3D>(domain->getFaceDistInfo());
+  edgeNorm    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
   edgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
-  faceNormVel = new DistVec<double>(domain->getFaceDistInfo());
-  edgeNorm_nm1 = 0;
-  faceNorm_nm1 = 0;
+  edgeNorm_nm1    = 0;
   edgeNormVel_nm1 = 0;
-  faceNormVel_nm1 = 0;
-  edgeNorm_nm2 = 0;
-  faceNorm_nm2 = 0;
+  edgeNorm_nm2    = 0;
   edgeNormVel_nm2 = 0;
+
+  faceNorm    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
+  faceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
+  faceNorm_nm1    = 0;
+  faceNormVel_nm1 = 0;
+  faceNorm_nm2    = 0;
   faceNormVel_nm2 = 0;
   
   inletNodeNorm = new DistVec<Vec3D>(domain->getInletNodeDistInfo());
@@ -81,20 +82,20 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
 
   if (data.typeNormals == ImplicitData::SECOND_ORDER_GCL) {
-    edgeNorm_nm1 = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-    faceNorm_nm1 = new DistVec<Vec3D>(domain->getFaceDistInfo());
+    edgeNorm_nm1    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNorm_nm1    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
   else if (data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
   else if (data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
     edgeNormVel_nm2 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm2 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
+    faceNormVel_nm2 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
 
   subGeoState = new GeoState*[numLocSub];
@@ -126,16 +127,17 @@ DistGeoState::~DistGeoState()
   if (d2wall) delete d2wall;
 
   if (edgeNorm) delete edgeNorm;
-  if (faceNorm) delete faceNorm;
   if (edgeNormVel) delete edgeNormVel;
-  if (faceNormVel) delete faceNormVel;
   if (edgeNorm_nm1) delete edgeNorm_nm1;
-  if (faceNorm_nm1) delete faceNorm_nm1;
   if (edgeNormVel_nm1) delete edgeNormVel_nm1;
-  if (faceNormVel_nm1) delete faceNormVel_nm1;
   if (edgeNorm_nm2) delete edgeNorm_nm2;
-  if (faceNorm_nm2) delete faceNorm_nm2;
   if (edgeNormVel_nm2) delete edgeNormVel_nm2;
+
+  if (faceNorm) delete faceNorm;
+  if (faceNormVel) delete faceNormVel;
+  if (faceNorm_nm1) delete faceNorm_nm1;
+  if (faceNormVel_nm1) delete faceNormVel_nm1;
+  if (faceNorm_nm2) delete faceNorm_nm2;
   if (faceNormVel_nm2) delete faceNormVel_nm2;
   
   if (inletNodeNorm) delete inletNodeNorm;
@@ -248,7 +250,7 @@ void DistGeoState::setup2(TimeData &timeData)
     if (!subGeoState[iSub])
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
 				       (*ctrlVol_nm2)(iSub), (*d2wall)(iSub), 
-				       (*edgeNorm)(iSub), (*faceNorm)(iSub), 
+				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
 

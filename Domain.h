@@ -65,6 +65,7 @@ class Domain {
   DistInfo *nodeDistInfo;
   DistInfo *edgeDistInfo;
   DistInfo *faceDistInfo;
+  DistInfo *faceNormDistInfo;
   DistInfo *inletNodeDistInfo;
 
   CommPattern<double> *vecPat;
@@ -143,6 +144,7 @@ public:
   DistInfo &getNodeDistInfo() const { return *nodeDistInfo; }
   DistInfo &getEdgeDistInfo() const { return *edgeDistInfo; }
   DistInfo &getFaceDistInfo() const { return *faceDistInfo; }
+  DistInfo &getFaceNormDistInfo() const { return *faceNormDistInfo; }
   DistInfo &getInletNodeDistInfo() const { return *inletNodeDistInfo; }
 
   void getGeometry(GeoSource &, IoData&);
@@ -513,8 +515,12 @@ public:
   template<class Scalar, int neq>
   void printAllMatrix( DistMat<Scalar,neq> &, int );
 
+  // XML Debugging routine
+  void checkNormalSums(IoData &);
+
   template<int dim>
-  void padeReconstruction(VecSet<DistSVec<double, dim> >&, VecSet<DistSVec<double, dim> >&, int*, double*, double, int, int, int, int );
+  void padeReconstruction(VecSet<DistSVec<double, dim> >&, VecSet<DistSVec<double, dim> >&, 
+			  int*, double*, double, int, int, int, int );
 };
  
 //------------------------------------------------------------------------------

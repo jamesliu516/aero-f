@@ -1,7 +1,7 @@
 #include <Extrapolation.h>
 #include <IoData.h>
 #include <VarFcn.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <Vector.h>
 #include <Vector3D.h>
 
@@ -90,7 +90,7 @@ void Extrapolation<dim>::removeHydroStaticContribution(int i, int n[3],SVec<doub
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node, TetSet &tets, 
+void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node, ElemSet &elems, 
 			SVec<double,dim> &Ufar, SVec<double,dim> &V, double* Vinter1, 
 			double* Vinter2, int* LinTet, 
 			int* locToGlobNodeMap, SVec<double,3>& X)
@@ -101,16 +101,21 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
 
   int tet0 = extrapolationdata[i][0].tet;
   int tet1 = extrapolationdata[i][1].tet;
+  int loc[3];
   int n[3];
   int m[3];
 
   if(tet0 != -1){
 
     master = true;
-    n[0] = tets[tet0][Tet::faceDef[extrapolationdata[i][0].face][0]];
-    n[1] = tets[tet0][Tet::faceDef[extrapolationdata[i][0].face][1]];
-    n[2] = tets[tet0][Tet::faceDef[extrapolationdata[i][0].face][2]];
-
+    Elem &elem0 = elems[tet0];
+    loc[0] = elem0.faceDef(extrapolationdata[i][0].face,0);
+    loc[1] = elem0.faceDef(extrapolationdata[i][0].face,1);
+    loc[2] = elem0.faceDef(extrapolationdata[i][0].face,2);
+    n[0] = elem0.nodeNum(loc[0]);
+    n[1] = elem0.nodeNum(loc[1]);
+    n[2] = elem0.nodeNum(loc[2]);
+    
     for(int k=0; k<dim; ++k)
       Vinter1[k] = V[n[2]][k] + extrapolationdata[i][0].r * ( V[n[0]][k] - V[n[2]][k] ) +
 	extrapolationdata[i][0].t * ( V[n[1]][k] - V[n[2]][k] );
@@ -120,9 +125,14 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
 
     if (tet1 != -1){ // linear extrapolation
       double V2[dim];
-      m[0] = tets[tet1][Tet::faceDef[extrapolationdata[i][1].face][0]];
-      m[1] = tets[tet1][Tet::faceDef[extrapolationdata[i][1].face][1]];
-      m[2] = tets[tet1][Tet::faceDef[extrapolationdata[i][1].face][2]];
+      Elem &elem1 = elems[tet1];
+      loc[0] = elem1.faceDef(extrapolationdata[i][1].face,0);
+      loc[1] = elem1.faceDef(extrapolationdata[i][1].face,1);
+      loc[2] = elem1.faceDef(extrapolationdata[i][1].face,2);
+      m[0] = elem1.nodeNum(loc[0]);
+      m[1] = elem1.nodeNum(loc[1]);
+      m[2] = elem1.nodeNum(loc[2]);
+
       for(int kk=0; kk<dim; kk++)
 	V2[kk] = V[m[2]][kk] + extrapolationdata[i][1].r * ( V[m[0]][kk] - V[m[2]][kk] ) +
                   extrapolationdata[i][1].t * ( V[m[1]][kk] - V[m[2]][kk] );
