@@ -33,7 +33,7 @@ CXXOBJS    = BcFcnCore.o \
              DistMacroCellCore.o \
              DomainCore.o \
              EdgeCore.o \
-             FaceCore.o \
+             FaceTriaCore.o \
              FemEquationTermDesc.o \
              FluxFcnDesc.o \
              FluxFcnDescPerfectGas.o \
@@ -63,7 +63,7 @@ CXXOBJS    = BcFcnCore.o \
 	     DynamicLESTerm.o \
 	     StructExc.o \
              SubDomainCore.o \
-             TetCore.o \
+             ElemTetCore.o \
              TimeData.o \
              Timer.o \
              TsInput.o \
