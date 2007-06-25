@@ -12,15 +12,17 @@ LevelSet::LevelSet(IoData &iod, Domain *dom):
 
   com = domain->getCommunicator();
   numLocSub = domain->getNumLocSub();
+
   data = new TimeData(iod);
+
   bandlevel = iod.mf.bandlevel;
   localtime = iod.mf.localtime;
   subIt = iod.mf.subIt;
-	cfl_psi = iod.mf.cfl;
+  cfl_psi = iod.mf.cfl;
   typeTracking = iod.mf.typeTracking;
   if(typeTracking == MultiFluidData::GRADIENT){
-		fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
-	}
+    fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
+  }
 
   lsgrad  = new DistNodalGrad<1,double>(iod,dom,2);
 
@@ -78,9 +80,9 @@ bool LevelSet::checkConvergencePsi(int iteration, double &res0)
 
   double target = eps*res0;
   if(res < target || iteration >= subIt || res < 1.e-12){
-		com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
+    com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
     return true;
-	}
+  }
 
   return false;
 

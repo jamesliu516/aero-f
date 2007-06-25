@@ -10,10 +10,10 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
 		     DistSVec<double,dim> &U, IoData &iod)
 {
 
-	if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS && 
+  if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS && 
      iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
-	else invertGasLiquid = 1.0;
+  else invertGasLiquid = 1.0;
 
   double dist, r, xb, yb, zb;
   xb   = iod.mf.icd.s1.cen_x;
@@ -28,17 +28,17 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
     double (*phi) = Phi.subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
       //for bubble
-			if(iod.mf.problem == MultiFluidData::BUBBLE){
+      if(iod.mf.problem == MultiFluidData::BUBBLE){
         phi[i] = invertGasLiquid*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
                                         (x[i][1] -yb)*(x[i][1] -yb)  +
                                         (x[i][2] -zb)*(x[i][2] -zb))  -r);
         //phi[i] = 2.0*sin(phi[i]/4.0)+1.3;
-			}else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
+      }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
       //for shock tube (comments: cf LevelSetCore.C)
         phi[i] = x[i][0] - r;
         //phi[i] = xb*sin(zb*(x[i][0]-0.50005))+yb;
         //phi[i] = fabs(x[i][0]-xb) - r;
-			}
+      }
       phi[i] *= u[i][0];
       //fprintf(stdout, "%e %e %e %e\n", x[i][0],dist, phi[i], u[i][0]);
     }
@@ -125,7 +125,7 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
 {
 
   fprintf(stdout, "reinitializing LevelSet\n");
-	/* solving reinitialization equation for the level set
+  /* solving reinitialization equation for the level set
   ** dphi/dt + sign(phi)*(abs(grad(phi))-1.0) = 0.0
   ** where phi is the 'primitive phi'
   **
@@ -133,21 +133,21 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
   ** to converge the solution, we solve
   ** dpsi/dtau + sign(phi)*(abs(grad(phi))-1.0) = 0.0
   ** and psi(tau = 0.0) = phi
-	**
-	** it is not always possible to solve this equation using
-	** local time stepping, especially far from the interface.
-	** Since the distance function is needed only close to the
-	** interface, one solves this equation for nodes close to
-	** that interface (those nodes are tagged first). The
-	** remaining nodes are set to an arbitrary value. Here
-	** we chose to give them the highest value among its neighbors.
+  **
+  ** it is not always possible to solve this equation using
+  ** local time stepping, especially far from the interface.
+  ** Since the distance function is needed only close to the
+  ** interface, one solves this equation for nodes close to
+  ** that interface (those nodes are tagged first). The
+  ** remaining nodes are set to an arbitrary value. Here
+  ** we chose to give them the highest value among its neighbors.
   */
 
   // initialize Psi
   Psi = Phi;
 
   // tag nodes that are close to interface up to level 'levelTot'
-	int level = 0;
+  int level = 0;
   for (level=0; level<bandlevel; level++)
     //domain->TagInterfaceNodes(Tag,Phi0,level);
     domain->TagInterfaceNodes(Tag,Phi,level);
@@ -156,9 +156,9 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
   //computeSteadyState(geoState, X, ctrlVol, U, Phi0); // for testing only!!
   computeSteadyState(geoState, X, ctrlVol, U, Phi);
 
-	// psi is set to max(values of neighbours with tag>0) if tag is 0
+  // psi is set to max(values of neighbours with tag>0) if tag is 0
   bool lastlevel = false;
-	while(!lastlevel){
+  while(!lastlevel){
     domain->FinishReinitialization(Tag,Psi,level);
     level += 1;
     lastlevel = (Tag.min()==0 ? false : true);
