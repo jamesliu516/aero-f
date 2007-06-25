@@ -2016,30 +2016,30 @@ void SubDomain::maxRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void SubDomain::maxAbsRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
+template<class Scalar1, class Scalar2, int dim1, int dim2>
+void SubDomain::TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
+                                   CommPattern<Scalar2> &sppsi, Scalar2 (*psi)[dim2])
 {
-  // only called for levelset reinitialization so dim = 1 
-	/* if positive values, take the max
-	** if negative values, take the min
-	** values with different signs should never happen
-	*/
+  /* it is assumed that dim1 = 1, dim2 = 1 */
+
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
 
-    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
-    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+    SubRecInfo<Scalar1> sInfolevel = splevel.recData(rcvChannel[iSub]);
+    Scalar1 (*blevel)[dim1] = reinterpret_cast<Scalar1 (*)[dim1]>(sInfolevel.data);
+    SubRecInfo<Scalar2> sInfopsi = sppsi.recData(rcvChannel[iSub]);
+    Scalar2 (*bpsi)[dim2] = reinterpret_cast<Scalar2 (*)[dim2]>(sInfopsi.data);
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
-      if ((w[ (*sharedNodes)[iSub][iNode] ][0] > 0.0 &&
-              buffer[iNode][0] > w[ (*sharedNodes)[iSub][iNode] ][0]) ||
-          (w[ (*sharedNodes)[iSub][iNode] ][0] < 0.0 &&
-              buffer[iNode][0] < w[ (*sharedNodes)[iSub][iNode] ][0])  )
-        w[ (*sharedNodes)[iSub][iNode] ][0] = buffer[iNode][0];
+      if (level[ (*sharedNodes)[iSub][iNode] ][0] == 0 &&
+          blevel[iNode][0] > 0){
+        level[ (*sharedNodes)[iSub][iNode] ][0] = blevel[iNode][0];
+        psi[ (*sharedNodes)[iSub][iNode] ][0]   = bpsi[iNode][0];
+      }
 
   }
 
 }
-	
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -3320,6 +3320,17 @@ void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, 
       if(!(beta[i]>0.0))
         beta[i] = bmax;
     }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::checkNodePhaseChange(SVec<double,dim> &X)
+{
+
+  for(int i=0; i<nodes.size(); i++)
+    for(int idim=0; idim<dim; idim++)
+      if(X[i][idim]<0.0)
+        fprintf(stdout, "***Error: node %d (%d) has changed phase during reinitialization\n", i, locToGlobNodeMap[i]+1);
+
 }
 //------------------------------------------------------------------------------
 template<int dim>

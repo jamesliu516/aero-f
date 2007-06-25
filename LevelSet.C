@@ -164,6 +164,11 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
     lastlevel = (Tag.min()==0 ? false : true);
   }
 
+  DistSVec<double,1> testsign(domain->getNodeDistInfo());
+  testsign = Psi;
+  testsign *= Phi;
+  domain->checkNodePhaseChange(testsign);
+
   // set Phi to the new distance function
   DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
   Phi = distance;

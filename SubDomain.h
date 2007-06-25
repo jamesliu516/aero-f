@@ -598,8 +598,9 @@ public:
   template<class Scalar, int dim>
   void maxRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
-  template<class Scalar, int dim>
-  void maxAbsRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+  template<class Scalar1, class Scalar2, int dim1, int dim2>
+  void TagPsiExchangeData(CommPattern<Scalar1> &splevel, Scalar1 (*level)[dim1],
+                          CommPattern<Scalar2> &sppsi, Scalar2 (*psi)[dim2]);
 
   template<class Scalar, int dim>
   void sndDiagBlocks(CommPattern<Scalar> &, GenMat<Scalar,dim> &);
@@ -700,6 +701,8 @@ public:
   template<int dim>
   void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
                            SVec<double,dim> &PsiRes,bool localdt);
+  template<int dim>
+  void checkNodePhaseChange(SVec<double,dim> &X);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,

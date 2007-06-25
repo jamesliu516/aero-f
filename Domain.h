@@ -274,6 +274,8 @@ public:
 			  DistVec<double> &w, DistVec<double> &beta,
 			  DistSVec<double,dim> &PsiRes, bool localdt,
 			  int typeTracking);
+  template<int dim>
+  void checkNodePhaseChange(DistSVec<double,dim> &X);
 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 

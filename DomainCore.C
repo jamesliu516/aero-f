@@ -1138,10 +1138,9 @@ void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
   volPat->exchange();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-    subDomain[iSub]->maxAbsRcvData(*volPat, Psi.subData(iSub));
-  }
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->TagPsiExchangeData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),
+                                        *volPat, Psi.subData(iSub));
 
 }
 //------------------------------------------------------------------------------
