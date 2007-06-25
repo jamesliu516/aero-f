@@ -1238,6 +1238,7 @@ MultiFluidData::MultiFluidData()
   typeTracking = LINEAR;
   bandlevel = 3;
   subIt = 10;
+	cfl = 0.7;
 	frequency = 0;
 }
                                                                                                         
@@ -1246,7 +1247,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+  ClassAssigner *ca = new ClassAssigner(name, 10, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1268,6 +1269,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              &MultiFluidData::bandlevel);
   new ClassInt<MultiFluidData>(ca, "SubIt", this,
              &MultiFluidData::subIt);
+  new ClassDouble<MultiFluidData>(ca, "Cfl", this,
+             &MultiFluidData::cfl);
   new ClassInt<MultiFluidData>(ca, "Frequency", this,
              &MultiFluidData::frequency);
                                                                                                         
