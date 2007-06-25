@@ -193,10 +193,10 @@ void LevelSet::computeSteadyState(DistGeoState &geoState,
     lastIt = checkConvergencePsi(iteration, res0);
 
     if(localtime){
-      dt *= 0.5;
+      dt *= cfl_psi;
       PsiRes *= dt;
     }else{
-      double dt_glob = 0.5*dt.min();
+      double dt_glob = cfl_psi*dt.min();
       PsiRes *= dt_glob;
     }
 

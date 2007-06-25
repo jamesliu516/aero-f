@@ -681,6 +681,7 @@ struct MultiFluidData {
   enum InterfaceTracking {LINEAR = 0, GRADIENT = 1} typeTracking;
   int bandlevel;
   int subIt;
+  double cfl;
 	int frequency;
 	enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
 	enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;

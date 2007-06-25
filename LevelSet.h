@@ -17,6 +17,7 @@ class LevelSet {
   int bandlevel;
   int localtime;
   int subIt;
+  double cfl_psi;
 
 	double invertGasLiquid; //to run Liquid in Gas Simulation....
 
