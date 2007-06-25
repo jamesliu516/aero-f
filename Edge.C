@@ -200,15 +200,14 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
 
     if (ierr) continue;
 
-    int k;
-    for (k=0; k<dim; ++k) {
+    for (int k=0; k<dim; ++k) {
       Vi[k+dim] = V[i][k];
       Vj[k+dim] = V[j][k];
     }
 
     fluxFcn[BC_INTERNAL]->compute(edgeirey, normal[l], normalVel[l], Vi, Vj, flux);
 
-    for (k=0; k<dim; ++k) {
+    for (int k=0; k<dim; ++k) {
       fluxes[i][k] += flux[k];
       fluxes[j][k] -= flux[k];
     }
