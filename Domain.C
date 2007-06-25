@@ -2305,6 +2305,16 @@ void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgra
 }
 //-------------------------------------------------------------------------------
 template<int dim>
+void Domain::checkNodePhaseChange(DistSVec<double,dim> &X)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->checkNodePhaseChange(X(iSub));
+
+}
+//-------------------------------------------------------------------------------
+template<int dim>
 void Domain::padeReconstruction(VecSet<DistSVec<double, dim> >&snapsCoarse, VecSet<DistSVec<double, dim> >&snaps, int *stepParam, double *freqCoarse, double deltaFreq, int nStrMode, int L, int M, int nPoints)
 {
   int nSteps = stepParam[0];
