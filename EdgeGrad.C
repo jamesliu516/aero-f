@@ -1,0 +1,160 @@
+#include <EdgeGrad.h>
+#include <IoData.h>
+#include <Tet.h>
+#include <SubDomain.h>
+#include <Vector.h>
+#include <Vector3D.h>
+
+#include <math.h>
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+EdgeGrad<dim>::EdgeGrad(IoData& iod)
+{
+
+  v6data = 0;
+
+  beta = iod.schemes.ns.beta;
+
+  tag = 0;
+  
+  if (iod.schemes.ns.gradient == SchemeData::NON_NODAL){
+    xiu = 0.0;
+    xic = 0.0;
+  }
+  
+  if(iod.schemes.ns.dissipation == SchemeData::SIXTH_ORDER) {
+    xiu = iod.schemes.ns.xiu;
+    xic = iod.schemes.ns.xic;
+    if (beta != 0.0) {
+      xiu /= beta;
+      xic /= beta;
+    }   
+  }    
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+EdgeGrad<dim>::~EdgeGrad()
+{
+  
+  if (v6data) delete [] v6data;
+
+}
+
+//------------------------------------------------------------------------------
+/*
+template<int dim>
+void EdgeGrad<dim>::findEdgeTetrahedra(SubDomain* subDomain, SVec<double,3>& X)
+{
+
+  subDomain->findEdgeTetrahedra(X, v6data);
+
+}
+*/
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EdgeGrad<dim>::computeUpwindGradient(Tet& tet, double rij[3], SVec<double,3>& X,
+					  SVec<double,dim>& V, double* grad)
+{
+
+  double dp1dxi[4][3];
+  tet.computeGradientP1Function(X, dp1dxi);
+  
+  int i0 = tet[0];
+  int i1 = tet[1];
+  int i2 = tet[2];
+  int i3 = tet[3];
+
+  for (int k=0; k<dim; ++k) {
+    grad[k] = ( (dp1dxi[0][0]*V[i0][k] + dp1dxi[1][0]*V[i1][k] + 
+		 dp1dxi[2][0]*V[i2][k] + dp1dxi[3][0]*V[i3][k]) * rij[0] +
+		(dp1dxi[0][1]*V[i0][k] + dp1dxi[1][1]*V[i1][k] + 
+		 dp1dxi[2][1]*V[i2][k] + dp1dxi[3][1]*V[i3][k]) * rij[1] +
+		(dp1dxi[0][2]*V[i0][k] + dp1dxi[1][2]*V[i1][k] + 
+		 dp1dxi[2][2]*V[i2][k] + dp1dxi[3][2]*V[i3][k]) * rij[2] );
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EdgeGrad<dim>::computeFaceGradient(TetSet& tets, V6NodeData& data, double rij[3],
+					SVec<double,dim>& dVdx, SVec<double,dim>& dVdy,
+					SVec<double,dim>& dVdz, double* grad)
+{
+
+  int n0 = tets[data.tet][ Tet::faceDef[ data.face ][0] ];
+  int n1 = tets[data.tet][ Tet::faceDef[ data.face ][1] ];
+  int n2 = tets[data.tet][ Tet::faceDef[ data.face ][2] ];
+
+  for (int k=0; k<dim; ++k) {
+    grad[k] = ( (dVdx[n2][k] + data.r * (dVdx[n0][k]-dVdx[n2][k]) + 
+		 data.t * (dVdx[n1][k]-dVdx[n2][k])) * rij[0] +
+		(dVdy[n2][k] + data.r * (dVdy[n0][k]-dVdy[n2][k]) + 
+		 data.t * (dVdy[n1][k]-dVdy[n2][k])) * rij[1] +
+		(dVdz[n2][k] + data.r * (dVdz[n0][k]-dVdz[n2][k]) + 
+		 data.t * (dVdz[n1][k]-dVdz[n2][k])) * rij[2] );
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void EdgeGrad<dim>::compute(int l, int i, int j, TetSet& tets,
+                            SVec<double,3>& X, SVec<double,dim>& V,
+                            SVec<double,dim>& dVdx, SVec<double,dim>& dVdy,
+                            SVec<double,dim>& dVdz, double* ddVij, double* ddVji)
+{
+
+  double rij[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+
+  if (beta == 0.0) {
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = 0.0;
+      ddVji[k] = 0.0;
+    }
+  }
+  else if (v6data[l][0].tet == -1 || v6data[l][1].tet == -1) {
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+      ddVji[k] = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+    }
+  }
+  else {
+    double ddVij_u[dim];
+    computeUpwindGradient(tets[v6data[l][0].tet], rij, X, V, ddVij_u);
+    double ddVji_u[dim];
+    computeUpwindGradient(tets[v6data[l][1].tet], rij, X, V, ddVji_u);
+    double ddVij_f[dim];
+    computeFaceGradient(tets, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
+    double ddVji_f[dim];
+    computeFaceGradient(tets, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
+    for (int k=0; k<dim; ++k) {
+      double ddVij_c = V[j][k] - V[i][k];
+      double ddVi = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];
+      double ddVj = dVdx[j][k]*rij[0] + dVdy[j][k]*rij[1] + dVdz[j][k]*rij[2];
+      ddVij[k] = 0.5 * (ddVij_c + ddVij_u[k] + xiu * (ddVij_f[k] - 2.0*ddVi + ddVj) +
+                        xic * (ddVij_u[k] - 2.0*ddVij_c + ddVji_u[k]));
+      ddVji[k] = 0.5 * (ddVij_c + ddVji_u[k] + xiu * (ddVji_f[k] - 2.0*ddVj + ddVi) +
+                        xic * (ddVji_u[k] - 2.0*ddVij_c + ddVij_u[k]));
+    }
+  }
+
+  if (tag[i])
+    for (int k=0; k<dim; ++k)
+      ddVij[k] = 0.0;
+
+  if (tag[j])
+    for (int k=0; k<dim; ++k)
+      ddVji[k] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
