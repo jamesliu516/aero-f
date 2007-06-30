@@ -70,6 +70,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     scalars[PostFcn::WTMACH] = new char[sp + strlen(iod.output.transient.wtmach)];
     sprintf(scalars[PostFcn::WTMACH], "%s%s", iod.output.transient.prefix, iod.output.transient.wtmach);
   }
+  if (iod.output.transient.wtspeed[0] != 0) {
+    scalars[PostFcn::WTSPEED] = new char[sp + strlen(iod.output.transient.wtmach)];
+    sprintf(scalars[PostFcn::WTSPEED], "%s%s", iod.output.transient.prefix, iod.output.transient.wtspeed);
+    sscale[PostFcn::WTSPEED] = iod.ref.rv.velocity;
+  }
   if (iod.output.transient.speed[0] != 0) {
     sscale[PostFcn::SPEED] = iod.ref.rv.velocity;
     scalars[PostFcn::SPEED] = new char[sp + strlen(iod.output.transient.speed)];

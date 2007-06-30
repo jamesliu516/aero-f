@@ -80,36 +80,24 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   double q = 0.0;
   double n[3];
 
-  if (type == DENSITY)  {
+  if (type == DENSITY)
     q = varFcn->getDensity(V);
-    q *= refRho;
-  }
   else if (type == MACH)
     q = varFcn->computeMachNumber(V, phi);
   else if (type == WTMACH)
     q = varFcn->computeWtMachNumber(V, phi);
-  else if (type == SPEED)  {
+  else if (type == SPEED)
     q = sqrt(varFcn->computeU2(V));
-    q *= refVel;
-  }
-  else if (type == WTSPEED)  {
+  else if (type == WTSPEED)
     q = sqrt(varFcn->computeWtU2(V));
-    q *= refVel;
-  }
-  else if (type == PRESSURE)  {
+  else if (type == PRESSURE)
     q = varFcn->getPressure(V, phi);
-    q *= refPressure;
-  }
-  else if (type == DIFFPRESSURE)  {
+  else if (type == DIFFPRESSURE)
     q = varFcn->getPressure(V, phi)-pinfty;
-    q *= refPressure;
-  }
   else if (type == TEMPERATURE)
     q = varFcn->computeTemperature(V, phi);
-  else if (type == TOTPRESSURE)  {
+  else if (type == TOTPRESSURE)
     q = varFcn->computeTotalPressure(mach, V, phi);
-    q *= refPressure;
-  }
   else if (type == NUT_TURB)
     q = varFcn->getTurbulentNuTilde(V);
   else if (type == K_TURB)
