@@ -1,0 +1,20 @@
+ARPACKDIR     =  .
+ARPACKLIB     =   $(ARPACKDIR)/libarpack_SUN4.a 
+OFLAGS        = -O3 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64
+SOFLAGS       = -shared
+LIBS          = $(ARPACKLIB) -llapack -lg2c -lblas -lm #-latlas -lcblas -lf77blas 
+#LIBS          = $(ARPACKLIB) -llapack -lblas -lm -lg2c #-latlas
+
+# MPI LIBRARY
+MPIDIR        = $(MPIHOME)
+MPIBINDIR     = $(MPIBIN)
+MPILIBDIR     = $(MPILIB)
+MPIINCDIR     = $(MPIINC)
+
+MPLIBS        = -L$(MPILIBDIR) -lpthread -lpmpich++ -lmpich
+DLLIBS        = -ldl
+SAR           = ar cr
+LD            = g++
+
+LOCALMPIFLAG  = $(MPIFLAG) -I$(MPIINCDIR) -I$(MPIINCDIR)/mpi2c++
+CXXFLAGS      = -Wno-deprecated -I. -I/usr/local $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS)
