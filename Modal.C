@@ -1687,7 +1687,8 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   double invDt = -1.0/ioData->ref.rv.time;
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
-    tmpVec = DE[iVec] * invDt;
+    //tmpVec = DE[iVec] * invDt; #BUG#
+    tmpVec = DE[iVec];
     tmpVec2 = DX[iVec];
     tmpVec /= controlVol;
     tmpVec2 /= controlVol;
