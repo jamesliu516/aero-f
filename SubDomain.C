@@ -3243,13 +3243,13 @@ void SubDomain::padeReconstruction(SVec<double, dim> **dataCoarse, SVec<double, 
   int size = L+M+1;
                                                         
                                                         
-  bcomp compMat[numFreqCoarse*(numPadeDeriv+1)];
+  bcomp *compMat = new bcomp[numFreqCoarse*(numPadeDeriv+1)];
                                                         
   double tempMat[dim*nSnapsCoarse];
-  bcomp padeMat[size*size];
-  bcomp padeVec[size];
+  bcomp *padeMat = new bcomp[size*size];
+  bcomp *padeVec = new bcomp[size];
                                                         
-  bcomp snaps[nSteps+1];
+  bcomp *snaps = new bcomp[nSteps+1];
   int midFreq[1] ;
   double deltaFreqCoarse[numFreqCoarse];
   buildDeltaFreq(deltaFreqCoarse, numFreqCoarse, freqCoarse, midFreq);

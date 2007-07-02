@@ -67,9 +67,6 @@ PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
   nGravity[1] = cos(alpha)*sin(beta);
   nGravity[2] = sin(alpha);
 
-  refRho = iod.ref.rv.density;
-  refPressure = iod.ref.rv.pressure;
-  refVel = iod.ref.rv.velocity;
 }
 
 //------------------------------------------------------------------------------
