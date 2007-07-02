@@ -50,7 +50,6 @@ extern "C" {
 };
 
 //------------------------------------------------------------------------------
-// test change
 
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
