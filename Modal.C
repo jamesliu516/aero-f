@@ -411,6 +411,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
     t0 = modalTimer->getTime();    
 
+    if (cnt == 1) {
     rhs = (delW*4.0) - delWnm1;
 
     rhs *= controlVol;
@@ -440,7 +441,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     rhs += FF;
     ksp->solve(rhs, delW);
     modalTimer->addKspTime(t0);
-
 
     // for forced oscillations
     if (ioData->linearizedData.type == LinearizedData::FORCED)  {
