@@ -1485,12 +1485,15 @@ bool SubDomain::findTetrahedron(int i, int j, Vec<int>& count, int** list,
 
   Vec3D d(X[i]);
   Vec3D e(X[j]);
+
+/*  
   double unit = sqrt ((d[0]-e[0])*(d[0]-e[0]) + (d[1]-e[1])*(d[1]-e[1]) + (d[2]-e[2])*(d[2]-e[2]));
   double length;
   if (unit == 0.0){
     fprintf(stderr, "*** Error: normal is equal to null vector\n");
     exit(1);
   }
+*/
 
 #ifdef EDGE_LENGTH //HB
   if(refLength) {
@@ -1504,8 +1507,12 @@ bool SubDomain::findTetrahedron(int i, int j, Vec<int>& count, int** list,
 
   for (int k=0; k<count[i]; ++k) {
     int tt = list[i][k];
+
+/*    
     length = tets[tt].computeLongestEdge(X);
     d = d +5.0 * length/unit * (d-e);
+*/
+
     if ((tets[tt][0] != j) && (tets[tt][1] != j) &&
 	(tets[tt][2] != j) && (tets[tt][3] != j)) {
 
