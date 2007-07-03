@@ -411,7 +411,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
     t0 = modalTimer->getTime();    
 
-    if (cnt == 1) {
     rhs = (delW*4.0) - delWnm1;
 
     rhs *= controlVol;
