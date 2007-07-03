@@ -388,6 +388,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
   delW -= Uref;
   delWnm1 = delW;
+  delWint = delW;
 
   // Compute Reference Modal Force
   DistSVec<double,3> refNodalForce(domain.getNodeDistInfo());
@@ -411,6 +412,112 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
     t0 = modalTimer->getTime();    
 
+    if (cnt == 1) {
+       HOp2step1->apply(delWint,rhs);
+       double dt0 = dt/100;
+        rhsA = 0.0;
+        rhsB = 0.0;
+        rhsC = 0.0;
+        rhsD = 0.0;
+        for (i = 0; i < nStrMode; ++i)  {
+            rhsA += DX[i]*delU[i];
+            rhsB += DX[i]*delY[i];
+            rhsC += DE[i]*delY[i];
+
+        } 
+
+        rhsA *= 2.0;
+        rhsB *= dt0;
+        rhsC *= 2.0;
+
+        rhs -= rhsA;
+        rhs -= rhsB;
+        rhs -= rhsC;
+
+
+        rhs += FF;
+        delWint = rhs;
+        delWint /= controlVol;
+        delWint *= dt0/4.0;
+
+        delW = delWint;
+
+    }
+    if (cnt == 2) {
+       HOp2step2->apply(delWint,rhs);
+       //rhs *= 1.0/dt;
+
+       rhsA = 0.0;
+        rhsB = 0.0;
+       rhsC = 0.0;
+       rhsD = 0.0;
+       for (i = 0; i < nStrMode; ++i)  {
+           rhsA += DX[i]*delU[i];
+           rhsB += DX[i]*delY[i];
+           rhsC += DE[i]*delY[i];
+           rhsD += DE[i]*prevY[i];
+
+       }
+
+       rhsA *= 2.0;
+       rhsB *= dt0;
+       rhsC *= 3.0;
+
+       rhs -= rhsA;
+       rhs -= rhsB;
+       rhs -= rhsC;
+       rhs += rhsD;
+
+       delWnm1 = delWint;
+
+       rhs += FF;
+       delWint = rhs;
+       delWint /= controlVol;
+       delWint *= dt0/2.0;
+
+       delW = delWint;
+
+    }
+
+    else {
+        rhs = (delW*4.0) - delWnm1;
+
+        rhs *= controlVol;
+
+        if (cnt == 3)
+            rhs *= 100.0/(98.0*dt);
+            sdt =
+        else
+            rhs *= 1.0/dt;
+
+
+        rhsA = 0.0;  rhsB = 0.0; rhsC = 0.0; rhsD = 0.0;
+        // We drop the developed term of G*v_n bc it creates instabilities, so this alg. is formerly at least 1st
+        // order accurate
+        for (i = 0; i < nStrMode; ++i)  {
+           rhsA += DX[i]*delU[i];
+           rhsC += DE[i]*delY[i];
+           rhsD += DE[i]*prevY[i];
+        }
+        rhsA *= 2.0;
+        rhsC *= 3.0;
+        rhs -= rhsA;
+        rhs -= rhsC;
+        rhs += rhsD;
+        delWnm1 = delW;
+
+        rhs += FF;
+        ksp->solve(rhs, delW);
+        modalTimer->addKspTime(t0);
+    }
+
+
+
+
+
+
+
+/*
     rhs = (delW*4.0) - delWnm1;
 
     rhs *= controlVol;
@@ -440,7 +547,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     rhs += FF;
     ksp->solve(rhs, delW);
     modalTimer->addKspTime(t0);
-
+*/
 
     // for forced oscillations
     if (ioData->linearizedData.type == LinearizedData::FORCED)  {
