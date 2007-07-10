@@ -12,6 +12,7 @@ class FluxFcn;
 class FemEquationTerm;
 class VolumicForceTerm;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class Domain;
 class DistGeoState;
 class Communicator;
@@ -64,6 +65,7 @@ private:
   DistDynamicVMSTerm<dim> *dvms;
   FemEquationTerm *fet;
   SmagorinskyLESTerm *smag;
+  WaleLESTerm *wale;
   VolumicForceTerm *volForce;
 
   Domain *domain;

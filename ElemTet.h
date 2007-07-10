@@ -119,6 +119,10 @@ public:
 				 SVec<double,dim> &R);
 
   template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
+		          SVec<double,dim> &R);
+
+  template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 
 			     SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
 

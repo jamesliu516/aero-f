@@ -21,6 +21,7 @@ using std::max;
 #include <VMSLESTerm.h>
 #include <DynamicVMSTerm.h>
 #include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <FemEquationTerm.h>
 #include <VolumicForceTerm.h>
@@ -706,6 +707,17 @@ void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,
 {
 
   elems.computeSmagorinskyLESTerm(smag, X, V, R);
+
+}
+
+//------------------------------------------------------------------------------
+                                                                                                                          
+template<int dim>
+void SubDomain::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+			           SVec<double,dim> &V, SVec<double,dim> &R)
+{
+
+  elems.computeWaleLESTerm(wale, X, V, R);
 
 }
 
@@ -3112,6 +3124,25 @@ void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
     double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
                     V[elems[tetNum][2]], V[elems[tetNum][3]]};
     double mut = smag->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
+                                  SVec<double,dim> &V, Vec<double> &mutOmu)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+    double mut = wale->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
     for (int i=0; i<4; ++i)
       mutOmu[elems[tetNum][i]] += mut * vol;
   }

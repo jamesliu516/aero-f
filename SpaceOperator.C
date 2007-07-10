@@ -14,6 +14,7 @@
 #include <DistDynamicVMSTerm.h>
 #include <DynamicLESTerm.h>
 #include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DistDynamicLESTerm.h>
 #include <DistNodalGrad.h>
 #include <DistEdgeGrad.h>
@@ -71,6 +72,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   
 
   smag = 0;
+  wale = 0;
   dles = 0;
   dlest = 0;
   vms = 0;
@@ -80,6 +82,8 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
       ioData.eqs.tc.type == TurbulenceClosureData::LES) {
     if (ioData.eqs.tc.les.type == LESModelData::SMAGORINSKY)
       smag = new SmagorinskyLESTerm(ioData, varFcn);
+    else if (ioData.eqs.tc.les.type == LESModelData::WALE)
+       wale = new WaleLESTerm(ioData, varFcn);   
     else if (ioData.eqs.tc.les.type == LESModelData::DYNAMIC){
       dles = new DistDynamicLESTerm<dim>(ioData, domain);
       dlest = new DynamicLESTerm(ioData, varFcn);
@@ -141,6 +145,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   xpol = spo.xpol;
   vms = spo.vms; 
   smag = spo.smag;
+  wale = spo.wale;
   dles = spo.dles;
   dlest = spo.dlest;
   dvms = spo.dvms;
@@ -181,6 +186,7 @@ SpaceOperator<dim>::~SpaceOperator()
     if (xpol) delete xpol;
     if (vms) delete vms;
     if (smag) delete smag;
+    if (wale) delete wale;
     if (dles) delete dles;
     if (dlest) delete dlest;
     if (dvms) delete dvms;
@@ -826,6 +832,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   if (smag)
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
 
+  if (wale)
+     domain->computeWaleLESTerm(wale, X, *V, R);
+     
   if (dles){
     DistSVec<double,2> *Cs;
     DistVec<double> *VolSum;

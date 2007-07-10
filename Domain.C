@@ -5,6 +5,7 @@
 #include <VMSLESTerm.h>
 #include <DynamicVMSTerm.h>
 #include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <FemEquationTerm.h>
 #include <VolumicForceTerm.h>
@@ -1311,6 +1312,21 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 
 //------------------------------------------------------------------------------
 
+
+template<int dim>
+void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
+				DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVol, 
                                DistSVec<double,3> &X, DistSVec<double,dim> &V, 
@@ -1320,6 +1336,22 @@ void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVo
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeMutOMuSmag(smag, X(iSub), V(iSub), mutOmu(iSub));
+                                                                                                                                       
+  applySmoothing(ctrlVol, mutOmu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol, 
+                               DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                               DistVec<double> &mutOmu)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuWale(wale, X(iSub), V(iSub), mutOmu(iSub));
                                                                                                                                        
   applySmoothing(ctrlVol, mutOmu);
 
