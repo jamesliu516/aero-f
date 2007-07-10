@@ -6,7 +6,7 @@
 #include <Node.h>
 #include <Edge.h>
 #include <Face.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <InletNode.h>
 #include <DiagMatrix.h>
 #include <DistInfo.h>
@@ -89,7 +89,6 @@ struct EdgeDef {
 
 
 class SubDomain {
-
   int testEdge;
 
   int locSubNum;
@@ -101,14 +100,16 @@ class SubDomain {
   char suffix[100];
 
   NodeSet &nodes;
-  EdgeSet edges;
+  EdgeSet  edges;
   FaceSet &faces;
-  TetSet &tets;
+  ElemSet &elems;
+
   InletNodeSet inletNodes;
 
   int *locToGlobNodeMap;
   int *locToGlobFaceMap;
-  int *locToGlobTetMap;
+  int *locToGlobElemMap;
+
   int numNeighb;
   int *neighb;
   int *sndChannel;
@@ -135,7 +136,7 @@ class SubDomain {
 
 public:
 
-  SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, TetSet *, 
+  SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
 	    int, int *, Connectivity *, int *, int *, int *, int, int (*)[3]);
   ~SubDomain();
 
@@ -144,7 +145,8 @@ public:
   int getGlobSubNum()  { return globSubNum; }
   int numberEdges();
 
-  Connectivity *createNodeToNodeConnectivity();
+  Connectivity *createElemBasedConnectivity();
+  Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
   void createSharedInletNodeConnectivity1();
@@ -154,7 +156,7 @@ public:
 
   int numNodes() { return(nodes.size()); }
   int numFaces() { return(faces.size()); }
-  int numTets()  { return(tets.size()); }
+  int numElems() { return(elems.size()); }
 
   // geometry
 
@@ -275,6 +277,7 @@ public:
   int computeFiniteVolumeTerm(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&,
                               EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int, int);
+
   template<int dim>
   int computeFiniteVolumeTerm(FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
@@ -550,6 +553,7 @@ public:
   void markLenNodes(DistInfo &distInfo) { distInfo.setLen(locSubNum, nodes.size()); }
   void markLenEdges(DistInfo &distInfo) { distInfo.setLen(locSubNum, edges.size()); }
   void markLenFaces(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.size()); }
+  void markLenFaceNorms(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.sizeNorms()); }
   void markLenInletNodes(DistInfo &distInfo) {distInfo.setLen(locSubNum, inletNodes.size()); }
   void markLenNull(DistInfo &distInfo) {distInfo.setLen(locSubNum, 0); }
   void makeMasterFlag(DistInfo &);
@@ -663,7 +667,7 @@ public:
   
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
-
+  
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
   

@@ -17,7 +17,7 @@ using std::min;
 #include <RecFcn.h>
 #include <NodalGrad.h>
 #include <EdgeGrad.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <GeoState.h>
 #include <Vector3D.h>
 #include <Vector.h>
@@ -129,7 +129,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, FluxFcn** fluxFcn,
-                                     RecFcn* recFcn, TetSet& tets, GeoState& geoState, SVec<double,3>& X,
+                                     RecFcn* recFcn, ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -153,7 +153,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
     int j = ptr[l][1];
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -183,6 +183,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
       Vj[k+dim] = V[j][k];
     }
 
+    
     fluxFcn[BC_INTERNAL]->compute(edgeirey, normal[l], normalVel[l], Vi, Vj, flux);
 
     for (k=0; k<dim; ++k) {
@@ -200,7 +201,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
 
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, FluxFcn** fluxFcn, RecFcn* recFcn,
-                                     TetSet& tets, GeoState& geoState, SVec<double,3>& X,
+                                     ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, Vec<double> &Phi,
                                      NodalGrad<dim>& ngrad,
                                      EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes,
@@ -239,7 +240,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, FluxFcn** fluxFcn, R
     int j = ptr[l][1];
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -431,11 +432,11 @@ void EdgeSet::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double>
 
 template<int dim>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
-                                      TetSet& tets, GeoState& geoState, SVec<double,3>& X,
-                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-                                      NodalGrad<dim> &ngrad1,
-                                      EdgeGrad<dim>* egrad, Vec<double>& Phi, Vec<double>& PhiF,
-                                      SVec<double,dim> &PhiS)
+					ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
+					SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+					NodalGrad<dim> &ngrad1,
+					EdgeGrad<dim>* egrad, Vec<double>& Phi, Vec<double>& PhiF,
+					SVec<double,dim> &PhiS)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -458,7 +459,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     int i = ptr[l][0];
     int j = ptr[l][1];
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -468,7 +469,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     }
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, PhiS, dVdx1, dVdy1, dVdz1, ddVij1, ddVji1);
+      egrad->compute(l, i, j, elems, X, PhiS, dVdx1, dVdy1, dVdz1, ddVij1, ddVji1);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {

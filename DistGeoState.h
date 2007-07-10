@@ -34,22 +34,27 @@ class DistGeoState {
 
   DistVec<double> *d2wall;
 
-  DistVec<Vec3D> *edgeNorm;
-  DistVec<Vec3D> *faceNorm;
+  DistVec<Vec3D>  *edgeNorm;
   DistVec<double> *edgeNormVel;
-  DistVec<double> *faceNormVel;
-  DistVec<Vec3D> *edgeNorm_nm1;
-  DistVec<Vec3D> *faceNorm_nm1;
+  DistVec<Vec3D>  *edgeNorm_nm1;
   DistVec<double> *edgeNormVel_nm1;
-  DistVec<double> *faceNormVel_nm1;
-  DistVec<Vec3D> *edgeNorm_nm2;
-  DistVec<Vec3D> *faceNorm_nm2;
+  DistVec<Vec3D>  *edgeNorm_nm2;
   DistVec<double> *edgeNormVel_nm2;
+
+  //There is one normal per face node (however for triangular nodes only one normal 
+  //is stored as they are all equal). The mapping to the face normals is stored with 
+  //each face (normNum in Face). The total number of face normals is stored in 
+  //the faceset (numFaceNorms in FaceSet).
+  DistVec<Vec3D>  *faceNorm;
+  DistVec<double> *faceNormVel;
+  DistVec<Vec3D>  *faceNorm_nm1;
+  DistVec<double> *faceNormVel_nm1;
+  DistVec<Vec3D>  *faceNorm_nm2;
   DistVec<double> *faceNormVel_nm2;
-  
+
   DistVec<Vec3D> *inletNodeNorm;
-  DistVec<int> *numFaceNeighb; 		//number of faces connected to an inletnode, 
-  									//independantly of subdomains
+  DistVec<int> *numFaceNeighb; 	   //number of faces connected to an inletnode, 
+                                   //independantly of subdomains
  
   
   Domain *domain;
