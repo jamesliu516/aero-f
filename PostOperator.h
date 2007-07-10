@@ -14,6 +14,7 @@ class Domain;
 class DistGeoState;
 class Communicator;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class DynamicLESTerm;
 
 struct Vec3D;
@@ -54,6 +55,7 @@ private:
   double pressInfty;
   DistSVec<double,2>* tmp2;
   SmagorinskyLESTerm *smag;
+  WaleLESTerm *wale;  
   DistVMSLESTerm<dim> *vms;
   DistDynamicLESTerm<dim> *dles;
   DynamicLESTerm *dlest;
