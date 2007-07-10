@@ -56,7 +56,7 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   mvp = new StiffMat<double,3>(domain, ndType, mp, meshMotionBCs);
 
   if (pcData.type == PcData::IDENTITY)
-    pc = new IdentityPrec<3>();
+    pc = new IdentityPrec<3>(meshMotionBCs);
   else if (pcData.type == PcData::JACOBI)
     pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DENSE, domain, ndType, meshMotionBCs);
   else if (pcData.type == PcData::AS || pcData.type == PcData::RAS || pcData.type == PcData::ASH || pcData.type == PcData::AAS)

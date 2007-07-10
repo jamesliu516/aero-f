@@ -1,6 +1,6 @@
 #include <EdgeGrad.h>
 #include <IoData.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <SubDomain.h>
 #include <Vector.h>
 #include <Vector3D.h>
@@ -58,17 +58,17 @@ void EdgeGrad<dim>::findEdgeTetrahedra(SubDomain* subDomain, SVec<double,3>& X)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EdgeGrad<dim>::computeUpwindGradient(Tet& tet, double rij[3], SVec<double,3>& X,
+void EdgeGrad<dim>::computeUpwindGradient(Elem& elem, double rij[3], SVec<double,3>& X,
 					  SVec<double,dim>& V, double* grad)
 {
 
   double dp1dxi[4][3];
-  tet.computeGradientP1Function(X, dp1dxi);
+  elem.computeGradientP1Function(X, dp1dxi);
   
-  int i0 = tet[0];
-  int i1 = tet[1];
-  int i2 = tet[2];
-  int i3 = tet[3];
+  int i0 = elem.nodeNum(0);
+  int i1 = elem.nodeNum(1);
+  int i2 = elem.nodeNum(2);
+  int i3 = elem.nodeNum(3);
 
   for (int k=0; k<dim; ++k) {
     grad[k] = ( (dp1dxi[0][0]*V[i0][k] + dp1dxi[1][0]*V[i1][k] + 
@@ -84,14 +84,17 @@ void EdgeGrad<dim>::computeUpwindGradient(Tet& tet, double rij[3], SVec<double,3
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EdgeGrad<dim>::computeFaceGradient(TetSet& tets, V6NodeData& data, double rij[3],
+void EdgeGrad<dim>::computeFaceGradient(ElemSet& elems, V6NodeData& data, double rij[3],
 					SVec<double,dim>& dVdx, SVec<double,dim>& dVdy,
 					SVec<double,dim>& dVdz, double* grad)
 {
-
-  int n0 = tets[data.tet][ Tet::faceDef[ data.face ][0] ];
-  int n1 = tets[data.tet][ Tet::faceDef[ data.face ][1] ];
-  int n2 = tets[data.tet][ Tet::faceDef[ data.face ][2] ];
+  Elem& elem = elems[data.tet];
+  int n0_loc = elem.faceDef(data.face, 0);
+  int n1_loc = elem.faceDef(data.face, 1);
+  int n2_loc = elem.faceDef(data.face, 2);
+  int n0 = elem.nodeNum(n0_loc);
+  int n1 = elem.nodeNum(n1_loc);
+  int n2 = elem.nodeNum(n2_loc);
 
   for (int k=0; k<dim; ++k) {
     grad[k] = ( (dVdx[n2][k] + data.r * (dVdx[n0][k]-dVdx[n2][k]) + 
@@ -107,10 +110,10 @@ void EdgeGrad<dim>::computeFaceGradient(TetSet& tets, V6NodeData& data, double r
 //------------------------------------------------------------------------------
 
 template<int dim>
-void EdgeGrad<dim>::compute(int l, int i, int j, TetSet& tets,
-                            SVec<double,3>& X, SVec<double,dim>& V,
-                            SVec<double,dim>& dVdx, SVec<double,dim>& dVdy,
-                            SVec<double,dim>& dVdz, double* ddVij, double* ddVji)
+void EdgeGrad<dim>::compute(int l, int i, int j, ElemSet& elems, 
+			    SVec<double,3>& X, SVec<double,dim>& V, 
+			    SVec<double,dim>& dVdx, SVec<double,dim>& dVdy, 
+			    SVec<double,dim>& dVdz, double* ddVij, double* ddVji)
 {
 
   double rij[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
@@ -129,13 +132,13 @@ void EdgeGrad<dim>::compute(int l, int i, int j, TetSet& tets,
   }
   else {
     double ddVij_u[dim];
-    computeUpwindGradient(tets[v6data[l][0].tet], rij, X, V, ddVij_u);
+    computeUpwindGradient(elems[v6data[l][0].tet], rij, X, V, ddVij_u);
     double ddVji_u[dim];
-    computeUpwindGradient(tets[v6data[l][1].tet], rij, X, V, ddVji_u);
+    computeUpwindGradient(elems[v6data[l][1].tet], rij, X, V, ddVji_u);
     double ddVij_f[dim];
-    computeFaceGradient(tets, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
+    computeFaceGradient(elems, v6data[l][0], rij, dVdx, dVdy, dVdz, ddVij_f);
     double ddVji_f[dim];
-    computeFaceGradient(tets, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
+    computeFaceGradient(elems, v6data[l][1], rij, dVdx, dVdy, dVdz, ddVji_f);
     for (int k=0; k<dim; ++k) {
       double ddVij_c = V[j][k] - V[i][k];
       double ddVi = dVdx[i][k]*rij[0] + dVdy[i][k]*rij[1] + dVdz[i][k]*rij[2];

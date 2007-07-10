@@ -1,4 +1,4 @@
-#include <Tet.h>
+#include <Elem.h>
 #include <Face.h>
 
 #include <FemEquationTerm.h>
@@ -13,40 +13,28 @@
 
 
 //------------------------------------------------------------------------------
-//--------------functions in Tet class
-//------------------------------------------------------------------------------
-
-template<class NodeMap>
-inline
-void Tet::renumberNodes(NodeMap &nodemap)
-{
-
-  for (int j=0; j<4; ++j)
-    nodeNum[j] = nodemap[ nodeNum[j] ];
-
-}
-
+//--------------functions in ElemTet class
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
-			      Vec<double> &d2wall, SVec<double,dim> &V, 
-			      SVec<double,dim> &R)
+void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
+				  Vec<double> &d2wall, SVec<double,dim> &V, 
+				  SVec<double,dim> &R)
 {
-
+  
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
 
-  double d2w[4] = {d2wall[nodeNum[0]], d2wall[nodeNum[1]],
-                   d2wall[nodeNum[2]], d2wall[nodeNum[3]]};
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+                   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
   double r[3][dim], s[dim], pr[12];
   bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
-                                                  s, pr, vol, X, nodeNum, volume_id);
+                                                  s, pr, vol, X, nodeNum(), volume_id);
 
   for (int j=0; j<4; ++j) {
-    int idx = nodeNum[j];
+    int idx = nodeNum(j);
     for (int k=0; k<dim; ++k)
       R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                             r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
@@ -54,7 +42,7 @@ void Tet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
   if (porousTermExists) {
     for (int j=0; j<4; ++j) {
-      int idx = nodeNum[j];
+      int idx = nodeNum(j);
       for (int k=1; k<4; ++k)
         R[idx][k] += pr[3*j+k-1];
     }
@@ -65,8 +53,8 @@ void Tet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
-	               SVec<double,3> &X, SVec<double,dim> &V, double gam, double R)
+void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
+			   SVec<double,3> &X, SVec<double,dim> &V, double gam, double R)
 
 {
 
@@ -87,10 +75,10 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   for (i=0; i<dim; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum[j]][i];
+      Int += V[nodeNum(j)][i];
     }
     for (j=0; j<4; ++j){
-      VCap[nodeNum[j]][i] += (NCG*Int);
+      VCap[nodeNum(j)][i] += (NCG*Int);
     }
   }
 
@@ -101,7 +89,7 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   // incrementing the counter that stores the volume sum //
 
   for (i=0; i<4; ++i)
-    Mom_Test[nodeNum[i]][i_mom] += vol;
+    Mom_Test[nodeNum(i)][i_mom] += vol;
 
   i_mom =1;
 
@@ -110,10 +98,10 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   for (i=1; i<4; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum[j]][0]*V[nodeNum[j]][i];
+      Int += V[nodeNum(j)][0]*V[nodeNum(j)][i];
     }
     for (j=0; j<4; ++j){
-      Mom_Test[nodeNum[j]][i_mom+i-1] += (NCG*Int);
+      Mom_Test[nodeNum(j)][i_mom+i-1] += (NCG*Int);
     }
   }
 
@@ -126,11 +114,11 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
     for (k=i; k<4; ++k){
       Int = 0.0;
       for (j=0; j<4; ++j){
-        Int += V[nodeNum[j]][0]*V[nodeNum[j]][i]*V[nodeNum[j]][k];
+        Int += V[nodeNum(j)][0]*V[nodeNum(j)][i]*V[nodeNum(j)][k];
       }
       l+=1;
       for (j=0; j<4; ++j){
-        Mom_Test[nodeNum[j]][i_mom+l] += (NCG*Int);
+        Mom_Test[nodeNum(j)][i_mom+l] += (NCG*Int);
       }
     }
   }
@@ -141,21 +129,21 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
 
   // step -1 : getting the velocities in to u matrix
 
-    u[0][0] = V[nodeNum[0]][1];
-    u[0][1] = V[nodeNum[0]][2];
-    u[0][2] = V[nodeNum[0]][3];
+    u[0][0] = V[nodeNum(0)][1];
+    u[0][1] = V[nodeNum(0)][2];
+    u[0][2] = V[nodeNum(0)][3];
 
-    u[1][0] = V[nodeNum[1]][1];
-    u[1][1] = V[nodeNum[1]][2];
-    u[1][2] = V[nodeNum[1]][3];
+    u[1][0] = V[nodeNum(1)][1];
+    u[1][1] = V[nodeNum(1)][2];
+    u[1][2] = V[nodeNum(1)][3];
 
-    u[2][0] = V[nodeNum[2]][1];
-    u[2][1] = V[nodeNum[2]][2];
-    u[2][2] = V[nodeNum[2]][3];
+    u[2][0] = V[nodeNum(2)][1];
+    u[2][1] = V[nodeNum(2)][2];
+    u[2][2] = V[nodeNum(2)][3];
 
-    u[3][0] = V[nodeNum[3]][1];
-    u[3][1] = V[nodeNum[3]][2];
-    u[3][2] = V[nodeNum[3]][3];
+    u[3][0] = V[nodeNum(3)][1];
+    u[3][1] = V[nodeNum(3)][2];
+    u[3][2] = V[nodeNum(3)][3];
 
   
   // step -2 : compute velocity gradients
@@ -224,10 +212,10 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   for (i=0; i<6; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum[j]][0]*sqrt2S2*Pij[i];
+      Int += V[nodeNum(j)][0]*sqrt2S2*Pij[i];
     }
     for (j=0; j<4; ++j){
-      Mom_Test[nodeNum[j]][i_mom+i] += (NCG*Int);
+      Mom_Test[nodeNum(j)][i_mom+i] += (NCG*Int);
     }
   }
 
@@ -240,10 +228,10 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   
   Int = 0.0;
   for (j=0; j<4; ++j){
-    Int += V[nodeNum[j]][0]*((1.0/gam1)*(V[nodeNum[j]][4]/V[nodeNum[j]][0])+0.5*squ[j]);
+    Int += V[nodeNum(j)][0]*((1.0/gam1)*(V[nodeNum(j)][4]/V[nodeNum(j)][0])+0.5*squ[j]);
   }
   for (j=0; j<4; ++j){
-    Eng_Test[nodeNum[j]][i_eng] += (NCG*Int);
+    Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
   }
   
   i_eng = 1;
@@ -252,10 +240,10 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
 
   Int = 0.0;
   for (j=0; j<4; ++j){
-    Int += V[nodeNum[j]][0]*((1.0/gam1)*(V[nodeNum[j]][4]/V[nodeNum[j]][0])+0.5*squ[j])+V[nodeNum[j]][4];
+    Int += V[nodeNum(j)][0]*((1.0/gam1)*(V[nodeNum(j)][4]/V[nodeNum(j)][0])+0.5*squ[j])+V[nodeNum(j)][4];
   }
   for (j=0; j<4; ++j){
-    Eng_Test[nodeNum[j]][i_eng] += (NCG*Int);
+    Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
   }
 
   i_eng = 2;
@@ -266,7 +254,7 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
  
   double t[4]; 
   for (j=0; j<4; ++j)
-    t[j] = V[nodeNum[j]][4]/(R*V[nodeNum[j]][0]);
+    t[j] = V[nodeNum(j)][4]/(R*V[nodeNum(j)][0]);
 
   // step-2: computing derivative of temp at the cg 
 
@@ -280,35 +268,35 @@ void Tet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<d
   for (i=0; i<3; ++i){
     Int = 0.0;
     for (j=0; j<4; ++j){
-      Int += V[nodeNum[j]][0]*sqrt2S2*dtdxj[i];
+      Int += V[nodeNum(j)][0]*sqrt2S2*dtdxj[i];
     }
     for (j=0; j<4; ++j){
-      Eng_Test[nodeNum[j]][i_eng+i] += (NCG*Int);
+      Eng_Test[nodeNum(j)][i_eng+i] += (NCG*Int);
     }
   }
 
   // incrementing the counter that stores the number of tetrahedrons surrounding a node //
 
   for (i=0; i<4; ++i)
-    Eng_Test[nodeNum[i]][5] += 1.0;
+    Eng_Test[nodeNum(i)][5] += 1.0;
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                          SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
-                          SVec<double,3> &X, double gam, double R)
+void ElemTet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
+			      SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
+			      SVec<double,3> &X, double gam, double R)
 
 {
 
   double dp1dxj[4][3], dudxj[3][3], u[4][3], ucg[3];
   double vol = computeGradientP1Function(X, dp1dxj);
-  double *VC[4] = {VCap[nodeNum[0]], VCap[nodeNum[1]], VCap[nodeNum[2]], VCap[nodeNum[3]]};
-  double *mom_test[4] = {Mom_Test[nodeNum[0]], Mom_Test[nodeNum[1]], Mom_Test[nodeNum[2]], Mom_Test[nodeNum[3]]};
-  double *eng_test[4] = {Eng_Test[nodeNum[0]], Eng_Test[nodeNum[1]], Eng_Test[nodeNum[2]], Eng_Test[nodeNum[3]]};
-  double ntet[4] = {Mom_Test[nodeNum[0]][0], Mom_Test[nodeNum[1]][0], Mom_Test[nodeNum[2]][0], Mom_Test[nodeNum[3]][0]};
+  double *VC[4] = {VCap[nodeNum(0)], VCap[nodeNum(1)], VCap[nodeNum(2)], VCap[nodeNum(3)]};
+  double *mom_test[4] = {Mom_Test[nodeNum(0)], Mom_Test[nodeNum(1)], Mom_Test[nodeNum(2)], Mom_Test[nodeNum(3)]};
+  double *eng_test[4] = {Eng_Test[nodeNum(0)], Eng_Test[nodeNum(1)], Eng_Test[nodeNum(2)], Eng_Test[nodeNum(3)]};
+  double ntet[4] = {Mom_Test[nodeNum(0)][0], Mom_Test[nodeNum(1)][0], Mom_Test[nodeNum(2)][0], Mom_Test[nodeNum(3)][0]};
 
 // steps in dynamic les to compute unknown coefficients //
 
@@ -444,27 +432,27 @@ void Tet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
   Int2 = 0.25*(pt[0]+pt[1]+pt[2]+pt[3]); // avg in each tetrahedron
 
   for(int i=0; i<4; ++i) {
-     Cs[nodeNum[i]][0] += vol*Int1;
-     Cs[nodeNum[i]][1] += vol*Int2;
+     Cs[nodeNum(i)][0] += vol*Int1;
+     Cs[nodeNum(i)][1] += vol*Int2;
   }
 
   // incrementing the counter that stores the volume sum
 
   for (int i=0; i<4; ++i)
-    VolSum[nodeNum[i]] += vol;
+    VolSum[nodeNum(i)] += vol;
 
 }
 
 //-----------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeMBarAndM(DynamicVMSTerm *dvmst,
-                          SVec<double,dim> **VBar,
-                          SVec<double,1> **volRatio,
-                          SVec<double,3> &X,
-                          SVec<double,dim> &V,
-                          SVec<double,dim> &MBar,
-                          SVec<double,dim> &M)
+void ElemTet::computeMBarAndM(DynamicVMSTerm *dvmst,
+			      SVec<double,dim> **VBar,
+			      SVec<double,1> **volRatio,
+			      SVec<double,3> &X,
+			      SVec<double,dim> &V,
+			      SVec<double,dim> &MBar,
+			      SVec<double,dim> &M)
 {
 
    int i, j, k;
@@ -474,14 +462,14 @@ void Tet::computeMBarAndM(DynamicVMSTerm *dvmst,
    double dp1dxj[4][3];
    double vol = computeGradientP1Function(X, dp1dxj);
 
-   double *v[4]       = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
-   double *vbar[4]    = {(*VBar[0])[nodeNum[0]], (*VBar[0])[nodeNum[1]],
-                         (*VBar[0])[nodeNum[2]], (*VBar[0])[nodeNum[3]]};
-   double *vbarbar[4] = {(*VBar[1])[nodeNum[0]], (*VBar[1])[nodeNum[1]],
-                         (*VBar[1])[nodeNum[2]], (*VBar[1])[nodeNum[3]]};
+   double *v[4]       = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+   double *vbar[4]    = {(*VBar[0])[nodeNum(0)], (*VBar[0])[nodeNum(1)],
+                         (*VBar[0])[nodeNum(2)], (*VBar[0])[nodeNum(3)]};
+   double *vbarbar[4] = {(*VBar[1])[nodeNum(0)], (*VBar[1])[nodeNum(1)],
+                         (*VBar[1])[nodeNum(2)], (*VBar[1])[nodeNum(3)]};
 
-   double vr[4] = {(*volRatio[0])[nodeNum[0]][0], (*volRatio[0])[nodeNum[1]][0],
-                   (*volRatio[0])[nodeNum[2]][0], (*volRatio[0])[nodeNum[3]][0]};
+   double vr[4] = {(*volRatio[0])[nodeNum(0)][0], (*volRatio[0])[nodeNum(1)][0],
+                   (*volRatio[0])[nodeNum(2)][0], (*volRatio[0])[nodeNum(3)][0]};
 
    double invVolR[4] = {1.0/vr[0], 1.0/vr[1], 1.0/vr[2], 1.0/vr[3]};
 
@@ -490,15 +478,15 @@ void Tet::computeMBarAndM(DynamicVMSTerm *dvmst,
    double Cs[4] = {1.0,1.0,1.0,1.0};
    double Pt[4] = {1.0,1.0,1.0,1.0};
 
-   dvmst->compute(Cs, Pt, vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r1), X, nodeNum, clip);
+   dvmst->compute(Cs, Pt, vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r1), X, nodeNum(), clip);
 
    for (i = 0; i < 4; ++i)
      Cs[i] = pow(invVolR[i], twothird);
 
-   dvmst->compute(Cs, Pt, vol, dp1dxj, vbarbar, vbar, reinterpret_cast<double *>(r2), X, nodeNum, clip);
+   dvmst->compute(Cs, Pt, vol, dp1dxj, vbarbar, vbar, reinterpret_cast<double *>(r2), X, nodeNum(), clip);
 
    for (int j=0; j<4; ++j) {
-     int idx = nodeNum[j];
+     int idx = nodeNum(j);
      for (int k=0; k<dim; ++k) {
        MBar[idx][k] += vol * (r2[0][k] * dp1dxj[j][0]
                             + r2[1][k] * dp1dxj[j][1]
@@ -514,7 +502,7 @@ void Tet::computeMBarAndM(DynamicVMSTerm *dvmst,
 //-----------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
+void ElemTet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
                                 SVec<double,dim> **VBar,
                                 SVec<double,3> &X,
                                 SVec<double,dim> &V,
@@ -530,21 +518,21 @@ void Tet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
   double vol = computeGradientP1Function(X, dp1dxj);
   bool   clip = true;     // flag that tiggers clipping of cs and pt values
 
-  double cs[4] = {CsDelSq[nodeNum[0]], CsDelSq[nodeNum[1]], CsDelSq[nodeNum[2]], CsDelSq[nodeNum[3]]};
-  double pt[4] = {PrT[nodeNum[0]], PrT[nodeNum[1]], PrT[nodeNum[2]], PrT[nodeNum[3]]};
+  double cs[4] = {CsDelSq[nodeNum(0)], CsDelSq[nodeNum(1)], CsDelSq[nodeNum(2)], CsDelSq[nodeNum(3)]};
+  double pt[4] = {PrT[nodeNum(0)], PrT[nodeNum(1)], PrT[nodeNum(2)], PrT[nodeNum(3)]};
 
-  double *v[4]    = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
-  double *vbar[4] = {(*VBar[0])[nodeNum[0]], (*VBar[0])[nodeNum[1]],
-                     (*VBar[0])[nodeNum[2]], (*VBar[0])[nodeNum[3]]};
+  double *v[4]    = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double *vbar[4] = {(*VBar[0])[nodeNum(0)], (*VBar[0])[nodeNum(1)],
+                     (*VBar[0])[nodeNum(2)], (*VBar[0])[nodeNum(3)]};
 
   double r[3][dim];
 
-  dvmst->compute(cs, pt, vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r), X, nodeNum, clip);
+  dvmst->compute(cs, pt, vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r), X, nodeNum(), clip);
 
   // reynolds stress flux //
 
   for (int j=0; j<4; ++j) {
-    int idx = nodeNum[j];
+    int idx = nodeNum(j);
     for (int k=0; k<dim; ++k) {
       S[idx][k] += vol *( r[0][k] * dp1dxj[j][0]
                         + r[1][k] * dp1dxj[j][1]
@@ -555,14 +543,14 @@ void Tet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
   // saving nodal Cs values for post processing //
 
   if (Cs){
-    double Dt[4] =  {Delta[nodeNum[0]], Delta[nodeNum[1]],
-                     Delta[nodeNum[2]], Delta[nodeNum[3]]};
+    double Dt[4] =  {Delta[nodeNum(0)], Delta[nodeNum(1)],
+                     Delta[nodeNum(2)], Delta[nodeNum(3)]};
     for(int i=0; i<4; ++i) {
        if (cs[i] != 0.0) {
-          if(cs[i] < 0.0) (*Cs)[nodeNum[i]] = -sqrt(fabs(cs[i]))/Dt[i];
-          else  (*Cs)[nodeNum[i]] = sqrt(cs[i])/Dt[i];
+          if(cs[i] < 0.0) (*Cs)[nodeNum(i)] = -sqrt(fabs(cs[i]))/Dt[i];
+          else  (*Cs)[nodeNum(i)] = sqrt(cs[i])/Dt[i];
        }
-       else  (*Cs)[nodeNum[i]] = 0.0;
+       else  (*Cs)[nodeNum(i)] = 0.0;
     }
   }
 
@@ -571,11 +559,11 @@ void Tet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
 //-----------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeVMSLESTerm(VMSLESTerm *vmst,
-                            SVec<double,dim> &VBar,
-                            SVec<double,3> &X,
-                            SVec<double,dim> &V,
-                            SVec<double,dim> &Sigma)
+void ElemTet::computeVMSLESTerm(VMSLESTerm *vmst,
+				SVec<double,dim> &VBar,
+				SVec<double,3> &X,
+				SVec<double,dim> &V,
+				SVec<double,dim> &Sigma)
 
 {
 
@@ -583,16 +571,16 @@ void Tet::computeVMSLESTerm(VMSLESTerm *vmst,
 
   double vol = computeGradientP1Function(X, dp1dxj);
 
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
-  double *vbar[4] = {VBar[nodeNum[0]], VBar[nodeNum[1]], VBar[nodeNum[2]], VBar[nodeNum[3]]};
+  double *vbar[4] = {VBar[nodeNum(0)], VBar[nodeNum(1)], VBar[nodeNum(2)], VBar[nodeNum(3)]};
 
   double r[3][dim];
 
-  vmst->compute(vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r), X, nodeNum);
+  vmst->compute(vol, dp1dxj, vbar, v, reinterpret_cast<double *>(r), X, nodeNum());
 
   for (int j=0; j<4; ++j) {
-    int idx = nodeNum[j];
+    int idx = nodeNum(j);
     for (int k=0; k<dim; ++k) {
       Sigma[idx][k] += vol * ( r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                                r[2][k] * dp1dxj[j][2] );
@@ -604,20 +592,20 @@ void Tet::computeVMSLESTerm(VMSLESTerm *vmst,
 //-----------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-				    SVec<double,dim> &V, SVec<double,dim> &R)
+void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
+					SVec<double,dim> &V, SVec<double,dim> &R)
 {
   
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
   
   double r[3][dim];
   
-  smag->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum);
+  smag->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum());
   
   for (int j=0; j<4; ++j) {
-    int idx = nodeNum[j];
+    int idx = nodeNum(j);
     for (int k=0; k<dim; ++k) {
       R[idx][k] += vol * ( r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                            r[2][k] * dp1dxj[j][2] );
@@ -629,24 +617,24 @@ void Tet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-                                SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
+				    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
-  double cs[4] = {Cs[nodeNum[0]][0]/VolSum[nodeNum[0]], Cs[nodeNum[1]][0]/VolSum[nodeNum[1]],
-                  Cs[nodeNum[2]][0]/VolSum[nodeNum[2]], Cs[nodeNum[3]][0]/VolSum[nodeNum[3]]};
-  double pt[4] = {Cs[nodeNum[0]][1]/VolSum[nodeNum[0]], Cs[nodeNum[1]][1]/VolSum[nodeNum[1]],
-                  Cs[nodeNum[2]][1]/VolSum[nodeNum[2]], Cs[nodeNum[3]][1]/VolSum[nodeNum[3]]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double cs[4] = {Cs[nodeNum(0)][0]/VolSum[nodeNum(0)], Cs[nodeNum(1)][0]/VolSum[nodeNum(1)],
+                  Cs[nodeNum(2)][0]/VolSum[nodeNum(2)], Cs[nodeNum(3)][0]/VolSum[nodeNum(3)]};
+  double pt[4] = {Cs[nodeNum(0)][1]/VolSum[nodeNum(0)], Cs[nodeNum(1)][1]/VolSum[nodeNum(1)],
+                  Cs[nodeNum(2)][1]/VolSum[nodeNum(2)], Cs[nodeNum(3)][1]/VolSum[nodeNum(3)]};
 
   double r[3][dim];
 
-  dles->compute(vol, dp1dxj, v, cs, pt, reinterpret_cast<double *>(r), X, nodeNum);
+  dles->compute(vol, dp1dxj, v, cs, pt, reinterpret_cast<double *>(r), X, nodeNum());
 
   for (int j=0; j<4; ++j) {
-    int idx = nodeNum[j];
+    int idx = nodeNum(j);
     for (int k=0; k<dim; ++k) {
       R[idx][k] += vol * ( r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
                            r[2][k] * dp1dxj[j][2] );
@@ -658,22 +646,22 @@ void Tet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<do
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void Tet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
-				      Vec<double> &ctrlVol, Vec<double> &d2wall, 
-				      SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
+					  Vec<double> &ctrlVol, Vec<double> &d2wall, 
+					  SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
 
-  double d2w[4] = {d2wall[nodeNum[0]], d2wall[nodeNum[1]],
-                   d2wall[nodeNum[2]], d2wall[nodeNum[3]]};
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+                   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
   double dRdU[4][3][neq*neq], dSdU[4][neq*neq], dPdU[4][4][neq*neq];
   bool porousTermExists = fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),
                                                          reinterpret_cast<double *>(dSdU), reinterpret_cast<double *>(dPdU),
-                                                         vol, X, nodeNum, volume_id);
+                                                         vol, X, nodeNum(), volume_id);
 
   bool sourceTermExists = fet->doesSourceTermExist();
 
@@ -698,7 +686,7 @@ void Tet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   // diagonal matrices
 
   for (int k=0; k<4; ++k) {
-    Scalar *Aii = A.getElem_ii(nodeNum[k]);
+    Scalar *Aii = A.getElem_ii(nodeNum(k));
     int m;
 
     for (m=0; m<neq*neq; ++m)
@@ -719,21 +707,21 @@ void Tet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
   for (int l=0; l<6; ++l) {
     int i, j;
-    if (nodeNum[ edgeEnd[l][0] ] < nodeNum[ edgeEnd[l][1] ]) {
-      i = edgeEnd[l][0];
-      j = edgeEnd[l][1];
+    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
+      i = edgeEnd(l,0);
+      j = edgeEnd(l,1);
     }
     else {
-      i = edgeEnd[l][1];
-      j = edgeEnd[l][0];
+      i = edgeEnd(l,1);
+      j = edgeEnd(l,0);
     }
 
-    Scalar *Aij = A.getElem_ij(edgeNum[l]);
-    Scalar *Aji = A.getElem_ji(edgeNum[l]);
+    Scalar *Aij = A.getElem_ij(edgeNum(l));
+    Scalar *Aji = A.getElem_ji(edgeNum(l));
 
     if (Aij && Aji) {
-      double cij = 1.0 / ctrlVol[ nodeNum[i] ];
-      double cji = 1.0 / ctrlVol[ nodeNum[j] ];
+      double cij = 1.0 / ctrlVol[ nodeNum(i) ];
+      double cji = 1.0 / ctrlVol[ nodeNum(j) ];
       int m;
 
       for (m=0; m<neq*neq; ++m) {
@@ -767,17 +755,17 @@ void Tet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Tet::computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, 
-				  SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
-				  SVec<double,dim> &V, SVec<double,dim> &R)
+void ElemTet::computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, 
+				      SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
+				      SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
   double dp1dxj[4][3];
   computeGradientP1Function(X, dp1dxj);
 
-  double d2w[4] = {d2wall[nodeNum[0]], d2wall[nodeNum[1]], 
-		   d2wall[nodeNum[2]], d2wall[nodeNum[3]]};
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], 
+		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
   double r[dim];
   fet->computeSurfaceTerm(dp1dxj, code, n, d2w, Vwall, v, r);
@@ -791,26 +779,26 @@ void Tet::computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, V
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void Tet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int code, 
-					  Vec3D &n, SVec<double,3> &X, Vec<double> &ctrlVol,
-					  Vec<double> &d2wall, double *Vwall, 
-					  SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+void ElemTet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int code, 
+					      Vec3D &n, SVec<double,3> &X, Vec<double> &ctrlVol,
+					      Vec<double> &d2wall, double *Vwall, 
+					      SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
   double dp1dxj[4][3];
   computeGradientP1Function(X, dp1dxj);
 
-  double d2w[4] = {d2wall[nodeNum[0]], d2wall[nodeNum[1]], 
-		   d2wall[nodeNum[2]], d2wall[nodeNum[3]]};
-  double *v[4] = {V[nodeNum[0]], V[nodeNum[1]], V[nodeNum[2]], V[nodeNum[3]]};
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], 
+		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
   double dRdU[4][neq*neq];
   fet->computeJacobianSurfaceTerm(dp1dxj, code, n, d2w, Vwall, v, 
 				  reinterpret_cast<double *>(dRdU));
 
   for (int k=0; k<4; ++k) {
-    if (nodeNum[k] == face[0] || nodeNum[k] == face[1] || nodeNum[k] == face[2]) {
-      Scalar *Aii = A.getElem_ii(nodeNum[k]);
+    if (nodeNum(k) == face[0] || nodeNum(k) == face[1] || nodeNum(k) == face[2]) {
+      Scalar *Aii = A.getElem_ii(nodeNum(k));
       for (int m=0; m<neq*neq; ++m)
 	Aii[m] -= third * dRdU[k][m];
     }
@@ -819,32 +807,32 @@ void Tet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int
   for (int l=0; l<6; ++l) {
 
     int i, j;
-    if (nodeNum[ edgeEnd[l][0] ] < nodeNum[ edgeEnd[l][1] ]) {
-      i = edgeEnd[l][0];
-      j = edgeEnd[l][1];
+    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
+      i = edgeEnd(l,0);
+      j = edgeEnd(l,1);
     } 
     else {
-      i = edgeEnd[l][1];
-      j = edgeEnd[l][0];
+      i = edgeEnd(l,1);
+      j = edgeEnd(l,0);
     }
 
-    Scalar *Aij = A.getElem_ij(edgeNum[l]);
-    Scalar *Aji = A.getElem_ji(edgeNum[l]);
+    Scalar *Aij = A.getElem_ij(edgeNum(l));
+    Scalar *Aji = A.getElem_ji(edgeNum(l));
 
-    if ( Aij && ( nodeNum[i] == face[0] || 
-		  nodeNum[i] == face[1] ||
-		  nodeNum[i] == face[2] ) ) {
+    if ( Aij && ( nodeNum(i) == face[0] || 
+		  nodeNum(i) == face[1] ||
+		  nodeNum(i) == face[2] ) ) {
 
-      double cij = third / ctrlVol[ nodeNum[i] ];
+      double cij = third / ctrlVol[ nodeNum(i) ];
       for (int m=0; m<neq*neq; ++m)
 	Aij[m] -= cij * dRdU[j][m];
     }
 
-    if ( Aji && ( nodeNum[j] == face[0] || 
-		  nodeNum[j] == face[1] ||
-		  nodeNum[j] == face[2] ) ) {
+    if ( Aji && ( nodeNum(j) == face[0] || 
+		  nodeNum(j) == face[1] ||
+		  nodeNum(j) == face[2] ) ) {
 
-      double cji = third / ctrlVol[ nodeNum[j] ];
+      double cji = third / ctrlVol[ nodeNum(j) ];
       for (int m=0; m<neq*neq; ++m)
 	Aji[m] -= cji * dRdU[i][m];
     }
@@ -852,137 +840,3 @@ void Tet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int
   }
 
 }
-
-//------------------------------------------------------------------------------
-//--------------functions in TetSet class
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
-				 SVec<double,3> &X, SVec<double,dim> &V, 
-				 SVec<double,dim> &R)
-{
-
-  Vec<double> &d2wall = geoState.getDistanceToWall();
-
-  for (int i=0; i<numTets; ++i)
-    tets[i].computeGalerkinTerm(fet, X, d2wall, V, R);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeMBarAndM(DynamicVMSTerm *dvmst,
-                             SVec<double,dim> **VBar,
-                             SVec<double,1> **volRatio,
-                             SVec<double,3> &X,
-                             SVec<double,dim> &V,
-                             SVec<double,dim> &MBar,
-                             SVec<double,dim> &M)
-{
-
-  for (int i=0; i<numTets; ++i)
-   tets[i].computeMBarAndM(dvmst, VBar, volRatio, X, V, MBar, M);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeDynamicVMSTerm(DynamicVMSTerm *dvmst,
-                              SVec<double,dim> **VBar,
-                              SVec<double,3> &X,
-                              SVec<double,dim> &V, SVec<double,dim> &S,
-                              Vec<double> &CsDelSq, Vec<double> &PrT,
-                              Vec<double> *Cs, Vec<double> &Delta)
-{
-
-  for (int i=0; i<numTets; ++i)
-    tets[i].computeDynamicVMSTerm(dvmst, VBar, X, V, S, CsDelSq, PrT, Cs, Delta);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeVMSLESTerm(VMSLESTerm *vmst,
-                               SVec<double,dim> &VBar,
-                               SVec<double,3> &X,
-                               SVec<double,dim> &V,
-                               SVec<double,dim> &Sigma)
-                                                                                                                          
-{
-                                                                                                                          
-  for (int i=0; i<numTets; ++i)
-    tets[i].computeVMSLESTerm(vmst, VBar, X, V, Sigma);
-                                                                                                                          
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-				       SVec<double,dim> &V, SVec<double,dim> &R)
-
-{
-  for (int i=0; i<numTets; ++i)
-    tets[i].computeSmagorinskyLESTerm(smag, X, V, R);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-                   SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
-
-{
-
- for (int i=0; i<numTets; ++i)
-    tets[i].computeDynamicLESTerm(dles, Cs, VolSum, X, V, R);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, class Scalar, int neq>
-void TetSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
-					 SVec<double,3> &X, Vec<double> &ctrlVol,
-					 SVec<double,dim> &V, GenMat<Scalar,neq> &A)
-{
-
-  Vec<double> &d2wall = geoState.getDistanceToWall();
-
-  for (int i=0; i<numTets; ++i)
-    tets[i].computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                SVec<double,6> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, double gam,
-                double R)
-
-{
-
- for (int i=0; i<numTets; ++i)
-   tets[i].computeP1Avg(VCap, Mom_Test, Eng_Test, X, V, gam, R);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TetSet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum, SVec<double,3> &X, double gam, double R)
-
-{
-
- for (int i=0; i<numTets; ++i)
-   tets[i].computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
-
-}
-
-//------------------------------------------------------------------------------

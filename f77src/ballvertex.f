@@ -1,10 +1,9 @@
 c     *******************************************************************
 c 
-      subroutine BallVertex(ele, coor, nu, kf)
+      subroutine BallVertex(coor, nu, kf)
       IMPLICIT NONE
       real*8 coor(3,*)
       integer nu(4)
-      integer ele
 c
 c
       real*8 lambda(4), zeta(4), beta(4)
