@@ -1,7 +1,7 @@
 #include <InletNode.h>
 
 #include <Node.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <Vector.h>
 #include <Vector3D.h>
 #include <Extrapolation.h>
@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <assert.h>
 
 //------------------------------------------------------------------------------
 
@@ -153,7 +154,7 @@ void InletNode::computeDifference(VarFcn* vf, SVec<double, dim> &V, SVec<double,
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 template<int dim>
-void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, TetSet &tets, SVec<double,dim>&V,
+void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, ElemSet &elems, SVec<double,dim>&V,
   				BcData<dim>& bcData, GeoState& geoState, SVec<double,dim>& rhs,
 				SVec<double,3>& X, int* locToGlobNodeMap)
 {
@@ -184,7 +185,7 @@ void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, TetSet &te
   SVec<double,dim> &Ufar = bcData.getInletBoundaryVector();
   for ( int i=0; i<numInletNodes; i++){
     node = inletNodes[i].getNodeNum();
-    xpol->computeFaceInterpolation(i, master, node, tets, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
+    xpol->computeFaceInterpolation(i, master, node, elems, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
     inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], Vinter1, Vinter2, LinTet, maskLinear, rhs, X, i, locToGlobNodeMap);
     inletNodes[i].computeDifference(vf, V, rhs);
   }
@@ -192,7 +193,7 @@ void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, TetSet &te
 
 //------------------------------------------------------------------------------
 template<int dim>
-void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, TetSet &tets, SVec<double,dim>&V,
+void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, ElemSet &elems, SVec<double,dim>&V,
                                 Vec<double> &Phi, BcData<dim>& bcData, GeoState& geoState,
                                 SVec<double,dim>& rhs, SVec<double,3>& X, int* locToGlobNodeMap)
 {
@@ -214,8 +215,9 @@ void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, TetSet &te
 
   for ( int i=0; i<numInletNodes; i++){
     node = inletNodes[i].getNodeNum();
-    xpol->computeFaceInterpolation(i, master, node, tets, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
-    inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], Phi[node], Vinter1, Vinter2, LinTet, maskLinear, rhs, X, i, locToGlobNodeMap);
+    xpol->computeFaceInterpolation(i, master, node, elems, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
+    inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], Phi[node], Vinter1, 
+					   Vinter2, LinTet, maskLinear, rhs, X, i, locToGlobNodeMap);
     inletNodes[i].computeDifference(vf, V, rhs);
   }
 
@@ -237,7 +239,7 @@ void InletNodeSet::recomputeResidual(SVec<double,dim> &F,SVec<double,dim> &Finle
 //------------------------------------------------------------------------------
 template<int dim>
 void InletNodeSet::getExtrapolationValue(Extrapolation<dim>* xpol,SVec<double,dim> &V, SVec<double,dim> &Ubc,
-			 VarFcn* vf, BcData<dim>& bcData, GeoState& geoState, TetSet &tets, int* locToGlobNodeMap, 
+			 VarFcn* vf, BcData<dim>& bcData, GeoState& geoState, ElemSet &elems, int* locToGlobNodeMap, 
 			 SVec<double,3>& X)
 {
 //extrapolation routine for explicit time stepping	
@@ -268,7 +270,7 @@ void InletNodeSet::getExtrapolationValue(Extrapolation<dim>* xpol,SVec<double,di
 
   for (int i=0; i<numInletNodes; i++){
     node = inletNodes[i].getNodeNum();
-    xpol->computeFaceInterpolation(i, master, node, tets, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
+    xpol->computeFaceInterpolation(i, master, node, elems, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
     inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], Vinter1, Vinter2, LinTet, maskLinear, Ubc, X, i);
   }
 

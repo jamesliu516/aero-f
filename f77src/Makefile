@@ -14,7 +14,7 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(roejacwaterdissprim.o) \
        $(LIB)(roejac2water.o) \
        $(LIB)(eriemann_gw.o) \
-       $(LIB)(tetrasprings.o) \
+       $(LIB)(torsionspring.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
        $(LIB)(genbcfluxtait.o)

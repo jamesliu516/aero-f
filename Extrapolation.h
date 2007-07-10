@@ -4,8 +4,8 @@
 
 class IoData;
 class VarFcn;
-class Tet;
-class TetSet;
+class Elem;
+class ElemSet;
 class Vec3D;
 
 template<class Scalar, int dim> class SVec;
@@ -49,7 +49,7 @@ public:
   
   void removeHydroStaticContribution(int i, int n[3], SVec<double,dim> &Ufar,SVec<double,dim> &V,
 					 SVec<double,3> &X, double *Vinter, int node);
-  void computeFaceInterpolation(int , bool &, int, TetSet &, SVec<double,dim> &,  
+  void computeFaceInterpolation(int , bool &, int, ElemSet &, SVec<double,dim> &,  
 				SVec<double,dim> &, double*,
 				double*, int*, int*, SVec<double,3>&);
 			

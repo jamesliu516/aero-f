@@ -300,3 +300,16 @@ void IluPrec<Scalar,dim, Scalar2>::getData(DistMat<MatScal,dim> &B)
 }
 
 //------------------------------------------------------------------------------
+template<int dim, class Scalar2>
+void
+IdentityPrec<dim,Scalar2>::apply(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix) 
+{ 
+
+  Ix = x; 
+
+  if(BCs) {
+    BCs->applyPD(Ix); 
+  }
+
+}
+

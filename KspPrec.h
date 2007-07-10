@@ -39,16 +39,17 @@ public:
 template<int dim, class Scalar2 = double>
 class IdentityPrec : public KspPrec<dim, Scalar2> {
 
+  BCApplier* BCs;
 public:
 
-  IdentityPrec() {}
+  IdentityPrec(BCApplier *bcs = 0) : BCs(bcs) {}
   ~IdentityPrec() {}
   
   void setup() {}
   void setupTR() {}
 
-  void apply(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &y) { x = y; } 
-  void applyT(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &y) { x = y; }
+  void apply(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix); 
+  void applyT(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim> &Ix) { Ix = x; }
 
 };
 
