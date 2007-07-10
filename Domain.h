@@ -24,6 +24,7 @@ class DistMacroCellSet;
 class DynamicVMSTerm;
 class VMSLESTerm;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class DynamicLESTerm;
 class ViscoFcn;
 class PostFcn;
@@ -324,8 +325,15 @@ public:
 				 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, DistVec<double> &, DistSVec<double,3> &,
                                DistSVec<double,dim> &, DistVec<double> &);
+
+  template<int dim>
+  void computeMutOMuWale(WaleLESTerm *, DistVec<double> &, DistSVec<double,3> &,
+                         DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
   void computeGalerkinBarTerm(bool, FemEquationTerm *, DistBcData<dim> &, DistGeoState &, DistSVec<double,3> &,

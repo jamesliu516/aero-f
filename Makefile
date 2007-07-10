@@ -62,6 +62,7 @@ CXXOBJS    = BcFcnCore.o \
              PostFcn.o \
              RefVal.o \
              SmagorinskyLESTerm.o \
+             WaleLESTerm.o \
              DynamicLESTerm.o \
              StructExc.o \
              SubDomainCore.o \

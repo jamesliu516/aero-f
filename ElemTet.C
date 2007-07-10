@@ -6,6 +6,7 @@
 #include <VMSLESTerm.h>
 #include <DynamicVMSTerm.h>
 #include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <GenMatrix.h>
 #include <math.h>
@@ -603,6 +604,31 @@ void ElemTet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
   double r[3][dim];
   
   smag->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum());
+  
+  for (int j=0; j<4; ++j) {
+    int idx = nodeNum(j);
+    for (int k=0; k<dim; ++k) {
+      R[idx][k] += vol * ( r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+                           r[2][k] * dp1dxj[j][2] );
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+			     SVec<double,dim> &V, SVec<double,dim> &R)
+{
+  
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(X, dp1dxj);
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  
+  double r[3][dim];
+  
+  wale->compute(vol, dp1dxj, v, reinterpret_cast<double *>(r), X, nodeNum());
   
   for (int j=0; j<4; ++j) {
     int idx = nodeNum(j);

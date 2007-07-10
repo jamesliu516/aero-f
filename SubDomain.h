@@ -33,6 +33,7 @@ class VMSLESTerm;
 class DynamicVMSTerm;
 class DynamicLESTerm;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class SubDTopo;
 class TimeData;
 class GeoSource;
@@ -334,7 +335,13 @@ public:
 				 SVec<double,dim> &);
 
   template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
+
+  template<int dim>
+  void computeMutOMuWale(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &,

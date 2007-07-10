@@ -820,6 +820,26 @@ void SmagorinskyLESData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+WaleLESData::WaleLESData()
+{
+
+  c_w = 0.325;
+
+}
+
+//------------------------------------------------------------------------------
+
+void WaleLESData::setup(const char *name, ClassAssigner *father)
+{
+  
+  ClassAssigner *ca = new ClassAssigner(name, 1, father);
+  
+  new ClassDouble<WaleLESData>(ca, "Cw", this, &WaleLESData::c_w);
+
+}
+
+//------------------------------------------------------------------------------
+
 DynamicLESData::DynamicLESData()
 {
 
@@ -932,11 +952,11 @@ LESModelData::LESModelData()
 void LESModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<LESModelData>
     (ca, "Type", this, reinterpret_cast<int LESModelData::*>
-     (&LESModelData::type), 4, "Smagorinsky", 0, "Dynamic", 1, "VMS", 2, "DynamicVMS", 3);
+     (&LESModelData::type), 5, "Smagorinsky", 0, "Dynamic", 1, "VMS", 2, "DynamicVMS", 3, "WALE", 4);
   new ClassToken<LESModelData>
 	(ca, "Delta", this,
 	 reinterpret_cast<int LESModelData::*>(&LESModelData::delta), 2,
@@ -946,6 +966,7 @@ void LESModelData::setup(const char *name, ClassAssigner *father)
   dles.setup("Dynamic", ca);
   vms.setup("VMS", ca);
   dvms.setup("DynamicVMS", ca);
+  wale.setup("WALE", ca);
 
 }
 

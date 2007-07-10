@@ -479,6 +479,19 @@ struct SmagorinskyLESData {
 
 //------------------------------------------------------------------------------
 
+struct WaleLESData {
+  
+  double c_w;
+  
+  WaleLESData();
+  ~WaleLESData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct ClippingData {
 
 
@@ -546,13 +559,14 @@ struct VMSLESData {
 
 struct LESModelData {
 
-  enum Type {SMAGORINSKY = 0, DYNAMIC = 1, VMS = 2, DYNAMICVMS = 3} type;
+  enum Type {SMAGORINSKY = 0, DYNAMIC = 1, VMS = 2, DYNAMICVMS = 3, WALE = 4} type;
   enum Delta {VOLUME = 0, SIDE = 1} delta;
 
   SmagorinskyLESData sma;
   DynamicLESData dles;
   VMSLESData vms;
   DynamicVMSData dvms;
+  WaleLESData wale;
 
   LESModelData();
   ~LESModelData() {}

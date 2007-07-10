@@ -59,6 +59,7 @@ class MacroCellSet;
 class VMSLESTerm;
 class DynamicVMSTerm;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class DynamicLESTerm;
 class EdgeSet;
 class BinFileHandler;
@@ -118,6 +119,10 @@ public:
   virtual
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
 				 SVec<double,dim> &R) = 0;
+
+  virtual
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V, 
+                          SVec<double,dim> &R) = 0;
   
   virtual 
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 
@@ -194,6 +199,11 @@ public:
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 				 SVec<double,dim> &V, SVec<double,dim> &R) {
     t->computeSmagorinskyLESTerm(smag, X, V, R);
+  }
+
+  void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+		          SVec<double,dim> &V, SVec<double,dim> &R) {
+    t->computeWaleLESTerm(wale, X, V, R);
   }
   
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
@@ -450,6 +460,18 @@ public:
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeSmagorinskyLESTerm(smag, X, V, R);
   }
+ 
+ 
+   template<int dim>
+   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+		           SVec<double,dim> &V, SVec<double,dim> &R) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeWaleLESTerm(wale, X, V, R);
+  }
+ 
   
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
@@ -564,6 +586,13 @@ public:
 				 SVec<double,dim> &V, SVec<double,dim> &R) {
     fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
   }
+
+  template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+		          SVec<double,dim> &V, SVec<double,dim> &R) {
+    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+  }
+
   
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
@@ -651,6 +680,10 @@ public:
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &,
 				 SVec<double,dim> &);
+
+  template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &,
+		          SVec<double,dim> &);
 
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 

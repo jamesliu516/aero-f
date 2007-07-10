@@ -6,6 +6,7 @@
 #include <VMSLESTerm.h>
 #include <DynamicVMSTerm.h>
 #include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <GenMatrix.h>
 #include <math.h>
@@ -87,6 +88,17 @@ void ElemSet::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3>
 {
   for (int i=0; i<numElems; ++i)
     elems[i]->computeSmagorinskyLESTerm(smag, X, V, R);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ElemSet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
+				SVec<double,dim> &V, SVec<double,dim> &R)
+
+{
+  for (int i=0; i<numElems; ++i)
+    elems[i]->computeWaleLESTerm(wale, X, V, R);
 }
 
 //------------------------------------------------------------------------------
