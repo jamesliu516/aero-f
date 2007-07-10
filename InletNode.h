@@ -3,7 +3,7 @@
 
 //libraries
 #include <Node.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <Vector.h>
 #include <Vector3D.h>
 
@@ -88,10 +88,10 @@ class InletNodeSet {
   	
 
         template<int dim>
-  	void recomputeRHS(VarFcn*, Extrapolation<dim>*, TetSet &, SVec<double,dim>&,
+  	void recomputeRHS(VarFcn*, Extrapolation<dim>*, ElemSet &, SVec<double,dim>&,
 			  BcData<dim>& , GeoState&, SVec<double,dim>&, SVec<double,3>&, int *);
         template<int dim>
-        void recomputeRHS(VarFcn*, Extrapolation<dim>*, TetSet &, SVec<double,dim>&,
+        void recomputeRHS(VarFcn*, Extrapolation<dim>*, ElemSet &, SVec<double,dim>&,
                           Vec<double> &, BcData<dim>& , GeoState&, SVec<double,dim>&,
                           SVec<double,3>&, int *);
         template<int dim>
@@ -99,7 +99,7 @@ class InletNodeSet {
   	
   	template<int dim>
   	void getExtrapolationValue(Extrapolation<dim>*,SVec<double,dim> &, SVec<double,dim> &,
-  			   VarFcn* , BcData<dim>& , GeoState&, TetSet &, int*, SVec<double,3>&);
+  			   VarFcn* , BcData<dim>& , GeoState&, ElemSet &, int*, SVec<double,3>&);
   	
   	template<int dim>
         void applyExtrapolationToSolutionVector(Extrapolation<dim>*, SVec<double,dim> &, SVec<double,dim> &, int*);

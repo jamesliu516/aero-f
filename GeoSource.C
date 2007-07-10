@@ -267,10 +267,10 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   int numNodeRanges, (*nodeRanges)[2] = 0;
   int numNodes = getRangeInfo(decFile, numNodeRanges, nodeRanges);
 
-  // get tet ranges
-  int numTetRanges, (*tetRanges)[2] = 0;
-  int numTets = getRangeInfo(decFile, numTetRanges, tetRanges);
-
+  // get elem ranges
+  int numElemRanges, (*elemRanges)[2] = 0;
+  int numElems = getRangeInfo(decFile, numElemRanges, elemRanges);
+  
   // get face ranges
   int numFaceRanges, (*faceRanges)[2] = 0;
   int numFaces = getRangeInfo(decFile, numFaceRanges, faceRanges);
@@ -299,13 +299,13 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   if (matchNodes)
     numMatchedNodes = getRangeInfo(decFile, numMatchRanges, matchRanges);
 
-  // allocate memory for the nodes, tets and faces
+  // allocate memory for the nodes, elements and faces
   NodeSet *nodes = new NodeSet(numNodes);
-  TetSet *tets  = new TetSet(numTets);
+  ElemSet *elems = new ElemSet(numElems);
   FaceSet *faces = new FaceSet(numFaces);
 
   int *locToGlobNodeMap = new int[numNodes];
-  int *locToGlobTetMap = new int[numTets];
+  int *locToGlobElemMap = new int[numElems];
   int *locToGlobFaceMap = new int[numFaces];
 
   // get the geometry file
@@ -326,10 +326,10 @@ SubDomain *GeoSource::getSubDomain(int iSub)
 				 locToGlobNodeMap, locToClusNodeMap);
   (*nodes) *= oolscale;
 
-  // read the tets
+  // read the elems
   geoFile.seek(tocOffset[1]);
-  tets->read(geoFile, numTetRanges, tetRanges, locToGlobTetMap); 
-    
+  elems->read(geoFile, numElemRanges, elemRanges, locToGlobElemMap); 
+
   // read the faces
   geoFile.seek(tocOffset[2]);
   faces->read(geoFile, numFaceRanges, faceRanges, locToGlobFaceMap);
@@ -362,9 +362,9 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   for (i=0; i<numNodes; ++i) 
     clusToLocNodeMap[ locToClusNodeMap[i] ] = i;
 
-  // remap the tet nodes
-  for (i=0; i<numTets; ++i)
-    (*tets)[i].renumberNodes(clusToLocNodeMap);
+  // remap the elem nodes
+  for (i=0; i<numElems; ++i)
+    (*elems)[i].renumberNodes(clusToLocNodeMap);
 
   // remap the face nodes
   for (i=0; i<numFaces; ++i)
@@ -413,19 +413,19 @@ SubDomain *GeoSource::getSubDomain(int iSub)
 
   // create the subdomain
   SubDomain *sub = new SubDomain(iSub, clusterSubNum, globSubNum, numClusNodes, suffix, 
-				 nodes, faces, tets, numNeighb, neighb, sharedNodes, 
-				 locToGlobNodeMap, locToGlobFaceMap, locToGlobTetMap, 
+				 nodes, faces, elems,
+                                 numNeighb, neighb, sharedNodes, 
+				 locToGlobNodeMap, locToGlobFaceMap, locToGlobElemMap, 
 				 numRanges, ranges);
 
   // PJSA: get the local subdomain boundary conditions from the cluster boundary conditions
   distributeBCs(sub, clusToLocNodeMap);
 
   if (nodeRanges) delete [] nodeRanges;
-  if (tetRanges) delete [] tetRanges;
+  if (elemRanges) delete [] elemRanges;
   if (faceRanges) delete [] faceRanges;
   if (matchRanges) delete [] matchRanges;
   if (locToClusNodeMap) delete [] locToClusNodeMap;
-
   return sub;
 
 }
@@ -461,3 +461,4 @@ void GeoSource::getBC(BCondSet *&subBC, MapType &cl2LocNodeMap)
   }
 }
 
+//------------------------------------------------------------------------------

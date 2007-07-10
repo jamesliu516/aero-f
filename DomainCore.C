@@ -41,6 +41,7 @@ Domain::Domain()
   nodeDistInfo = 0;
   edgeDistInfo = 0;
   faceDistInfo = 0;
+  faceNormDistInfo = 0;
   inletNodeDistInfo = 0;
 
   vecPat = 0;
@@ -113,6 +114,7 @@ Domain::~Domain()
   if (nodeDistInfo) delete nodeDistInfo;
   if (edgeDistInfo) delete edgeDistInfo;
   if (faceDistInfo) delete faceDistInfo;
+  if (faceNormDistInfo) delete faceNormDistInfo;
   if (inletNodeDistInfo) delete inletNodeDistInfo;
 
   if (vecPat) delete vecPat;
@@ -206,8 +208,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   int *locSubToGlobSub = (*geoSource.getCpuToSub())[com->cpuNum()];
 
   nodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
-  faceDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   edgeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  faceDistInfo      = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  faceNormDistInfo  = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   inletNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   if (!(ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
         ioData.schemes.bc.type != BoundarySchemeData::STEGER_WARMING &&
@@ -224,6 +227,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   for (iSub = 0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->markLenNodes(*nodeDistInfo);
     subDomain[iSub]->markLenFaces(*faceDistInfo);
+    subDomain[iSub]->markLenFaceNorms(*faceNormDistInfo);
     subDomain[iSub]->setChannelNums(*subTopo);
     subDomain[iSub]->setComLenNodes(1, *volPat);
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
@@ -236,6 +240,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
 
   nodeDistInfo->finalize(true);
   faceDistInfo->finalize(false);
+  faceNormDistInfo->finalize(false);
 
   volPat->finalize();
   levelPat->finalize();
@@ -623,7 +628,7 @@ void Domain::printElementStatistics()
 	      minNum[1], maxNum[1], totNum[1]);
   com->printf(2, "Face statistics: min=%d, max=%d, total=%d\n", 
 	      minNum[2], maxNum[2], totNum[2]);
-  com->printf(2, "Tet statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Elem statistics: min=%d, max=%d, total=%d\n", 
 	      minNum[3], maxNum[3], totNum[3]);
 }
 
