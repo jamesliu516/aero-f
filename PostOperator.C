@@ -8,6 +8,8 @@
 #include <Domain.h>
 #include <Vector3D.h>
 #include <DistVector.h>
+#include <SmagorinskyLESTerm.h>
+#include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <DistDynamicLESTerm.h>
 #include <DistDynamicVMSTerm.h>
@@ -36,6 +38,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   tmp2 = 0;
   vec2Pat = 0;
   smag = 0;
+  wale = 0;  
   vms = 0;
   dles = 0;
   dlest = 0;
@@ -52,6 +55,9 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
     else if (iod.eqs.tc.les.type == LESModelData::SMAGORINSKY) {
       smag = new SmagorinskyLESTerm(iod, varFcn);
     }
+    else if (iod.eqs.tc.les.type == LESModelData::WALE) {
+       wale = new WaleLESTerm(iod, varFcn);
+    }     
     else if (iod.eqs.tc.les.type == LESModelData::DYNAMIC){
       dles = new DistDynamicLESTerm<dim>(iod, domain);
       dlest = new DynamicLESTerm(iod,varFcn);
@@ -129,6 +135,7 @@ PostOperator<dim>::~PostOperator()
   if (postFcn) delete postFcn;
   if (vms) delete vms;
   if (smag) delete smag;
+  if (wale) delete wale;
   if (dles) delete dles;
   if (dlest) delete dlest;
   if (dvms) delete dvms;
@@ -440,6 +447,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     else if(smag) {
       domain->computeMutOMuSmag(smag, A, X, *V, *mutOmu);
     }
+    else if(wale) {
+       domain->computeMutOMuWale(wale, A, X, *V, *mutOmu);
+    } 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double* q = Q.subData(iSub);
