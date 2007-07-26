@@ -129,11 +129,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	    iod.output.transient.prefix, iod.output.transient.tavtemperature);
   }
   if (iod.output.transient.totalpressure[0] != 0) {
+    sscale[PostFcn::TOTPRESSURE] = iod.ref.rv.pressure;
     scalars[PostFcn::TOTPRESSURE] = new char[sp + strlen(iod.output.transient.totalpressure)];
     sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.totalpressure);
   }
   if (iod.output.transient.tavtotalpressure[0] != 0) {
+    avsscale[PostFcn::TOTPRESSUREAVG] = iod.ref.rv.pressure;
     avscalars[PostFcn::TOTPRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavtotalpressure)];
     sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.tavtotalpressure);
