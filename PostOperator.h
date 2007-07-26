@@ -1,0 +1,112 @@
+#ifndef _POST_OPERATOR_H_
+#define _POST_OPERATOR_H_
+
+#include <PostFcn.h>
+#include <VectorSet.h>
+#include <map>
+using std::map;
+
+
+class IoData;
+class VarFcn;
+class SubDomain;
+class Domain;
+class DistGeoState;
+class Communicator;
+class SmagorinskyLESTerm;
+class WaleLESTerm;
+class DynamicLESTerm;
+
+struct Vec3D;
+
+template<int dim> class DistBcData;
+template<class Scalar> class DistVec;
+template<class Scalar, int dim> class DistSVec;
+template<int dim> class DistVMSLESTerm;
+template<int dim> class DistDynamicLESTerm;
+template<int dim> class DistDynamicVMSTerm;
+template<int dim> class SpaceOperator;
+template<int dim> class DistTimeState;
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+class PostOperator {
+
+  VarFcn *varFcn;
+  DistBcData<dim> *bcData;
+  DistGeoState *geoState;
+  DistSVec<double,dim> *V;
+
+  int numLocSub;
+  SubDomain **subDomain;
+  Domain *domain;
+  Communicator *com;
+  int numSurf;
+  map<int,int> surfOutMap;
+  map<int,int> surfComputeMap;
+  
+ // Coefficients to Compute nodal force transfer
+  double nodalForceWeights[2];
+private:
+
+  double threshold;
+  double refLengthSq;
+  double pressInfty;
+  DistSVec<double,2>* tmp2;
+  SmagorinskyLESTerm *smag;
+  WaleLESTerm *wale;  
+  DistVMSLESTerm<dim> *vms;
+  DistDynamicLESTerm<dim> *dles;
+  DynamicLESTerm *dlest;
+  DistDynamicVMSTerm<dim> *dvms;
+  SpaceOperator<dim> *spaceOp;
+  CommPattern<double>* vec2Pat;
+  PostFcn *postFcn;
+
+public:
+
+  PostOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
+	       Domain *, DistSVec<double,dim> * = 0);
+  ~PostOperator();
+
+  void computeNodalForce(DistSVec<double,3> &, DistSVec<double,dim> &, 
+			 DistVec<double> &, DistSVec<double,3> &);
+
+  void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
+			     DistVec<double> &);
+  void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
+			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+
+  double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
+
+  void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &, 
+			     DistSVec<double,dim> &, DistVec<double> &, 
+                             DistVec<double> &, DistTimeState<dim> *);
+  void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
+  void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
+                             DistSVec<double,dim> &, DistVec<double> &,
+                             DistVec<double> &);
+
+  void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
+			     DistSVec<double,dim> &, DistSVec<double,3> &);
+  void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
+                             DistSVec<double,dim> &, DistSVec<double,3> &, DistVec<double> &);
+  void computeForceDerivs(DistSVec<double,3> &, DistSVec<double,dim> &,
+                          DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);
+
+  void computeForceCoefficients(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
+                                Vec3D &, Vec3D &, Vec3D &, Vec3D &);
+  int getNumSurf() { return numSurf; }
+  map<int, int> &getSurfMap() { return surfOutMap; }
+
+};
+
+//------------------------------------------------------------------------------
+
+#ifdef TEMPLATE_FIX
+#include <PostOperator.C>
+#endif
+
+#endif
+
