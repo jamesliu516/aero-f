@@ -191,6 +191,13 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   Unm2 = ts.Unm2;
   Rn = ts.Rn;
 
+  QBar = ts.QBar;
+  VnBar = ts.VnBar;
+  Vn = ts.Vn;
+  UnBar = ts.UnBar;
+  Unm1Bar = ts.Unm1Bar;
+  Unm2Bar = ts.Unm2Bar;
+
   domain = ts.domain;
 
   subTimeState = ts.subTimeState;
