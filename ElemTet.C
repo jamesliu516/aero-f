@@ -457,7 +457,7 @@ void ElemTet::computeMBarAndM(DynamicVMSTerm *dvmst,
 {
 
    int i, j, k;
-   double twothird = 2.0/3.0;
+   const double twothird = 2.0/3.0;
    bool clip = false;
 
    double dp1dxj[4][3];
