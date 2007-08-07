@@ -381,8 +381,14 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   z0 =  iod.eqs.tc.tr.bfix.z0;
   z1 =  iod.eqs.tc.tr.bfix.z1;
   
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
+  if (x0>x1 || y0>y1 || z0>z1) trip = 0;
+  else   trip = 1;
+
+  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip==1) { 
+    fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-SA simulation \n");
+    trip = 0;
+  }
+
 
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
@@ -453,6 +459,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
        mut = computeTurbulentViscosity(V, mul, mutilde);}
     else{
+       computeTurbulentViscosity(V, mul, mutilde);
        mut = 0.0; 
     }
   }
@@ -628,23 +635,8 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double mutilde;
   double mut;
   double lambda;
-
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
+  
+  mut = computeTurbulentViscosity(V, mul, mutilde);
 
   double mu;
   double kappa;
@@ -1221,15 +1213,6 @@ void FemEquationTermSAmean::computeJacobianSurfaceTerm(double dp1dxj[4][3], int 
 FemEquationTermSAturb::FemEquationTermSAturb(IoData &iod, VarFcn *vf) :
   NavierStokesTerm(iod, vf), SATerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
 {
-  x0 =  iod.eqs.tc.tr.bfix.x0;
-  x1 =  iod.eqs.tc.tr.bfix.x1;
-  y0 =  iod.eqs.tc.tr.bfix.y0;
-  y1 =  iod.eqs.tc.tr.bfix.y1;
-  z0 =  iod.eqs.tc.tr.bfix.z0;
-  z1 =  iod.eqs.tc.tr.bfix.z1;
-
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
 
 }
 
@@ -1251,26 +1234,10 @@ bool FemEquationTermSAturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
   computeVelocityGradient(dp1dxj, u, dudxj);
 
   double mul = viscoFcn->compute_mu(Tcg);
-  double mutilde;
-  double mut;
-
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
+  double mutilde; 
+  
+  computeTurbulentViscosity(V, mul, mutilde);
+  
   double (*dRdU)[3][1][1] = reinterpret_cast<double (*)[3][1][1]>(drdu);
   double (*dSdU)[1][1] = reinterpret_cast<double (*)[1][1]>(dsdu);
   computeJacobianVolumeTermSA<1,0>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU);
@@ -1297,8 +1264,13 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
   z0 =  iod.eqs.tc.tr.bfix.z0;
   z1 =  iod.eqs.tc.tr.bfix.z1;
 
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
+  if (x0>x1 || y0>y1 || z0>z1) trip = 0;
+  else   trip = 1;
+
+  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip == 1) { 
+    fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-DES simulation \n");
+    trip = 0;
+  }
 
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
@@ -1369,6 +1341,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
        mut = computeTurbulentViscosity(V, mul, mutilde);}
     else{
+       computeTurbulentViscosity(V, mul, mutilde);
        mut = 0.0;
     }
   }
@@ -1556,24 +1529,8 @@ bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d
   double mul = viscoFcn->compute_mu(Tcg);
   double mutilde;
   double mut;
-
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
+  
+  mut = computeTurbulentViscosity(V, mul, mutilde);
                                                                                                    
   double mu = ooreynolds_mu * (mul + mut);
   double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
@@ -2152,16 +2109,6 @@ FemEquationTermDESturb::FemEquationTermDESturb(IoData &iod, VarFcn *vf) :
   NavierStokesTerm(iod, vf), DESTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
 {
 
-  x0 =  iod.eqs.tc.tr.bfix.x0;
-  x1 =  iod.eqs.tc.tr.bfix.x1;
-  y0 =  iod.eqs.tc.tr.bfix.y0;
-  y1 =  iod.eqs.tc.tr.bfix.y1;
-  z0 =  iod.eqs.tc.tr.bfix.z0;
-  z1 =  iod.eqs.tc.tr.bfix.z1;
-
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
-
 }
 
 //------------------------------------------------------------------------------
@@ -2183,26 +2130,9 @@ bool FemEquationTermDESturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
                                                                                                   
   double mul = viscoFcn->compute_mu(Tcg);
   double mutilde;
-  double mut;
-
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
-
+  
+  computeTurbulentViscosity(V, mul, mutilde);
+  
   double (*dRdU)[3][1][1] = reinterpret_cast<double (*)[3][1][1]>(drdu);
   double (*dSdU)[1][1] = reinterpret_cast<double (*)[1][1]>(dsdu);
   computeJacobianVolumeTermDES<1,0>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU, X, nodeNum);
@@ -2226,8 +2156,13 @@ FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
   z0 =  iod.eqs.tc.tr.bfix.z0;
   z1 =  iod.eqs.tc.tr.bfix.z1;
 
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
+  if (x0>x1 || y0>y1 || z0>z1) trip = 0;
+  else   trip = 1;
+
+  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip == 1) { 
+    fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-KEpsilon simulation \n");
+    trip = 0;
+  }
 
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
@@ -2295,6 +2230,7 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
        mut = computeTurbulentViscosity(V, rhok, rhoeps);}
     else{
+       computeTurbulentViscosity(V, rhok, rhoeps);
        mut = 0.0;
     }
   }
@@ -2448,23 +2384,7 @@ bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double mut;
   double lambda;
 
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, rhok, rhoeps);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, rhok, rhoeps);
-  }
+  mut = computeTurbulentViscosity(V, rhok, rhoeps);
 
   double mu;
   double kappa;
@@ -3002,16 +2922,6 @@ FemEquationTermKEturb::FemEquationTermKEturb(IoData &iod, VarFcn *vf) :
   NavierStokesTerm(iod, vf), KEpsilonTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
 {
 
-  x0 =  iod.eqs.tc.tr.bfix.x0;
-  x1 =  iod.eqs.tc.tr.bfix.x1;
-  y0 =  iod.eqs.tc.tr.bfix.y0;
-  y1 =  iod.eqs.tc.tr.bfix.y1;
-  z0 =  iod.eqs.tc.tr.bfix.z0;
-  z1 =  iod.eqs.tc.tr.bfix.z1;
-
-  if(x0>x1 || y0>y1 || z0>z1)  trip = 0;
-  else    trip = 1;
-
 }
 
 //------------------------------------------------------------------------------
@@ -3025,30 +2935,13 @@ bool FemEquationTermKEturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
 
-  //  double mul = viscoFcn->compute(Tcg);
   double mul = viscoFcn->compute_mu(Tcg);
 
   double rhok, rhoeps;
   double mut;
 
-  // Applying the laminar-turbulent trip
-
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, rhok, rhoeps);}
-    else{
-       mut = 0.0;
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, rhok, rhoeps);
-  }
-
+  mut = computeTurbulentViscosity(V, rhok, rhoeps);
+ 
   double (*dRdU)[3][2][2] = reinterpret_cast<double (*)[3][2][2]>(drdu);
   double (*dSdU)[2][2] = reinterpret_cast<double (*)[2][2]>(dsdu);
   computeJacobianVolumeTermKE<2,0>(dp1dxj, mul, mut, rhok, rhoeps, V, dRdU, dSdU);
