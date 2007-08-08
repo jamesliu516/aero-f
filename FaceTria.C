@@ -126,7 +126,7 @@ void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn,
     computeForce(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv,nodalForceWeight, hydro);
 
     Fi += fi0 + fi1 + fi2;
-    Mi += dx[0] ^ fi0 + dx[1] ^ fi1 + dx[2] ^ fi2;
+    Mi += (dx[0] ^ fi0) + (dx[1] ^ fi1) + (dx[2] ^ fi2);
 
     Fv += fv;
     Mv += dxm ^ fv;
