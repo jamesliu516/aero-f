@@ -46,8 +46,6 @@ class PostOperator {
   map<int,int> surfOutMap;
   map<int,int> surfComputeMap;
   
- // Coefficients to Compute nodal force transfer
-  double nodalForceWeights[2];
 private:
 
   double threshold;

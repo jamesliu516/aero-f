@@ -852,36 +852,35 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
         M *= refVal->energy;
       }
       double energy = refVal->energy * e[0];
-      double energy_o = refVal->energy * e[1];
 
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e %e\n", 
-	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, energy_o, tag);
+        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
       }
       else
-        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
-       	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, energy_o);
+        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+       	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
 
       fflush(fpForces[iSurf]);
 
       if(fpTavForces[iSurf] && counter == 0){
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
-          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, energy_o);
+        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
       del_t = time - tprevf; 
       F *= del_t; TavF[iSurf] += F;
       M *= del_t; TavM[iSurf] += M;
-      tener += energy*del_t; tenerold += energy_o*del_t;
+      tener += energy*del_t; 
 
       if(fpTavForces[iSurf] && counter > 0){
-        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener; energy_o = tenerold;
+        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener; 
         F /= (time - tinit); M /= (time - tinit);
-        energy /= (time - tinit); energy_o /= (time - tinit); 
-        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
-           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, energy_o);
+        energy /= (time - tinit); 
+        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
       }
 
       fflush(fpTavForces[iSurf]);
@@ -942,16 +941,15 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
         MS *= refVal->energy;
       }
       double energy = refVal->energy * e[0];
-      double energy_o = refVal->energy * e[1];
 
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e %e\n", 
-	        it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy, energy_o, tag);
+        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+	        it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy, tag);
       }
       else
-        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
-       	        it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy, energy_o);
+        fprintf(fpHydroStaticForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+       	        it, time, itSc, itNl, FS[0], FS[1], FS[2], MS[0], MS[1], MS[2], energy);
 
       fflush(fpHydroStaticForces[iSurf]);
     }
@@ -971,16 +969,15 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
         MD *= refVal->energy;
       }
       double energy = refVal->energy * e[0];
-      double energy_o = refVal->energy * e[1];
                                                                                                                                                                                                      
       if (rmmh) {
         double tag = rmmh->getTagValue(t);
-        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e %e\n",
-                it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy, energy_o, tag);
+        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e\n",
+                it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy, tag);
       }
       else
-        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n",
-                it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy, energy_o);
+        fprintf(fpHydroDynamicForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n",
+                it, time, itSc, itNl, FD[0], FD[1], FD[2], MD[0], MD[1], MD[2], energy);
                                                                                                                                                                                                      
       fflush(fpHydroDynamicForces[iSurf]);
     }

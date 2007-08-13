@@ -462,6 +462,18 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
   
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
 
+  // gradents stored for future use in computeForce and computeForceTransmitted
+  SVec<double,dim> &dVdx = ngrad.getX();
+  SVec<double,dim> &dVdy = ngrad.getY();
+  SVec<double,dim> &dVdz = ngrad.getZ();
+
+  for (int i=0;i<nodes.size();i++)
+  {
+   gradP[0][i] = dVdx[i][4];
+   gradP[1][i] = dVdx[i][4];
+   gradP[2][i] = dVdx[i][4];
+  }
+
   return(ierr);
 
 }
@@ -480,9 +492,21 @@ int SubDomain::computeFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
   int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, fluxFcn, recFcn, elems, geoState,  
                                            X, V, Phi, ngrad, egrad, fluxes, tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
+
+  // gradents stored for future use in computeForce and computeForceTransmitted
+  SVec<double,dim> &dVdx = ngrad.getX();
+  SVec<double,dim> &dVdy = ngrad.getY();
+  SVec<double,dim> &dVdz = ngrad.getZ();
+
+  for (int i=0;i<nodes.size();i++)
+  {
+   gradP[0][i] = dVdx[i][4];
+   gradP[1][i] = dVdx[i][4];
+   gradP[2][i] = dVdx[i][4];
+  }
   
   return ierr;
-                                                                                                  
+
 }
                                                                                                   
 //------------------------------------------------------------------------------
@@ -2491,7 +2515,7 @@ template<int dim>
 void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData, 
 				  GeoState &geoState, SVec<double,3> &X, 
 				  SVec<double,dim> &V, Vec<double> &Pin, 
-				  SVec<double,3> &F, double *nodalForceWeights)
+				  SVec<double,3> &F)
 {
 
   F = 0.0;
@@ -2500,7 +2524,7 @@ void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData,
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeNodalForce(elems, postFcn, X, d2wall, Vwall[i], V, Pin[i], F, nodalForceWeights);
+    faces[i].computeNodalForce(elems, postFcn, X, d2wall, Vwall[i], V, Pin[i], F, gradP);
 
 }
 
@@ -2528,9 +2552,9 @@ template<int dim>
 void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData, 
 				      GeoState &geoState, SVec<double,3> &X, 
 				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi, 
-				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, double *nodalForceWeights, int hydro)
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro)
 {
-  Vec<double> &d2wall = geoState.getDistanceToWall();
+  Vec<double>& d2wall = geoState.getDistanceToWall();
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
   for (int i=0; i<faces.size(); ++i) {
@@ -2549,7 +2573,7 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
 
     if(idx >= 0)
       faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, 
-                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], nodalForceWeights, hydro);
+                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro);
   }
 
 }
@@ -2980,8 +3004,7 @@ void SubDomain::computeForceDerivs(VarFcn *varFcn, SVec<double,3> &X,
 template<int dim>
 void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &geoState, 
                                          BcData<dim> &bcData, SVec<double,3> &X, SVec<double,dim> &V, 
-					 double pInfty, Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, 
-					 double *nodalForceWeights) {
+					 double pInfty, Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv) {
 
   CFi = 0.0;
   CMi = 0.0;
@@ -2992,7 +3015,7 @@ void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, CFi, CMi, CFv, CMv, nodalForceWeights );
+    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, CFi, CMi, CFv, CMv, gradP);
 
 }
 
