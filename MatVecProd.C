@@ -771,9 +771,6 @@ void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, Dis
                                                                                                              
   timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Q1, *Q2, *F);
                                                                                                              
-  //spaceOp->computeH2LS(*X, *ctrlVol, *Q, U, *this);
-                                                                                                                    
-  //timeState->addToH2LS(*ctrlVol, *Q, *this);
                                                                                                                     
 }
 //------------------------------------------------------------------------------

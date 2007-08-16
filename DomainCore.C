@@ -958,7 +958,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 {
 
   int iSub;
-  double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -974,8 +973,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
     subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
   }
 
-  timer->addNodalWeightsTime(t0);
-
 }
 
 //------------------------------------------------------------------------------
@@ -985,7 +982,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &
 {
 
   int iSub;
-  double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -1001,8 +997,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &
     subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
   }
 
-  timer->addNodalWeightsTime(t0);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1011,13 +1005,9 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &w
 				    DistSVec<double,3> &wij, DistSVec<double,3> &wji)
 {
 
-  double t0 = timer->getTime();
-
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->computeWeightsGalerkin(X(iSub), wii(iSub), wij(iSub), wji(iSub));
-
-  timer->addNodalWeightsTime(t0);
 
 }
 
