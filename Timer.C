@@ -649,13 +649,8 @@ void Timer::print(Timer *str, FILE *fp)
   }
 
   data[total] = data[setup] + data[run];
-/*
-  data[fluid] = 0.0;
-  if (ioData->problem.alltype != ProblemData::_POD_CONSTRUCTION_ &&
-     ioData->problem.alltype != ProblemData::_ROM_AEROELASTIC_) {
-     data[fluid] = data[run] - data[mesh];
-  }
-*/
+
+
   data[comm] = data[localCom] + data[globalCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
@@ -681,133 +676,133 @@ void Timer::print(Timer *str, FILE *fp)
 
   com->fprintf(fp, "\n");
   com->fprintf(fp, "----------------------------------------------------------------------\n");
-  com->fprintf(fp, "Elapsed Time Report (s)   :        Min        Max        Avg   # Calls\n");
+  com->fprintf(fp, "Elapsed Time Report (s)       :        Min        Max        Avg   # Calls\n");
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Problem Setup             : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "Problem Setup                 : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[setup], tmax[setup], tavg[setup], 
 	       counter[setup]);
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Fluid Solution            : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Fluid Solution                : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[fluid], tmax[fluid], tavg[fluid]);
   //com->fprintf(fp, "  Nodal Weights           : %10.2f %10.2f %10.2f %9d\n", 
 //	       tmin[nodalWeights], tmax[nodalWeights], tavg[nodalWeights], 
 //	       counter[nodalWeights]);
   //com->fprintf(fp, "  Nodal Gradients         : %10.2f %10.2f %10.2f %9d\n", 
-  com->fprintf(fp, "  Nodal Weights and Gradients         : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);
-  com->fprintf(fp, "  FV Fluxes               : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fvTerm], tmax[fvTerm], tavg[fvTerm], 
 	       counter[fvTerm]);
-  com->fprintf(fp, "  FE Fluxes               : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  FE Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[feTerm], tmax[feTerm], tavg[feTerm], 
 	       counter[feTerm]);
-  com->fprintf(fp, "  FV Jacobian             : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fvJac], tmax[fvJac], tavg[fvJac], 
 	       counter[fvJac]);
-  com->fprintf(fp, "  FE Jacobian             : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  FE Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[feJac], tmax[feJac], tavg[feJac], 
 	       counter[feJac]);
-  com->fprintf(fp, "  VMS-LES Modeling        : %10.2f %10.2f %10.2f %9d\n",
+  com->fprintf(fp, "  VMS-LES Modeling            : %10.2f %10.2f %10.2f %9d\n",
                tmin[vms], tmax[vms], tavg[vms],
                counter[vms]);
-  com->fprintf(fp, "  Dynamic VMS-LES Modeling: %10.2f %10.2f %10.2f %9d\n",
+  com->fprintf(fp, "  Dynamic VMS-LES Modeling    : %10.2f %10.2f %10.2f %9d\n",
                tmin[dvms], tmax[dvms], tavg[dvms],
                counter[dvms]);
-  com->fprintf(fp, "  H2 Matrix Assembly      : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  H2 Matrix Assembly          : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[h2Assembly], tmax[h2Assembly], tavg[h2Assembly], 
 	       counter[h2Assembly]);
-  com->fprintf(fp, "  Preconditioner Setup    : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fluidPrecSetup], tmax[fluidPrecSetup], tavg[fluidPrecSetup], 
 	       counter[fluidPrecSetup]);
-  com->fprintf(fp, "  Linear Solver           : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fluidKsp], tmax[fluidKsp], tavg[fluidKsp], 
 	       counter[fluidKsp]);
-  com->fprintf(fp, "  Mesh Metrics Update     : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Mesh Metrics Update         : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[meshMetrics], tmax[meshMetrics], tavg[meshMetrics], 
 	       counter[meshMetrics]);
   if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_)  {
-    com->fprintf(fp, "  Structural Update       : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Structural Update           : %10.2f %10.2f %10.2f %9d\n",
                tmin[structUpd], tmax[structUpd], tavg[structUpd],
                counter[structUpd]);
   }
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Mesh Solution             : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[mesh], tmax[mesh], tavg[mesh]);
-  com->fprintf(fp, "  K Matrix Assembly       : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
                tmin[meshAssembly], tmax[meshAssembly], tavg[meshAssembly], 
 	       counter[meshAssembly]);
-  com->fprintf(fp, "  Preconditioner Setup    : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup], 
 		       counter[meshPrecSetup]);
-  com->fprintf(fp, "  Linear Solver           : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[meshKsp], tmax[meshKsp], tavg[meshKsp], 
 	       counter[meshKsp]);
   com->fprintf(fp, "\n");
 
   // Output Level-Set Timers
   if (ioData->eqs.numPhase == 2) {
-    com->fprintf(fp, "LevelSet Solution            : %10.2f %10.2f %10.2f         -\n", tmin[levelSet], tmax[levelSet], tavg[levelSet]);
+    com->fprintf(fp, "LevelSet Solution             : %10.2f %10.2f %10.2f         -\n", tmin[levelSet], tmax[levelSet], tavg[levelSet]);
 
-    com->fprintf(fp, "  Nodal Weights and Grad       : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Nodal Weights and Grad      : %10.2f %10.2f %10.2f %9d\n",
                tmin[lsNodalWeightsAndGrad], tmax[lsNodalWeightsAndGrad], tavg[lsNodalWeightsAndGrad],
                counter[lsNodalWeightsAndGrad]);
-    com->fprintf(fp, "  FV Fluxes       : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n",
                tmin[lsFvTerm], tmax[lsFvTerm], tavg[lsFvTerm], counter[lsFvTerm]);
-    com->fprintf(fp, "  Linear Solver       : %10.2f %10.2f %10.2f %9d\n", tmin[lsKsp], tmax[lsKsp], tavg[lsKsp], counter[lsKsp]);
+    com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", tmin[lsKsp], tmax[lsKsp], tavg[lsKsp], counter[lsKsp]);
     com->fprintf(fp, "\n");
   }
 
 
   // Output POD Timers
   if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
-    com->fprintf(fp, "POD Basis Construction    : %10.2f %10.2f %10.2f         -\n",
+    com->fprintf(fp, "POD Basis Construction        : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);
-    com->fprintf(fp, "  Snapshot Linear Solver  : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Snapshot Linear Solver      : %10.2f %10.2f %10.2f %9d\n",
                tmin[snapsLinSolv], tmax[snapsLinSolv], tavg[snapsLinSolv], counter[snapsLinSolv]);
     if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
-      com->fprintf(fp, "  Pade Reconstruction     : %10.2f %10.2f %10.2f %9d\n",
+      com->fprintf(fp, "  Pade Reconstruction       : %10.2f %10.2f %10.2f %9d\n",
                tmin[padeReconstr], tmax[padeReconstr], tavg[padeReconstr], counter[padeReconstr]);
     }
-    com->fprintf(fp, "  Correlation Matrix      : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Correlation Matrix          : %10.2f %10.2f %10.2f %9d\n",
                tmin[correlMatrix], tmax[correlMatrix], tavg[correlMatrix], counter[correlMatrix]);
-    com->fprintf(fp, "  Eigen Solver            : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Eigen Solver                : %10.2f %10.2f %10.2f %9d\n",
                tmin[eigSolv], tmax[eigSolv], tavg[eigSolv], counter[eigSolv]);
-    com->fprintf(fp, "  Gram-Schmidt            : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  Gram-Schmidt                : %10.2f %10.2f %10.2f %9d\n",
                tmin[gramSchmidt], tmax[gramSchmidt], tavg[gramSchmidt], counter[gramSchmidt]);
     com->fprintf(fp, "\n");
   }
   else if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)  {
-    com->fprintf(fp, "ROM Solution              : %10.2f %10.2f %10.2f         -\n",
+    com->fprintf(fp, "ROM Solution                  : %10.2f %10.2f %10.2f         -\n",
               tmin[romSol], tmax[romSol], tavg[romSol]);
-    com->fprintf(fp, "  ROM Construction        : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  ROM Construction            : %10.2f %10.2f %10.2f %9d\n",
                tmin[romConstr], tmax[romConstr], tavg[romConstr], counter[romConstr]);
-    com->fprintf(fp, "  ROM Time Integration    : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  ROM Time Integration        : %10.2f %10.2f %10.2f %9d\n",
                tmin[romTimeInteg], tmax[romTimeInteg], tavg[romTimeInteg], counter[romTimeInteg]);
     com->fprintf(fp, "\n");
   }
 
-  com->fprintf(fp, "Communication             : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Communication                 : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[comm], tmax[comm], tavg[comm]);
-  com->fprintf(fp, "  Local                   : %10.2f %10.2f %10.2f         -\n",
+  com->fprintf(fp, "  Local                       : %10.2f %10.2f %10.2f         -\n",
 	       tmin[localCom], tmax[localCom], tavg[localCom]);
-  com->fprintf(fp, "  Global                  : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "  Global                      : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[globalCom], tmax[globalCom], tavg[globalCom]);
-  com->fprintf(fp, "  Inter                   : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Inter                       : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[interCom], tmax[interCom], tavg[interCom], 
 	       counter[interCom]);
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "I/O                       : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "I/O                           : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[io], tmax[io], tavg[io]);
-  com->fprintf(fp, "  Binary Read             : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Binary Read                 : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[binread], tmax[binread], tavg[binread], 
 	       counter[binread]);
-  com->fprintf(fp, "  Binary Write            : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Binary Write                : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[binwrite], tmax[binwrite], tavg[binwrite], 
 	       counter[binwrite]);
 
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Total Simulation          : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Total Simulation              : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[total], tmax[total], tavg[total]);
   com->fprintf(fp, "----------------------------------------------------------------------\n");
 
