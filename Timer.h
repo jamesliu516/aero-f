@@ -17,7 +17,8 @@ class Timer {
     podConstr, snapsLinSolv, padeReconstr, correlMatrix, eigSolv, gramSchmidt,
     romSol, romConstr, romTimeInteg,
     comm, localCom, globalCom, interCom,
-    io, binread, binwrite
+    io, binread, binwrite,
+    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp
   };
 
   int numTimings;
@@ -75,6 +76,13 @@ public:
   double addInterComTime(double);
   double addBinaryReadTime(double);
   double addBinaryWriteTime(double);
+  double addFluidSolutionTime(double);
+
+  // Level-Set Timer Functions
+  double addLevelSetSolutionTime(double);
+  double addLSNodalWeightsAndGradTime(double);
+  double addLSFiniteVolumeTermTime(double);
+  double addLSKspTime(double);
 
   void print(Timer *, FILE * = stdout);
 

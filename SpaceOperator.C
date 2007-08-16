@@ -816,8 +816,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -903,8 +906,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -957,8 +963,11 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addLSNodalWeightsAndGradTime(t0);
+  }
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad1->computeLS(geoState->getConfig(), X, ctrlVol, PhiS);
@@ -974,8 +983,11 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad1->limit(recFcnLS, X, ctrlVol, PhiS);
 
+  double tInit = timer->getTime();
   domain->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, *bcData, *geoState, X, *V,
                                     *ngrad, *ngrad1, egrad, Phi, PhiF, PhiS);
+  timer->addLSFiniteVolumeTermTime(tInit);
+
   if (use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
 #pragma omp parallel for

@@ -104,14 +104,14 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 					  DistSVec<Scalar,dim> &ddz)
 {
 
-  double t0 = timer->getTime();
+  //double t0 = timer->getTime();
   
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), R(iSub), var(iSub),
 						  ddx(iSub), ddy(iSub), ddz(iSub));
 
-  timer->addNodalGradTime(t0);
+  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -132,14 +132,14 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &ddz)
 {
 
-  double t0 = timer->getTime();
+  //double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), Phi(iSub), R(iSub), var(iSub),
                                                   ddx(iSub), ddy(iSub), ddz(iSub));
 
-  timer->addNodalGradTime(t0);
+  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -157,14 +157,14 @@ void Domain::computeGradientsGalerkin(DistVec<double> &ctrlVol, DistSVec<double,
 				      DistSVec<Scalar,dim> &ddy, DistSVec<Scalar,dim> &ddz)
 {
 
-  double t0 = timer->getTime();
+  //double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsGalerkin(ctrlVol(iSub), wii(iSub), wij(iSub), wji(iSub),
 					      var(iSub), ddx(iSub), ddy(iSub), ddz(iSub));
 
-  timer->addNodalGradTime(t0);
+  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -184,7 +184,7 @@ void Domain::computeGradientsGalerkinT(DistVec<double> &ctrlVol,
                 DistSVec<Scalar,dim> &ddz)
 {
 
-  double t0 = timer->getTime();
+  //double t0 = timer->getTime();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -193,7 +193,7 @@ void Domain::computeGradientsGalerkinT(DistVec<double> &ctrlVol,
                 ddx(iSub), ddy(iSub), ddz(iSub));
 
 
-  timer->addNodalGradTime(t0);
+  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -338,8 +338,6 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
 template<int dim>
 void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)
 {
-  double t0 = timer->getTime();
-                                                                                                                                                         
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
@@ -559,6 +557,7 @@ void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(PhiF.subData(iSub)));
 
+  timer->addLSFiniteVolumeTermTime(t0);
 }
 
 //------------------------------------------------------------------------------
