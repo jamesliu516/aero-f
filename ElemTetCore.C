@@ -36,6 +36,28 @@ double ElemTet::computeVolume(SVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+double ElemTet::computeDerivativeOfVolume(SVec<double,3> &X, SVec<double,3> &dX )
+{
+
+  Vec3D x[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ], X[ nodeNum(3) ]};
+  Vec3D dx[4] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ], dX[ nodeNum(2) ], dX[ nodeNum(3) ]};
+
+  Vec3D v1 = x[1] - x[0];
+  Vec3D dv1 = dx[1] - dx[0];
+  Vec3D v2 = x[2] - x[0];
+  Vec3D dv2 = dx[2] - dx[0];
+  Vec3D v3 = x[3] - x[0];
+  Vec3D dv3 = dx[3] - dx[0];
+
+  double dVolume = sixth * ( dv3 * (v1 ^ v2) + v3 * ( (dv1 ^ v2) + (v1 ^ dv2) ) );
+
+  return dVolume;
+
+}
+
+//------------------------------------------------------------------------------
+
 double ElemTet::computeControlVolumes(SVec<double,3> &X, Vec<double> &ctrlVol)
 {
 
@@ -45,6 +67,21 @@ double ElemTet::computeControlVolumes(SVec<double,3> &X, Vec<double> &ctrlVol)
     ctrlVol[ nodeNum(j) ] += 0.25 * volume;
 
   return volume;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+double ElemTet::computeDerivativeOfControlVolumes(SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &dCtrlVol)
+{
+
+  double dVolume = computeDerivativeOfVolume(X, dX);
+
+  for (int j=0; j<4; ++j)
+    dCtrlVol[ nodeNum(j) ] += 0.25 * dVolume;
+
+  return dVolume;
 
 }
 
@@ -180,6 +217,135 @@ void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
     }
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void ElemTet::computeDerivativeOfEdgeNormals(SVec<double,3> &X, SVec<double,3> &dX, Vec<Vec3D> &edgeNorm,
+                                Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel)
+{
+
+  Vec3D x_n[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ],
+		  X[ nodeNum(2) ], X[ nodeNum(3) ]};
+  Vec3D x_np1[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ],
+		    X[ nodeNum(2) ], X[ nodeNum(3) ]};
+
+  Vec3D dx_n[4] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ],
+		   dX[ nodeNum(2) ], dX[ nodeNum(3) ]};
+
+  Vec3D dx_np1[4] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ],
+		     dX[ nodeNum(2) ], dX[ nodeNum(3) ]};
+
+  Vec3D f_n[4];
+  f_n[0] = third * (x_n[0] + x_n[1] + x_n[2]);
+  f_n[1] = third * (x_n[0] + x_n[1] + x_n[3]);
+  f_n[2] = third * (x_n[0] + x_n[2] + x_n[3]);
+  f_n[3] = third * (x_n[1] + x_n[2] + x_n[3]);
+
+  Vec3D g_n = 0.25 * (x_n[0] + x_n[1] + x_n[2] + x_n[3]);
+
+  Vec3D df_n[4];
+  df_n[0] = third * (dx_n[0] + dx_n[1] + dx_n[2]);
+  df_n[1] = third * (dx_n[0] + dx_n[1] + dx_n[3]);
+  df_n[2] = third * (dx_n[0] + dx_n[2] + dx_n[3]);
+  df_n[3] = third * (dx_n[1] + dx_n[2] + dx_n[3]);
+
+  Vec3D dg_n = 0.25 * (dx_n[0] + dx_n[1] + dx_n[2] + dx_n[3]);
+
+  Vec3D f_np1[4];
+  f_np1[0] = third * (x_np1[0] + x_np1[1] + x_np1[2]);
+  f_np1[1] = third * (x_np1[0] + x_np1[1] + x_np1[3]);
+  f_np1[2] = third * (x_np1[0] + x_np1[2] + x_np1[3]);
+  f_np1[3] = third * (x_np1[1] + x_np1[2] + x_np1[3]);
+
+  Vec3D g_np1 = 0.25 * (x_np1[0] + x_np1[1] + x_np1[2] + x_np1[3]);
+
+  Vec3D df_np1[4];
+  df_np1[0] = third * (dx_np1[0] + dx_np1[1] + dx_np1[2]);
+  df_np1[1] = third * (dx_np1[0] + dx_np1[1] + dx_np1[3]);
+  df_np1[2] = third * (dx_np1[0] + dx_np1[2] + dx_np1[3]);
+  df_np1[3] = third * (dx_np1[1] + dx_np1[2] + dx_np1[3]);
+
+  Vec3D dg_np1 = 0.25 * (dx_np1[0] + dx_np1[1] + dx_np1[2] + dx_np1[3]);
+
+  for (int l=0; l<6; ++l) {
+    Vec3D xg0_n = f_n[ edgeFace(l,0) ] - g_n;
+    Vec3D xg1_n = f_n[ edgeFace(l,1) ] - g_n;
+    Vec3D xg0_np1 = f_np1[ edgeFace(l,0) ] - g_np1;
+    Vec3D xg1_np1 = f_np1[ edgeFace(l,1) ] - g_np1;
+
+    Vec3D dxg0_n = df_n[ edgeFace(l,0) ] - dg_n;
+    Vec3D dxg1_n = df_n[ edgeFace(l,1) ] - dg_n;
+    Vec3D dxg0_np1 = df_np1[ edgeFace(l,0) ] - dg_np1;
+    Vec3D dxg1_np1 = df_np1[ edgeFace(l,1) ] - dg_np1;
+
+//    Vec3D n = 0.5 * ((xg1_np1 ^ xg0_np1) + (xg1_n ^ xg0_n)) +
+//      0.25 * ((xg1_np1 ^ xg0_n) + (xg1_n ^ xg0_np1));
+
+    Vec3D dn = 0.5 * ((dxg1_np1 ^ xg0_np1) + (xg1_np1 ^ dxg0_np1) + (dxg1_n ^ xg0_n) + (xg1_n ^ dxg0_n)) +
+      0.25 * ((dxg1_np1 ^ xg0_n) + (xg1_np1 ^ dxg0_n) + (dxg1_n ^ xg0_np1) + (xg1_n ^ dxg0_np1));
+
+    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
+//      edgeNorm[ edgeNum(l) ] += n;
+      dEdgeNorm[ edgeNum(l) ] += dn;
+    }
+    else {
+//      edgeNorm[ edgeNum(l) ] -= n;
+      dEdgeNorm[ edgeNum(l) ] -= dn;
+    }
+  }
+
+//  edgeNormVel= 0.0;
+  dEdgeNormVel= 0.0;
+
+/*
+  Vec3D x[4] = {X[ nodeNum(0) ], X[ nodeNum(1) ],
+		  X[ nodeNum(2) ], X[ nodeNum(3) ]};
+
+  Vec3D dx[4] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ],
+		  dX[ nodeNum(2) ], dX[ nodeNum(3) ]};
+
+  Vec3D f[4];
+  f[0] = third * (x[0] + x[1] + x[2]);
+  f[1] = third * (x[0] + x[1] + x[3]);
+  f[2] = third * (x[0] + x[2] + x[3]);
+  f[3] = third * (x[1] + x[2] + x[3]);
+
+  Vec3D g = 0.25 * (x[0] + x[1] + x[2] + x[3]);
+
+  Vec3D df[4];
+  df[0] = third * (dx[0] + dx[1] + dx[2]);
+  df[1] = third * (dx[0] + dx[1] + dx[3]);
+  df[2] = third * (dx[0] + dx[2] + dx[3]);
+  df[3] = third * (dx[1] + dx[2] + dx[3]);
+
+  Vec3D dg = 0.25 * (dx[0] + dx[1] + dx[2] + dx[3]);
+
+  for (int l=0; l<6; ++l) {
+    Vec3D xg0 = f[ edgeFace(l)(0) ] - g;
+    Vec3D xg1 = f[ edgeFace(l)(1) ] - g;
+
+    Vec3D dxg0 = df[ edgeFace(l)(0) ] - dg;
+    Vec3D dxg1 = df[ edgeFace(l)(1) ] - dg;
+
+//    Vec3D n = 1.5 * (xg1 ^ xg0);
+
+    Vec3D dn = 1.5 * ((dxg1 ^ xg0) + (xg1 ^ dxg0));
+
+    if (nodeNum[ edgeEnd(l,0) ] < nodeNum[ edgeEnd(l,1) ]) {
+//      edgeNorm[ edgeNum(l) ] += n;
+      dEdgeNorm[ edgeNum(l) ] += dn;
+    }
+    else {
+//      edgeNorm[ edgeNum(l) ] -= n;
+      dEdgeNorm[ edgeNum(l) ] -= dn;
+    }
+  }
+
+//  edgeNormVel = 0.0;
+  dEdgeNormVel= 0.0;
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -395,6 +561,60 @@ void ElemTet::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii,
 
     wji[ edgeNum(k) ][2] += dp1dxj[i][2];
     wij[ edgeNum(k) ][2] += dp1dxj[j][2];
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void ElemTet::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,3> &dwii,
+				 SVec<double,3> &dwij, SVec<double,3> &dwji)
+{
+
+  int i, j, k;
+
+  double dp1dxj[4][3], ddp1dxj[4][3];
+
+  double vol = computeGradientP1Function(X, dp1dxj);
+
+  double dvol = computeDerivativeOfGradientP1Function(X, dX, ddp1dxj);
+
+  for (k=0; k<4; ++k) {
+
+    ddp1dxj[k][0] *= vol;
+    ddp1dxj[k][0] += dp1dxj[k][0] *dvol;
+    ddp1dxj[k][1] *= vol;
+    ddp1dxj[k][1] += dp1dxj[k][1] *dvol;
+    ddp1dxj[k][2] *= vol;
+    ddp1dxj[k][2] +=  dp1dxj[k][2] *dvol;
+
+    dwii[ nodeNum(k) ][0] += ddp1dxj[k][0];
+    dwii[ nodeNum(k) ][1] += ddp1dxj[k][1];
+    dwii[ nodeNum(k) ][2] += ddp1dxj[k][2];
+
+  }
+
+  for (k=0; k<6; ++k) {
+
+    if (nodeNum( edgeEnd(k,0) ) < nodeNum( edgeEnd(k,1) )) {
+      i = edgeEnd(k,0);
+      j = edgeEnd(k,1);
+    }
+    else {
+      i = edgeEnd(k,1);
+      j = edgeEnd(k,0);
+    }
+
+    dwji[ edgeNum(k) ][0] += ddp1dxj[i][0];
+    dwij[ edgeNum(k) ][0] += ddp1dxj[j][0];
+
+    dwji[ edgeNum(k) ][1] += ddp1dxj[i][1];
+    dwij[ edgeNum(k) ][1] += ddp1dxj[j][1];
+
+    dwji[ edgeNum(k) ][2] += ddp1dxj[i][2];
+    dwij[ edgeNum(k) ][2] += ddp1dxj[j][2];
 
   }
 
@@ -902,6 +1122,104 @@ double ElemTet::computeGradientP1Function(SVec<double,3> &nodes, double nGrad[4]
   nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
 
   return sixth * dOmega;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+double ElemTet::computeDerivativeOfGradientP1Function(SVec<double,3> &nodes, SVec<double,3> &dNodes, double dNGrad[4][3])
+{
+
+  double jac[3][3], dJac[3][3];
+
+  //Jacobian
+  // J_ij = dx_i/dxi_j
+  jac[0][0] = nodes[ nodeNum(1) ][0] - nodes[ nodeNum(0) ][0];
+  jac[0][1] = nodes[ nodeNum(2) ][0] - nodes[ nodeNum(0) ][0];
+  jac[0][2] = nodes[ nodeNum(3) ][0] - nodes[ nodeNum(0) ][0];
+  jac[1][0] = nodes[ nodeNum(1) ][1] - nodes[ nodeNum(0) ][1];
+  jac[1][1] = nodes[ nodeNum(2) ][1] - nodes[ nodeNum(0) ][1];
+  jac[1][2] = nodes[ nodeNum(3) ][1] - nodes[ nodeNum(0) ][1];
+  jac[2][0] = nodes[ nodeNum(1) ][2] - nodes[ nodeNum(0) ][2];
+  jac[2][1] = nodes[ nodeNum(2) ][2] - nodes[ nodeNum(0) ][2];
+  jac[2][2] = nodes[ nodeNum(3) ][2] - nodes[ nodeNum(0) ][2];
+
+  dJac[0][0] = dNodes[ nodeNum(1) ][0] - dNodes[ nodeNum(0) ][0];
+  dJac[0][1] = dNodes[ nodeNum(2) ][0] - dNodes[ nodeNum(0) ][0];
+  dJac[0][2] = dNodes[ nodeNum(3) ][0] - dNodes[ nodeNum(0) ][0];
+  dJac[1][0] = dNodes[ nodeNum(1) ][1] - dNodes[ nodeNum(0) ][1];
+  dJac[1][1] = dNodes[ nodeNum(2) ][1] - dNodes[ nodeNum(0) ][1];
+  dJac[1][2] = dNodes[ nodeNum(3) ][1] - dNodes[ nodeNum(0) ][1];
+  dJac[2][0] = dNodes[ nodeNum(1) ][2] - dNodes[ nodeNum(0) ][2];
+  dJac[2][1] = dNodes[ nodeNum(2) ][2] - dNodes[ nodeNum(0) ][2];
+  dJac[2][2] = dNodes[ nodeNum(3) ][2] - dNodes[ nodeNum(0) ][2];
+
+  // compute determinant of jac and derivative of the jac
+  double dOmega = jac[0][0] * (jac[1][1] * jac[2][2] - jac[1][2] * jac[2][1]) +
+                                 jac[1][0] * (jac[0][2] * jac[2][1] - jac[0][1] * jac[2][2]) +
+                                 jac[2][0] * (jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1]);
+
+  double ddOmega = dJac[0][0] * (jac[1][1] * jac[2][2] - jac[1][2] * jac[2][1]) +
+                                      jac[0][0] * (dJac[1][1] * jac[2][2] + jac[1][1] * dJac[2][2] - dJac[1][2] * jac[2][1] - jac[1][2] * dJac[2][1]) +
+                                   dJac[1][0] * (jac[0][2] * jac[2][1] - jac[0][1] * jac[2][2]) +
+                                      jac[1][0] * (dJac[0][2] * jac[2][1] + jac[0][2] * dJac[2][1] - dJac[0][1] * jac[2][2] - jac[0][1] * dJac[2][2]) +
+                                   dJac[2][0] * (jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1]) +
+                                      jac[2][0] * (dJac[0][1] * jac[1][2] + jac[0][1] * dJac[1][2] - dJac[0][2] * jac[1][1] - jac[0][2] * dJac[1][1]);
+
+  // compute inverse matrix of jac and derivative of the jac
+  // Maple code used
+  double t17 = -1.0/dOmega;
+  double dT17 = 1.0/(dOmega*dOmega)*ddOmega;
+
+  //compute shape function derivative of the gradients
+//  nGrad[1][0] =  (-jac[1][1] * jac[2][2] + jac[1][2] * jac[2][1] ) * t17;
+//  nGrad[1][1] =  ( jac[0][1] * jac[2][2] - jac[0][2] * jac[2][1] ) * t17;
+//  nGrad[1][2] = -( jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1] ) * t17;
+
+//  nGrad[2][0] = -(-jac[1][0] * jac[2][2] + jac[1][2] * jac[2][0] ) * t17;
+//  nGrad[2][1] = -( jac[0][0] * jac[2][2] - jac[0][2] * jac[2][0] ) * t17;
+//  nGrad[2][2] =  ( jac[0][0] * jac[1][2] - jac[0][2] * jac[1][0] ) * t17;
+
+//  nGrad[3][0] = -( jac[1][0] * jac[2][1] - jac[1][1] * jac[2][0] ) * t17;
+//  nGrad[3][1] =  ( jac[0][0] * jac[2][1] - jac[0][1] * jac[2][0] ) * t17;
+//  nGrad[3][2] = -( jac[0][0] * jac[1][1] - jac[0][1] * jac[1][0] ) * t17;
+
+  dNGrad[1][0] =  (-jac[1][1] * jac[2][2] + jac[1][2] * jac[2][1] ) * dT17 +
+                                (-dJac[1][1] * jac[2][2] - jac[1][1] * dJac[2][2] + dJac[1][2] * jac[2][1] + jac[1][2] * dJac[2][1] ) * t17;
+  dNGrad[1][1] =  ( jac[0][1] * jac[2][2] - jac[0][2] * jac[2][1] ) * dT17 +
+                                ( dJac[0][1] * jac[2][2] + jac[0][1] * dJac[2][2] - dJac[0][2] * jac[2][1] - jac[0][2] * dJac[2][1] ) * t17;
+  dNGrad[1][2] = -( jac[0][1] * jac[1][2] - jac[0][2] * jac[1][1] ) * dT17 -
+                                ( dJac[0][1] * jac[1][2] + jac[0][1] * dJac[1][2] - dJac[0][2] * jac[1][1] - jac[0][2] * dJac[1][1] ) * t17;
+
+  dNGrad[2][0] = -(-jac[1][0] * jac[2][2] + jac[1][2] * jac[2][0] ) * dT17 -
+                                (-dJac[1][0] * jac[2][2] - jac[1][0] * dJac[2][2] + dJac[1][2] * jac[2][0] + jac[1][2] * dJac[2][0] ) * t17;
+  dNGrad[2][1] = -( jac[0][0] * jac[2][2] - jac[0][2] * jac[2][0] ) * dT17 -
+                                ( dJac[0][0] * jac[2][2] + jac[0][0] * dJac[2][2] - dJac[0][2] * jac[2][0] - jac[0][2] * dJac[2][0] ) * t17;
+  dNGrad[2][2] =  ( jac[0][0] * jac[1][2] - jac[0][2] * jac[1][0] ) * dT17 +
+                                ( dJac[0][0] * jac[1][2] + jac[0][0] * dJac[1][2] - dJac[0][2] * jac[1][0] - jac[0][2] * dJac[1][0] ) * t17;
+
+  dNGrad[3][0] = -( jac[1][0] * jac[2][1] - jac[1][1] * jac[2][0] ) * dT17 -
+                                ( dJac[1][0] * jac[2][1] + jac[1][0] * dJac[2][1] - dJac[1][1] * jac[2][0] - jac[1][1] * dJac[2][0] ) * t17;
+  dNGrad[3][1] =  ( jac[0][0] * jac[2][1] - jac[0][1] * jac[2][0] ) * dT17 +
+                                ( dJac[0][0] * jac[2][1] + jac[0][0] * dJac[2][1] - dJac[0][1] * jac[2][0] - jac[0][1] * dJac[2][0] ) * t17;
+  dNGrad[3][2] = -( jac[0][0] * jac[1][1] - jac[0][1] * jac[1][0] ) * dT17 -
+                                ( dJac[0][0] * jac[1][1] + jac[0][0] * dJac[1][1] - dJac[0][1] * jac[1][0] - jac[0][1] * dJac[1][0] ) * t17;
+
+  // Shape function gradients dN_i/dx_i = dN/dxi * transpose(jInv)
+  // Note: 1st index = shape function #
+  // 2nd index = direction (0=x, 1=y, 2=z)
+
+//  nGrad[0][0] = -( nGrad[1][0] + nGrad[2][0] + nGrad[3][0] );
+//  nGrad[0][1] = -( nGrad[1][1] + nGrad[2][1] + nGrad[3][1] );
+//  nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
+
+  dNGrad[0][0] = -( dNGrad[1][0] + dNGrad[2][0] + dNGrad[3][0] );
+  dNGrad[0][1] = -( dNGrad[1][1] + dNGrad[2][1] + dNGrad[3][1] );
+  dNGrad[0][2] = -( dNGrad[1][2] + dNGrad[2][2] + dNGrad[3][2] );
+
+  return sixth * ddOmega;
 
 }
 

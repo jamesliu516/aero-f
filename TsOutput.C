@@ -353,6 +353,111 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavF = 0;
   TavM = 0;
   TavL = 0;
+
+// Included (MB)
+  if (iod.output.transient.velocitynorm[0] != 0) {
+    sscale[PostFcn::VELOCITY_NORM] = iod.ref.rv.velocity;
+    scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
+    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
+  }
+
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+
+  int dsp = strlen(iod.output.transient.prefix) + 1;
+
+  if (iod.output.transient.dSolutions[0] != 0) {
+    dSolutions = new char[dsp + strlen(iod.output.transient.dSolutions)];
+    sprintf(dSolutions, "%s%s", iod.output.transient.prefix, iod.output.transient.dSolutions);
+  }
+  else
+    dSolutions = 0;
+
+  int i;
+  for (i=0; i<PostFcn::DSSIZE; ++i) {
+    dSscale[i] = 1.0;
+    dScalars[i] = 0;
+  }
+  for (i=0; i<PostFcn::DVSIZE; ++i) {
+    dVscale[i] = 1.0;
+    dVectors[i] = 0;
+  }
+
+  if (iod.output.transient.dDensity[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_DENSITY] = iod.ref.rv.density;
+    dScalars[PostFcn::DERIVATIVE_DENSITY] = new char[dsp + strlen(iod.output.transient.dDensity)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dDensity);
+  }
+  if (iod.output.transient.dMach[0] != 0) {
+    dScalars[PostFcn::DERIVATIVE_MACH] = new char[dsp + strlen(iod.output.transient.dMach)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_MACH], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dMach);
+  }
+  if (iod.output.transient.dPressure[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_PRESSURE] = iod.ref.rv.pressure;
+    dScalars[PostFcn::DERIVATIVE_PRESSURE] = new char[dsp + strlen(iod.output.transient.dPressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dPressure);
+  }
+  if (iod.output.transient.dTemperature[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_TEMPERATURE] = iod.ref.rv.temperature;
+    dScalars[PostFcn::DERIVATIVE_TEMPERATURE] = new char[dsp + strlen(iod.output.transient.dTemperature)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTemperature);
+  }
+  if (iod.output.transient.dTotalpressure[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_TOTPRESSURE] = iod.ref.rv.pressure;
+    dScalars[PostFcn::DERIVATIVE_TOTPRESSURE] = new char[dsp + strlen(iod.output.transient.dTotalpressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
+  }
+  if (iod.output.transient.dNutturb[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dNutturb);
+  }
+  if (iod.output.transient.dEddyvis[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
+    dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = new char[dsp + strlen(iod.output.transient.dEddyvis)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dEddyvis);
+  }
+  if (iod.output.transient.dVelocityScalar[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = iod.ref.rv.velocity;
+    dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = new char[dsp + strlen(iod.output.transient.dVelocityScalar)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dVelocityScalar);
+  }
+  if (iod.output.transient.dVelocityVector[0] != 0) {
+    dVscale[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = iod.ref.rv.velocity;
+    dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = new char[dsp + strlen(iod.output.transient.dVelocityVector)];
+    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dVelocityVector);
+  }
+  if (iod.output.transient.dDisplacement[0] != 0) {
+    dVscale[PostFcn::DERIVATIVE_DISPLACEMENT] = iod.ref.rv.tlength;
+    dVectors[PostFcn::DERIVATIVE_DISPLACEMENT] = new char[dsp + strlen(iod.output.transient.dDisplacement)];
+    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dDisplacement);
+  }
+
+  if (iod.output.transient.dForces[0] != 0) {
+    dForces = new char[dsp + strlen(iod.output.transient.dForces)];
+    sprintf(dForces, "%s%s", iod.output.transient.prefix, iod.output.transient.dForces);
+  }
+  else
+    dForces = 0;
+
+  fpdForces = 0;
+
+  switchOpt = true;
+  }
+  else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    switchOpt = false;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -479,6 +584,24 @@ void TsOutput<dim>::openAsciiFiles()
           fprintf(fpForces[iSurf], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
       }   
       fflush(fpForces[iSurf]);
+    }
+  }
+
+// Included (MB)
+  if (switchOpt) {
+    if (dForces) {
+      fpdForces = fopen(dForces, "w");
+      if (!fpdForces) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", dForces);
+        exit(1);
+      }
+
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpdForces, "Step Variable Cfx Cfy Cfz Cmx Cmy Cmz sboom dCfx dCfy dCfz dCmx dCmy dCmz dSboom \n");
+      else
+        fprintf(fpdForces, "Step Variable Fx Fy Fz Mx My Mz sboom dFx dFy dFz dMx dMy dMz dSboom \n");
+
+      fflush(fpdForces);
     }
   }
 
@@ -904,6 +1027,20 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F, Vec3D & dF, Vec3D & M, Vec3D & dM, double &sboom, double &dSboom)
+{
+
+  if (fpdForces) {
+    fprintf(fpdForces, "%d %d %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e %16.13e \n", it, actvar, F[0], F[1], F[2], M[0], M[1], M[2], sboom, dF[0], dF[1], dF[2], dM[0], dM[1], dM[2], dSboom);
+    fflush(fpdForces);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
 				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
@@ -1248,6 +1385,39 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
+{
+
+  int    step = it-1;
+  double tag  = (double)actvar;
+
+  if (dSolutions)
+    domain->writeVectorToFile(dSolutions, step, tag, dU);
+ 
+  int i;
+  for (i=0; i<PostFcn::DSSIZE; ++i) {
+    if (dScalars[i]) {
+      if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
+      postOp->computeDerivativeOfScalarQuantity(static_cast<PostFcn::ScalarDerivativeType>(i), dS, X, dX, U, dU, *Qs, timeState);
+      DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
+      domain->writeVectorToFile(dScalars[i], step, tag, Qs1, &(dSscale[i]));
+    }
+  }
+  for (i=0; i<PostFcn::DVSIZE; ++i) {
+    if (dVectors[i]) {        
+      if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+      if (static_cast<PostFcn::VectorType>(i) != PostFcn::FLIGHTDISPLACEMENT && static_cast<PostFcn::VectorType>(i) != PostFcn::LOCALFLIGHTDISPLACEMENT)
+        postOp->computeDerivativeOfVectorQuantity(static_cast<PostFcn::VectorDerivativeType>(i), X, dX, U, dU, *Qv);
+      domain->writeVectorToFile(dVectors[i], step, tag, *Qv, &(dVscale[i]));
+    } 
+  }
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                       
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, 
@@ -1455,6 +1625,242 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 
   counter += 1; // increment the counter for keeping track of the averaging
  
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void TsOutput<dim>::rstVar(IoData &iod) {
+
+  int sp = strlen(iod.output.transient.prefix) + 1;
+
+  if (iod.output.transient.density[0] != 0) {
+    sscale[PostFcn::DENSITY] = iod.ref.rv.density;
+    scalars[PostFcn::DENSITY] = new char[sp + strlen(iod.output.transient.density)];
+    sprintf(scalars[PostFcn::DENSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.density);
+  }
+  if (iod.output.transient.tavdensity[0] != 0) {
+    avsscale[PostFcn::DENSITYAVG] = iod.ref.rv.density;
+    avscalars[PostFcn::DENSITYAVG] = new char[sp + strlen(iod.output.transient.tavdensity)];
+    sprintf(avscalars[PostFcn::DENSITYAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavdensity);
+  }
+  if (iod.output.transient.speed[0] != 0) {
+    sscale[PostFcn::SPEED] = iod.ref.rv.velocity;
+    scalars[PostFcn::SPEED] = new char[sp + strlen(iod.output.transient.speed)];
+    sprintf(scalars[PostFcn::SPEED], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.speed);
+  }
+  if (iod.output.transient.pressure[0] != 0) {
+    sscale[PostFcn::PRESSURE] = iod.ref.rv.pressure;
+    scalars[PostFcn::PRESSURE] = new char[sp + strlen(iod.output.transient.pressure)];
+    sprintf(scalars[PostFcn::PRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.pressure);
+  }
+  if (iod.output.transient.diffpressure[0] != 0) {
+    sscale[PostFcn::DIFFPRESSURE] = iod.ref.rv.pressure;
+    scalars[PostFcn::DIFFPRESSURE] = new char[sp + strlen(iod.output.transient.diffpressure)];
+    sprintf(scalars[PostFcn::DIFFPRESSURE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.diffpressure);
+  }
+  if (iod.output.transient.tavpressure[0] != 0) {
+    avsscale[PostFcn::PRESSUREAVG] = iod.ref.rv.pressure;
+    avscalars[PostFcn::PRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavpressure)];
+    sprintf(avscalars[PostFcn::PRESSUREAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavpressure);
+  }
+  if (iod.output.transient.hydrostaticpressure[0] != 0) {
+    sscale[PostFcn::HYDROSTATICPRESSURE] = iod.ref.rv.pressure;
+    scalars[PostFcn::HYDROSTATICPRESSURE] = new char[sp + strlen(iod.output.transient.hydrostaticpressure)];
+    sprintf(scalars[PostFcn::HYDROSTATICPRESSURE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.hydrostaticpressure);
+  }
+  if (iod.output.transient.hydrodynamicpressure[0] != 0) {
+    sscale[PostFcn::HYDRODYNAMICPRESSURE] = iod.ref.rv.pressure;
+    scalars[PostFcn::HYDRODYNAMICPRESSURE] = new char[sp + strlen(iod.output.transient.hydrodynamicpressure)];
+    sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
+  }
+  if (iod.output.transient.temperature[0] != 0) {
+    sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+    scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
+    sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.temperature);
+  }
+  if (iod.output.transient.tavtemperature[0] != 0) {
+    avsscale[PostFcn::TEMPERATUREAVG] = iod.ref.rv.temperature;
+    avscalars[PostFcn::TEMPERATUREAVG] = new char[sp + strlen(iod.output.transient.tavtemperature)];
+    sprintf(avscalars[PostFcn::TEMPERATUREAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavtemperature);
+  }
+  if (iod.output.transient.totalpressure[0] != 0) {
+    sscale[PostFcn::TOTPRESSURE] = iod.ref.rv.pressure;
+    scalars[PostFcn::TOTPRESSURE] = new char[sp + strlen(iod.output.transient.totalpressure)];
+    sprintf(scalars[PostFcn::TOTPRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.totalpressure);
+  }
+  if (iod.output.transient.tavtotalpressure[0] != 0) {
+    avsscale[PostFcn::TOTPRESSUREAVG] = iod.ref.rv.pressure;
+    avscalars[PostFcn::TOTPRESSUREAVG] = new char[sp + strlen(iod.output.transient.tavtotalpressure)];
+    sprintf(avscalars[PostFcn::TOTPRESSUREAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavtotalpressure);
+  }
+  if (iod.output.transient.vorticity[0] != 0) {
+    sscale[PostFcn::VORTICITY] = iod.ref.rv.velocity/iod.ref.rv.tlength;
+    scalars[PostFcn::VORTICITY] = new char[sp + strlen(iod.output.transient.vorticity)];
+    sprintf(scalars[PostFcn::VORTICITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.vorticity);
+  }
+  if (iod.output.transient.tavvorticity[0] != 0) {
+    avsscale[PostFcn::VORTICITYAVG] = iod.ref.rv.velocity/iod.ref.rv.tlength;
+    avscalars[PostFcn::VORTICITYAVG] = new char[sp + strlen(iod.output.transient.tavvorticity)];
+    sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
+  }
+  if (iod.output.transient.nutturb[0] != 0) {
+    sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
+    sprintf(scalars[PostFcn::NUT_TURB], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.nutturb);
+  }
+  if (iod.output.transient.eddyvis[0] != 0) {
+    sscale[PostFcn::EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
+    scalars[PostFcn::EDDY_VISCOSITY] = new char[sp + strlen(iod.output.transient.eddyvis)];
+    sprintf(scalars[PostFcn::EDDY_VISCOSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.eddyvis);
+  }
+  if (iod.output.transient.dplus[0] != 0) {
+#if defined(HEAT_FLUX)
+    /*
+    double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+    double dT = iod.bc.wall.temperature - 1.0 / (gam*(gam-1.0)*iod.bc.inlet.mach*iod.bc.inlet.mach);
+    sscale[PostFcn::DELTA_PLUS] = iod.ref.reynolds * iod.eqs.thermalCondModel.prandtl / (gam * dT);
+    */
+    sscale[PostFcn::DELTA_PLUS] = iod.ref.rv.tpower / (iod.ref.length*iod.ref.length);
+#endif
+    scalars[PostFcn::DELTA_PLUS] = new char[sp + strlen(iod.output.transient.dplus)];
+    sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dplus);
+  }
+  if (iod.output.transient.philevel[0] != 0) {
+    sscale[PostFcn::PHILEVEL] = 1.0;
+    scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
+    sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.philevel);
+  }
+  if (iod.output.transient.velocity[0] != 0) {
+    vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
+    vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
+    sprintf(vectors[PostFcn::VELOCITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.velocity);
+  }
+  if (iod.output.transient.tavvelocity[0] != 0) {
+    avvscale[PostFcn::VELOCITYAVG] = iod.ref.rv.velocity;
+    avvectors[PostFcn::VELOCITYAVG] = new char[sp + strlen(iod.output.transient.tavvelocity)];
+    sprintf(avvectors[PostFcn::VELOCITYAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavvelocity);
+  }
+  if (iod.output.transient.displacement[0] != 0) {
+    vscale[PostFcn::DISPLACEMENT] = iod.ref.rv.tlength;
+    vectors[PostFcn::DISPLACEMENT] = new char[sp + strlen(iod.output.transient.displacement)];
+    sprintf(vectors[PostFcn::DISPLACEMENT], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.displacement);
+  }
+  if (iod.output.transient.tavdisplacement[0] != 0) {
+    avvscale[PostFcn::DISPLACEMENTAVG] = iod.ref.rv.tlength;
+    avvectors[PostFcn::DISPLACEMENTAVG] = new char[sp + strlen(iod.output.transient.tavdisplacement)];
+    sprintf(avvectors[PostFcn::DISPLACEMENTAVG], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.tavdisplacement);
+  }
+
+  if (iod.output.transient.flightDisplacement[0] != 0) {
+    vscale[PostFcn::FLIGHTDISPLACEMENT] = iod.ref.rv.tlength;
+    vectors[PostFcn::FLIGHTDISPLACEMENT] = new char[sp + strlen(iod.output.transient.flightDisplacement)];
+    sprintf(vectors[PostFcn::FLIGHTDISPLACEMENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.flightDisplacement);
+  }
+
+  if (iod.output.transient.localFlightDisplacement[0] != 0) {
+    vscale[PostFcn::LOCALFLIGHTDISPLACEMENT] = iod.ref.rv.tlength;
+    vectors[PostFcn::LOCALFLIGHTDISPLACEMENT] = new char[sp + strlen(iod.output.transient.localFlightDisplacement)];
+    sprintf(vectors[PostFcn::LOCALFLIGHTDISPLACEMENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.localFlightDisplacement);
+  }
+
+  if (iod.output.transient.velocitynorm[0] != 0) {
+    sscale[PostFcn::VELOCITY_NORM] = iod.ref.rv.velocity;
+    scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
+    sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
+  }
+
+  int dsp = strlen(iod.output.transient.prefix) + 1;
+
+  if (iod.output.transient.dDensity[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_DENSITY] = iod.ref.rv.density;
+    dScalars[PostFcn::DERIVATIVE_DENSITY] = new char[dsp + strlen(iod.output.transient.dDensity)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dDensity);
+  }
+
+  if (iod.output.transient.dPressure[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_PRESSURE] = iod.ref.rv.pressure;
+    dScalars[PostFcn::DERIVATIVE_PRESSURE] = new char[dsp + strlen(iod.output.transient.dPressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dPressure);
+  }
+
+  if (iod.output.transient.dTemperature[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_TEMPERATURE] = iod.ref.rv.temperature;
+    dScalars[PostFcn::DERIVATIVE_TEMPERATURE] = new char[dsp + strlen(iod.output.transient.dTemperature)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTemperature);
+  }
+
+  if (iod.output.transient.dTotalpressure[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_TOTPRESSURE] = iod.ref.rv.pressure;
+    dScalars[PostFcn::DERIVATIVE_TOTPRESSURE] = new char[dsp + strlen(iod.output.transient.dTotalpressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
+  }
+
+  if (iod.output.transient.dNutturb[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
+    dScalars[PostFcn::DERIVATIVE_NUT_TURB] = new char[dsp + strlen(iod.output.transient.dNutturb)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_NUT_TURB], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dNutturb);
+  }
+
+  if (iod.output.transient.dEddyvis[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = iod.ref.rv.viscosity_mu;
+    dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY] = new char[dsp + strlen(iod.output.transient.dEddyvis)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_EDDY_VISCOSITY], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dEddyvis);
+  }
+
+  if (iod.output.transient.dVelocityScalar[0] != 0) {
+    dSscale[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = iod.ref.rv.velocity;
+    dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR] = new char[dsp + strlen(iod.output.transient.dVelocityScalar)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_VELOCITY_SCALAR], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dVelocityScalar);
+  }
+
+  if (iod.output.transient.dVelocityVector[0] != 0) {
+    dVscale[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = iod.ref.rv.velocity;
+    dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR] = new char[dsp + strlen(iod.output.transient.dVelocityVector)];
+    sprintf(dVectors[PostFcn::DERIVATIVE_VELOCITY_VECTOR], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dVelocityVector);
+  }
+
+  if (iod.output.transient.dDisplacement[0] != 0) {
+    dVscale[PostFcn::DERIVATIVE_DISPLACEMENT] = iod.ref.rv.tlength;
+    dVectors[PostFcn::DERIVATIVE_DISPLACEMENT] = new char[dsp + strlen(iod.output.transient.dDisplacement)];
+    sprintf(dVectors[PostFcn::DERIVATIVE_DISPLACEMENT], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dDisplacement);
+  }
+
 }
 
 //------------------------------------------------------------------------------

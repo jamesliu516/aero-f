@@ -85,6 +85,8 @@ void BcFcnNS::template_applyToOffDiagonalTerm(int type, Scalar *A)
 
 }
 
+//------------------------------------------------------------------------------
+
 template<class Scalar, int neq>
 inline
 void BcFcnNS::template_zeroDiagonalTerm(int type, Scalar *A)  {
@@ -151,6 +153,28 @@ void BcFcnSA::template_applyToDiagonalTerm(int type, double *Vwall, double *U, S
     for (int k=0; k<neq; ++k)
       A[neq*5 + k] = 0.0;
     A[neq*5 + 5] = 1.0;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar>
+inline
+void BcFcnSA::template_applyToDiagonalTerm(int type, double *Vwall, double *dVwall, double *U, Scalar *A)
+{
+
+  const int neq = 6;
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED) {
+    A[neq*5 + 0] = - Vwall[5] - U[0] * dVwall[0];
+    A[neq*5 + 1] = - U[0] * dVwall[1];
+    A[neq*5 + 2] = - U[0] * dVwall[2];
+    A[neq*5 + 3] = - U[0] * dVwall[3];
+    A[neq*5 + 4] = - U[0] * dVwall[4];
+    A[neq*5 + 5] = - U[0] * dVwall[5] + 1.0;
   }
 
 }

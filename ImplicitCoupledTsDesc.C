@@ -31,13 +31,14 @@ ImplicitCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   fddata.mvp = ImplicitData::FD;
 
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)
-    this->mvp = new MatVecProdFD<dim, dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+    this->mvp = new MatVecProdFD<dim,dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
   else if (implicitData.mvp == ImplicitData::H1)
     mvp = new MatVecProdH1<dim,MatScalar,dim>(this->timeState, this->spaceOp, this->domain, ioData);
   else if (implicitData.mvp == ImplicitData::H2)
-    mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, this->domain);
+// Included (MB)
+    mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, this->domain, this->geoState);
 
-  mvpfd1 = new MatVecProdFD<dim, dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+  mvpfd1 = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
 
   pc = ImplicitTsDesc<dim>::template 
     createPreconditioner<PrecScalar,dim>(implicitData.newton.ksp.ns.pc, this->domain);
@@ -149,15 +150,28 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 {
 
   double t0 = this->timer->getTime();
+
   dQ = 0.0;
 
-  ksp->setup(it, this->maxItsNewton, b);
+  ksp->setup(it,this-> maxItsNewton, b);
 
   int lits = ksp->solve(b, dQ);
 
   this->timer->addKspTime(t0);
 
   return lits;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void ImplicitCoupledTsDesc<dim>::rstVarImplicitCoupledTsDesc(IoData &ioData)
+{
+
+    mvpfd1->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+    mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
 }
 

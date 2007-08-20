@@ -104,6 +104,10 @@ class Domain {
   DistSVec<int,2> *tagBar;
                                                                                                                           
   BCApplier* meshMotionBCs; //HB
+
+// Included (MB)
+  CommPattern<double> *weightDerivativePat;
+
 public:
 
   Domain();
@@ -527,10 +531,95 @@ public:
   void checkNormalSums(IoData &);
 
   template<int dim>
-  void padeReconstruction(VecSet<DistSVec<double, dim> >&, VecSet<DistSVec<double, dim> >&, 
-			  int*, double*, double, int, int, int, int );
-};
- 
+  void padeReconstruction(VecSet<DistSVec<double, dim> >&, VecSet<DistSVec<double, dim> >&, int*, double*, double, int, int, int, int );
+
+// Included (MB)
+  int computeDerivativeOfControlVolumes(double, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
+
+  void computeDerivativeOfNormals(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<Vec3D> &, DistVec<Vec3D> &,
+                         DistVec<double> &, DistVec<double> &, DistVec<Vec3D> &, DistVec<Vec3D> &, DistVec<double> &, DistVec<double> &);
+
+  void computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,6> &);
+
+  void computeDerivativeOfWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &,
+			      DistSVec<double,3> &, DistSVec<double,3> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &, DistSVec<double,3> &,
+                    DistSVec<double,6> &, DistSVec<double,6> &,
+				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsGalerkin(DistVec<double> &, DistVec<double> &,
+                DistSVec<double,3> &, DistSVec<double,3> &,
+				DistSVec<double,3> &, DistSVec<double,3> &,
+				DistSVec<double,3> &, DistSVec<double,3> &,
+				DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
+				DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *, DistSVec<double,3> &, DistSVec<double,3> &,
+			      DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+			      DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+			      DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+			      DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+                  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+			       DistSVec<double,3>&, DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
+			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*, double,
+			       DistSVec<double,dim>&);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &,
+			   DistSVec<double,dim> &, DistSVec<double,dim> &, double, DistSVec<double,dim> &);
+
+  template<int dim>
+  void applyBCsToDerivativeOfResidual(BcFcn *, DistBcData<dim> &,
+			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *, DistSVec<double,3> &,
+				 DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+  void computeOnlyGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
+			   DistGeoState &, DistSVec<double,3> &, 
+			   DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim, class Scalar>
+  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &, 
+			  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
+
+  template<int dim>
+  void computeBCsJacobianWallValues(FemEquationTerm *, DistBcData<dim> &, 
+				   DistGeoState &, DistSVec<double,3> &, 
+				   DistSVec<double,dim> &);
+
+  template<int dim, class Scalar, int neq>
+  void applyBCsToJacobianWallValues(BcFcn *, DistBcData<dim> &, 
+			  DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+
+  template<int dim, class Scalar2>
+  void applyBCsToProduct(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &, DistSVec<Scalar2,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfVolumicForceTerm(VolumicForceTerm *, DistVec<double> &, DistVec<double> &,
+                               DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>  
+  void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &, 
+			     DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
+			     DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, double, double, double, double, double, double);
+
+  template<int dim>
+  void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+ };
+
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

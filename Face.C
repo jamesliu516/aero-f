@@ -117,6 +117,55 @@ void Face::computeNodeBcValue(SVec<double,3> &X, double *Uface, SVec<double,dim2
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim1, int dim2>
+void Face::computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, double *Uface, double *dUface, SVec<double,dim2> &dUnode)
+{
+
+  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+      code == BC_ADIABATIC_WALL_MOVING || code == BC_ADIABATIC_WALL_FIXED) {
+
+    Vec3D n;
+    Vec3D dn;
+
+    computeNormalAndDerivative(X, dX, n, dn);
+
+    double S = sqrt(n*n);
+    double dS = 1.0/(2.0*S) * (dn*n + n*dn);
+
+    for (int j=0; j<numNodes(); ++j) {
+      dUnode[ nodeNum(j) ][0] += dS;
+      for (int k=1; k<dim2; ++k)
+	dUnode[ nodeNum(j) ][k] += dS * Uface[dim1-dim2+k] + S * dUface[dim1-dim2+k];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void Face::computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNormSA, double *dUfaceSA, SVec<double,dim> &dUnodeSA)
+{
+
+  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+      code == BC_ADIABATIC_WALL_MOVING || code == BC_ADIABATIC_WALL_FIXED) {
+    Vec3D n;
+    computeNormal(X, n);
+    double S = sqrt(n*n);
+
+    for (int j=0; j<numNodes(); ++j) {
+      dNormSA[ nodeNum(j) ][0] += S;
+      for (int k=0; k<dim; ++k) 
+	dUnodeSA[ nodeNum(j) ][k] += S * dUfaceSA[k];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &normalVel,
 			   SVec<double,dim> &V, Vec<double> &dt, double beta,
@@ -186,6 +235,67 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
+			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach)
+{
+
+  Vec3D normal = getNormal(normals);
+  double S = sqrt(normal * normal);
+  Vec3D dNormal = getdNormal(dNormals);
+  double dS = (normal * dNormal) / sqrt(normal * normal);
+  double invS = 1.0 / S;
+  double dInvS = - dS / (S*S);
+
+  Vec3D n = invS * normal;
+  Vec3D dn = dInvS * normal + invS * dNormal;
+  double ndot = invS * getNormalVel(normalVel);
+  double dndot = dInvS * getNormalVel(normalVel) + invS *getdNormalVel(dNormalVel);
+
+  for (int l=0; l<numNodes(); ++l) {
+    Vec3D u = varFcn->getVelocity(V[ nodeNum(l) ]);
+    Vec3D du = varFcn->getVelocity(dV[ nodeNum(l) ]);
+    double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ]);
+    double da = varFcn->computeDerivativeOfSoundSpeed(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
+    double un = u * n - ndot;
+    double dun = du * n + u * dn - dndot;
+    double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
+    //double locMach = fabs(un/a); //local Preconditioning (ARL)
+    beta = fmin(fmax(k1*locMach, beta), cmach);
+    if (fmin(fmax(k1*locMach, beta), cmach) == cmach)
+      dbeta = 0.0;
+    else
+      if (fmax(k1*locMach, beta) != beta) {
+        double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
+        dbeta = k1*dLocMach;
+      }
+    
+    double beta2 = beta * beta;
+    double dbeta2 = 2.0 * beta * dbeta;
+    double coeff1 = (1.0+beta2)*un;
+    double dCoeff1 = dbeta2*un + (1.0+beta2)*dun;
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+    double dCoeff2 = (((1.0-beta2)*un)*((-dbeta2*un) + ((1.0-beta2)*dun)) + (2.0*beta*a)*(2.0*dbeta*a+2.0*beta*da)) / pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+
+    if (min(0.5*(coeff1-coeff2), 0.0) != 0.0)
+      dIdti[ nodeNum(l) ] += 0.5*(dCoeff1-dCoeff2)* S/numNodes() + 0.5*(coeff1-coeff2)* dS/numNodes();
+      
+    double vis = 0.0;
+    double dvis = 0.0;
+    if (fet) {
+      vis = fet->computeViscousTimeStep(X[nodeNum(l)],V[nodeNum(l)]);
+      dvis = fet->computeDerivativeOfViscousTimeStep(X[nodeNum(l)],dX[nodeNum(l)],V[nodeNum(l)],dV[nodeNum(l)],dMach);
+    }
+    dIdtv[ nodeNum(l) ] += dvis*S*S + vis*2.0*S*dS;
+
+  }
+    
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 inline
 void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals, 
@@ -203,6 +313,30 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
       }
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+inline
+void Face::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+				      Vec<Vec3D> &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
+				      SVec<double,dim> &V, double *Ub,
+				      double *dUb, SVec<double,dim> &dFluxes)
+{
+
+  if(fluxFcn[code]){
+    double flux[dim];
+    double dFlux[dim];
+    for (int l=0; l<numNodes(); ++l) {
+      fluxFcn[code]->computeDerivative(0.0, 0.0, getNormal(normals, l), getdNormal(dNormals, l), getNormalVel(normalVel, l), getdNormalVel(dNormalVel, l), V[nodeNum(l)], Ub, dUb, flux, dFlux);
+      for (int k=0; k<dim; ++k){
+        dFluxes[ nodeNum(l) ][k] += dFlux[k];
+      }
+    }
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -366,6 +500,25 @@ void FaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void FaceSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState, 
+			      SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
+			      Vec<double> &dIdti,Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach)
+{
+
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<Vec3D> &dn = geoState.getdFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  Vec<double> &dndot = geoState.getdFaceNormalVel();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i]->computeDerivativeOfTimeStep(fet, varFcn, n, dn, ndot, dndot, X, dX, V, dV, dIdti, dIdtv, dMach, beta, dbeta, k1, cmach);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 				      GeoState &geoState, SVec<double,dim> &V, 
@@ -377,6 +530,27 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 
   for (int i=0; i<numFaces; ++i)
     faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluxes);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void FaceSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+				      GeoState &geoState, SVec<double,dim> &V,
+				      SVec<double,dim> &dFluxes)
+{
+
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<Vec3D> &dn = geoState.getdFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  Vec<double> &dndot = geoState.getdFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+  SVec<double,dim> &dUb = bcData.getdFaceStateVector();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i]->computeDerivativeOfFiniteVolumeTerm(fluxFcn, n, dn, ndot, dndot, V, Ub[i], dUb[i], dFluxes);
 
 }
 
@@ -474,6 +648,24 @@ void FaceSet::computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void FaceSet::computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, BcData<dim> &bcData,
+				  GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
+{
+
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+  SVec<double,dim> &dVwall = bcData.getdFaceStateVector();
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i]->computeDerivativeOfGalerkinTerm(elems, fet, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, dMach, dR);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq>
 void FaceSet::computeJacobianGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, 
 					  BcData<dim> &bcData, GeoState &geoState, 
@@ -489,3 +681,23 @@ void FaceSet::computeJacobianGalerkinTerm(ElemSet &elems, FemEquationTerm *fet,
 
 }
 
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void FaceSet::computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, 
+					  BcData<dim> &bcData, GeoState &geoState, 
+					  SVec<double,3> &X, SVec<double,dim> &V)
+{
+
+  SVec<double,dim> &dVwallface = bcData.getdFaceStateVectorSA();
+
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  for (int i=0; i<numFaces; ++i) 
+    faces[i]->computeBCsJacobianWallValues(elems, fet, X, d2wall, Vwall[i], dVwallface[i], V);
+
+}
+
+//------------------------------------------------------------------------------
