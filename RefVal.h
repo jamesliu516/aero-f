@@ -50,12 +50,19 @@ public:
   double cm2moment;
   //double surface;
   
+// Included (MB)
+  double dvelocitydMach;
+  double dtimedMach;
+
 public:
 
   RefVal();
   RefVal(IoData &ioData);
   ~RefVal() {}
   //RefVal(const RefVal&);
+
+// Included (MB)
+  void rstVar(IoData &);
 
 };
 

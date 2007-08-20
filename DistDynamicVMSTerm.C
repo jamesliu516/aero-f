@@ -207,6 +207,31 @@ void DistDynamicVMSTerm<dim>::compute(FluxFcn** fluxFcn,
 
 }
 
+//------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistDynamicVMSTerm<dim>::computeDerivative(FluxFcn** fluxFcn, 
+                                      RecFcn* recFcn, 
+				      FemEquationTerm *fet, 
+				      int config, 
+				      DistVec<double> &ctrlVol,
+				      DistBcData<dim> &bcData,
+                                      DistGeoState &geoState,
+                                      DistTimeState<dim> *timeState,
+				      DistSVec<double,3> &X,
+				      DistSVec<double,dim> &U,
+                                      DistSVec<double,dim> &V, 
+				      DistSVec<double,dim> &R, 
+                                      int failsafe, int rshift) 
+				  
+{
+
+  fprintf(stderr, "***** DistDynamicVMSTerm<dim>::computeDerivative is not implemented!\n");
+  exit(1);
+
+}
+
 //------------------------------------------------------------------------------------------------------------
 
 // This routine is used to retrive the value of Smag Coeff (Cs) for post processing //

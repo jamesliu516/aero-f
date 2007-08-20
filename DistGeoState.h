@@ -63,6 +63,15 @@ class DistGeoState {
 
   Communicator *com;
 
+// Included (MB)
+  int optFlag;
+  DistSVec<double,3> *Xsa;
+  DistSVec<double,3> *dXsa;
+  DistVec<Vec3D> *dEdgeNorm;
+  DistVec<Vec3D> *dFaceNorm;
+  DistVec<double> *dEdgeNormVel;
+  DistVec<double> *dFaceNormVel;
+
 public:
 
   DistGeoState(IoData &, Domain *);
@@ -81,6 +90,12 @@ public:
   int getConfig() const { return data.config; }
   DistSVec<double,3> &getXn() const { return *Xn; }
   DistVec<Vec3D> &getInletNodeNorm() const { return *inletNodeNorm; }
+
+// Included (MB)
+  void resetConfigSA() { data.configSA = 0; }
+  int getConfigSA() const { return data.configSA; }
+  void computeDerivatives(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
+  void reset(DistSVec<double,3> &);
 
 };
 

@@ -55,3 +55,12 @@ void TsParameters::computeCflNumber(int its, double res)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void TsParameters::rstVar(IoData &ioData) {
+
+  maxTime = ioData.ts.maxTime;
+
+}
+
+//------------------------------------------------------------------------------
+

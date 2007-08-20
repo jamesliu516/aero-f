@@ -555,13 +555,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       return 0.0;
   }
 
-
   if (algNum != 10 || it == it0)  {
     com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
 	
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
-    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
 
+    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
   }
 
   if (algNum == 1) 

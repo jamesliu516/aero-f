@@ -109,6 +109,47 @@ public:
 
   template<int dim>
   void computeFDerivs(ElemSet &, VarFcn *, SVec<double,3> &, SVec<double,dim> &, Vec3D (*));
+
+// Included (MB)
+  // Get face total normal derivative from Vec<Vec3D>
+  Vec3D  getdNormal(Vec<Vec3D> &);
+  double getdNormalVel(Vec<double> &);
+
+  // Get subface i normal derivative from Vec<Vec3D>
+  Vec3D  getdNormal(Vec<Vec3D> &, int);
+  double getdNormalVel(Vec<double> &, int);
+
+  template<int dim>
+  void computeDerivativeOfForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                       Vec<double> &, double *, double *, SVec<double,dim> &,
+                                                       SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *, int = 0);
+  template<int dim>
+  void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                                Vec<double> &, double *, double *,
+                                                                SVec<double,dim> &, SVec<double,dim> &,
+                                                                double, double [3], SVec<double,3> &, double *);
+  template<int dim>
+  void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, SVec<double,3>&, Vec<double>&, 
+			     double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                                           Vec<double> &, double *, double *,
+                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                                                           Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *, int = 0);
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
+			   Vec<double> &, double *, double *, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+  
+  template<int dim>
+  void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
+				   Vec<double> &, double *, double *,
+				   SVec<double,dim> &);
+				   
+  void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &);
+
+  void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &);
+
 };
 
 //------------------------------------------------------------------------------

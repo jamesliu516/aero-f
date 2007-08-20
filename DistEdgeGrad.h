@@ -57,6 +57,9 @@ public:
 
   }
 
+// Included (MB)
+  void computeDerivative(int, DistSVec<double,3>&, DistSVec<double,3>&);
+
 };
 
 //------------------------------------------------------------------------------

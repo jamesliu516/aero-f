@@ -31,6 +31,9 @@ public:
 
   void computeCflNumber(int, double);
 
+// Included (MB)
+  void rstVar(IoData &);
+
 };
 
 //------------------------------------------------------------------------------

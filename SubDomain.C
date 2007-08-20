@@ -68,6 +68,23 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
+                                SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
+                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach)
+{
+
+  dIdti = 0.0;
+  dIdtv = 0.0;
+
+  edges.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, dbeta, k1, cmach);
+  faces.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, dbeta, k1, cmach);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                         
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
@@ -113,6 +130,46 @@ void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
+{
+
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n", 
+         R[0], R[3], R[5]);
+  double or11 = 1.0 / R[0];
+  double dor11 = -1.0 / ( R[0]*R[0] )*dR[0];
+  double or22 = 1.0 / R[3];
+  double dor22 = -1.0 / ( R[3]*R[3] )*dR[3];
+  double or33 = 1.0 / R[5];
+  double dor33 = -1.0 / ( R[5]*R[5] )*dR[5];
+
+  double r12or11 = R[1] * or11;
+  double dr12or11 = dR[1] * or11 + R[1] * dor11;
+  double r23or22 = R[4] * or22;
+  double dr23or22 = dR[4] * or22 + R[4] * dor22;
+
+  double psi = (R[1]*R[4] - R[2]*R[3]) * or11 * or22;
+  double dpsi = (dR[1]*R[4] + R[1]*dR[4] - dR[2]*R[3] - R[2]*dR[3]) * or11 * or22 + (R[1]*R[4] - R[2]*R[3]) * dor11 * or22 + (R[1]*R[4] - R[2]*R[3]) * or11 * dor22;
+
+  double alpha1 = dx[0] * or11 * or11;
+  double dalpha1 = ddx[0] * or11 * or11 + dx[0] * dor11 * or11 + dx[0] * or11 * dor11;
+  double alpha2 = (dx[1] - r12or11*dx[0]) * or22 * or22;
+  double dalpha2 = (ddx[1] - dr12or11*dx[0] - r12or11*ddx[0]) * or22 * or22 + (dx[1] - r12or11*dx[0]) * dor22 * or22 + (dx[1] - r12or11*dx[0]) * or22 * dor22;
+  double alpha3 = (dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 * or33;
+  double dalpha3 = (ddx[2] - dr23or22*dx[1] - r23or22*ddx[1] + dpsi*dx[0] + psi*ddx[0]) * or33 * or33 + (dx[2] - r23or22*dx[1] + psi*dx[0]) * dor33 * or33 + (dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 * dor33;
+
+  W[0] = alpha1 - r12or11*alpha2 + psi*alpha3;
+  W[1] = alpha2 - r23or22*alpha3;
+  W[2] = alpha3;
+
+  dW[0] = dalpha1 - dr12or11*alpha2 - r12or11*dalpha2 + dpsi*alpha3  + psi*dalpha3;
+  dW[1] = dalpha2 - dr23or22*alpha3 - r23or22*dalpha3;
+  dW[2] = dalpha3;
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R, 
 	        SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
@@ -124,10 +181,10 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
+
   for (int l=0; l<edges.size(); ++l) {
 
-    if (!edgeFlag[l])
-      continue;
+    if (!edgeFlag[l]) continue;
 
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
@@ -137,6 +194,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     computeLocalWeightsLeastSquares(dx, R[i], Wi);
+
     dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
     computeLocalWeightsLeastSquares(dx, R[j], Wj);
 
@@ -202,6 +260,57 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim, class Scalar>
+void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec<double,3> &dX,
+                         SVec<double,6> &R, SVec<double,6> &dR,
+					     SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &dddx,
+                         SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz)
+{
+
+  dddx = (Scalar) 0.0;
+  dddy = (Scalar) 0.0;
+  dddz = (Scalar) 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double Wi[3], Wj[3], deltaVar;
+    double dWi[3], dWj[3], dDeltaVar;
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[i], dR[i], Wi, dWi);
+
+    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+    ddx[0] = -ddx[0]; ddx[1] = -ddx[1]; ddx[2] = -ddx[2];
+    computeDerivativeOfLocalWeightsLeastSquares(dx, ddx, R[j], dR[j], Wj, dWj);
+
+    for (int k=0; k<dim; ++k) {
+      deltaVar = var[j][k] - var[i][k];
+      dDeltaVar = dvar[j][k] - dvar[i][k];
+
+      dddx[i][k] += (dWi[0] * deltaVar + Wi[0] * dDeltaVar);
+      dddy[i][k] += (dWi[1] * deltaVar + Wi[1] * dDeltaVar);
+      dddz[i][k] += (dWi[2] * deltaVar + Wi[2] * dDeltaVar);
+      dddx[j][k] -= (dWj[0] * deltaVar + Wj[0] * dDeltaVar);
+      dddy[j][k] -= (dWj[1] * deltaVar + Wj[1] * dDeltaVar);
+      dddz[j][k] -= (dWj[2] * deltaVar + Wj[2] * dDeltaVar);
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar>
 void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, SVec<double,3> &wii, 
 		SVec<double,3> &wij, SVec<double,3> &wji, SVec<Scalar,dim> &var, 
@@ -252,6 +361,86 @@ void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, SVec<double,3> &w
       ddz[i][k] *= coef;
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
+void SubDomain::computeDerivativeOfGradientsGalerkin(Vec<double> &ctrlVol, Vec<double> &dCtrlVol,
+					 SVec<double,3> &wii, SVec<double,3> &wij, SVec<double,3> &wji,
+					 SVec<double,3> &dwii, SVec<double,3> &dwij, SVec<double,3> &dwji,
+					 SVec<Scalar,dim> &var, SVec<Scalar,dim> &dvar, SVec<Scalar,dim> &ddx,
+                     SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz, SVec<Scalar,dim> &dddx,
+                     SVec<Scalar,dim> &dddy, SVec<Scalar,dim> &dddz)
+{
+
+  int i, j, k, l;
+
+  ddx=0.0;
+  ddy=0.0;
+  ddz=0.0;
+
+  for (i=0; i<var.size(); ++i)  {
+    for (k=0; k<dim; ++k)  {
+      ddx[i][k] = var[i][k] * wii[i][0];
+      ddy[i][k] = var[i][k] * wii[i][1];
+      ddz[i][k] = var[i][k] * wii[i][2];
+
+      dddx[i][k] = var[i][k] * dwii[i][0] + dvar[i][k] * wii[i][0];
+      dddy[i][k] = var[i][k] * dwii[i][1] + dvar[i][k] * wii[i][1];
+      dddz[i][k] = var[i][k] * dwii[i][2] + dvar[i][k] * wii[i][2];
+    }
+  }
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (l=0; l<edges.size(); ++l) {
+
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+    for (k=0; k<dim; ++k)  {
+
+      ddx[i][k] += wij[l][0] * var[j][k];
+      ddx[j][k] += wji[l][0] * var[i][k];
+
+      ddy[i][k] += wij[l][1] * var[j][k];
+      ddy[j][k] += wji[l][1] * var[i][k];
+
+      ddz[i][k] += wij[l][2] * var[j][k];
+      ddz[j][k] += wji[l][2] * var[i][k];
+
+      dddx[i][k] += dwij[l][0] * var[j][k] + wij[l][0] * dvar[j][k];
+      dddx[j][k] += dwji[l][0] * var[i][k] + wji[l][0] * dvar[i][k];
+
+      dddy[i][k] += dwij[l][1] * var[j][k] + wij[l][1] * dvar[j][k];
+      dddy[j][k] += dwji[l][1] * var[i][k] + wji[l][1] * dvar[i][k];
+
+      dddz[i][k] += dwij[l][2] * var[j][k] + wij[l][2] * dvar[j][k];
+      dddz[j][k] += dwji[l][2] * var[i][k] + wji[l][2] * dvar[i][k];
+
+    }
+
+  }
+
+  for (i=0; i<var.size(); ++i)  {
+
+    double coef = 1.0 / (4.0*ctrlVol[i]);
+
+    double dcoef = -1.0 / (4.0*ctrlVol[i]*ctrlVol[i]) * dCtrlVol[i];
+
+    for (k=0; k<dim; ++k) {
+      dddx[i][k] *= coef;
+      dddx[i][k] += ddx[i][k]*dcoef;
+      dddy[i][k] *= coef;
+      dddy[i][k] += ddy[i][k]*dcoef;
+      dddz[i][k] *= coef;
+      dddz[i][k] += ddz[i][k]*dcoef;
+    }
+
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -330,6 +519,57 @@ void SubDomain::computeMinMaxStencilValues(SVec<double,dim> &V, SVec<double,dim>
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &Vmin, SVec<double,dim> &dVmin,
+					   SVec<double,dim> &Vmax, SVec<double,dim> &dVmax)
+{
+
+  Vmin = V;
+  Vmax = V;
+  dVmin = dV;
+  dVmax = dV;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    for (int k=0; k<dim; ++k) {
+
+      if (min(Vmin[i][k], V[j][k]) == V[j][k]) {
+        Vmin[i][k] = V[j][k];
+        dVmin[i][k] = dV[j][k];
+      }
+
+      if (max(Vmax[i][k], V[j][k]) == V[j][k]) {
+        Vmax[i][k] = V[j][k];
+        dVmax[i][k] = dV[j][k];
+      }
+
+      if (min(Vmin[j][k], V[i][k]) == V[i][k]) {
+        Vmin[j][k] = V[i][k];
+        dVmin[j][k] = dV[i][k];
+      }
+
+      if (max(Vmax[j][k], V[i][k]) == V[i][k]) {
+        Vmax[j][k] = V[i][k];
+        dVmax[j][k] = dV[i][k];
+      }
+
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<double,3> &X, 
 				       Vec<double> &ctrlVol, SVec<double,dim> &V,
@@ -361,6 +601,54 @@ void SubDomain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<doub
 
     recFcn->computeLimiter(Vmax[i], Vmin[i], V[i], Vi, ctrlVol[i], 
 			   Vmax[j], Vmin[j], V[j], Vj, ctrlVol[j], phi[i], phi[j]);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<double,3> &X, SVec<double,3> &dX,
+				       Vec<double> &ctrlVol, Vec<double> &dCtrlVol, SVec<double,dim> &V, SVec<double,dim> &dV,
+				       SVec<double,dim> &dVdx, SVec<double,dim> &dVdy, SVec<double,dim> &dVdz,
+				       SVec<double,dim> &ddVdx, SVec<double,dim> &ddVdy, SVec<double,dim> &ddVdz,
+                       SVec<double,dim> &Vmin, SVec<double,dim> &dVmin, SVec<double,dim> &Vmax,
+                       SVec<double,dim> &dVmax, SVec<double,dim> &phi, SVec<double,dim> &dphi)
+{
+
+  double ddVij[dim], ddVji[dim], Vi[dim], Vj[dim];
+
+  double dddVij[dim], dddVji[dim], dVi[dim], dVj[dim];
+
+  phi = 1.0;
+  dphi = 0.0;
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+      dddVij[k] = ddx[0]*dVdx[i][k] + dx[0]*ddVdx[i][k] + ddx[1]*dVdy[i][k] + dx[1]*ddVdy[i][k] + ddx[2]*dVdz[i][k] + dx[2]*ddVdz[i][k];
+      dddVji[k] = ddx[0]*dVdx[j][k] + dx[0]*ddVdx[j][k] + ddx[1]*dVdy[j][k] + dx[1]*ddVdy[j][k] + ddx[2]*dVdz[j][k] + dx[2]*ddVdz[j][k];
+    }
+
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+
+    recFcn->computeDerivative(V[i], dV[i], ddVij, dddVij, V[j], dV[j], ddVji, dddVji, dVi, dVj);
+
+    recFcn->computeDerivativeOfLimiter(Vmax[i], dVmax[i], Vmin[i], dVmin[i], V[i], dV[i], Vi, dVi, ctrlVol[i], dCtrlVol[i],
+			   Vmax[j], dVmax[j], Vmin[j], dVmin[j], V[j], dV[j], Vj, dVj, ctrlVol[j], dCtrlVol[j], phi[i], dphi[i], phi[j], dphi[j]);
 
   }
 
@@ -408,13 +696,11 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
 }
 
 //------------------------------------------------------------------------------
-
 template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {
   edges.storeGhost(V, Vgf, Phi);
 }
-
 //------------------------------------------------------------------------------
 
 /*
@@ -454,15 +740,31 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
 				       SVec<double,3>& X, SVec<double,dim>& V, 
 				       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 				       SVec<double,dim>& fluxes, SVec<int,2>& tag,
-                                       int failsafe, int rshift) 
+                                       int failsafe, int rshift)
 {
 
   int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState,
                                            X, V, ngrad, egrad, fluxes, tag, failsafe, rshift);
-  
+
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
 
   return(ierr);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
+					BcData<dim>& bcData, GeoState& geoState,
+					SVec<double,3>& X, SVec<double,3>& dX, SVec<double,dim>& V, SVec<double,dim>& dV,
+					NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad, double dMach,
+					SVec<double,dim>& dFluxes)
+{
+
+  edges.computeDerivativeOfFiniteVolumeTerm(irey, dIrey, fluxFcn, recFcn, elems, geoState, X, dX, V, dV, ngrad, egrad, dMach, dFluxes);
+
+  faces.computeDerivativeOfFiniteVolumeTerm(fluxFcn, bcData, geoState, V, dFluxes);
 
 }
 
@@ -480,13 +782,12 @@ int SubDomain::computeFiniteVolumeTerm(FluxFcn** fluxFcn, RecFcn* recFcn,
   int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, fluxFcn, recFcn, elems, geoState,  
                                            X, V, Phi, ngrad, egrad, fluxes, tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
-  
+ 
   return ierr;
                                                                                                   
 }
                                                                                                   
 //------------------------------------------------------------------------------
-
 template<int dim>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                           BcData<dim>& bcData, GeoState& geoState,
@@ -502,6 +803,7 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
   
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
 
+                                                                                                  
 }
 
 //------------------------------------------------------------------------------
@@ -525,7 +827,7 @@ int SubDomain::computeFiniteVolumeBar_Step1(Vec<double> &irey, FluxFcn** fluxFcn
 }
 
 //------------------------------------------------------------------------------
-
+                                                                                                                          
 template<int dim>
 void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
                                              SVec<double,1> &volRatio,
@@ -669,6 +971,23 @@ void SubDomain::computeVolumicForceTerm(VolumicForceTerm *volForce, Vec<double> 
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfVolumicForceTerm(VolumicForceTerm *volForce, Vec<double> &ctrlVol, Vec<double> &dCtrlVol,
+                               SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &dFluxes)
+{
+
+  double dr[5];
+  for (int i=0; i<ctrlVol.size(); i++){
+    volForce->computeDerivativeOfVolumeTerm(ctrlVol[i], dCtrlVol[i], V[i], dV[i], dr);
+    for (int k=0; k<5; k++)
+      dFluxes[i][k] += dr[k];
+  }
+
+}
+
+//------------------------------------------------------------------------------
 /*
 @TECHREPORT{fezoui-lanteri-larrouturou-olivier-89,
   author = "Fezoui, F. and Lanteri, S. and Larrouturou, B. and Olivier, C.",
@@ -696,6 +1015,21 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
   elems.computeGalerkinTerm(fet, geoState, X, V, R);
 
   faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+				    GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+				    SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
+{
+
+  elems.computeDerivativeOfGalerkinTerm(fet, geoState, X, dX, V, dV, dMach, dR);
+
+  faces.computeDerivativeOfGalerkinTerm(elems, fet, bcData, geoState, X, dX, V, dV, dMach, dR);
 
 }
 
@@ -989,6 +1323,19 @@ void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &b
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void SubDomain::computeBCsJacobianWallValues(FemEquationTerm *fet, BcData<dim> &bcData, 
+					    GeoState &geoState, SVec<double,3> &X, 
+					    SVec<double,dim> &V)
+{
+
+  faces.computeBCsJacobianWallValues(elems, fet, bcData, geoState, X, V);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianVolumicForceTerm(VolumicForceTerm *volForce,  
                                            Vec<double> &ctrlVol, SVec<double,dim> &V,
@@ -1052,6 +1399,23 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
   for (int i=0; i<nodes.size(); ++i)
     if (nodeType[i] != BC_INTERNAL)
       bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, BcData<dim> &bcData,
+				   SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &dF)
+{
+
+  SVec<double,dim> &Vwall = bcData.getNodeStateVector();
+  SVec<double,dim> &dVwall = bcData.getdNodeStateVector();
+
+  for (int i=0; i<nodes.size(); ++i)
+    if (nodeType[i] != BC_INTERNAL)
+      bcFcn->applyToDerivativeOfResidualTerm(nodeType[i], Vwall[i], dVwall[i], U[i], dU[i], dF[i]);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1122,6 +1486,88 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim, class Scalar>
+void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs, 
+				   SVec<double,dim> &U, GenMat<Scalar,dim> &A)
+{
+
+  SVec<double,dim> &Vwall = bcs.getNodeStateVector();
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  int k;
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (bcMap.find(l) != bcMap.end())  {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      if (nodeType[i] != BC_INTERNAL)  {
+        Scalar *Aij = A.getBcElem_ij(bcMap[l]);
+        Scalar *Aij_orig = A.getElem_ij(l);  // the Aij is the off-diagonal term for this equation
+        if (Aij && Aij_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aij[k] = Aij_orig[k];
+        }
+
+        Scalar *Aji = A.getBcElem_ji(bcMap[l]);
+        Scalar *Aji_orig = A.getElem_ji(l);  // Aij is the diag term for the ith eq.
+        if (Aji && Aji_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aji[k] = Aji_orig[k];
+        }
+
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aij);
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aji);
+
+      }
+      if (nodeType[j] != BC_INTERNAL) {
+        Scalar *Aij = A.getBcElem_ij(bcMap[l]+numBcNodes[l]);
+        Scalar *Aij_orig = A.getElem_ij(l);  // Aij is the diag term for the jth eq.
+        if (Aij && Aij_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aij[k] = Aij_orig[k];
+        }
+
+        Scalar *Aji = A.getBcElem_ji(bcMap[l]+numBcNodes[l]);
+        Scalar *Aji_orig = A.getElem_ji(l);  // Aji is the off-diag term for the jth eq.
+        if (Aji && Aji_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aji[k] = Aji_orig[k];
+        }
+
+        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aij);
+        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aji);
+
+      }
+    }
+  }
+  for (int i=0; i<nodes.size(); ++i) {
+    if (nodeType[i] != BC_INTERNAL) {
+      Scalar *Aii = A.getElem_ii(i);
+      if (Aii)
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
+void SubDomain::applyBCsToProduct(BcFcn *bcFcn, BcData<dim> &bcs, SVec<double,dim> &U, SVec<Scalar,dim> &Prod)
+{
+
+  for (int i=0; i<nodes.size(); ++i)
+    if (nodeType[i] != BC_INTERNAL)
+        bcFcn->applyToProductTerm(nodeType[i], Prod[i]);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq>
 void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
                                    SVec<double,dim> &U, GenMat<Scalar,neq> &A)
@@ -1158,6 +1604,27 @@ void SubDomain::applyBCsToJacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim, class Scalar, int neq>
+void SubDomain::applyBCsToJacobianWallValues(BcFcn *bcFcn, BcData<dim> &bcs,
+                                   SVec<double,dim> &U, GenMat<Scalar,neq> &A)
+{
+
+  SVec<double,dim> &Vwall = bcs.getNodeStateVector();
+  SVec<double,dim> &dVwall = bcs.getdNodeStateVectorSA();
+
+  for (int i=0; i<nodes.size(); ++i) {
+    if (nodeType[i] != BC_INTERNAL) {
+      Scalar *Aii = A.getElem_ii(i);
+      if (Aii)
+        bcFcn->applyToDiagonalTerm(nodeType[i], Vwall[i], dVwall[i], U[i], Aii);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim>
 SparseMat<Scalar,dim> *SubDomain::createMaskJacobian(int *ndType, MemoryPool *mp)
 {
@@ -1186,9 +1653,13 @@ template<class Scalar, int dim>
 MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
 {
 
-  int numOffDiagEntries = 0;
+// Original
+//  int numOffDiagEntries = 0;
 
-  if (nsFlag)  {
+// Included (MB*)
+  if ((nsFlag) && (!numOffDiagEntries))  {
+// Original
+//  if (nsFlag)  {
     numBcNodes = new int[edges.size()];
     int (*edgePtr)[2] = edges.getPtr();
 
@@ -1213,9 +1684,21 @@ MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
     }
   }
 
-  MvpMat<Scalar,dim> *A = new MvpMat<Scalar,dim>(nodes.size(), edges.size(), numOffDiagEntries);
+// Included (MB*)
+  if (nsFlag) {
+    MvpMat<Scalar,dim> *A = new MvpMat<Scalar,dim>(nodes.size(), edges.size(), numOffDiagEntries);
 
-  return A;
+    return A;
+  }
+  else {
+    MvpMat<Scalar,dim> *A = new MvpMat<Scalar,dim>(nodes.size(), edges.size(), 0);
+
+    return A;
+  }
+// Original
+//  MvpMat<Scalar,dim> *A = new MvpMat<Scalar,dim>(nodes.size(), edges.size(), numOffDiagEntries);
+//
+//  return A;
 
 }
 
@@ -2486,6 +2969,37 @@ void SubDomain::computeNodeBcValue(SVec<double,3> &X, SVec<double,dim1> &Uface,
 }
 
 //------------------------------------------------------------------------------
+// compute node values of the last (dim2-1) face values of Uface
+
+// Included (MB)
+template<int dim1, int dim2>
+void SubDomain::computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim1> &Uface, SVec<double,dim1> &dUface,
+				   SVec<double,dim2> &dUnode)
+{
+
+  dUnode = 0.0;
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].template computeDerivativeOfNodeBcValue<dim1,dim2>(X, dX, Uface[i], dUface[i], dUnode);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNormSA, SVec<double,dim> &dUfaceSA, SVec<double,dim> &dUnodeSA)
+{
+
+  dUnodeSA = 0.0;
+  dNormSA = 0.0;
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeNodeBCsWallValues(X, dNormSA, dUfaceSA[i], dUnodeSA);
+
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData, 
@@ -2506,6 +3020,29 @@ void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfNodalForce(PostFcn *postFcn, BcData<dim> &bcData,
+				  GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, Vec<double> &Pin,
+				  double dS[3], SVec<double,3> &dF, double *nodalForceWeights)
+{
+
+  dF = 0.0;
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+  SVec<double,dim> &dVwall = bcData.getdFaceStateVector();
+
+// Remark: Maybe it is necessary to transform conservative in primitive variables.
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, Pin[i], dS, dF, nodalForceWeights);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData, 
 				      GeoState& geoState, SVec<double,3>& X, 
@@ -2519,6 +3056,26 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
 
   for (int i=0; i<faces.size(); ++i)
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData, 
+				      GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX, 
+				      SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP)
+{
+
+  dP = 0.0;
+
+  Vec<double>& d2wall = geoState.getDistanceToWall();
+  SVec<double,dim>& Vwall = bcData.getFaceStateVector();
+  SVec<double,dim>& dVwall = bcData.getdFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeDerivativeOfNodalHeatPower(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, dS, dP);
 
 }
 
@@ -2550,6 +3107,41 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     if(idx >= 0)
       faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, 
                        Fi[idx], Mi[idx], Fv[idx], Mv[idx], nodalForceWeights, hydro);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+				                  GeoState &geoState, SVec<double,3> &X, SVec<double,3> &dX,
+			                          SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+				                  Vec3D &x0, Vec3D *dFi, Vec3D *dMi, Vec3D *dFv, Vec3D *dMv, double *nodalForceWeights, int hydro)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+  SVec<double,dim> &dVwall = bcData.getdFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i) {
+    int idx;
+    map<int,int>::iterator it = surfOutMap.find(faces[i].getSurfaceID());
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+         faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+	 faces[i].getCode() == BC_SLIP_WALL_MOVING)
+        idx = 0;
+      else
+        idx = -1;
+    }
+
+    if(idx >= 0)
+      faces[i].computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall[i], dVwall[i], V, dV, dS, x0, dFi[idx], dMi[idx], dFv[idx], dMv[idx], nodalForceWeights, hydro);
+
   }
 
 }
@@ -2602,6 +3194,19 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 {
   for (int i=0; i<Q.size(); ++i)
     Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], 1.0);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void
+SubDomain::computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType type, PostFcn *postFcn, double dS[3], SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &dQ)
+{
+
+  for (int i=0; i<dQ.size(); ++i)
+    dQ[i] = postFcn->computeDerivativeOfNodeScalarQuantity(type, dS, V[i], dV[i], X[i], dX[i], 1.0);
+
 }
 
 //------------------------------------------------------------------------------
@@ -2774,6 +3379,52 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &P
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim> &dU, int verboseFlag)
+{
+
+  int ierr = 0;
+
+  for (int i=0; i<U.size(); ++i) {
+    double V[dim];
+    double Un[dim];
+
+    for (int j=0; j<dim; ++j)
+      Un[j] = U[i][j] + dU[i][j];
+
+    varFcn->conservativeToPrimitive(Un, V);
+    double rho = varFcn->getDensity(V);
+    double p = varFcn->getPressure(V);
+
+    if (rho <= 0.0) {
+      if (verboseFlag == 4)
+        fprintf(stderr, "*** Warning: negative density (%e) was fixed for node %d\n", rho, locToGlobNodeMap[i] + 1);
+
+      for (int j=0; j<dim; ++j)
+        dU[i][j] = 0.0;
+
+      ++ierr;
+    }
+    if (p <= 0.0) {
+      if (verboseFlag == 4)
+        fprintf(stderr, "*** Warning: negative pressure (%e) was fixed for node %d (rho = %e)\n", p, locToGlobNodeMap[i] + 1, rho);
+
+      for (int j=0; j<dim; ++j)
+        dU[i][j] = 0.0;
+
+      ++ierr;
+    }
+ 
+  }
+
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim, int neq>
 int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype, 
 			    VarFcn* varFcn, double* Uin, bool* flag, SVec<double,dim>& U, 

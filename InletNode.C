@@ -79,8 +79,6 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
     //  Vextra[idim] = Vfar[idim]+dV[idim];
     //  assert(!isnan(Vextra[i]));
     //}
-    assert(Vextra[0]>0.0);
-    assert(Vextra[4]>0.0);
     if(!locToGlobNodeMap){
       vf->primitiveToConservative(Vextra, Ubc[i]);
     }else{
@@ -364,6 +362,7 @@ void InletNodeSet::checkExtrapolationValue(SVec<double,dim> &U, Connectivity* sh
 	}
 }
 
+//-----------------------------------------------------------------------------
 
 
 

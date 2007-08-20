@@ -48,6 +48,10 @@ class PostOperator {
   
  // Coefficients to Compute nodal force transfer
   double nodalForceWeights[2];
+
+// Included (MB)
+  DistSVec<double,dim> *dV;
+
 private:
 
   double threshold;
@@ -99,6 +103,27 @@ public:
                                 Vec3D &, Vec3D &, Vec3D &, Vec3D &);
   int getNumSurf() { return numSurf; }
   map<int, int> &getSurfMap() { return surfOutMap; }
+
+// Included (MB)
+  void computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *);
+
+  void computeDerivativeOfVectorQuantity(PostFcn::VectorDerivativeType, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,3> &);
+
+  void computeDerivativeOfForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,3> &,
+                                                                           DistSVec<double,dim> &, DistSVec<double,dim> &, double [3],
+                                                                           Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+
+  void computeDerivativeOfNodalForce(DistSVec<double,3> &, DistSVec<double,3> &,
+                                                                DistSVec<double,dim> &, DistSVec<double,dim> &,
+                                                                DistVec<double> &, double [3], DistSVec<double,3> &);
+								
+  void rstVar(IoData &iod) {pressInfty = iod.aero.pressure;}								
+
+  void rstVarPostFcn(IoData &ioData) {postFcn->rstVar(ioData, com);}								
+
+  void computeDerivativeOfNodalHeatPower(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double [3], DistVec<double> &);
+
+  void checkVec(DistSVec<double,3> &);
 
 };
 

@@ -28,7 +28,10 @@ public:
   Extrapolation<dim>& operator() (int i) const { return *subExtrapolation[i]; }
 
   void compute(int, DistVec<Vec3D> &, DistSVec<double,3>&);
-  
+
+// Included (MB)
+   void computeDerivative(int, DistVec<Vec3D> &, DistSVec<double,3>&);
+ 
 };
 
 //------------------------------------------------------------------------------

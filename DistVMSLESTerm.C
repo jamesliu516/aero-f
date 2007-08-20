@@ -88,3 +88,19 @@ void DistVMSLESTerm<dim>::compute(int config, DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistVMSLESTerm<dim>::computeDerivative(int config, DistVec<double> &ctrlVol,
+				  DistSVec<double,3> &X,
+				  DistSVec<double,dim> &V,
+				  DistSVec<double,dim> &R)
+
+{
+
+  fprintf(stderr, "***** DistVMSLESTerm<dim>::computeDerivative is not implemented!\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------
