@@ -17,6 +17,10 @@ public:
 
   void compute(double, double *, double, double *, double *, double *, int);
 
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -32,6 +36,10 @@ public:
   void compute(double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -46,6 +54,10 @@ public:
 
   void compute(double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
 
 };
 
@@ -64,6 +76,10 @@ public:
 
   void compute(double, double *, double, double *, double *, double *, int);
 
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -77,6 +93,10 @@ public:
   ~FluxFcnLiquidInLiquidGhidagliaEuler3D() {}
 
   void compute(double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
 
 };
 
@@ -92,6 +112,10 @@ public:
 
   void compute(double, double *, double, double *, double *, double *, int);
 
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -105,6 +129,10 @@ public:
   ~FluxFcnLiquidInLiquidOutflowEuler3D() {}
 
   void compute(double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
 
 };
 
@@ -121,6 +149,10 @@ public:
   void compute(double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -135,6 +167,10 @@ public:
 
   void compute(double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
 
 };
 

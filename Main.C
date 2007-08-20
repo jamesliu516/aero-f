@@ -17,6 +17,8 @@ extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
 int interruptCode = 0;
 
+int  atexit(void (*function)(void)) { exit(-1);}
+
 //------------------------------------------------------------------------------
 
 extern "C" void processSignal(int num) 
@@ -41,6 +43,8 @@ int main(int argc, char **argv)
 #ifndef CREATE_DSO
   initCommunication(argc, argv);
 #endif
+
+  //sleep(20);
 
   signal(SIGUSR1, processSignal); 
 

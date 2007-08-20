@@ -15,6 +15,9 @@ using std::map;
 using std::pair;
 #endif
 
+// Included (MB)
+#include <stdio.h>
+
 class VarFcn;
 class RecFcn;
 class FluxFcn;
@@ -121,9 +124,9 @@ public:
 				       Vec<double> &);
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, Vec<double> &,
-				       SVec<double,dim> &, GenMat<Scalar,neq> &,
-				       Vec<double> &, int * );
-  
+                               SVec<double,dim> &, GenMat<Scalar,neq> &,
+                               Vec<double> &, int * );
+
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }
   int (*getPtr() const)[2] { return ptr; }
@@ -137,6 +140,17 @@ public:
   }
   double* viewEdgeLength() { return(edgeLength); }
 #endif
+
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
+			       SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
+			       SVec<double,dim>&);
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
+                              SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+			      Vec<double> &, Vec<double> &, double, double, double, double, double);
+
 
 };
 

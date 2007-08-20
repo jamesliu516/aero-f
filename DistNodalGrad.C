@@ -31,11 +31,30 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     Vmin = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     Vmax = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
     phi = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  }
+  else {
+    dVmin = 0;
+    dVmax = 0;
+    dphi = 0;
+  }
+
   }
   else {
     Vmin = 0;
     Vmax = 0;
     phi = 0;
+
+// Included (MB)
+    dVmin = 0;
+    dVmax = 0;
+    dphi = 0;
+
   }
 
   if (ioData.schemes.ns.limiter == SchemeData::P_SENSOR) {
@@ -51,6 +70,21 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    dddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    dddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    *dddx = 0.0;
+    *dddy = 0.0;
+    *dddz = 0.0;
+  }
+  else {
+    dddx = 0;
+    dddy = 0;
+    dddz = 0;
+  }
+
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
@@ -58,19 +92,52 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     R = new DistSVec<double,6>(domain->getNodeDistInfo());
     wii = wij = wji = 0;
+
+// Included (MB)
+    dwii = 0;
+    dwij = 0;
+    dwji = 0;
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dR = new DistSVec<double,6>(domain->getNodeDistInfo());
+    }
+    else {
+      dR = 0;
+    }
+
   }
   else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
     R = 0;
     wii = new DistSVec<double,3>(domain->getNodeDistInfo());
     wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
     wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+
+// Included (MB)
+    dR = 0;
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dwii = new DistSVec<double,3>(domain->getNodeDistInfo());
+      dwij = new DistSVec<double,3>(domain->getEdgeDistInfo());
+      dwji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+    }
+    else {
+      dwii = 0;
+      dwij = 0;
+      dwji = 0;
+    }
+
   }
 
   subNodalGrad = new NodalGrad<dim, Scalar>*[numLocSub];
 
+// Included (MB)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub),
+                                             (*dddx)(iSub), (*dddy)(iSub), (*dddz)(iSub));
+      lastConfigSA = -1;
+    }
+    else
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
 
   lastConfig = -1;
 
@@ -320,6 +387,21 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : 
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
                                                                                                       
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    dddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    dddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
+    *dddx = 0.0;
+    *dddy = 0.0;
+    *dddz = 0.0;
+  }
+  else {
+    dddx = 0;
+    dddy = 0;
+    dddz = 0;
+  }
+
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
@@ -327,19 +409,52 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : 
   if (typeGradient == SchemeData::LEAST_SQUARES) {
     R = new DistSVec<double,6>(domain->getNodeDistInfo());
     wii = wij = wji = 0;
+
+// Included (MB)
+    dwii = 0;
+    dwij = 0;
+    dwji = 0;
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dR = new DistSVec<double,6>(domain->getNodeDistInfo());
+    }
+    else {
+      dR = 0;
+    }
+
   }
   else if (typeGradient == SchemeData::GALERKIN) {
     R = 0;
     wii = new DistSVec<double,3>(domain->getNodeDistInfo());
     wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
     wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+
+// Included (MB)
+    dR = 0;
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dwii = new DistSVec<double,3>(domain->getNodeDistInfo());
+      dwij = new DistSVec<double,3>(domain->getEdgeDistInfo());
+      dwji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+    }
+    else {
+      dwii = 0;
+      dwij = 0;
+      dwji = 0;
+    }
+
   }
                                                                                                       
   subNodalGrad = new NodalGrad<dim, Scalar>*[numLocSub];
                                                                                                       
+// Included (MB)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub),
+                                             (*dddx)(iSub), (*dddy)(iSub), (*dddz)(iSub));
+    }
+    else
+      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
+
 }
 //------------------------------------------------------------------------------
 
@@ -374,6 +489,15 @@ DistNodalGrad<dim, Scalar>::~DistNodalGrad()
     delete [] subNodalGrad;
   }
 
+// Included (MB)
+  if (dR) delete dR;
+  if (dwii) delete dwii;
+  if (dwij) delete dwij;
+  if (dwji) delete dwji;
+  if (dddx) delete dddx;
+  if (dddy) delete dddy;
+  if (dddz) delete dddz;
+
 }
 
 //------------------------------------------------------------------------------
@@ -386,6 +510,44 @@ void DistNodalGrad<dim, Scalar>::computeWeights(DistSVec<double,3> &X)
     domain->computeWeightsLeastSquares(X, *R);
   else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
     domain->computeWeightsGalerkin(X, *wii, *wij, *wji);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
+void DistNodalGrad<dim, Scalar>::computeDerivativeOfWeights(DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{
+
+  if (typeGradient == SchemeData::LEAST_SQUARES) {
+//Remark: Error mesage for pointers
+    if (dR == 0) {
+      fprintf(stderr, "*** Error: Varible dR does not exist!\n");
+      exit(1);
+    }
+
+    domain->computeDerivativeOfWeightsLeastSquares(X, dX, *dR);
+
+  }
+  else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
+//Remark: Error mesage for pointers
+    if (dwii == 0) {
+      fprintf(stderr, "*** Error: Varible dwii does not exist!\n");
+      exit(1);
+    }
+    if (dwij == 0) {
+      fprintf(stderr, "*** Error: Varible dwij does not exist!\n");
+      exit(1);
+    }
+    if (dwji == 0) {
+      fprintf(stderr, "*** Error: Varible dwji does not exist!\n");
+      exit(1);
+    }
+
+    domain->computeDerivativeOfWeightsGalerkin(X, dX, *dwii, *dwij, *dwji);
+
+  }
 
 }
 
@@ -408,6 +570,43 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
     domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+				 DistVec<double> &ctrlVol, DistVec<double>
+				 &dCtrlVol, DistSVec<Scalar2,dim> &V, DistSVec<Scalar2,dim> &dV)
+{
+
+//Remark: Error mesage for pointers
+  if (dddx == 0) {
+    fprintf(stderr, "*** Error: Varible dddx does not exist!\n");
+    exit(1);
+  }
+  if (dddy == 0) {
+    fprintf(stderr, "*** Error: Varible dddy does not exist!\n");
+    exit(1);
+  }
+  if (dddz == 0) {
+    fprintf(stderr, "*** Error: Varible dddz does not exist!\n");
+    exit(1);
+  }
+
+  if (configSA != lastConfigSA) {
+    computeDerivativeOfWeights(X, dX);
+    lastConfigSA = configSA;
+  }
+
+  if (typeGradient == SchemeData::LEAST_SQUARES)
+    domain->computeDerivativeOfGradientsLeastSquares(X, dX, *R, *dR, V, dV,*dddx, *dddy, *dddz);
+  else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
+    domain->computeDerivativeOfGradientsGalerkin(ctrlVol, dCtrlVol, *wii, *wij, *wji, *dwii, *dwij, *dwji, V, dV, *dddx, *dddy, *dddz);
+
+}
+
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 template<int dim, class Scalar>
@@ -422,6 +621,7 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
   domain->computeGradientsLeastSquares(X, Phi, *R, V, *ddx, *ddy, *ddz);
 
 }
+
 //------------------------------------------------------------------------------
                                                                                                                               
 template<int dim, class Scalar>
@@ -514,6 +714,67 @@ void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
 	}
       }
     }  
+  }
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
+template<class Scalar2>
+void DistNodalGrad<dim, Scalar>::limitDerivative(RecFcn *recFcn, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+			       DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<Scalar2,dim> &V, DistSVec<Scalar2,dim> &dV)
+{
+  RecFcnLtdMultiDim<dim>* ltdmd = dynamic_cast<RecFcnLtdMultiDim<dim> *>(recFcn);
+
+  if (ltdmd) {
+    //Remark: Error mesage for pointers
+     if (dVmin == 0) {
+       fprintf(stderr, "*** Error: Varible dVmin does not exist!\n");
+       exit(1);
+     }
+     if (dVmax == 0) {
+       fprintf(stderr, "*** Error: Varible dVmax does not exist!\n");
+       exit(1);
+     }
+     if (dphi == 0) {
+       fprintf(stderr, "*** Error: Varible dphi does not exist!\n");
+      exit(1);
+    }
+
+    domain->computeDerivativeOfMultiDimLimiter(ltdmd, X, dX, ctrlVol, dCtrlVol, V, dV, *ddx, *ddy, *ddz,
+                                               *dddx, *dddy, *dddz, *Vmin, *dVmin, *Vmax, *dVmax, *phi, *dphi);
+  }
+
+  RecFcnLtdSensor* ltdsensor = dynamic_cast<RecFcnLtdSensor*>(recFcn);
+  if (ltdsensor) {
+    fprintf(stderr, "*** Error: The derivative of the function computePressure does not exist!\n");
+    exit(1);
+  }
+
+  if (tag) {
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub) {
+      bool *loctag = tag->subData(iSub);
+      Scalar (*locddx)[dim] = ddx->subData(iSub);
+      Scalar (*locddy)[dim] = ddy->subData(iSub);
+      Scalar (*locddz)[dim] = ddz->subData(iSub);
+      Scalar (*dlocddx)[dim] = dddx->subData(iSub);
+      Scalar (*dlocddy)[dim] = dddy->subData(iSub);
+      Scalar (*dlocddz)[dim] = dddz->subData(iSub);
+      for (int i=0; i<tag->subSize(iSub); ++i) {
+	if (loctag[i]) {
+	  for (int j=0; j<dim; ++j) {
+	    locddx[i][j] = 0.0;
+	    locddy[i][j] = 0.0;
+	    locddz[i][j] = 0.0;
+	    dlocddx[i][j] = 0.0;
+	    dlocddy[i][j] = 0.0;
+	    dlocddz[i][j] = 0.0;
+	  }
+	}
+      }
+    }
   }
 }
 

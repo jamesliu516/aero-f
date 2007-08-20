@@ -46,6 +46,9 @@ public:
   void computeVelocities(ImplicitData::Velocities, DistSVec<double,3> &,
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
+// Included
+  void rstVar(IoData &);
+
 };
 
 //------------------------------------------------------------------------------

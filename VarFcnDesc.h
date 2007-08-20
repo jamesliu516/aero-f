@@ -25,6 +25,11 @@ public:
 
   void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
   void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -51,6 +56,15 @@ void VarFcnPerfectGasEuler3D::conservativeToPrimitive(double *U, double *V, doub
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void VarFcnPerfectGasEuler3D::conservativeToPrimitiveDerivative(double *U, double *dU, double *V, double *dV, double phi)
+{
+  conservativeToPrimitiveDerivativeGasEuler(gam, Pstiff, dPstiff, U, dU, V, dV);
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void VarFcnPerfectGasEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
 {
@@ -64,6 +78,15 @@ inline
 void VarFcnPerfectGasEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
 {
    primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void VarFcnPerfectGasEuler3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+{
+  primitiveToConservativeDerivativeGasEuler(gam, invgam1, Pstiff, dPstiff, V, dV, U, dU);
 }
 
 //------------------------------------------------------------------------------    
@@ -149,7 +172,6 @@ void VarFcnPerfectGasEuler3D::extrapolateBoundaryCharacteristic(double n[3], dou
 }
 
 //------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
 
 class VarFcnPerfectGasSA3D : public VarFcnPerfectGas {
 
@@ -165,6 +187,11 @@ public:
   void postMultiplyBydVdU(double *, double *, double *, double = 0.0);
   void postMultiplyBydUdV(double *, double *, double *, double = 0.0);
   double getTurbulentNuTilde(double *V) { return V[5]; }
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -192,6 +219,15 @@ void VarFcnPerfectGasSA3D::conservativeToPrimitive(double *U, double *V, double 
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void VarFcnPerfectGasSA3D::conservativeToPrimitiveDerivative(double *U, double *dU, double *V, double *dV, double phi)
+{
+   conservativeToPrimitiveDerivativeGasSA(gam1, U, dU, V, dV);
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void VarFcnPerfectGasSA3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
 {
@@ -201,10 +237,20 @@ void VarFcnPerfectGasSA3D::conservativeToPrimitiveVerification(double *U, double
 
 //------------------------------------------------------------------------------
 
+// Modified (MB)
 inline
 void VarFcnPerfectGasSA3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
 {
-  primitiveToConservativeGasSA(U, V);
+  primitiveToConservativeGasSA(invgam1, V, U);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void VarFcnPerfectGasSA3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+{
+  primitiveToConservativeDerivativeGasSA(invgam1, V, dV, U, dU);
 }
 
 //------------------------------------------------------------------------------
@@ -212,7 +258,8 @@ void VarFcnPerfectGasSA3D::primitiveToConservative(double *V, double *U, double 
 inline
 void VarFcnPerfectGasSA3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
 {
-  multiplyBydVdUGasSA(V, vec, res);
+// Modified (MB)
+  multiplyBydVdUGasSA(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -240,7 +287,6 @@ void VarFcnPerfectGasSA3D::postMultiplyBydUdV(double *V, double *mat, double *re
 }
 
 //------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
 
 class VarFcnPerfectGasKE3D : public VarFcnPerfectGas {
 
@@ -257,6 +303,11 @@ public:
   void postMultiplyBydUdV(double *, double *, double *, double = 0.0);
   double getTurbulentKineticEnergy(double *V) { return V[5]; }
   double getTurbulentDissipationRate(double *V) { return V[6]; }
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -285,6 +336,15 @@ void VarFcnPerfectGasKE3D::conservativeToPrimitive(double *U, double *V, double 
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void VarFcnPerfectGasKE3D::conservativeToPrimitiveDerivative(double *U, double *dU, double *V, double *dV, double phi)
+{
+   conservativeToPrimitiveDerivativeGasKE(gam1, U, dU, V, dV);
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void VarFcnPerfectGasKE3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
 {
@@ -294,10 +354,20 @@ void VarFcnPerfectGasKE3D::conservativeToPrimitiveVerification(double *U, double
 
 //------------------------------------------------------------------------------
 
+// Modified (MB)
 inline
 void VarFcnPerfectGasKE3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
 {
-  primitiveToConservativeGasKE(V, U);
+  primitiveToConservativeGasKE(invgam1, V, U);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void VarFcnPerfectGasKE3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+{
+  primitiveToConservativeDerivativeGasKE(invgam1, V, dV, U, dU);
 }
 
 //------------------------------------------------------------------------------
@@ -305,7 +375,8 @@ void VarFcnPerfectGasKE3D::primitiveToConservative(double *V, double *U, double 
 inline
 void VarFcnPerfectGasKE3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
 {
-  multiplyBydVdUGasKE(V, vec, res);
+// Modified (MB)
+  multiplyBydVdUGasKE(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -315,6 +386,7 @@ void VarFcnPerfectGasKE3D::preMultiplyBydUdV(double *V, double *mat, double *res
 {
    preMultiplyBydUdVGasKE(invgam1, V, mat, res);
 }
+
 //------------------------------------------------------------------------------
 inline
 void VarFcnPerfectGasKE3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
@@ -323,12 +395,13 @@ void VarFcnPerfectGasKE3D::postMultiplyBydVdU(double *V, double *mat, double *re
 }
 
 //------------------------------------------------------------------------------
+
 inline
 void VarFcnPerfectGasKE3D::postMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
   postMultiplyBydUdVGasKE(invgam1, V, mat, res);
 }
-//-------------------------------------------------------------------------------
+
 //-------------------------------------------------------------------------------
 class VarFcnWaterCompressibleEuler3D : public VarFcnWaterCompressible {
 public:
@@ -354,6 +427,11 @@ public:
   void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
   void computeNewPrimitive(double *, double *);
   void computeOldPrimitive(double *, double *);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+
 };
                                                                                             
 //--------------------------------------------------------------------------
@@ -521,6 +599,10 @@ public:
   void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
   void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
 
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+
 };
                                                                                             
 //------------------------------------------------------------------------------
@@ -680,6 +762,11 @@ public:
 
   void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
   void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+
 };
                                                                                             
 //------------------------------------------------------------------------------
@@ -839,6 +926,10 @@ public:
 
   void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
   void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
 
 };
                                                                                             

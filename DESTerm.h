@@ -16,6 +16,10 @@ class DESTerm {
 
   double oorey;
   
+// Included (MB)
+  double dRe_mudMach;
+  double dRe_lambdadMach;
+  
 protected:
 
   double alpha;
@@ -47,6 +51,11 @@ public:
 				   double, double *[4], double (*)[3][neq][neq],
 				   double (*)[neq][neq],  SVec<double,3> &, int [4]);
 
+// Included (MB)
+  double computeDerivativeOfTurbulentViscosity(double *[4], double *[4], double, double, double &, double &);
+  double computeDerivativeOfTurbulentViscosity(double *, double *, double, double);
+  void rstVarDES(IoData &);
+
 };
 
 //------------------------------------------------------------------------------
@@ -55,6 +64,41 @@ inline
 DESTerm::DESTerm(IoData &iod)
 {
 
+// Included (MB)
+  dRe_mudMach = iod.ref.dRe_mudMach;
+  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
+
+  oorey = 1.0 / iod.ref.reynolds_mu;
+  alpha = iod.eqs.fluidModel.gasModel.specificHeatRatio / iod.eqs.tc.prandtlTurbulent;
+
+  cb1 = iod.eqs.tc.tm.des.cb1;
+  cb2 = iod.eqs.tc.tm.des.cb2;
+  cw2 = iod.eqs.tc.tm.des.cw2;
+  double cw3 = iod.eqs.tc.tm.des.cw3;
+  cw3_pow6 = cw3*cw3*cw3*cw3*cw3*cw3;
+  opcw3_pow = pow(1.0 + cw3_pow6, 1.0/6.0);
+  double cv1 = iod.eqs.tc.tm.des.cv1;
+  cv1_pow3 = cv1*cv1*cv1;
+  oocv2 = 1.0 / iod.eqs.tc.tm.des.cv2;
+  oosigma = 1.0 / iod.eqs.tc.tm.des.sigma;
+  oovkcst2 = 1.0 / (iod.eqs.tc.tm.des.vkcst*iod.eqs.tc.tm.des.vkcst);
+  cw1 = cb1*oovkcst2 + (1.0+cb2) * oosigma;
+  cdes = iod.eqs.tc.tm.des.cdes;
+
+  cw1 /= iod.ref.reynolds_mu;
+  oosigma /= iod.ref.reynolds_mu;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void DESTerm::rstVarDES(IoData &iod)
+{
+
+  dRe_mudMach = iod.ref.dRe_mudMach;
+  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
   oorey = 1.0 / iod.ref.reynolds_mu;
   alpha = iod.eqs.fluidModel.gasModel.specificHeatRatio / iod.eqs.tc.prandtlTurbulent;
 
@@ -95,6 +139,32 @@ double DESTerm::computeTurbulentViscosity(double *V[4], double mul, double &muti
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+double DESTerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4], double mul, double dmul, double &mutilde, double &dmutilde)
+{
+
+  mutilde = 0.25 * (V[0][0]*V[0][5] + V[1][0]*V[1][5] +
+		    V[2][0]*V[2][5] + V[3][0]*V[3][5]);
+
+  dmutilde = 0.25 * (dV[0][0]*V[0][5] + V[0][0]*dV[0][5] + dV[1][0]*V[1][5] + V[1][0]*dV[1][5] + 
+		     dV[2][0]*V[2][5] + V[2][0]*dV[2][5] + dV[3][0]*V[3][5] + V[3][0]*dV[3][5]);
+
+  double chi = mutilde / mul;
+  double dchi = dmutilde / mul - mutilde / (mul * mul) * dmul;
+
+  double chi3 = chi*chi*chi;
+  double dchi3 = 3.0*chi*chi*dchi;
+
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double dfv1 = dchi3 / (chi3 + cv1_pow3) - chi3 / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) ) * dchi3;
+
+  return dmutilde*fv1 + mutilde*dfv1;
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 double DESTerm::computeTurbulentViscosity(double *V, double mul)
 {
@@ -105,6 +175,29 @@ double DESTerm::computeTurbulentViscosity(double *V, double mul)
   double fv1 = chi3 / (chi3 + cv1_pow3);
 
   return mutilde*fv1;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+double DESTerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, double mul, double dmul)
+{
+
+  double mutilde = V[0]*V[5];
+  double dmutilde = dV[0]*V[5] + V[0]*dV[5];
+
+  double chi = mutilde / mul;
+  double dchi = dmutilde / mul - mutilde / (mul * mul) * dmul;
+
+  double chi3 = chi*chi*chi;
+  double dchi3 = 3.0*chi*chi*dchi;
+
+  double fv1 = chi3 / (chi3 + cv1_pow3);
+  double dfv1 = dchi3 / (chi3 + cv1_pow3) - chi3 / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) ) * dchi3;
+
+  return dmutilde*fv1 + mutilde*dfv1;
 
 }
 

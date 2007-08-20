@@ -44,6 +44,10 @@ public:
   virtual void computeJacobians(double, double *, double, double *, double *, double *, double *, int = 1) {}
   virtual void computeLS(double *, double, double *, double, double &) {};
 
+// Included (MB)
+  virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) = 0;
+  virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1) = 0;
+
   VarFcn *getVarFcn() { return vf; }
   void compute_riemann(double, double, double, double, double, double, 
                        double &, double &, double &, double &, double, double, double, double);
@@ -83,6 +87,10 @@ public:
   void computeJacobian(double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
   
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl = 1) {}
+
 };
 
 //------------------------------------------------------------------------------

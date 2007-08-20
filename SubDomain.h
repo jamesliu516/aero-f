@@ -135,6 +135,9 @@ class SubDomain {
 
   int **totalNeiData;
 
+// Included (MB*)
+  int numOffDiagEntries;
+
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -673,6 +676,7 @@ public:
                                 SurfaceData *slipSurfaces[]);
   
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
+
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
   
   template<int dim>
@@ -735,6 +739,104 @@ public:
 
   void multiPade(bcomp *, int *, double *, bcomp *, bcomp *, int , int , int , double , double , bcomp *, double *);
                                                                                              
+// Included (MB)
+  int computeDerivativeOfControlVolumes(int, double, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+
+  void computeDerivativeOfNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &,
+                        Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &);
+
+  void computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,3> &, SVec<double,6> &, SVec<double,6> &);
+
+  void computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &, SVec<double,6> &);
+
+  void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+			      SVec<double,3> &, SVec<double,3> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsLeastSquares(SVec<double,3> &, SVec<double,3> &,
+                    SVec<double,6> &, SVec<double,6> &,
+				    SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				    SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsGalerkin(Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &,
+                SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+                SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, SVec<double,3> &, Vec<double> &, Vec<double> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+                  SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+			       SVec<double,3>&, SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&,
+			       NodalGrad<dim>&, EdgeGrad<dim>*, double, SVec<double,dim>&);
+
+  template<int dim1, int dim2>
+  void computeDerivativeOfNodeBcValue(SVec<double,3> &, SVec<double,3> &, SVec<double,dim1> &, SVec<double,dim1> &, SVec<double,dim2> &);
+
+  template<int dim>
+  void computeDerivativeOfNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
+                                                                 SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, double [3],
+                                                                 SVec<double,3> &, double *);
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(map<int,int> &surfIndexMap, PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
+                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                                                           Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, double *nodalForceWeights, int = 0);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
+			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void applyBCsToDerivativeOfResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+
+  template<int dim, class Scalar>
+  void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
+
+  template<int dim, class Scalar, int neq>
+  void applyBCsToJacobianWallValues(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+
+  template<int dim>
+  void computeBCsJacobianWallValues(FemEquationTerm *, BcData<dim> &, GeoState &, 
+				   SVec<double,3> &, SVec<double,dim> &) ;
+
+  template<int dim>
+  void computeNodeBCsWallValues(SVec<double,3> &, SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim, class Scalar>
+  void applyBCsToProduct(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfNodalHeatPower(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, SVec<double,3>&, 
+			     SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
+
+  template<int dim>
+  void computeDerivativeOfVolumicForceTerm(VolumicForceTerm *, Vec<double> &, Vec<double> &, 
+                               SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
+                                SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+                                Vec<double> &, Vec<double> &, double, double, double, double, double);
+
+  void checkVec(SVec<double,3> &);
+
+  template<int dim>
+  int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, int);
+
 };
 
 //------------------------------------------------------------------------------
