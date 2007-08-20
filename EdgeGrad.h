@@ -43,6 +43,13 @@ private:
 			   SVec<double,dim>&, SVec<double,dim>&,
 			   SVec<double,dim>&, double*);
 
+// Included (MB)
+  void computeDerivativeOfUpwindGradient(Elem&, double [3], double [3], SVec<double,3>&, SVec<double,3>&,
+			     SVec<double,dim>&, SVec<double,dim>&, double*);
+  void computeDerivativeOfFaceGradient(ElemSet&, V6NodeData&, double [3], double [3],
+			   SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+			   SVec<double,dim>&, SVec<double,dim>&, double*);
+
 public:
 
   EdgeGrad(IoData&);
@@ -65,6 +72,12 @@ public:
     for (int i=0; i<size; ++i)
       tag[i] = tag[i] || bool(fstag[i][1]);
   }
+
+// Included (MB)
+  void computeDerivative(int, int, int, ElemSet&, SVec<double,3>&, SVec<double,3>&,
+	       SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+	       SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+	       double*, double*);
 
 };
 

@@ -41,6 +41,21 @@ public:
   void computeJacobianSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
 				  double *, double *[4], double *);
 
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double [4][3], double [4][3], double [4], double *[4], double *[4],
+			 double, double *, double *, double *, double, SVec<double,3> &, int [4], int);
+
+  void computeDerivativeOfSurfaceTerm(int, Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double, double *);
+
+  void computeDerivativeOfSurfaceTerm(double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
+			  double *, double *, double *[4], double *[4], double, double *);
+
+  void rstVar(IoData &ioData, Communicator *com) { rstVarNS(ioData, com); if (wallFcn) wallFcn->rstVar(ioData, com);}
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {}
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
+
 };
 
 //------------------------------------------------------------------------------
@@ -72,6 +87,21 @@ public:
   void computeJacobianSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
 				  double *, double *[4], double *);
   bool doesSourceTermExist() { return true; }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double [4][3], double [4][3], double [4], double *[4], double *[4],
+			 double, double *, double *, double *, double, SVec<double,3> &, int [4], int);
+
+  void computeDerivativeOfSurfaceTerm(int, Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double, double *);
+
+  void computeDerivativeOfSurfaceTerm(double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
+			  double *, double *, double *[4], double *[4], double, double *);
+
+  void rstVar(IoData &ioData, Communicator *com) { rstVarNS(ioData, com); if (wallFcn) wallFcn->rstVar(ioData, com);}
+
+  void computeBCsJacobianWallValues(int, Vec3D &, double [3], double *, double *, double *[3]);
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
 
 };
 
@@ -108,6 +138,24 @@ public:
   void computeJacobianSurfaceTerm(double [4][3], int, Vec3D &, double [4], 
 				  double *, double *[4], double *);
   bool doesSourceTermExist() { return true; }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double [4][3], double [4][3], double [4], double *[4], double *[4],
+			 double, double *, double *, double *, double, SVec<double,3> &, int [4], int);
+
+  void computeDerivativeOfSurfaceTerm(int, Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double, double *);
+
+  void computeDerivativeOfSurfaceTerm(double [4][3], double [4][3], int, Vec3D &, Vec3D &, double [4],
+			  double *, double *, double *[4], double *[4], double, double *);
+
+  void rstVar(IoData &ioData, Communicator *com) { rstVarNS(ioData, com); if (wallFcn) wallFcn->rstVar(ioData, com);}
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
 
 };
 
@@ -152,6 +200,37 @@ public:
     exit(1);
   }
 
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
+
 };
 
 //------------------------------------------------------------------------------
@@ -193,6 +272,37 @@ public:
     fprintf(stderr, "*** Error: computeSurfaceTerm should not be called\n");
     exit(1);
   }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
 
 };
 
@@ -245,6 +355,40 @@ public:
   void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
 				  double *vw, double *v[4], double *drdu) {
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double){
+    fprintf(stderr, "*** Error: computeViscousDerivativeOfTimeStep should not be called in FemSAturb\n");
     exit(1);
   }
 
@@ -301,6 +445,40 @@ public:
     exit(1);
   }
 
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double){
+    fprintf(stderr, "*** Error: computeDerivativeOfViscousTimeStep should not be called in FemDESturb\n");
+    exit(1);
+  }
+
 };
 
 //------------------------------------------------------------------------------
@@ -340,6 +518,28 @@ public:
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
     exit(1);
   }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double [4][3], double [4][3], double [4], double *[4], double *[4],
+			 double, double *, double *, double *, double, SVec<double,3> &, int [4], int);
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &, Vec3D &, double [3],
+			  double *, double *, double *[3], double *[3], double, double *);
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) { rstVarNS(ioData, com); if (wallFcn) wallFcn->rstVar(ioData, com);}
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
 
 };
 
@@ -386,6 +586,37 @@ public:
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
     exit(1);
   }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double);
 
 };
 
@@ -438,6 +669,39 @@ public:
   void computeJacobianSurfaceTerm(double dp1dxj[4][3], int c, Vec3D &n, double d2w[4], 
 				  double *vw, double *v[4], double *drdu) {
     fprintf(stderr, "*** Error: computeJacobianSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+// Included (MB)
+  bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4], double *dv[4],
+			 double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodesnum[4], int volid) {
+    fprintf(stderr, "*** Error: computeDerivativeOfVolumeTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+			  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+			  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) {
+    fprintf(stderr, "*** Error: computeDerivativeOfSurfaceTerm should not be called\n");
+    exit(1);
+  }
+
+  void rstVar(IoData &ioData, Communicator *com) {
+    fprintf(stderr, "*** Error: rstVar should not be called\n");
+    exit(1);
+  }
+
+  void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) {
+    fprintf(stderr, "*** Error: computeBCsJacobianWallValues should not be called\n");
+    exit(1);
+  }
+  double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double){
+    fprintf(stderr, "*** Error: computeDerivativeOfViscousTimeStep should not be called in FemKEturb\n");
     exit(1);
   }
 

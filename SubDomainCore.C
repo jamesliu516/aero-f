@@ -71,6 +71,9 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodesToMCNodes = 0;
   sharedInletNodes = 0;
 
+// Included (MB*)
+  numOffDiagEntries = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -107,6 +110,7 @@ SubDomain::~SubDomain()
 
 int SubDomain::numberEdges() 	
 {
+
   int i;
   for (i=0; i<elems.size(); ++i) 
     elems[i].numberEdges(edges);
@@ -463,6 +467,23 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+int SubDomain::computeDerivativeOfControlVolumes(int numInvElem, double lscale,
+				     SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &dCtrlVol)
+{
+
+  dCtrlVol = 0.0;
+
+  for (int i=0; i<elems.size(); ++i) {
+    double dVolume = elems[i].computeDerivativeOfControlVolumes(X, dX, dCtrlVol);
+  }
+
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::computeFaceNormals(SVec<double,3> &X, Vec<Vec3D> &faceNorm)
 {
 
@@ -537,6 +558,26 @@ void SubDomain::propagateInfoAlongEdges(Vec<double>& tag)
   }
 
   tag += newtag;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX,
+                                 Vec<Vec3D> &edgeNorm, Vec<Vec3D> &dEdgeNorm, Vec<double> &edgeNormVel, Vec<double> &dEdgeNormVel,
+				 Vec<Vec3D> &faceNorm, Vec<Vec3D> &dFaceNorm, Vec<double> &faceNormVel, Vec<double> &dFaceNormVel)
+{
+
+  dEdgeNorm = 0.0;
+  dEdgeNormVel = 0.0;
+
+  int i;
+  for (i=0; i<elems.size(); ++i)
+    elems[i].computeDerivativeOfEdgeNormals(X, dX, edgeNorm, dEdgeNorm, edgeNormVel, dEdgeNormVel);
+
+  for (i=0; i<faces.size(); ++i)
+    faces[i].computeDerivativeOfNormal(X, dX, faceNorm[i], dFaceNorm[i], faceNormVel[i], dFaceNormVel[i]);
 
 }
 
@@ -670,6 +711,90 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<doubl
     R[j][5] += dzdz;
 
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,6> &R, SVec<double,6> &dR)
+{
+
+  R = 0.0;
+  dR = 0.0;
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (!edgeFlag[l]) continue;
+
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    double dx[3];
+    dx[0] = X[j][0] - X[i][0];
+    dx[1] = X[j][1] - X[i][1];
+    dx[2] = X[j][2] - X[i][2];
+
+    double ddx[3];
+    ddx[0] = dX[j][0] - dX[i][0];
+    ddx[1] = dX[j][1] - dX[i][1];
+    ddx[2] = dX[j][2] - dX[i][2];
+
+    double dxdx = dx[0] * dx[0];
+    double dydy = dx[1] * dx[1];
+    double dzdz = dx[2] * dx[2];
+    double dxdy = dx[0] * dx[1];
+    double dxdz = dx[0] * dx[2];
+    double dydz = dx[1] * dx[2];
+
+    double ddxdx = ddx[0] * dx[0] + dx[0] * ddx[0];
+    double ddydy = ddx[1] * dx[1] + dx[1] * ddx[1];
+    double ddzdz = ddx[2] * dx[2] + dx[2] * ddx[2];
+    double ddxdy = ddx[0] * dx[1] + dx[0] * ddx[1];
+    double ddxdz = ddx[0] * dx[2] + dx[0] * ddx[2];
+    double ddydz = ddx[1] * dx[2] + dx[1] * ddx[2];
+
+    R[i][0] += dxdx;
+    R[j][0] += dxdx;
+
+    R[i][1] += dxdy;
+    R[j][1] += dxdy;
+
+    R[i][2] += dxdz;
+    R[j][2] += dxdz;
+
+    R[i][3] += dydy;
+    R[j][3] += dydy;
+
+    R[i][4] += dydz;
+    R[j][4] += dydz;
+
+    R[i][5] += dzdz;
+    R[j][5] += dzdz;
+
+    dR[i][0] += ddxdx;
+    dR[j][0] += ddxdx;
+
+    dR[i][1] += ddxdy;
+    dR[j][1] += ddxdy;
+
+    dR[i][2] += ddxdz;
+    dR[j][2] += ddxdz;
+
+    dR[i][3] += ddydy;
+    dR[j][3] += ddydy;
+
+    dR[i][4] += ddydz;
+    dR[j][4] += ddydz;
+
+    dR[i][5] += ddzdz;
+    dR[j][5] += ddzdz;
+
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -754,6 +879,40 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<double,6> &R)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void SubDomain::computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &R, SVec<double,6> &dR)
+{
+
+  for (int i=0; i<dR.size(); ++i) {
+
+    double r11  = sqrt(R[i][0]);
+    double dr11  = 1.0/(2.0*r11)*dR[i][0];
+    double or11 = 1.0 / r11;
+    double dor11 = -1.0 /(r11* r11)*dr11;
+    double r12  = R[i][1] * or11;
+    double dr12  = dR[i][1] * or11 + R[i][1] * dor11;
+    double r13  = R[i][2] * or11;
+    double dr13  = dR[i][2] * or11 + R[i][2] * dor11;
+    double r22  = sqrt(R[i][3] - r12*r12);
+    double dr22  = 1.0/(2.0*r22)*(dR[i][3] - 2.0*r12*dr12);
+    double r23  = (R[i][4] - r12*r13) / r22;
+    double dr23  = ( (dR[i][4] - dr12*r13 - r12*dr13)*r22 - (R[i][4] - r12*r13)*dr22 ) / (r22*r22);
+    double r33  = sqrt(R[i][5] - (r13*r13 + r23*r23));
+    double dr33  = 1.0/(2.0*r33)*(dR[i][5] - 2.0*(r13*dr13 + r23*dr23));
+
+    dR[i][0] = dr11;
+    dR[i][1] = dr12;
+    dR[i][2] = dr13;
+    dR[i][3] = dr22;
+    dR[i][4] = dr23;
+    dR[i][5] = dr33;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii, 
 				       SVec<double,3> &wij, SVec<double,3> &wji)
 {
@@ -764,6 +923,21 @@ void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii,
 
   for (int i=0; i<elems.size(); ++i)
     elems[i].computeWeightsGalerkin(X, wii, wij, wji);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void SubDomain::computeDerivativeOfWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &dX, SVec<double,3> &dwii, SVec<double,3> &dwij, SVec<double,3> &dwji)
+{
+
+  dwii = 0.0;
+  dwij = 0.0;
+  dwji = 0.0;
+
+  for (int i=0; i<elems.size(); ++i)
+    elems[i].computeDerivativeOfWeightsGalerkin(X, dX, dwii, dwij, dwji);
 
 }
 
@@ -2537,6 +2711,7 @@ int* SubDomain::completeNodeFaceType(CommPattern<int> &ntP)
 // HB: create the dofType array using the matchNodeSet, the sliding faces & the nodeType array
 // Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all 
 // the dofs are assumed to be free to move), and then they are (potentially) constrained if necessary.
+
 int* 
 SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)  {
 
@@ -3328,5 +3503,33 @@ void SubDomain::finalizeTags(SVec<int,2> &tag)
 
 }
 
-//--------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
+// Included (MB)
+void SubDomain::checkVec(SVec<double,3> &V)
+{
+
+  for (int i=0; i<V.size(); ++i) {
+    if ((nodeType[i] != BC_ADIABATIC_WALL_MOVING)  && (nodeType[i] != BC_ISOTHERMAL_WALL_MOVING))  {
+//      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) {
+//        fprintf(stderr,"*** Error: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+//        exit(1);
+//      } 
+      if (V[i][0] != 0.0) {
+//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+        V[i][0] = 0.0;
+      }
+      if (V[i][1] != 0.0) {
+//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+        V[i][1] = 0.0;
+      }
+      if (V[i][2] != 0.0) {
+//        fprintf(stderr,"*** Warnig: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+        V[i][2] = 0.0;
+      }
+    }
+  }
+
+}
+
+//--------------------------------------------------------------------------

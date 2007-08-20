@@ -11,6 +11,9 @@ struct TsInput {
   char *positions;
   char *podFile;
 
+// Included
+  char *shapederivatives;
+
   TsInput(IoData &);
   ~TsInput();
 

@@ -17,6 +17,7 @@
 #define BC_MIN_CODE -5
 #define BC_MAX_CODE 6
 
+
 #define BC_FREE        0
 #define BC_FIXED       1
 #define BC_MATCHED     2

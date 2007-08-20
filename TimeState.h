@@ -79,6 +79,11 @@ public:
                     SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
                                                                                                                           
   double getTimeNorm()  {  return dt.norm(); }
+
+// Included
+  template<class Scalar, int neq>
+  void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+
 };
 
 //------------------------------------------------------------------------------

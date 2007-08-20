@@ -19,6 +19,10 @@ class KEpsilonTerm {
 
 private:
 
+// Included (MB)
+  double dRe_mudMach;
+  double dRe_lambdadMach;
+
   double reynolds;
   double ooreynoldsKE;
 
@@ -44,6 +48,11 @@ public:
   void computeJacobianVolumeTermKE(double [4][3], double, double, double, double,
 				   double *[4], double (*)[3][neq][neq], double (*)[neq][neq]);
 
+// Included (MB)
+  double computeDerivativeOfTurbulentViscosity(double *[4], double *[4], double &, double &, double);
+  double computeDerivativeOfTurbulentViscosity(double *, double *, double);
+  void rstVarKE(IoData &);
+
 };
 
 //------------------------------------------------------------------------------
@@ -51,6 +60,10 @@ public:
 inline
 KEpsilonTerm::KEpsilonTerm(IoData &iod)
 {
+
+// Included (MB)
+  dRe_mudMach = iod.ref.dRe_mudMach;
+  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
 
   reynolds = iod.ref.reynolds_mu;
   ooreynoldsKE = 1.0/ reynolds;
@@ -61,6 +74,20 @@ KEpsilonTerm::KEpsilonTerm(IoData &iod)
   sigma_eps1 = iod.eqs.tc.tm.ke.sigma_eps1;
   sigma_eps2 = iod.eqs.tc.tm.ke.sigma_eps2;
   c_mu = iod.eqs.tc.tm.ke.c_mu;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void KEpsilonTerm::rstVarKE(IoData &iod)
+{
+
+  reynolds = iod.ref.reynolds_mu;
+  dRe_mudMach = iod.ref.dRe_mudMach;
+  dRe_lambdadMach = iod.ref.dRe_lambdadMach;
+  ooreynoldsKE = 1.0/reynolds;
 
 }
 
@@ -83,11 +110,45 @@ double KEpsilonTerm::computeTurbulentViscosity(double *V[4], double &rhok, doubl
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+double KEpsilonTerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4], double &drhok, double &drhoeps, double dMach)
+{
+
+  static const double fourth = 1.0 / 4.0;
+
+  double rhok = fourth * (V[0][0]*V[0][5] + V[1][0]*V[1][5] +
+		   V[2][0]*V[2][5] + V[3][0]*V[3][5]);
+  drhok = fourth * (dV[0][0]*V[0][5] + V[0][0]*dV[0][5] + dV[1][0]*V[1][5] + V[1][0]*dV[1][5] +
+		   dV[2][0]*V[2][5] + V[2][0]*dV[2][5] + dV[3][0]*V[3][5] + V[3][0]*dV[3][5]);
+  double rhoeps = fourth * (V[0][0]*V[0][6] + V[1][0]*V[1][6] +
+		     V[2][0]*V[2][6] + V[3][0]*V[3][6]);
+  drhoeps = fourth * (dV[0][0]*V[0][6] + V[0][0]*dV[0][6] + dV[1][0]*V[1][6] + V[1][0]*dV[1][6] +
+		     dV[2][0]*V[2][6] + V[2][0]*dV[2][6] + dV[3][0]*V[3][6] + V[3][0]*dV[3][6]);
+
+  return ( ( dRe_mudMach * dMach * c_mu * rhok*rhok + reynolds * c_mu *
+  2.0*rhok*drhok ) * rhoeps - reynolds * c_mu * rhok*rhok * drhoeps ) / (rhoeps * rhoeps);
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 double KEpsilonTerm::computeTurbulentViscosity(double *V)
 {
 
   return reynolds * c_mu * V[0] * V[5]*V[5] / V[6];
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+double KEpsilonTerm::computeDerivativeOfTurbulentViscosity(double *V, double *dV, double dMach)
+{
+
+  return (dRe_mudMach * dMach * c_mu * V[0] * V[5]*V[5] / V[6] +  reynolds * c_mu * dV[0] * V[5]*V[5] / V[6] + reynolds * c_mu * V[0] * 2.0*V[5]*dV[5] / V[6] - reynolds * c_mu * V[0] * V[5]*V[5] / (V[6] * V[6]) * dV[6]);
 
 }
 

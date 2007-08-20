@@ -53,6 +53,51 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+			      SVec<double,dim> &dR)
+{
+
+  double dp1dxj[4][3];
+  double vol = computeGradientP1Function(X, dp1dxj);
+
+  double ddp1dxj[4][3];
+  double dvol = computeDerivativeOfGradientP1Function(X, dX, ddp1dxj);
+
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double *dv[4] = {dV[nodeNum(0)], dV[nodeNum(1)], dV[nodeNum(2)], dV[nodeNum(3)]};
+
+  double r[3][dim], s[dim], pr[12];
+  bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
+                                                  s, pr, vol, X, nodeNum(), volume_id);
+
+  double dr[3][dim], ds[dim], dpr[12];
+  fet->computeDerivativeOfVolumeTerm(dp1dxj, ddp1dxj, d2w, v, dv, dMach, reinterpret_cast<double *>(dr), ds, dpr, dvol, X, nodeNum(), volume_id);
+
+  for (int j=0; j<4; ++j) {
+    int idx = nodeNum(j);
+    for (int k=0; k<dim; ++k)
+      dR[idx][k] += dvol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+			    r[2][k] * dp1dxj[j][2]) - fourth * s[k] ) + vol * ( (dr[0][k] * dp1dxj[j][0] + r[0][k] * ddp1dxj[j][0] + dr[1][k] * dp1dxj[j][1] + r[1][k] * ddp1dxj[j][1] +
+			    dr[2][k] * dp1dxj[j][2] + r[2][k] * ddp1dxj[j][2]) - fourth * ds[k] );
+  }
+
+  if (porousTermExists) {
+    for (int j=0; j<4; ++j) {
+      int idx = nodeNum(j);
+      for (int k=1; k<4; ++k)
+        dR[idx][k] += dpr[3*j+k-1];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
 			   SVec<double,3> &X, SVec<double,dim> &V, double gam, double R)
@@ -457,7 +502,7 @@ void ElemTet::computeMBarAndM(DynamicVMSTerm *dvmst,
 {
 
    int i, j, k;
-   double twothird = 2.0/3.0;
+   const double twothird = 2.0/3.0;
    bool clip = false;
 
    double dp1dxj[4][3];
@@ -799,6 +844,35 @@ void ElemTet::computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int cod
   for (int l=0; l<3; ++l)
     for (int k=0; k<dim; ++k)
       R[ face[l] ][k] -= third * r[k];
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void ElemTet::computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
+				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR)
+{
+
+  double dp1dxj[4][3];
+  computeGradientP1Function(X, dp1dxj);
+
+  double ddp1dxj[4][3];
+  computeDerivativeOfGradientP1Function(X, dX, ddp1dxj);
+
+  double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
+		   d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
+  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double *dv[4] = {dV[nodeNum(0)], dV[nodeNum(1)], dV[nodeNum(2)], dV[nodeNum(3)]};
+
+  double dr[dim];
+  fet->computeDerivativeOfSurfaceTerm(dp1dxj, ddp1dxj, code, n, dn, d2w, Vwall, dVwall, v, dv, dMach, dr);
+
+  for (int l=0; l<3; ++l)
+    for (int k=0; k<dim; ++k)
+      dR[ face[l] ][k] -= third * dr[k];
 
 }
 

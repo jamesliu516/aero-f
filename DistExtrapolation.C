@@ -64,3 +64,15 @@ void DistExtrapolation<dim>::compute(int config, DistVec<Vec3D> &norm, DistSVec<
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistExtrapolation<dim>::computeDerivative(int config, DistVec<Vec3D> &norm, DistSVec<double,3> &X)
+{
+
+  fprintf(stderr, "***** DistExtrapolation<dim>::computeDerivative is not implemented!\n");
+  exit(1);
+  
+}
+
+//------------------------------------------------------------------------------

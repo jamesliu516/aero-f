@@ -47,6 +47,25 @@ void VolumicForceTerm::computeVolumeTerm(double ctrlVol, double *V, double *flux
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void VolumicForceTerm::computeDerivativeOfVolumeTerm(double ctrlVol, double dCtrlVol, double *V, double *dV, double *dFlux)
+{
+
+  double momentum = V[0]*gravity*ctrlVol;
+  double dmomentum = dV[0]*gravity*ctrlVol + V[0]*gravity*dCtrlVol;
+  double denergy   = dmomentum*(V[1]*dir[0]+V[2]*dir[1]+V[3]*dir[2]) + momentum*(dV[1]*dir[0]+dV[2]*dir[1]+dV[3]*dir[2]);
+
+
+  dFlux[0] = 0.0;
+  dFlux[1] = -dmomentum*dir[0];
+  dFlux[2] = -dmomentum*dir[1];
+  dFlux[3] = -dmomentum*dir[2];
+  dFlux[4] = -denergy;
+
+}
+
+//------------------------------------------------------------------------------
+
 void VolumicForceTerm::computeJacobianVolumeTerm(int dim, double ctrlVol,
 						 double *V, double *jac)
 {

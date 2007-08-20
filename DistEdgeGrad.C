@@ -258,3 +258,14 @@ void DistEdgeGrad<dim>::compute(int config, DistSVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void DistEdgeGrad<dim>::computeDerivative(int config, DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{
+
+  fprintf(stderr, "***** DistEdgeGrad<dim>::computeDerivative is not implemented!\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------

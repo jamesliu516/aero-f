@@ -27,6 +27,17 @@ void BcFcn::applyToResidualTerm(int t, double *v, double *u, double *f)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void BcFcn::applyToDerivativeOfResidualTerm(int t, double *v, double *dv, double *u, double *du, double *df)
+{
+
+  fprintf(stderr, "*** Error: applyToDerivativeOfResidualTerm function not implemented\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcn::applyToDiagonalTerm(int t, double *v, double *u, float *a)
 {
 
@@ -86,7 +97,6 @@ void BcFcn::applyToOffDiagonalTerm(int t, bcomp *a)
 }
 
 //------------------------------------------------------------------------------
-
 
 void BcFcn::zeroDiagonalTerm(int t, float *a)
 {
@@ -163,6 +173,34 @@ void BcFcnNS::template_applyToResidualTerm(int type, double *Vwall, double *U, d
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void BcFcnNS::template_applyToDerivativeOfResidualTerm(int type, double *Vwall, double *dVwall, double *U, double *dU, double *dF)
+{
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED) {
+    dF[1] = - dVwall[1] * U[0] - Vwall[1] * dU[0] + dU[1];
+    dF[2] = - dVwall[2] * U[0] - Vwall[2] * dU[0] + dU[2];
+    dF[3] = - dVwall[3] * U[0] - Vwall[3] * dU[0] + dU[3];
+
+    if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED)
+      dF[4] = (dU[4] - dU[0] * Vwall[4] - U[0] * dVwall[4]) * U[0] + (U[4] - U[0] * Vwall[4]) * dU[0] - (U[1]*dU[1] + U[2]*dU[2] + U[3]*dU[3]);
+  }
+
+#if defined(STRONG_INLET_BC)
+  if (type == BC_INLET_MOVING || type == BC_INLET_FIXED) {
+    dF[0] = - dVwall[0] + dU[0];
+    dF[1] = - dVwall[0]*Vwall[1] - Vwall[0]*dVwall[1] + dU[1];
+    dF[2] = - dVwall[0]*Vwall[2] - Vwall[0]*dVwall[2] + dU[2];
+    dF[3] = - dVwall[0]*Vwall[3] - Vwall[0]*dVwall[3] + dU[3];
+  }
+#endif
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnNS::applyToSolutionVector(int type, double *Vwall, double *U)
 {
 
@@ -176,6 +214,16 @@ void BcFcnNS::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
 {
 
   template_applyToResidualTerm(type, Vwall, U, F);  
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnNS::applyToDerivativeOfResidualTerm(int type, double *Vwall, double *dVwall, double *U, double *dU, double *dF)
+{
+
+  template_applyToDerivativeOfResidualTerm(type, Vwall, dVwall, U, dU, dF);
 
 }
 
@@ -232,6 +280,8 @@ void BcFcnNS::zeroDiagonalTerm(int type, bcomp *A)
   template_zeroDiagonalTerm<bcomp,5>(type, A);
 
 }
+
+//------------------------------------------------------------------------------
 
 void BcFcnNS::applyToOffDiagonalTerm(int type, float *A)
 {
@@ -299,10 +349,71 @@ void BcFcnSA::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void BcFcnSA::applyToDerivativeOfResidualTerm(int type, double *Vwall, double *dVwall, double *U, double *dU, double *dF)
+{
+
+  if (!wallFcn)
+    BcFcnNS::template_applyToDerivativeOfResidualTerm(type, Vwall, dVwall, U, dU, dF);
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
+    dF[5] = - dU[0] * Vwall[5] - U[0] * dVwall[5] + dU[5];
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnSA::applyToProductTerm(int type, float *Prod)
+{
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
+    Prod[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnSA::applyToProductTerm(int type, double *Prod)
+{
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
+    Prod[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnSA::applyToProductTerm(int type, bcomp *Prod)
+{
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
+    Prod[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *U, float *A)
 {
 
   template_applyToDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *dVwall, double *U, float *A)
+{
+
+  template_applyToDiagonalTerm(type, Vwall, dVwall, U, A);
 
 }
 
@@ -317,10 +428,30 @@ void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *U, double *A)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *dVwall, double *U, double *A)
+{
+
+  template_applyToDiagonalTerm(type, Vwall, dVwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *U, bcomp *A)
 {
 
   template_applyToDiagonalTerm(type, Vwall, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnSA::applyToDiagonalTerm(int type, double *Vwall, double *dVwall, double *U, bcomp *A)
+{
+
+  template_applyToDiagonalTerm(type, Vwall, dVwall, U, A);
 
 }
 
@@ -426,6 +557,20 @@ void BcFcnKE::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
       type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED) {
     F[5] = - Vwall[5] * U[0] + U[5];
     F[6] = - Vwall[6] * U[0] + U[6];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void BcFcnKE::applyToDerivativeOfResidualTerm(int type, double *Vwall, double *dVwall, double *U, double *dU, double *dF)
+{
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED) {
+    dF[5] = - dVwall[5] * U[0] - Vwall[5] * dU[0] + dU[5];
+    dF[6] = - dVwall[6] * U[0] - Vwall[6] * dU[0] + dU[6];
   }
 
 }

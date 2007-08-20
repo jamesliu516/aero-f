@@ -1,11 +1,14 @@
 LIB = libf77src.a
 
 OBJS = $(LIB)(boundflux5.o) \
+       $(LIB)(g_boundflux5.o) \
        $(LIB)(boundjac2.o) \
        $(LIB)(dsvdc.o) \
        $(LIB)(printmask.o) \
        $(LIB)(roeflux5.o) \
+       $(LIB)(g_roeflux5.o) \
        $(LIB)(roeflux6.o) \
+       $(LIB)(g_roeflux6.o) \
        $(LIB)(roejac2.o) \
        $(LIB)(roejac5.o) \
        $(LIB)(roejac6.o) \
