@@ -134,7 +134,6 @@ class SubDomain {
   Connectivity *nodeToNode;
 
   int **totalNeiData;
-  double *gradP[3];
 
 public:
 
@@ -518,7 +517,7 @@ public:
 
   template<int dim>
   void computeNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
-		SVec<double,dim> &, Vec<double> &, SVec<double,3> &);
+		SVec<double,dim> &, Vec<double> &, SVec<double,3> &, double *nodalForceWeights);
 
   template<int dim>
   void computeNodalHeatPower(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -528,7 +527,7 @@ public:
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
-			     Vec3D *, Vec3D *, int = 0);
+			     Vec3D *, Vec3D *, double *nodalForceWeights, int = 0);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -554,7 +553,7 @@ public:
 
   template<int dim>
   void computeForceCoefficients(PostFcn *, Vec3D &, GeoState &, BcData<dim> &, SVec<double,3> &, 
-                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &);
+                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *nodalForceWeights);
 
   // communication
 

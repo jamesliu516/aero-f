@@ -102,6 +102,25 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   
   }
 
+  int order;
+  order = spaceOp->getSpaceOrder();
+
+  if(order == 1)
+  {
+   nodalForceWeights[0] = 1.0; 
+   nodalForceWeights[1] = 1.0;
+  }
+  else if(order == 2)
+  {
+   nodalForceWeights[0] = 22.0;
+   nodalForceWeights[1] = 7.0;
+  }
+  else
+  {
+   com->fprintf(stderr, "Problem in Setting Order : Order is neither 1 or 2 \n");
+   exit(0);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -136,7 +155,7 @@ void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     subDomain[iSub]->computeNodalForce(postFcn, (*bcData)(iSub), (*geoState)(iSub),
-				       X(iSub), (*V)(iSub), Pin(iSub), F(iSub));
+				       X(iSub), (*V)(iSub), Pin(iSub), F(iSub), nodalForceWeights);
   }
 
 }
@@ -189,7 +208,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       mv[iSurf] = 0.0;
     }
     subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
-					   X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro);
+					   X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, nodalForceWeights, hydro);
     for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical
       Fi[iSurf] += fi[iSurf];
@@ -714,7 +733,7 @@ void PostOperator<dim>::computeForceCoefficients(Vec3D &x0, DistSVec<double,3> &
     Vec3D locCFi, locCMi, locCFv, locCMv;
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     subDomain[iSub]->computeForceCoefficients(postFcn, x0, (*geoState)(iSub), (*bcData)(iSub),
-                                     X(iSub), (*V)(iSub), pressInfty, locCFi, locCMi, locCFv, locCMv);
+                                     X(iSub), (*V)(iSub), pressInfty, locCFi, locCMi, locCFv, locCMv, nodalForceWeights);
 
 #pragma omp critical
     CFi += locCFi;

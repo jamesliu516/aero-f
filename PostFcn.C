@@ -113,9 +113,10 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
 }
 
 //------------------------------------------------------------------------------
-void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-                                double *Vwall, double *Vface[3], double *Vtet[4],
-                double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+
+void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
+				double *Vwall, double *Vface[3], double *Vtet[4], 
+		double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv,double *nodalForceWeight, int hydro)
 {
 
   double pcg[3], p[3];
@@ -150,143 +151,18 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
   p[1] = (pcg[1] - pcgin) ;
   p[2] = (pcg[2] - pcgin) ;
 
-// ##################
- Vec3D x0, x1, x2, x;
- double temp;
- for(int i = 0; i<3; i++)
- {
-  x0[i] = Xface[0][i];
-  x1[i] = Xface[1][i];
-  x2[i] = Xface[2][i];
- }
+  double w1,w2; // w1 is the main weight
+  w1 = nodalForceWeight[0]; 
+  w2 = nodalForceWeight[1];
+  double totWeight = w1+w2+w2;
 
-// for node 0
-  i=0; // i represents node
- x = (7.0/18.0)*(x1 + x2 - 2.0*x0);
- temp = 2.0*p[i] + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- Fi0 = (1.0/6.0*temp)*n;
-
-// for node 1
- i=1;
- x = (7.0/18.0)*(x2 + x0 - 2.0*x1);
- temp = 2.0*p[i] + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- Fi1 = (1.0/6.0*temp)*n;
-
-// for node 2
- i=2;
- x = (7.0/18.0)*(x0 + x1 - 2.0*x2);
- temp = 2.0*p[i] + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- Fi2 = (1.0/6.0*temp)*n;
-
- Fv = 0.0;
+  Fi0 = third*( (w1*p[0]+w2*p[1]+w2*p[2])/totWeight )*n;
+  Fi1 = third*( (w1*p[1]+w2*p[2]+w2*p[0])/totWeight )*n;
+  Fi2 = third*( (w1*p[2]+w2*p[0]+w2*p[1])/totWeight )*n;
+  Fv = 0.0;
 
 }
-//-----------------------------------------------------------------------------------
-
-void PostFcnEuler::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-                double *Vwall, double *Vface[3], double *Vtet[4],
-                double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
-{
-
-  double pcg[3], p[3];
-  double pcgin;
-  int i;
-
-  if (hydro == 0) {
-    for(i=0;i<3;i++)
-    pcg[i] = varFcn->getPressure(Vface[i]);
-  }
-  else if (hydro == 1){ // hydrostatic pressure
-     for(i=0;i<3;i++)
-        pcg[i] = Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-  }else if (hydro == 2){ // hydrodynamic pressure
-    for (i=0; i<3; i++)
-    {
-      pcg[i] = varFcn->getPressure(Vface[i]);
-      pcg[i] = pcg[i] - Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-    }
-
-  }
-
-  if (pin)
-    pcgin = *pin;
-  else
-    if (hydro == 0)
-      pcgin = pinfty;
-    else
-      pcgin = 0.0;
-
-  p[0] = (pcg[0] - pcgin) ;
-  p[1] = (pcg[1] - pcgin) ;
-  p[2] = (pcg[2] - pcgin) ;
-
-// ##########################
-
- Vec3D xC, xS, xP, x1, x2, x3, x0, x;
- double p_1C, p_1S, p_2S, p_2P, p_3P, p_3C;
- double p_C, p_S, p_P, p_0C, p_0S, p_0P;
-
- // C to 0, S to 1 P to 2
- for(int i = 0; i<3; i++)
- {
-  xC[i] = Xface[0][i];
-  xS[i] = Xface[1][i];
-  xP[i] = Xface[2][i];
- }
-
- x1 = (xC+xS)/2.0;
- x2 = (xS+xP)/2.0;
- x3 = (xP+xC)/2.0;
- x0 = (xC+xS+xP)/3.0;
-
- p_C = p[0], p_S = p[1], p_P = p[2];
- // Computing p_1C, p_0C and p_3C
- i = 0;
- x = x1-xC;
- p_1C = p_C + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x0-xC;
- p_0C =  p_C + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x3-xC;
- p_3C =  p_C + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
-
- // Computing p_1S, p_0S and p_2S
- i = 1;
- x = x1-xS;
- p_1S = p_S + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x0-xS;
- p_0S =  p_S + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x2-xS;
- p_2S =  p_S + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
-
- // Computing p_2P, p_0P and p_3P
- i = 2;
- x = x2-xP;
- p_2P = p_P + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x0-xP;
- p_0P =  p_P + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
- x = x3-xP;
- p_3P =  p_P + dPdx[i][0]*x[0] + dPdx[i][1]*x[1] + dPdx[i][2]*x[2];
-
- // computation of pressure flux
- double phi_C, phi_S, phi_P, phi_1, phi_2, phi_3, phi_0;
- phi_C = (2.0*p_C + p_0C + p_3C)/12.0 + (2.0*p_C + p_0C + p_1C)/12.0 ;
- phi_S = (2.0*p_S + p_0S + p_1S)/12.0 + (2.0*p_S + p_0S + p_2S)/12.0 ;
- phi_P = (2.0*p_P + p_0P + p_2P)/12.0 + (2.0*p_P + p_0P + p_3P)/12.0 ;
-
- phi_1 = (2.0*p_1C + p_0C + p_C)/12.0 + (2.0*p_1S + p_0S + p_S)/12.0 ;
- phi_2 = (2.0*p_2S + p_0S + p_S)/12.0 + (2.0*p_2P + p_0P + p_P)/12.0 ;
- phi_3 = (2.0*p_3P + p_0P + p_P)/12.0 + (2.0*p_3C + p_0C + p_C)/12.0 ;
-
- phi_0 = (2.0*p_0C + p_1C + p_C)/12.0 + (2.0*p_0C + p_3C + p_C)/12.0 + (2.0*p_0S + p_1S + p_S)/12.0 + (2.0*p_0S + p_2S + p_S)/12.0 + (2.0*p_0P + p_2P + p_P)/12.0 + (2.0*p_0P + p_3P + p_P)/12.0 ;
-
- Fi0 = (phi_C + phi_1/2.0 + phi_3/2.0 + phi_0/3.0) * (1.0/6.0*n);
- Fi1 = (phi_S + phi_1/2.0 + phi_2/2.0 + phi_0/3.0) * (1.0/6.0*n);
- Fi2 = (phi_P + phi_2/2.0 + phi_3/2.0 + phi_0/3.0) * (1.0/6.0*n);
-
- Fv = 0.0;
-}
-
-//--------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 double PostFcnEuler::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3], 
 				      double* Vwall, double* Vface[3], double* Vtet[4])
@@ -302,11 +178,13 @@ double PostFcnEuler::computeInterfaceWork(double dp1dxj[4][3], Vec3D& n, double 
 					  double d2w[3], double* Vwall, double* Vface[3], 
 					  double* Vtet[4], double pin)
 {
+
   double p = third * ( varFcn->getPressure(Vface[0]) + varFcn->getPressure(Vface[1]) +
 		       varFcn->getPressure(Vface[2]) ) - pin;
   double W = - ndot * p;
 
   return W;
+
 }
 
 //------------------------------------------------------------------------------
@@ -396,27 +274,14 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
 //------------------------------------------------------------------------------
 
-void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-                             double *Vwall, double *Vface[3], double *Vtet[4],
-                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
+			     double *Vwall, double *Vface[3], double *Vtet[4], 
+		    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double *nodalForceWeight, int hydro)
 {
 
-  PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
-
+  PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, nodalForceWeight, hydro);
   Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 
-}
-
-//------------------------------------------------------------------------------
-
-void PostFcnNS::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
-                             double *Vwall, double *Vface[3], double *Vtet[4],
-                    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
-{
-
-  PostFcnEuler::computeForceTransmitted(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
-
-  Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 }
 
 //------------------------------------------------------------------------------
