@@ -24,7 +24,10 @@
 //------------------------------------------------------------------------------
 
 TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
-		                         Domain *dom, MemoryPool *mp) : domain(dom)  {
+		                         Domain *dom, MemoryPool *mp) : domain(dom)
+// Included (MB)
+, Data(data)
+{
 
   com = domain->getCommunicator();
 
@@ -46,11 +49,13 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   else
     cs = 0;
 
+  //int **ndType = domain->getNodeType();
   int **ndType = 0;
 
   meshMotionBCs = domain->getMeshMotionBCs(); //HB
   if (meshMotionBCs)   {
     meshMotionBCs->setDofType(matchNodes);
+
   }
 
   mvp = new StiffMat<double,3>(domain, ndType, mp, meshMotionBCs);
@@ -58,7 +63,9 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   if (pcData.type == PcData::IDENTITY)
     pc = new IdentityPrec<3>(meshMotionBCs);
   else if (pcData.type == PcData::JACOBI)
+    //pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DIAGONAL, domain, ndType, meshMotionBCs);
     pc = new JacobiPrec<PrecScalar,3>(DiagMat<PrecScalar,3>::DENSE, domain, ndType, meshMotionBCs);
+
   else if (pcData.type == PcData::AS || pcData.type == PcData::RAS || pcData.type == PcData::ASH || pcData.type == PcData::AAS)
     pc = new IluPrec<PrecScalar,3>(pcData, domain, ndType);
 
@@ -75,6 +82,13 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   ns = new NewtonSolver<TetMeshMotionSolver>(this);
 
   volStiff = data.volStiff;
+
+// Included (MB)
+  dXic = new DistSVec<double,3>(domain->getNodeDistInfo());
+
+  *dXic = 0.0;
+
+  numLocSub = dom->getNumLocSub();
 
 }  
 
@@ -121,6 +135,7 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
   // affected by the rotation of the fluid mesh around the symmetry plane normal ...
 
   ns->solve(X);
+
   return 0;
 }
 
@@ -149,6 +164,7 @@ void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
 void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X, 
 					  DistSVec<double,3> &F) 
 {
+
   DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
 
   domain->computeStiffAndForce(typeElement, X, F, *mvp, _pc, volStiff);
@@ -173,6 +189,7 @@ void TetMeshMotionSolver::computeJacobian(int it, DistSVec<double,3> &X,
 
 void TetMeshMotionSolver::setOperators(DistSVec<double,3> &X)
 {
+
   double t0 = timer->getTime();
 
   pc->setup();
@@ -180,6 +197,7 @@ void TetMeshMotionSolver::setOperators(DistSVec<double,3> &X)
   double t = timer->addMeshPrecSetupTime(t0);
 
   com->printf(6, "Mesh preconditioner computation: %f s\n", t);
+
 }
 
 //------------------------------------------------------------------------------
@@ -187,6 +205,7 @@ void TetMeshMotionSolver::setOperators(DistSVec<double,3> &X)
 int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs, 
 					   DistSVec<double,3> &dX) 
 {
+
   double t0 = timer->getTime();
 
   dX = 0.0;
@@ -197,6 +216,43 @@ int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs,
   timer->addMeshKspTime(t0);
   
   return lits;
+
 }
 
 //--------------------------------------------------------------------------------------------------
+
+// Included (MB)
+int TetMeshMotionSolver::optSolve(IoData &ioData, int it, DistSVec<double,3> &dXb, DistSVec<double,3> &dX, DistSVec<double,3> &X)
+{
+
+  applyProjector(dXb);
+  
+  if (it == 0) {
+    *dXic = 0.0;
+  
+    DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
+
+    domain->computeStiffAndForce(typeElement, X, *F0, *mvp, _pc, volStiff);
+
+    pc->setup();
+  }
+
+  *F0 = 0.0;
+
+  mvp->apply(dXb, *F0);
+
+  *F0 *= -1.0;
+
+  ksp->setup(0, 0, *F0);
+
+  ksp->solve(*F0, *dXic);
+ 
+  dX = *dXic;
+
+  dX += dXb;
+
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------

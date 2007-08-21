@@ -55,9 +55,27 @@ protected:
   double tref;
   double vref;
 
+// Included (MB)
+  DistSVec<double,3> *dXdot;
+  DistVec<double> *dTemp;
+  double dUin[dim], dVin[dim];
+  double dUout[dim], dVout[dim];
+  DistSVec<double,dim> *dUface;
+  DistSVec<double,dim> *dUnode;
+  DistSVec<double,dim> *dUinletnode;
+  DistSVec<double,dim> *dUfarin;
+  DistSVec<double,dim> *dUfarout;
+  DistSVec<double,dim> *dUfaceSA;
+  DistSVec<double,dim> *dUnodeSA;
+  double dtrefdMach;
+  double dvrefdMach;
+
 protected:
 
   void finalize(VarFcn *, DistSVec<double,3> &);
+
+// Included (MB)
+  void finalizeSA(VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &);
 
 public:
 
@@ -81,6 +99,17 @@ public:
   double *getInterface() { return Ub; }
   double *getInletPrimitiveState() { return Vin; }
 
+// Included (MB)
+  void updateSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
+  void rstVar(IoData &ioData);
+  virtual void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &) {}
+  virtual void computeNodeWallValues(DistSVec<double,3> &) {}
+  DistVec<double> &getDerivativeOfTemperatureVector() { return (*dTemp); }
+  virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &) {}
+  virtual void initialize(IoData &, VarFcn *, DistSVec<double,3> &) {}
+  virtual void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}  
+  DistSVec<double,3> &getDerivativeOfVelocityVector() { return *dXdot; }
+
 };
 
 //------------------------------------------------------------------------------
@@ -99,6 +128,13 @@ private:
   void updateFarFieldGas(DistSVec<double,3> &);
   void updateFarFieldLiquid(DistSVec<double,3> &);
 
+// Included (MB)
+  void initialize(IoData &, VarFcn *, DistSVec<double,3> &);
+  void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);  
+  void setDerivativeOfBoundaryConditionsGas(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double, double, double);
+  void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
+  void updateFarFieldGasSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
+
 public:
 
   DistBcDataEuler(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
@@ -114,12 +150,23 @@ class DistBcDataSA : public DistBcDataEuler<dim> {
   DistSVec<double,2> *tmp;
   CommPattern<double> *vec2Pat;
 
+// Included (MB)
+  DistSVec<double,2> *dtmp;
+  DistSVec<double,1> *dnormsa;
+  DistSVec<double,dim> *dtmpsa;
+  CommPattern<double> *vec1PatSA;
+  CommPattern<double> *vec2PatSA;
+
 public:
 
   DistBcDataSA(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
   ~DistBcDataSA();  
 
   void computeNodeValue(DistSVec<double,3> &);
+
+// Included (MB)
+  void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &);
+  void computeNodeWallValues(DistSVec<double,3> &);
 
 };
 
@@ -131,12 +178,19 @@ class DistBcDataKE : public DistBcDataEuler<dim> {
   DistSVec<double,3> *tmp;
   CommPattern<double> *vec3Pat;
 
+// Included (MB)
+  DistSVec<double,3> *dtmp;
+
 public:
 
   DistBcDataKE(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
   ~DistBcDataKE();
 
   void computeNodeValue(DistSVec<double,3> &);
+
+// Included (MB)
+  void computeDerivativeOfNodeValue(DistSVec<double,3> &, DistSVec<double,3> &);
+  void computeNodeWallValues(DistSVec<double,3> &x) {}
 
 };
 

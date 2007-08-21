@@ -151,6 +151,28 @@ public:
   void computeCsValues(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, SVec<double,2> &, Vec<double> &,
 		       SVec<double,3> &, double, double);
 
+
+// Included (MB)
+  double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &);
+
+  double computeDerivativeOfControlVolumes(SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+
+  void computeDerivativeOfEdgeNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &);
+
+  void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+			      SVec<double,3> &, SVec<double,3> &);
+
+  double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
+			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
+			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
+			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
 };
 
 #ifdef TEMPLATE_FIX

@@ -5,6 +5,9 @@
 #include <WallFcn.h>
 #include <Vector.h>
 
+// Included
+class Communicator;
+
 struct Vec3D;
 
 //------------------------------------------------------------------------------
@@ -49,6 +52,18 @@ public:
     else return true;
   }
   virtual bool doesSourceTermExist() { return false; }
+
+// Included
+  virtual bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4],
+				 double *dv[4], double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodenum[4], int volid) = 0;
+  virtual void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],
+				  double *vw, double *dvw, double *v[3], double *dv[3], double dMach, double *dr) = 0;
+  virtual void computeDerivativeOfSurfaceTerm(double dp1dxj[4][3], double ddp1dxj[4][3], int c, Vec3D &n, Vec3D &dn, double d2w[4],
+				  double *vw, double *dvw, double *v[4], double *dv[4], double dMach, double *dr) = 0;
+  virtual void rstVar(IoData &ioData, Communicator *com) = 0;
+  virtual void computeBCsJacobianWallValues(int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]) = 0;
+
+  virtual double computeDerivativeOfViscousTimeStep(double *, double *, double *, double *, double) = 0;
 
 
   void computePermittivityTensor(double alpha[3], double beta[3], double ucg[3], double R[9], double *K)

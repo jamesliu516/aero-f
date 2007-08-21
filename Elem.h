@@ -143,6 +143,16 @@ public:
 		       SVec<double,2> &, Vec<double> &,
 		       SVec<double,3> &, double, double) = 0;
   
+// Included (MB)
+  virtual
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
+			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
+
+  virtual
+  void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
+			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
+			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
+
 };
 
 template<class Scalar, int dim, int neq>
@@ -226,6 +236,19 @@ public:
 		       SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
 		       SVec<double,3> &X, double gam, double R) {
     t->computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
+  }
+
+// Included (MB)
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+			      SVec<double,dim> &dR) {
+    t->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+  }
+
+  void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
+				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+    t->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
   }
 
 };
@@ -401,7 +424,18 @@ public:
   
   virtual void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
 				     Vec<double> &, Vec<double> &) = 0;
-  
+
+// Included (MB)
+  virtual double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &) = 0;
+
+  virtual double computeDerivativeOfControlVolumes(SVec<double,3> &, SVec<double,3> &, Vec<double> &) = 0;
+
+  virtual void computeDerivativeOfEdgeNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &) = 0;
+
+  virtual void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &) = 0;
+
+  virtual double computeDerivativeOfGradientP1Function(SVec<double,3> &, SVec<double,3> &, double [4][3]) = 0;
+
   //-----Virtual template functions (handled through helpers classes, defined ElemTYPE.C)
 
   template<int dim>
@@ -540,6 +574,29 @@ public:
 					     d2wall, Vwall, V, A);
   }
 
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+			      SVec<double,dim> &dR) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfGalerkinTerm(fet, X, dX, d2wall, V, dV, dMach, dR);
+  }
+
+  template<int dim>
+  void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
+				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
+  }
+
 };
 
 //--------------- DUMMY ELEM CLASS ---------------------------------------------
@@ -636,6 +693,21 @@ public:
     fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
   }
 
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
+			      SVec<double,dim> &dR) {
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
+				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
+				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfFaceGalerkinTerm) for this elem type\n"); exit(1);
+  }
+
 };
 
 //------------------------------------------------------------------------------
@@ -704,6 +776,11 @@ public:
   void computeJacobianGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
 				   Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
     
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, SVec<double,3> &,
+			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
 };
 
 #ifdef TEMPLATE_FIX

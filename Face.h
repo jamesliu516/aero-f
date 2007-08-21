@@ -118,6 +118,26 @@ public:
   virtual void computeFDerivs(ElemSet &, VarFcn *, SVec<double,3> &, 
 			      SVec<double,dim> &, Vec3D (*)) = 0;
 
+
+// Included (MB)
+  virtual void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                                Vec<double> &, double *, double *,
+                                                                SVec<double,dim> &, SVec<double,dim> &,
+                                                                double, double [3], SVec<double,3> &, double *) = 0;
+
+  virtual void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, SVec<double,3>&, Vec<double>&, 
+			     double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&) = 0;
+
+  virtual void computeDerivativeOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
+                                                                           Vec<double> &, double *, double *,
+                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                                                           Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *, int = 0) = 0;
+
+  virtual void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
+			   Vec<double> &, double *, double *, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
+  
+  virtual void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, Vec<double> &, double *, double *, SVec<double,dim> &) = 0;
+
 };
 
 template<class Scalar, int dim, int neq>
@@ -197,6 +217,37 @@ public:
   void computeFDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
 		      SVec<double,dim> &Vgl, Vec3D (*F)) {
     t->computeFDerivs(elems, varFcn, X, Vgl, F);
+  }
+
+// Included (MB)
+  void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
+			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
+			     double pin, double dS[3], SVec<double,3> &dF, double *nodalForceWeight) {
+    t->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, nodalForceWeight);
+  }
+
+  void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
+				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
+    t->computeDerivativeOfNodalHeatPower(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, dP);
+  }
+
+  void computeDerivativeOfForceAndMoment(ElemSet &elems, PostFcn *postFcn,
+                                             SVec<double,3> &X, SVec<double,3> &dX,
+                                             Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                             SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                             Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
+				             double *nodalForceWeight, int hydro) {
+    t->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, nodalForceWeight, hydro);
+  }
+
+  void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+    t->computeDerivativeOfGalerkinTerm(elems, fet, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
+  }
+
+  void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
+                                        double *Vwall, double *dVwall, SVec<double,dim> &V) {
+    t->computeBCsJacobianWallValues(elems, fet, X, d2wall, Vwall, dVwall, V);
   }
 
 };
@@ -531,6 +582,99 @@ public:
     wrapper->computeFDerivs(elems, varFcn, X, Vgl, F);
   }
  
+// Included (MB)
+  virtual void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &) = 0;
+
+  virtual void computeDerivativeOfNormal(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &, double &, double &) = 0;
+
+  // Get face total normal derivative from Vec<Vec3D>
+  virtual Vec3D getdNormal(Vec<Vec3D> &) = 0;
+
+  // Get subface i normal derivative from Vec<Vec3D>
+  virtual Vec3D getdNormal(Vec<Vec3D> &, int) = 0;
+
+  // Get face total normal velocity derivative from Vec<double>
+  virtual double getdNormalVel(Vec<double> &) = 0;
+
+  // Get subface i normal velocity derivative from Vec<double>
+  virtual double getdNormalVel(Vec<double> &, int) = 0;
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+				      Vec<Vec3D> &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
+				      SVec<double,dim> &V, double *Ub,
+				      double *dUb, SVec<double,dim> &dFluxes);
+
+  template<int dim1, int dim2>
+  void computeDerivativeOfNodeBcValue(SVec<double,3> &X, SVec<double,3> &dX, double *Uface, double *dUface, SVec<double,dim2> &dUnode);
+
+  template<int dim>
+  void computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNormSA, double *dUfaceSA, SVec<double,dim> &dUnodeSA);
+
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
+			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach);
+
+  template<int dim>
+  void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
+			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
+			     double pin, double dS[3], SVec<double,3> &dF, double *nodalForceWeight) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, nodalForceWeight);
+  }
+
+  template<int dim>
+  void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
+				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
+
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfNodalHeatPower(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, dP);
+  }
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(ElemSet &elems, PostFcn *postFcn,
+                                             SVec<double,3> &X, SVec<double,3> &dX,
+                                             Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                             SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                             Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
+				             double *nodalForceWeight, int hydro) {
+
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, nodalForceWeight, hydro);
+  }
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDerivativeOfGalerkinTerm(elems, fet, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
+  }
+  
+  template<int dim>
+  void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
+                                        double *Vwall, double *dVwall, SVec<double,dim> &V) {
+
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeBCsJacobianWallValues(elems, fet, X, d2wall, Vwall, dVwall, V);
+  }
+
 };
 
 
@@ -617,6 +761,44 @@ public:
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
 
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
+			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
+			     double pin, double dS[3], SVec<double,3> &dF, double *nodalForceWeight) {
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
+				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
+
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(ElemSet &elems, PostFcn *postFcn,
+                                             SVec<double,3> &X, SVec<double,3> &dX,
+                                             Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                             SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                             Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
+				             double *nodalForceWeight, int hydro) {
+
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
+			       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+    fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
+                                        double *Vwall, double *dVwall, SVec<double,dim> &V) {
+    fprintf(stderr, "Error: undifined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
+  }
+
 };
 
 
@@ -697,6 +879,23 @@ public:
   void computeJacobianGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, 
 				   GeoState &, SVec<double,3> &, Vec<double> &, 
 				   SVec<double,dim> &, GenMat<Scalar,neq> &);
+
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
+			       SVec<double,dim> &, SVec<double,dim> &);
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &,
+			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, BcData<dim> &, 
+				   GeoState &, SVec<double,3> &, SVec<double,dim> &);
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
+			      SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, 
+			      Vec<double> &, Vec<double> &, double, double, double, double, double);
+
 };
 
 //------------------------------------------------------------------------------

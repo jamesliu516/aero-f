@@ -44,7 +44,9 @@ template<int dim>
 int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
 
+  double t0 = this->timer->getTime();
   int its = ns->solve(U);
+  this->timer->addFluidSolutionTime(t0);
 
   return its;
 

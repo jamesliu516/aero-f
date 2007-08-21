@@ -345,6 +345,8 @@ int ImplicitLevelSetTsDesc<dim>::solveLinearSystemLS(int it, DistVec<double> &b,
  
   int lits = kspLS->solveLS(b, dQ);
   
+  this->timer->addLSKspTime(t0);
+
   return lits;
 
 }
