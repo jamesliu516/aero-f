@@ -31,7 +31,7 @@ void FaceTria::computeForce(ElemSet &elems,
 			    PostFcn *postFcn, SVec<double,3> &X, 
 			    Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			    double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, 
-			    double* gradP[3], int hydro)
+			    double *nodalForceWeight, int hydro)
 {
 
   Vec3D n;
@@ -48,53 +48,8 @@ void FaceTria::computeForce(ElemSet &elems,
 		     V[elem[2]], V[elem[3]]};
   double *Xface[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
 
-// Vamshi
-   double dPdx[3][3];
-   for(int i=0; i<3; i++) // i represents node
-   {
-    dPdx[i][0] = gradP[0][nodeNum(i)];
-    dPdx[i][1] = gradP[1][nodeNum(i)];
-    dPdx[i][2] = gradP[2][nodeNum(i)];
-   }
-
   postFcn->computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, 
-			Fi0, Fi1, Fi2, Fv, dPdx, hydro);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-inline
-void FaceTria::computeForceTransmitted(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
-                        Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
-                        double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv,
-                        double* gradP[3], int hydro)
-{
-
-  Vec3D n;
-  computeNormal(X, n);
-  Elem& elem = elems[elemNum];
-
-  double dp1dxj[4][3];
-  if (postFcn->doesFaceNeedGradientP1Function())
-    elem.computeGradientP1Function(X, dp1dxj);
-
-  double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
-  double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
-  double *Vtet[4] = {V[elem[0]], V[elem[1]],
-                     V[elem[2]], V[elem[3]]};
-  double *Xface[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
-
-// Vamshi
-   double dPdx[3][3];
-   for(int i=0; i<3; i++) // i represents node
-   {
-    dPdx[i][0] = gradP[0][nodeNum(i)];
-    dPdx[i][1] = gradP[1][nodeNum(i)];
-    dPdx[i][2] = gradP[2][nodeNum(i)];
-   }
-   postFcn->computeForceTransmitted(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+			Fi0, Fi1, Fi2, Fv, nodalForceWeight, hydro);
 
 }
 
@@ -104,14 +59,13 @@ template<int dim>
 void FaceTria::computeNodalForce(ElemSet &elems,
 				 PostFcn *postFcn, SVec<double,3> &X, 
 				 Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
-				 double pin, SVec<double,3> &F, double* gradP[3])
+				 double pin, SVec<double,3> &F, double *nodalForceWeight)
 {
 
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING
     || code == BC_SLIP_WALL_MOVING) {
     Vec3D Fi0, Fi1, Fi2, Fv;
-
-    computeForceTransmitted(elems, postFcn, X, d2wall, Vwall, V, &pin, Fi0, Fi1, Fi2, Fv, gradP);
+    computeForce(elems, postFcn, X, d2wall, Vwall, V, &pin, Fi0, Fi1, Fi2, Fv, nodalForceWeight );
     
     Vec3D Ftot[3];
     Ftot[0] = Fi0 + third*Fv; 
@@ -159,24 +113,22 @@ void FaceTria::computeNodalHeatPower(ElemSet& elems,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
-				     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
-				     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-				      double* gradP[3], int hydro)
+void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, 
+				     SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
+				     SVec<double,dim> &V, Vec3D &x0, Vec3D &Fi, Vec3D &Mi, 
+				     Vec3D &Fv, Vec3D &Mv, double *nodalForceWeight, int hydro)
 {
     Vec3D x[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
     Vec3D dx[3] = {x[0]-x0 , x[1]-x0 , x[2]-x0};
     Vec3D dxm = third*(x[0]+x[1]+x[2]) - x0;
 
-// Lift, Drag and Forces needed to be computed based on computeForce alone
     Vec3D fi0,fi1,fi2,fv;
-    computeForce(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
-    Fi += fi0 + fi1 + fi2;
-    Fv += fv;
+    computeForce(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv,nodalForceWeight, hydro);
 
-// Moments need to be computed based on Transmitted forces, which takes care of spatial distribution of force
-    computeForceTransmitted(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
-    Mi += (dx[0] ^ fi0) + (dx[1] ^ fi1) + (dx[2] ^ fi2); // dont remove paranthesis, they are needed for priority reasons
+    Fi += fi0 + fi1 + fi2;
+    Mi += (dx[0] ^ fi0) + (dx[1] ^ fi1) + (dx[2] ^ fi2);
+
+    Fv += fv;
     Mv += dxm ^ fv;
 }
 
@@ -376,13 +328,14 @@ void FaceTria::computeForceDerivs(ElemSet &elems, VarFcn *varFcn,
 
 //------------------------------------------------------------------------------
 
-//inline
 template<int dim>
+//inline
 void FaceTria::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &elems,
 					SVec<double,3> &X, 
 					SVec<double,dim> &V, Vec<double> &d2wall, 
 					SVec<double, dim> &Vwall, double pInfty, 
-					Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, double* gradP[3]) 
+					Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, 
+					double *nodalForceWeight) 
 {
   static double third = 1.0/3.0;
 
@@ -392,16 +345,14 @@ void FaceTria::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &el
     Vec3D x[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
     Vec3D xcg = third * (x[0] + x[1] + x[2]);
     Vec3D Fi0,Fi1,Fi2,Fv;
+
     double *vWall = reinterpret_cast<double *>(Vwall.data());
+    computeForce(elems, postFcn, X, d2wall, vWall, V, &pInfty, Fi0,Fi1,Fi2,Fv,nodalForceWeight);
 
-//  Forces needed to be computed based on computeForce alone
-    computeForce(elems, postFcn, X, d2wall, vWall, V, &pInfty,  Fi0,Fi1,Fi2,Fv, gradP);
     CFi += Fi0 + Fi1 + Fi2;
-    CFv += Fv;
+    CMi += (x[0] - x0) ^ Fi0 + (x[1] - x0) ^ Fi1 + (x[2] - x0) ^ Fi2;
 
-// Moments need to be computed based on Transmitted forces, which takes care of spatial distribution of force
-    computeForceTransmitted(elems, postFcn, X, d2wall, vWall, V, &pInfty, Fi0,Fi1,Fi2,Fv, gradP);
-    CMi += (x[0] - x0) ^ Fi0 + (x[1] - x0) ^ Fi1 + (x[2] - x0) ^ Fi2; // dont remove paranthesis, they are needed for priority reasons
+    CFv += Fv;
     CMv += (xcg - x0) ^ Fv;
 
   }

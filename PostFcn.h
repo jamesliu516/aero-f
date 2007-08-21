@@ -40,10 +40,7 @@ public:
   virtual double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 					   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
-  virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3], 
-	double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
-
+		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &,double *nodalForceWeight, int = 0) = 0;
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]) = 0;
   virtual double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
@@ -77,9 +74,7 @@ public:
 
   virtual double computeNodeScalarQuantity(ScalarType, double *, double *, double = 0);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
-  virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *nodalForceWeight, int = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]);
   virtual double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
@@ -108,9 +103,7 @@ public:
   double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 				   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
-  virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *nodalForceWeight, int = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
 			  double*, double* [3], double* [4]);
   double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
