@@ -31,8 +31,12 @@ public:
 
   virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setOperators(DistSVec<double,dim> &);
+
   virtual int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   
+// Included (MB)
+  void rstVarImplicitCoupledTsDesc(IoData &);
+
 };
 
 //------------------------------------------------------------------------------

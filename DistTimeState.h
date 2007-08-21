@@ -65,6 +65,12 @@ private:
 
   TimeState<dim> **subTimeState;
 
+// Included (MB)
+  double dbeta;
+  DistVec<double> *dIrey;
+  DistVec<double> *dIdti;
+  DistVec<double> *dIdtv;
+
 public:
 
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *, DistSVec<double,dim> * = 0);
@@ -83,6 +89,7 @@ public:
 						 DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, DistVec<double> &);
+
   void writeToDisk(char *);
 
   double computeTimeStep(double, double*, int*, DistGeoState &, 
@@ -145,6 +152,16 @@ public:
   DistSVec<double,dim> &getUn() const { return *Un; }
 
   double getTime()  { return data->dt_n; }
+
+// Included (MB)
+  TimeData* getDataOpt() { return data; }
+
+  template<class Scalar, int neq>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+
+  void rstVar(IoData &);
+
+  DistVec<double>* getDerivativeOfInvReynolds(DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double);
 
 };
 

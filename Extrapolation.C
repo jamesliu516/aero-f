@@ -115,7 +115,7 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
     n[0] = elem0.nodeNum(loc[0]);
     n[1] = elem0.nodeNum(loc[1]);
     n[2] = elem0.nodeNum(loc[2]);
-    
+
     for(int k=0; k<dim; ++k)
       Vinter1[k] = V[n[2]][k] + extrapolationdata[i][0].r * ( V[n[0]][k] - V[n[2]][k] ) +
 	extrapolationdata[i][0].t * ( V[n[1]][k] - V[n[2]][k] );

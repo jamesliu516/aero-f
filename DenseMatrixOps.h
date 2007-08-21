@@ -229,21 +229,27 @@ public:
 
   static void sum(Scalar (*a)[dim], int k, Scalar (*b)[dim], int i, 
 		  Scalar (*c)[dim], int j) {
-    fprintf(stderr, "*** Warning: sum routine is not optimized for %d\n", dim);
+
+// Modified (MB)
+//    fprintf(stderr, "*** Warning: sum routine is not optimized for %d\n", dim);
 
     for (int ii=0; ii<dim; ++ii)
       c[j][ii] = a[k][ii] + b[i][ii];
   }
 
   static void add(Scalar (*b)[dim], int i, Scalar (*c)[dim], int j) {
-    fprintf(stderr, "*** Warning: add routine is not optimized for %d\n", dim);
+
+// Modified (MB)
+//    fprintf(stderr, "*** Warning: add routine is not optimized for %d\n", dim);
 
     for (int ii=0; ii<dim; ++ii)
       c[j][ii] += b[i][ii];
   }
 
   static void sub(Scalar (*b)[dim], int i, Scalar (*c)[dim], int j) {
-    fprintf(stderr, "*** Warning: routine sub is not optimized for %d\n", dim);
+
+// Modified (MB)
+//    fprintf(stderr, "*** Warning: routine sub is not optimized for %d\n", dim);
 
     for (int ii=0; ii<dim; ++ii)
       c[j][ii] -= b[i][ii];

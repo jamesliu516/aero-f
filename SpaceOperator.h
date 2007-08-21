@@ -45,6 +45,19 @@ private:
   DistGeoState *geoState;
   DistSVec<double,dim> *V;
 
+// Included (MB)
+  DistSVec<double,dim> *dU;
+  DistSVec<double,dim> *dV;
+  DistSVec<double,dim> *dRm;
+  int jacobianAA;
+  int jacobianSA;
+  int reconstructionAA;
+  int reconstructionSA;
+  FluxFcn **fluxFcnAA;
+  RecFcn *recFcnAA;
+  FluxFcn **fluxFcnSA;
+  RecFcn *recFcnSA;
+
 private:
 
   bool locAlloc;
@@ -79,6 +92,9 @@ private:
   int failsafe;
   int rshift;
 
+// Included (MB)
+  IoData *iod;
+
 public:
 
   SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
@@ -112,12 +128,15 @@ public:
   void storeGhost(DistSVec<double,dim> &, DistVec<double> &,
                        DistSVec<double,dim> &);
 
-  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistTimeState<dim> *);
+// Included (MB)
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &, 
+		       DistSVec<double,dim> &, DistSVec<double,dim> &,
+                       DistTimeState<dim> *, bool=true);
+// Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &);
+                       DistSVec<double,dim> &, bool=true);
+
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
@@ -199,6 +218,35 @@ public:
 
   void printAllVariable(DistSVec<double,3>&, DistSVec<double,dim> &, int);
   void printVariable(DistSVec<double,dim> &);
+
+// Included (MB)
+  void rstFluxFcn(IoData &);
+  void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
+                               DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0);
+
+  void applyBCsToDerivativeOfResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void rstVarFet(IoData &ioData) {fet->rstVar(ioData, com);}
+
+  bool useModal() {return use_modal;}
+
+  void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &, 
+		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
+
+  void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &, 
+		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
+
+  void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistVec<double> &,
+                       DistSVec<double,dim> &, bool=true);
+
+  void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistVec<double> &,
+                       DistSVec<double,dim> &, bool=true);
+
+  template<class Scalar>
+  void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
+
 };
 
 //------------------------------------------------------------------------------

@@ -29,7 +29,7 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
       timeState.writeToDisk(solutions[index]);
     if (positions[index][0] != 0)
       geoState.writeToDisk(positions[index]);
-  
+
     if (cpuNum == 0 && data[index][0] != 0) {
       FILE *fp = fopen(data[index], "w");
       if (!fp) {

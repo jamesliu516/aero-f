@@ -73,6 +73,27 @@ void FaceTria::computeNormalGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 }
 
 //------------------------------------------------------------------------------
+// computation of the OUTWARD face normal
+
+// Included (MB)
+void FaceTria::computeDerivativeOfNormal(SVec<double,3> &X, SVec<double,3> &dX, Vec3D &faceNorm,
+                            Vec3D &dFaceNorm, double &faceNormVel, double &dFaceNormVel)
+{
+
+  Vec3D x[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
+
+  Vec3D dx[3] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ], dX[ nodeNum(2) ]};
+
+//  faceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
+
+  dFaceNorm = 0.5 * (((dx[2] - dx[0]) ^ (x[1] - x[0])) + ((x[2] - x[0]) ^ (dx[1] - dx[0])));
+
+//  faceNormVel = 0.0;
+  dFaceNormVel = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
 // Computation of the OUTWARD face normal
 void FaceTria::computeNormalEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
 				   Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel)
@@ -91,6 +112,23 @@ void FaceTria::computeNormalEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,
 }
 
 //------------------------------------------------------------------------------
+// computation of the OUTWARD face normal
+
+// Included (MB)
+void FaceTria::computeNormalAndDerivative(SVec<double,3> &X, SVec<double,3> &dX, Vec3D &faceNorm, Vec3D &dFaceNorm)
+{
+
+  Vec3D x[3] = {X[ nodeNum(0) ], X[ nodeNum(1) ], X[ nodeNum(2) ]};
+
+  Vec3D dx[3] = {dX[ nodeNum(0) ], dX[ nodeNum(1) ], dX[ nodeNum(2) ]};
+
+  faceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
+
+  dFaceNorm = 0.5 * (((dx[2] - dx[0]) ^ (x[1] - x[0])) + ((x[2] - x[0]) ^ (dx[1] - dx[0])));
+
+}
+
+//------------------------------------------------------------------------------
 // Get OUTWARD face normal
 Vec3D FaceTria::getNormal(Vec<Vec3D> &faceNorm) {
 
@@ -98,8 +136,27 @@ Vec3D FaceTria::getNormal(Vec<Vec3D> &faceNorm) {
 
 }
 
+//------------------------------------------------------------------------------
+// Get OUTWARD face normal
+
+// Included (MB)
+Vec3D FaceTria::getdNormal(Vec<Vec3D> &facedNorm) {
+
+  return facedNorm[normNum];
+
+}
+
+//------------------------------------------------------------------------------
+
 double FaceTria::getNormalVel(Vec<double> &faceNormVel) {
   return faceNormVel[normNum];
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+double FaceTria::getdNormalVel(Vec<double> &facedNormVel) {
+  return facedNormVel[normNum];
 }
 
 //------------------------------------------------------------------------------
@@ -110,6 +167,27 @@ Vec3D FaceTria::getNormal(Vec<Vec3D> &faceNorm, int i) {
 
 }
 
+
+//------------------------------------------------------------------------------
+// Get i-th OUTWARD subface normal
+// Included (MB)
+Vec3D FaceTria::getdNormal(Vec<Vec3D> &facedNorm, int i) {
+
+  return third*facedNorm[normNum];
+
+}
+
+//------------------------------------------------------------------------------
+
 double FaceTria::getNormalVel(Vec<double> &faceNormVel, int i) {
   return third*faceNormVel[normNum];
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+double FaceTria::getdNormalVel(Vec<double> &facedNormVel, int i) {
+  return third*facedNormVel[normNum];
+}
+
+//------------------------------------------------------------------------------

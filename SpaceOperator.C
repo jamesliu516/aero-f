@@ -35,6 +35,8 @@ template<int dim>
 SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *bc, 
 				  DistGeoState *gs, Domain *dom, DistSVec<double,dim> *v) 
   : varFcn(vf), bcData(bc), geoState(gs), domain(dom)
+// Included (MB)
+, iod(&ioData)
 {
 
   locAlloc = true;
@@ -48,6 +50,22 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     V = v->alias();
   else 
     V = new DistSVec<double,dim>(domain->getNodeDistInfo());
+
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dU = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    dV = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    dRm = new DistSVec<double,dim>(domain->getNodeDistInfo());
+
+    *dU = 0.0;
+    *dV = 0.0;
+    *dRm = 0.0;
+  }
+  else {
+    dU = 0;
+    dV = 0;
+    dRm = 0;
+  }
 
   bcFcn = createBcFcn(ioData);
 
@@ -112,6 +130,10 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   else {
     compNodalGrad = 0;
     use_modal = false;
+
+// Included (MB)
+    if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
+      use_modal = true;
   }
 
   if (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT)
@@ -161,6 +183,9 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   com = spo.com;
 
   use_modal = spo.use_modal;
+
+// Included (MB)
+  iod = spo.iod;
 
 }
 
@@ -278,6 +303,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_SYMMETRY] = new FluxFcnPerfectGasWallSA3D(ioData);
           ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData);
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData);
+
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
@@ -299,6 +325,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_SYMMETRY] = new FluxFcnPerfectGasWallKE3D(ioData);
           ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData);
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData);
+
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
@@ -348,6 +375,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
         ff[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData);
         ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData);
         ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData);
+
         if (ioData.schemes.ns.flux == SchemeData::VANLEER)
           ff[BC_INTERNAL] = new FluxFcnPerfectGasVanLeerEuler3D(ioData);
         else if (ioData.schemes.ns.flux == SchemeData::ROE) {
@@ -809,15 +837,19 @@ void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &U, DistVec<double> &Ph
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U, DistSVec<double,dim> &R,
-                                         DistTimeState<dim> *timeState)
+// Included (MB)
+void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
+					 DistSVec<double,dim> &U, DistSVec<double,dim> &R,
+                                         DistTimeState<dim> *timeState, bool compatF3D)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -848,11 +880,13 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     delete (Cs); delete (VolSum);
   }
 
-  DistVec<double> *irey = 0;
+  DistVec<double> *irey;
   if(timeState)
     irey = timeState->getInvReynolds();
-  else
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
     *irey = 0.0;
+  }
 
   if (fet) {
     domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
@@ -875,16 +909,19 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
                   timeState, X, U, *V, R, failsafe, rshift);
 
-  if (use_modal == false)  {
-    int numLocSub = R.numLocSub();
+// Included (MB)
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double *cv = ctrlVol.subData(iSub);
-      double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
       }
     }
   }
@@ -894,17 +931,299 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
 template<int dim>
+void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U, double dMach, DistSVec<double,dim> &R, DistSVec<double,dim> &dR, DistTimeState<dim> *timeState)
+{
+
+  dR = 0.0;
+
+  varFcn->conservativeToPrimitive(U, *V);
+
+//Remark: Error mesage for pointers
+  if (dV == 0) {
+    fprintf(stderr, "*** Error: Varible dV does not exist!\n");
+    exit(1);
+  }
+
+  *dV = 0.0;
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
+  }
+
+  if (egrad) {
+    egrad->compute(geoState->getConfig(), X);
+    egrad->computeDerivative(geoState->getConfig(), X, dX);
+  }
+
+  if (xpol){
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+    xpol->computeDerivative(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+  }
+
+  if (vms) {
+    vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+    vms->computeDerivative(geoState->getConfig(), ctrlVol, X, *V, R);
+  }
+
+  if (smag) {
+    domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+    domain->computeDerivativeOfSmagorinskyLESTerm(smag, X, *V, R);
+  }
+
+  if (dles){
+
+    com->fprintf(stderr, "***** The equivalent derivatives of the functions dles->computeTestFilterValues and dles->computeTestFilterValues are not implemented!\n");
+    exit(1);
+
+/*
+    DistSVec<double,2> *Cs;
+    DistVec<double> *VolSum;
+    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
+    VolSum = new DistVec<double>(domain->getNodeDistInfo());
+    *Cs = 0.0; *VolSum = 0.0;
+
+    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
+    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
+
+    delete (Cs); delete (VolSum);
+*/
+  }
+
+  DistVec<double> *irey;
+  DistVec<double> *direy;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+    direy = timeState->getDerivativeOfInvReynolds(*geoState, X, dX, ctrlVol, dCtrlVol, *V, *dV, dMach);
+  }
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    direy = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+    *direy = 0.0;
+  }
+
+  if (fet) {
+    domain->computeDerivativeOfGalerkinTerm(fet, *bcData, *geoState, X, dX, *V, *dV, dMach, dR);
+    bcData->computeNodeValue(X);
+    bcData->computeDerivativeOfNodeValue(X, dX);
+  }
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
+    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
+//    ngrad->limit(recFcn, X, ctrlVol, *V);
+  }
+
+  domain->computeDerivativeOfFiniteVolumeTerm(ctrlVol, dCtrlVol, *irey, *direy, fluxFcn, recFcn, *bcData, *geoState, X, dX, *V, *dV, *ngrad, egrad, dMach, dR);
+  
+  if (volForce) {
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+    domain->computeDerivativeOfVolumicForceTerm(volForce, ctrlVol, dCtrlVol, *V, *dV, dR);
+  }
+
+  if(dvms) {
+    dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState, timeState, X, U, *V, R, failsafe, rshift);
+    dvms->computeDerivative(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState, timeState, X, U, *V, R, failsafe, rshift);
+  }
+
+  if (use_modal == false)  {
+    int numLocSub = dR.numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double *cv = ctrlVol.subData(iSub);
+      double *dcv = dCtrlVol.subData(iSub);
+      double (*r)[dim] = R.subData(iSub);
+      double (*dr)[dim] = dR.subData(iSub);
+      double (*drm)[dim] = (*dRm).subData(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        double invcv = 1.0 / cv[i];
+        double dInvcv = ( (-1.0) / ( cv[i] * cv[i] ) ) * dcv[i];
+        for (int j=0; j<dim; ++j)
+          dr[i][j] = ( ( dr[i][j] * invcv ) + ( r[i][j] * dInvcv ) );
+      }
+    }
+  }
+  irey = 0;
+  direy = 0;
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistTimeState<dim> *timeState, bool compatF3D)
+{
+
+  R = 0.0;
+  varFcn->conservativeToPrimitive(U, *V);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol){
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+  }
+
+  if (vms)
+    vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+
+  if (smag)
+    domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+
+  if (dles){
+    DistSVec<double,2> *Cs;
+    DistVec<double> *VolSum;
+    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
+    VolSum = new DistVec<double>(domain->getNodeDistInfo());
+    *Cs = 0.0; *VolSum = 0.0;
+
+    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
+    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
+
+    delete (Cs); delete (VolSum);
+  }
+
+  DistVec<double> *irey;
+  if(timeState)
+    irey = timeState->getInvReynolds();
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+
+  domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
+                                  X, *V, *ngrad, egrad, R, failsafe, rshift);
+  
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if(dvms)
+    dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
+                  timeState, X, U, *V, R, failsafe, rshift);
+
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      }
+    }
+  }
+  irey = 0;
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistTimeState<dim> *timeState, bool compatF3D)
+{
+
+  R = 0.0;
+  varFcn->conservativeToPrimitive(U, *V);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol){
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+  }
+
+  if (vms)
+    vms->compute(geoState->getConfig(), ctrlVol, X, *V, R);
+
+  if (smag)
+    domain->computeSmagorinskyLESTerm(smag, X, *V, R);
+
+  if (dles){
+    DistSVec<double,2> *Cs;
+    DistVec<double> *VolSum;
+    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
+    VolSum = new DistVec<double>(domain->getNodeDistInfo());
+    *Cs = 0.0; *VolSum = 0.0;
+
+    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
+    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
+
+    delete (Cs); delete (VolSum);
+  }
+
+  if (fet) {
+    domain->computeOnlyGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
+    bcData->computeNodeValue(X);
+  }
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if(dvms)
+    dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
+                  timeState, X, U, *V, R, failsafe, rshift);
+
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+// Included (MB)
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistVec<double> &Phi,
-                                         DistSVec<double,dim> &R)
+                                         DistSVec<double,dim> &R, bool compatF3D)
 {
 
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -929,20 +1248,128 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   domain->computeFiniteVolumeTerm(ctrlVol, fluxFcn, recFcn, *bcData, *geoState, X, *V,
                                   Phi, *ngrad, egrad, R, failsafe, rshift);
 
-  if (use_modal == false)  {
-    int numLocSub = R.numLocSub();
+// Included (MB)
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double *cv = ctrlVol.subData(iSub);
-      double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
       }
     }
   }
+
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistVec<double> &Phi,
+                                         DistSVec<double,dim> &R, bool compatF3D)
+{
+
+  R = 0.0;
+  varFcn->conservativeToPrimitive(U, *V, &Phi);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol)
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+
+  domain->computeFiniteVolumeTerm(ctrlVol, fluxFcn, recFcn, *bcData, *geoState, X, *V,
+                                  Phi, *ngrad, egrad, R, failsafe, rshift);
+
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistVec<double> &Phi,
+                                         DistSVec<double,dim> &R, bool compatF3D)
+{
+
+  R = 0.0;
+  varFcn->conservativeToPrimitive(U, *V, &Phi);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
+  if (xpol)
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (fet) {
+    domain->computeOnlyGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
+    if (!dvms) bcData->computeNodeValue(X);
+  }
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  //new source term: need dVdXj (warning for jac if limited rec -> recompute gradients)
+  //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+
+  if (compatF3D) {
+    if (use_modal == false)  {
+      int numLocSub = R.numLocSub();
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        double *cv = ctrlVol.subData(iSub);
+        double (*r)[dim] = R.subData(iSub);
+        for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+          double invcv = 1.0 / cv[i];
+          for (int j=0; j<dim; ++j)
+            r[i][j] *= invcv;
+        }
+      }
+    }
+  }
+ 
+ }
 
 //------------------------------------------------------------------------------
 
@@ -957,8 +1384,11 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addLSNodalWeightsAndGradTime(t0);
+  }
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad1->computeLS(geoState->getConfig(), X, ctrlVol, PhiS);
@@ -974,8 +1404,11 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad1->limit(recFcnLS, X, ctrlVol, PhiS);
 
+  double tInit = timer->getTime();
   domain->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, *bcData, *geoState, X, *V,
                                     *ngrad, *ngrad1, egrad, Phi, PhiF, PhiS);
+  timer->addLSFiniteVolumeTermTime(tInit);
+
   if (use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
 #pragma omp parallel for
@@ -1061,7 +1494,14 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 #endif
 
   A = 0.0;
-  DistVec<double> *irey = timeState->getInvReynolds();
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  }
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
 
   if (use_modal)  {
     DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
@@ -1170,6 +1610,13 @@ void SpaceOperator<dim>::computeViscousJacobian(DistSVec<double,3> &X, DistVec<d
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
       domain->finishJacobianGalerkinTerm(ctrlVol, A);
     }
+
+// Included (MB*)
+    if ((iod->eqs.type == EquationsData::NAVIER_STOKES) && (iod->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
+      if ((iod->bc.wall.integration == BcsWallData::WALL_FUNCTION) && (iod->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+        domain->computeBCsJacobianWallValues(fet, *bcData, *geoState, X, *V);
+        bcData->computeNodeWallValues(X);
+      }
   }
 
 }
@@ -1225,6 +1672,26 @@ void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<do
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::applyBCsToDerivativeOfResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &dR)
+{
+
+//Remark: Error mesage for pointers
+  if (dU == 0) {
+    fprintf(stderr, "*** Error: Varible dU does not exist!\n");
+    exit(1);
+  }
+
+  *dU = 0.0;
+
+  if (bcFcn)
+    domain->applyBCsToDerivativeOfResidual(bcFcn, *bcData, U, *dU, dR);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
@@ -1233,11 +1700,32 @@ void SpaceOperator<dim>::applyBCsToJacobian(DistSVec<double,dim> &U, DistMat<Sca
   if (bcFcn)
     domain->applyBCsToJacobian(bcFcn, *bcData, U, A);
 
+// Included (MB*)
+  if (bcFcn)
+    if ((iod->eqs.type == EquationsData::NAVIER_STOKES) && (iod->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
+      if ((iod->bc.wall.integration == BcsWallData::WALL_FUNCTION) && (iod->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS))
+        domain->applyBCsToJacobianWallValues(bcFcn, *bcData, U, A);
+
 }
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::applyBCsToH2Jacobian(DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
+{
+
+  if (bcFcn)
+    domain->applyBCsToH2Jacobian(bcFcn, *bcData, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+template<class Scalar>
+void SpaceOperator<dim>::applyBCsToH2Jacobian(DistSVec<double,dim> &U, DistMat<Scalar,dim> &A)
 {
 
   if (bcFcn)
@@ -1353,6 +1841,12 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
   else
     domain->computeMatVecProdH2(recFcn, X, ctrlVol, H2, aij, aji, bij, bji, V2, *distNodalGrad, prod);
 
+// Included (MB*)
+  if (bcFcn)
+    if ((iod->eqs.type == EquationsData::NAVIER_STOKES) && (iod->eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
+      if ((iod->bc.wall.integration == BcsWallData::WALL_FUNCTION) && (iod->eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS))
+        domain->applyBCsToProduct(bcFcn, *bcData, U, prod);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1415,6 +1909,20 @@ void SpaceOperator<dim>::applyH2T(DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void SpaceOperator<dim>::rstFluxFcn(IoData &ioData) 
+{
+
+  FluxFcn **ff = createFluxFcn(ioData);
+
+  setFluxFcn(ff);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::printAllMatrix(DistMat<Scalar,neq> &A, int it)
@@ -1425,6 +1933,7 @@ void SpaceOperator<dim>::printAllMatrix(DistMat<Scalar,neq> &A, int it)
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void SpaceOperator<dim>::printAllVariable(DistSVec<double,3> &X, DistSVec<double,dim> &U, int it){
 
@@ -1433,7 +1942,9 @@ void SpaceOperator<dim>::printAllVariable(DistSVec<double,3> &X, DistSVec<double
   domain->printAllVariable(X,*V,it);
 
 }
+
 //------------------------------------------------------------------------------
+
 template<int dim>
 void SpaceOperator<dim>::printVariable(DistSVec<double,dim> &U){
                                                                                                                                                          
@@ -1441,3 +1952,4 @@ void SpaceOperator<dim>::printVariable(DistSVec<double,dim> &U){
                                                                                                                                                          
 }
 
+//------------------------------------------------------------------------------

@@ -27,6 +27,15 @@ public:
   virtual void zeroDiagonalTerm(int, double *);
   virtual void zeroDiagonalTerm(int, bcomp *);
 
+// Included (MB)
+  virtual void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
+  virtual void applyToDiagonalTerm(int, double *, double *, double *, float *) = 0;
+  virtual void applyToDiagonalTerm(int, double *, double *, double *, double *) = 0;
+  virtual void applyToDiagonalTerm(int, double *, double *, double *, bcomp *) = 0;
+  virtual void applyToProductTerm(int , float *) = 0;
+  virtual void applyToProductTerm(int , double *) = 0;
+  virtual void applyToProductTerm(int , bcomp *) = 0;
+
 };
 
 //------------------------------------------------------------------------------
@@ -63,6 +72,16 @@ public:
   template<class Scalar, int neq>
   static void template_zeroDiagonalTerm(int, Scalar *);
 
+// Included (MB)
+  static void template_applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
+  void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, double *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, bcomp *a) {}
+  void applyToProductTerm(int c, float *f) {}
+  void applyToProductTerm(int c, double *f) {}
+  void applyToProductTerm(int c, bcomp *f) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -85,6 +104,13 @@ class BcFcnSA : public BcFcn {
   template<class Scalar>
   void template_applyToOffDiagonalTerm(int, Scalar *);
 
+// Included (MB)
+  template<class Scalar>
+  void template_applyToDiagonalTerm(int, double *, double *, double *, Scalar *);
+
+  template<class Scalar>
+  void template_applyToDiagonalTerm(int, double , double *, double *, double *, double *, Scalar *);
+
 public:
 
   BcFcnSA(IoData&);
@@ -98,6 +124,15 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+// Included (MB)
+  void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
+  void applyToDiagonalTerm(int , double *, double *, double *, float *);
+  void applyToDiagonalTerm(int , double *, double *, double *, double *);
+  void applyToDiagonalTerm(int , double *, double *, double *, bcomp *);
+  void applyToProductTerm(int , float *);
+  void applyToProductTerm(int , double *);
+  void applyToProductTerm(int , bcomp *);
 
 };
 
@@ -124,6 +159,14 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+// Included (MB)
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, double *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, bcomp *a) {}
+  void applyToProductTerm(int c, float *f) {}
+  void applyToProductTerm(int c, double *f) {}
+  void applyToProductTerm(int c, bcomp *f) {}
 
 };
 
@@ -159,6 +202,16 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+// Included (MB)
+  void applyToDerivativeOfResidualTerm(int, double *, double *, double *, double *, double *);
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, double *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, bcomp *a) {}
+  void applyToProductTerm(int c, float *f) {}
+  void applyToProductTerm(int c, double *f) {}
+  void applyToProductTerm(int c, bcomp *f) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -183,6 +236,15 @@ public:
   void applyToOffDiagonalTerm(int, float *);
   void applyToOffDiagonalTerm(int, double *);
   void applyToOffDiagonalTerm(int, bcomp *);
+
+// Included (MB)
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, float *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, double *a) {}
+  void applyToDiagonalTerm(int c, double *vw, double *dvw, double *u, bcomp *a) {}
+  void applyToProductTerm(int c, float *f) {}
+  void applyToProductTerm(int c, double *f) {}
+  void applyToProductTerm(int c, bcomp *f) {}
+
 };
 
 //------------------------------------------------------------------------------

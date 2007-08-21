@@ -257,8 +257,10 @@ void ExplicitLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLe
 
 //------------------------------------------------------------------------------
 template<int dim>
-int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
-{
+int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)  {
+
+
+  double t0 = this->timer->getTime(); 
     
 // 1st step of Runge Kutta
   computeRKUpdate(U, this->k1, this->Ubc);
@@ -320,6 +322,9 @@ int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   else {
     this->varFcn->primitiveToConservative(Vg, U, &(LS->Phi), &(LS->Phi2), &Vg);
   }
+
+  this->timer->addLevelSetSolutionTime(t0);
+
   return 1;
 
 }

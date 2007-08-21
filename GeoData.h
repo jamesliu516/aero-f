@@ -14,6 +14,9 @@ public:
 
   int config;
 
+// Included (MB)
+  int configSA;
+
   bool use_n;
   bool use_nm1;
   bool use_nm2;

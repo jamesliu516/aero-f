@@ -119,7 +119,8 @@ void ModalSolver<dim>::solve()  {
     else {
       t0 = modalTimer->getTime();
       solveInTimeDomain();
-      modalTimer->addRomSolTime(t0);
+      //modalTimer->addRomSolTime(t0);
+      modalTimer->addFluidSolutionTime(t0);
     }
   }
 
@@ -132,6 +133,7 @@ template <int dim>
 void ModalSolver<dim>::solveInTimeDomain()  {
 
   Timer *modalTimer = domain.getTimer();
+  
   double sdt = ioData->linearizedData.stepsize;
 
   // Initial Conditions
@@ -213,7 +215,6 @@ void ModalSolver<dim>::solveInTimeDomain()  {
       com->fprintf(stderr, "*** Error: Bad Initial Condition: %d\n", ioData->linearizedData.initCond);
       exit (-1);
     }
-    //modalTimer->setSetupTime();
 
     // Form ROM operators
     VecSet<Vec<double> > ecVecs(nStrMode, nPodVecs);
@@ -227,7 +228,6 @@ void ModalSolver<dim>::solveInTimeDomain()  {
              ioData->problem.alltype == ProblemData::_ROM_)
       constructROM2(romOperator, ecVecs, gVecs, podVecs, nPodVecs);
     modalTimer->addRomConstrTime(t0);
-    //modalTimer->setSetupTime();
 
     modalTimer->getTime(); 
     timeIntegrateROM(romOperator, ecVecs, gVecs, podVecs, nSteps, nPodVecs, delU, delY, sdt);
@@ -240,7 +240,6 @@ void ModalSolver<dim>::solveInTimeDomain()  {
 
 template<int dim>
 void ModalSolver<dim>::createPODInTime()  {
-//void ModalSolver<dim>::createPOD(double *delU, double *delY)  {
 
   if (nStrMode == 0) return;
 

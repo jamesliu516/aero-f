@@ -4,6 +4,10 @@
 class IoData;
 class VarFcn;
 class ViscoFcn;
+
+// Included (MB)
+class Communicator;
+
 struct Vec3D;
 
 //------------------------------------------------------------------------------
@@ -22,10 +26,18 @@ class WallFcn {
 protected:
 
   double vkcst;
+
+// Included (MB)
+  double dRedMach;
+
   double reynolds;
 
   virtual void computeWallValues(double utau, double delta, double rho,
 				 double ut, double mu, double *V) {}
+
+// Included (MB)
+  virtual void computeDerivativeOfWallValues(double utau, double dutau, double delta, double rho, double drho,
+				 double ut, double dut, double mu, double dmu, double dMach, double *V, double *dV) {}
 
 private:
 
@@ -34,6 +46,13 @@ private:
 			 double &, Vec3D &, double &, double &);
   double computeFrictionVelocity(Vec3D &, double, double, Vec3D &, double);
   double computeFrictionTemperature(double, double, double, double, double);
+
+// Included (MB)
+  Vec3D computeDerivativeOfTangentVector(Vec3D &, Vec3D &, Vec3D &, Vec3D &);
+  void computeDerivativeOfFaceValues(double [3], double *, double *, double *[3], double *[3], double &, Vec3D &,
+			 double &, Vec3D &, double &, double &, double &);
+  double computeDerivativeOfFrictionVelocity(Vec3D &, Vec3D &, double, double, double, Vec3D &, Vec3D &, double, double, double);
+  double computeDerivativeOfFrictionTemperature(double, double, double, double, double, double, double, double, double, double);
 
 public:
 
@@ -49,6 +68,15 @@ public:
   template<int neq>
   void computeJacobianSurfaceTerm(int, Vec3D &, double [3], double *, 
 				  double *[3], double (*)[neq][neq]);
+
+
+// Included (MB)
+  template<int neq>
+  void computeBCsJacobianWallValues(int, Vec3D &, double [3], double *, double *, double *[3]);
+  void computeDerivativeOfSurfaceTerm(int, Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double, double *);
+  void rstVar(IoData &, Communicator *);
+  Vec3D computeDerivativeOfForce(Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double);
+  double computeDerivativeOfHeatPower(Vec3D &, Vec3D &, double [3], double *, double *, double *[3], double *[3], double);
 
 };
 
@@ -73,6 +101,9 @@ public:
 
   void computeWallValues(double, double, double, double, double, double *);
 
+// Included (MB)
+  void computeDerivativeOfWallValues(double, double, double, double, double, double, double, double, double, double, double *, double *);
+
 };
 
 //------------------------------------------------------------------------------
@@ -87,6 +118,9 @@ public:
   ~WallFcnKE() {}
 
   void computeWallValues(double, double, double, double, double, double *);
+
+// Included (MB)
+  void computeDerivativeOfWallValues(double, double, double, double, double, double, double, double, double, double, double *, double *);
 
 };
 
