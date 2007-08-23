@@ -41,7 +41,6 @@ FluxFD(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), Uc(dom->getNodeDist
     Fm = new DistSVec<double,dim>(domain->getNodeDistInfo());
     Up = new DistSVec<double,dim>(domain->getNodeDistInfo());
     Um = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    dXdSbc = new DistSVec<double,3>(domain->getNodeDistInfo());
   }  
   else if ( ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -54,8 +53,7 @@ FluxFD(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), Uc(dom->getNodeDist
     Fm = new DistSVec<double,dim>(domain->getNodeDistInfo());
     Up = 0;
     Um = 0;
-    dXdSbc = new DistSVec<double,3>(domain->getNodeDistInfo());
-  }
+   }
   else {
     Xp = 0; 
     Xm = 0;
@@ -65,7 +63,6 @@ FluxFD(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), Uc(dom->getNodeDist
     Am = 0;
     Fp = 0;
     Fm = 0;
-    dXdSbc = 0;
   }
 
   Z = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -391,6 +388,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetEfforts(IoData &ioData,
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
+  this->spaceOp->computeGradP(X, *this->A, U);
+
   this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
 
   F = 0.0;
@@ -444,10 +443,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
     fprintf(stderr, "*** Error: Varible Am does not exist!\n");
     exit(1);
   }
-  if (dXdSbc == 0) {
-    fprintf(stderr, "*** Error: Varible dXdSbc does not exist!\n");
-    exit(1);
-  }
 
   double eps=ioData.sa.eps;
   double xmachc;
@@ -489,6 +484,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   *Ap = 0.0;
   *Am = 0.0;
 
+  this->spaceOp->computeGradP(X, A, U);
+
   this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
 
   F = 0.0;
@@ -503,12 +500,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   Xc=X;
 
-//  *Xp=X+eps*dX;
-  this->com->fprintf(stderr, "*** Computing Xp for fsaGetDerivativeOfEffortsFiniteDifference!\n");
-  *Xp = X;
-  *dXdSbc = eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xp);
-  fsaMeshMotion(ioData,*dXdSbc, *Xp);
+  *Xp=X+eps*dX;
 
   X=*Xp;
 
@@ -526,6 +518,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   A=*Ap;
 
+  this->spaceOp->computeGradP(*Xp, *Ap, *Up);
+
   this->postOp->computeForceAndMoment(x0, *Xp, *Up, Fip, Mip, Fvp, Mvp);
 
   Fplus = 0.0;
@@ -536,12 +530,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   X=Xc;
 
-//  *Xm=X-eps*dX;
-  this->com->fprintf(stderr, "*** Computing Xm for fsaGetDerivativeOfEffortsFiniteDifference!\n");
-  *Xm = X;
-  *dXdSbc = -eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xm);
-  fsaMeshMotion(ioData,*dXdSbc, *Xm);
+  *Xm=X-eps*dX;
 
   X=*Xm;
 
@@ -559,6 +548,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   A=*Am;
 
+  this->spaceOp->computeGradP(*Xm, *Am, *Um);
+
   this->postOp->computeForceAndMoment(x0, *Xm, *Um, Fim, Mim, Fvm, Mvm);
 
   Fminus = 0.0;
@@ -571,15 +562,18 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   dM=1.0/(2.0*eps)*(Mp-Mm);
 
   X=Xc;
-  this->geoState->reset(X);
-  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
-  this->bcData->update(X);
 
   xmach=xmachc;
   alprad=alpradc;
   teta=tetac;
 
   fsaRestartBcFluxs(ioData);
+
+  this->geoState->reset(X);
+  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
+  this->bcData->update(X);
+
+  this->spaceOp->computeGradP(X, A, U);
 
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
     dF *= 2.0 * this->refVal->length*this->refVal->length / surface;
@@ -632,6 +626,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsAnalytical(I
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
+  this->spaceOp->computeGradP(X, *this->A, U);
+
   this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
 
   F = 0.0;
@@ -639,6 +635,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsAnalytical(I
 
   F = Fi[0] + Fv[0];
   M = Mi[0] + Mv[0];
+
+  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
 
   this->postOp->computeDerivativeOfForceAndMoment(x0, X, dX, U, dU, DFSPAR, dFi, dMi, dFv, dMv);
 
@@ -706,10 +704,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
     fprintf(stderr, "*** Error: Varible Am does not exist!\n");
     exit(1);
   }
-  if (dXdSbc == 0) {
-    fprintf(stderr, "*** Error: Varible dXdSbc does not exist!\n");
-    exit(1);
-  }
 
   double eps=ioData.sa.eps;
 
@@ -733,6 +727,8 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
   load=0.0;
   dLoad=0.0;
 
+  this->spaceOp->computeGradP(X, A, U);
+
   this->postOp->computeNodalForce(X, U, Pin, load);
 
   xmachc=xmach;
@@ -741,12 +737,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
 
   Xc=X;
 
-//  *Xp=X+eps*dX;
-  this->com->fprintf(stderr, "*** Computing Xp for fsaGetDerivativeOfLoadFiniteDifference!\n");
-  *Xp = X;
-  *dXdSbc = eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xp);
-  fsaMeshMotion(ioData,*dXdSbc, *Xp);
+  *Xp=X+eps*dX;
 
   X=*Xp;
 
@@ -764,16 +755,13 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
 
   A=*Ap;
 
+  this->spaceOp->computeGradP(*Xp, *Ap, *Up);
+
   this->postOp->computeNodalForce(*Xp, *Up, Pin, *Lp);
 
   X=Xc;
 
-//  *Xm=X-eps*dX;
-  this->com->fprintf(stderr, "*** Computing Xm for fsaGetDerivativeOfLoadFiniteDifference!\n");
-  *Xm = X;
-  *dXdSbc = -eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xm);
-  fsaMeshMotion(ioData,*dXdSbc, *Xm);
+  *Xm=X-eps*dX;
 
   X=*Xm;
 
@@ -791,20 +779,25 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
 
   A=*Am;
 
+  this->spaceOp->computeGradP(*Xm, *Am, *Um);
+
   this->postOp->computeNodalForce(*Xm, *Um, Pin, *Lm);
 
   dLoad=1.0/(2.0*eps)*((*Lp)-(*Lm));
 
   X=Xc;
-  this->geoState->reset(X);
-  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
-  this->bcData->update(X);
 
   xmach=xmachc;
   alprad=alpradc;
   teta=tetac;
 
   fsaRestartBcFluxs(ioData);
+
+  this->geoState->reset(X);
+  this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
+  this->bcData->update(X);
+
+  this->spaceOp->computeGradP(X, A, U);
 
   if (this->refVal->mode == RefVal::NON_DIMENSIONAL) {
     dLoad *= 2.0 * this->refVal->length*this->refVal->length / surface;
@@ -831,7 +824,11 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadAnalytical(IoDa
   load=0.0;
   dLoad=0.0;
 
+  this->spaceOp->computeGradP(X, *this->A, U);
+
   this->postOp->computeNodalForce(X, U, Pin, load);
+
+  this->spaceOp->computeDerivativeOfGradP(X, dX, *this->A, dAdS, U, dU);
 
   this->postOp->computeDerivativeOfNodalForce(X, dX, U, dU, Pin, DFSPAR, dLoad);
 
@@ -881,10 +878,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
     fprintf(stderr, "*** Error: Varible Am does not exist!\n");
     exit(1);
   }
-  if (dXdSbc == 0) {
-    fprintf(stderr, "*** Error: Varible dXdSbc does not exist!\n");
-    exit(1);
-  }
 
   double dtLeft;
   double eps=ioData.sa.eps;
@@ -906,12 +899,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
   Xc=X;
 
-//  *Xp=X+eps*dXdS;
-  this->com->fprintf(stderr, "*** Computing Xp for fsaSemiAnalytical!\n");
-  *Xp = X;
-  *dXdSbc = eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xp);
-  fsaMeshMotion(ioData,*dXdSbc, *Xp);
+  *Xp=X+eps*dXdS;
 
   X=*Xp;
 
@@ -936,12 +924,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
   X=Xc;
 
-//  *Xm=X-eps*dXdS;
-  this->com->fprintf(stderr, "*** Computing Xm for fsaSemiAnalytical!\n");
-  *Xm = X;
-  *dXdSbc = -eps*dXdSb;
-//  mms->solve(*dXdSbc, *Xm);
-  fsaMeshMotion(ioData,*dXdSbc, *Xm);
+  *Xm=X-eps*dXdS;
 
   X=*Xm;
 
@@ -968,19 +951,27 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
   dF=1.0/(2.0*eps)*((*Fp)-(*Fm));
 
+  X=Xc;
+
   xmach=xmachc;
   alprad=alpradc;
   teta=tetac;
 
   fsaRestartBcFluxs(ioData);
 
-  X=Xc;
   this->geoState->reset(X);
   this->geoState->compute(this->timeState->getData(), this->bcData->getVelocityVector(), X, A);
   this->bcData->update(X);
 
   dtLeft = 0.0;
   computeTimeStep(1, &dtLeft, U);
+
+  this->spaceOp->computeGradP(X, A, U);
+
+  if ( ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL ) {
+    this->geoState->updateConfigSA();
+    this->bcData->initializeSA(ioData, this->varFcn, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+  }
 
 }
 
@@ -1176,12 +1167,13 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
 // Reseting the configuration control of the geometry datas
   this->geoState->resetConfigSA();
-/*
+
   if (this->com->cpuNum() == 0) {
     outFile = fopen(ioData.sa.sensoutput,"w");
-    fclose(outFile);
+    if (outFile) 
+      fclose(outFile);
   }
-*/
+
   xmach = ioData.sa.machref;
   alprad = ioData.sa.alpharef;
   teta = ioData.sa.betaref;
@@ -1204,6 +1196,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     step = ioData.sa.si;
     dXdS = 0.0;
     dXdSb = 0.0;
+    dAdS = 0.0;
     DFSPAR[0] = 0.0;
     DFSPAR[1] = 0.0;
     DFSPAR[2] = 0.0;
@@ -1222,8 +1215,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
         this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
 
 // Updating the mesh
-        if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
-          mms->optSolve(ioData, 0, dXdSb, dXdS, *this->X);
+        mms->optSolve(ioData, 0, dXdSb, dXdS, *this->X);
 
         fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
   
@@ -1257,6 +1249,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     step = 0;
     dXdS = 0.0;
+    dAdS = 0.0;
     DFSPAR[0] = 1.0;
     DFSPAR[1] = 0.0;
     DFSPAR[2] = 0.0;
@@ -1264,9 +1257,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
-    fsaComputeSensitivities(ioData, "Derivatives with respect to the mach number:", ioData.sa.sensoutput, *this->X, U);
+    fsaComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mach number were computed! \n");
+    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
 
   }
 
@@ -1274,6 +1267,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     step = 0;
     dXdS = 0.0;
+    dAdS = 0.0;
     DFSPAR[0] = 0.0;
     DFSPAR[1] = 1.0;
     DFSPAR[2] = 0.0;
@@ -1291,6 +1285,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     step = 0;
     dXdS = 0.0;
+    dAdS = 0.0;
     DFSPAR[0] = 0.0;
     DFSPAR[1] = 0.0;
     DFSPAR[2] = 1.0;
@@ -1342,7 +1337,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
 {
 
 // Computing efforts
-
   Vec3D F, M;
   fsaGetEfforts(ioData, X, U, F, M);
 
@@ -1353,58 +1347,35 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
     fsaGetDerivativeOfEffortsFiniteDifference(ioData, X, dXdS, *this->A, U, dUdS, dFds, dMds);
   else
     fsaGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds);
-/*
+
   if (this->com->cpuNum() == 0) {
     outFile = fopen(fileName,"a+");
-    fprintf(outFile,mesage);
-    fprintf(outFile,"\n");
-    fprintf(outFile,"Fx= %16.13e \n",F[0]);
-    fprintf(outFile,"Fy= %16.13e \n",F[1]);
-    fprintf(outFile,"Fz= %16.13e \n",F[2]);
-    fprintf(outFile,"dFx/ds= %16.13e \n",dFds[0]);
-    fprintf(outFile,"dFy/ds= %16.13e \n",dFds[1]);
-    fprintf(outFile,"dFz/ds= %16.13e \n",dFds[2]);
-    fprintf(outFile,"Mx= %16.13e \n",M[0]);
-    fprintf(outFile,"My= %16.13e \n",M[1]);
-    fprintf(outFile,"Mz= %16.13e \n",M[2]);
-    fprintf(outFile,"dMx/ds= %16.13e \n",dMds[0]);
-    fprintf(outFile,"dMy/ds= %16.13e \n",dMds[1]);
-    fprintf(outFile,"dMz/ds= %16.13e \n",dMds[2]);
-    fprintf(outFile,"\n");
-    fclose(outFile);
+    if (outFile) {
+      this->com->fprintf(outFile,mesage);
+      this->com->fprintf(outFile,"\n");
+      this->com->fprintf(outFile,"Fx= %16.13e \n",F[0]);
+      this->com->fprintf(outFile,"Fy= %16.13e \n",F[1]);
+      this->com->fprintf(outFile,"Fz= %16.13e \n",F[2]);
+      this->com->fprintf(outFile,"dFx/ds= %16.13e \n",dFds[0]);
+      this->com->fprintf(outFile,"dFy/ds= %16.13e \n",dFds[1]);
+      this->com->fprintf(outFile,"dFz/ds= %16.13e \n",dFds[2]);
+      this->com->fprintf(outFile,"Mx= %16.13e \n",M[0]);
+      this->com->fprintf(outFile,"My= %16.13e \n",M[1]);
+      this->com->fprintf(outFile,"Mz= %16.13e \n",M[2]);
+      this->com->fprintf(outFile,"dMx/ds= %16.13e \n",dMds[0]);
+      this->com->fprintf(outFile,"dMy/ds= %16.13e \n",dMds[1]);
+      this->com->fprintf(outFile,"dMz/ds= %16.13e \n",dMds[2]);
+      this->com->fprintf(outFile,"\n");
+      fclose(outFile);
+    }
   }
-*/  
+  
   double sboom = 0.0;
   double dSboom = 0.0;
 
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
   
   this->output->writeBinaryDerivativeOfVectorsToDisk(1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaMeshMotion(IoData &ioData, DistSVec<double,3> &dx, DistSVec<double,3> &x)
-{
-
-  if (ioData.sa.amms) {
-    int numSteps=1;
-    double relNorm = dx.norm()/x.norm();
-    double dxScale = 0.0;
-    if (relNorm > ioData.sa.ammsmaxeps) {
-      numSteps = ioData.sa.ammsmaxit;
-      dxScale = 1.0/double(ioData.sa.ammsmaxit);
-      dx *= dxScale;
-    }
-    this->com->fprintf(stderr, "\n ***** Relaxation of mesh (%e,%e): eps = %e\n", ioData.sa.ammsmaxeps, dxScale, relNorm);
-    this->com->fprintf(stderr, " ***** Relaxation of mesh in %d steps\n", numSteps);
-    for (int i=0;i<numSteps;i++)
-      mms->solve(dx, x); 
-  }
-  else
-    mms->solve(dx, x); 
 
 }
 

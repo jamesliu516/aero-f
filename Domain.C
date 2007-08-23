@@ -2717,3 +2717,31 @@ void Domain::padeReconstruction(VecSet<DistSVec<double, dim> >&snapsCoarse, VecS
   }
                                                         
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void Domain::getGradP(DistNodalGrad<dim>& ngrad)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->getGradP(ngrad(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void Domain::getDerivativeOfGradP(DistNodalGrad<dim>& ngrad)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->getDerivativeOfGradP(ngrad(iSub));
+
+}
+
+//-------------------------------------------------------------------------------

@@ -68,7 +68,6 @@ private:
   DistSVec<double,3> *Lp;
   DistSVec<double,3> *Lm;
   DistSVec<double,3> *Z;
-  DistSVec<double,3> *dXdSbc;
 
   DistSVec<double,dim> Flux;
   DistSVec<double,dim> FluxFD;
@@ -111,7 +110,6 @@ public:
   int fsaHandler(IoData &, DistSVec<double,dim> &);
   void fsaComputeDerivativesOfFluxAndSolution(IoData &, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   void fsaComputeSensitivities(IoData &, const char *, const char *, DistSVec<double,3> &, DistSVec<double,dim> &);
-  void fsaMeshMotion(IoData &, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
 

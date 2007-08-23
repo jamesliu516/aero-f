@@ -14,6 +14,10 @@ struct Vec3D;
 
 class FemEquationTerm {
 
+// Included (MB)
+public:
+  bool completeJac;
+
 protected:
 
   WallFcn* wallFcn;
@@ -53,7 +57,7 @@ public:
   }
   virtual bool doesSourceTermExist() { return false; }
 
-// Included
+// Included (MB)
   virtual bool computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4], double *v[4],
 				 double *dv[4], double dMach, double *dr, double *ds, double *dpr, double dtetvol, SVec<double,3> &x, int nodenum[4], int volid) = 0;
   virtual void computeDerivativeOfSurfaceTerm(int c, Vec3D &n, Vec3D &dn, double d2w[3],

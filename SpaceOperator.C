@@ -836,8 +836,8 @@ void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &U, DistVec<double> &Ph
 
 //------------------------------------------------------------------------------
 
+// Modified (MB)
 template<int dim>
-// Included (MB)
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
 					 DistSVec<double,dim> &U, DistSVec<double,dim> &R,
                                          DistTimeState<dim> *timeState, bool compatF3D)
@@ -902,6 +902,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
                                   X, *V, *ngrad, egrad, R, failsafe, rshift);
 
+// Included
+  domain->getGradP(*ngrad);
+
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
 
@@ -909,7 +912,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     dvms->compute(fluxFcn, recFcn, fet, geoState->getConfig(), ctrlVol, *bcData, *geoState,
                   timeState, X, U, *V, R, failsafe, rshift);
 
-// Included (MB)
+// Modified (MB)
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
@@ -1021,6 +1024,9 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
 
   domain->computeDerivativeOfFiniteVolumeTerm(ctrlVol, dCtrlVol, *irey, *direy, fluxFcn, recFcn, *bcData, *geoState, X, dX, *V, *dV, *ngrad, egrad, dMach, dR);
   
+  domain->getGradP(*ngrad);
+  domain->getDerivativeOfGradP(*ngrad);
+
   if (volForce) {
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
     domain->computeDerivativeOfVolumicForceTerm(volForce, ctrlVol, dCtrlVol, *V, *dV, dR);
@@ -1108,6 +1114,8 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
   domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn, *bcData, *geoState,
                                   X, *V, *ngrad, egrad, R, failsafe, rshift);
   
+  domain->getGradP(*ngrad);
+
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
 
@@ -1249,6 +1257,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                   Phi, *ngrad, egrad, R, failsafe, rshift);
 
 // Included (MB)
+  domain->getGradP(*ngrad);
+
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
@@ -1299,6 +1309,8 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
 
   domain->computeFiniteVolumeTerm(ctrlVol, fluxFcn, recFcn, *bcData, *geoState, X, *V,
                                   Phi, *ngrad, egrad, R, failsafe, rshift);
+
+  domain->getGradP(*ngrad);
 
   if (compatF3D) {
     if (use_modal == false)  {
@@ -1950,6 +1962,63 @@ void SpaceOperator<dim>::printVariable(DistSVec<double,dim> &U){
                                                                                                                                                          
   domain->printVariable(U, varFcn);
                                                                                                                                                          
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeGradP(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
+{
+
+  varFcn->conservativeToPrimitive(U, *V);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    double t0 = timer->getTime();
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addNodalGradTime(t0);
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+  }
+
+  domain->getGradP(*ngrad);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
+{
+
+  varFcn->conservativeToPrimitive(U, *V);
+  varFcn->conservativeToPrimitiveDerivative(U, dU, *V, *dV);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
+    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
+  }
+
+  domain->getDerivativeOfGradP(*ngrad);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U)
+{
+
+  varFcn->conservativeToPrimitive(U, *V);
+  *dV = 0.0;
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
+    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
+  }
+
+  domain->getDerivativeOfGradP(*ngrad);
+
 }
 
 //------------------------------------------------------------------------------

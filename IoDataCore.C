@@ -1882,9 +1882,6 @@ SensitivityAnalysis::SensitivityAnalysis()
   alpharef = 400.0;
   betaref = 400.0;
   sensoutput = "";
-  amms = OFF_ADAPTATIVE_MESH_MOTION_STEP;
-  ammsmaxit = 1;
-  ammsmaxeps = 1.0e-3;
   fres = 0.0;
   fixsol = NONEFIX;
   avgsIt = 0;
@@ -1922,11 +1919,8 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference", this, &SensitivityAnalysis::alpharef);
   new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
   new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput", this, &SensitivityAnalysis::sensoutput);
-  new ClassToken<SensitivityAnalysis>(ca, "AdaptativeMeshMotionStep", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::amms), 2, "Off", 0, "On", 1);
-  new ClassInt<SensitivityAnalysis>(ca, "AdaptativeMaximumIteration", this, &SensitivityAnalysis::ammsmaxit);
-  new ClassDouble<SensitivityAnalysis>(ca, "AdaptativeMaximumEps", this, &SensitivityAnalysis::ammsmaxeps);
   new ClassDouble<SensitivityAnalysis>(ca, "ForceResidual", this, &SensitivityAnalysis::fres);
-  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 6, "None", 0, "PreviousValues", 1); 
+  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1); 
   new ClassInt<SensitivityAnalysis>(ca, "AverageStateIterations", this, &SensitivityAnalysis::avgsIt);
 
   ksp.setup("LinearSolver", ca);

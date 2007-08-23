@@ -33,6 +33,11 @@ FemEquationTermNS::FemEquationTermNS(IoData &iod, VarFcn *vf) :
   density = iod.ref.rv.density;
   length = iod.ref.rv.length; 
 
+// Included (MB)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+     completeJac = true;
+   else
+     completeJac = false;
 }
 
 //------------------------------------------------------------------------------
@@ -261,21 +266,23 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   
   double dkappa[4][5];
 
-  double dTcgdu0;
-  double dTcgdu1;
-  double dTcgdu2;
-  double dTcgdu3;
-  double dTcgdu4;
+  double dTcgdu0 = 0.0;
+  double dTcgdu1 = 0.0;
+  double dTcgdu2 = 0.0;
+  double dTcgdu3 = 0.0;
+  double dTcgdu4 = 0.0;
   
   double dMach = 0.0;
 
   for (int k=0; k<4; ++k) {
-  
-    dTcgdu0 = - 0.25 / V[k][0] * (T[k] - 0.5 * (V[k][1]*V[k][1] + V[k][2]*V[k][2] + V[k][3]*V[k][3]));
-    dTcgdu1 = - 0.25 / V[k][0] * V[k][1];
-    dTcgdu2 = - 0.25 / V[k][0] * V[k][2];
-    dTcgdu3 = - 0.25 / V[k][0] * V[k][3];
-    dTcgdu4 = 0.25 / V[k][0];
+
+    if (completeJac) { 
+      dTcgdu0 = - 0.25 / V[k][0] * (T[k] - 0.5 * (V[k][1]*V[k][1] + V[k][2]*V[k][2] + V[k][3]*V[k][3]));
+      dTcgdu1 = - 0.25 / V[k][0] * V[k][1];
+      dTcgdu2 = - 0.25 / V[k][0] * V[k][2];
+      dTcgdu3 = - 0.25 / V[k][0] * V[k][3];
+      dTcgdu4 = 0.25 / V[k][0];
+    }
 
     dkappa[k][0] = ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcgdu0, dMach);
     dkappa[k][1] = ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcgdu1, dMach);
@@ -718,6 +725,12 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+// Included (MB)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+     completeJac = true;
+   else
+     completeJac = false;
 
 }
 
@@ -1220,23 +1233,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double mut;
   double lambda;
 
-  // Applying the laminar-turbulent trip
-  if(trip){
-    if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-       X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-       X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-       (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-       X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-       X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-       mut = computeTurbulentViscosity(V, mul, mutilde);}
-    else{
-       computeTurbulentViscosity(V, mul, mutilde);
-       mut = 0.0; 
-    }
-  }
-  else{
-    mut = computeTurbulentViscosity(V, mul, mutilde);
-  }
+  mut = computeTurbulentViscosity(V, mul, mutilde);
 
   double mu;
   double kappa;
@@ -1264,23 +1261,25 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   double dlambda[4][6];
   double dkappa[4][6];
 
-  double dTcgdu0;
-  double dTcgdu1;
-  double dTcgdu2;
-  double dTcgdu3;
-  double dTcgdu4;
-  double dTcgdu5;
+  double dTcgdu0 = 0.0;
+  double dTcgdu1 = 0.0;
+  double dTcgdu2 = 0.0;
+  double dTcgdu3 = 0.0;
+  double dTcgdu4 = 0.0;
+  double dTcgdu5 = 0.0;
   
   double dMach = 0.0;
 
   for (int k=0; k<4; ++k) {
 
-    dTcgdu0 = - 0.25 / V[k][0] * (T[k] - 0.5 * (V[k][1]*V[k][1] + V[k][2]*V[k][2] + V[k][3]*V[k][3]));
-    dTcgdu1 = - 0.25 / V[k][0] * V[k][1];
-    dTcgdu2 = - 0.25 / V[k][0] * V[k][2];
-    dTcgdu3 = - 0.25 / V[k][0] * V[k][3];
-    dTcgdu4 = 0.25 / V[k][0];
-    dTcgdu5 = 0.0;
+    if (completeJac) {
+      dTcgdu0 = - 0.25 / V[k][0] * (T[k] - 0.5 * (V[k][1]*V[k][1] + V[k][2]*V[k][2] + V[k][3]*V[k][3]));
+      dTcgdu1 = - 0.25 / V[k][0] * V[k][1];
+      dTcgdu2 = - 0.25 / V[k][0] * V[k][2];
+      dTcgdu3 = - 0.25 / V[k][0] * V[k][3];
+      dTcgdu4 = 0.25 / V[k][0];
+      dTcgdu5 = 0.0;
+    }
 
     dmul[k][0] = viscoFcn->compute_muDerivative(Tcg, dTcgdu0, dMach);
     dmul[k][1] = viscoFcn->compute_muDerivative(Tcg, dTcgdu1, dMach);
@@ -1294,46 +1293,17 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
     dmutilde[k][2] = 0.0;
     dmutilde[k][3] = 0.0;
     dmutilde[k][4] = 0.0;
-    dmutilde[k][5] = 0.25;
+    if (completeJac) 
+      dmutilde[k][5] = 0.25;
+    else
+      dmutilde[k][5] = 0.0;
 
-    // Applying the laminar-turbulent trip
-    if(trip){
-      if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
-         X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
-         X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
-         (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
-         X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
-         X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
-         dmut[k][0] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][0], dmutilde[k][0]);
-         dmut[k][1] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][1], dmutilde[k][1]);
-         dmut[k][2] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][2], dmutilde[k][2]);
-         dmut[k][3] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][3], dmutilde[k][3]);
-         dmut[k][4] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][4], dmutilde[k][4]);
-         dmut[k][5] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][5], dmutilde[k][5]);
-      }
-      else{
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][0], dmutilde[k][0]);
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][1], dmutilde[k][1]);
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][2], dmutilde[k][2]);
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][3], dmutilde[k][3]);
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][4], dmutilde[k][4]);
-         computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][5], dmutilde[k][5]);
-         dmut[k][0] = 0.0;
-         dmut[k][1] = 0.0;
-         dmut[k][2] = 0.0;
-         dmut[k][3] = 0.0;
-         dmut[k][4] = 0.0;
-         dmut[k][5] = 0.0;
-      }
-    }
-    else{
-      dmut[k][0] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][0], dmutilde[k][0]);
-      dmut[k][1] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][1], dmutilde[k][1]);
-      dmut[k][2] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][2], dmutilde[k][2]);
-      dmut[k][3] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][3], dmutilde[k][3]);
-      dmut[k][4] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][4], dmutilde[k][4]);
-      dmut[k][5] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][5], dmutilde[k][5]);
-    }
+    dmut[k][0] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][0], dmutilde[k][0]);
+    dmut[k][1] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][1], dmutilde[k][1]);
+    dmut[k][2] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][2], dmutilde[k][2]);
+    dmut[k][3] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][3], dmutilde[k][3]);
+    dmut[k][4] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][4], dmutilde[k][4]);
+    dmut[k][5] = computeDerivativeOfTurbulentViscosity(V, mul, dmul[k][5], dmutilde[k][5]);
 
     dkappa[k][0] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu0, dMach) + alpha * dmut[k][0]);
     dkappa[k][1] = ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcgdu1, dMach) + alpha * dmut[k][1]);
@@ -2297,6 +2267,12 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+// Included (MB)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+     completeJac = true;
+   else
+     completeJac = false;
 
 }
 
@@ -3293,6 +3269,12 @@ FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
   velocity = iod.ref.rv.velocity;
   density = iod.ref.rv.density;
   length = iod.ref.rv.length;
+
+// Included (MB)
+   if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+     completeJac = true;
+   else
+     completeJac = false;
 
 }
 

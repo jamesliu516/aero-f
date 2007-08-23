@@ -134,9 +134,11 @@ class SubDomain {
   Connectivity *nodeToNode;
 
   int **totalNeiData;
+  double *gradP[3];
 
 // Included (MB*)
   int numOffDiagEntries;
+  double *dGradP[3];
 
 public:
 
@@ -520,7 +522,7 @@ public:
 
   template<int dim>
   void computeNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
-		SVec<double,dim> &, Vec<double> &, SVec<double,3> &, double *nodalForceWeights);
+		SVec<double,dim> &, Vec<double> &, SVec<double,3> &);
 
   template<int dim>
   void computeNodalHeatPower(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -530,7 +532,7 @@ public:
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
-			     Vec3D *, Vec3D *, double *nodalForceWeights, int = 0);
+			     Vec3D *, Vec3D *, int = 0);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -556,7 +558,7 @@ public:
 
   template<int dim>
   void computeForceCoefficients(PostFcn *, Vec3D &, GeoState &, BcData<dim> &, SVec<double,3> &, 
-                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *nodalForceWeights);
+                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &);
 
   // communication
 
@@ -786,12 +788,12 @@ public:
   template<int dim>
   void computeDerivativeOfNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
                                                                  SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, double [3],
-                                                                 SVec<double,3> &, double *);
+                                                                 SVec<double,3> &);
 
   template<int dim>
   void computeDerivativeOfForceAndMoment(map<int,int> &surfIndexMap, PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
                                                                            SVec<double,dim> &, SVec<double,dim> &, double [3],
-                                                                           Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, double *nodalForceWeights, int = 0);
+                                                                           Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
@@ -836,6 +838,12 @@ public:
 
   template<int dim>
   int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, int);
+
+  template<int dim>
+  void getGradP(NodalGrad<dim>&);
+
+  template<int dim>
+  void getDerivativeOfGradP(NodalGrad<dim>&);
 
 };
 

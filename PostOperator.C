@@ -163,7 +163,7 @@ void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     subDomain[iSub]->computeNodalForce(postFcn, (*bcData)(iSub), (*geoState)(iSub),
-				       X(iSub), (*V)(iSub), Pin(iSub), F(iSub), nodalForceWeights);
+				       X(iSub), (*V)(iSub), Pin(iSub), F(iSub));
   }
 
 }
@@ -189,7 +189,7 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(DistSVec<double,3> &X, Dis
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
     subDomain[iSub]->computeDerivativeOfNodalForce(postFcn, (*bcData)(iSub), (*geoState)(iSub),
-				       X(iSub), dX(iSub), (*V)(iSub), (*dV)(iSub), Pin(iSub), dS, dF(iSub), nodalForceWeights);
+				       X(iSub), dX(iSub), (*V)(iSub), (*dV)(iSub), Pin(iSub), dS, dF(iSub));
   }
 
 }
@@ -259,7 +259,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       mv[iSurf] = 0.0;
     }
     subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
-					   X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, nodalForceWeights, hydro);
+					   X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro);
     for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical
       Fi[iSurf] += fi[iSurf];
@@ -352,7 +352,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
     }
     subDomain[iSub]->computeDerivativeOfForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                                        X(iSub), dX(iSub), (*V)(iSub), (*dV)(iSub), dS,
-                                                       x0, dfi, dmi, dfv, dmv, nodalForceWeights, hydro);
+                                                       x0, dfi, dmi, dfv, dmv, hydro);
 
     for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical
@@ -934,7 +934,7 @@ void PostOperator<dim>::computeForceCoefficients(Vec3D &x0, DistSVec<double,3> &
     Vec3D locCFi, locCMi, locCFv, locCMv;
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     subDomain[iSub]->computeForceCoefficients(postFcn, x0, (*geoState)(iSub), (*bcData)(iSub),
-                                     X(iSub), (*V)(iSub), pressInfty, locCFi, locCMi, locCFv, locCMv, nodalForceWeights);
+                                     X(iSub), (*V)(iSub), pressInfty, locCFi, locCMi, locCFv, locCMv);
 
 #pragma omp critical
     CFi += locCFi;

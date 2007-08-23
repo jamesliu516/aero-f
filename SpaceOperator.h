@@ -247,6 +247,12 @@ public:
   template<class Scalar>
   void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
+  void computeGradP(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
+
+  void computeDerivativeOfGradP(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void computeDerivativeOfGradP(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &);
+
 };
 
 //------------------------------------------------------------------------------

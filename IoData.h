@@ -1085,7 +1085,6 @@ struct SensitivityAnalysis {
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
   enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
-  enum Amms {OFF_ADAPTATIVE_MESH_MOTION_STEP = 0, ON_ADAPTATIVE_MESH_MOTION_STEP = 1} amms;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
 
   double machref;
@@ -1101,12 +1100,10 @@ struct SensitivityAnalysis {
 
   int si;
   int sf;
-  int ammsmaxit;
   int avgsIt;
 
   double eps;
   double fres;
-  double ammsmaxeps;
 
   KspFluidData ksp;
   

@@ -618,6 +618,12 @@ public:
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  template<int dim>
+  void getGradP(DistNodalGrad<dim>&);
+
+  template<int dim>
+  void getDerivativeOfGradP(DistNodalGrad<dim>&);
+
  };
 
 //------------------------------------------------------------------------------

@@ -92,6 +92,7 @@ public:
   DistVec<Vec3D> &getInletNodeNorm() const { return *inletNodeNorm; }
 
 // Included (MB)
+  void updateConfigSA() { data.configSA += 1; }
   void resetConfigSA() { data.configSA = 0; }
   int getConfigSA() const { return data.configSA; }
   void computeDerivatives(DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);

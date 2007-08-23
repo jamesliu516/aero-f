@@ -71,8 +71,13 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodesToMCNodes = 0;
   sharedInletNodes = 0;
 
+  for(int i=0;i<3;i++)
+   gradP[i] = new double[locNodes->size()];
+
 // Included (MB*)
   numOffDiagEntries = 0;
+  for(int i=0;i<3;i++)
+   dGradP[i] = new double[locNodes->size()];
 
 }
 
