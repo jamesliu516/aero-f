@@ -507,20 +507,18 @@ class VarFcnGasInGas : public VarFcn {
     
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
     double mach, machr2, popr, opmach, opmachr;
+    mach = computeMachNumber(V, phi);
+    machr2 = machr*machr;
     if (phi>=0.0) {
-      mach = computeMachNumber(V, phi);
-      machr2 = machr*machr;
       popr = V[4]*gam*machr2;
       opmach = 1.0 + 0.5*gam1*mach*mach;
-      opmachr = 1.0 + 0.5*gam1*machr2;
-      return popr*pow(opmach/opmachr, gam*invgam1);
+      //opmachr = 1.0 + 0.5*gam1*machr2;
+      return V[4]*pow(opmach, gam*invgam1);
     }else{
-      mach = computeMachNumber(V, phi);
-      machr2 = machr*machr;
       popr = V[4]*gamp*machr2;
       opmach = 1.0 + 0.5*gamp1*mach*mach;
-      opmachr = 1.0 + 0.5*gamp1*machr2;
-      return popr*pow(opmach/opmachr, gamp*invgamp1);
+      //opmachr = 1.0 + 0.5*gamp1*machr2;
+      return V[4]*pow(opmach, gamp*invgamp1);
     }
   }
 
