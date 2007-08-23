@@ -14,21 +14,20 @@
 template<int dim>
 void MeshMotionHandler::computeInterfaceWork(double dt, PostOperator<dim>* postOp, 
 					     DistSVec<double,3>& Xn, DistSVec<double,dim>& Un, 
-					     DistSVec<double,3>& Xnp1, DistSVec<double,dim>& Unp1, 
+					     DistSVec<double,3>& X, DistSVec<double,dim>& U, 
 					     double* Wnp1)
 {
-  // computing energy by method 1
-  postOp->computeNodalForce(Xn, Un, Pin, dX);   // These are the same forces that are transmitted to structure
-  postOp->computeNodalForce(Xnp1, Unp1, Pin, F);
+
+  Wnp1[0] = 1./3.*Wn + 2./3.*dt*postOp->computeInterfaceWork(X, U, Pin);
+  Wn = Wnp1[0];
+
+  postOp->computeNodalForce(Xn, Un, Pin, dX);
+  postOp->computeNodalForce(X, U, Pin, F);
   F = 0.5 * (dX + F);
   // F needs to be assembled in order to get the correct scalar product
   domain->assemble(domain->getVec3DPat(), F);
-  Wnp1[0] = F * (Xn - Xnp1);
+  Wnp1[1] = F * (Xn - X);
 
-// This method is trying to shift the output to the same time step as the structure, but is not accurate
-//  Wnp1[1] = 1./3.*Wn + 2./3.*dt* postOp->computeInterfaceWork(Xnp1, Unp1, Pin);
-//  Wn = Wnp1[1];
-    Wnp1[1] = 0.0; 
 }
 
 //------------------------------------------------------------------------------
