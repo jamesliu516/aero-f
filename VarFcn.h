@@ -358,10 +358,12 @@ public:
     double dpopr = dV[4]*gam*machr2 + V[4]*gam*dmachr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double dopmach = gam1*mach*dmach;
-    double opmachr = 1.0 + 0.5*gam1*machr2;
-    double dopmachr = 0.5*gam1*dmachr2;
 
-    return dpopr*pow(opmach/opmachr, gam*invgam1) + popr*gam*invgam1*pow(opmach/opmachr, (gam*invgam1-1))*((dopmach*opmachr - opmach*dopmachr)/(opmachr*opmachr));
+//    double opmachr = 1.0 + 0.5*gam1*machr2;
+//    double dopmachr = 0.5*gam1*dmachr2;
+//    return dpopr*pow(opmach/opmachr, gam*invgam1) + popr*gam*invgam1*pow(opmach/opmachr, (gam*invgam1-1))*((dopmach*opmachr - opmach*dopmachr)/(opmachr*opmachr));
+
+    return dV[4]*pow(opmach, gam*invgam1) + V[4]*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
   }
   double computeDensity(double p, double temp) { return invgam1 * p / temp; }
   double computePressure(double rho, double temp) { return temp * rho * gam1; }

@@ -1247,7 +1247,6 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
   if (ioData.sa.sensMach == SensitivityAnalysis::ON_SENSITIVITYMACH) {
 
-    step = 0;
     dXdS = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 1.0;
@@ -1261,11 +1260,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     fsaPrintTextOnScreen("\n ***** Derivatives with respect to the Mach number were computed! \n");
 
+    step = step + 1;
   }
 
   if (ioData.sa.sensAlpha == SensitivityAnalysis::ON_SENSITIVITYALPHA) {
 
-    step = 0;
     dXdS = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 0.0;
@@ -1279,11 +1278,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     fsaPrintTextOnScreen("\n ***** Derivatives with respect to the algle of attck were computed! \n");
 
+    step = step + 1;
   }
 
   if (ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) {
 
-    step = 0;
     dXdS = 0.0;
     dAdS = 0.0;
     DFSPAR[0] = 0.0;
@@ -1297,6 +1296,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     fsaPrintTextOnScreen("\n ***** Derivatives with respect to the yaw angle were computed! \n");
 
+    step = step + 1;
   }
 
   this->output->closeAsciiFiles();
@@ -1348,6 +1348,11 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
   else
     fsaGetDerivativeOfEffortsAnalytical(ioData, X, dXdS, U, dUdS, dFds, dMds);
 
+  if ((!ioData.sa.angleRad) && (DFSPAR[1] || DFSPAR[2])) {
+    dFds *= acos(-1.0) / 180.0;
+    dMds *= acos(-1.0) / 180.0;
+  }  
+
   if (this->com->cpuNum() == 0) {
     outFile = fopen(fileName,"a+");
     if (outFile) {
@@ -1375,7 +1380,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
 
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
   
-  this->output->writeBinaryDerivativeOfVectorsToDisk(1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
+  this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
 
 }
 
