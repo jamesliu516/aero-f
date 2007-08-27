@@ -2784,6 +2784,11 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
     }
 
+    if (ts.implicit.mvp != ImplicitData::FD) {
+      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
+      ts.implicit.jacobian = ImplicitData::EXACT;
+    }
+
     ts.implicit.newton.ksp.ns.numVectors = 30;
 
     ts.implicit.newton.ksp.ns.pc.fill = 0;
