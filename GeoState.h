@@ -27,8 +27,20 @@ class GeoState {
   Vec<Vec3D> &inletNodeNorm;
   Vec<int> &numFaceNeighb;
 
+// Included (MB)
+  Vec<Vec3D> * dEdgeNorm;
+  Vec<Vec3D> * dFaceNorm;
+  Vec<double> * dEdgeNormVel;
+  Vec<double> * dFaceNormVel;
+  SVec<double,3> * X;
+  SVec<double,3> * dX;
 
 public:
+
+// Included (MB)
+  GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, 
+	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&,
+           Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &);
 
   GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, 
 	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&);
@@ -44,6 +56,12 @@ public:
   Vec<double> &getFaceNormalVel() const { return faceNormVel; }
   Vec<Vec3D> &getInletNodeNormal() const { return inletNodeNorm; }
   Vec<int> &getNumFaceNeighb() const {return numFaceNeighb; }
+
+// Included (MB)
+  Vec<Vec3D> &getdEdgeNormal() const { return *dEdgeNorm; }
+  Vec<Vec3D> &getdFaceNormal() const { return *dFaceNorm; }
+  Vec<double> &getdEdgeNormalVel() const { return *dEdgeNormVel; }
+  Vec<double> &getdFaceNormalVel() const { return *dFaceNormVel; }
 
 };
 

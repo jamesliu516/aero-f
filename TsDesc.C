@@ -62,6 +62,23 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
+// Included (MB)
+  forceNorm = 0.0;
+  if (ioData.sa.avgsIt) {
+    forceNorms = new double[ioData.sa.avgsIt];
+  }
+  else {
+    forceNorms = 0;
+  }
+
+  iForce = 0;
+  iTotal = 0;
+
+  if (ioData.sa.fixsol == 0)
+    fixSol = 0;
+  else if (ioData.sa.fixsol == 1)
+    fixSol = 1;
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -224,6 +241,7 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
 
 template<int dim>
 HeatTransferHandler* TsDesc<dim>::createHeatTransferHandler(IoData& iod, GeoSource& gs)
+
 {
 
   HeatTransferHandler* _hth = 0;
@@ -271,7 +289,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
-  timer->setSetupTime();
+  //timer->setSetupTime();
 
 }
 
@@ -281,6 +299,8 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
 {
 
+  double t0 = timer->getTime();
+
   data->computeCflNumber(it - 1, data->residual / restart->residual);
 
   int numSubCycles = 1;
@@ -288,6 +308,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
+
+  timer->addFluidSolutionTime(t0);
 
   return dt;
 
@@ -349,6 +371,7 @@ void TsDesc<dim>::computeMeshMetrics()
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
     timer->addMeshMetricsTime(t0);
+    timer->addFluidSolutionTime(t0);
   }
 
   if (mmh || hth)
@@ -368,13 +391,34 @@ void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
 template<int dim>
-bool TsDesc<dim>::checkForLastIteration(int it, double t, double dt, 
-					DistSVec<double,dim> &U)
+bool TsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double dt, DistSVec<double,dim> &U)
 {
 
-  if (!problemType[ProblemData::UNSTEADY] && monitorConvergence(it, U))
-    return true;
+  if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.sa.fres)) {
+    if (!problemType[ProblemData::UNSTEADY]) {
+      bool forceconv = false;
+      if (ioData.sa.avgsIt)
+        forceconv = monitorAvgForceConvergence(ioData, it, U);
+      else
+        forceconv = monitorForceConvergence(ioData, it, U);
+      bool fluidconv = monitorConvergence(it, U);
+      if ((forceconv || fluidconv) || it >= data->maxIts) {
+        if (forceconv)
+          com->fprintf(stderr,"\n***** Residual of the aerodynamic force is satisfied \n\n");
+        else if (fluidconv)
+          com->fprintf(stderr,"\n***** Residual of the fluid solution is satisfied \n\n");
+        else if (it >= data->maxIts)
+          com->fprintf(stderr,"\n***** Maximum number of iteration is reached \n\n");
+        return true;
+      }
+    }
+  }
+  else {
+    if (!problemType[ProblemData::UNSTEADY] && monitorConvergence(it, U))
+      return true;
+  }
 
   if (!problemType[ProblemData::AERO] && !problemType[ProblemData::THERMO] && it >= data->maxIts)
     return true;
@@ -410,6 +454,18 @@ int TsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim> 
+void TsDesc<dim>::fixSolution(DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
+{        
+          
+  if (fixSol == 1)
+    domain->fixSolution(varFcn, U, dU);
+    
+}   
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
 				    DistSVec<double,dim> &U)
@@ -422,6 +478,8 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   
   output->setMeshMotionHandler(dynamic_cast<RigidMeshMotionHandler *>(mmh));
   output->openAsciiFiles();
+
+  timer->setSetupTime();
 
   if (it == 0) {
     output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -463,7 +521,9 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
     timer->setRunTime();
     if (com->getMaxVerbose() >= 2)
       timer->print(domain->getStrTimer());
+
     output->closeAsciiFiles();
+
   }
 
 }
@@ -648,5 +708,123 @@ void TsDesc<dim>::reinitLS(DistVec<double> &Phi)
   spaceOp->reinitLS(Phi);
 }
 */
+
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+bool TsDesc<dim>::monitorForceConvergence(IoData &ioData, int it, DistSVec<double,dim> &U)
+{
+
+  double forceNorm_n;
+  double resForce;
+
+  int nSurfs = postOp->getNumSurf();
+    
+  Vec3D x0, F, M;
+
+  Vec3D *Fi = new Vec3D[nSurfs];
+  Vec3D *Mi = new Vec3D[nSurfs];
+  Vec3D *Fv = new Vec3D[nSurfs];
+  Vec3D *Mv = new Vec3D[nSurfs];
+
+  x0[0] = ioData.output.transient.x0;
+  x0[1] = ioData.output.transient.y0;
+  x0[2] = ioData.output.transient.z0;
+
+  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+
+  F = 0.0;
+  M = 0.0;
+  
+  F = Fi[0] + Fv[0];
+  M = Mi[0] + Mv[0];
+
+  forceNorm_n = sqrt(F[0]*F[0]+F[1]*F[1]+F[2]*F[2]);
+
+  resForce = fabs(forceNorm_n - forceNorm) / forceNorm_n;
+
+  forceNorm = forceNorm_n;
+
+  com->fprintf(stderr,"\n***** It = %d, Force residual = %e, Target = %e\n\n", it, resForce, ioData.sa.fres);
+
+  if ((resForce == 0.0) || (resForce < ioData.sa.fres))
+    return true;
+  else
+    return false;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+bool TsDesc<dim>::monitorAvgForceConvergence(IoData &ioData, int it, DistSVec<double,dim> &U)
+{
+
+  double avgForceNorm;
+  double forceNorm_n;
+  double resForce;
+
+  if (forceNorms == 0)
+    forceNorms = new double[ioData.sa.avgsIt];
+
+  int nSurfs = postOp->getNumSurf();
+
+  Vec3D x0, F, M;
+
+  Vec3D *Fi = new Vec3D[nSurfs];
+  Vec3D *Mi = new Vec3D[nSurfs];
+  Vec3D *Fv = new Vec3D[nSurfs];
+  Vec3D *Mv = new Vec3D[nSurfs];
+
+  x0[0] = ioData.output.transient.x0;
+  x0[1] = ioData.output.transient.y0;
+  x0[2] = ioData.output.transient.z0;
+
+  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+
+  F = 0.0;
+  M = 0.0;
+
+  F = Fi[0] + Fv[0];
+  M = Mi[0] + Mv[0];
+
+  forceNorm_n = sqrt(F[0]*F[0]+F[1]*F[1]+F[2]*F[2]);
+
+  if (iTotal < ioData.sa.avgsIt) {
+    forceNorms[iForce] = forceNorm_n;
+    ++iForce;
+    avgForceNorm = 0.0;
+    for (int i = 0; i < iForce; ++i)
+      avgForceNorm += forceNorms[i];
+    avgForceNorm *= 1.0/double(iForce);
+  }
+  else {
+    if (iForce == ioData.sa.avgsIt)
+      iForce = 0;
+    forceNorms[iForce] = forceNorm_n;
+    ++iForce;
+    avgForceNorm = 0.0;
+    for (int i = 0; i < ioData.sa.avgsIt; ++i)
+      avgForceNorm += forceNorms[i];
+    avgForceNorm *= 1.0/double(ioData.sa.avgsIt);
+  }
+
+  if (iTotal)
+    resForce = fabs(forceNorm_n - avgForceNorm) / avgForceNorm;
+  else
+    resForce = 1.0;
+
+  ++iTotal;
+
+  com->fprintf(stderr,"\n***** It = %d, Force residual = %e, Target = %e\n\n", it, resForce, ioData.sa.fres);
+
+  if ((resForce == 0.0) || (resForce < ioData.sa.fres))
+    return true;
+  else
+    return false;
+
+}
+
+//------------------------------------------------------------------------------

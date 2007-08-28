@@ -74,6 +74,12 @@ class DistDynamicVMSTerm {
 
   void printDelRatios(DistVec<double> &);
 
+// Included (MB)
+  void computeDerivative(FluxFcn**, RecFcn*, FemEquationTerm *, int, DistVec<double> &, 
+               DistBcData<dim> &, DistGeoState &, DistTimeState<dim> *, 
+               DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
+               DistSVec<double,dim> &, int, int);
+
 };
 
 //------------------------------------------------------------------------

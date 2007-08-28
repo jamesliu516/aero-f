@@ -86,6 +86,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     mach = ioData.ref.mach;
   beta = 1.0;
 
+// Included (MB)
+  dbeta = 0.0;
+
   if (ioData.ts.prec == TsData::PREC){
    if(ioData.problem.alltype == ProblemData::_STEADY_ ||
       ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
@@ -102,6 +105,10 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
           prec = true;
           beta = k2*mach;
           cmach = ioData.prec.mach;
+
+// Included (MB)
+          dbeta = k2;
+
         }
         
       }
@@ -120,6 +127,21 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) 
     subTimeState[iSub] = 0;
+
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dIdti = new DistVec<double>(dom->getNodeDistInfo());
+    dIdtv = new DistVec<double>(dom->getNodeDistInfo());
+    dIrey = new DistVec<double>(dom->getNodeDistInfo());
+    *dIdti = 0.0; 
+    *dIdtv = 0.0; 
+    *dIrey = 0.0;
+  }
+  else {
+    dIdti = 0; 
+    dIdtv = 0; 
+    dIrey = 0;
+  }
 
 }
 
@@ -190,6 +212,13 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   Unm1 = ts.Unm1;
   Unm2 = ts.Unm2;
   Rn = ts.Rn;
+
+  QBar = ts.QBar;
+  VnBar = ts.VnBar;
+  Vn = ts.Vn;
+  UnBar = ts.UnBar;
+  Unm1Bar = ts.Unm1Bar;
+  Unm2Bar = ts.Unm2Bar;
 
   domain = ts.domain;
 
@@ -401,6 +430,18 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistTimeState<dim>::rstVar(IoData & ioData) 
+{
+
+  mach = ioData.bc.inlet.mach;
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -656,6 +697,27 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
 				(*V)(iSub), A(iSub)); 
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
+				 DistMat<Scalar,neq> &A)
+{
+
+#ifdef DOUBLE_CHECK
+  varFcn->conservativeToPrimitive(U, *V);
+#endif
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
+				(*V)(iSub), A(iSub)); 
+
+}
+
 //------------------------------------------------------------------------------
                                                                                                                       
 template<int dim>
@@ -1040,4 +1102,32 @@ void DistTimeState<dim>::get_dW_dt(bool doInitialTasks,
                                                                                                                           
 }
                                                                                                                           
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+                                                          DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach)
+{
+
+//Remark: Error mesage for pointers
+  if (dIdti == 0) {
+    fprintf(stderr, "*** Error: Varible dIdti does not exist!\n");
+    exit(1);
+  }
+  if (dIdtv == 0) {
+    fprintf(stderr, "*** Error: Varible dIdtv does not exist!\n");
+    exit(1);
+  }
+  if (dIrey == 0) {
+    fprintf(stderr, "*** Error: Varible dIrey does not exist!\n");
+    exit(1);
+  }
+
+  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, dbeta, k1, cmach);
+
+  return dIrey;
+
+}
+
 //------------------------------------------------------------------------------

@@ -11,9 +11,9 @@ using std::map;
 #endif
 
 #ifdef _FEM_CODE_
-class Elemset;
 class EqNumberer;
 #endif
+class ElemSet;
 class FaceSet;
 class BinFileHandler;
 
@@ -49,9 +49,7 @@ protected:
 
 public:
 
-#ifdef _FEM_CODE_
-  Connectivity(Elemset *);
-#endif
+  Connectivity(ElemSet *);
   Connectivity(FaceSet *fels); //HB
   Connectivity(int _size, int *_pointer, int *_target);
   Connectivity(int _size, int *_count);

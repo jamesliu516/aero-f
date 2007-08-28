@@ -9,7 +9,7 @@
 
 #ifdef _FEM_CODE_
 #include <Utils.d/dofset.h>
-#include <Element.d/Element.h>
+#include <Elem.h>
 #endif
 
 #define MAX_ALLOCA_SIZE 65536
@@ -23,20 +23,19 @@ Connectivity::Connectivity(int _size, int *_pointer, int *_target)
  weight    = 0;
 }
 
-#ifdef _FEM_CODE_
-Connectivity::Connectivity(Elemset *els)
+Connectivity::Connectivity(ElemSet *els)
 {
  int i;
  weight = (float *)0;
 
- size = els->last();
+ size = els->size();
 
  // Find out the number of targets we will have
  pointer = new int[size+1] ;
  int pp = 0;
  for(i=0; i < size; ++i) {
    pointer[i] = pp;
-   pp += (*els)[i] ? (*els)[i]->numNodes() : 0;
+   pp += (*els)[i] ? (*els)[i].numNodes() : 0;
   }
  pointer[size] = pp;
  numtarget = pp;
@@ -46,9 +45,8 @@ Connectivity::Connectivity(Elemset *els)
 
  // Fill it in
  for(i=0; i < size; ++i)
-  if((*els)[i]) (*els)[i]->nodes(target+pointer[i]);
+  if((*els)[i]) (*els)[i].nodes(target+pointer[i]);
 }
-#endif
 
 //HB
 Connectivity::Connectivity(FaceSet* fels)
