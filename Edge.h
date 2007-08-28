@@ -15,10 +15,13 @@ using std::map;
 using std::pair;
 #endif
 
+// Included (MB)
+#include <stdio.h>
+
 class VarFcn;
 class RecFcn;
 class FluxFcn;
-class TetSet;
+class ElemSet;
 class GeoState;
 class FemEquationTerm;
 
@@ -74,51 +77,51 @@ public:
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
-			SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
+		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
                        Vec<double> &, double, double, double);
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
                        double, double, double, Vec<double> &);
 
   template<int dim>
-  int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, TetSet&, GeoState&, 
+  int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, 
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
 
   template<int dim>
-  int computeFiniteVolumeTerm(int*, FluxFcn**, RecFcn*, TetSet&, GeoState&, SVec<double,3>&,
+  int computeFiniteVolumeTerm(int*, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, Vec<double> &, 
                               NodalGrad<dim>&, EdgeGrad<dim>*, SVec<double,dim>&,
                               SVec<int,2>&, int, int);
 
   template<int dim>
-  void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, TetSet&, GeoState&, SVec<double,3>&,
+  void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                                SVec<double,dim>&, NodalGrad<dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
                                Vec<double>&, Vec<double>&, SVec<double,dim> &);
 
   template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
-
+  
   template<int dim>
-  void computeFiniteVolumeBarTerm(FluxFcn**, RecFcn*, TetSet&, GeoState&, SVec<double,3>&,
-			       SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
-			       SVec<double,dim>&, SVec<double,1>&);
-
+  void computeFiniteVolumeBarTerm(FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
+				  SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
+				  SVec<double,dim>&, SVec<double,1>&);
+  
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, 
-				Vec<double> &, Vec<double> &,
-			       SVec<double,dim> &, GenMat<Scalar,neq> &);
-
+				       Vec<double> &, Vec<double> &,
+				       SVec<double,dim> &, GenMat<Scalar,neq> &);
+  
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
-				Vec<double> &, Vec<double> &,
-                               SVec<double,dim> &, GenMat<Scalar,neq> &, 
-                               int * );
-
+				       Vec<double> &, Vec<double> &,
+				       SVec<double,dim> &, GenMat<Scalar,neq> &, 
+				       int * );
+  
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, Vec<double> &,
-			       SVec<double,dim> &, GenMat<Scalar,neq> &,
-                               Vec<double> &);
+				       SVec<double,dim> &, GenMat<Scalar,neq> &,
+				       Vec<double> &);
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
@@ -128,13 +131,26 @@ public:
   bool *getMasterFlag() const { return masterFlag; }
   int (*getPtr() const)[2] { return ptr; }
   int size() const { return numEdges; }
-
+  
 #ifdef EDGE_LENGTH  
   void updateLength(SVec<double,3>& X);
-  double length(int iedge) { if(edgeLength && iedge<numEdges) return(edgeLength[iedge]);
-                             else return(0.0); }
+  double length(int iedge) { 
+    if(edgeLength && iedge<numEdges) return(edgeLength[iedge]);
+    else return(0.0); 
+  }
   double* viewEdgeLength() { return(edgeLength); }
 #endif
+
+// Included (MB)
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&, SVec<double,3>&,
+			       SVec<double,dim>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*, double,
+			       SVec<double,dim>&);
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
+                              SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+			      Vec<double> &, Vec<double> &, double, double, double, double, double);
+
 
 };
 

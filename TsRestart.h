@@ -4,7 +4,6 @@
 class IoData;
 class RefVal;
 class DistGeoState;
-class LandingMeshMotionHandler;
 
 template<int dim> class DistTimeState;
 
@@ -36,6 +35,9 @@ public:
 
   template<int dim>
   void writeToDisk(int, bool, int, double, double, DistTimeState<dim> &, DistGeoState &);
+
+// Included (MB)
+  void rstVar(IoData &);
 
 };
 

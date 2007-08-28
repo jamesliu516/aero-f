@@ -124,7 +124,8 @@ void ModalSolver<dim>::solve()  {
     else {
       t0 = modalTimer->getTime();
       solveInTimeDomain();
-      modalTimer->addRomSolTime(t0);
+      //modalTimer->addRomSolTime(t0);
+      modalTimer->addFluidSolutionTime(t0);
     }
   }
 
@@ -137,6 +138,7 @@ template <int dim>
 void ModalSolver<dim>::solveInTimeDomain()  {
 
   Timer *modalTimer = domain.getTimer();
+  
   double sdt = ioData->linearizedData.stepsize;
 
   // Initial Conditions
@@ -218,7 +220,6 @@ void ModalSolver<dim>::solveInTimeDomain()  {
       com->fprintf(stderr, "*** Error: Bad Initial Condition: %d\n", ioData->linearizedData.initCond);
       exit (-1);
     }
-    //modalTimer->setSetupTime();
 
     // Form ROM operators
     VecSet<Vec<double> > ecVecs(nStrMode, nPodVecs);
@@ -244,7 +245,6 @@ void ModalSolver<dim>::solveInTimeDomain()  {
 
 template<int dim>
 void ModalSolver<dim>::createPODInTime()  {
-//void ModalSolver<dim>::createPOD(double *delU, double *delY)  {
 
   if (nStrMode == 0) return;
 
@@ -465,7 +465,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
       rhs *= 1.0/dt0;
 
-
       rhsA = 0.0;
       rhsB = 0.0;
       rhsC = 0.0;
@@ -475,7 +474,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
          rhsB += DX[i]*delY[i];
          rhsC += DE[i]*delY[i];
          rhsD += DE[i]*prevY[i];
-
       }
 
       rhsA *= 2.0;

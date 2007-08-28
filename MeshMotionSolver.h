@@ -34,6 +34,9 @@ public:
   virtual void setup(DistSVec<double,3> &) = 0;
   virtual void applyProjector(DistSVec<double,3> &dX) {};
 
+// Included (MB)
+  virtual int optSolve(IoData &iod, int, DistSVec<double,3> &dxb, DistSVec<double,3> &dx, DistSVec<double,3> &x) = 0;
+
 };
 
 //------------------------------------------------------------------------------
@@ -70,6 +73,11 @@ private:
 
   BCApplier* meshMotionBCs; //HB
 
+// Included (MB)
+  DefoMeshMotionData &Data;
+  int numLocSub;
+  DistSVec<double,3> *dXic;
+
 public:
 
   TetMeshMotionSolver(DefoMeshMotionData &, MatchNodeSet **, Domain *, MemoryPool *);
@@ -95,6 +103,10 @@ public:
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   
   void setup(DistSVec<double,3> &X);
+
+// Included (MB)
+  int optSolve(IoData &, int, DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
+  int fixSolution(DistSVec<double,3> &X, DistSVec<double,3> &dX) { return 0; }
 
 };
 

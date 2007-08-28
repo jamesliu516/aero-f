@@ -22,22 +22,9 @@ using std::max;
 using std::swap;
 #endif
 
-const double Face::third = 1.0/3.0;
-const int Face::edgeEnd[3][2] = { {0,1}, {1,2}, {2,0} };
-
 //------------------------------------------------------------------------------
 
-FaceSet::FaceSet(int value)  
-{
-
-  numFaces = value;
-  faces	= new Face[value];
-
-}
-
-//------------------------------------------------------------------------------
-
-void Face::setup(int fc, int *nn, int sid)
+void Face::setup(int fc, int *nn, int nnum, int sid)
 {
 
   if (fc == BC_OUTLET_MOVING || fc == BC_OUTLET_FIXED || 
@@ -52,11 +39,12 @@ void Face::setup(int fc, int *nn, int sid)
     exit(1);
   }
 
-  nodeNum[0] = nn[0];
-  nodeNum[1] = nn[1];
-  nodeNum[2] = nn[2];
-
+  for (int l=0; l<numNodes(); ++l)
+    nodeNum(l) = nn[l];
+  
   surface_id = sid;
+  normNum = nnum;
+
 }
 
 //------------------------------------------------------------------------------
@@ -73,9 +61,9 @@ void Face::setType(int *facemap)
 void Face::setNodeType(int* priority, int* nodeType)
 {
 
-  for (int j=0; j<3; ++j)
-    if (priority[code] > priority[ nodeType[ nodeNum[j] ] ])
-      nodeType[ nodeNum[j] ] = code;
+  for (int j=0; j<numNodes(); ++j)
+    if (priority[code] > priority[ nodeType[ nodeNum(j) ] ])
+      nodeType[ nodeNum(j) ] = code;
 
 }
 
@@ -83,25 +71,24 @@ void Face::setNodeType(int* priority, int* nodeType)
 
 void Face::setNodeFaceType(int* nodeFaceType)
 {
+  int nft;
 
-  int type;
-
-  if(code==BC_INLET_FIXED  || code==BC_INLET_MOVING ||
-     code==BC_OUTLET_FIXED || code==BC_OUTLET_MOVING ){
-    for (int j=0; j<3; j++){
-      type = nodeFaceType[nodeNum[j]];
-      if(type == 0)
-        nodeFaceType[nodeNum[j]] = 1;
-      if(type == -1)
-        nodeFaceType[nodeNum[j]] = 2;
+  if( code==BC_INLET_FIXED  || code==BC_INLET_MOVING ||
+      code==BC_OUTLET_FIXED || code==BC_OUTLET_MOVING ) {
+    for (int j=0; j<numNodes(); j++){
+      nft = nodeFaceType[nodeNum(j)];
+      if(nft == 0)
+        nodeFaceType[nodeNum(j)] = 1;
+      if(nft == -1)
+        nodeFaceType[nodeNum(j)] = 2;
     }
-  }else{ //only possibilities left should be wall and symmetry
-    for (int j=0; j<3; j++){
-      type = nodeFaceType[nodeNum[j]];
-      if(type == 0)
-        nodeFaceType[nodeNum[j]] = -1;
-      if(type == 1)
-        nodeFaceType[nodeNum[j]] = 2;
+  } else { //only possibilities left should be wall and symmetry
+    for (int j=0; j<numNodes(); j++){
+      nft = nodeFaceType[nodeNum(j)];
+      if(nft == 0)
+        nodeFaceType[nodeNum(j)] = -1;
+      if(nft == 1)
+        nodeFaceType[nodeNum(j)] = 2;
     }
   }
 
@@ -109,14 +96,17 @@ void Face::setNodeFaceType(int* nodeFaceType)
 
 //------------------------------------------------------------------------------
 
-void Face::setElementNumber(int num, int* nn)
-{
-
+void Face::setElementNumber(int num, int rotDir)
+{ 
   elemNum = num;
-  if (nn) {
-    nodeNum[0] = nn[0];
-    nodeNum[1] = nn[1];
-    nodeNum[2] = nn[2];
+
+  if (rotDir < 0) {
+    int i, j, nndo2 = numNodes()/2;
+    for (i=0, j=numNodes()-1; i<nndo2; ++i, --j) {
+      int nodeNum_j = nodeNum(j);
+      nodeNum(j) = nodeNum(i);
+      nodeNum(i) = nodeNum_j ;
+    }
   }
 
 }
@@ -125,47 +115,39 @@ void Face::setElementNumber(int num, int* nn)
 
 void Face::tagNodesOnBoundaries(Vec<bool> &tagNodes)
 {
-
-  tagNodes[ nodeNum[0] ] = true;
-  tagNodes[ nodeNum[1] ] = true;
-  tagNodes[ nodeNum[2] ] = true;
-
+  for (int j=0; j<numNodes(); j++)
+    tagNodes[ nodeNum(j) ] = true;
 }
 
 //------------------------------------------------------------------------------
 
 void Face::tagEdgesOnBoundaries(Vec<bool> &tagEdges)
 {
-
-  tagEdges[ edgeNum[0] ] = true;
-  tagEdges[ edgeNum[1] ] = true;
-  tagEdges[ edgeNum[2] ] = true;
-
+  for (int j=0; j<numNodes(); j++)
+    tagEdges[ edgeNum(j) ] = true;
 }
 
 //------------------------------------------------------------------------------
 
 void Face::reorder()
 { 
-
+  int *nN = nodes();
 #ifdef OLD_STL
-  sort(&nodeNum[0], &nodeNum[3]); 
+  sort(&nN[0], &nN[numNodes()]); 
 #else
-  stable_sort(&nodeNum[0], &nodeNum[3]); 
+  stable_sort(&nN[0], &nN[numNodes()]); 
 #endif
-
 }
 
 //------------------------------------------------------------------------------
 
 void Face::numberEdges(EdgeSet &edges)
 {
-
+  
   int numEdges = edges.size();
-
-  edgeNum[0] = edges.find(nodeNum[ edgeEnd[0][0] ], nodeNum[ edgeEnd[0][1] ]);
-  edgeNum[1] = edges.find(nodeNum[ edgeEnd[1][0] ], nodeNum[ edgeEnd[1][1] ]);
-  edgeNum[2] = edges.find(nodeNum[ edgeEnd[2][0] ], nodeNum[ edgeEnd[2][1] ]);
+  
+  for (int j=0; j<numNodes(); j++)
+    edgeNum(j) = edges.find(nodeNum( edgeEnd(j,0) ), nodeNum( edgeEnd(j,1) ));
 
   if (edges.size() != numEdges) {
     fprintf(stderr, "*** Error: could not find face egdes\n");
@@ -175,12 +157,12 @@ void Face::numberEdges(EdgeSet &edges)
 }
 
 //------------------------------------------------------------------------------
-
+// WARNING: THIS IS A FUNCTION FOR TFACES ONLY
 double Face::computeVolume(Vec3D &xa_n, Vec3D &xb_n, Vec3D &xc_n, 
 			   Vec3D &xa_np1, Vec3D &xb_np1, Vec3D &xc_np1)
 {
-
   const static double sixth = 1.0/6.0;
+  const static double third = 1.0/3.0;
 
   Vec3D dxa = xa_np1 - xa_n;
   Vec3D dxb = xb_np1 - xb_n;
@@ -198,18 +180,6 @@ double Face::computeVolume(Vec3D &xa_n, Vec3D &xb_n, Vec3D &xc_n,
 }
 
 //------------------------------------------------------------------------------
-// computation of the OUTWARD face normal
-
-void Face::computeNormal(SVec<double,3> &X, Vec3D &faceNorm)
-{
-
-  Vec3D x[3] = {X[ nodeNum[0] ], X[ nodeNum[1] ], X[ nodeNum[2] ]};
-
-  faceNorm = 0.5 * ((x[2] - x[0]) ^ (x[1] - x[0]));
-
-}
-
-//------------------------------------------------------------------------------
 
 void Face::computeEdgeNormals(SVec<double,3>& X, int* l2gl, SVec<double,6>& normals)
 {
@@ -218,78 +188,47 @@ void Face::computeEdgeNormals(SVec<double,3>& X, int* l2gl, SVec<double,6>& norm
   computeNormal(X, faceNorm);
   faceNorm *= -1.0 / sqrt(faceNorm*faceNorm);
 
-  for (int l=0; l<3; ++l) {
+  for (int l=0; l<numNodes(); ++l) {
     bool ori;
-    if (l2gl[ nodeNum[ edgeEnd[l][0] ] ] < l2gl[ nodeNum[ edgeEnd[l][1] ] ])
+    if (l2gl[ nodeNum( edgeEnd(l,0) ) ] < l2gl[ nodeNum( edgeEnd(l,1) ) ])
       ori = true;
     else
       ori = false;
 
     if (ori) {
-      normals[ edgeNum[l] ][0] = faceNorm[0];
-      normals[ edgeNum[l] ][1] = faceNorm[1];
-      normals[ edgeNum[l] ][2] = faceNorm[2];
+      normals[ edgeNum(l) ][0] = faceNorm[0];
+      normals[ edgeNum(l) ][1] = faceNorm[1];
+      normals[ edgeNum(l) ][2] = faceNorm[2];
     }
     else {
-      normals[ edgeNum[l] ][3] = faceNorm[0];
-      normals[ edgeNum[l] ][4] = faceNorm[1];
-      normals[ edgeNum[l] ][5] = faceNorm[2];
+      normals[ edgeNum(l) ][3] = faceNorm[0];
+      normals[ edgeNum(l) ][4] = faceNorm[1];
+      normals[ edgeNum(l) ][5] = faceNorm[2];
     }
   }
 
 }
 
 //------------------------------------------------------------------------------
-// computation of the OUTWARD face normal
-
-void Face::computeNormalGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
-			     SVec<double,3> &Xdot, Vec3D &faceNorm, 
-			     double &faceNormVel)
+FaceSet::FaceSet(int value)
 {
+  numFaces = value;
+  faces = new Face*[value];
 
-  static double twelfth = 1.0/12.0;
-
-  Vec3D x_n[3] = {Xn[ nodeNum[0] ], Xn[ nodeNum[1] ], Xn[ nodeNum[2] ]};
-  Vec3D x_np1[3] = {Xnp1[ nodeNum[0] ], Xnp1[ nodeNum[1] ], Xnp1[ nodeNum[2] ]};
-  Vec3D xdot[3] = {Xdot[ nodeNum[0] ], Xdot[ nodeNum[1] ], Xdot[ nodeNum[2] ]};
-
-  Vec3D x01_n = x_n[1] - x_n[0];
-  Vec3D x02_n = x_n[2] - x_n[0];
-
-  Vec3D x01_np1 = x_np1[1] - x_np1[0];
-  Vec3D x02_np1 = x_np1[2] - x_np1[0];
-
-  faceNorm = twelfth * (((2.0*x02_np1 + x02_n) ^ x01_np1) + 
-			((2.0*x02_n + x02_np1) ^ x01_n));
-
-  faceNormVel = third * (xdot[0] + xdot[1] + xdot[2]) * faceNorm;
-
+  // Set total number of face normals to 0: 
+  // it will be incremented when reading faces
+  numFaceNorms = 0;
 }
 
 //------------------------------------------------------------------------------
-// computation of the OUTWARD face normal
-
-void Face::computeNormalEZGCL1(double oodt, SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
-			       Vec3D &faceNorm, double &faceNormVel)
+FaceSet::~FaceSet()
 {
-
-  Vec3D x_n[3] = {Xn[ nodeNum[0] ], Xn[ nodeNum[1] ], Xn[ nodeNum[2] ]};
-  Vec3D x_np1[3] = {Xnp1[ nodeNum[0] ], Xnp1[ nodeNum[1] ], Xnp1[ nodeNum[2] ]};
-
-  faceNorm = 0.5 * ((x_np1[2] - x_np1[0]) ^ (x_np1[1] - x_np1[0]));
-  //EZ1 faceNorm = 0.5 * ((x_n[2] - x_n[0]) ^ (x_n[1] - x_n[0]));
-
-  double vol = computeVolume(x_n[0], x_n[2], x_n[1], x_np1[0], x_np1[2], x_np1[1]);
-
-  faceNormVel = oodt * vol;
-
+  delete [] faces;
 }
 
 //------------------------------------------------------------------------------
-
 int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *map)
 {
- 
   // read in number of faces in cluster (not used)
   int numClusFaces;
   file.read(&numClusFaces, 1);
@@ -301,7 +240,9 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
   // set the location of first face in the TOC
   tocStart = file.tell();
 
+  // intialize counters
   int count = 0;
+  int countNorm = 0;
 
   // read in ranges
   int nSymm = 0;
@@ -316,25 +257,51 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
     file.read(&toc, 1);
     file.seek(start + sizeof(int) * toc);
     for (int i = 0; i < nFaces; i++)  {
-      // read in the face type (not used)
       int type;
-      file.read(&type, 1);
-      // read in global face number
-      file.read(map + count, 1);
-      // read in face nodes
-      int nodeNum[3];
-      file.read(nodeNum, 3);
-      // read in the face code
+      int nodeNum[Face::MaxNumNd];
       int code;
-      file.read(&code, 1);
-      if (code == 6)  nSymm++;
-      // PJSA read in the surface id
       int surface_id;
+
+      // read in the face type
+      file.read(&type, 1);	
+
+      // create face in faceset depending on type
+      switch (type) {
+      case Face::TRIA:
+	addFace(count, new(memFaces) FaceTria);
+	break;
+
+      default:
+	fprintf(stderr, "Error: Could not find face type %d\n", type);
+	exit(1);
+      }
+
+      // read in global face number
+      file.read(&map[count], 1);
+
+      // read in face nodes
+      file.read( nodeNum, faces[count]->numNodes());
+
+      // read in the face code
+      file.read(&code, 1);
+      if (code == 6) nSymm++;
+
+      // read in the surface id
       file.read(&surface_id, 1);
-      faces[count].setup(code, nodeNum, surface_id);
+      
+      // setup face
+      faces[count]->setup(code, nodeNum, countNorm, surface_id);
+
+      // count total number of normals to be stored
+      countNorm += faces[count]->numNorms();
+
+      // count number of faces
       count++;
     }
   }
+
+  // total number of normals to be stored
+  numFaceNorms = countNorm;
 
   if (count != numFaces) {
     fprintf(stderr, "*** Error: wrong number of faces read (%d instead of %d)\n",
@@ -343,7 +310,6 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
   }
 
   return numClusFaces;
-
 }
 
 //------------------------------------------------------------------------------

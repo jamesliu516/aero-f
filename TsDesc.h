@@ -71,11 +71,23 @@ protected:
   Timer *timer;
   Communicator *com;
 
+// Included (MB)
+  int fixSol;
+  int iForce;
+  int iTotal;
+
+  double forceNorm;
+  double *forceNorms;
+
 protected:
 
   double computeResidualNorm(DistSVec<double,dim>&);
   void monitorInitialState(int, DistSVec<double,dim> &);
   bool monitorConvergence(int, DistSVec<double,dim> &);
+
+// Included (MB)
+  bool monitorForceConvergence(IoData &, int, DistSVec<double,dim> &);
+  bool monitorAvgForceConvergence(IoData &, int, DistSVec<double,dim> &);
 
 public:
 
@@ -86,6 +98,7 @@ public:
   VarFcn *createVarFcn(IoData &);
   DistBcData<dim> *createBcData(IoData &);
   MeshMotionHandler *createMeshMotionHandler(IoData &, GeoSource &, MemoryPool *);
+
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -95,7 +108,9 @@ public:
   void interpolatePositionVector(double, double);
   void computeMeshMetrics();
   virtual void updateStateVectors(DistSVec<double,dim> &);
-  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &);
+
+// Modified (MB)
+  bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
   virtual void setupOutputToDisk(IoData &, bool *, int, double, 
 			 	DistSVec<double,dim> &);
@@ -119,6 +134,10 @@ public:
   int getNumPhase() { return numPhase; }
 
   virtual double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti) { };
+
+// Included (MB)  
+  virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
 };
 
 //------------------------------------------------------------------------------

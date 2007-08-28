@@ -58,7 +58,9 @@ public:
   virtual void computeJacobianLS(int, DistVec<double> &, DistVec<double> &, 
                                  DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &) { };
   virtual void setOperators(DistSVec<double,dim> &) = 0;
+
   virtual int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+
   virtual int solveLinearSystemLS(int, DistVec<double> &, DistVec<double> &) { };
   virtual int solveNonLinearSystem(DistSVec<double,dim> &);
   virtual void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);  
@@ -73,6 +75,7 @@ public:
   double getEpsNewton() const { return epsNewton; }
 
   double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti);
+
 };
 
 //------------------------------------------------------------------------------

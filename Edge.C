@@ -17,7 +17,7 @@ using std::min;
 #include <RecFcn.h>
 #include <NodalGrad.h>
 #include <EdgeGrad.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <GeoState.h>
 #include <Vector3D.h>
 #include <Vector.h>
@@ -80,6 +80,95 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 }
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
+                              SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
+			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach)
+{
+
+  double Vmid[dim], dVmid[dim];
+  double Xmid[3], dXmid[3];
+  double vis = 0.0;
+  double dvis = 0.0;
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<double>& dNormalVel = geoState.getdEdgeNormalVel();
+  double locbeta=0.0;
+  double dLocbeta=0.0;
+
+  for (int l=0; l<numEdges; ++l) {
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    double S = sqrt(normal[l] * normal[l]);
+    double dS = normal[l] * dNormal[l] / sqrt(normal[l] * normal[l]);
+    double invS = 1.0 / S;
+    double dInvS = -dS / (S*S);
+
+    Vec3D n = invS * normal[l];
+    Vec3D dn = dInvS * normal[l] + invS * dNormal[l];
+    double ndot = invS * normalVel[l];
+    double dndot = dInvS * normalVel[l] + invS * dNormalVel[l];
+
+    for (int k=0; k<dim; ++k) {
+      Vmid[k] = 0.5 * (V[i][k] + V[j][k]);
+      dVmid[k] = 0.5 * (dV[i][k] + dV[j][k]);
+    }
+    for (int k=0; k<3; k++) {
+      Xmid[k] = 0.5 *(X[i][k]+X[j][k]);
+      dXmid[k] = 0.5 *(dX[i][k]+dX[j][k]);
+    }
+
+    Vec3D u = varFcn->getVelocity(Vmid);
+    Vec3D du = varFcn->getVelocity(dVmid);
+    double a = varFcn->computeSoundSpeed(Vmid);
+    double da = varFcn->computeDerivativeOfSoundSpeed(Vmid, dVmid, dMach);
+
+    double un = u * n - ndot;
+    double dun = du * n + u * dn - dndot;
+    double locMach = varFcn->computeMachNumber(Vmid);
+    //double locMach = fabs(un/a); //local Preconditioning (ARL)
+    locbeta = fmin(fmax(k1*locMach, beta),cmach);
+    if (fmin(fmax(k1*locMach, beta),cmach) == cmach)
+      dLocbeta = 0.0;
+    else
+      if (fmax(k1*locMach, beta) == beta)
+        dLocbeta = dbeta;
+      else {
+        double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
+        dLocbeta = k1*dLocMach;
+      }
+    
+    double beta2 = locbeta * locbeta;
+    double dbeta2 = 2.0*locbeta * dLocbeta;
+    double coeff1 = (1.0+beta2)*un;
+    double dCoeff1 = dbeta2*un + (1.0+beta2)*dun;
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+    double dCoeff2 = (((1.0-beta2)*un) * (-dbeta2*un + (1.0-beta2)*dun) + (2.0*locbeta*a) * (2.0*dLocbeta*a + 2.0*locbeta*da))  / pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+
+    if (min(0.5*(coeff1-coeff2), 0.0) != 0.0) {
+      dIdti[i] += 0.5*(dCoeff1-dCoeff2) * S + 0.5*(coeff1-coeff2) * dS;
+      dIdti[j] += 0.5*(-dCoeff1-dCoeff2) * S + 0.5*(-coeff1-coeff2) * dS;
+    }
+
+    if(fet) {
+      vis = fet->computeViscousTimeStep(Xmid, Vmid)*S*S;
+      dvis = fet->computeDerivativeOfViscousTimeStep(Xmid, dXmid, Vmid, dVmid, dMach)*S*S + fet->computeViscousTimeStep(Xmid, Vmid)*2.0*S*dS;
+    }
+    dIdtv[i] += dvis;
+    dIdtv[j] += dvis;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
                               SVec<double,dim> &V, Vec<double> &dt,
@@ -129,7 +218,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, FluxFcn** fluxFcn,
-                                     RecFcn* recFcn, TetSet& tets, GeoState& geoState, SVec<double,3>& X,
+                                     RecFcn* recFcn, ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -153,7 +242,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
     int j = ptr[l][1];
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -198,9 +287,85 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double> &dIrey, FluxFcn** fluxFcn, RecFcn* recFcn,
+				      ElemSet& elems, GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX,
+				      SVec<double,dim>& V, SVec<double,dim>& dV, NodalGrad<dim>& ngrad,
+				      EdgeGrad<dim>* egrad, double dMach, SVec<double,dim>& dFluxes)
+{
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<Vec3D>& dNormal = geoState.getdEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+  Vec<double>& dNormalVel = geoState.getdEdgeNormalVel();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+
+  SVec<double,dim>& ddVdx = ngrad.getXderivative();
+  SVec<double,dim>& ddVdy = ngrad.getYderivative();
+  SVec<double,dim>& ddVdz = ngrad.getZderivative();
+
+  double ddVij[dim], dddVij[dim], ddVji[dim], dddVji[dim], Vi[2*dim], dVi[2*dim], Vj[2*dim], dVj[2*dim], flux[dim], dFlux[dim];
+
+//  double ddVijp[dim], ddVjip[dim], ddVijm[dim], ddVjim[dim], Vip[2*dim], Vim[2*dim], Vjp[2*dim], Vjm[2*dim];
+  
+  double edgeirey, dedgeirey;
+
+  for (int l=0; l<numEdges; ++l) {
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    if (egrad)
+      egrad->computeDerivative(l, i, j, elems, X, dX, V, dV, dVdx, dVdy, dVdz, ddVdx, ddVdy, ddVdz, dddVij, dddVji);
+    else {
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      double ddx[3] = {dX[j][0] - dX[i][0], dX[j][1] - dX[i][1], dX[j][2] - dX[i][2]};
+      for (int k=0; k<dim; ++k) {
+         ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+         ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+         dddVij[k] = ddx[0]*dVdx[i][k] + dx[0]*ddVdx[i][k] + ddx[1]*dVdy[i][k] + dx[1]*ddVdy[i][k] + ddx[2]*dVdz[i][k] + dx[2]*ddVdz[i][k];
+         dddVji[k] = ddx[0]*dVdx[j][k] + dx[0]*ddVdx[j][k] + ddx[1]*dVdy[j][k] + dx[1]*ddVdy[j][k] + ddx[2]*dVdz[j][k] + dx[2]*ddVdz[j][k];
+      }
+    }
+
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+
+    recFcn->computeDerivative(V[i], dV[i], ddVij, dddVij, V[j], dV[j], ddVji, dddVji, dVi, dVj);
+
+    edgeirey = 0.5*(irey[i]+irey[j]);
+
+    dedgeirey = 0.5*(dIrey[i]+dIrey[j]);
+
+    int k;
+    for (k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+      dVi[k+dim] = dV[i][k];
+      dVj[k+dim] = dV[j][k];
+    }
+
+    fluxFcn[BC_INTERNAL]->computeDerivative(edgeirey, dedgeirey, normal[l], dNormal[l], normalVel[l], dNormalVel[l], Vi, dVi, Vj, dVj, dMach, flux, dFlux);
+
+    for (int k=0; k<dim; ++k) {
+      dFluxes[i][k] += dFlux[k];
+      dFluxes[j][k] -= dFlux[k];
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, FluxFcn** fluxFcn, RecFcn* recFcn,
-                                     TetSet& tets, GeoState& geoState, SVec<double,3>& X,
+                                     ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, Vec<double> &Phi,
                                      NodalGrad<dim>& ngrad,
                                      EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes,
@@ -239,7 +404,7 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, FluxFcn** fluxFcn, R
     int j = ptr[l][1];
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -431,11 +596,11 @@ void EdgeSet::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double>
 
 template<int dim>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
-                                      TetSet& tets, GeoState& geoState, SVec<double,3>& X,
-                                      SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-                                      NodalGrad<dim> &ngrad1,
-                                      EdgeGrad<dim>* egrad, Vec<double>& Phi, Vec<double>& PhiF,
-                                      SVec<double,dim> &PhiS)
+					ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
+					SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+					NodalGrad<dim> &ngrad1,
+					EdgeGrad<dim>* egrad, Vec<double>& Phi, Vec<double>& PhiF,
+					SVec<double,dim> &PhiS)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -458,7 +623,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     int i = ptr[l][0];
     int j = ptr[l][1];
     if (egrad)
-      egrad->compute(l, i, j, tets, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
@@ -468,7 +633,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     }
 
     if (egrad)
-      egrad->compute(l, i, j, tets, X, PhiS, dVdx1, dVdy1, dVdz1, ddVij1, ddVji1);
+      egrad->compute(l, i, j, elems, X, PhiS, dVdx1, dVdy1, dVdz1, ddVij1, ddVji1);
     else {
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       for (int k=0; k<dim; ++k) {
