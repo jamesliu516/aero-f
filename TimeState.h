@@ -60,6 +60,10 @@ public:
   template<class Scalar, int neq>
   void addToH1(bool *, Vec<double> &, GenMat<Scalar,neq> &, Scalar);
 
+  template<class Scalar> 
+  void addToH2(bool *, VarFcn *, Vec<double> &,
+              SVec<double,dim> &, GenMat<Scalar,dim> &, Scalar , double);
+ 
   template<class Scalar>
   void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
 

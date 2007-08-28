@@ -695,6 +695,28 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 }
 //------------------------------------------------------------------------------
 
+
+template<int dim>
+template<class Scalar>
+void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
+                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+{
+
+#ifdef DOUBLE_CHECK
+  varFcn->conservativeToPrimitive(U, *V);
+#endif
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub),
+                                (*V)(iSub), A(iSub), coefVol, coefA);
+
+}
+//------------------------------------------------------------------------------
+
+
+
+
 template<int dim>
 template<class Scalar>
 void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,

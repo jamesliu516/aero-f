@@ -593,8 +593,36 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x,
 
   spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
 
-  if (timeState)
-    timeState->addToH2(*ctrlVol, *Q, *this, shift);
+  if (timeState) {
+     switch (it)  {
+       //case for the construction of the POD
+       case 0:
+         timeState->addToH2(*ctrlVol, *Q, *this, shift, 1.0);
+         break;   
+       case 1:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), 1.0);
+         break;
+       case 2:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -1.0);
+         break;
+       case 3:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(3.0), 2.0);
+         break;
+       case 4:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(4.0), -2.0);
+         break;
+       case 5:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -2.0);
+         break;
+       case 6:
+         timeState->addToH2(*ctrlVol, *Q, *this, (Scalar(4.0)*shift+Scalar(2.0))/(shift*(shift+Scalar(1.0))), 2.0);
+         break;
+       case 7:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(8.0/3.0), 2.0);
+       break;
+
+    }
+  }
 
 }
 

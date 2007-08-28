@@ -427,6 +427,49 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+template<class Scalar>
+void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
+                             SVec<double,dim> &V, GenMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+{
+
+  Scalar dfdUi[dim*dim], dfdVi[dim*dim];
+
+  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
+
+  //double coef = 1;
+//data.alpha_np1;
+  if (data.use_modal == true && data.use_freq == false) {
+    A *= coefA;
+  }
+
+  Scalar c_np1;
+  for (int i=0; i<dt.size(); ++i) {
+
+    if (nodeFlag && !nodeFlag[i]) continue;
+
+    if (data.use_freq == true)
+      c_np1 = coefVol * ctrlVol[i];
+    else
+      c_np1 = coefVol * ctrlVol[i] / dt[i];
+
+    int k;
+    for (k=0; k<dim*dim; ++k) dfdUi[k] = 0.0;
+    for (k=0; k<dim; ++k) dfdUi[k + k*dim] = c_np1;
+
+    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
+
+    Scalar *Aii = A.getElem_ii(i);
+
+    for (k=0; k<dim*dim; ++k) Aii[k] += dfdVi[k];
+
+  }
+
+}
+
+
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar>

@@ -1742,6 +1742,7 @@ TsData::TsData()
   maxIts = 100;
   eps = 1.e-6;
   timestep = -1.0;
+  timestepinitial = -1.0;
   maxTime = 1.e99;
 
   residual = -1;
@@ -1760,7 +1761,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 18, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
   
   new ClassToken<TsData>(ca, "Type", this, 
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -1779,6 +1780,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassInt<TsData>(ca, "MaxIts", this, &TsData::maxIts);
   new ClassDouble<TsData>(ca, "Eps", this, &TsData::eps);
   new ClassDouble<TsData>(ca, "TimeStep", this, &TsData::timestep);
+  new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
@@ -2192,6 +2194,7 @@ LinearizedData::LinearizedData()
   amplification = 1.0;
   frequency = 10.0;
   stepsize = -1.0;
+  stepsizeinitial = -1.0;
   eps = 1e-4;
   eps2 = -1;
   tolerance = 1e-8;
@@ -3167,6 +3170,7 @@ int IoData::checkInputValuesDimensional()
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
     linearizedData.stepsize = ts.timestep;
+    linearizedData.stepsizeinitial = ts.timestepinitial;
     ts.timestep /= ref.rv.time;
     ts.maxTime /= ref.rv.time;
     rmesh.vx /= ref.rv.velocity;

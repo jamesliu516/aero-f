@@ -1005,6 +1005,7 @@ struct TsData {
   int maxIts;
   double eps;
   double timestep;
+  double timestepinitial;
   double maxTime;
 
   int residual;
@@ -1287,6 +1288,7 @@ struct LinearizedData {
   double amplification;
   double frequency;
   double stepsize;
+  double stepsizeinitial;
   double freqStep;
   double eps;
   double eps2;

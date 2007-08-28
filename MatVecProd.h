@@ -190,12 +190,25 @@ public:
 
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
-  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+/*  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &, 
-		 DistSVec<double,dim> &, DistSVec<double,dim> &);
+		 DistSVec<double,dim> &, DistSVec<double,dim> &); */
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+
+  void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
+                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate2step1(int, DistSVec<double,3> &, DistVec<double> &,
+                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);

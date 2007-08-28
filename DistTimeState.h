@@ -75,6 +75,8 @@ public:
 
   void setResidual(DistSVec<double,dim> *rn) { if (Rn != 0) delete Rn; Rn = rn; }
 
+  void setGlobalTimeStep (double t) { *dt = t; }
+
   void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *name, double *Ucst, double *Ub, DistSVec<double,3> &X, 
@@ -122,6 +124,9 @@ public:
   template<class Scalar>
   void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar);
 
+  template<class Scalar>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar, double);
+  
   template<class Scalar>
   void addToH2LS(DistVec<double> &, DistVec<double> &, DistMat<Scalar,1> &);
 
