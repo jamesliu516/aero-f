@@ -639,6 +639,7 @@ template<int dim>
 void
 ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ecMat, VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs, int nSteps, int nPodVecs, double *delU, double *delY, double sdt)  {
 
+#ifdef DO_MODAL
   VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
 
   // basic initializations
@@ -900,6 +901,11 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       com->fprintf(stderr, " ... Iteration: %d   Time: %f\n", cnt, cnt*sdt);
 
   }
+#else
+  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+  exit(-1);
+
+#endif
 }
 
 //--------------------------------------------------------------------------------
