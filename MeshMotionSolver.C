@@ -88,8 +88,6 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
 
   *dXic = 0.0;
 
-  numLocSub = dom->getNumLocSub();
-
 }  
 
 //------------------------------------------------------------------------------
