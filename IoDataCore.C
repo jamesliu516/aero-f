@@ -2792,6 +2792,11 @@ void IoData::resetInputValues()
       ts.implicit.jacobian = ImplicitData::EXACT;
     }
 
+    if (ts.implicit.jacobian != ImplicitData::EXACT) {
+      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
+      ts.implicit.jacobian = ImplicitData::EXACT;
+    }
+
     ts.implicit.newton.ksp.ns.numVectors = 30;
 
     ts.implicit.newton.ksp.ns.pc.fill = 0;
@@ -2815,7 +2820,22 @@ void IoData::resetInputValues()
       com->fprintf(stderr, " ----- Problem.Mode has to be set to Dimensional -----\n");
       exit(1);
     }
-
+    
+    int trip;
+    if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 || 
+	 eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 || 
+	 eqs.tc.tr.bfix.z0 > eqs.tc.tr.bfix.z1 )
+      trip = 0;
+    else 
+      trip = 1;
+    
+    if (sa.mvp == SensitivityAnalysis::H2 && trip) {
+      com->fprintf(stderr, 
+		   " ----- SensitivityAnalysis.MatrixVectorProduct set to"
+		   " FiniteDifference to account for tripping -----\n");
+      sa.mvp = SensitivityAnalysis::FD;
+    }
+    
   }
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] || 
