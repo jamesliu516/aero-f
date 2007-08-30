@@ -556,9 +556,9 @@ void TsOutput<dim>::openAsciiFiles()
       if (rmmh) addvar = rmmh->getTagName();
       fprintf(fpForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-	fprintf(fpForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+	fprintf(fpForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
-	fprintf(fpForces[0], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+	fprintf(fpForces[0], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
     }
     fflush(fpForces[0]);
   } 
@@ -579,9 +579,9 @@ void TsOutput<dim>::openAsciiFiles()
         if (rmmh) addvar = rmmh->getTagName();
         fprintf(fpForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
-          fprintf(fpForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+          fprintf(fpForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
-          fprintf(fpForces[iSurf], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+          fprintf(fpForces[iSurf], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
       }   
       fflush(fpForces[iSurf]);
     }
@@ -619,9 +619,9 @@ void TsOutput<dim>::openAsciiFiles()
       if (rmmh) addvar = rmmh->getTagName();
       fprintf(fpHydroStaticForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-        fprintf(fpHydroStaticForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+        fprintf(fpHydroStaticForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
-        fprintf(fpHydroStaticForces[0], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+        fprintf(fpHydroStaticForces[0], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
     }
     fflush(fpHydroStaticForces[0]);
   }
@@ -642,9 +642,9 @@ void TsOutput<dim>::openAsciiFiles()
         if (rmmh) addvar = rmmh->getTagName();
         fprintf(fpHydroStaticForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
-          fprintf(fpHydroStaticForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+          fprintf(fpHydroStaticForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
-          fprintf(fpHydroStaticForces[iSurf], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+          fprintf(fpHydroStaticForces[iSurf], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
       }
       fflush(fpHydroStaticForces[iSurf]);
     }
@@ -663,9 +663,9 @@ void TsOutput<dim>::openAsciiFiles()
       if (rmmh) addvar = rmmh->getTagName();
       fprintf(fpHydroDynamicForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-        fprintf(fpHydroDynamicForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+        fprintf(fpHydroDynamicForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
-        fprintf(fpHydroDynamicForces[0], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+        fprintf(fpHydroDynamicForces[0], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
     }
     fflush(fpHydroDynamicForces[0]);
   }
@@ -686,9 +686,9 @@ void TsOutput<dim>::openAsciiFiles()
         if (rmmh) addvar = rmmh->getTagName();
         fprintf(fpHydroDynamicForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
-          fprintf(fpHydroDynamicForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+          fprintf(fpHydroDynamicForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
-          fprintf(fpHydroDynamicForces[iSurf], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+          fprintf(fpHydroDynamicForces[iSurf], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
       }
       fflush(fpHydroDynamicForces[iSurf]);
     }
@@ -707,9 +707,9 @@ void TsOutput<dim>::openAsciiFiles()
       if (rmmh) addvar = rmmh->getTagName();
       fprintf(fpTavForces[0], "# TimeIteration Time SubCycles NewtonSteps ");
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-	fprintf(fpTavForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+	fprintf(fpTavForces[0], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
       else
-	fprintf(fpTavForces[0], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+	fprintf(fpTavForces[0], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
     }
     fflush(fpTavForces[0]);
   }
@@ -730,9 +730,9 @@ void TsOutput<dim>::openAsciiFiles()
         if (rmmh) addvar = rmmh->getTagName();
         fprintf(fpTavForces[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
         if (refVal->mode == RefVal::NON_DIMENSIONAL)
-          fprintf(fpTavForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy OldEnergy %s\n", addvar);
+          fprintf(fpTavForces[iSurf], "Cfx Cfy Cfz Cmx Cmy Cmz Energy %s\n", addvar);
         else
-          fprintf(fpTavForces[iSurf], "Fx Fy Fz Mx My Mz Energy OldEnergy %s\n", addvar);
+          fprintf(fpTavForces[iSurf], "Fx Fy Fz Mx My Mz Energy %s\n", addvar);
       }
       fflush(fpTavForces[iSurf]);
     }
