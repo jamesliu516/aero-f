@@ -462,7 +462,7 @@ public:
     char xx[64];
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeInterfaceWork(elems, postFcn, X, d2wall, ndot, Vwall, V, pin);
+    return wrapper->computeInterfaceWork(elems, postFcn, X, d2wall, ndot, Vwall, V, pin);
   }
 
   template<int dim>
