@@ -75,7 +75,6 @@ private:
 
 // Included (MB)
   DefoMeshMotionData &Data;
-  int numLocSub;
   DistSVec<double,3> *dXic;
 
 public:
