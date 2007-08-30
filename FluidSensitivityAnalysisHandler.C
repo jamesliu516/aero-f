@@ -1272,6 +1272,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 0.0;
     actvar = 3;
 
+    if (!ioData.sa.angleRad) 
+      ioData.sa.eps *= acos(-1.0) / 180.0;
+
     fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the algle of attck:", ioData.sa.sensoutput, *this->X, U);
@@ -1279,6 +1282,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     fsaPrintTextOnScreen("\n ***** Derivatives with respect to the algle of attck were computed! \n");
 
     step = step + 1;
+
+    if (!ioData.sa.angleRad)
+      ioData.sa.eps /= acos(-1.0) / 180.0;
   }
 
   if (ioData.sa.sensBeta == SensitivityAnalysis::ON_SENSITIVITYBETA) {
@@ -1290,6 +1296,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 1.0;
     actvar = 4;
 
+    if (!ioData.sa.angleRad)
+      ioData.sa.eps *= acos(-1.0) / 180.0;
+
     fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
@@ -1297,6 +1306,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     fsaPrintTextOnScreen("\n ***** Derivatives with respect to the yaw angle were computed! \n");
 
     step = step + 1;
+
+    if (!ioData.sa.angleRad)
+      ioData.sa.eps /= acos(-1.0) / 180.0;
   }
 
   this->output->closeAsciiFiles();
