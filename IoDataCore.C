@@ -3580,6 +3580,8 @@ void IoData::checkInputValuesDefaultOutlet()
   if (bc.outlet.beta > 360.0)
     bc.outlet.beta = bc.inlet.beta;
 
+/*
+// TDL: This is a bug... already done in :checkInputValues()
 // Modified (MB) 
   if (!sa.angleRad) {
     bc.inlet.alpha *= acos(-1.0) / 180.0;
@@ -3587,6 +3589,7 @@ void IoData::checkInputValuesDefaultOutlet()
     bc.outlet.alpha *= acos(-1.0) / 180.0;
     bc.outlet.beta *= acos(-1.0) / 180.0;
   }
+*/
   
 // Included (MB)
   if (aero.pressure < 0.0)

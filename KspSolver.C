@@ -432,7 +432,7 @@ target);
   }
 
   this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
-  if (iter == this->maxits) {
+  if (iter == this->maxits && l2res > target) {
     this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
     this->ioOp->printf(1, " (res=%.2e, target=%.2e, ratio = %.2e)\n", l2res, target, l2res/target);
   }
