@@ -41,6 +41,11 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   else
     Unm2 = Unm1->alias();
 
+  if (data->use_nm1 && ioData.mf.method==MultiFluidData::GHOSTFLUID_WITH_RIEMANN)
+    Unnm1 = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  else
+    Unnm1 = Un->alias();
+
   if (ioData.eqs.tc.les.type == LESModelData::DYNAMICVMS) {
     QBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
     VnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -75,7 +80,8 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   fet = spo->getFemEquationTerm();
 
 	//preconditioner setup
-  cmach = 1.0;
+  //cmach = 1.0;
+  cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
   beta = 1.0;
@@ -129,7 +135,8 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
 
 	//preconditioner setup
-  cmach = 1.0;
+  //cmach = 1.0;
+  cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
   beta = 1.0;
@@ -933,6 +940,28 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 //------------------------------------------------------------------------------
 
 template<int dim>
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q1)
+{
+
+  data->update();
+
+  if (data->use_nm2 && data->exist_nm1) {
+    fprintf(stdout, "check that this is correct before going any further\n");
+    fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
+    exit(1);
+    *Unm2 = *Unm1;
+    data->exist_nm2 = true;
+  }
+  if (data->use_nm1) {
+    *Unm1 = Q1;
+    data->exist_nm1 = true;
+  }
+  *Un = Q;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
                                 DistVec<double> &Phi1, DistVec<double> &Phi2)
 {
@@ -954,7 +983,6 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
     // this is correct, and has been studied for GFMP
     *Unm1 = *Un;
     varFcn->conservativeToPrimitive(*Unm1, *V, &Phi1);
-    //varFcn->conservativeToPrimitive(*Unm1, *V, &Phi2); //sriram -> mistake?
     varFcn->primitiveToConservative(*V, *Unm1, &Phi);
     data->exist_nm1 = true;
   }
@@ -962,7 +990,32 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
+                                DistVec<double> &Phi1, DistVec<double> &Phi2,
+                                DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+                                DistExactRiemannSolver<dim> *riemann)
+{
+  data->update();
 
+  if (data->use_nm2 && data->exist_nm1) {
+    fprintf(stdout, "check that this is correct before going any further\n");
+    fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
+    exit(1);
+  }
+	if (data->use_nm1) {
+		fprintf(stdout, "update1\n");
+    varFcn->conservativeToPrimitive(*Un, *V, &Phi1);
+		fprintf(stdout, "finish changes and check if it works first\n");
+		//exit(1);
+    varFcn->updatePhaseChange(*V, *Unm1, Phi, Phi1, Vgf, Vgfweight, riemann);
+    data->exist_nm1 = true;
+  }
+	*Un = Q;
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim>
 void DistTimeState<dim>::computeBar(bool doInitialTasks, DistMacroCellSet *macroCells,
                                     DistGeoState &geoState, int scopeDepth)

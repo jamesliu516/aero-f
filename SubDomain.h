@@ -301,13 +301,14 @@ public:
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
-				       Vec<double> &, Vec<double> &, 
-				       SVec<double,dim> &, GenMat<Scalar,neq> &, 
+                                       Vec<double> &, Vec<double> &, 
+                                       SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        CommPattern<double> *);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
-				       NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                                       FluxFcn **, BcData<dim> &, GeoState &, 
+                                       NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        Vec<double> &, CommPattern<double> *);
   template<int dim>
@@ -637,7 +638,7 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, SVec<double,dim> &, Vec<double> &);
+  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
   void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&);

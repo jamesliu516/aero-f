@@ -94,7 +94,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
-	riemann = createRiemannSolver(ioData);
+	//riemann = createRiemannSolver(ioData);
 
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_modal = true;
@@ -148,7 +148,7 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   dvms = spo.dvms;
   fet = spo.fet;
   volForce = spo.volForce;
-	riemann = spo.riemann;
+	//riemann = spo.riemann;
 
   failsafe = spo.failsafe;
   rshift = spo.rshift;
@@ -189,7 +189,7 @@ SpaceOperator<dim>::~SpaceOperator()
     if (dvms) delete dvms;
     if (fet) delete fet;
     if (volForce) delete volForce;
-		if (riemann) delete riemann;
+		//if (riemann) delete riemann;
   }
 
 }
@@ -239,7 +239,8 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
 
   double betaRef = ioData.prec.mach;
   double K1 = ioData.prec.k;
-  double cmach = 1.0;
+  //double cmach = 1.0;
+  double cmach = ioData.prec.cmach;
 
   //for GAS
   if (ioData.eqs.numPhase == 1){
@@ -782,7 +783,7 @@ VolumicForceTerm *SpaceOperator<dim>::createVolumicForceTerm(IoData &ioData)
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 DistExactRiemannSolver<dim> *SpaceOperator<dim>::createRiemannSolver(IoData &ioData)
 {
@@ -794,7 +795,7 @@ DistExactRiemannSolver<dim> *SpaceOperator<dim>::createRiemannSolver(IoData &ioD
 	return exriemann;
 
 }
-
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -863,14 +864,12 @@ void SpaceOperator<dim>::resetTag()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &U, DistVec<double> &Phi,
+void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &V, DistVec<double> &Phi,
                        DistSVec<double,dim> &Vgf, DistVec<double> &weight)
 {
   Vgf = -1.0;
 	weight = 1.0;
-  //varFcn->conservativeToPrimitive(U, *V, &Phi);
-  //domain->storeGhost(*V,Vgf,Phi);
-  domain->storeGhost(U,Vgf,Phi);
+  domain->storeGhost(V,Vgf,Phi);
 }
 
 //------------------------------------------------------------------------------
@@ -961,7 +960,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistVec<double> &Phi,
-                                         DistSVec<double,dim> &R, int it)
+                                         DistSVec<double,dim> &R, 
+                                         DistExactRiemannSolver<dim> *riemann, int it)
 {
 
   R = 0.0;
@@ -1115,8 +1115,6 @@ void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U,
 	//if(riemann->RiemannUpdatePhase())
     //nothing to do, everything has been done when computing the fluxes
   if(Vgf && weight){
-    *Vgf = 0.0;
-		*weight = 0.0;
     //domain->storePrimitive(Vg,*Vgf,*weight,Phi);
 		storeGhost(Vg,Phi,*Vgf,*weight);
   }
@@ -1128,7 +1126,8 @@ template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg, 
                              DistSVec<double,dim> &U,
 		                         DistVec<double> &Phi, DistVec<double> &Phin,
-                             DistSVec<double,dim> *Vgf, DistVec<double> *weight)
+                             DistSVec<double,dim> *Vgf, DistVec<double> *weight,
+                             DistExactRiemannSolver<dim> *riemann)
 {
 
 	if (riemann->DoUpdatePhase())
@@ -1141,7 +1140,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
 		// an extrapolation is used to replace values of a node
 		// that changed nature (fluid1 to fluid2 or vice versa)
 		// **** GFMPAR-variation ****
-    varFcn->updatePhaseChange(Vg, U, Phi, Phin, *Vgf, *weight);
+    varFcn->updatePhaseChange(Vg, U, Phi, Phin, Vgf, weight);
 
 	else
 		// no solution of the riemann problem was computed and we just use
@@ -1198,7 +1197,7 @@ template<int dim>
 template<class Scalar, int neq>
 void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
-                                         DistVec<double> &Phi)
+                                         DistVec<double> &Phi, DistExactRiemannSolver<dim> *riemann)
 {
 
   fprintf(stdout, "going through computeJacobian for two-phase flows\n");
@@ -1215,7 +1214,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   else  {
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
-    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *ngrad, *ngradLS, ctrlVol, *V, A, Phi);
+    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *ngrad, *ngradLS, ctrlVol, *V, A, Phi);
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
   }

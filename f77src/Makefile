@@ -5,6 +5,7 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(dsvdc.o) \
        $(LIB)(printmask.o) \
        $(LIB)(roeflux5.o) \
+       $(LIB)(roeflux5prim.o) \
        $(LIB)(roeflux6.o) \
        $(LIB)(roejac2.o) \
        $(LIB)(roejac5.o) \

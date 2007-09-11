@@ -61,7 +61,7 @@ int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 
   solveNonLinearSystemLevelSet(U);
 
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
+  this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight, this->riemann);
 
   checkSolution(U);
 
@@ -137,7 +137,7 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 	// option to recompute phi as rhophi/rho every iteration of the RK integration scheme
 	// or only at the beginning of the scheme....
 	//this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Ulocal);
-  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, dU, it);
+  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, dU, this->riemann,it);
   this->timeState->multiplyByTimeStep(dU);
 }
 

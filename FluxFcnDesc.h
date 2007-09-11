@@ -23,7 +23,7 @@ class FluxFcnFDJacRoeEuler3D : public FluxFcnFD<5> {
   ~FluxFcnFDJacRoeEuler3D() {}
 
  protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *);
 
 };
@@ -48,7 +48,7 @@ public:
   ~FluxFcnApprJacRoeEuler3D() {}
   
 protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *);
   void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
   void computeJacobiansBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
@@ -214,7 +214,7 @@ class FluxFcnFDJacRoeSA3D : public FluxFcnFD<6> {
   ~FluxFcnFDJacRoeSA3D() {}
   
 protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
 
 };
 
@@ -237,7 +237,7 @@ public:
   ~FluxFcnApprJacRoeSA3D() {}
   
 protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
 
 };
@@ -421,7 +421,7 @@ public:
   ~FluxFcnFDJacRoeKE3D() {}
 
 protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
 
 };
 
@@ -443,7 +443,7 @@ public:
   ~FluxFcnApprJacRoeKE3D() {}
 
 protected:
-  void computePerfectGas(double, double, double, double *, double, double *, double *, double *);
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
   
 };

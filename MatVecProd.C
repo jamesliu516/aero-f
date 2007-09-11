@@ -39,6 +39,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   recFcnCon = 0;
   Rn = 0;
   Phi = 0;
+	Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
     recFcnCon = new RecFcnConstant<dim>;
@@ -97,15 +98,17 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
                                  DistSVec<double,dim> &q, DistVec<double> &phi,
+                                 DistExactRiemannSolver<dim> *riemann,
                                  DistSVec<double,dim> &f)
 {
   
   X = &x;
   ctrlVol = &cv;
   Phi = &phi;
+	Riemann = riemann;
                                                                                                                  
   if (recFcnCon) {
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann);
                                                                                                                  
     if (timeState)
       timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -150,7 +153,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 #endif
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -342,10 +345,11 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                             DistSVec<double,dim> &Q, DistVec<double> &Phi,
+                                            DistExactRiemannSolver<dim> *riemann,
                                             DistSVec<double,dim> &F)
 {
 
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, Phi);
+  spaceOp->computeJacobian(X, ctrlVol, Q, *this, Phi, riemann);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);

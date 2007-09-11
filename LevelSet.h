@@ -9,17 +9,19 @@
 class LevelSet {
 
  private:
-  MultiFluidData::InterfaceTracking typeTracking;
   Communicator *com;
   int numLocSub;
   Domain *domain;
   TimeData *data;
-  int bandlevel;
-  int localtime;
-  int subIt;
-  double cfl_psi;
 
-	double invertGasLiquid; //to run Liquid in Gas Simulation....
+  // for reinitialization from Input file
+  MultiFluidData::InterfaceTracking typeTracking;  // how to find interface location
+  int bandlevel;                                   // number of node layers to reinitialize 
+  int localtime;                                   // time stepping is local or global
+  int subIt;                                       // max number of subiterations
+  double cfl_psi;                                  // cfl for fictitious time step
+
+  double invertGasLiquid; //to run Liquid in Gas Simulation....
 
   // for reinitialization
   DistVec<double> Phi0;

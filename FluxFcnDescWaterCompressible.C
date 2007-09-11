@@ -15,7 +15,7 @@ using std::max;
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleFDJacRoeEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				     double *VL, double *VR, double *flux, int flag)
 {
 
@@ -26,7 +26,7 @@ void FluxFcnWaterCompressibleFDJacRoeEuler3D::compute(double irey, double *norma
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleApprJacRoeEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux, int flag)
 {
 
@@ -45,7 +45,7 @@ void FluxFcnWaterCompressibleApprJacRoeEuler3D::computeJacobians(double irey, do
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleExactJacRoeEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 					double *VL, double *VR, double *flux, int flag)
 {
 
@@ -72,7 +72,7 @@ void FluxFcnWaterCompressibleExactJacRoeEuler3D::computeJacobians(double irey, d
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleWallEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				   double *VL, double *VR, double *flux, int flag)
 {
 
@@ -82,7 +82,7 @@ void FluxFcnWaterCompressibleWallEuler3D::compute(double irey, double *normal, d
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleGhidagliaEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				   double *V, double *Ub, double *flux, int flag)
 {
 
@@ -93,7 +93,7 @@ void FluxFcnWaterCompressibleGhidagliaEuler3D::compute(double irey, double *norm
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleInflowEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				   double *V, double *Ub, double *flux, int flag)
 {
     fprintf(stderr, "*** Error1: StegerWarming not available for Tait\n");
@@ -102,7 +102,7 @@ void FluxFcnWaterCompressibleInflowEuler3D::compute(double irey, double *normal,
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleOutflowEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				    double *V, double *Ub, double *flux, int flag)
 {
     fprintf(stderr, "*** Error2: StegerWarming not available for Tait\n");
@@ -111,7 +111,7 @@ void FluxFcnWaterCompressibleOutflowEuler3D::compute(double irey, double *normal
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleInternalInflowEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 					   double *V, double *Ub, double *flux, int flag)
 {
 
@@ -131,7 +131,7 @@ void FluxFcnWaterCompressibleInternalInflowEuler3D::computeJacobian(double irey,
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleInternalOutflowEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 					    double *V, double *Ub, double *flux, int flag)
 {
 

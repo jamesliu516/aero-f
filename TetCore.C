@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <complex.h>
 
 const double Tet::third = 1.0/3.0;
 const double Tet::fourth = 1.0/4.0;
@@ -1031,229 +1032,6 @@ void Tet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq,
 
 
 //------------------------------------------------------------------------------
-/*
-int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx, 
-				 SVec<double,dim> &ddy, SVec<double,dim> &ddz, 
-				 SVec<double,3> &X, 
-				 int reorder[4], Vec3D P[4])
-{
-
-  // 1 - find which case we are dealing with, ie how many nodes have
-  //     positive phis and how many have negative phis
-  int positive = 0;
-  int negative = 0;
-  int zero     = 0;
-  for (int i=0; i<4; i++)
-    if (Phi[nodeNum[i]]<0.0)
-      negative++;
-    else if(Phi[nodeNum[i]]>0.0)
-      positive++;
-    else
-      zero++;
-  assert(negative>0 || positive>0);
-
-  // 2 - orient the tet if necessary (node renumbering from 0 to 3,
-  //         which is different again from the local node numbering!)
-  //     if all nodes have same phi sign --> nothing to do
-  //     if one node is different from the others --> make it be the node 0
-  //     if two nodes are different --> first node is unchanged ie reorder[0]=0
-  //                                    make sure that reoder[1] has same sign of phi as reorder[0]
-  int scenario;                         // which configuration to run
-
-  if(negative==0 || positive==0)
-    scenario = 0;
-  else if(positive==2 && negative==2){
-    scenario = 2;
-    if(Phi[nodeNum[0]]*Phi[nodeNum[1]]<0.0){
-    //swap if need be so that reorder[0] and reorder[1] have same sign
-      if(Phi[nodeNum[0]]*Phi[nodeNum[2]]>0.0){
-        reorder[1] = 2;
-        reorder[2] = 3;
-        reorder[3] = 1;
-      }else{
-        reorder[1] = 3;
-        reorder[2] = 1;
-        reorder[3] = 2;
-      }
-    }
-  }
-  else{//1-vs-3 case including zero cases
-    scenario = 1;
-    int tempi = 0;
-    if(positive==1){ // we want to find i such that Phi[nodeNum[i]]>0.0
-      while(!(Phi[nodeNum[tempi]]>0.0))
-        tempi++;
-    }
-    else if(negative==1){
-      while(!(Phi[nodeNum[tempi]]<0.0))
-        tempi++;
-    }
-    if(tempi==1){
-      reorder[0] = 1;
-      reorder[1] = 2;
-      reorder[2] = 0;
-      reorder[3] = 3;
-    }else if(tempi==2){
-      reorder[0] = 2;
-      reorder[1] = 0;
-      reorder[2] = 1;
-      reorder[3] = 3;
-    }else if(tempi==3){
-      reorder[0] = 3;
-      reorder[1] = 0;
-      reorder[2] = 2;
-      reorder[3] = 1;
-    }
-  
- 
-  }
-
-  if(true){
-    findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
-    return scenario;
-  }
-  else if(true){
-    findLSIntersectionPointGradient(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
-    return scenario;
-  }else{
-    fprintf(stdout, "Problem in Tet\n");
-    exit(1);
-  }
-
-}
-
-//------------------------------------------------------------------------------
-void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx,
-                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
-                                 int reorder[4], Vec3D P[4], int scenario)
-{
-
-  Vec3D C0  = X[nodeNum[reorder[0]]];
-  Vec3D C1  = X[nodeNum[reorder[1]]];
-  Vec3D C2  = X[nodeNum[reorder[2]]];
-  Vec3D C3  = X[nodeNum[reorder[3]]];
-
-  double ksi[4] = {-1.0, -1.0, -1.0, -1.0};
-
-  // 3 - find the intersection point when they exist
-  if (scenario==0){ //sign(phi) is constant in tet
-  }
-  else if (scenario==2){
-  // nodes reorder[0] and reorder[1] have same sign1
-  // nodes reorder[2] and reorder[3] have same sign2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  //                                 reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
-  //                                 reorder[1]-reorder[2] in P0
-
-    //parametric coordinates of P0, P1, P2, P3
-    ksi[0] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[1] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[3]]]);
-    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[3] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
-    P[0] = (1.0-ksi[0])* C1 + ksi[0] * C2;
-    P[1] = (1.0-ksi[1])* C1 + ksi[1] * C3;
-    P[2] = (1.0-ksi[2])* C0 + ksi[2] * C2;
-    P[3] = (1.0-ksi[3])* C0 + ksi[3] * C3;
-
-  }
-  else if (scenario==1){
-  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
-
-    //parametric coordinates of P1, P2, P3 on their edge
-    ksi[0] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[1]]]);
-    ksi[1] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
-
-    //physical coordinates of P1, P2, P3
-    P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
-    P[1] = (1.0-ksi[1]) * C0 + ksi[1] * C2;
-    P[2] = (1.0-ksi[2]) * C0 + ksi[2] * C3;
-    //P[3] = C3 is not modified and should not be used later.
-
-  }
-
-
-}
-
-//------------------------------------------------------------------------------
-void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
-                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
-                                 int reorder[4], Vec3D P[4], int scenario)
-{
-// the variation of phi is not assumed to be linear in the tet.
-// we approximate the variations of phi around point i as a linear function,
-// for which the zero is found. Same is done for point j. Then the mean of those
-// two zeros is considered as the intersection of the phi=0 plane and the edges
-// considered, ie i-j
-
-  Vec3D C[4];
-  for(int i=0;i<4;i++)
-    C[i]  = X[nodeNum[reorder[i]]];
-
-  Vec3D dphii;
-  Vec3D dphij;
-
-  if(scenario==0){
-  // nothing to do since sign(phi) = constant in tet
-
-  }else if(scenario==1){
-  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
-    double phii,phij,gradi,gradj;
-    Vec3D nedge;
-  
-    for(int j=0; j<3; j++){
-      nedge = C[j+1] - C[0];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  0]]]/gradi;
-      phij = Phi[nodeNum[reorder[j+1]]]/gradj;
-      P[j] = 0.5*(C[0] + C[j+1] - (phii+phij)*nedge);
-    }
-
-
-  }else if(scenario==2){
-  // nodes reorder[0] and reorder[1] have same sign1
-  // nodes reorder[2] and reorder[3] have same sign2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  //                                 reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
-  //                                 reorder[1]-reorder[2] in P0
-    double phii,phij,gradi,gradj;
-    Vec3D nedge;
-
-    for(int j=2; j<4; j++){
-      nedge = C[j] - C[0];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  0]]]/gradi;
-      phij = Phi[nodeNum[reorder[  j]]]/gradj;
-      P[j] = 0.5*(C[0] + C[j] - (phii+phij)*nedge);
-    }
-    for(int j=2; j<4; j++){
-      nedge = C[j] - C[1];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  1]]]/gradi;
-      phij = Phi[nodeNum[reorder[  j]]]/gradj;
-      P[j-2] = 0.5*(C[1] + C[j] - (phii+phij)*nedge);
-    }
-
-  }
-
-
-}*/
-//------------------------------------------------------------------------------
 
 void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
 				   Vec3D A, Vec3D B, Vec3D C, Vec3D D,
@@ -1274,6 +1052,7 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
   //compute gradient of shape functions
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(A,B,C,D, dp1dxj);
+  if(vol<= 0.0) fprintf(stdout, "vol = %e\n", vol);
   assert(vol>0);
 
   double n[4][3];
@@ -1356,6 +1135,97 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
       locbeta[i] += Kp[i]/alphatot;
   }
 
-
-
 }
+//------------------------------------------------------------------------------
+double Tet::findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2)
+{
+// finds one root between 0 and 1 of the Hermite interpolation polynomial
+// that verifies P(0)  = f1    P(1)  = f2
+//               P'(0) = fp1   P'(1) = fp2
+
+  double coeff[4] = { 2.0*(f1-f2)+fp1+fp2, -3.0*(f1-f2)-2.0*fp1-fp2, fp1, f1};
+  double coeffp[3] = {3.0*coeff[0],2.0*coeff[1],coeff[2]};
+  
+  double eps = 1.e-6;                  //precision
+  double xn = 0.5;                     //initial guess
+  bool notConverged = true;
+  int maxIts = 100;
+  int it = 0;
+  int ierr = 0;
+  double xnp1, f, fp, xn2,xn3;
+  while(notConverged){
+    xn2 = xn*xn;
+    xn3 = xn*xn2;
+    f  = coeff[0]*xn3 + coeff[1]*xn2 + coeff[2]*xn + coeff[3];
+    fp = coeffp[0]*xn2 + coeffp[1]*xn + coeffp[2];
+    assert(fp!= 0.0);
+    xnp1 = xn - f/fp;
+    if( fabs((xnp1-xn)/(xnp1+xn)) < eps) notConverged = false;
+    xn = xnp1;
+    it++;
+    if(it>maxIts){
+      ierr++;
+      fprintf(stdout, "*** Error: max iteration reached in Newton-Raphson solver for Hermite\n");
+      notConverged = false;
+    }
+  }
+
+  // check value of xn
+  if(xn<0.0 || xn>1.0) {
+    ierr++;
+    fprintf(stdout, "*** Error: solution(%e) is out of bound in Hermite polynomial root finder\n",xn);
+  }
+
+  return xn;
+}
+//------------------------------------------------------------------------------
+extern int zroots(bcomp *a, int degree, bcomp *roots, const bool &polish);
+int Tet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2,
+                                    double &root)
+{
+/* The Laguerre method (cf Numerical Recipes in C++) is used to find
+** the roots of the polynomial we are considering.
+** However we need only one solution that lies between 0 and 1.
+** We choose the one that fits, and if there are several of them, 
+** we revert to a linear interpolation to find the interface location
+** instead of Hermite interpolation polynomial.
+** Function returns the number of real roots in [0,1]. If there are
+** several, root contains the 'last' corresponding one.
+*/
+
+  int degree = 3; //degree of the polynomial
+  bcomp coeff[degree+1]; //coeff of the polynomial
+  coeff[3] = bcomp(2.0*(f1-f2)+fp1+fp2,0.0);
+  coeff[2] = bcomp(-3.0*(f1-f2)-2.0*fp1-fp2,0.0);
+  coeff[1] = bcomp(fp1,0.0);
+  coeff[0] = bcomp(f1,0.0);
+
+  fprintf(stdout, "f1,f2,fp1,fp2 = %f %f %f %f\n", f1,f2,fp1,fp2);
+  fprintf(stdout, "coeff = %f %f %f %f\n", real(coeff[3]),real(coeff[2]),real(coeff[1]),real(coeff[0]));
+
+  bcomp roots[degree]; //roots of the polynomial
+  fprintf(stdout, "nana\n");
+  int err = zroots(coeff, degree, roots, true);
+  if(err>0) return 1000;
+  fprintf(stdout, " 3 roots are (%f,%f) (%f,%f) (%f,%f)\n", real(roots[0]), imag(roots[0]) , real(roots[1]), imag(roots[1]) , real(roots[2]), imag(roots[2])); 
+
+  //check which real one is in the bounds [0,1]
+  int counter = 0;
+  int index = -1;
+  double eps = 1.0e-7;
+  for(int i=0; i<degree; i++)
+    if(fabs(imag(roots[i]))<eps*fabs(real(roots[i])) &&  // check that the root is real
+       real(roots[i]) <= 1.0                         &&  // check bounds of that root
+       real(roots[i]) >= 0.0                          ){
+      counter++;
+      index = i;
+    }
+
+  root = real(roots[index]); //we assume f1*f2<0 and 
+                             //thus there must be such a solution 
+                             //and index should be well defined!
+  return counter;
+}
+
+//------------------------------------------------------------------------------
+

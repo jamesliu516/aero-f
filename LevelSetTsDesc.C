@@ -1,4 +1,5 @@
 #include <LevelSetTsDesc.h>
+#include <DistExactRiemannSolver.h>
 
 
 #include <math.h>
@@ -35,6 +36,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
+	riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
 
 	Vgf = 0;
   Vgfweight = 0;
@@ -57,6 +59,7 @@ LevelSetTsDesc<dim>::~LevelSetTsDesc()
 
   if (LS) delete LS;
   if (Vgf) delete Vgf;
+	if (riemann) delete riemann;
 
 }
 
@@ -115,7 +118,19 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 
   this->geoState->update(*this->X, *this->A);
   LS->update(Phi);
-  this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2);
+
+	this->com->fprintf(stdout, "updateStateVector\n");
+	// si one-step integration scheme (explicit and backward euler)
+  //this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2);
+  
+	// si two-step integration scheme (3pt bdf)
+	//this->varFcn->conservativeToPrimitive(this->timeState->getUn(), Vg, &(LS->Phinm1));
+  //this->spaceOp->updatePhaseChange(Vg, *(this->V), Phi, LS->Phinm1, Vgf, Vgfweight, riemann);
+  //this->timeState->update(U,*(this->V));
+
+	this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
+                          Vgf, Vgfweight, riemann);
+
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
@@ -130,7 +145,7 @@ template<int dim>
 int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
 
-  int ierr = this->domain->checkSolution(this->varFcn, U, Phi);
+  int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, Phi);
 
   return ierr;
 

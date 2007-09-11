@@ -176,26 +176,13 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   
   its = this->ns->solve(U);
 
-
-  // Store the primitive variables
-  this->varFcn->conservativeToPrimitive(U, this->Vg, &(this->Phi));
-
-  //if (this->varFcn->getType() == VarFcn::GASINLIQUID) 
-  //  this->spaceOp->storeGhost(U, this->Phi, *this->Vgf);
-
+	this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
 
   int itsLS = this->ns->solveLS(this->Phi, U);
 
-
-  /*if (this->varFcn->getType() == VarFcn::GASINLIQUID) {
-// Restore the conservative state from the primitive state
-    this->varFcn->primitiveToConservative(this->Vg, U, &(this->Phi), &(this->LS->Phin), this->Vgf);
-  }
-  else {
-    this->varFcn->primitiveToConservative(this->Vg, U, &(this->Phi), &(this->LS->Phin), &this->Vg);
-  }*/
-
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
+	fprintf(stdout, "updatePhaseChange starts\n");
+	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight, this->riemann);
+	fprintf(stdout, "updatePhaseChange ends\n");
 
   checkSolution(U);
 
@@ -214,7 +201,7 @@ void ImplicitLevelSetTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
 	// phi is obtained once and for all for this iteration
 	// no need to recompute it before computation of jacobian.
 	this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, F);
+  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, F, this->riemann, it+1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->spaceOp->applyBCsToResidual(Q, F);
 }
@@ -262,7 +249,7 @@ template<int dim>
 void ImplicitLevelSetTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q,
                                                          DistSVec<double,dim> &F)
 {
-  this->mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, F);
+  this->mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->riemann, F);
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -279,7 +266,7 @@ void ImplicitLevelSetTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd || mvph2) {
 
-      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->PhiV);
+      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->PhiV, this->riemann);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->spaceOp->applyBCsToJacobian(Q, *_pc);
     }

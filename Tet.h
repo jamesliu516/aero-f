@@ -34,6 +34,9 @@ typedef map<Face, int, less<Face> > MapFaces;
 typedef map<Face, int> MapFaces;
 #endif
 
+#include <complex.h>
+typedef complex<double> bcomp;
+
 //------------------------------------------------------------------------------
 
 class Tet {
@@ -92,6 +95,8 @@ public:
                                 Vec3D A, Vec3D B, Vec3D C, Vec3D D,
                                 double locdphi[4], double locw[4],
                                 double locbeta[4], bool debug);
+  double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
+  int findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2, double &root);
 
 
 //-----functions in Tet.h
@@ -185,6 +190,11 @@ public:
   void findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+  template<int dim>
+  int findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
 
   template<int dim>
@@ -335,6 +345,10 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
                                       double nGrad[4][3])
 {
 
+  //fprintf(stdout, "A = %e %e %e\n", A[0],A[1],A[2]);
+  //fprintf(stdout, "B = %e %e %e\n", B[0],B[1],B[2]);
+  //fprintf(stdout, "C = %e %e %e\n", C[0],C[1],C[2]);
+  //fprintf(stdout, "D = %e %e %e\n", D[0],D[1],D[2]);
   
   double jac[3][3];
 
@@ -358,6 +372,7 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
 
   // compute inverse matrix of jac
   // Maple code used
+  //fprintf(stdout, "dOmega = %e\n", dOmega);
   double t17 = -1.0/dOmega;
 
   //compute shape function gradients
@@ -381,7 +396,8 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
   nGrad[0][1] = -( nGrad[1][1] + nGrad[2][1] + nGrad[3][1] );
   nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
 
-  return sixth * dOmega;
+  //fprintf(stdout, "dOmega = %e\n", sixth*dOmega);
+  return sixth*dOmega;
 
 
 

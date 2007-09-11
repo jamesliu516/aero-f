@@ -511,7 +511,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	bool updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
                                                                                             
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -590,7 +590,9 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
 
 	//nature of fluid at this node has changed over time
 	}else{
+		assert(weight!= 0.0);
   	for(int k=0; k<5; k++)
+  	//for(int k=0; k<1; k++)
 	 		V[k] = Riemann[k]/weight;
 
 		// from Fluid2 to Fluid1, ie Gas To Gas
@@ -701,7 +703,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	bool updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -892,7 +894,7 @@ public:
   //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
-	bool updatePhaseChange(double *, double *, double, double, double *, double);
+	bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);

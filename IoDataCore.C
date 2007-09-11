@@ -65,6 +65,7 @@ PreconditionData::PreconditionData()
 {
   mach = 1.0;
   k = 1.0;
+	cmach = 1.0;
   betav = 0.0;
 }
 
@@ -73,9 +74,11 @@ PreconditionData::PreconditionData()
 void PreconditionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name,3,father);
+  //ClassAssigner *ca = new ClassAssigner(name,3,father);
+  ClassAssigner *ca = new ClassAssigner(name,4,father);
 
   new ClassDouble<PreconditionData>(ca,"Mach", this, &PreconditionData::mach);
+  new ClassDouble<PreconditionData>(ca,"CutOffMach", this, &PreconditionData::cmach);
   new ClassDouble<PreconditionData>(ca,"k", this, &PreconditionData::k);
   new ClassDouble<PreconditionData>(ca,"Betav", this, &PreconditionData::betav);
 
@@ -1232,14 +1235,14 @@ MultiFluidData::MultiFluidData()
 {
 
   method = GHOSTFLUID_FOR_POOR;
-	problem = BUBBLE;
-	typePhaseChange = RIEMANN_SOLUTION;
+  problem = BUBBLE;
+  typePhaseChange = RIEMANN_SOLUTION;
   localtime  = GLOBAL;
   typeTracking = LINEAR;
   bandlevel = 3;
   subIt = 10;
-	cfl = 0.7;
-	frequency = 0;
+  cfl = 0.7;
+  frequency = 0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1263,8 +1266,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
   new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),2,
-             "Linear", 0, "Gradient", 1);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
+             "Linear", 0, "Gradient", 1, "Hermite", 2);
   new ClassInt<MultiFluidData>(ca, "BandLevel", this,
              &MultiFluidData::bandlevel);
   new ClassInt<MultiFluidData>(ca, "SubIt", this,
