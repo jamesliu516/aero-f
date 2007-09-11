@@ -156,7 +156,6 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
   //computeSteadyState(geoState, X, ctrlVol, U, Phi0); // for testing only!!
   computeSteadyState(geoState, X, ctrlVol, U, Phi);
 
-  fprintf(stdout, "computeSteadyState done\n");
   // psi is set to max(values of neighbours with tag>0) if tag is 0
   bool lastlevel = false;
   while(!lastlevel){
