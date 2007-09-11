@@ -1,0 +1,375 @@
+#include <stdio.h>
+
+#include "DenseMatrix.h"
+
+template<class Scalar>
+GenFullM<Scalar>::GenFullM() 
+{
+ nrow    = 0;
+ ncolumn = 0;
+ //v = new double[1];
+ v = 0;
+}
+
+template<class Scalar>
+GenFullM<Scalar>::GenFullM(int nr) 
+{
+ nrow    = nr;
+ ncolumn = nr;
+ v = new Scalar[nrow*ncolumn];
+}
+
+template<class Scalar>
+GenFullM<Scalar>::GenFullM(int nr, int nc) 
+{
+ nrow    = nr;
+ ncolumn = nc;
+ if(nrow*ncolumn == 0)
+   v = new Scalar[1];
+ else
+   v = new Scalar[nrow*ncolumn];
+}
+
+template<class Scalar>
+GenFullM<Scalar>::GenFullM(const GenFullM &m) 
+{
+ nrow    = m.nrow;
+ ncolumn = m.ncolumn;
+ v = new Scalar[nrow*ncolumn];
+ int i;
+ for(i=0; i < nrow*ncolumn; ++i)
+   v[i] = m.v[i];
+}
+
+template<class Scalar>
+GenFullM<Scalar>::GenFullM(const GenFullM &m, int nr, int sr, int nc, int sc)
+{
+ nrow    = nr;
+ ncolumn = nc;
+ v = new Scalar[nrow*ncolumn] ;
+
+ int i,j;
+ for(i=0; i < nrow; ++i)
+  for(j=0; j < ncolumn; ++j)
+    (*this)[i][j] = m[i+sr][j+sc] ;
+}
+
+template<class Scalar>
+GenFullM<Scalar>::~GenFullM()
+{
+ if(v) delete [] v;
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::setNewSize(int nr, int nc, double initVal)
+{
+ nrow    = nr;
+ ncolumn = nc;
+ delete [] v;
+ v = new Scalar[nrow*ncolumn];
+ int i;
+ for(i=0; i < nrow*ncolumn; ++i)
+   v[i] = initVal;
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::setNewSize(int nr, double initVal)
+{
+ nrow = nr;
+ ncolumn = nr;
+ delete [] v;
+ v = new Scalar[nrow*ncolumn];
+ int i;
+ for(i=0; i<nrow*ncolumn; ++i)
+   v[i] = initVal;
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::operator=(const GenFullM<Scalar> &m)
+{
+ if(m.v == v) return ;
+
+ if(nrow != m.nrow || ncolumn != m.ncolumn) {
+   if(v) delete [] v ;
+
+   nrow = m.nrow ; ncolumn = m.ncolumn ;
+
+ 
+   v = new Scalar[nrow*ncolumn] ;
+ }
+
+ // copy data
+ int i;
+ for(i=0; i < nrow*ncolumn; ++i)
+   v[i] = m.v[i] ;
+
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::operator=(const Scalar c)
+{
+ int i;
+ for(i=0; i<nrow*ncolumn; ++i)
+   v[i] = c;
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::operator*=(const Scalar c)
+{
+ int i;
+ for(i=0; i<nrow*ncolumn; ++i)
+   v[i] *= c;
+}
+
+template<class Scalar>
+GenFullM<Scalar>
+GenFullM<Scalar>::operator*(GenFullM &m)
+{
+ if(ncolumn != m.nrow) return GenFullM(1,1) ; //error
+ GenFullM res(nrow,m.ncolumn) ;
+ int i,j,k;
+ for(i = 0 ; i < nrow ; ++i)
+  for(j=0; j < m.ncolumn ; ++j) {
+    res[i][j] = 0.0;
+    for(k = 0;  k < ncolumn; ++k)
+      res[i][j] += (*this)[i][k] * m[k][j];
+   }
+ return res;
+}
+
+
+//*************************************************
+// I added the matrix times vector operation
+//*************************************************
+/*template<class Scalar>
+Vector 
+GenFullM::operator*(const Vector &v)
+{
+  if(ncolumn != v.size()) return Vector(1) ; //error
+  Vector res(nrow) ;
+  int i,j;
+  for (i = 0 ; i < nrow ; ++i) {
+     res[i] = 0.0;
+     for(j=0; j < ncolumn ; ++j)
+       res[i] += (*this)[i][j] * v[j];
+   }
+  return res;
+}
+*/
+//*************************************************
+
+
+template<class Scalar>
+GenFullM<Scalar>
+GenFullM<Scalar>::operator%(GenFullM &m)
+{
+ if(ncolumn != m.ncolumn) return GenFullM(1,1) ; //error
+ GenFullM res(nrow,m.nrow) ;
+ int i,j,k;
+ for(i=0; i<nrow; ++i)
+  for(j=0; j<m.nrow; ++j) {
+    res[i][j] = 0.0;
+    for(k=0;  k<ncolumn; ++k)
+      res[i][j] += (*this)[i][k] * m[j][k];
+   }
+ return res;
+}
+
+template<class Scalar>
+GenFullM<Scalar>
+GenFullM<Scalar>::operator^(GenFullM<Scalar> &m)
+{
+ if(nrow != m.nrow) return GenFullM(1,1) ; //error
+
+ GenFullM res(ncolumn,m.ncolumn) ;
+ int i,j,k;
+ for(i=0; i < ncolumn; ++i)
+  for(j=0; j < m.ncolumn; ++j)
+   {
+    res[i][j] = 0.0 ;
+    for(k = 0 ;  k < nrow ; ++k)
+      res[i][j] += (*this)[k][i] * m[k][j];
+   }
+ return res;
+}
+/*
+template<class Scalar>
+GenFullM
+GenFullM::invert()
+{
+ if(nrow != ncolumn) return GenFullM(1,1) ; //error
+ GenFullM res(*this) ;
+  int i,j,k;
+  for(i = 0 ; i < nrow ; ++i)
+    for(j=i+1; j < nrow ; ++j) {
+       Scalar p = res[j][i] = -res[j][i]/res[i][i] ;
+       for(k = i+1; k < ncolumn; ++k)
+         res[j][k] += p*res[i][k] ;
+    }
+ GenFullM inv(nrow,nrow) ;
+ for(i = nrow-1 ; i >=0 ; --i)
+  for(j=0; j < ncolumn; ++j)
+   {
+    Scalar piv = 1/res[i][i] ;
+    if(j < i) inv[i][j] = res[i][j] ;
+    if(j == i) inv[i][j] = 1.0 ;
+    if(j > i) inv[i][j] = 0.0 ;
+    for(k = i+1; k <nrow; ++k)
+       inv[i][j] -= res[i][k]*inv[k][j] ;
+    inv[i][j] *= piv ;
+   }
+ return inv ;
+}
+
+template<class Scalar>
+GenFullM
+GenFullM::transpose()
+{
+ GenFullM res(ncolumn,nrow);
+
+ int i,j;
+ for(i=0; i<nrow; ++i)
+   for(j=0; j<ncolumn; ++j)
+      res[j][i] = (*this)[i][j]; 
+
+ return res; 
+}
+*/
+template<class Scalar>
+void
+GenFullM<Scalar>::factor()
+{
+ if(this->nrow != this->ncolumn) return; // Error actually
+ int i,j,k;
+ for(i=0; i<nrow; ++i) {
+   double invD = (*this)[i][i] = 1.0/(*this)[i][i];
+   for(j=i+1; j < nrow; ++j) {
+      double c = ( (*this)[j][i] *=  invD );
+      for(k = i+1; k < nrow; ++k)
+        (*this)[j][k] -= c*(*this)[i][k];
+   }
+ }
+}
+
+
+template<class Scalar>
+void
+GenFullM<Scalar>::reSolve(double *x)
+{
+ int i,j;
+ // Forward elimination
+ for(i=0; i<nrow; ++i){
+   for(j=i+1; j < nrow; ++j) 
+      x[j] -= (*this)[j][i]*x[i];
+ }
+
+ // Backward substitution
+ for(i=nrow; i--; ) {
+   for(j = i+1; j < nrow; ++j)
+     x[i] -= (*this)[i][j]*x[j];
+   x[i] *= (*this)[i][i];
+ }
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::print(char *msg)
+{
+ if(*msg) fprintf(stderr,"%s\n",msg);
+ int i,j;
+ for(i = 0 ; i < nrow ; ++i) {
+   for(j=0; j < ncolumn ; ++j)
+     fprintf(stderr,"%e ",(*this)[i][j]) ;
+   fprintf(stderr,"\n") ;
+ }
+}
+/*
+template<class Scalar>
+double
+GenFullM::max()
+{
+ double max = (*this)[0][0];
+ int i,j;
+ for(i = 0; i<nrow; ++i)
+   for(j = 0; j<ncolumn; ++j)
+     if((*this)[i][j] > max) max = (*this)[i][j];
+
+ return max;
+}
+*/
+template<class Scalar>
+void
+GenFullM<Scalar>::zero()
+{
+ int i;
+ for(i=0; i<nrow*ncolumn; ++i)
+   v[i] = 0.0;
+}
+
+
+template<class Scalar>
+void
+GenFullM<Scalar>::add(GenFullM &mat, int fRow, int fCol)
+{
+  int mrow = mat.numRow();
+  int mcol = mat.numCol();
+
+  int icol,irow;
+  for(icol = 0; icol < mcol; ++icol) {
+    for(irow = 0; irow < mrow; ++irow) {
+      (*this)[fRow+irow][fCol+icol] += mat[irow][icol];
+      }
+  }
+}
+
+/*
+template<class Scalar>
+void
+GenFullM::transposeAssign(GenFullM&source)
+{
+ if(source.nrow != ncolumn || source.ncolumn != nrow) return; //error
+
+ // unroll to avoid cache trashing
+
+ int i,j;
+ for(i = 0; i + 7 < ncolumn; i+= 8) {
+   for(j = 0; j < nrow; ++j)  {
+     double *vv = v+j*ncolumn;
+     double *ww = source.v+j;
+     vv[i] = ww[i*nrow]; 
+     vv[i+1] = ww[(i+1)*nrow]; 
+     vv[i+2] = ww[(i+2)*nrow]; 
+     vv[i+3] = ww[(i+3)*nrow]; 
+     vv[i+4] = ww[(i+4)*nrow]; 
+     vv[i+5] = ww[(i+5)*nrow]; 
+     vv[i+6] = ww[(i+6)*nrow]; 
+     vv[i+7] = ww[(i+7)*nrow]; 
+   }
+ }
+}
+
+template<class Scalar>
+void
+GenFullM::transposeMult(GenFullM& m, GenFullM& res)
+{
+
+ if(nrow != m.nrow) {
+   fprintf(stderr," *** ERROR: incompatible dimensions"
+                  " GenFullM::tranposeMult" );
+ }
+
+ int i,j,k;
+ for(i=0; i < ncolumn; ++i)
+  for(j=0; j < m.ncolumn; ++j) {
+    res[i][j] = 0.0 ;
+    for(k = 0 ;  k < nrow ; ++k)
+      res[i][j] += (*this)[k][i] * m[k][j];
+   }
+ 
+}
+*/
