@@ -854,12 +854,14 @@ void Tet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int
 }
 
 //------------------------------------------------------------------------------
+//--------------- REINITIALIZATION LEVEL SET    --------------------------------
+//------------------------------------------------------------------------------
 template<int dim>
 int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4],
-				 int typeTracking)
+                                 int typeTracking)
 {
 
   // 1 - find which case we are dealing with, ie how many nodes have
@@ -876,15 +878,23 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       zero++;
   assert(negative>0 || positive>0);
 
+  //fprintf(stdout, "phi = %f %f %f %f\n", Phi[nodeNum[0]],Phi[nodeNum[1]],Phi[nodeNum[2]],Phi[nodeNum[3]]);
+
+
+
   // 2 - orient the tet if necessary (node renumbering from 0 to 3,
   //         which is different again from the local node numbering!)
   //     if all nodes have same phi sign --> nothing to do
   //     if one node is different from the others --> make it be the node 0
   //     if two nodes are different --> first node is unchanged ie reorder[0]=0
   //                                    make sure that reoder[1] has same sign of phi as reorder[0]
-  int scenario;                         // which configuration to run
+	//     if there are nodes with value 0 --> particular cases....
 
-  if(negative==0 || positive==0)
+  int scenario;                         // which configuration to run
+  int tempi = 0;                        // temporary variables to determine reordering
+  int tempi2 = 0;                        // temporary variables to determine reordering
+
+  if((negative==0 || positive==0) && zero==0)
     scenario = 0;
   else if(positive==2 && negative==2){
     scenario = 2;
@@ -901,9 +911,9 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       }
     }
   }
-  else{//1-vs-3 case including zero cases
+  else if((positive==1 && negative==3) ||
+          (positive==3 && negative==1)){//1-vs-3 case not including zero cases
     scenario = 1;
-    int tempi = 0;
     if(positive==1){ // we want to find i such that Phi[nodeNum[i]]>0.0
       while(!(Phi[nodeNum[tempi]]>0.0))
         tempi++;
@@ -912,6 +922,58 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       while(!(Phi[nodeNum[tempi]]<0.0))
         tempi++;
     }
+
+  }
+  // cases with zero-valued phis
+  else if(zero>0){
+    if(zero==1 && (positive==3 || negative==3)){
+      scenario = 3;
+      while(Phi[nodeNum[tempi]]!=0.0)
+        tempi++;
+    }
+		else if(zero==1 && (positive==2 || negative==2)){
+      scenario = 4;
+      if(positive==1){
+        while(!(Phi[nodeNum[tempi]]>0.0))
+          tempi++;
+      }
+			if(negative==1){
+        while(!(Phi[nodeNum[tempi]]<0.0))
+          tempi++;
+      }
+      while(Phi[nodeNum[tempi2]]!=0.0)
+        tempi2++;
+    }
+		else if(zero==2 && (positive==2 || negative==2)){
+      scenario = 5;
+      while(Phi[nodeNum[tempi]]!=0.0)
+        tempi++;
+      tempi2 = tempi+1;
+      while(Phi[nodeNum[tempi2]]!=0.0)
+        tempi2++;
+			
+    }
+		else if(zero==2 && (positive==1 && negative==1)){
+      scenario = 6;
+      while(!(Phi[nodeNum[tempi]]>0.0))
+        tempi++;
+    }
+		else if(zero==3 && (positive==1 || negative==1)){
+      scenario = 7;
+      while(Phi[nodeNum[tempi]]==0.0)
+        tempi++;
+    }
+		else{
+			fprintf(stdout, "*** Error: in Tet, # of negative, positive and zero-valued phis are %d %d %d\n", negative, positive, zero);
+			exit(1);
+		}
+
+  }
+
+
+	// 3 - reordering of nodes for cases where one node (tempi) was different from other ones
+	if(scenario == 1 || scenario == 3 ||
+     scenario == 6 || scenario ==7){
     if(tempi==1){
       reorder[0] = 1;
       reorder[1] = 2;
@@ -928,16 +990,128 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       reorder[2] = 2;
       reorder[3] = 1;
     }
-
-
+	}
+  else if(scenario == 4 ){
+    if(tempi==0 && tempi2==1){} //nothing to do
+		else if(tempi==0 && tempi2==2){
+      reorder[0] = 0;
+      reorder[1] = 2;
+      reorder[2] = 3;
+      reorder[3] = 1;
+    }
+		else if(tempi==0 && tempi2==3){
+      reorder[0] = 0;
+      reorder[1] = 3;
+      reorder[2] = 1;
+      reorder[3] = 2;
+    }
+		else if(tempi==1 && tempi2==2){
+      reorder[0] = 1;
+      reorder[1] = 2;
+      reorder[2] = 0;
+      reorder[3] = 3;
+    }
+		else if(tempi==1 && tempi2==3){
+      reorder[0] = 1;
+      reorder[1] = 3;
+      reorder[2] = 0;
+      reorder[3] = 2;
+    }
+		else if(tempi==1 && tempi2==0){
+      reorder[0] = 1;
+      reorder[1] = 0;
+      reorder[2] = 3;
+      reorder[3] = 2;
+    }
+		else if(tempi==2 && tempi2==3){
+      reorder[0] = 2;
+      reorder[1] = 3;
+      reorder[2] = 0;
+      reorder[3] = 1;
+    }
+		else if(tempi==2 && tempi2==0){
+      reorder[0] = 2;
+      reorder[1] = 0;
+      reorder[2] = 1;
+      reorder[3] = 3;
+    }
+		else if(tempi==2 && tempi2==1){
+      reorder[0] = 2;
+      reorder[1] = 1;
+      reorder[2] = 3;
+      reorder[3] = 0;
+    }
+		else if(tempi==3 && tempi2==0){
+      reorder[0] = 3;
+      reorder[1] = 0;
+      reorder[2] = 2;
+      reorder[3] = 1;
+    }
+		else if(tempi==3 && tempi2==1){
+      reorder[0] = 3;
+      reorder[1] = 1;
+      reorder[2] = 0;
+      reorder[3] = 2;
+    }
+		else if(tempi==3 && tempi2==2){
+      reorder[0] = 3;
+      reorder[1] = 2;
+      reorder[2] = 1;
+      reorder[3] = 0;
+    }
+  }
+  else if(scenario == 5 ){
+    if(tempi==0 && tempi2==1){} //nothing to do
+		else if(tempi==0 && tempi2==2){
+      reorder[0] = 0;
+      reorder[1] = 2;
+      reorder[2] = 3;
+      reorder[3] = 1;
+    }
+		else if(tempi==0 && tempi2==3){
+      reorder[0] = 0;
+      reorder[1] = 3;
+      reorder[2] = 1;
+      reorder[3] = 2;
+    }
+		else if(tempi==1 && tempi2==2){
+      reorder[0] = 1;
+      reorder[1] = 2;
+      reorder[2] = 0;
+      reorder[3] = 3;
+    }
+		else if(tempi==1 && tempi2==3){
+      reorder[0] = 1;
+      reorder[1] = 3;
+      reorder[2] = 0;
+      reorder[3] = 2;
+    }
+		else if(tempi==2 && tempi2==3){
+      reorder[0] = 2;
+      reorder[1] = 3;
+      reorder[2] = 0;
+      reorder[3] = 1;
+    }
   }
 
+
+
+  //fprintf(stdout, "reorder = %d %d %d %d\n", reorder[0],reorder[1],reorder[2],reorder[3]);
+  //fprintf(stdout, "phi = %f %f %f %f\n", Phi[nodeNum[reorder[0]]],Phi[nodeNum[reorder[1]]],Phi[nodeNum[reorder[2]]],Phi[nodeNum[reorder[3]]]);
+
+  // 4 - determination of the coordinates of the intersection points P with 
+  //     the material interface
   if(typeTracking == MultiFluidData::LINEAR){
     findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
     return scenario;
   }
   else if(typeTracking == MultiFluidData::GRADIENT){
     findLSIntersectionPointGradient(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    return scenario;
+  }
+  else if(typeTracking == MultiFluidData::HERMITE){
+    int err = findLSIntersectionPointHermite(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
+    if(err>0) findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
     return scenario;
   }else{
     fprintf(stdout, "Problem in Tet\n");
@@ -954,10 +1128,10 @@ void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx
                                  int reorder[4], Vec3D P[4], int scenario)
 {
 
-  Vec3D C0  = X[nodeNum[reorder[0]]];
-  Vec3D C1  = X[nodeNum[reorder[1]]];
-  Vec3D C2  = X[nodeNum[reorder[2]]];
-  Vec3D C3  = X[nodeNum[reorder[3]]];
+  Vec3D C0(X[nodeNum[reorder[0]]][0],X[nodeNum[reorder[0]]][1],X[nodeNum[reorder[0]]][2]);
+  Vec3D C1(X[nodeNum[reorder[1]]][0],X[nodeNum[reorder[1]]][1],X[nodeNum[reorder[1]]][2]);
+  Vec3D C2(X[nodeNum[reorder[2]]][0],X[nodeNum[reorder[2]]][1],X[nodeNum[reorder[2]]][2]);
+  Vec3D C3(X[nodeNum[reorder[3]]][0],X[nodeNum[reorder[3]]][1],X[nodeNum[reorder[3]]][2]);
 
   double ksi[4] = {-1.0, -1.0, -1.0, -1.0};
 
@@ -983,25 +1157,52 @@ void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx
     P[3] = (1.0-ksi[3])* C0 + ksi[3] * C3;
 
   }
-  else if (scenario==1){
+  else if (scenario==1 || scenario==4 ||
+           scenario==6 || scenario==7){
   // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P0  (maybe in reorder[1])
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P1  (maybe in reorder[2])
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P2  (maybe in reorder[3])
+  // Note that Pk can be reorder[k] itself (k=0,1,2)
 
-    //parametric coordinates of P1, P2, P3 on their edge
+    //parametric coordinates of P0, P1, P2 on their edge
     ksi[0] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[1]]]);
     ksi[1] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
     ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
 
-    //physical coordinates of P1, P2, P3
+    //physical coordinates of P0, P1, P2
     P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
     P[1] = (1.0-ksi[1]) * C0 + ksi[1] * C2;
     P[2] = (1.0-ksi[2]) * C0 + ksi[2] * C3;
+		P[3] = C3;
     //P[3] = C3 is not modified and should not be used later.
 
   }
+	else if (scenario==3){
+  // node reorder[0] has phi=0
+  // all other nodes have same sign
+		P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
+	}else if (scenario==5){
+  // nodes reorder[0] and reorder[1] have phi=0
+  // other nodes have same sign
+  //nothing to do for now
+		P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
+  }
+
+
+
+
+
+
+  /*if(scenario!=0){
+    fprintf(stdout, "findLSIntersectionPointLinear\n");
+    fprintf(stdout, "scenario = %d\n", scenario);
+    fprintf(stdout, "P[0] = %e %e %e\n", P[0][0],P[0][1],P[0][2]);
+    fprintf(stdout, "P[1] = %e %e %e\n", P[1][0],P[1][1],P[1][2]);
+    fprintf(stdout, "P[2] = %e %e %e\n", P[2][0],P[2][1],P[2][2]);
+    fprintf(stdout, "P[3] = %e %e %e\n", P[3][0],P[3][1],P[3][2]);
+    exit(9);
+  }*/
 
 
 }
@@ -1013,25 +1214,28 @@ void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &d
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario)
 {
+  fprintf(stdout, "findLSIntersectionPointGradient\n");
 // the variation of phi is not assumed to be linear in the tet.
 // we approximate the variations of phi around point i as a linear function,
 // for which the zero is found. Same is done for point j. Then the mean of those
 // two zeros is considered as the intersection of the phi=0 plane and the edges
 // considered, ie i-j
 
-  Vec3D C[4];
-  for(int i=0;i<4;i++)
-    C[i]  = X[nodeNum[reorder[i]]];
+  Vec3D C0(X[nodeNum[reorder[0]]][0],X[nodeNum[reorder[0]]][1],X[nodeNum[reorder[0]]][2]);
+  Vec3D C1(X[nodeNum[reorder[1]]][0],X[nodeNum[reorder[1]]][1],X[nodeNum[reorder[1]]][2]);
+  Vec3D C2(X[nodeNum[reorder[2]]][0],X[nodeNum[reorder[2]]][1],X[nodeNum[reorder[2]]][2]);
+  Vec3D C3(X[nodeNum[reorder[3]]][0],X[nodeNum[reorder[3]]][1],X[nodeNum[reorder[3]]][2]);
+	Vec3D C[4] = {C0,C1,C2,C3};
 
   if(scenario==0){
   // nothing to do since sign(phi) = constant in tet
 
   }else if(scenario==1){
   // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P0
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P2
+  // Note that Pk can be reorder[k] itself (k=0,1,2)
     double phii,phij,gradi,gradj;
     Vec3D nedge,dphij;
     Vec3D dphii(ddx[nodeNum[reorder[0]]][0],ddy[nodeNum[reorder[0]]][0],ddz[nodeNum[reorder[0]]][0]);
@@ -1089,10 +1293,129 @@ void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &d
     }
 
   }
+  /*if(scenario!=0){
+    fprintf(stdout, "findLSIntersectionPointGradient\n");
+    fprintf(stdout, "scenario = %d\n", scenario);
+    fprintf(stdout, "P[0] = %e %e %e\n", P[0][0],P[0][1],P[0][2]);
+    fprintf(stdout, "P[1] = %e %e %e\n", P[1][0],P[1][1],P[1][2]);
+    fprintf(stdout, "P[2] = %e %e %e\n", P[2][0],P[2][1],P[2][2]);
+    fprintf(stdout, "P[3] = %e %e %e\n", P[3][0],P[3][1],P[3][2]);
+    exit(9);
+  }*/
 
 
 }
 //------------------------------------------------------------------------------
+template<int dim>
+int Tet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario)
+{
+/* the variations of phi are not known in the tet, but we know the values
+** of phi at each node as well as the derivatives.
+** Thus we use Hermite interpolations with Hermite polynomials of degree 3.
+** And on each edge, the root of the Hermite polynomial is found.
+** This root is the location of the interface.
+** 
+** Along each edge that the interface crosses, we consider a function f
+** that takes values f1 = f(x1) = phi(x1) and f2 = f(x2) = phi(x2)
+** and that has derivatives fp1 = f'(x1) = grad(phi(x1)).unitary(x2x1)
+**                          fp2 = f'(x2) = grad(phi(x2)).unitary(x2x1)
+** This determines a unique polynomial of degree 3 or less for which
+** we need to find a real root between x1 and x2.
+** IF there are more than one of these roots, an error is returned and
+** interface location is switched back to linear interpolation.
+*/
+
+  int count = 0;
+  Vec3D C0(X[nodeNum[reorder[0]]][0],X[nodeNum[reorder[0]]][1],X[nodeNum[reorder[0]]][2]);
+  Vec3D C1(X[nodeNum[reorder[1]]][0],X[nodeNum[reorder[1]]][1],X[nodeNum[reorder[1]]][2]);
+  Vec3D C2(X[nodeNum[reorder[2]]][0],X[nodeNum[reorder[2]]][1],X[nodeNum[reorder[2]]][2]);
+  Vec3D C3(X[nodeNum[reorder[3]]][0],X[nodeNum[reorder[3]]][1],X[nodeNum[reorder[3]]][2]);
+	Vec3D C[4] = {C0,C1,C2,C3};
+
+  double ksi=-1.0;
+
+  // 3 - find the intersection point when they exist
+  if (scenario==0){ //sign(phi) is constant in tet
+  }else if(scenario==1){
+  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
+  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P0
+  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P1
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P2
+  // Note that Pk can be reorder[k] itself (k=0,1,2)
+    double f1,f2,fp1,fp2;
+    Vec3D nedge,dphij;
+    Vec3D dphii(ddx[nodeNum[reorder[0]]][0],ddy[nodeNum[reorder[0]]][0],ddz[nodeNum[reorder[0]]][0]);
+
+    for(int j=0; j<3; j++){
+      nedge = C[j+1] - C[0];
+      dphij[0] = ddx[nodeNum[reorder[j+1]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j+1]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j+1]]][0];
+      fp1 = dphii*nedge;
+      fp2 = dphij*nedge;
+      f1 = Phi[nodeNum[reorder[  0]]];
+      f2 = Phi[nodeNum[reorder[j+1]]];
+      //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
+      count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
+      if(count>1) return 1;
+      P[j] = C[0] + ksi*nedge;
+    }
+
+
+  }else if (scenario==2){
+  // nodes reorder[0] and reorder[1] have same sign1
+  // nodes reorder[2] and reorder[3] have same sign2
+  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
+  //                                 reorder[0]-reorder[2] in P2
+  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
+  //                                 reorder[1]-reorder[2] in P0
+    double f1,f2,fp1,fp2;
+    Vec3D nedge,dphij,dphii;
+
+    dphii[0] = ddx[nodeNum[reorder[0]]][0];
+    dphii[1] = ddy[nodeNum[reorder[0]]][0];
+    dphii[2] = ddz[nodeNum[reorder[0]]][0];
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[0];
+      dphij[0] = ddx[nodeNum[reorder[j]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j]]][0];
+      fp1 = dphii*nedge;
+      fp2 = dphij*nedge;
+      f1 = Phi[nodeNum[reorder[  0]]];
+      f2 = Phi[nodeNum[reorder[  j]]];
+      //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
+      count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
+      if(count>1) return 1;
+      P[j] = C[0] + ksi*nedge;
+    }
+    dphii[0] = ddx[nodeNum[reorder[1]]][0];
+    dphii[1] = ddy[nodeNum[reorder[1]]][0];
+    dphii[2] = ddz[nodeNum[reorder[1]]][0];
+    for(int j=2; j<4; j++){
+      nedge = C[j] - C[1];
+      dphij[0] = ddx[nodeNum[reorder[j]]][0];
+      dphij[1] = ddy[nodeNum[reorder[j]]][0];
+      dphij[2] = ddz[nodeNum[reorder[j]]][0];
+      fp1 = dphii*nedge;
+      fp2 = dphij*nedge;
+      f1 = Phi[nodeNum[reorder[  1]]];
+      f2 = Phi[nodeNum[reorder[  j]]];
+      //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
+      count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
+      if(count>1) return 1;
+      P[j-2] = C[1] + ksi*nedge;
+    }
+
+  }
+  return 0;
+
+}
+//------------------------------------------------------------------------------
+// PDE resolution for reinitialization of Level set
 
 template<int dim>
 void Tet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double,dim> &Psi,
@@ -1107,13 +1430,13 @@ void Tet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double,dim
   //  2 - levelset phi=0 separates tet in 2 and 2 nodes
   int reorder[4] = {0,1,2,3}; //no change in ordering
   Vec3D P[4] = {X[nodeNum[0]],X[nodeNum[1]],X[nodeNum[2]],X[nodeNum[3]]};
+  /*fprintf(stdout, "P0[0] = %e %e %e\n", P[0][0],P[0][1],P[0][2]);
+  fprintf(stdout, "P0[1] = %e %e %e\n", P[1][0],P[1][1],P[1][2]);
+  fprintf(stdout, "P0[2] = %e %e %e\n", P[2][0],P[2][1],P[2][2]);
+  fprintf(stdout, "P0[3] = %e %e %e\n", P[3][0],P[3][1],P[3][2]);*/
   bool debugtag = false;
   
   int type = findLSIntersectionPoint(Phi,ddx,ddy,ddz,X,reorder,P,typeTracking);
-  if(nodeNum[0]+1==11598||nodeNum[1]+1==11598||nodeNum[2]+1==11598||nodeNum[3]+1==11598){
-    debugtag = true;
-  }
-  debugtag = false;
 
   // compute scheme for each different case
   if(type==0){
@@ -1147,6 +1470,7 @@ void Tet::computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim
     phi[i] = Phi[nodeNum[i]];
   }
 
+  //fprintf(stdout, "Res0\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[0]],X[nodeNum[1]],
 			   X[nodeNum[2]],X[nodeNum[3]],
 			   locdphi,locw,locbeta,debug);
@@ -1208,6 +1532,7 @@ void Tet::computePsiResidual1(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res1.1\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[0],P[1],P[2],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
@@ -1226,6 +1551,7 @@ void Tet::computePsiResidual1(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res1.2\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[1],P[0],P[2],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1243,6 +1569,7 @@ void Tet::computePsiResidual1(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res1.3\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],P[0],P[1],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1263,6 +1590,7 @@ void Tet::computePsiResidual1(int reorder[4], Vec3D P[4],
   phi[2] = Phi[nodeNum[reorder[1]]];
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res1.4\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],X[nodeNum[reorder[1]]],P[0],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1326,6 +1654,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.1\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],X[nodeNum[reorder[1]]],P[0],P[1],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
@@ -1346,6 +1675,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.2\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[0],P[2],P[1],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
@@ -1363,6 +1693,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.3\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[0]]],P[1],P[2],P[3],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[0]]][0] += locdphi[0];
@@ -1381,6 +1712,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.4\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],X[nodeNum[reorder[2]]],P[0],P[2],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1401,6 +1733,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.5\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[0],P[1],P[2],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1419,6 +1752,7 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
   phi[2] = 0.0;
   phi[3] = 0.0;
 
+  //fprintf(stdout, "Res2.6\n");
   computePsiResidualSubTet(psi,phi,X[nodeNum[reorder[3]]],P[1],P[3],P[2],locdphi,locw,locbeta,debug);
 
   PsiRes[nodeNum[reorder[3]]][0] += locdphi[0];
@@ -1427,6 +1761,598 @@ void Tet::computePsiResidual2(int reorder[4], Vec3D P[4],
 
 }
 
+//------------------------------------------------------------------------------
+// unused right now
+
+template<int dim>
+void Tet::computePsiResidualFM(SVec<double,3> &X, Vec<double> &Phi,SVec<double,dim> &Psi,
+                             SVec<double,dim> &ddx, SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                             Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+                             int typeTracking)
+{
+
+  //find what kind of tetrahedron this is:
+  //  0 - no levelset phi=0 in it
+  //  1 - levelset phi=0 separates tet in 1 and 3 nodes
+  //  2 - levelset phi=0 separates tet in 2 and 2 nodes
+  int reorder[4] = {0,1,2,3}; //no change in ordering
+  Vec3D P[4] = {X[nodeNum[0]],X[nodeNum[1]],X[nodeNum[2]],X[nodeNum[3]]};
+  
+  int type = findLSIntersectionPoint(Phi,ddx,ddy,ddz,X,reorder,P,typeTracking);
+/*
+  if(type==0) // interface does not cross tet
+    computeFM(Psi);
+  else        // interface cross tet
+    computeDistanceToInterface(type,X,reorder,P,Psi);
+*/
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::computeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag)
+{
+  double psi = -1.0;
+	int tag = 0;
+  double phi[3] = {0.0,0.0,0.0};
+	Vec3D Y0,Y1,Y2; //initialized to zero-vector
+
+  //computation of distance to interface phi=0 in the tet for each point
+  //each scenario is treated separately and the sign of Tag (which is
+  //necessarily 1) is changed if the new psi value (ie Psi is updated
+  //by a lower value psi) is attained at a boundary (edge or vertex)
+  //so that it can be treated later correctly
+
+
+
+  if(type==1){  //3 intersection points are on edges strictly
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    for(int i=0; i<4; i++){
+      Vec3D XX(X[nodeNum[i]]);
+      Y0 = XX-P[0];
+      tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+      if(psi<Psi[nodeNum[i]][0]){
+        Psi[nodeNum[i]][0] = psi;
+        if(Tag[nodeNum[i]]==-1) Tag[nodeNum[i]]=tag;
+      }
+    }
+  }	
+  if(type==2){  //4 intersection points are on edges strictly
+	  Y1 = P[1]-P[0];
+	  Y2 = P[2]-P[0];
+    for (int i=0; i<4; i++){
+      Vec3D XX(X[nodeNum[i]]);
+      Y0 = XX-P[0];
+      tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+			if(psi<Psi[nodeNum[i]][0]){
+        Psi[nodeNum[i]][0] = psi;
+        if(Tag[nodeNum[i]]==-1) Tag[nodeNum[i]]=tag;
+      }
+    }
+		Y1 = P[1]-P[3];
+		Y2 = P[2]-P[3];
+    for (int i=0; i<4; i++){
+      Vec3D XX(X[nodeNum[i]]);
+      Y0 = XX-P[3];
+      tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+			if(psi<Psi[nodeNum[i]][0]){
+        Psi[nodeNum[i]][0] = psi;
+        if(Tag[nodeNum[i]]==-1) Tag[nodeNum[i]]=tag;
+      }
+    }
+  }	
+	if(type==3){  //1 zero-node and 3 nodes of same sign
+    Psi[nodeNum[reorder[0]]][0] = 0.0;
+    Tag[nodeNum[reorder[0]]] = 1;
+    for (int i=1; i<4; i++){
+      Y0 = P[i] - P[0];
+      computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi);
+      Psi[nodeNum[reorder[i]]][0] = min(psi,Psi[nodeNum[reorder[i]]][0]);
+    }
+		
+  }	
+  if(type==4){  //1 zero-node and 2 nodes of same sign 
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    for(int i=0; i<4; i++){
+      Vec3D XX(X[nodeNum[i]]);
+      Y0 = XX-P[0];
+      tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+      if(psi<Psi[nodeNum[i]][0]){
+        Psi[nodeNum[i]][0] = psi;
+        if(Tag[nodeNum[i]]==-1) Tag[nodeNum[i]]=tag;
+      }
+    }
+    Psi[nodeNum[reorder[1]]][0] = 0.0;
+    Tag[nodeNum[reorder[1]]]    = 1;
+  }	
+  if(type==5){  //2 zero-node and 2 nodes of same sign 
+    Psi[nodeNum[reorder[0]]][0] = 0.0;
+		Tag[nodeNum[reorder[0]]]    = 1;
+    Psi[nodeNum[reorder[1]]][0] = 0.0;
+		Tag[nodeNum[reorder[1]]]    = 1;
+
+    Y1 = P[1]-P[0];
+    for(int i=2; i<4; i++){
+      Y0 = P[i]-P[0];
+      //psi is overwritten in this function, so that node reorder[3] won t get
+      //value from node reorder[2]
+		  computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi);
+      computeDistancePlusPhiToEdge(phi[0],phi[1],Y0,Y1,psi);
+      Psi[nodeNum[reorder[i]]][0] = min(psi,Psi[nodeNum[reorder[i]]][0]);
+    }
+
+  }	
+  if(type==6){  //2 zero-node and 2 nodes of different signs
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    for(int i=0; i<4; i++){
+      Vec3D XX(X[nodeNum[i]]);
+      Y0 = XX-P[0];
+      tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+      if(psi<Psi[nodeNum[i]][0]){
+        Psi[nodeNum[i]][0] = psi;
+        if(Tag[nodeNum[i]]==-1) Tag[nodeNum[i]]=tag;
+      }
+    }
+  }	
+  if(type==7){  //3 zero-node
+		Psi[nodeNum[reorder[1]]][0] = 0.0;
+    Tag[nodeNum[reorder[1]]]    = 1;
+		Psi[nodeNum[reorder[2]]][0] = 0.0;
+    Tag[nodeNum[reorder[2]]]    = 1;
+		Psi[nodeNum[reorder[3]]][0] = 0.0;
+    Tag[nodeNum[reorder[3]]]    = 1;
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    Vec3D XX(X[nodeNum[reorder[0]]]);
+    Y0 = XX-P[0];
+    tag = computeDistanceToAll(phi,Y0,Y1,Y2,psi);
+    if(psi<Psi[nodeNum[reorder[0]]][0]){
+      Psi[nodeNum[reorder[0]]][0] = psi;
+      if(Tag[nodeNum[reorder[0]]]==-1) Tag[nodeNum[reorder[0]]]=tag;
+    }
+  }	
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::recomputeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag)
+{
+	bool found = false;
+  double psi = -1.0;
+	int tag = 0;
+  double phi[3] = {0.0,0.0,0.0};
+	Vec3D Y0,Y1,Y2; //initialized to zero-vector
+	/*fprintf(stdout, "begin -- type=%d\n", type);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[0]], Psi[nodeNum[reorder[0]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[1]], Psi[nodeNum[reorder[1]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[2]], Psi[nodeNum[reorder[2]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[3]], Psi[nodeNum[reorder[3]]][0]);
+	fprintf(stdout, "\n");
+*/
+  // we recompute distances differently for nodes that have Tag = -1
+  // only when the intersection type is 1, 2, 3, 4 or 5, can that distance
+  // be recomputed and only for certain nodes of the tet. 
+  // In other cases, there would be no improvement.
+  // To recompute that distance, we do not compute the distance from
+  // the point to the interface phi=0, but min(phi(x)+|Ax|) where A
+  // is the node we consider and x is a point on the chunk of surface
+  // opposite to A and with the same sign of phi as A.
+	bool show = false;
+
+  if(type==1){  //3 intersection points are on edges strictly
+		Vec3D C1(X[nodeNum[reorder[1]]]);
+		Vec3D C2(X[nodeNum[reorder[2]]]);
+		Vec3D C3(X[nodeNum[reorder[3]]]);
+    //node reorder[1]-oppface=P[2]C2C3+P[1]C2P[2]
+    if(Tag[nodeNum[reorder[1]]]==-1){
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[2]]][0];
+		phi[2] = Psi[nodeNum[reorder[3]]][0];
+		if(show) fprintf(stdout, "1phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C1-P[2];
+    Y1 = C2-P[2];
+    Y2 = C3-P[2];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[1]]][0]){
+      Psi[nodeNum[reorder[1]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[1]]]    = 1;
+    }
+
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[2]]][0];
+		phi[2] = 0.0;
+		if(show) fprintf(stdout, "1phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C1-P[1];
+    Y1 = C2-P[1];
+    Y2 = P[2]-P[1];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[1]]][0]){
+      Psi[nodeNum[reorder[1]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[1]]]    = 1;
+    }
+    }
+
+    //node reorder[2]-oppface=P[0]C3C1+P[2]C3P[0]
+    if(Tag[nodeNum[reorder[2]]]==-1){
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[3]]][0];
+		phi[2] = Psi[nodeNum[reorder[1]]][0];
+		if(show) fprintf(stdout, "2phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C2-P[0];
+    Y1 = C3-P[0];
+    Y2 = C1-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[3]]][0];
+		phi[2] = 0.0;
+		if(show) fprintf(stdout, "2phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C2-P[2];
+    Y1 = C3-P[2];
+    Y2 = P[0]-P[2];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+    }
+    //node reorder[3]-oppface=P[1]C1C2+P[0]C1P[1]
+    if(Tag[nodeNum[reorder[3]]]==-1){
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[1]]][0];
+		phi[2] = Psi[nodeNum[reorder[2]]][0];
+		if(show) fprintf(stdout, "3phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C3-P[1];
+    Y1 = C1-P[1];
+    Y2 = C2-P[1];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+
+    phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[1]]][0];
+		phi[2] = 0.0;
+		if(show) fprintf(stdout, "3phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+    Y0 = C3-P[0];
+    Y1 = C1-P[0];
+    Y2 = P[1]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+    }
+  }
+  if(type==2){  //4 intersection points are on edges strictly
+		Vec3D C0(X[nodeNum[reorder[0]]]);
+		Vec3D C1(X[nodeNum[reorder[1]]]);
+		Vec3D C2(X[nodeNum[reorder[2]]]);
+		Vec3D C3(X[nodeNum[reorder[3]]]);
+    //node reorder[0]-oppface=C1P[1]P[0]
+    if(Tag[nodeNum[reorder[0]]]==-1){
+    phi[0] = Psi[nodeNum[reorder[1]]][0];
+		phi[1] = -phi[0];
+		phi[2] = -phi[0];
+    Y0 = C0-C1;
+    Y1 = P[1]-C1;
+    Y2 = P[0]-C1;
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[0]]][0]){
+      Psi[nodeNum[reorder[0]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[0]]]    = 1;
+    }
+    }
+    //node reorder[1]-oppface=C0P[2]P[3]
+    if(Tag[nodeNum[reorder[1]]]==-1){
+    phi[0] = Psi[nodeNum[reorder[0]]][0];
+		phi[1] = -phi[0];
+		phi[2] = -phi[0];
+    Y0 = C1-C0;
+    Y1 = P[2]-C0;
+    Y2 = P[3]-C0;
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[1]]][0]){
+      Psi[nodeNum[reorder[1]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[1]]]    = 1;
+    }
+    }
+    //node reorder[2]-oppface=C3P[1]P[3]
+    if(Tag[nodeNum[reorder[2]]]==-1){
+    phi[0] = Psi[nodeNum[reorder[3]]][0];
+		phi[1] = -phi[0];
+		phi[2] = -phi[0];
+    Y0 = C2-C3;
+    Y1 = P[1]-C3;
+    Y2 = P[3]-C3;
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+    }
+    //node reorder[3]-oppface=C2P[2]P[0]
+    if(Tag[nodeNum[reorder[3]]]==-1){
+    phi[0] = Psi[nodeNum[reorder[2]]][0];
+		phi[1] = -phi[0];
+		phi[2] = -phi[0];
+    Y0 = C3-C2;
+    Y1 = P[2]-C2;
+    Y2 = P[0]-C2;
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+    }
+  }
+  if(type==3){  //1 zero-node and 3 nodes of same sign
+    //node reorder[1]-oppface=P[0]P[2]P[3]
+    if(Tag[nodeNum[reorder[1]]]==-1){
+		phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[2]]][0];
+		phi[2] = Psi[nodeNum[reorder[3]]][0];
+    Y0 = P[1]-P[0];
+    Y1 = P[2]-P[0];
+    Y2 = P[3]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[1]]][0]){
+      Psi[nodeNum[reorder[1]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[1]]]    = 1;
+    }
+    }
+    //node reorder[2]-oppface=P[0]P[3]P[1]
+    if(Tag[nodeNum[reorder[2]]]==-1){
+		phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[3]]][0];
+		phi[2] = Psi[nodeNum[reorder[1]]][0];
+    Y0 = P[2]-P[0];
+    Y1 = P[3]-P[0];
+    Y2 = P[1]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+    }
+    //node reorder[3]-oppface=P[0]P[1]P[2]
+    if(Tag[nodeNum[reorder[3]]]==-1){
+		phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[1]]][0];
+		phi[2] = Psi[nodeNum[reorder[2]]][0];
+    Y0 = P[3]-P[0];
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+    }
+  }
+  if(type==4){  //1 zero-node and 2 nodes of same sign 
+		Vec3D C2(X[nodeNum[reorder[2]]]);
+		Vec3D C3(X[nodeNum[reorder[3]]]);
+    //node reorder[2]-oppface=P[0]P[2]C3
+    if(Tag[nodeNum[reorder[2]]]==-1){
+		phi[0] = 0.0;
+		phi[1] = 0.0;
+		phi[2] = Psi[nodeNum[reorder[3]]][0];
+    Y0 = C2-P[0];
+    Y1 = P[2]-P[0];
+    Y2 = C3-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+    }
+    //node reorder[3]-oppface=P[0]C2 P[1]
+    if(Tag[nodeNum[reorder[3]]]==-1){
+		phi[0] = 0.0;
+		phi[1] = Psi[nodeNum[reorder[2]]][0];
+		phi[2] = 0.0;
+    Y0 = C3-P[0];
+    Y1 = C2-P[0];
+    Y2 = P[1]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+    }
+  }
+  if(type==5){  //2 zero-node and 2 nodes of same sign 
+    //node reorder[2]-oppface=P[0]P[3]P[1]
+    if(Tag[nodeNum[reorder[2]]]==-1){
+		phi[0] = Psi[nodeNum[reorder[0]]][0];
+		phi[1] = Psi[nodeNum[reorder[3]]][0]-phi[0];
+		phi[2] = Psi[nodeNum[reorder[1]]][0]-phi[0];
+    Y0 = P[2]-P[0];
+    Y1 = P[3]-P[0];
+    Y2 = P[1]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[2]]][0]){
+      Psi[nodeNum[reorder[2]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[2]]]    = 1;
+    }
+    }
+
+    //node reorder[3]-oppface=P[0]P[1]P[2]
+    if(Tag[nodeNum[reorder[3]]]==-1){
+		phi[0] = Psi[nodeNum[reorder[0]]][0];
+		phi[1] = Psi[nodeNum[reorder[1]]][0]-phi[0];
+		phi[2] = Psi[nodeNum[reorder[2]]][0]-phi[0];
+    Y0 = P[3]-P[0];
+    Y1 = P[1]-P[0];
+    Y2 = P[2]-P[0];
+    computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi,show);
+    found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi,show);
+    computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi,show);
+    if(psi<Psi[nodeNum[reorder[3]]][0]){
+      Psi[nodeNum[reorder[3]]][0] = psi;
+      if(found) Tag[nodeNum[reorder[3]]]    = 1;
+    }
+    }
+  }
+/*
+	fprintf(stdout, "end\n");
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[0]], Psi[nodeNum[reorder[0]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[1]], Psi[nodeNum[reorder[1]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[2]], Psi[nodeNum[reorder[2]]][0]);
+	fprintf(stdout, "Psi[%d] = %e\n", nodeNum[reorder[3]], Psi[nodeNum[reorder[3]]][0]);
+	fprintf(stdout, "\n");
+*/
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::computeFM(SVec<double,dim> &Psi)
+{
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                    SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                    SVec<double,dim> &ddz,
+                                    Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+  // We want to get the values of Psi for the nodes that are closest to 
+  // the interface, ie those tagged with value 1
+
+  //find what kind of tetrahedron this is:
+  //  0 - no levelset phi=0 in it
+  //  1 - levelset phi=0 separates tet in 1 and 3 nodes
+  //  2 - levelset phi=0 separates tet in 2 and 2 nodes
+  int reorder[4] = {0,1,2,3}; //no change in ordering
+  Vec3D P[4] = {X[nodeNum[0]],X[nodeNum[1]],X[nodeNum[2]],X[nodeNum[3]]};
+
+  int type = findLSIntersectionPoint(Phi,ddx,ddy,ddz,X,reorder,P,MultiFluidData::LINEAR);
+
+
+  if(type>0)
+    computeDistanceToInterface(type,X,reorder,P,Psi,Tag);
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                    SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                    SVec<double,dim> &ddz,
+                                    Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+  int reorder[4] = {0,1,2,3}; //no change in ordering
+  Vec3D P[4] = {X[nodeNum[0]],X[nodeNum[1]],X[nodeNum[2]],X[nodeNum[3]]};
+
+  int type = findLSIntersectionPoint(Phi,ddx,ddy,ddz,X,reorder,P,MultiFluidData::LINEAR);
+	if(nodeNum[0]==1153||nodeNum[1]==1153||nodeNum[2]==1153||nodeNum[3]==1153)
+		fprintf(stdout, "2 - type for tet %d %d %d %d= %d\n", nodeNum[0],nodeNum[1],nodeNum[2],nodeNum[3],type);
+	if(type>0) recomputeDistanceToInterface(type,X,reorder,P,Psi,Tag);
+	if(nodeNum[0]==1153||nodeNum[1]==1153||nodeNum[2]==1153||nodeNum[3]==1153)
+		fprintf(stdout, "2 - Psi[%d %d %d %d] = [%e %e %e %e]\n", nodeNum[0],nodeNum[1],nodeNum[2],nodeNum[3],Psi[nodeNum[0]][0],Psi[nodeNum[1]][0],Psi[nodeNum[2]][0],Psi[nodeNum[3]][0]);
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void Tet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                    SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi)
+{
+  // We want to get the values of Psi for the nodes that are tagged 
+  // with values 'level', where level>1 
+  // cf Mut, Buscaglia
+  for (int i=0; i<4; i++){
+    if(Tag[nodeNum[i]]==level||Tag[nodeNum[i]]==level+1){ // compute new value
+      double psi = computeDistancePlusPhi(i,X,Psi);
+      Psi[nodeNum[i]][0] = min(Psi[nodeNum[i]][0], psi);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+double Tet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi)
+{
+  // this function computes the following function
+  // min(phi(x)+dist(X[nodeNum[i]] - x), x in opposing face to nodeNum[i])
+  // to compute this minimum, the location of zero gradient is found inside
+  // the tet. If not found, we look at the boundaries, first edges, then 
+  // vertices.
+
+	bool show = false;
+	//if(nodeNum[i]==1153) show = true;
+
+  double minimum = -1.0; // this function will be a distance eventually (>0.0)
+  bool   found = false;
+
+  // list of nodes that define the opposite face.
+  int oppi = 3 - i;
+  int oppn[3]  = {faceDef[oppi][0],faceDef[oppi][1],faceDef[oppi][2]};
+  oppn[0]=nodeNum[oppn[0]]; oppn[1]=nodeNum[oppn[1]]; oppn[2]=nodeNum[oppn[2]];
+	if(show) fprintf(stdout, "\nnode = %d -- opp = %d %d %d\n", nodeNum[i], oppn[0],oppn[1],oppn[2]);
+
+  // setup for computations
+  double phi[3] = {Psi[oppn[0]][0],
+                   Psi[oppn[1]][0]-Psi[oppn[0]][0],
+                   Psi[oppn[2]][0]-Psi[oppn[0]][0]};
+	if(show) fprintf(stdout, "phi = %e %e %e\n", phi[0],phi[1],phi[2]);
+  // coordinate basis to do our computations (not orthogonal!!)
+  Vec3D Y0(X[nodeNum[i]][0]-X[oppn[0]][0],X[nodeNum[i]][1]-X[oppn[0]][1], X[nodeNum[i]][2]-X[oppn[0]][2]);
+  Vec3D Y1(X[oppn[1]][0]-X[oppn[0]][0],X[oppn[1]][1]-X[oppn[0]][1], X[oppn[1]][2]-X[oppn[0]][2]);
+  Vec3D Y2(X[oppn[2]][0]-X[oppn[0]][0],X[oppn[2]][1]-X[oppn[0]][1], X[oppn[2]][2]-X[oppn[0]][2]);
+	if(show){ Y0.print(); Y1.print(); Y2.print(); }
+
+  computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,minimum,show);
+  //fprintf(stdout, "   continuing3 -- mini = %e\n", minimum);
+
+  //fprintf(stdout, "   continuing2 -- mini = %e\n", minimum);
+
+  found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,minimum,show);
+  //fprintf(stdout, "   continuing1 -- mini = %e\n", minimum);
+ // if(found) return minimum;
+	
+  computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,minimum,show);
+
+  return minimum;
+
+}
 //------------------------------------------------------------------------------
 //--------------functions in TetSet class
 //------------------------------------------------------------------------------
@@ -1579,3 +2505,45 @@ void TetSet::computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,d
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void TetSet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                       SVec<double,dim> &ddz,
+                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+  for (int i=0; i<numTets; i++)
+    if (fabs(Tag[tets[i][0]])==1 && fabs(Tag[tets[i][1]])==1 &&
+        fabs(Tag[tets[i][2]])==1 && fabs(Tag[tets[i][3]])==1){
+      tets[i].computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+   }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void TetSet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                       SVec<double,dim> &ddz,
+                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+  for (int i=0; i<numTets; i++)
+    if (Tag[tets[i][0]]==-1 || Tag[tets[i][1]]==-1 ||
+        Tag[tets[i][2]]==-1 || Tag[tets[i][3]]==-1)
+      tets[i].recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void TetSet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi)
+{
+  for (int i=0; i<numTets; i++)
+    if ((Tag[tets[i][0]]==level || Tag[tets[i][1]]==level ||
+         Tag[tets[i][2]]==level || Tag[tets[i][3]]==level   ) 
+   //     &&(Tag[tets[i][0]]==level-1 || Tag[tets[i][1]]==level-1 ||
+    //     Tag[tets[i][2]]==level-1 || Tag[tets[i][3]]==level-1   )
+			 ){
+      //fprintf(stdout, "tet = %d\n", i);
+      tets[i].computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+    }
+}
+//-------------------------------------------------------------------------------

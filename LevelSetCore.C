@@ -20,6 +20,9 @@ LevelSet::LevelSet(IoData &iod, Domain *dom):
   subIt = iod.mf.subIt;
   cfl_psi = iod.mf.cfl;
   typeTracking = iod.mf.typeTracking;
+  copy = iod.mf.copy;
+  conv_eps = iod.mf.eps;
+  diff = bool(iod.mf.outputdiff);
   if(typeTracking == MultiFluidData::GRADIENT){
     fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
   }
@@ -33,6 +36,7 @@ LevelSet::LevelSet(IoData &iod, Domain *dom):
 LevelSet::~LevelSet()
 {
   if(data) delete data;
+  if(lsgrad) delete lsgrad;
 }
 
 //---------------------------------------------------------------------------------------------------------

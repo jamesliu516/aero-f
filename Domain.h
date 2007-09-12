@@ -275,7 +275,22 @@ public:
 			  DistSVec<double,dim> &PsiRes, bool localdt,
 			  int typeTracking);
   template<int dim>
+  void computeDistanceCloseNodes(DistVec<int> &Tag, DistSVec<double,3> &X,
+                                 DistNodalGrad<dim> &lsgrad,
+                                 DistVec<double> &Phi,DistSVec<double,dim> &Psi,
+                                 MultiFluidData::CopyCloseNodes copy);
+  template<int dim>
+  void computeDistanceLevelNodes(DistVec<int> &Tag, int level,
+                                 DistSVec<double,3> &X,DistSVec<double,dim> &Psi,
+                                 double &res, DistVec<double> &Phi,
+                                 MultiFluidData::CopyCloseNodes copy);
+  template<int dim>
   void checkNodePhaseChange(DistSVec<double,dim> &X);
+  template<int dim>
+  void getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi);
+  template<int dim>
+  void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
+
 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 

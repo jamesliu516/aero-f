@@ -25,6 +25,8 @@ template<int dim>
 class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
  private:
+  bool RK4;
+
   DistSVec<double,dim> U0;
   DistSVec<double,dim> k1;
   DistSVec<double,dim> k2;

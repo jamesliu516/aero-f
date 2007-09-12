@@ -678,13 +678,16 @@ struct ICData {
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
-  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1} typeTracking;
+  enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
   int bandlevel;
   int subIt;
   double cfl;
-	int frequency;
-	enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
-	enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
+  int frequency;
+  double eps;
+  int outputdiff;
+  enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
+  enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
+	enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
   ICData icd;
 
   MultiFluidData();

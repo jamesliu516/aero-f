@@ -16,10 +16,13 @@ class LevelSet {
 
   // for reinitialization from Input file
   MultiFluidData::InterfaceTracking typeTracking;  // how to find interface location
+  MultiFluidData::CopyCloseNodes copy;             // true if nodes close to interface are unchanged
   int bandlevel;                                   // number of node layers to reinitialize 
   int localtime;                                   // time stepping is local or global
   int subIt;                                       // max number of subiterations
   double cfl_psi;                                  // cfl for fictitious time step
+  double conv_eps;
+  bool diff;
 
   double invertGasLiquid; //to run Liquid in Gas Simulation....
 
@@ -52,9 +55,17 @@ class LevelSet {
                             DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                             DistSVec<double,dim> &U, DistVec<double> &Phi);
   template<int dim>
+  void reinitializeLevelSetPDE(DistGeoState &geoState,
+                            DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                            DistSVec<double,dim> &U, DistVec<double> &Phi);
+  template<int dim>
   void computeSteadyState(DistGeoState &geoState,
                           DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                           DistSVec<double,dim> &U, DistVec<double> &Phi);
+  template<int dim>
+  void reinitializeLevelSetFM(DistGeoState &geoState,
+                            DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                            DistSVec<double,dim> &U, DistVec<double> &Phi);
 
   bool checkConvergencePsi(int iteration, double &res0);
 

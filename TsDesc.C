@@ -260,7 +260,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
-  timer->setSetupTime();
+  //timer->setSetupTime();
 
 }
 
@@ -270,6 +270,8 @@ template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
 {
 
+  double t0 = timer->getTime();
+
   data->computeCflNumber(it - 1, data->residual / restart->residual);
 
   int numSubCycles = 1;
@@ -277,6 +279,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
+
+  timer->addFluidSolutionTime(t0);
 
   return dt;
 
@@ -338,6 +342,7 @@ void TsDesc<dim>::computeMeshMetrics()
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
     timer->addMeshMetricsTime(t0);
+    timer->addFluidSolutionTime(t0);
   }
 
   if (mmh || hth)
@@ -411,6 +416,8 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   
   output->setMeshMotionHandler(dynamic_cast<RigidMeshMotionHandler *>(mmh));
   output->openAsciiFiles();
+
+  timer->setSetupTime();
 
   if (it == 0) {
     output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);

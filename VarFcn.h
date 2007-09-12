@@ -48,9 +48,9 @@ public:
   template<int dim>
   void primitiveToConservative(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0);
 
-	template<int dim>
-	void updatePhaseChange(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, 
-			DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+  template<int dim>
+  void updatePhaseChange(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, 
+                         DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
 
   void setMeshVel(Vec3D &v)  { meshVel = v; }
 
@@ -135,7 +135,7 @@ public:
   virtual int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0) = 0; 
   //virtual void primitiveToConservative(double *, double *, double = 0.0, double* = 0, double* = 0, int = 0) = 0;
   virtual void primitiveToConservative(double *, double *, double = 0.0) = 0;
-	virtual bool updatePhaseChange(double *, double *, double, double, double *, double){};
+  virtual bool updatePhaseChange(double *, double *, double, double, double *, double){};
   bool doVerification(){ return !(pmin<0 && pminp<0); }
   
   virtual void multiplyBydVdU(double *, double *, double *, double = 0.0) {
@@ -803,8 +803,8 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &U, DistSVec<double,di
 //------------------------------------------------------------------------------
 template<int dim>
 void VarFcn::updatePhaseChange(DistSVec<double,dim> &U, DistSVec<double,dim> &V,
-          DistVec<double> &Phi, DistVec<double> &Phin,
-				 	DistSVec<double,dim> &Riemann, DistVec<double> &weight)
+             DistVec<double> &Phi, DistVec<double> &Phin,
+             DistSVec<double,dim> &Riemann, DistVec<double> &weight)
 {
 
   int numLocSub = U.numLocSub();
@@ -812,15 +812,15 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &U, DistSVec<double,dim> &V,
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     double (*u)[dim] = U.subData(iSub);
     double (*v)[dim] = V.subData(iSub);
-		double *phi = Phi.subData(iSub);
-		double *phin = Phin.subData(iSub);
+    double *phi = Phi.subData(iSub);
+    double *phin = Phin.subData(iSub);
     double (*r)[dim] = Riemann.subData(iSub);
-		double *w = weight.subData(iSub);
-		bool change = false;
+    double *w = weight.subData(iSub);
+    bool change = false;
     for ( int i=0; i<U.subSize(iSub); ++i){
-			change = updatePhaseChange(u[i],v[i],phi[i],phin[i],r[i],w[i]);
-		}
-	}
+      change = updatePhaseChange(u[i],v[i],phi[i],phin[i],r[i],w[i]);
+    }
+  }
 
 
 }

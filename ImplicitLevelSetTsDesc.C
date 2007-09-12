@@ -173,8 +173,10 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
   
   int its;
-  
+
+  double t0 = this->timer->getTime();
   its = this->ns->solve(U);
+  this->timer->addFluidSolutionTime(t0);
 
 
   // Store the primitive variables
@@ -184,7 +186,9 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   //  this->spaceOp->storeGhost(U, this->Phi, *this->Vgf);
 
 
+  double t1 = this->timer->getTime();
   int itsLS = this->ns->solveLS(this->Phi, U);
+  this->timer->addLevelSetSolutionTime(t1);
 
 
   /*if (this->varFcn->getType() == VarFcn::GASINLIQUID) {
@@ -195,7 +199,7 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
     this->varFcn->primitiveToConservative(this->Vg, U, &(this->Phi), &(this->LS->Phin), &this->Vg);
   }*/
 
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
+  this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
 
   checkSolution(U);
 
@@ -366,6 +370,8 @@ int ImplicitLevelSetTsDesc<dim>::solveLinearSystemLS(int it, DistVec<double> &b,
   kspLS->setup(it, this->maxItsNewton, b);
 
   int lits = kspLS->solveLS(b, dQ);
+
+  this->timer->addLSKspTime(t0);
 
   return lits;
 

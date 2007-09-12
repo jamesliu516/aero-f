@@ -590,8 +590,9 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
 
 	//nature of fluid at this node has changed over time
 	}else{
+          assert(weight>0.0);
   	for(int k=0; k<5; k++)
-	 		V[k] = Riemann[k]/weight;
+	 	V[k] = Riemann[k]/weight;
 
 		// from Fluid2 to Fluid1, ie Gas To Gas
 		if(phi>=0.0 && phin<0.0)

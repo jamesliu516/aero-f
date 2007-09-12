@@ -50,12 +50,12 @@ void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, dou
 {
                          
   V[0] = U[0];
-           
-  double invRho = 1.0 / U[0];
-  if (isnan(invRho)){
+  if (U[0]==0.0){
         fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
         exit(1);
   }
+           
+  double invRho = 1.0 / U[0];
                                                                      
   V[1] = U[1] * invRho;
   V[2] = U[2] * invRho;

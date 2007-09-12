@@ -375,6 +375,7 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 			}else if(iod.mf.problem==MultiFluidData::SHOCKTUBE){
       //for shock tube (comments: cf LevelSetCore.C)
         dist = x[i][0] - r;
+        dist = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
         //dist = 0.5*sin(9.0*(x[i][0]-0.50005))+0.35;
         //dist = fabs(x[i][0]-xb) - r;
 			}

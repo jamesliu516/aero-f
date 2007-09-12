@@ -94,6 +94,7 @@ template<int dim>
 double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 				    DistSVec<double,dim> &U)
 {
+  double t0 = this->timer->getTime();
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
 
@@ -102,6 +103,8 @@ double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*this->refVal->time, numSubCycles);
+
+  this->timer->addFluidSolutionTime(t0);
 
   return dt;
 

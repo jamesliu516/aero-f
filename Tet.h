@@ -34,6 +34,9 @@ typedef map<Face, int, less<Face> > MapFaces;
 typedef map<Face, int> MapFaces;
 #endif
 
+#include <complex.h>
+typedef complex<double> bcomp;
+
 //------------------------------------------------------------------------------
 
 class Tet {
@@ -92,7 +95,17 @@ public:
                                 Vec3D A, Vec3D B, Vec3D C, Vec3D D,
                                 double locdphi[4], double locw[4],
                                 double locbeta[4], bool debug);
-
+  double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
+  int findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2, double &root);
+  bool computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
+                                       Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToEdges(double phi[3], Vec3D Y0,
+                                     Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToVertices(double phi[3], Vec3D Y0,
+                                        Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToEdge(double phi0, double phi1,
+                                    Vec3D Y0, Vec3D Y1, double &mini, bool show = false);
+	int computeDistanceToAll(double phi[3],Vec3D Y0,Vec3D Y1,Vec3D Y2, double &psi);
 
 //-----functions in Tet.h
 
@@ -186,6 +199,11 @@ public:
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
+  template<int dim>
+  int findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
 
   template<int dim>
   void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
@@ -207,8 +225,37 @@ public:
                            SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
                            Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
-};
+  template<int dim>
+  void computePsiResidualFM(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,SVec<double,dim> &ddz,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking);
+  template<int dim>
+  void computeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                  Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
+  template<int dim>
+  void recomputeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                  Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
+  template<int dim>
+  void computeFM(SVec<double,dim> &Psi);
 
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+  template<int dim>
+  double computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi);
+
+};
 //------------------------------------------------------------------------------
 
 class TetSet {
@@ -269,6 +316,20 @@ public:
 			  SVec<double,dim> &ddz, Vec<int> &Tag,
 			  Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
 			  int typeTracking);
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+
 
   int size() const { return numTets; }
   
@@ -335,6 +396,10 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
                                       double nGrad[4][3])
 {
 
+  //fprintf(stdout, "A = %e %e %e\n", A[0],A[1],A[2]);
+  //fprintf(stdout, "B = %e %e %e\n", B[0],B[1],B[2]);
+  //fprintf(stdout, "C = %e %e %e\n", C[0],C[1],C[2]);
+  //fprintf(stdout, "D = %e %e %e\n", D[0],D[1],D[2]);
   
   double jac[3][3];
 
@@ -358,6 +423,7 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
 
   // compute inverse matrix of jac
   // Maple code used
+  //fprintf(stdout, "dOmega = %e\n", dOmega);
   double t17 = -1.0/dOmega;
 
   //compute shape function gradients
@@ -381,7 +447,8 @@ double Tet::computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D,
   nGrad[0][1] = -( nGrad[1][1] + nGrad[2][1] + nGrad[3][1] );
   nGrad[0][2] = -( nGrad[1][2] + nGrad[2][2] + nGrad[3][2] );
 
-  return sixth * dOmega;
+  //fprintf(stdout, "dOmega = %e\n", sixth*dOmega);
+  return sixth*dOmega;
 
 
 

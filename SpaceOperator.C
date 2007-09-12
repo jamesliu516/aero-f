@@ -883,8 +883,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -915,8 +918,10 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   DistVec<double> *irey = 0;
   if(timeState)
     irey = timeState->getInvReynolds();
-  else
+  else{
+    irey = new DistVec<double>(domain->getNodeDistInfo());
     *irey = 0.0;
+  }
 
   if (fet) {
     domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
@@ -968,8 +973,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   DistSVec<double,1> PhiS(Phi.info(), reinterpret_cast<double (*)[1]>(Phi.data()));
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+    timer->addNodalGradTime(t0);
+  }
 
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
     ngradLS->compute(geoState->getConfig(), X, ctrlVol, PhiS);
@@ -1024,8 +1032,11 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+    double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);
+    timer->addLSNodalWeightsAndGradTime(t0);
+  }
 
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
     ngradLS->compute(geoState->getConfig(), X, ctrlVol, PhiS);
@@ -1131,22 +1142,25 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
                              DistSVec<double,dim> *Vgf, DistVec<double> *weight)
 {
 
-	if (riemann->DoUpdatePhase())
-		// the solution of the riemann problem is used to replace values of a node
-		// that changed nature (fluid1 to fluid2 or vice versa)
-		// **** GFMPAR-like ****
+  if (riemann->DoUpdatePhase()){
+    // the solution of the riemann problem is used to replace values of a node
+    // that changed nature (fluid1 to fluid2 or vice versa)
+    // **** GFMPAR-like ****
+    //domain->checkWeights(Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
     varFcn->updatePhaseChange(Vg, U, Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
+  }
 
-  else if (Vgf && weight)
-		// an extrapolation is used to replace values of a node
-		// that changed nature (fluid1 to fluid2 or vice versa)
-		// **** GFMPAR-variation ****
+  else if (Vgf && weight){
+    // an extrapolation is used to replace values of a node
+    // that changed nature (fluid1 to fluid2 or vice versa)
+    // **** GFMPAR-variation ****
     varFcn->updatePhaseChange(Vg, U, Phi, Phin, *Vgf, *weight);
+  }
 
-	else
-		// no solution of the riemann problem was computed and we just use
-		// the values that we have to convert back to conservative variables
-		// **** GFMP-like ****
+  else
+    // no solution of the riemann problem was computed and we just use
+    // the values that we have to convert back to conservative variables
+    // **** GFMP-like ****
     varFcn->primitiveToConservative(Vg, U, &Phi);
 
 }

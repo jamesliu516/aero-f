@@ -190,7 +190,7 @@ void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    if(Phi[i]*Phi[j]<0.0){
+    if(Phi[i]*Phi[j]<=1.0e-12){
       Tag[i] = tag;
       Tag[j] = tag;
     }

@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 37;
+  numTimings = 41;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -313,6 +313,20 @@ double Timer::addStructUpdTime(double t0)
 
 //------------------------------------------------------------------------------
 
+double Timer::addFluidSolutionTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[fluid]++;
+  data[fluid] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
 double Timer::addMeshSolutionTime(double t0)
 {
 
@@ -564,6 +578,61 @@ double Timer::addBinaryWriteTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addLevelSetSolutionTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[levelSet]++;
+  data[levelSet] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addLSNodalWeightsAndGradTime(double t0)  {
+
+  double t = getTime() - t0;
+
+  counter[lsNodalWeightsAndGrad]++;
+  data[lsNodalWeightsAndGrad] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addLSFiniteVolumeTermTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[lsFvTerm]++;
+  data[lsFvTerm] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addLSKspTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[lsKsp]++;
+  data[lsKsp] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -580,11 +649,13 @@ void Timer::print(Timer *str, FILE *fp)
   }
 
   data[total] = data[setup] + data[run];
+/*
   data[fluid] = 0.0;
   if (ioData->problem.alltype != ProblemData::_POD_CONSTRUCTION_ &&
      ioData->problem.alltype != ProblemData::_ROM_AEROELASTIC_) {
      data[fluid] = data[run] - data[mesh];
   }
+*/
   data[comm] = data[localCom] + data[globalCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
@@ -618,10 +689,11 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "\n");
   com->fprintf(fp, "Fluid Solution            : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[fluid], tmax[fluid], tavg[fluid]);
-  com->fprintf(fp, "  Nodal Weights           : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[nodalWeights], tmax[nodalWeights], tavg[nodalWeights], 
-	       counter[nodalWeights]);
-  com->fprintf(fp, "  Nodal Gradients         : %10.2f %10.2f %10.2f %9d\n", 
+  //com->fprintf(fp, "  Nodal Weights           : %10.2f %10.2f %10.2f %9d\n", 
+//	       tmin[nodalWeights], tmax[nodalWeights], tavg[nodalWeights], 
+//	       counter[nodalWeights]);
+  //com->fprintf(fp, "  Nodal Gradients         : %10.2f %10.2f %10.2f %9d\n", 
+  com->fprintf(fp, "  Nodal Weights and Grad  : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);
   com->fprintf(fp, "  FV Fluxes               : %10.2f %10.2f %10.2f %9d\n", 
@@ -667,11 +739,27 @@ void Timer::print(Timer *str, FILE *fp)
 	       counter[meshAssembly]);
   com->fprintf(fp, "  Preconditioner Setup    : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup], 
-	       counter[meshPrecSetup]);
+		       counter[meshPrecSetup]);
   com->fprintf(fp, "  Linear Solver           : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[meshKsp], tmax[meshKsp], tavg[meshKsp], 
 	       counter[meshKsp]);
   com->fprintf(fp, "\n");
+
+  // Output Level-Set Timers
+  if (ioData->eqs.numPhase == 2) {
+    com->fprintf(fp, "LevelSet Solution         : %10.2f %10.2f %10.2f         -\n", tmin[levelSet], tmax[levelSet], tavg[levelSet]);
+
+    com->fprintf(fp, "  Nodal Weights and Grad  : %10.2f %10.2f %10.2f %9d\n",
+               tmin[lsNodalWeightsAndGrad], tmax[lsNodalWeightsAndGrad], tavg[lsNodalWeightsAndGrad],
+               counter[lsNodalWeightsAndGrad]);
+    com->fprintf(fp, "  FV Fluxes               : %10.2f %10.2f %10.2f %9d\n",
+               tmin[lsFvTerm], tmax[lsFvTerm], tavg[lsFvTerm], counter[lsFvTerm]);
+    com->fprintf(fp, "  Linear Solver           : %10.2f %10.2f %10.2f %9d\n", tmin[lsKsp], tmax[lsKsp], tavg[lsKsp], counter[lsKsp]);
+    com->fprintf(fp, "\n");
+  }
+
+
+  // Output POD Timers
   if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_) {
     com->fprintf(fp, "POD Basis Construction    : %10.2f %10.2f %10.2f         -\n",
                tmin[podConstr], tmax[podConstr], tavg[podConstr]);

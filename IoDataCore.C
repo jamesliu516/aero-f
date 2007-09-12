@@ -1232,14 +1232,17 @@ MultiFluidData::MultiFluidData()
 {
 
   method = GHOSTFLUID_FOR_POOR;
-	problem = BUBBLE;
-	typePhaseChange = RIEMANN_SOLUTION;
+  problem = BUBBLE;
+  typePhaseChange = RIEMANN_SOLUTION;
   localtime  = GLOBAL;
   typeTracking = LINEAR;
   bandlevel = 3;
   subIt = 10;
-	cfl = 0.7;
-	frequency = 0;
+  cfl = 0.7;
+  frequency = 0;
+  eps = 1.e-6;
+  outputdiff = 0;
+  copy = FALSE;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1247,7 +1250,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 10, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1263,8 +1266,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
   new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),2,
-             "Linear", 0, "Gradient", 1);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
+             "Linear", 0, "Gradient", 1, "Hermite", 2);
   new ClassInt<MultiFluidData>(ca, "BandLevel", this,
              &MultiFluidData::bandlevel);
   new ClassInt<MultiFluidData>(ca, "SubIt", this,
@@ -1273,6 +1276,13 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              &MultiFluidData::cfl);
   new ClassInt<MultiFluidData>(ca, "Frequency", this,
              &MultiFluidData::frequency);
+  new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
+             &MultiFluidData::eps);
+  new ClassInt<MultiFluidData>(ca, "OutputDiff", this,
+             &MultiFluidData::outputdiff);
+  new ClassToken<MultiFluidData>(ca, "CopyCloseNodes", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copy),2,
+             "False", 0, "True", 1);
                                                                                                         
   icd.setup("InitialConditions", ca);
                                                                                                         

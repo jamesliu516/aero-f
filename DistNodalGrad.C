@@ -453,12 +453,14 @@ void DistNodalGrad<dim, Scalar>::computeLS(int config, DistSVec<double,3> &X,
 */
 //------------------------------------------------------------------------------
 template<int dim, class Scalar>
-void DistNodalGrad<dim, Scalar>::compute(DistSVec<double,3> &X,
-				         DistSVec<double,1> &Psi)
+void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
+				         DistSVec<double,dim> &Psi)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  domain->computeWeightsLeastSquares(X,*R);
+  if (config != lastConfig)
+    computeWeights(X);
+
   domain->computeGradientsLeastSquares(X, *R, Psi, *ddx, *ddy, *ddz);
 
 }

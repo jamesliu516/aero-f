@@ -34,11 +34,15 @@ template<int dim>
 int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
 {
 
+  double t0 = this->timer->getTime();
+
   if (RK4) computeRKFourthOrder(U);
   else computeRKSecondOrder(U);
 
   int ierr = checkSolution(U);  // checking solution for negative pressure or density
   if (ierr > 0) exit(1);
+
+  this->timer->addFluidSolutionTime(t0);
 
   return 1;
 

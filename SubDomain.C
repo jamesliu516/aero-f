@@ -2770,7 +2770,6 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &Phi)
 {
-
   int ierr = 0;
   int numclipping= 0;
   double V[dim];
@@ -2807,9 +2806,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &P
         ++ierr;
       }
     }
-    if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
+    //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
-
 
   return ierr;
 
@@ -3231,30 +3229,30 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
 
     if(Phi[i]*Phi[j]<=0.0){ //at interface
       if(weight[i]<1.e-6){
-				weight[i] = 1.0;
-				for(k=0; k<5; k++)
+	weight[i] = 1.0;
+	for(k=0; k<5; k++)
           Vgf[i][k] = Vg[j][k];
       }else{
-				weight[i] += 1.0;
-				for(k=0; k<5; k++)
+	weight[i] += 1.0;
+	for(k=0; k<5; k++)
           Vgf[i][k] += Vg[j][k];
       }
 
       if(weight[j]<1.e-6){
-				weight[j] = 1.0;
-				for(k=0; k<5; k++)
+	weight[j] = 1.0;
+	for(k=0; k<5; k++)
           Vgf[j][k] = Vg[i][k];
       }else{
-				weight[j] += 1.0;
-				for(k=0; k<5; k++)
+	weight[j] += 1.0;
+	for(k=0; k<5; k++)
           Vgf[j][k] += Vg[i][k];
       }
     }
 
-		if(i==1481)
-			fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4],weight[i], j);
-		if(j==1481)
-			fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4],weight[j], i);
+    if(i==1481)
+	fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4],weight[i], j);
+    if(j==1481)
+	fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4],weight[j], i);
    
   }
 
@@ -3323,6 +3321,61 @@ void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, 
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+  for(int i=0; i<nodes.size(); i++)
+    if(Tag[i]==level)
+      Psi[i][0] = fabs(Phi[i]);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       NodalGrad<dim> &grad,
+                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+	for(int i=0; i<nodes.size(); i++){
+    if(Tag[i]==1) Tag[i]=-1;
+    //fprintf(stdout, "Tag[%d(%e %e %e)] = %d (%e)\n", locToGlobNodeMap[i]+1,X[i][0],X[i][1],X[i][2],Tag[i], Phi[i]);
+  }
+  SVec<double,dim>& ddx  = grad.getX();
+  SVec<double,dim>& ddy  = grad.getY();
+  SVec<double,dim>& ddz  = grad.getZ();
+  tets.computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+}
+//-------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                      NodalGrad<dim> &grad, Vec<double> &Phi,
+                                      SVec<double,dim> &Psi)
+{
+
+  SVec<double,dim>& ddx  = grad.getX();
+  SVec<double,dim>& ddy  = grad.getY();
+  SVec<double,dim>& ddz  = grad.getZ();
+  tets.recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+
+}
+//-------------------------------------------------------------------------------
+template<int dim>
+double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,dim> &Psi,Vec<double> &Phi)
+{
+
+  if(level==2)
+  	for(int i=0; i<nodes.size(); i++)
+      if(Tag[i]==-1) Tag[i]=1;
+  tets.computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+  double res = 0.0;
+  for(int i=0; i<nodes.size(); i++)
+    if(Tag[i]==level)
+      res += Psi[i][0]*Psi[i][0];
+
+
+  return res;
+}
+//-------------------------------------------------------------------------------
+template<int dim>
 void SubDomain::checkNodePhaseChange(SVec<double,dim> &X)
 {
 
@@ -3330,6 +3383,32 @@ void SubDomain::checkNodePhaseChange(SVec<double,dim> &X)
     for(int idim=0; idim<dim; idim++)
       if(X[i][idim]<0.0)
         fprintf(stdout, "***Error: node %d (%d) has changed phase during reinitialization\n", i, locToGlobNodeMap[i]+1);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::getSignedDistance(SVec<double,dim> &Psi, Vec<double> &Phi)
+{
+  for(int i=0; i<nodes.size(); i++){
+    if(Phi[i]<0.0)
+      Psi[i][0] = -Psi[i][0];
+		if(Phi[i]<0.0 && Psi[i][0]>0.0)
+			fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i],Psi[i][0]);
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
+                             SVec<double,dim> &Update, Vec<double> &Weight)
+{
+
+  for(int i=0; i<nodes.size(); i++){
+    if(Phi[i]*Phin[i]<0.0 && !(Weight[i]>0.0)){
+      fprintf(stdout, "node %d (loc %d in %d) has weight = %f\n", locToGlobNodeMap[i]+1,i,globSubNum,Weight[i]);
+      fprintf(stdout, "   update = %e %e %e %e %e\n", Update[i][0],Update[i][1],Update[i][2],Update[i][3],Update[i][4]);
+    }
+  }
+
 
 }
 //------------------------------------------------------------------------------

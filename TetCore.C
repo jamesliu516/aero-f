@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <complex.h>
 
 const double Tet::third = 1.0/3.0;
 const double Tet::fourth = 1.0/4.0;
@@ -1031,229 +1032,6 @@ void Tet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq,
 
 
 //------------------------------------------------------------------------------
-/*
-int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx, 
-				 SVec<double,dim> &ddy, SVec<double,dim> &ddz, 
-				 SVec<double,3> &X, 
-				 int reorder[4], Vec3D P[4])
-{
-
-  // 1 - find which case we are dealing with, ie how many nodes have
-  //     positive phis and how many have negative phis
-  int positive = 0;
-  int negative = 0;
-  int zero     = 0;
-  for (int i=0; i<4; i++)
-    if (Phi[nodeNum[i]]<0.0)
-      negative++;
-    else if(Phi[nodeNum[i]]>0.0)
-      positive++;
-    else
-      zero++;
-  assert(negative>0 || positive>0);
-
-  // 2 - orient the tet if necessary (node renumbering from 0 to 3,
-  //         which is different again from the local node numbering!)
-  //     if all nodes have same phi sign --> nothing to do
-  //     if one node is different from the others --> make it be the node 0
-  //     if two nodes are different --> first node is unchanged ie reorder[0]=0
-  //                                    make sure that reoder[1] has same sign of phi as reorder[0]
-  int scenario;                         // which configuration to run
-
-  if(negative==0 || positive==0)
-    scenario = 0;
-  else if(positive==2 && negative==2){
-    scenario = 2;
-    if(Phi[nodeNum[0]]*Phi[nodeNum[1]]<0.0){
-    //swap if need be so that reorder[0] and reorder[1] have same sign
-      if(Phi[nodeNum[0]]*Phi[nodeNum[2]]>0.0){
-        reorder[1] = 2;
-        reorder[2] = 3;
-        reorder[3] = 1;
-      }else{
-        reorder[1] = 3;
-        reorder[2] = 1;
-        reorder[3] = 2;
-      }
-    }
-  }
-  else{//1-vs-3 case including zero cases
-    scenario = 1;
-    int tempi = 0;
-    if(positive==1){ // we want to find i such that Phi[nodeNum[i]]>0.0
-      while(!(Phi[nodeNum[tempi]]>0.0))
-        tempi++;
-    }
-    else if(negative==1){
-      while(!(Phi[nodeNum[tempi]]<0.0))
-        tempi++;
-    }
-    if(tempi==1){
-      reorder[0] = 1;
-      reorder[1] = 2;
-      reorder[2] = 0;
-      reorder[3] = 3;
-    }else if(tempi==2){
-      reorder[0] = 2;
-      reorder[1] = 0;
-      reorder[2] = 1;
-      reorder[3] = 3;
-    }else if(tempi==3){
-      reorder[0] = 3;
-      reorder[1] = 0;
-      reorder[2] = 2;
-      reorder[3] = 1;
-    }
-  
- 
-  }
-
-  if(true){
-    findLSIntersectionPointLinear(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
-    return scenario;
-  }
-  else if(true){
-    findLSIntersectionPointGradient(Phi,ddx,ddy,ddz,X,reorder,P,scenario);
-    return scenario;
-  }else{
-    fprintf(stdout, "Problem in Tet\n");
-    exit(1);
-  }
-
-}
-
-//------------------------------------------------------------------------------
-void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx,
-                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
-                                 int reorder[4], Vec3D P[4], int scenario)
-{
-
-  Vec3D C0  = X[nodeNum[reorder[0]]];
-  Vec3D C1  = X[nodeNum[reorder[1]]];
-  Vec3D C2  = X[nodeNum[reorder[2]]];
-  Vec3D C3  = X[nodeNum[reorder[3]]];
-
-  double ksi[4] = {-1.0, -1.0, -1.0, -1.0};
-
-  // 3 - find the intersection point when they exist
-  if (scenario==0){ //sign(phi) is constant in tet
-  }
-  else if (scenario==2){
-  // nodes reorder[0] and reorder[1] have same sign1
-  // nodes reorder[2] and reorder[3] have same sign2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  //                                 reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
-  //                                 reorder[1]-reorder[2] in P0
-
-    //parametric coordinates of P0, P1, P2, P3
-    ksi[0] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[1] = Phi[nodeNum[reorder[1]]]/(Phi[nodeNum[reorder[1]]]-Phi[nodeNum[reorder[3]]]);
-    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[3] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
-    P[0] = (1.0-ksi[0])* C1 + ksi[0] * C2;
-    P[1] = (1.0-ksi[1])* C1 + ksi[1] * C3;
-    P[2] = (1.0-ksi[2])* C0 + ksi[2] * C2;
-    P[3] = (1.0-ksi[3])* C0 + ksi[3] * C3;
-
-  }
-  else if (scenario==1){
-  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
-
-    //parametric coordinates of P1, P2, P3 on their edge
-    ksi[0] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[1]]]);
-    ksi[1] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[2]]]);
-    ksi[2] = Phi[nodeNum[reorder[0]]]/(Phi[nodeNum[reorder[0]]]-Phi[nodeNum[reorder[3]]]);
-
-    //physical coordinates of P1, P2, P3
-    P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
-    P[1] = (1.0-ksi[1]) * C0 + ksi[1] * C2;
-    P[2] = (1.0-ksi[2]) * C0 + ksi[2] * C3;
-    //P[3] = C3 is not modified and should not be used later.
-
-  }
-
-
-}
-
-//------------------------------------------------------------------------------
-void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
-                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
-				 SVec<double,3> &X,
-                                 int reorder[4], Vec3D P[4], int scenario)
-{
-// the variation of phi is not assumed to be linear in the tet.
-// we approximate the variations of phi around point i as a linear function,
-// for which the zero is found. Same is done for point j. Then the mean of those
-// two zeros is considered as the intersection of the phi=0 plane and the edges
-// considered, ie i-j
-
-  Vec3D C[4];
-  for(int i=0;i<4;i++)
-    C[i]  = X[nodeNum[reorder[i]]];
-
-  Vec3D dphii;
-  Vec3D dphij;
-
-  if(scenario==0){
-  // nothing to do since sign(phi) = constant in tet
-
-  }else if(scenario==1){
-  // node reorder[0] is the only node with sign(phi[reorder[0]]) strictly
-  // the plane phi=0 will cross edge reorder[0]-reorder[1] in P1
-  // the plane phi=0 will cross edge reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  // Note that Pk can be reorder[k] itself (k=1,2,3)
-    double phii,phij,gradi,gradj;
-    Vec3D nedge;
-  
-    for(int j=0; j<3; j++){
-      nedge = C[j+1] - C[0];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  0]]]/gradi;
-      phij = Phi[nodeNum[reorder[j+1]]]/gradj;
-      P[j] = 0.5*(C[0] + C[j+1] - (phii+phij)*nedge);
-    }
-
-
-  }else if(scenario==2){
-  // nodes reorder[0] and reorder[1] have same sign1
-  // nodes reorder[2] and reorder[3] have same sign2
-  // the plane phi=0 will cross edge reorder[0]-reorder[3] in P3
-  //                                 reorder[0]-reorder[2] in P2
-  // the plane phi=0 will cross edge reorder[1]-reorder[3] in P1
-  //                                 reorder[1]-reorder[2] in P0
-    double phii,phij,gradi,gradj;
-    Vec3D nedge;
-
-    for(int j=2; j<4; j++){
-      nedge = C[j] - C[0];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  0]]]/gradi;
-      phij = Phi[nodeNum[reorder[  j]]]/gradj;
-      P[j] = 0.5*(C[0] + C[j] - (phii+phij)*nedge);
-    }
-    for(int j=2; j<4; j++){
-      nedge = C[j] - C[1];
-      gradi = dphii*nedge;
-      gradj = dphij*nedge;
-      phii = Phi[nodeNum[reorder[  1]]]/gradi;
-      phij = Phi[nodeNum[reorder[  j]]]/gradj;
-      P[j-2] = 0.5*(C[1] + C[j] - (phii+phij)*nedge);
-    }
-
-  }
-
-
-}*/
-//------------------------------------------------------------------------------
 
 void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
 				   Vec3D A, Vec3D B, Vec3D C, Vec3D D,
@@ -1274,6 +1052,7 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
   //compute gradient of shape functions
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(A,B,C,D, dp1dxj);
+  if(vol<= 0.0) fprintf(stdout, "vol = %e\n", vol);
   assert(vol>0);
 
   double n[4][3];
@@ -1356,6 +1135,373 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
       locbeta[i] += Kp[i]/alphatot;
   }
 
+}
+//------------------------------------------------------------------------------
+double Tet::findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2)
+{
+// finds one root between 0 and 1 of the Hermite interpolation polynomial
+// that verifies P(0)  = f1    P(1)  = f2
+//               P'(0) = fp1   P'(1) = fp2
 
+  double coeff[4] = { 2.0*(f1-f2)+fp1+fp2, -3.0*(f1-f2)-2.0*fp1-fp2, fp1, f1};
+  double coeffp[3] = {3.0*coeff[0],2.0*coeff[1],coeff[2]};
+  
+  double eps = 1.e-6;                  //precision
+  double xn = 0.5;                     //initial guess
+  bool notConverged = true;
+  int maxIts = 100;
+  int it = 0;
+  int ierr = 0;
+  double xnp1, f, fp, xn2,xn3;
+  while(notConverged){
+    xn2 = xn*xn;
+    xn3 = xn*xn2;
+    f  = coeff[0]*xn3 + coeff[1]*xn2 + coeff[2]*xn + coeff[3];
+    fp = coeffp[0]*xn2 + coeffp[1]*xn + coeffp[2];
+    assert(fp!= 0.0);
+    xnp1 = xn - f/fp;
+    if( fabs((xnp1-xn)/(xnp1+xn)) < eps) notConverged = false;
+    xn = xnp1;
+    it++;
+    if(it>maxIts){
+      ierr++;
+      fprintf(stdout, "*** Error: max iteration reached in Newton-Raphson solver for Hermite\n");
+      notConverged = false;
+    }
+  }
+
+  // check value of xn
+  if(xn<0.0 || xn>1.0) {
+    ierr++;
+    fprintf(stdout, "*** Error: solution(%e) is out of bound in Hermite polynomial root finder\n",xn);
+  }
+
+  return xn;
+}
+//------------------------------------------------------------------------------
+extern int zroots(bcomp *a, int degree, bcomp *roots, const bool &polish);
+int Tet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2,
+                                    double &root)
+{
+/* The Laguerre method (cf Numerical Recipes in C++) is used to find
+** the roots of the polynomial we are considering.
+** However we need only one solution that lies between 0 and 1.
+** We choose the one that fits, and if there are several of them, 
+** we revert to a linear interpolation to find the interface location
+** instead of Hermite interpolation polynomial.
+** Function returns the number of real roots in [0,1]. If there are
+** several, root contains the 'last' corresponding one.
+*/
+
+  int degree = 3; //degree of the polynomial
+  bcomp coeff[degree+1]; //coeff of the polynomial
+  coeff[3] = bcomp(2.0*(f1-f2)+fp1+fp2,0.0);
+  coeff[2] = bcomp(-3.0*(f1-f2)-2.0*fp1-fp2,0.0);
+  coeff[1] = bcomp(fp1,0.0);
+  coeff[0] = bcomp(f1,0.0);
+
+
+  bcomp roots[degree]; //roots of the polynomial
+  int err = zroots(coeff, degree, roots, true);
+  if(err>0) return 1000;
+
+  //check which real one is in the bounds [0,1]
+  int counter = 0;
+  int index = -1;
+  double eps = 1.0e-7;
+  for(int i=0; i<degree; i++)
+    if(fabs(imag(roots[i]))<eps*fabs(real(roots[i])) &&  // check that the root is real
+       real(roots[i]) <= 1.0                         &&  // check bounds of that root
+       real(roots[i]) >= 0.0                          ){
+      counter++;
+      index = i;
+    }
+
+  root = real(roots[index]); //we assume f1*f2<0 and 
+                             //thus there must be such a solution 
+                             //and index should be well defined!
+  return counter;
+}
+
+//------------------------------------------------------------------------------
+bool Tet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
+                                          Vec3D Y1, Vec3D Y2, double &mini, bool show)
+{
+  bool found  = false;
+  double eps = 1.0e-14;
+  double one  = 1.0;
+  double zero = 0.0;
+	double tol1 = eps*Y1.norm();
+	double tol2 = eps*Y2.norm();
+  // mini is assumed to already have some distance, usually set by 
+  // distance to vertices
+	
+  // strategy is as follows:
+  // find point on opposite face where minimum is attained
+  // the point to find is defined by a vector originating on the node i
+  // this vector Z is equal to Z_ortho+Z2*y2+Z3*y3
+  // where Z_ortho is the orthogonal component wrt to the opp face
+  //       y2 is the vector Y1 (edge between nodes 0 and 1 of opp face)
+  //       y3 is the vector Y2 (edge between nodes 0 and 2 of opp face)
+  // This vector can be expressed as Y0 + alpha*Y1 + beta*Y2
+  // We solve a 2-by-2 system to get alpha and beta.
+  // Finally, we compute values at that point and thus determine the minimum
+
+
+  Vec3D normalY = Y1 ^ Y2;
+  normalY /= normalY.norm();
+  double orthogonal = Y0 * normalY;
+
+  // constants
+  double y2sq = Y1 * Y1;
+  double y3sq = Y2 * Y2;
+  double K  = Y1 * Y2;
+  // to solve 2-by-2 system
+  double det = y2sq*y3sq - K*K;
+  det = 1.0/det;
+  double alpha, beta;
+
+  if(fabs(phi[1])<tol1 && fabs(phi[2])<tol2){
+    //solution is the projection of X[nodeNum[i]] on that face
+    double rhs[2] = {Y0 * Y1, Y0 * Y2};
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+			if(show) fprintf(stdout, "face1 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+      return true;
+    }
+    return false;
+  }else if(fabs(phi[1])<tol1){
+    //
+    double temp = y3sq - K*K/y2sq;
+    //if(fabs(temp-phi[2]*phi[2])<tol2*tol2) return false;
+		assert(temp-phi[2]*phi[2]!=0.0);
+    double Z3sq = phi[2]*phi[2]*orthogonal*orthogonal/(temp*(temp-phi[2]*phi[2]));
+    if(Z3sq<0.0) return false;
+
+    //first solution
+    double Z3 = sqrt(Z3sq);
+    double Z2 = -K*Z3/y2sq;
+    double rhs[2] = {Y0*Y1 - (Z2*y2sq+Z3*K), Y0*Y2 - (Z3*y3sq+Z2*K)};
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case1       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+			if(show) fprintf(stdout, "face2 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+      found = true;
+    }
+    //second solution
+    Z3 = -Z3;
+    Z2 = -K*Z3/y2sq;
+    rhs[0] = Y0*Y1 - (Z2*y2sq+Z3*K);
+    rhs[1] = Y0*Y2 - (Z3*y3sq+Z2*K);
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case1       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+			if(show) fprintf(stdout, "face3 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      found = true;
+    }
+    return found;
+
+  }else if(fabs(phi[2])<tol2){
+    //
+    double temp = y2sq - K*K/y3sq;
+    //if(fabs(temp-phi[1]*phi[1])<tol1*tol1) return false;
+		assert(temp-phi[1]*phi[1]!=0.0);
+    double Z2sq = phi[1]*phi[1]*orthogonal*orthogonal/(temp*(temp-phi[1]*phi[1]));
+    if(Z2sq<0.0) return false;
+
+    //first solution
+    double Z2 = sqrt(Z2sq);
+    double Z3 = -K*Z2/y3sq;
+    double rhs[2] = {Y0*Y1 - (Z2*y2sq+Z3*K), Y0*Y2 - (Z3*y3sq+Z2*K)};
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case2       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+			if(show) fprintf(stdout, "face4 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      found = true;
+    }
+    //second solution
+    Z2 = -Z2;
+    Z3 = -K*Z2/y3sq;
+    rhs[0] = Y0*Y1 - (Z2*y2sq+Z3*K);
+    rhs[1] = Y0*Y2 - (Z3*y3sq+Z2*K);
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case2       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+			if(show) fprintf(stdout, "face5 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+      found = true;
+    }
+    return found;
+
+  }else{
+    //general case
+    double K2 = phi[1]*K - phi[2]*y2sq;
+    double K3 = phi[2]*K - phi[1]*y3sq;
+    double K2sq = K2*K2;
+    double K3sq = K3*K3;
+    double denom = -phi[1]*phi[2]*(K3sq*y2sq+K2sq*y3sq+2.0*K*K2*K3);
+    denom += (K*K3+y3sq*K2)*(K3*y2sq+K*K2);
+		if(show) fprintf(stdout, "tol1 = %e -- tol2 = %e -- K2 = %e -- K3 = %e -- denom = %e\n", tol1,tol2,K2, K3, denom);
+		//if(fabs(denom)<tol1*tol2) return false;
+		if(denom==0.0) return false;
+
+    double Z2,Z3;
+    //first solution
+    if(K3!=0.0){
+      double Z2sq = (K3sq*phi[1]*phi[2]*orthogonal*orthogonal)/denom;
+      if(Z2sq<0.0) return false;
+      Z2 = sqrt(Z2sq);
+      Z3 = K2*Z2/K3;
+    }else if(K2!=0.0){
+      double Z3sq = (K2sq*phi[1]*phi[2]*orthogonal*orthogonal)/denom;
+      if(Z3sq<0.0) return false;
+      Z3 = sqrt(Z3sq);
+      Z2 = K3*Z3/K2;
+    }else{
+      fprintf(stdout, "***Error: K3 = K2 = 0 in reinitialization\n");
+      exit(1);
+    }
+    double rhs[2] = {Y0*Y1 - (Z2*y2sq+Z3*K), Y0*Y2 - (Z3*y3sq+Z2*K)};
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case3       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+			if(show) fprintf(stdout, "face6 - %e %e %e\n", alpha, beta, phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+      found = true;
+    }
+
+    //second solution
+    Z2 = -Z2;
+    Z3 = -Z3;
+    rhs[0] = Y0*Y1 - (Z2*y2sq+Z3*K);
+    rhs[1] = Y0*Y2 - (Z3*y3sq+Z2*K);
+    alpha = det *(y3sq*rhs[0]-   K*rhs[1]);
+    beta  = det *(  -K*rhs[0]+y2sq*rhs[1]);
+    if(show) fprintf(stdout, "case3       alpha = %e and beta = %e\n", alpha, beta);
+    if(alpha>= zero && alpha <= one &&
+       beta >= zero && beta  <= one &&
+       alpha+beta<= one){
+			if(show) fprintf(stdout, "face7 - %e\n", phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm()); 
+      mini = min(mini,phi[0]+alpha*phi[1]+beta*phi[2] + (Y0 - alpha*Y1 - beta*Y2).norm());
+      found = true;
+    }
+    return found;
+  }
+
+  return false;
 
 }
+//------------------------------------------------------------------------------
+bool Tet::computeDistancePlusPhiToEdges(double phi[3], Vec3D Y0,
+                                        Vec3D Y1, Vec3D Y2, double &mini, bool show)
+{
+  bool found = false;
+  //1st edge
+  found = computeDistancePlusPhiToEdge(phi[0],phi[1],Y0,Y1,mini, show);
+
+  //2nd edge
+  found = computeDistancePlusPhiToEdge(phi[0],phi[2],Y0,Y2,mini, show);
+
+  //3rd edge
+  found = computeDistancePlusPhiToEdge(phi[1]+phi[0],phi[2]-phi[1],Y0-Y1,Y2-Y1,mini, show);
+
+  return found;
+}
+//------------------------------------------------------------------------------
+bool Tet::computeDistancePlusPhiToEdge(double phi0, double phi1,
+                                       Vec3D Y0, Vec3D Y1, double &mini, bool show)
+{
+  bool found = false;
+	double eps = 1.0e-14;
+  // same approach is used as in computeDistancePlusPhiToOppFace
+  // except that it is one dimensional (along an edge) and thus we 
+  // have only one parameter alpha (instead of two).
+
+  // normal to Y1 in (Y0,Y1)-plane can be written n = n0*Y0+n1*Y1 
+  // note that Y0 and Y1 are not necessarily orthogonal.
+
+
+  double K = Y0 * Y1;
+  double y1sq = Y1 * Y1;
+  Vec3D n = Y0 -K/y1sq * Y1; 
+	double normn = n.norm();
+	if(normn==0.0) return false;
+  n /= normn;
+  double orthogonal = Y0 * n;
+
+  if(y1sq==phi1*phi1) return false;
+	//if(fabs(y1sq-phi1*phi1)<eps*Y1.norm()) return false;
+  double Z1sq = phi1*phi1*orthogonal*orthogonal/(y1sq*(y1sq-phi1*phi1));
+  if(Z1sq<0.0) return false;
+
+  double Z1 = sqrt(Z1sq);
+  double alpha = (K - Z1*y1sq)/y1sq;
+  if(alpha>=0.0 && alpha<=1.0){
+	  if(show) fprintf(stdout, "edge1 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
+    found = true;
+    mini = min(mini,phi0+alpha*phi1 + (Y0 - alpha*Y1).norm());
+  }
+  Z1 = -Z1;
+  alpha = (K - Z1*y1sq)/y1sq;
+  if(alpha>=0.0 && alpha<=1.0){
+    found = true;
+	  if(show) fprintf(stdout, "edge2 -%e %e\n", alpha, phi0+alpha*phi1+ (Y0 - alpha*Y1).norm()); 
+    mini = min(mini,phi0+alpha*phi1 + (Y0 - alpha*Y1).norm());
+  }
+
+  return found;
+}
+//------------------------------------------------------------------------------
+bool Tet::computeDistancePlusPhiToVertices(double phi[3], Vec3D Y0,
+                                           Vec3D Y1, Vec3D Y2, double &mini, bool show)
+{
+  // only possibilities left are the vertices.
+  mini = phi[0]+Y0.norm();
+  mini = min(mini, phi[1]+phi[0]+(Y0-Y1).norm());
+  mini = min(mini, phi[2]+phi[0]+(Y0-Y2).norm());
+	if(show) fprintf(stdout, "vertices - %e %e %e\n", phi[0]+Y0.norm(),phi[1]+phi[0]+(Y0-Y1).norm(),phi[2]+phi[0]+(Y0-Y2).norm());
+	//if(mini<1.0e-14*Y0.norm() || mini<1.0e-14*Y1.norm() || mini<1.0e-14*Y2.norm()) return true;
+	return false;
+
+}
+//------------------------------------------------------------------------------
+int Tet::computeDistanceToAll(double phi[3], Vec3D Y0, Vec3D Y1, Vec3D Y2, double &psi)
+{
+  double eps = 1.0e-14;
+
+  // psi is overwritten here by this function!
+  computeDistancePlusPhiToVertices(phi,Y0,Y1,Y2,psi);
+
+
+  bool found = computeDistancePlusPhiToOppFace(phi,Y0,Y1,Y2,psi);
+	if(found) return 1;
+
+  computeDistancePlusPhiToEdges(phi,Y0,Y1,Y2,psi);
+	//if(psi<eps*Y0.norm()||psi<eps*Y1.norm()||psi<eps*Y2.norm()) return 1;
+  return -1;
+
+}
+
+

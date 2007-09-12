@@ -34,13 +34,10 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
                                         (x[i][2] -zb)*(x[i][2] -zb))  -r);
         //phi[i] = 2.0*sin(phi[i]/4.0)+1.3;
       }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
-      //for shock tube (comments: cf LevelSetCore.C)
-        phi[i] = x[i][0] - r;
-        //phi[i] = xb*sin(zb*(x[i][0]-0.50005))+yb;
-        //phi[i] = fabs(x[i][0]-xb) - r;
+          phi[i] = x[i][0] - r;
+					phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
       }
       phi[i] *= u[i][0];
-      //fprintf(stdout, "%e %e %e %e\n", x[i][0],dist, phi[i], u[i][0]);
     }
   }
   Phin   = Phi;
@@ -55,7 +52,6 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
     Phin = PhiRead;
 
     if (data->use_nm1){
-      fprintf(stdout, "setup LS: data->unse_nm1\n");
       DistSVec<double,1> ReadPhi1(domain->getNodeDistInfo());
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
       DistVec<double> PhiRead1(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi1.data()));
@@ -63,7 +59,6 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
     }
 
     if (data->use_nm2){
-      fprintf(stdout, "setup LS: data->unse_nm2\n");
       DistSVec<double,1> ReadPhi2(domain->getNodeDistInfo());
       data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
       DistVec<double> PhiRead2(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi2.data()));
@@ -72,11 +67,9 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
   }
 
   if (data->use_nm1 && !data->exist_nm1){
-    fprintf(stdout, "setup LS: data->use_nm1 && !data->exist_nm1\n");
     Phinm1 = Phin;
   }
   if (data->use_nm2 && !data->exist_nm2){
-    fprintf(stdout, "setup LS: data->use_nm2 && !data->exist_nm2\n");
     Phinm2 = Phinm1;
   }
 
@@ -123,8 +116,20 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 				    DistSVec<double,dim> &U, DistVec<double> &Phi)
 {
+  com->fprintf(stdout, "reinitializing\n");
+  if(false)
+    reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
+  else if(true)
+    reinitializeLevelSetFM(geoState,X,ctrlVol,U,Phi);
 
-  fprintf(stdout, "reinitializing LevelSet\n");
+}
+//-------------------------------------------------------------------------
+template<int dim>
+void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState, 
+				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+				    DistSVec<double,dim> &U, DistVec<double> &Phi)
+{
+
   /* solving reinitialization equation for the level set
   ** dphi/dt + sign(phi)*(abs(grad(phi))-1.0) = 0.0
   ** where phi is the 'primitive phi'
@@ -156,6 +161,7 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
   //computeSteadyState(geoState, X, ctrlVol, U, Phi0); // for testing only!!
   computeSteadyState(geoState, X, ctrlVol, U, Phi);
 
+  //fprintf(stdout, "computeSteadyState done\n");
   // psi is set to max(values of neighbours with tag>0) if tag is 0
   bool lastlevel = false;
   while(!lastlevel){
@@ -164,11 +170,13 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
     lastlevel = (Tag.min()==0 ? false : true);
   }
 
+  //fprintf(stdout, "FinishReinitialization done\n");
   DistSVec<double,1> testsign(domain->getNodeDistInfo());
   testsign = Psi;
   testsign *= Phi;
   domain->checkNodePhaseChange(testsign);
 
+  //fprintf(stdout, "CheckNodePhaseChange done\n");
   // set Phi to the new distance function
   DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
   Phi = distance;
@@ -186,9 +194,9 @@ void LevelSet::computeSteadyState(DistGeoState &geoState,
   int iteration = 0;
   double res0;
 
-  //lsgrad->compute(geoState.getConfig(), X, ctrlVol, Psi);
-  //lsgrad->compute(X,Psi);
   //need to compute only for tagged nodes =1 ie for nodes close to interface!
+  if(typeTracking != MultiFluidData::LINEAR)
+    lsgrad->compute(geoState.getConfig(),X,Psi);
 
   while(!lastIt){
 
@@ -213,3 +221,52 @@ void LevelSet::computeSteadyState(DistGeoState &geoState,
 
 }
 
+//-------------------------------------------------------------------------
+template<int dim>
+void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState, 
+				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+				    DistSVec<double,dim> &U, DistVec<double> &Phi)
+{
+
+  // initialize Psi
+  Psi = 0.1;
+
+  // tag nodes that are close to interface up to level 'bandlevel'
+	com->fprintf(stdout, "Tagging nodes\n");
+  int level = 0;
+  for (level=0; level<bandlevel; level++)
+    domain->TagInterfaceNodes(Tag,Phi,level);
+
+
+  //compute distance for Psi<=0.5 and level<bandlevel
+  // first, the nodes with tag = 1 (ie closest nodes to interface)
+	com->fprintf(stdout, "computing distance for close nodes to interface\n");
+  domain->computeDistanceCloseNodes(Tag,X,*lsgrad,Phi,Psi,copy);
+  // second, the other nodes
+  // we proceed layer by layer, going from one layer to the other
+  // when a layer is converged.
+  double res,resn,resnm1;
+  double eps = conv_eps;
+  int it=0;
+  for (level=2; level<bandlevel; level++){
+    com->fprintf(stdout, "*** level = %d\n", level);
+    res = 1.0;
+    resn = 1.0; resnm1 = 1.0;
+    it = 0;
+    while(res>eps || it<=1){
+      resnm1 = resn;
+      domain->computeDistanceLevelNodes(Tag,level,X,Psi,resn,Phi,copy);
+      res = fabs((resn-resnm1)/(resn+resnm1));
+      it++;
+    }
+  }
+
+  domain->getSignedDistance(Psi,Phi);
+
+  // set Phi to the new distance function
+  DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
+  if(diff)
+    Phi -= distance;
+  else
+    Phi = distance;
+}

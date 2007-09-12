@@ -702,7 +702,26 @@ public:
   void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
                            SVec<double,dim> &PsiRes,bool localdt);
   template<int dim>
+  void copyCloseNodes(int level, Vec<int> &Tag,Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 NodalGrad<dim> &grad,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 NodalGrad<dim> &grad,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  double computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+
+  template<int dim>
   void checkNodePhaseChange(SVec<double,dim> &X);
+  template<int dim>
+  void getSignedDistance(SVec<double,dim> &Psi, Vec<double> &Phi);
+  template<int dim>
+  void checkWeights(Vec<double> &Phi, Vec<double> &Phin,
+                    SVec<double,dim> &Update, Vec<double> &Weight);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,

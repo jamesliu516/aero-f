@@ -30,6 +30,9 @@ ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   U0(this->getVecInfo()), Phi0(this->getVecInfo())
 {
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
+
+  if(ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_4) RK4 = true;
+  else RK4 = false;
 }
 
 //------------------------------------------------------------------------------
@@ -54,27 +57,37 @@ int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 	** 4- V -> U using the new rho*phi
 	*/
 
-	
+  //this->com->fprintf(stdout, "solveNonLinearSystem1\n");
   solveNonLinearSystemEuler(U);
 
+  //this->com->fprintf(stdout, "solveNonLinearSystem2\n");
   this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
 
+  //this->com->fprintf(stdout, "solveNonLinearSystem3\n");
   solveNonLinearSystemLevelSet(U);
 
-	this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
+  //this->com->fprintf(stdout, "solveNonLinearSystem4\n");
+  this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight);
 
+  //this->com->barrier();
+  //this->com->fprintf(stdout, "solveNonLinearSystem5\n");
   checkSolution(U);
+  //this->com->fprintf(stdout, "solveNonLinearSystem6\n");
+
 
   return 1;
-
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemEuler(DistSVec<double,dim> &U)
 {
+  double t0 = this->timer->getTime();
+
+  if (RK4){
   DistSVec<double,dim> Ubc(this->getVecInfo());
-	this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
 
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
@@ -105,15 +118,39 @@ void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemEuler(DistSVec<double,dim>
 
 
   this->spaceOp->applyBCsToSolutionVector(U);
+  }
 
-  int ierr = checkSolution(U);
-  if (ierr > 0) exit(1);
+
+  else{
+  DistSVec<double,dim> Ubc(this->getVecInfo());
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+
+  computeRKUpdate(U, k1,1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+
+  U0 = U - k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  computeRKUpdate(U0, k2,2);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+
+  U -= 1.0/2.0 * (k1 + k2);
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+  this->spaceOp->applyBCsToSolutionVector(U);
+  
+  }
+  this->timer->addFluidSolutionTime(t0);
+
+  //int ierr = checkSolution(U);
+  //if (ierr > 0) exit(1);
 }
 //------------------------------------------------------------------------------
 template<int dim>
 void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemLevelSet(DistSVec<double,dim> &U)
 {
 
+  double t0 = this->timer->getTime();
+
+  if(RK4){
   computeRKUpdateLS(this->Phi, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
 
@@ -125,6 +162,18 @@ void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemLevelSet(DistSVec<double,d
 
   computeRKUpdateLS(Phi0, p4, U);
   this->Phi -= 1.0/6.0 * (p1 + 2.0 * (p2 + p3) + p4);
+  }
+
+  else{
+  computeRKUpdateLS(this->Phi, p1, U);
+  Phi0 = this->Phi - p1;
+
+  computeRKUpdateLS(Phi0, p2, U);
+  this->Phi -= 1.0/2.0 * (p1+p2);
+
+  }
+
+  this->timer->addLevelSetSolutionTime(t0);
 
 }
 //------------------------------------------------------------------------------
