@@ -804,6 +804,15 @@ public:
     return sqrt(res);
   }
 
+  double* sum()  {
+    double *res = new double[dim];
+		for (int k=0; k<dim; k++) res[k]=0.0;
+    for (int i = 0; i < len; i++)
+      for (int k = 0; k < dim; k++)
+        res[k] += v[i][k];
+    return res;
+  }
+
   void resize(int l) 
   {
    int minlen = (l < len) ? l : len;

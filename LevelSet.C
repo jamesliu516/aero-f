@@ -34,8 +34,9 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
                                         (x[i][2] -zb)*(x[i][2] -zb))  -r);
         //phi[i] = 2.0*sin(phi[i]/4.0)+1.3;
       }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
+      //for shock tube (comments: cf LevelSetCore.C)
           phi[i] = x[i][0] - r;
-					phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
+          phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
       }
       phi[i] *= u[i][0];
     }
@@ -170,13 +171,11 @@ void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState,
     lastlevel = (Tag.min()==0 ? false : true);
   }
 
-  //fprintf(stdout, "FinishReinitialization done\n");
   DistSVec<double,1> testsign(domain->getNodeDistInfo());
   testsign = Psi;
   testsign *= Phi;
   domain->checkNodePhaseChange(testsign);
 
-  //fprintf(stdout, "CheckNodePhaseChange done\n");
   // set Phi to the new distance function
   DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
   Phi = distance;

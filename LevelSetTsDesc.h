@@ -11,6 +11,7 @@ struct DistInfo;
 
 class GeoSource;
 template<class Scalar, int dim> class DistSVec;
+template<int dim> class DistExactRiemannSolver;
 
                                                                                                                 
 
@@ -21,6 +22,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
   LevelSet *LS;
+	DistExactRiemannSolver<dim> *riemann;
   DistVec<double> Phi;           //conservative variables
   DistVec<double> PhiV;          //primitive variables
   DistSVec<double,dim> Vg;       //primitive V for GFMP

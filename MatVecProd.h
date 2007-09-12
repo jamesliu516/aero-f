@@ -17,6 +17,7 @@ class LevelSet;
 template<int dim> class RecFcnConstant;
 template<int dim> class DistTimeState;
 template<int dim> class SpaceOperator;
+template<int dim> class DistExactRiemannSolver;
 
 //------------------------------------------------------------------------------
 
@@ -38,8 +39,9 @@ public:
                           DistVec<double> &, DistSVec<double,dim> &,
                           DistVec<double> &) { };
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
-			     DistSVec<double,dim> &, DistVec<double> &,
-                             DistSVec<double,dim> &)  { };
+			                  DistSVec<double,dim> &, DistVec<double> &,
+                        DistExactRiemannSolver<dim> *,  
+                        DistSVec<double,dim> &)  { };
 
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
@@ -75,6 +77,7 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   DistSVec<double,neq> F;
 
   DistVec<double> *Phi;
+  DistExactRiemannSolver<dim> *Riemann;
 
   Communicator *com;
 
@@ -92,6 +95,7 @@ public:
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                      DistSVec<double,dim> &, DistVec<double> &,
+                     DistExactRiemannSolver<dim> *, 
                      DistSVec<double,dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
@@ -133,6 +137,7 @@ public:
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistVec<double> &,
+                DistExactRiemannSolver<dim> *, 
                 DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &);
 

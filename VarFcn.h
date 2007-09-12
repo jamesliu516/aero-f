@@ -3,12 +3,15 @@
 
 #include <DistVector.h>
 #include <Vector3D.h>
+//#include <DistExactRiemannSolver.h>
 
 #include <math.h>
 #include <complex.h>
 typedef complex<double> bcomp;
 
 #include <IoData.h>
+
+template<int dim> class DistExactRiemannSolver;
 
 //--------------------------------------------------------------------------
 class VarFcn {
@@ -49,8 +52,13 @@ public:
   void primitiveToConservative(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0);
 
   template<int dim>
+  void updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
+          DistVec<double> &Phi, DistVec<double> &Phin,
+          DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+          DistExactRiemannSolver<dim> *riemann);
+  template<int dim>
   void updatePhaseChange(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, 
-                         DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+			DistVec<double> &, DistSVec<double,dim> *, DistVec<double> * = 0);
 
   void setMeshVel(Vec3D &v)  { meshVel = v; }
 
@@ -135,7 +143,7 @@ public:
   virtual int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0) = 0; 
   //virtual void primitiveToConservative(double *, double *, double = 0.0, double* = 0, double* = 0, int = 0) = 0;
   virtual void primitiveToConservative(double *, double *, double = 0.0) = 0;
-  virtual bool updatePhaseChange(double *, double *, double, double, double *, double){};
+	virtual bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0){};
   bool doVerification(){ return !(pmin<0 && pminp<0); }
   
   virtual void multiplyBydVdU(double *, double *, double *, double = 0.0) {
@@ -801,10 +809,38 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &U, DistSVec<double,di
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
-void VarFcn::updatePhaseChange(DistSVec<double,dim> &U, DistSVec<double,dim> &V,
-             DistVec<double> &Phi, DistVec<double> &Phin,
-             DistSVec<double,dim> &Riemann, DistVec<double> &weight)
+void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
+          DistVec<double> &Phi, DistVec<double> &Phin,
+          DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+          DistExactRiemannSolver<dim> *riemann)
+{
+  if (riemann->DoUpdatePhase())
+    // the solution of the riemann problem is used to replace values of a node
+    // that changed nature (fluid1 to fluid2 or vice versa)
+    // **** GFMPAR-like ****
+    updatePhaseChange(V, U, Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
+
+  else if (Vgf && Vgfweight)
+    // an extrapolation is used to replace values of a node
+    // that changed nature (fluid1 to fluid2 or vice versa)
+    // **** GFMPAR-variation ****
+    updatePhaseChange(V, U, Phi, Phin, Vgf, Vgfweight);
+
+  else
+    // no solution of the riemann problem was computed and we just use
+    // the values that we have to convert back to conservative variables
+    // **** GFMP-like ****
+    primitiveToConservative(V, U, &Phi);
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
+          DistVec<double> &Phi, DistVec<double> &Phin,
+				 	DistSVec<double,dim> *Riemann, DistVec<double> *weight)
 {
 
   int numLocSub = U.numLocSub();
@@ -812,15 +848,22 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &U, DistSVec<double,dim> &V,
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     double (*u)[dim] = U.subData(iSub);
     double (*v)[dim] = V.subData(iSub);
-    double *phi = Phi.subData(iSub);
-    double *phin = Phin.subData(iSub);
-    double (*r)[dim] = Riemann.subData(iSub);
-    double *w = weight.subData(iSub);
-    bool change = false;
-    for ( int i=0; i<U.subSize(iSub); ++i){
-      change = updatePhaseChange(u[i],v[i],phi[i],phin[i],r[i],w[i]);
+		double *phi = Phi.subData(iSub);
+		double *phin = Phin.subData(iSub);
+    double (*r)[dim] = (*Riemann).subData(iSub);
+		double *w = 0;
+    if(weight){
+      w = (*weight).subData(iSub);
+		  bool change = false;
+      for ( int i=0; i<U.subSize(iSub); ++i){
+			  change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i],w[i]);
+	  	}
+    }else{
+      bool change = false;
+      for ( int i=0; i<U.subSize(iSub); ++i)
+        change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
     }
-  }
+	}
 
 
 }

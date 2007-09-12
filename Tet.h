@@ -105,7 +105,7 @@ public:
                                         Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
   bool computeDistancePlusPhiToEdge(double phi0, double phi1,
                                     Vec3D Y0, Vec3D Y1, double &mini, bool show = false);
-	int computeDistanceToAll(double phi[3],Vec3D Y0,Vec3D Y1,Vec3D Y2, double &psi);
+  int computeDistanceToAll(double phi[3],Vec3D Y0,Vec3D Y1,Vec3D Y2, double &psi);
 
 //-----functions in Tet.h
 

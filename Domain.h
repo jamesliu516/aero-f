@@ -327,8 +327,9 @@ public:
 				       DistMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &,
-				       DistNodalGrad<dim>&, DistNodalGrad<1>&,
+  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &, 
+                                       FluxFcn **, DistBcData<dim> &, DistGeoState &,
+                                       DistNodalGrad<dim>&, DistNodalGrad<1>&,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, DistVec<double> &);
   template<int dim>
@@ -511,7 +512,7 @@ public:
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, DistSVec<double,dim> &, DistVec<double> &);
+  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&);

@@ -31,8 +31,8 @@ public:
   ~DistExactRiemannSolver();
 
 	bool DoUpdatePhase() { return updatePhase; }
-	DistSVec<double,dim> &getRiemannUpdate() const { return *riemannupdate; }
-	DistVec<double> &getRiemannWeight() const { return *weight; }
+	DistSVec<double,dim> *getRiemannUpdate() const { return riemannupdate; }
+	DistVec<double> *getRiemannWeight() const { return weight; }
 
 	ExactRiemannSolver<dim> &operator() (int i) 
 				const { return *subExactRiemannSolver[i]; }

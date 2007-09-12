@@ -3,8 +3,10 @@
 
 class IoData;
 class LocalRiemann;
+class VarFcn;
 
 template<class Scalar, int dim> class SVec;
+
 
 //------------------------------------------------------------------------------
 template<int dim>
