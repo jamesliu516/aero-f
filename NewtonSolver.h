@@ -80,9 +80,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     fprintf(stdout, "NewtonSolver0\n");
 
     // compute the nonlinear function value
-    fprintf(stdout, "NewtonSolver1\n");
     probDesc->computeFunction(it, Q, F);
-    fprintf(stdout, "NewtonSolver2\n");
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
     assert(res>=0.0);
@@ -97,18 +95,13 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     rhs = -1.0 * F;
 
-    fprintf(stdout, "NewtonSolver3\n");
     probDesc->recomputeFunction(Q, rhs);
-    fprintf(stdout, "NewtonSolver4\n");
     probDesc->computeJacobian(it, Q, F);
-    fprintf(stdout, "NewtonSolver5\n");
 
     // apply preconditioner if available
     probDesc->setOperators(Q);
-    fprintf(stdout, "NewtonSolver6\n");
 
     probDesc->solveLinearSystem(it, rhs, dQ);
-    fprintf(stdout, "NewtonSolver7\n");
 
     rhs = Q;
     Q += dQ;
@@ -160,9 +153,9 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::VolVecType 
     res = sqrt(PhiF*PhiF);
 
     if (it == 0){
-		 	target = eps*res;
-       res1  = res;
-		}
+      target = eps*res;
+      res1  = res;
+    }
 
     if (res == 0.0 || res <= target) break;
 

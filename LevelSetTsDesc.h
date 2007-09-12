@@ -22,15 +22,15 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
   LevelSet *LS;
-	DistExactRiemannSolver<dim> *riemann;
+  DistExactRiemannSolver<dim> *riemann;
   DistVec<double> Phi;           //conservative variables
   DistVec<double> PhiV;          //primitive variables
   DistSVec<double,dim> Vg;       //primitive V for GFMP
   DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
   DistVec<double> *Vgfweight;
 
-	// frequency for reinitialization of level set
-	int frequencyLS;
+  // frequency for reinitialization of level set
+  int frequencyLS;
   
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);

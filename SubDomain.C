@@ -485,12 +485,9 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, tets, geoState, X, V, Phi,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
-	double *sumfluxint = fluxes.sum();
-	//fprintf(stdout, "sumflux_INT = %e %e %e %e %e\n", sumfluxint[0],sumfluxint[1],sumfluxint[2],sumfluxint[3],sumfluxint[4]);
+  //double *sumfluxint = fluxes.sum();
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
-	double *sumfluxtot = fluxes.sum();
-	//fprintf(stdout, "sumflux_TOT = %e %e %e %e %e\n", sumfluxtot[0],sumfluxtot[1],sumfluxtot[2],sumfluxint[3],sumfluxint[4]);
-	//fprintf(stdout, "sumflux_BC  = %e %e %e %e %e\n", sumfluxtot[0]-sumfluxint[0],sumfluxtot[1]-sumfluxint[1],sumfluxtot[2]-sumfluxint[2],sumfluxint[3]-sumfluxint[3],sumfluxint[4]-sumfluxint[4]);
+  //double *sumfluxtot = fluxes.sum();
  
   return ierr;
                                                                                                   
@@ -2781,12 +2778,12 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   double V[dim];
   double rho, p;
 
-	double *conservation = new double[5];
-	for(int k=0; k<5; k++) conservation[k]=0.0;
-	for(int i=0; i<U.size(); i++)
-	  for(int k=0; k<5; k++)
-		  conservation[k] += ctrlVol[i]*U[i][k];
-	fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
+  double *conservation = new double[5];
+  for(int k=0; k<5; k++) conservation[k]=0.0;
+  for(int i=0; i<U.size(); i++)
+    for(int k=0; k<5; k++)
+      conservation[k] += ctrlVol[i]*U[i][k];
+  //fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
 
   if (!(varFcn->doVerification())){
     for (int i=0; i<U.size(); ++i) {
@@ -3217,10 +3214,6 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
         Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
       }
     }
-		if(i==1481)
-			fprintf(stdout, "Vgf[%d] = %e %e %e -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4], j);
-		if(j==1481)
-			fprintf(stdout, "Vgf[%d] = %e %e %e -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4], i);
    
   }
 
@@ -3262,11 +3255,6 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
       }
     }
 
-    if(i==1481)
-	fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", i, Vgf[i][0],Vgf[i][1],Vgf[i][4],weight[i], j);
-    if(j==1481)
-	fprintf(stdout, "Vgf[%d] = %e %e %e -- w = %f -- node = %d\n", j, Vgf[j][0],Vgf[j][1],Vgf[j][4],weight[j], i);
-   
   }
 
 }
@@ -3295,9 +3283,6 @@ template<int dim>
 void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta, 
 				    SVec<double,dim> &PsiRes)
 {
-
-//  for(int i=0; i<nodes.size();i++)
-//    if(Tag[i]>0) fprintf(stdout, "Tag[%d (%d)] = %d -- beta = %e\n", locToGlobNodeMap[i]+1,i,Tag[i],beta[i]);
 
   for(int i=0; i<nodes.size(); i++){
     if(Tag[i]==0 && (PsiRes[i][0]!=0.0 || w[i]!=0.0 || beta[i]!=0.0)){
@@ -3347,9 +3332,8 @@ void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                        NodalGrad<dim> &grad,
                                        Vec<double> &Phi,SVec<double,dim> &Psi)
 {
-	for(int i=0; i<nodes.size(); i++){
+  for(int i=0; i<nodes.size(); i++){
     if(Tag[i]==1) Tag[i]=-1;
-    //fprintf(stdout, "Tag[%d(%e %e %e)] = %d (%e)\n", locToGlobNodeMap[i]+1,X[i][0],X[i][1],X[i][2],Tag[i], Phi[i]);
   }
   SVec<double,dim>& ddx  = grad.getX();
   SVec<double,dim>& ddy  = grad.getY();
@@ -3376,14 +3360,13 @@ double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
 {
 
   if(level==2)
-  	for(int i=0; i<nodes.size(); i++)
+    for(int i=0; i<nodes.size(); i++)
       if(Tag[i]==-1) Tag[i]=1;
   tets.computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
   double res = 0.0;
   for(int i=0; i<nodes.size(); i++)
     if(Tag[i]==level)
       res += Psi[i][0]*Psi[i][0];
-
 
   return res;
 }
@@ -3405,8 +3388,8 @@ void SubDomain::getSignedDistance(SVec<double,dim> &Psi, Vec<double> &Phi)
   for(int i=0; i<nodes.size(); i++){
     if(Phi[i]<0.0)
       Psi[i][0] = -Psi[i][0];
-		if(Phi[i]<0.0 && Psi[i][0]>0.0)
-			fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i],Psi[i][0]);
+    if(Phi[i]<0.0 && Psi[i][0]>0.0)
+      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i],Psi[i][0]);
   }
 }
 //------------------------------------------------------------------------------
@@ -3421,7 +3404,6 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
       fprintf(stdout, "   update = %e %e %e %e %e\n", Update[i][0],Update[i][1],Update[i][2],Update[i][3],Update[i][4]);
     }
   }
-
 
 }
 //------------------------------------------------------------------------------
@@ -3442,11 +3424,11 @@ template<int dim>
 void SubDomain::printAllVariable(Vec<int> &X, SVec<double,dim> &U, int numSub, int it)
 {
 
-    int glob, phi;
-    for (int i=0; i<nodes.size(); i++){
-        glob = locToGlobNodeMap[i]+1;
-        fprintf(stdout, "Tag[%d,%d] = %d\n", i, glob, X[i]);
-    }
+  int glob, phi;
+  for (int i=0; i<nodes.size(); i++){
+    glob = locToGlobNodeMap[i]+1;
+    fprintf(stdout, "Tag[%d,%d] = %d\n", i, glob, X[i]);
+  }
 
 }
 //------------------------------------------------------------------------------

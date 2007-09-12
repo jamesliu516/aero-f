@@ -68,7 +68,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   xpol = 0;
   if (ioData.schemes.bc.type == BoundarySchemeData::CONSTANT_EXTRAPOLATION ||
       ioData.schemes.bc.type == BoundarySchemeData::LINEAR_EXTRAPOLATION)
-        xpol = new DistExtrapolation<dim>(ioData, domain, varFcn);   
+    xpol = new DistExtrapolation<dim>(ioData, domain, varFcn);   
   
 
   smag = 0;
@@ -94,7 +94,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 
   fet = createFemEquationTerm(ioData);
   volForce = createVolumicForceTerm(ioData);
-	//riemann = createRiemannSolver(ioData);
 
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_modal = true;
@@ -148,7 +147,6 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   dvms = spo.dvms;
   fet = spo.fet;
   volForce = spo.volForce;
-	//riemann = spo.riemann;
 
   failsafe = spo.failsafe;
   rshift = spo.rshift;
@@ -189,7 +187,6 @@ SpaceOperator<dim>::~SpaceOperator()
     if (dvms) delete dvms;
     if (fet) delete fet;
     if (volForce) delete volForce;
-		//if (riemann) delete riemann;
   }
 
 }
@@ -239,7 +236,6 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
 
   double betaRef = ioData.prec.mach;
   double K1 = ioData.prec.k;
-  //double cmach = 1.0;
   double cmach = ioData.prec.cmach;
 
   //for GAS
@@ -783,20 +779,6 @@ VolumicForceTerm *SpaceOperator<dim>::createVolumicForceTerm(IoData &ioData)
 }
 
 //------------------------------------------------------------------------------
-/*
-template<int dim>
-DistExactRiemannSolver<dim> *SpaceOperator<dim>::createRiemannSolver(IoData &ioData)
-{
-
-	DistExactRiemannSolver<dim> *exriemann = 0;
-	if(ioData.eqs.numPhase == 2)
-		exriemann = new DistExactRiemannSolver<dim>(ioData,domain);
-
-	return exriemann;
-
-}
-*/
-//------------------------------------------------------------------------------
 
 template<int dim>
 void SpaceOperator<dim>::setBcFcn(BcFcn *bf)
@@ -868,7 +850,7 @@ void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &V, DistVec<double> &Ph
                        DistSVec<double,dim> &Vgf, DistVec<double> &weight)
 {
   Vgf = -1.0;
-	weight = 1.0;
+  weight = 1.0;
   domain->storeGhost(V,Vgf,Phi);
 }
 
@@ -1122,12 +1104,12 @@ void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U,
                                 DistSVec<double,dim> *Vgf, DistVec<double> *weight)
 {
 
-	varFcn->conservativeToPrimitive(U, Vg, &Phi);
-	//if(riemann->RiemannUpdatePhase())
+  varFcn->conservativeToPrimitive(U, Vg, &Phi);
+  //if(riemann->RiemannUpdatePhase())
     //nothing to do, everything has been done when computing the fluxes
   if(Vgf && weight){
     //domain->storePrimitive(Vg,*Vgf,*weight,Phi);
-		storeGhost(Vg,Phi,*Vgf,*weight);
+    storeGhost(Vg,Phi,*Vgf,*weight);
   }
 
 }
@@ -1171,7 +1153,6 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
 					 DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
 					 DistTimeState<dim> *timeState)
 {
-  fprintf(stdout, "going through computeJacobian for one-phase flows\n");
 
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V);
@@ -1297,7 +1278,6 @@ void SpaceOperator<dim>::getExtrapolationValue(DistSVec<double,dim> &U,
   if(xpol){
     DistSVec<double,dim>* VV = new DistSVec<double,dim>(domain->getNodeDistInfo());
     varFcn->conservativeToPrimitive(U, *VV);
-    com->fprintf(stderr, "getting extrapolation value for bc\n");
     domain->getExtrapolationValue(xpol, *VV, Ubc, varFcn, *bcData, *geoState, X);
     delete VV;
   }

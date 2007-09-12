@@ -92,16 +92,13 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       itSc++;
 
       // compute fluid subcyling time step
-      //fprintf(stdout, "TsSolver.h 1\n");
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
       // estimate mesh position in subcycle
-      //fprintf(stdout, "TsSolver.h 2\n");
       probDesc->interpolatePositionVector(dt, dtLeft);
 
       // compute control volumes and velocities
-      //fprintf(stdout, "TsSolver.h 3\n");
       probDesc->computeMeshMetrics();
 
       // Fluid Solution
@@ -110,7 +107,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);
 
-//      fprintf(stdout, "TsSolver.h 6\n");
       probDesc->updateStateVectors(U, it);
 
     } while (dtLeft != 0.0);

@@ -66,7 +66,6 @@ private:
   FemEquationTerm *fet;
   SmagorinskyLESTerm *smag;
   VolumicForceTerm *volForce;
-	//DistExactRiemannSolver<dim> *riemann;
 
   Domain *domain;
 
@@ -100,7 +99,6 @@ public:
   RecFcn *createRecFcnLS(IoData &);
   FemEquationTerm *createFemEquationTerm(IoData &);
   VolumicForceTerm *createVolumicForceTerm(IoData &);
-	//DistExactRiemannSolver<dim> *createRiemannSolver(IoData &);
   void setBcFcn(BcFcn *);
   void setFluxFcn(FluxFcn **);
   void setRecFcn(RecFcn *);
@@ -123,10 +121,10 @@ public:
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
-	void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
-		                         	DistVec<double> &Phi,
-                              DistSVec<double,dim> *Vgf, DistVec<double> *weight);
-	void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
+  void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
+                         DistVec<double> &Phi,
+                         DistSVec<double,dim> *Vgf, DistVec<double> *weight);
+  void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,
                          DistExactRiemannSolver<dim> *);
@@ -149,8 +147,8 @@ public:
   
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
-		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-           DistVec<double> &, DistExactRiemannSolver<dim> *);
+                       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
+                       DistVec<double> &, DistExactRiemannSolver<dim> *);
 
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);
@@ -179,8 +177,8 @@ public:
 
   template<class Scalar>
   void computeH2LS(DistSVec<double,3> &, DistVec<double> &,
-                                         DistVec<double> &, DistSVec<double,dim> &, 
-				         DistMat<Scalar,1> &);
+                   DistVec<double> &, DistSVec<double,dim> &, 
+                   DistMat<Scalar,1> &);
 
   template<class Scalar1, class Scalar2>
   void applyH2(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
