@@ -383,7 +383,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal,
   if(fluxFcn[code]){
     double flux[dim];
     for (int l=0; l<3; ++l) {
-      fluxFcn[code]->compute(0.0, normal, normalVel, V[nodeNum[l]], Ub, flux);
+      fluxFcn[code]->compute(0.0, 0.0, normal, normalVel, V[nodeNum[l]], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum[l] ][k] += third * flux[k];
       }
@@ -405,9 +405,9 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec3D &normal,
   if(fluxFcn[code]){
     for (int l=0; l<3; ++l) {
       if (Phi[nodeNum[l]] >= 0.0) 
-        fluxFcn[code]->compute(0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, 1);
+        fluxFcn[code]->compute(0.0, 0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, 1);
       if (Phi[nodeNum[l]] <  0.0) 
-        fluxFcn[code]->compute(0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, -1);
+        fluxFcn[code]->compute(0.0, 0.0, normal, normalVel, V[nodeNum[l]], Ub, flux, -1);
 
       for (int k=0; k<dim; ++k)
         fluxes[ nodeNum[l] ][k] += third * flux[k];

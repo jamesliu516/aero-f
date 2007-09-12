@@ -66,7 +66,7 @@ private:
   FemEquationTerm *fet;
   SmagorinskyLESTerm *smag;
   VolumicForceTerm *volForce;
-	DistExactRiemannSolver<dim> *riemann;
+	//DistExactRiemannSolver<dim> *riemann;
 
   Domain *domain;
 
@@ -100,7 +100,7 @@ public:
   RecFcn *createRecFcnLS(IoData &);
   FemEquationTerm *createFemEquationTerm(IoData &);
   VolumicForceTerm *createVolumicForceTerm(IoData &);
-	DistExactRiemannSolver<dim> *createRiemannSolver(IoData &);
+	//DistExactRiemannSolver<dim> *createRiemannSolver(IoData &);
   void setBcFcn(BcFcn *);
   void setFluxFcn(FluxFcn **);
   void setRecFcn(RecFcn *);
@@ -118,7 +118,8 @@ public:
                        DistTimeState<dim> *);
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &, int it = 0);
+                       DistSVec<double,dim> &, 
+                       DistExactRiemannSolver<dim> *, int it = 0);
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
@@ -127,7 +128,8 @@ public:
                               DistSVec<double,dim> *Vgf, DistVec<double> *weight);
 	void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
-                         DistSVec<double,dim> *Vgf, DistVec<double> *weight);
+                         DistSVec<double,dim> *Vgf, DistVec<double> *weight,
+                         DistExactRiemannSolver<dim> *);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
@@ -148,7 +150,7 @@ public:
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                       DistVec<double> &);
+           DistVec<double> &, DistExactRiemannSolver<dim> *);
 
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);

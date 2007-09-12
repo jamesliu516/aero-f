@@ -878,10 +878,6 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       zero++;
   assert(negative>0 || positive>0);
 
-  //fprintf(stdout, "phi = %f %f %f %f\n", Phi[nodeNum[0]],Phi[nodeNum[1]],Phi[nodeNum[2]],Phi[nodeNum[3]]);
-
-
-
   // 2 - orient the tet if necessary (node renumbering from 0 to 3,
   //         which is different again from the local node numbering!)
   //     if all nodes have same phi sign --> nothing to do
@@ -1096,8 +1092,6 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
 
 
 
-  //fprintf(stdout, "reorder = %d %d %d %d\n", reorder[0],reorder[1],reorder[2],reorder[3]);
-  //fprintf(stdout, "phi = %f %f %f %f\n", Phi[nodeNum[reorder[0]]],Phi[nodeNum[reorder[1]]],Phi[nodeNum[reorder[2]]],Phi[nodeNum[reorder[3]]]);
 
   // 4 - determination of the coordinates of the intersection points P with 
   //     the material interface
@@ -1178,32 +1172,16 @@ void Tet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx
     //P[3] = C3 is not modified and should not be used later.
 
   }
-	else if (scenario==3){
+  else if (scenario==3){
   // node reorder[0] has phi=0
   // all other nodes have same sign
-		P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
-	}else if (scenario==5){
+    P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
+  }else if (scenario==5){
   // nodes reorder[0] and reorder[1] have phi=0
   // other nodes have same sign
   //nothing to do for now
-		P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
+    P[0] = C0; P[1] = C1; P[2] = C2; P[3] = C3;
   }
-
-
-
-
-
-
-  /*if(scenario!=0){
-    fprintf(stdout, "findLSIntersectionPointLinear\n");
-    fprintf(stdout, "scenario = %d\n", scenario);
-    fprintf(stdout, "P[0] = %e %e %e\n", P[0][0],P[0][1],P[0][2]);
-    fprintf(stdout, "P[1] = %e %e %e\n", P[1][0],P[1][1],P[1][2]);
-    fprintf(stdout, "P[2] = %e %e %e\n", P[2][0],P[2][1],P[2][2]);
-    fprintf(stdout, "P[3] = %e %e %e\n", P[3][0],P[3][1],P[3][2]);
-    exit(9);
-  }*/
-
 
 }
 
@@ -1293,16 +1271,6 @@ void Tet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &d
     }
 
   }
-  /*if(scenario!=0){
-    fprintf(stdout, "findLSIntersectionPointGradient\n");
-    fprintf(stdout, "scenario = %d\n", scenario);
-    fprintf(stdout, "P[0] = %e %e %e\n", P[0][0],P[0][1],P[0][2]);
-    fprintf(stdout, "P[1] = %e %e %e\n", P[1][0],P[1][1],P[1][2]);
-    fprintf(stdout, "P[2] = %e %e %e\n", P[2][0],P[2][1],P[2][2]);
-    fprintf(stdout, "P[3] = %e %e %e\n", P[3][0],P[3][1],P[3][2]);
-    exit(9);
-  }*/
-
 
 }
 //------------------------------------------------------------------------------

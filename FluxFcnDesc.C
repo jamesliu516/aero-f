@@ -25,8 +25,12 @@ extern "C" {
 			 const double&, const double&, const double&,
                          const double&, const int&);
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
-			 const double&, double*, double*, double*, double*, double*, 
+			                   const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, const int&);
+  void F77NAME(roeflux5prim)(const int&, const double&, const double&, const double&, double*,
+			                   const double&, double*, double*, double*, double*, double*, 
+                         const double&, const double&, const double&, const double&, 
+                         const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*);
   void F77NAME(roejac2)(const int&, const double&, const double&, 
@@ -76,20 +80,20 @@ extern "C" {
   pages = "357--372",
 } 
 */
-void FluxFcnFDJacRoeEuler3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnFDJacRoeEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				     double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5prim)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
 
 }
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeEuler3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux)
 {
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5prim)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
 }
 
 //------------------------------------------------------------------------------
@@ -921,7 +925,7 @@ void FluxFcnInternalOutflowEuler3D::computeJacobianPerfectGas(double vfgam, doub
 //------------------------------------------------------------------------------
 //turbulence
 
-void FluxFcnFDJacRoeSA3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnFDJacRoeSA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				  double *VL, double *VR, double *flux)
 {
 
@@ -931,7 +935,7 @@ void FluxFcnFDJacRoeSA3D::computePerfectGas(double irey, double vfgam, double vf
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeSA3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeSA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				    double *VL, double *VR, double *flux)
 {
 
@@ -1104,7 +1108,7 @@ void FluxFcnInternalOutflowSAturb3D::computeJacobianPerfectGas(double vfgam, dou
 
 //------------------------------------------------------------------------------
 
-void FluxFcnFDJacRoeKE3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnFDJacRoeKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				  double *VL, double *VR, double *flux)
 {
 
@@ -1114,7 +1118,7 @@ void FluxFcnFDJacRoeKE3D::computePerfectGas(double irey, double vfgam, double vf
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeKE3D::computePerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				    double *VL, double *VR, double *flux)
 {
 

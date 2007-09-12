@@ -485,7 +485,12 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, tets, geoState, X, V, Phi,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
+	double *sumfluxint = fluxes.sum();
+	//fprintf(stdout, "sumflux_INT = %e %e %e %e %e\n", sumfluxint[0],sumfluxint[1],sumfluxint[2],sumfluxint[3],sumfluxint[4]);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
+	double *sumfluxtot = fluxes.sum();
+	//fprintf(stdout, "sumflux_TOT = %e %e %e %e %e\n", sumfluxtot[0],sumfluxtot[1],sumfluxtot[2],sumfluxint[3],sumfluxint[4]);
+	//fprintf(stdout, "sumflux_BC  = %e %e %e %e %e\n", sumfluxtot[0]-sumfluxint[0],sumfluxtot[1]-sumfluxint[1],sumfluxtot[2]-sumfluxint[2],sumfluxint[3]-sumfluxint[3],sumfluxint[4]-sumfluxint[4]);
  
   return ierr;
                                                                                                   
@@ -555,9 +560,9 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
 
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
-						GeoState &geoState, Vec<double> &irey,
-						Vec<double> &ctrlVol, 
-						SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                                GeoState &geoState, Vec<double> &irey,
+                                                Vec<double> &ctrlVol, 
+                                                SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 CommPattern<double>* flag) 
 {
   if (!flag){  
@@ -616,7 +621,8 @@ void SubDomain::checkRHS(Scalar (*rhs)[dim])
                                                                                               
                                                                                               
 template<int dim, class Scalar, int neq>
-void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
+void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                                FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState, 
                                                 NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
                                                 Vec<double> &ctrlVol,
@@ -624,10 +630,10 @@ void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &
                                                 Vec<double> &Phi, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi, nodeType);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
   }
                                                                                               
@@ -2768,12 +2774,19 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 //------------------------------------------------------------------------------
                                                                                                                                                            
 template<int dim>
-int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<double> &Phi)
+int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U, Vec<double> &Phi)
 {
   int ierr = 0;
   int numclipping= 0;
   double V[dim];
   double rho, p;
+
+	double *conservation = new double[5];
+	for(int k=0; k<5; k++) conservation[k]=0.0;
+	for(int i=0; i<U.size(); i++)
+	  for(int k=0; k<5; k++)
+		  conservation[k] += ctrlVol[i]*U[i][k];
+	fprintf(stdout, "conservation = %e %e %e %e %e\n", conservation[0],conservation[1],conservation[2],conservation[3],conservation[4]);
 
   if (!(varFcn->doVerification())){
     for (int i=0; i<U.size(); ++i) {
@@ -3229,22 +3242,22 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
 
     if(Phi[i]*Phi[j]<=0.0){ //at interface
       if(weight[i]<1.e-6){
-	weight[i] = 1.0;
-	for(k=0; k<5; k++)
+        weight[i] = 1.0;
+        for(k=0; k<5; k++)
           Vgf[i][k] = Vg[j][k];
       }else{
-	weight[i] += 1.0;
-	for(k=0; k<5; k++)
+        weight[i] += 1.0;
+        for(k=0; k<5; k++)
           Vgf[i][k] += Vg[j][k];
       }
 
       if(weight[j]<1.e-6){
-	weight[j] = 1.0;
-	for(k=0; k<5; k++)
+        weight[j] = 1.0;
+        for(k=0; k<5; k++)
           Vgf[j][k] = Vg[i][k];
       }else{
-	weight[j] += 1.0;
-	for(k=0; k<5; k++)
+        weight[j] += 1.0;
+        for(k=0; k<5; k++)
           Vgf[j][k] += Vg[i][k];
       }
     }

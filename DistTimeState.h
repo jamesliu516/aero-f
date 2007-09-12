@@ -13,6 +13,7 @@ class FemEquationTerm;
 template<int dim> class TimeState;
 template<class Scalar, int dim> class DistMat;
 template<int dim> class SpaceOperator;
+template<int dim> class DistExactRiemannSolver;
 
 //------------------------------------------------------------------------------
 
@@ -52,6 +53,7 @@ private:
   DistVec<double> *irey;
   DistSVec<double,dim> *Un;
   DistSVec<double,dim> *Unm1;
+  DistSVec<double,dim> *Unnm1; //for 2-step implicit schemes with LS
   DistSVec<double,dim> *Unm2;
   DistSVec<double,dim> *UnBar;
   DistSVec<double,dim> *Unm1Bar;
@@ -79,7 +81,13 @@ public:
   void setup(char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
 						 DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
+  void update(DistSVec<double,dim> &,DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, DistVec<double> &);
+  void update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
+              DistVec<double> &Phi1, DistVec<double> &Phi2,
+              DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+              DistExactRiemannSolver<dim> *riemann);
+
   void writeToDisk(char *);
 
   double computeTimeStep(double, double*, int*, DistGeoState &, 
