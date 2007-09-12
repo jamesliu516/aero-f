@@ -106,14 +106,10 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 					  DistSVec<Scalar,dim> &ddz)
 {
 
-  //double t0 = timer->getTime();
-  
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), R(iSub), var(iSub),
 						  ddx(iSub), ddy(iSub), ddz(iSub));
-
-  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -134,14 +130,10 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &ddz)
 {
 
-  //double t0 = timer->getTime();
-
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), Phi(iSub), R(iSub), var(iSub),
                                                   ddx(iSub), ddy(iSub), ddz(iSub));
-
-  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -159,14 +151,10 @@ void Domain::computeGradientsGalerkin(DistVec<double> &ctrlVol, DistSVec<double,
 				      DistSVec<Scalar,dim> &ddy, DistSVec<Scalar,dim> &ddz)
 {
 
-  //double t0 = timer->getTime();
-
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsGalerkin(ctrlVol(iSub), wii(iSub), wij(iSub), wji(iSub),
 					      var(iSub), ddx(iSub), ddy(iSub), ddz(iSub));
-
-  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -186,16 +174,12 @@ void Domain::computeGradientsGalerkinT(DistVec<double> &ctrlVol,
                 DistSVec<Scalar,dim> &ddz)
 {
 
-  //double t0 = timer->getTime();
-
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsGalerkinT(ctrlVol(iSub), wii(iSub),
                 wij(iSub), wji(iSub), var(iSub), var1(iSub), var2(iSub),
                 ddx(iSub), ddy(iSub), ddz(iSub));
 
-
-  //timer->addNodalGradTime(t0);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);

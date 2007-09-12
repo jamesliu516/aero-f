@@ -36,18 +36,18 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
-	riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
 
-	Vgf = 0;
+  Vgf = 0;
   Vgfweight = 0;
-	if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
+  if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
     Vgf = new DistSVec<double,dim>(this->getVecInfo());
     Vgfweight = new DistVec<double>(this->getVecInfo());
     *Vgf =-1.0;
     *Vgfweight =0.0;
   }
 
-	frequencyLS = ioData.mf.frequency;
+  frequencyLS = ioData.mf.frequency;
 
 }
 
@@ -59,7 +59,7 @@ LevelSetTsDesc<dim>::~LevelSetTsDesc()
 
   if (LS) delete LS;
   if (Vgf) delete Vgf;
-	if (riemann) delete riemann;
+  if (riemann) delete riemann;
 
 }
 
@@ -72,13 +72,14 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->geoState->setup2(this->timeState->getData());
 
   // initalize solution
-	if(ioData.mf.problem == MultiFluidData::SHOCKTUBE)
-    this->timeState->setup(this->input->solutions, this->bcData->getOutletBoundaryVector(), this->bcData->getInterface(), *this->X, *U, ioData);
-	else if(ioData.mf.problem == MultiFluidData::BUBBLE)
-    this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), this->bcData->getInterface(), *this->X, *U, ioData);
+  if(ioData.mf.problem == MultiFluidData::SHOCKTUBE)
+    this->timeState->setup(this->input->solutions, this->bcData->getOutletBoundaryVector(),
+                           this->bcData->getInterface(), *this->X, *U, ioData);
+  else if(ioData.mf.problem == MultiFluidData::BUBBLE)
+    this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(),
+                           this->bcData->getInterface(), *this->X, *U, ioData);
 
   LS->setup(this->input->levelsets, *this->X, Phi, *U, ioData);
-	this->com->printf(2, "*** Warning: setup of shocktube problem uses xb and yb for initialization ***\n");
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
@@ -86,7 +87,7 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   else if (this->hth)
     this->hth->setup(&this->restart->frequency, &this->data->maxTime);
 
-	*this->Xs = *this->X;
+  *this->Xs = *this->X;
 
   this->timer->setSetupTime();
 }
@@ -95,17 +96,19 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 template<int dim>
 double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
-				    DistSVec<double,dim> &U)
+                                            DistSVec<double,dim> &U)
 {
   double t0 = this->timer->getTime();
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
 
   int numSubCycles = 1;
-  double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft, &numSubCycles, *this->geoState, *this->A, U, Phi);
+  double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                            &numSubCycles, *this->geoState, *this->A, U, Phi);
 
   if (this->problemType[ProblemData::UNSTEADY])
-    this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*this->refVal->time, numSubCycles);
+    this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
+                      dt*this->refVal->time, numSubCycles);
 
   this->timer->addFluidSolutionTime(t0);
 
@@ -122,16 +125,7 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   this->geoState->update(*this->X, *this->A);
   LS->update(Phi);
 
-	this->com->fprintf(stdout, "updateStateVector\n");
-	// si one-step integration scheme (explicit and backward euler)
-  //this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2);
-  
-	// si two-step integration scheme (3pt bdf)
-	//this->varFcn->conservativeToPrimitive(this->timeState->getUn(), Vg, &(LS->Phinm1));
-  //this->spaceOp->updatePhaseChange(Vg, *(this->V), Phi, LS->Phinm1, Vgf, Vgfweight, riemann);
-  //this->timeState->update(U,*(this->V));
-
-	this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
+  this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
                           Vgf, Vgfweight, riemann);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){

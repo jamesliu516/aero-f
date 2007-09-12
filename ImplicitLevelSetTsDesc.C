@@ -178,7 +178,7 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
 
-	this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
+  this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
 
   double t1 = this->timer->getTime();
   int itsLS = this->ns->solveLS(this->Phi, U);
@@ -200,9 +200,9 @@ template<int dim>
 void ImplicitLevelSetTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
                                                   DistSVec<double,dim> &F)
 {
-	// phi is obtained once and for all for this iteration
-	// no need to recompute it before computation of jacobian.
-	this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
+  // phi is obtained once and for all for this iteration
+  // no need to recompute it before computation of jacobian.
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
   this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, F, this->riemann, it+1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->spaceOp->applyBCsToResidual(Q, F);
@@ -244,7 +244,6 @@ void ImplicitLevelSetTsDesc<dim>::resetFixesTag()
   this->spaceOp->resetTag();
 
 }
-
 
 //------------------------------------------------------------------------------
 template<int dim>

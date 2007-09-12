@@ -1502,36 +1502,4 @@ int Tet::computeDistanceToAll(double phi[3], Vec3D Y0, Vec3D Y1, Vec3D Y2, doubl
 	//if(psi<eps*Y0.norm()||psi<eps*Y1.norm()||psi<eps*Y2.norm()) return 1;
   return -1;
 
-  int degree = 3; //degree of the polynomial
-  bcomp coeff[degree+1]; //coeff of the polynomial
-  coeff[3] = bcomp(2.0*(f1-f2)+fp1+fp2,0.0);
-  coeff[2] = bcomp(-3.0*(f1-f2)-2.0*fp1-fp2,0.0);
-  coeff[1] = bcomp(fp1,0.0);
-  coeff[0] = bcomp(f1,0.0);
-
-  fprintf(stdout, "f1,f2,fp1,fp2 = %f %f %f %f\n", f1,f2,fp1,fp2);
-  fprintf(stdout, "coeff = %f %f %f %f\n", real(coeff[3]),real(coeff[2]),real(coeff[1]),real(coeff[0]));
-
-  bcomp roots[degree]; //roots of the polynomial
-  fprintf(stdout, "nana\n");
-  int err = zroots(coeff, degree, roots, true);
-  if(err>0) return 1000;
-  fprintf(stdout, " 3 roots are (%f,%f) (%f,%f) (%f,%f)\n", real(roots[0]), imag(roots[0]) , real(roots[1]), imag(roots[1]) , real(roots[2]), imag(roots[2])); 
-
-  //check which real one is in the bounds [0,1]
-  int counter = 0;
-  int index = -1;
-  double eps = 1.0e-7;
-  for(int i=0; i<degree; i++)
-    if(fabs(imag(roots[i]))<eps*fabs(real(roots[i])) &&  // check that the root is real
-       real(roots[i]) <= 1.0                         &&  // check bounds of that root
-       real(roots[i]) >= 0.0                          ){
-      counter++;
-      index = i;
-    }
-
-  root = real(roots[index]); //we assume f1*f2<0 and 
-                             //thus there must be such a solution 
-                             //and index should be well defined!
-  return counter;
 }

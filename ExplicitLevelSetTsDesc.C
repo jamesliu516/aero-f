@@ -47,32 +47,25 @@ template<int dim>
 int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
   /* resolution of the non linear system (U,rho*phi)
-	** using a staggered scheme, first we solve U,
-	** then using the new value of U, we solve rho*phi.
-	**
-	** We use a GFMP scheme, ie the following steps are done:
-	** 1- solve for U -> Utilde using rho*phi
-	** 2- Utilde -> V (conservative to primitive) using rho*phi
-	** 3- solve for rho*phi using Utilde
-	** 4- V -> U using the new rho*phi
-	*/
+  ** using a staggered scheme, first we solve U,
+  ** then using the new value of U, we solve rho*phi.
+  **
+  ** We use a GFMP scheme, ie the following steps are done:
+  ** 1- solve for U -> Utilde using rho*phi
+  ** 2- Utilde -> V (conservative to primitive) using rho*phi
+  ** 3- solve for rho*phi using Utilde
+  ** 4- V -> U using the new rho*phi
+  */
 
-  //this->com->fprintf(stdout, "solveNonLinearSystem1\n");
   solveNonLinearSystemEuler(U);
 
-  //this->com->fprintf(stdout, "solveNonLinearSystem2\n");
   this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
 
-  //this->com->fprintf(stdout, "solveNonLinearSystem3\n");
   solveNonLinearSystemLevelSet(U);
 
   this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight, this->riemann);
 
-  //this->com->barrier();
-  //this->com->fprintf(stdout, "solveNonLinearSystem5\n");
   checkSolution(U);
-  //this->com->fprintf(stdout, "solveNonLinearSystem6\n");
-
 
   return 1;
 }
@@ -139,8 +132,6 @@ void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemEuler(DistSVec<double,dim>
   }
   this->timer->addFluidSolutionTime(t0);
 
-  //int ierr = checkSolution(U);
-  //if (ierr > 0) exit(1);
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -182,9 +173,9 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 				DistSVec<double,dim>& dU, int it)
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal);
-	// option to recompute phi as rhophi/rho every iteration of the RK integration scheme
-	// or only at the beginning of the scheme....
-	//this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Ulocal);
+  // option to recompute phi as rhophi/rho every iteration of the RK integration scheme
+  // or only at the beginning of the scheme....
+  //this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Ulocal);
   this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, dU, this->riemann,it);
   this->timeState->multiplyByTimeStep(dU);
 }

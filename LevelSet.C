@@ -36,7 +36,7 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
       }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
       //for shock tube (comments: cf LevelSetCore.C)
           phi[i] = x[i][0] - r;
-          phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
+          //phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
       }
       phi[i] *= u[i][0];
     }
@@ -231,7 +231,6 @@ void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState,
   Psi = 0.1;
 
   // tag nodes that are close to interface up to level 'bandlevel'
-	com->fprintf(stdout, "Tagging nodes\n");
   int level = 0;
   for (level=0; level<bandlevel; level++)
     domain->TagInterfaceNodes(Tag,Phi,level);
@@ -239,7 +238,6 @@ void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState,
 
   //compute distance for Psi<=0.5 and level<bandlevel
   // first, the nodes with tag = 1 (ie closest nodes to interface)
-	com->fprintf(stdout, "computing distance for close nodes to interface\n");
   domain->computeDistanceCloseNodes(Tag,X,*lsgrad,Phi,Psi,copy);
   // second, the other nodes
   // we proceed layer by layer, going from one layer to the other

@@ -79,8 +79,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 
   fet = spo->getFemEquationTerm();
 
-	//preconditioner setup
-  //cmach = 1.0;
+  //preconditioner setup
   cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
@@ -113,7 +112,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
         
   }
   else prec = false;
-	//end of preconditioner setup
+  //end of preconditioner setup
 
 
   subTimeState = new TimeState<dim>*[numLocSub];
@@ -134,8 +133,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
 
-	//preconditioner setup
-  //cmach = 1.0;
+  //preconditioner setup
   cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
@@ -166,7 +164,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
         prec = false;
   }
   else prec = false;
-	//end preconditioner setup
+  //end preconditioner setup
 
   varFcn = ts.varFcn;
   fet = ts.fet;
@@ -260,24 +258,6 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 {
   *Un = Ufar;
 
-/*	double dist=0.0;
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub){
-    double (*x)[3] = X.subData(iSub);
-    double (*u)[dim] = Un->subData(iSub);
-    for (int i=0; i<X.subSize(iSub); i++){
-      dist = (x[i][0] -0.5)*(x[i][0] -0.5) ;
-			dist = (1.0+1.5*exp(-dist/0.01));
-      //u[i][4]  = u[i][4]-0.5*(u[i][1]*u[i][1]+u[i][2]*u[i][2]+u[i][3]*u[i][3])/u[i][0];
-      //u[i][3]  = u[i][3]*dist;
-      //u[i][2]  = u[i][2]*dist;
-      //u[i][1]  = u[i][1]*dist;
-      //u[i][0]  = u[i][0]*dist;
-			//u[i][4]  = u[i][4] + 0.5*(u[i][1]*u[i][1]+u[i][2]*u[i][2]+u[i][3]*u[i][3])/u[i][0];
-			u[i][4] = u[i][4]*dist;
-    }
-  }*/
-
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
     if (data->use_nm1)
@@ -302,60 +282,6 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setup(char *name, double *Ucst, double *Ub, DistSVec<double,3> &X,
-                               DistSVec<double,dim> &U, IoData &iod)
-{
-  exit(11);
-  Un->set(Ucst);
-
-  double dist, r, xb, yb, zb;
-  xb   = iod.mf.icd.s1.cen_x;
-  yb   = iod.mf.icd.s1.cen_y;
-  zb   = iod.mf.icd.s1.cen_z;
-  r    = iod.mf.icd.s1.r;
-  int glob;
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub){
-    double (*x)[3] = X.subData(iSub);
-    double (*u)[dim] = Un->subData(iSub);
-    for (int i=0; i<X.subSize(iSub); i++){
-      //for bubble
-      dist = 1.2*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
-                   (x[i][1] -yb)*(x[i][1] -yb)  +
-                   (x[i][2] -zb)*(x[i][2] -zb))  -r);
-      //for shock tube (comments: cf LevelSetCore.C)
-      //dist = 2.0*(x[i][0] - 0.65) + 0.001;
-      if(dist <  0.0){
-        for (int j=0; j<dim; j++)
-          u[i][j]  = Ub[j];
-      }
-    }
-  }
-
-  if (name[0] != 0) {
-    domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-    if (data->use_nm2)
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
-  }
-                                                                                                                      
-  U = *Un;
-  if (data->use_nm1 && !data->exist_nm1)
-    *Unm1 = *Un;
-  if (data->use_nm2 && !data->exist_nm2)
-    *Unm2 = *Unm1;
-                                                                                                                      
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
-					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
-}
-//------------------------------------------------------------------------------
-
-template<int dim>
 void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 				double *Ub, DistSVec<double,3> &X,
 				DistSVec<double,dim> &U, IoData &iod)
@@ -374,18 +300,16 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
     double (*x)[3] = X.subData(iSub);
     double (*u)[dim] = Un->subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
-			if(iod.mf.problem==MultiFluidData::BUBBLE){
+      if(iod.mf.problem==MultiFluidData::BUBBLE){
       //for bubble
         dist = 1.0*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
                           (x[i][1] -yb)*(x[i][1] -yb)  +
                           (x[i][2] -zb)*(x[i][2] -zb))  -r);
-			}else if(iod.mf.problem==MultiFluidData::SHOCKTUBE){
+      }else if(iod.mf.problem==MultiFluidData::SHOCKTUBE){
       //for shock tube (comments: cf LevelSetCore.C)
         dist = x[i][0] - r;
-        dist = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
-        //dist = 0.5*sin(9.0*(x[i][0]-0.50005))+0.35;
-        //dist = fabs(x[i][0]-xb) - r;
-			}
+        //dist = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
+      }
       if(dist <  0.0){
         for (int j=0; j<dim; j++)
           u[i][j]  = Ub[j];
@@ -939,58 +863,6 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 }
 
 //------------------------------------------------------------------------------
-
-template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Q1)
-{
-
-  data->update();
-
-  if (data->use_nm2 && data->exist_nm1) {
-    fprintf(stdout, "check that this is correct before going any further\n");
-    fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
-    exit(1);
-    *Unm2 = *Unm1;
-    data->exist_nm2 = true;
-  }
-  if (data->use_nm1) {
-    *Unm1 = Q1;
-    data->exist_nm1 = true;
-  }
-  *Un = Q;
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
-                                DistVec<double> &Phi1, DistVec<double> &Phi2)
-{
-
-  data->update();
-
-//all what follows makes sense only for gas-gas or tait-tait simulations
-// but not for gas-tait simulations
-  if (data->use_nm2 && data->exist_nm1) {
-    fprintf(stdout, "check that this is correct before going any further\n");
-    fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
-    exit(1);
-    *Unm2 = *Unm1;
-    varFcn->conservativeToPrimitive(*Unm2, *V, &Phi2);
-    varFcn->primitiveToConservative(*V, *Unm2, &Phi);
-    data->exist_nm2 = true;
-  }
-  if (data->use_nm1) {
-    // this is correct, and has been studied for GFMP
-    *Unm1 = *Un;
-    varFcn->conservativeToPrimitive(*Unm1, *V, &Phi1);
-    varFcn->primitiveToConservative(*V, *Unm1, &Phi);
-    data->exist_nm1 = true;
-  }
-  *Un = Q;
-}
-
-//------------------------------------------------------------------------------
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
                                 DistVec<double> &Phi1, DistVec<double> &Phi2,
@@ -1004,15 +876,13 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
-	if (data->use_nm1) {
-		fprintf(stdout, "update1\n");
+  if (data->use_nm1) {
     varFcn->conservativeToPrimitive(*Un, *V, &Phi1);
-		fprintf(stdout, "finish changes and check if it works first\n");
-		//exit(1);
+    fprintf(stdout, "finish changes and check if it works first\n");
     varFcn->updatePhaseChange(*V, *Unm1, Phi, Phi1, Vgf, Vgfweight, riemann);
     data->exist_nm1 = true;
   }
-	*Un = Q;
+  *Un = Q;
 
 }
 
