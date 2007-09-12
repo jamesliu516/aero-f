@@ -129,7 +129,7 @@ c
       else
 c
 c        local Preconditioning (ARL)
-      shock = 0.0*DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
+      shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
       locMach = DSQRT(2.0d0*qir*cr2)
       beta = MAX(k1*locMach, mach)
       beta = (1.0d0+DSQRT(irey))*beta+shock
