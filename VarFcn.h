@@ -259,11 +259,12 @@ public:
   double getPressure(double *V, double phi = 0.0) { return V[4]; }
   double checkPressure(double *V, double phi = 0.0) { return V[4]+Pstiff; }
   double computeTemperature(double *V, double phi = 0.0 ) {
-        if (isnan(1.0/V[0])) {
-                fprintf(stderr, "ERROR*** computeTemp\n");
-                exit(1);
-        }
-        return invgam1 * (V[4]+gam*Pstiff) / V[0]; }
+    if (isnan(1.0/V[0])) {
+      fprintf(stderr, "ERROR*** computeTemp\n");
+      exit(1);
+    }
+    return invgam1 * (V[4]+gam*Pstiff) / V[0];
+  }
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
@@ -418,11 +419,13 @@ class VarFcnGasInGas : public VarFcn {
      
   double computeSoundSpeed(double *V, double phi = 0.0) { 
     if (phi>=0.0){
-      if(gam * (V[4]+Pstiff) / V[0]<0.0) fprintf(stdout, "gam = %e, Pres = %e, pstiff = %e, rho = %e\n", gam,V[4],Pstiff,V[0]);
+      if(gam * (V[4]+Pstiff) / V[0]<0.0) 
+        fprintf(stdout, "gam = %e, Pres = %e, pstiff = %e, rho = %e\n", gam,V[4],Pstiff,V[0]);
       return sqrt(gam * (V[4]+Pstiff) / V[0]); 
     }
     else{
-      if(gamp * (V[4]+Pstiffp) / V[0]<0.0) fprintf(stdout, "gamp = %e, Pres = %e, pstiffp = %e, rho = %e\n", gamp,V[4],Pstiffp,V[0]);
+      if(gamp * (V[4]+Pstiffp) / V[0]<0.0) 
+        fprintf(stdout, "gamp = %e, Pres = %e, pstiffp = %e, rho = %e\n", gamp,V[4],Pstiffp,V[0]);
       return sqrt(gamp * (V[4]+Pstiffp) / V[0]);
     }
   }
@@ -616,10 +619,12 @@ public:
     
   double computeSoundSpeed(double *V, double phi = 0.0) {
     if (phi>=0.0){
-      if (alpha_water * beta_water * pow(V[0], beta_water - 1.0) < 0.0) fprintf(stdout, "c2_water = %e\n", alpha_water * beta_water * pow(V[0], beta_water - 1.0));
+      if (alpha_water * beta_water * pow(V[0], beta_water - 1.0) < 0.0) 
+        fprintf(stdout, "c2_water = %e\n", alpha_water * beta_water * pow(V[0], beta_water - 1.0));
       return sqrt(alpha_water * beta_water * pow(V[0], beta_water - 1.0));
     }
-    if (gam * (V[4]+Pstiff) / V[0] < 0.0) fprintf(stdout, "c2_air = %e - P = %e - rho = %e\n", gam * (V[4]+Pstiff) / V[0], V[4], V[0]);
+    if (gam * (V[4]+Pstiff) / V[0] < 0.0) 
+      fprintf(stdout, "c2_air = %e - P = %e - rho = %e\n", gam * (V[4]+Pstiff) / V[0], V[4], V[0]);
     return sqrt(gam * (V[4]+Pstiff) / V[0]);}
     
   double computeMachNumber(double *V, double phi = 0.0) {
@@ -644,7 +649,7 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
   type = GASINLIQUID; 
   subType = NONE;
 
-	if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
+  if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
      iod.eqs.fluidModel2.fluid == FluidModelData::GAS){
     //gam  = 1.0  +iod.eqs.fluidModel2.gasModel.idealGasConstant/iod.eqs.fluidModel.liquidModel.Cv;
     gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
@@ -673,7 +678,7 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
     beta_water  = iod.eqs.fluidModel2.liquidModel.beta;
     Pref_water  = iod.eqs.fluidModel2.liquidModel.Pref;
 
-	}
+  }
 
 }
 
@@ -839,8 +844,8 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
 //------------------------------------------------------------------------------
 template<int dim>
 void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
-          DistVec<double> &Phi, DistVec<double> &Phin,
-				 	DistSVec<double,dim> *Riemann, DistVec<double> *weight)
+                               DistVec<double> &Phi, DistVec<double> &Phin,
+                               DistSVec<double,dim> *Riemann, DistVec<double> *weight)
 {
 
   int numLocSub = U.numLocSub();
@@ -848,30 +853,29 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     double (*u)[dim] = U.subData(iSub);
     double (*v)[dim] = V.subData(iSub);
-		double *phi = Phi.subData(iSub);
-		double *phin = Phin.subData(iSub);
+    double *phi = Phi.subData(iSub);
+    double *phin = Phin.subData(iSub);
     double (*r)[dim] = (*Riemann).subData(iSub);
-		double *w = 0;
+    double *w = 0;
     if(weight){
       w = (*weight).subData(iSub);
-		  bool change = false;
+      bool change = false;
       for ( int i=0; i<U.subSize(iSub); ++i){
-			  change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i],w[i]);
-	  	}
+        change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i],w[i]);
+      }
     }else{
       bool change = false;
       for ( int i=0; i<U.subSize(iSub); ++i)
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
     }
-	}
-
+  }
 
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
-void VarFcn::computeNewPrimitive(SVec<double,dim> &U, SVec<double,dim> &V){
- 
+void VarFcn::computeNewPrimitive(SVec<double,dim> &U, SVec<double,dim> &V)
+{
   for (int i=0; i<U.size(); ++i)
     computeNewPrimitive(U[i], V[i]);
 }

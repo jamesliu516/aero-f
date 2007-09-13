@@ -226,18 +226,11 @@ public:
                            Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
   template<int dim>
-  void computePsiResidualFM(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
-                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,SVec<double,dim> &ddz,
-                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
-			  int typeTracking);
-  template<int dim>
   void computeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
                                   Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
   template<int dim>
   void recomputeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
                                   Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
-  template<int dim>
-  void computeFM(SVec<double,dim> &Psi);
 
   template<int dim>
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,

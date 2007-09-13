@@ -73,12 +73,12 @@ public:
 
   template<class Scalar>
   void addToH2Minus(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
-                                                                                                                          
+
   void get_dW_dt(bool *, GeoState &, Vec<double> &, SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                                          
+
   void get_dWBar_dt(bool *, GeoState &, Vec<double> &, SVec<double,dim> &, SVec<double,dim> &,
                     SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                                          
+
   double getTimeNorm()  {  return dt.norm(); }
 };
 

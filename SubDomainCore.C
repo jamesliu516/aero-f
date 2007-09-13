@@ -3146,11 +3146,11 @@ void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level)
 void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level)
 {
 
-	if(!NodeToNode)
+  if(!NodeToNode)
     NodeToNode = createNodeToNodeConnectivity();
 
-	int nNeighs,nei,k;
-	for (int i=0; i<nodes.size(); i++){
+  int nNeighs,nei,k;
+  for (int i=0; i<nodes.size(); i++){
     if (Tag[i]==level){
 
       nNeighs = NodeToNode->num(i);
@@ -3160,7 +3160,7 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int l
           Tag[nei] = level+1;
           Psi[nei][0] = Psi[i][0];
         }else if(Tag[nei]==level+1){
-					if( (Psi[i][0] > 0.0 && Psi[i][0] > Psi[nei][0]) ||
+          if( (Psi[i][0] > 0.0 && Psi[i][0] > Psi[nei][0]) ||
               (Psi[i][0] < 0.0 && Psi[i][0] < Psi[nei][0])  )
             Psi[nei][0] = Psi[i][0];
         }
