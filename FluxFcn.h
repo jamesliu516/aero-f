@@ -11,26 +11,6 @@
 using std::min;
 using std::max;
 #endif
-/*
-extern "C" {
-                                                                                                 
-   void F77NAME(eriemanngw) (const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&);
-   void F77NAME(eriemanngg) (const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&);
-   void F77NAME(eriemannww) (const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-														 const double&);
-};*/
 //----------------------------------------------------------------------------------------
 //CHANGES_FOR_WATER
 // the class FluxFcn and its subclasses have been modified because the computation of
@@ -55,16 +35,6 @@ public:
   virtual void computeJacobians(double, double *, double, double *, double *, double *, double *, int = 1) {}
 
   VarFcn *getVarFcn() { return vf; }
-/*  void compute_riemann(double, double, double, double, double, double, 
-                       double &, double &, double &, double &,
-											 double, double, double, double);
-  void compute_riemann(double, double, double, double, double, double, 
-                       double &, double &, double &, double &,
-											 double, double, double, double, int);
-	void compute_riemann(double, double, double, double, double, double,
-											 double &, double &, double &, double &,
-											 double, double, double, double, double, double);
-	*/										 
 };
 
 
@@ -76,39 +46,6 @@ FluxFcn::FluxFcn(VarFcn *varFcn,Type tp) : vf(varFcn) {
   type = tp;
   
 }
-/*
-//------------------------------------------------------------------------------
-inline 
-void FluxFcn::compute_riemann(double DL, double UL, double PL,
-                              double DR, double UR, double PR,
-                              double &PI, double &UI, double &RIL, double &RIR,
-                              double alpha, double beta, double pref, double gam)
-{
-   F77NAME(eriemanngw) (DL, UL, PL, DR, UR, PR, PI, UI, RIL, RIR,alpha,beta,pref,gam);
-}
-
-//------------------------------------------------------------------------------
-inline 
-void FluxFcn::compute_riemann(double DL, double UL, double PL,
-                              double DR, double UR, double PR,
-                              double &PI, double &UI, double &RIL, double &RIR,
-			      double gamL, double prefL, double gamR, double prefR, int i)
-{
-   F77NAME(eriemanngg) (DL, UL, PL, DR, UR, PR, PI, UI, RIL, RIR,gamL,prefL,gamR,prefR);
-}
-
-//------------------------------------------------------------------------------
-inline 
-void FluxFcn::compute_riemann(double DL, double UL, double PL,
-                              double DR, double UR, double PR,
-                              double &PI, double &UI, double &RIL, double &RIR,
-														  double alphal, double betal, double prefl,
-											  			double alphar, double betar, double prefr)
-{
-   F77NAME(eriemannww) (DL, UL, PL, DR, UR, PR, PI, UI, RIL, RIR,
-                        alphal,betal,prefl,alphar,betar,prefr);
-}
-*/
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -133,7 +70,7 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
                                      double *VL, double *VR, double *jacL, int flag)
 {
 
-	double dflag = double(flag);
+  double dflag = static_cast<double>(flag);
   const double eps0 = 1.e-6;
 
   double Veps[dim], flux[dim], fluxeps[dim], dfdVL[dim*dim];

@@ -14,9 +14,9 @@ class ExactRiemannSolver{
 
   LocalRiemann *lriemann;
 	
-	int iteration;
+  int iteration;
   SVec<double,dim>  &rupdate;
-	Vec<double>       &weight;
+  Vec<double>       &weight;
 
   public:
 
@@ -25,14 +25,14 @@ class ExactRiemannSolver{
 
 
   SVec<double,dim> &getRiemannUpdate() const { return rupdate; }
-	Vec<double> &getRiemannWeight() const { return weight; }
+  Vec<double> &getRiemannWeight() const { return weight; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-	      double Phii, double Phij, double *nphi, VarFcn *vf,
-	      int &epsi, int &epsj, double *Wi, double *Wj,
-				int i, int j);
+                              double Phii, double Phij, double *nphi, VarFcn *vf,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              int i, int j);
 
-	void reset(int it);
+  void reset(int it);
 	
 };
 //------------------------------------------------------------------------------

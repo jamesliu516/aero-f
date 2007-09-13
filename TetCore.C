@@ -1074,10 +1074,6 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
   //phitet tells sign of phi in tet, 
   //it is averaged for cases when some nodes are phi=0.0
   double phitet = 0.25*(phi[0]+phi[1]+phi[2]+phi[3]);
-  if(debug){
-    fprintf(stdout, "gradpsi = %e %e %e\n", grad[0],grad[1],grad[2]);
-    fprintf(stdout, "phitet = %e\n", phitet);
-  }
 
   double Fadv, Fsrc;
   if(phitet>0.0)
@@ -1092,9 +1088,6 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
     K[i] = Fadv*(grad[0]*n[i][0]+grad[1]*n[i][1]+grad[2]*n[i][2])*oonormg;
     Kp[i] = max(K[i],0.0);
     Km[i] = min(K[i],0.0);
-    if(debug){
-      fprintf(stdout, "K = %e - Kp = %e - Km = %e\n", K[i],Kp[i],Km[i]);
-    }
   }
   double oosumKm = Km[0]+Km[1]+Km[2]+Km[3];
   assert(oosumKm<0.0);
@@ -1120,10 +1113,6 @@ void Tet::computePsiResidualSubTet(double psi[4], double phi[4],
   double alpha[4];
   for (int i=0; i<4; i++){
     alpha[i] = max(0.0, dphii[i]/dphi)*alphatot;
-    //fprintf(stdout, "alpha[ilocal=%d] = %e\n", i, alpha[i]);
-  }
-  if(debug){
-    fprintf(stdout, "dphi = %e - alpha = %e %e %e %e\n", dphi, alpha[0],alpha[1],alpha[2],alpha[3]);
   }
 
 

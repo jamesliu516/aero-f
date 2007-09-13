@@ -364,18 +364,6 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
       uout[inode][3] = this->Uout[3];
       uout[inode][4] = 0.5*rhoout*velout2 + (ptempout+gam*Pstiff)/(gam-1.0);
 
-
-// pressure pulse for channel flow along x
-      /*double amplitude = 0.2;
-      double dx = 0.1*0.1;
-      double radius2 = (x[inode][0]-0.)*(x[inode][0]-0.) +
-                       (x[inode][1]-0.)*(x[inode][1]-0.) +
-                       (x[inode][2]-0.)*(x[inode][2]-0.);
-      ptempin = pressurein*(1.0 + amplitude*exp( -pow((x[inode][0]-0.5),2)/dx));
-      ptempin = pressurein*(1.0 + amplitude*exp(-radius2/dx));
-      uin[inode][4] = 0.5*rhoin*velin2 +(ptempin+gam*Pstiff)/(gam-1.0);
-      */
-      
     }
   }
   for (int idim=0; idim<dim; idim++)
@@ -443,18 +431,6 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod, VarFcn *vf,
       rtempout = pow(rhoout,b-1.0)+coeff*(un-this->depth);
       rtempin  = pow(rtempin, 1.0/(b-1.0));
       rtempout = pow(rtempout,1.0/(b-1.0));
-// pressure pulse in channel flow along x
-      /*double amplitude = 0.2;
-      double dx = 0.05*0.05;
-      double radius2 = (x[inode][0]-0.)*(x[inode][0]-0.) +
-                       (x[inode][1]-0.)*(x[inode][1]-0.) +
-                       (x[inode][2]-0.)*(x[inode][2]-0.);
-      if(sqrt(radius2)<0.3){
-        rtempin = P +a*pow(rhoin,b);
-        rtempin = rtempin*(1.0+amplitude*exp(-radius2/dx));
-        rtempin = pow((rtempin-P)/a, 1.0/b);
-      }
-*/
 
       uin[inode][0] = rtempin;
       uin[inode][1] = rtempin*this->Uin[1]/this->Uin[0];
@@ -585,14 +561,14 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
       velin2 = iod.bc.inlet.velocity*iod.bc.inlet.velocity;
     }
     velin = sqrt(velin2);
-  // for initialization
+    // for initialization
     this->Ub[0] = iod.bc.inlet.density;
     this->Ub[1] = this->Ub[0] * velin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
     this->Ub[2] = this->Ub[0] * velin * cos(iod.bc.inlet.alpha) * sin(iod.bc.inlet.beta);
     this->Ub[3] = this->Ub[0] * velin * sin(iod.bc.inlet.alpha);
     this->Ub[4] = 1.0/(gam - 1.0) * (iod.bc.inlet.pressure+gam*Pstiff) + 0.5 * this->Ub[0] * velin2;
   
-  // for boundary conditions of shocktube problems
+    // for boundary conditions of shocktube problems
     this->Uin[0] = this->Ub[0];
     this->Uin[1] = this->Ub[1];
     this->Uin[2] = this->Ub[2];
@@ -699,7 +675,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
   c = vf->getCvbis();
 
   if(iod.mf.problem == MultiFluidData::BUBBLE){
-// Ub set up with iod.bc.outlet.values and properties of fluidModel2 = LiquidModel2
+  // Ub set up with iod.bc.outlet.values and properties of fluidModel2 = LiquidModel2
   //for bubble type of computation
     if(iod.mf.icd.s1.mach >= 0.0)
       velout2 = iod.mf.icd.s1.mach*iod.mf.icd.s1.mach * a*b*pow(iod.mf.icd.s1.rho, b-1.0);
@@ -725,14 +701,14 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
     else
       velin2 = iod.bc.inlet.velocity*iod.bc.inlet.velocity;
     velin = sqrt(velin2);
-  // for initialization
+    // for initialization
     this->Ub[0] = iod.bc.inlet.density;
     this->Ub[1] = this->Ub[0] * velin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
     this->Ub[2] = this->Ub[0] * velin * cos(iod.bc.inlet.alpha) * sin(iod.bc.inlet.beta);
     this->Ub[3] = this->Ub[0] * velin * sin(iod.bc.inlet.alpha);
     this->Ub[4] = this->Ub[0]*(c*iod.bc.inlet.temperature + 0.5*velin2);
   
-  // for boundary conditions in shocktube problems
+    // for boundary conditions in shocktube problems
     this->Uin[0] = this->Ub[0];
     this->Uin[1] = this->Ub[1];
     this->Uin[2] = this->Ub[2];

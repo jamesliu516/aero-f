@@ -74,7 +74,7 @@ public:
 
   void setResidual(DistSVec<double,dim> *rn) { if (Rn != 0) delete Rn; Rn = rn; }
 
-  void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  //void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistSVec<double,dim> &U, IoData &iod);

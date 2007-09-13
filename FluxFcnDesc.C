@@ -25,10 +25,10 @@ extern "C" {
 			 const double&, const double&, const double&,
                          const double&, const int&);
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
-			                   const double&, double*, double*, double*, double*, double*, 
+                         const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, const int&);
   void F77NAME(roeflux5prim)(const int&, const double&, const double&, const double&, double*,
-			                   const double&, double*, double*, double*, double*, double*, 
+                         const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
                          const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
@@ -52,8 +52,8 @@ extern "C" {
 
 // BAROTROPIC LIQUID			  
   void F77NAME(roeflux1water)(const double&, const double&, const double&,
-			 const double&, const double&, double*,
-                         const double&, double*, double*, double*);
+                              const double&, const double&, double*,
+                              const double&, double*, double*, double*);
 //  void F77NAME(roejac2water)();   //for jacobian with turbulence in segregated solvers
   void F77NAME(roeflux5waterdissprec)(const int&, const double&, const double&, const double&,
                          const double&, const double&, double*,
@@ -221,7 +221,7 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
   const int dim2 = dim*dim;
-  double dflag = double(flag);
+  double dflag = static_cast<double>(flag);
 
 
   double dfdVL[dim2], dfdVR[dim2];
@@ -694,7 +694,7 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
 
-  double dflag = double(flag);
+  double dflag = static_cast<double>(flag);
 
   double gam, gam1, invgam1, pstiff;
   if(flag==1){
@@ -786,7 +786,7 @@ void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac,
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
 
-  double dflag = double(flag);
+  double dflag = static_cast<double>(flag);
                                                                                                     
   double gam, gam1, invgam1, pstiff;
   if(flag==1){
@@ -1263,7 +1263,7 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
   const int dim2 = dim*dim;
-  double dflag = double(flag);
+  double dflag = static_cast<double>(flag);
 
 
   double dfdUL[dim2], dfdUR[dim2];
@@ -1311,13 +1311,6 @@ void FluxFcnApprJacRoeEuler3D::computeBarotropicLiquid(double irey, double vfCv,
                                      double vfb, double *normal, double normalVel, 
 				     double *VL, double *VR, double *flux)
 {
-	 /*fprintf(stdout, "Vl[0] = %e\n", VL[0]);
-	 fprintf(stdout, "Vl[1] = %e\n", VL[1]);
-	 fprintf(stdout, "Vl[4] = %e\n", VL[4]);
-	 fprintf(stdout, "Vr[0] = %e\n", VR[0]);
-	 fprintf(stdout, "Vr[1] = %e\n", VR[1]);
-	 fprintf(stdout, "Vr[4] = %e\n", VR[4]);
-	 */
    F77NAME(roeflux5waterdissprec)(0, gamma, vfCv, vfPr, vfa, vfb,
         normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
 }

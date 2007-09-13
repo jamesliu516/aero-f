@@ -10,41 +10,41 @@
 //------------------------------------------------------------------------------
 template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
-		Vec<double> &_weight):
-	rupdate(_rupdate), weight(_weight)
+                                            Vec<double> &_weight):
+                         rupdate(_rupdate), weight(_weight)
 {
 
-	iteration = -1;
-	lriemann = 0;
-	if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
-		if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-			 iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-			lriemann = new LocalRiemannGfmpGasGas();
-		else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-       iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-			lriemann = new LocalRiemannGfmpTaitTait();
-		else{
-			fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
-			exit(1);
-		}
-	}else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
-		if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+  iteration = -1;
+  lriemann = 0;
+  if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
+    if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+       iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+      lriemann = new LocalRiemannGfmpGasGas();
+    else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
+            iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+      lriemann = new LocalRiemannGfmpTaitTait();
+    else{
+      fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
+      exit(1);
+    }
+  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
+    if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
       lriemann = new LocalRiemannGfmparGasGas();
-		else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-       iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+    else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
+            iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
       lriemann = new LocalRiemannGfmparGasTait();
-		else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-       iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+    else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
+            iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
       lriemann = new LocalRiemannGfmparTaitTait();
-		else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-       iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+    else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+            iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
       lriemann = new LocalRiemannGfmparGasTait();
-		else{
-			fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
-		  exit(1);
-		}
-	}
+    else{
+      fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
+      exit(1);
+    }
+  }
 		
 
 }
@@ -54,7 +54,7 @@ template<int dim>
 ExactRiemannSolver<dim>::~ExactRiemannSolver() 
 {
 
-	if(lriemann) delete lriemann;
+  if(lriemann) delete lriemann;
 
 }
 
@@ -65,8 +65,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
       int &epsi, int &epsj, double *Wi, double *Wj, int i, int j)
 {
 
-	lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,vf,
-			epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j], iteration);
+  lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,vf,
+          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j], iteration);
 
 }
 //------------------------------------------------------------------------------
@@ -74,11 +74,11 @@ template<int dim>
 void ExactRiemannSolver<dim>::reset(int it)
 {
 
-	iteration = it;
-	if(iteration==1){
-  	rupdate = 0.0;
-	  weight  = 0.0;
-	}
+  iteration = it;
+  if(iteration==1){
+    rupdate = 0.0;
+    weight  = 0.0;
+  }
 
 }
 //------------------------------------------------------------------------------

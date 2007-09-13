@@ -223,7 +223,7 @@ DistTimeState<dim>::~DistTimeState()
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void DistTimeState<dim>::setup(char *name, double *Ucst, DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
@@ -249,7 +249,7 @@ void DistTimeState<dim>::setup(char *name, double *Ucst, DistSVec<double,3> &X, 
       subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
 					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
 }
-
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -301,12 +301,10 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
     double (*u)[dim] = Un->subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
       if(iod.mf.problem==MultiFluidData::BUBBLE){
-      //for bubble
         dist = 1.0*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
                           (x[i][1] -yb)*(x[i][1] -yb)  +
                           (x[i][2] -zb)*(x[i][2] -zb))  -r);
       }else if(iod.mf.problem==MultiFluidData::SHOCKTUBE){
-      //for shock tube (comments: cf LevelSetCore.C)
         dist = x[i][0] - r;
         //dist = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
       }
@@ -872,7 +870,6 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
   data->update();
 
   if (data->use_nm2 && data->exist_nm1) {
-    fprintf(stdout, "check that this is correct before going any further\n");
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
