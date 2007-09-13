@@ -47,7 +47,6 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
     int j = ptr[l][1];
 
     double S = sqrt(normal[l] * normal[l]);
-		assert(S>0.0);
     double invS = 1.0 / S;
 
     Vec3D n = invS * normal[l];

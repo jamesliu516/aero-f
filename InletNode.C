@@ -76,10 +76,11 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
     //vf->extrapolateBoundaryCharacteristic(n,unb,cb,Vfar,dV);
     //for (int idim=0; idim<dim; idim++){
     //  Vextra[idim] = Vfar[idim]+dV[idim];
-    //  assert(!isnan(Vextra[i]));
     //}
-    assert(Vextra[0]>0.0);
-    assert(Vextra[4]>0.0);
+    if(Vextra[0]<=0.0 || Vextra[4]<=0.0){
+      fprintf(stdout, "*** Error: negative density or pressure for inlet nodes\n");
+      exit(1);
+    }
     if(!locToGlobNodeMap){
       vf->primitiveToConservative(Vextra, Ubc[i]);
     }else{

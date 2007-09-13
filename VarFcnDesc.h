@@ -12,7 +12,6 @@ public:
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
@@ -160,7 +159,6 @@ public:
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
@@ -252,7 +250,6 @@ public:
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
@@ -339,7 +336,6 @@ public:
   ~VarFcnWaterCompressibleEuler3D() {}
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
@@ -508,7 +504,6 @@ public:
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
   bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
@@ -590,7 +585,10 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
 
   //nature of fluid at this node has changed over time
   }else{
-    assert(weight>0.0);
+    if(weight<=0.0){
+      fprintf(stdout, "negative weight in updatePhaseChange\n");
+      exit(1);
+    }
     for(int k=0; k<5; k++)
     //for(int k=0; k<1; k++)
       V[k] = Riemann[k]/weight;
@@ -700,7 +698,6 @@ public:
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
   bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
@@ -889,7 +886,6 @@ public:
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
   int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
-  //void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0, int = 0);
   void primitiveToConservative(double *, double *, double = 0.0);
 
   bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
@@ -975,25 +971,25 @@ bool VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double ph
   //nature of fluid at this node has changed over time
   }else{
 
-    //assert(weight>0.0);
+    if(weight<=0.0){
+      fprintf(stdout, "negative weight in updatePhaseChange\n");
+      exit(1);
+    }
     // from Fluid2 to Fluid1, ie Gas To Liquid
     if(phi>=0.0 && phin<0.0){
       fprintf(stdout, "V1 = %e %e %e\n", V[0],V[1],V[4]);
       for(int k=0; k<5; k++)
         V[k] = Riemann[k]/weight;
       fprintf(stdout, "V2 = %e %e %e\n", V[0],V[1],V[4]);
-      //assert(V[0]>0.0);
       primitiveToConservativeLiquidEuler(Cv,V,U);
 
     // from Fluid1 to Fluid2, ie Liquid To Gas
     }else{
-      fprintf(stdout, "tata\n");
       V[4] = getPressure(V,phin);
       primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
 
       //for(int k=0; k<5; k++)
       //  V[k] = Riemann[k]/weight;
-      //assert(V[0]>0.0);
       //primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
     }
     return true;
