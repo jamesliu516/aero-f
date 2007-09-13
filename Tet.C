@@ -876,7 +876,11 @@ int Tet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
       positive++;
     else
       zero++;
-  assert(negative>0 || positive>0);
+  
+  if(negative<1 && positive<1){
+    fprintf(stdout, "Error: tetrahedron has only zero phi point values\n");
+    exit(1);
+  }
 
   // 2 - orient the tet if necessary (node renumbering from 0 to 3,
   //         which is different again from the local node numbering!)

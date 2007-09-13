@@ -77,13 +77,15 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
   double res0, res2=0.0;
   int it;
   for (it=0; it<maxIts; ++it) {
-    fprintf(stdout, "NewtonSolver0\n");
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
-    assert(res>=0.0);
+    if(res<0.0){
+      probDesc->printf(1, "*** negative residual\n");
+      exit(1);
+    }
     res = sqrt(F*F-res2);
 
     if (it == 0) {

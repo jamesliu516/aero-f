@@ -50,9 +50,9 @@ void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, dou
 {
                          
   V[0] = U[0];
-  if (U[0]==0.0){
-        fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
-        exit(1);
+  if (U[0]<1.0e-16){
+    fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
+    exit(1);
   }
            
   double invRho = 1.0 / U[0];
@@ -60,10 +60,7 @@ void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, dou
   V[1] = U[1] * invRho;
   V[2] = U[2] * invRho;
   V[3] = U[3] * invRho;
-  if (isnan(V[1])){
-        fprintf(stderr, "ERROR*** conservativeToPrimitive u = %e / %e\n", U[1], U[0]);
-        exit(1);
-  }
+
   double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
                     
   V[4] = (g-1.0) * (U[4] - 0.5 * U[0] * vel2) - g*Ps;
@@ -1018,12 +1015,12 @@ int VarFcn::VerificationGasKE(int glob, double pmin, double gam1, double *U, dou
 void VarFcn::conservativeToPrimitiveLiquidEuler(double invCv, double *U, double *V)
 {
   V[0] = U[0];
+  if (U[0]<1.0e-16){
+    fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
+    exit(1);
+  }
                                        
   double invRho = 1.0 / U[0];
-  if (isnan(invRho)){
-        fprintf(stderr, "ERROR*** conservativeToPrimitive\n");
-        exit(1);
-  }
    
   V[1] = U[1] * invRho;
   V[2] = U[2] * invRho;

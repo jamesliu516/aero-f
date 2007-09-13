@@ -209,9 +209,6 @@ void DistBcDataEuler<dim>::updateFarFieldGas(DistSVec<double,3> &X)
   double gam = this->vf->getGamma();
   double Pstiff = this->vf->getPressureConstant();
 
-  assert(this->Vin[0]>0.0);
-  assert(this->Vout[0]>0.0);
-
 #pragma parallel omp for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
@@ -247,9 +244,6 @@ void DistBcDataEuler<dim>::updateFarFieldLiquid(DistSVec<double,3> &X)
   double P = this->vf->getPrefWater();
   double c = this->vf->getCv();
   double coeff = (b-1.0)*this->gravity/(a*b);
-
-  assert(this->Vin[0]>0.0);
-  assert(this->Vout[0]>0.0);
 
 #pragma parallel omp for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {

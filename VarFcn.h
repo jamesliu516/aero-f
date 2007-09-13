@@ -41,11 +41,6 @@ public:
   void conservativeToPrimitive(SVec<double,dim> &, SVec<double,dim> &, Vec<double> * = 0);
   template<int dim>
   void conservativeToPrimitive(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0);
-  /*template<int dim>
-  void primitiveToConservative(SVec<double,dim> &, SVec<double,dim> &, Vec<double> * = 0, Vec<double> * = 0, SVec<double, dim> * = 0);
-  template<int dim>
-  void primitiveToConservative(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0, DistVec<double> * = 0, DistSVec<double,dim> * = 0);
-	*/
   template<int dim>
   void primitiveToConservative(SVec<double,dim> &, SVec<double,dim> &, Vec<double> * = 0);
   template<int dim>
@@ -141,9 +136,8 @@ public:
 
   virtual void conservativeToPrimitive(double *, double *, double = 0.0) = 0; 
   virtual int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0) = 0; 
-  //virtual void primitiveToConservative(double *, double *, double = 0.0, double* = 0, double* = 0, int = 0) = 0;
   virtual void primitiveToConservative(double *, double *, double = 0.0) = 0;
-	virtual bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0){};
+  virtual bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0){};
   bool doVerification(){ return !(pmin<0 && pminp<0); }
   
   virtual void multiplyBydVdU(double *, double *, double *, double = 0.0) {
@@ -723,27 +717,6 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
 }
 
 //------------------------------------------------------------------------------
-/*
-template<int dim>
-void VarFcn::primitiveToConservative(SVec<double,dim> &U, SVec<double,dim> &V, Vec<double> *Phi, Vec<double> *Phi1, SVec<double,dim> *Vgf)
-{
-
-  if (!Phi1) {
-    if (Phi){
-      for (int i=0; i<U.size(); ++i)
-        primitiveToConservative(U[i], V[i], (*Phi)[i]);
-    }else{
-    for (int i=0; i<U.size(); ++i)
-      primitiveToConservative(U[i], V[i]);
-    }
-  }
-  else {
-    for (int i=0; i<U.size(); ++i)
-      primitiveToConservative(U[i], V[i], (*Phi)[i], &((*Phi1)[i]), (*Vgf)[i], i);
-  }
-}
-*/
-//------------------------------------------------------------------------------
 
 template<int dim>
 void VarFcn::primitiveToConservative(SVec<double,dim> &U, SVec<double,dim> &V, Vec<double> *Phi)
@@ -757,39 +730,6 @@ void VarFcn::primitiveToConservative(SVec<double,dim> &U, SVec<double,dim> &V, V
   }
 }
 
-//------------------------------------------------------------------------------
-/*
-template<int dim>
-void VarFcn::primitiveToConservative(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<double> *Phi, DistVec<double> *Phi1, DistSVec<double,dim> *Vgf)
-{
-
-  int numLocSub = U.numLocSub();
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    double (*u)[dim] = U.subData(iSub);
-    double (*v)[dim] = V.subData(iSub);
-    if (!Phi1) {
-      if (Phi){
-        double *phi = (*Phi).subData(iSub);
-        for (int i=0; i<U.subSize(iSub); ++i)
-          primitiveToConservative(u[i], v[i], phi[i]);
-      }else{
-        for (int i=0; i<U.subSize(iSub); ++i)
-          primitiveToConservative(u[i], v[i]);
-      }
-    }
-    else {
-        if(node_change) fprintf(stdout, "node change in locsubD = %d\n", iSub);
-        double *phi  = (*Phi).subData(iSub);
-        double *phi1 = (*Phi1).subData(iSub);
-        double (*vgf)[dim]  = (*Vgf).subData(iSub);
-        for (int i=0; i<U.subSize(iSub); ++i)
-          primitiveToConservative(u[i], v[i], phi[i], &(phi1[i]), vgf[i], i);
-    }
-  }
-
-}
-*/
 //------------------------------------------------------------------------------
 
 template<int dim>
