@@ -3402,6 +3402,7 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
     if(Phi[i]*Phin[i]<0.0 && !(Weight[i]>0.0)){
       fprintf(stdout, "node %d (loc %d in %d) has weight = %f\n", locToGlobNodeMap[i]+1,i,globSubNum,Weight[i]);
       fprintf(stdout, "   update = %e %e %e %e %e\n", Update[i][0],Update[i][1],Update[i][2],Update[i][3],Update[i][4]);
+      fprintf(stdout, "   phi = %e %e\n", Phin[i], Phi[i]);
     }
   }
 
