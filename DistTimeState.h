@@ -39,6 +39,7 @@ private:
 
   bool prec;
   double beta;
+  double mach;
   double cmach;
   double k1;
   double betav;
@@ -53,7 +54,6 @@ private:
   DistVec<double> *irey;
   DistSVec<double,dim> *Un;
   DistSVec<double,dim> *Unm1;
-  DistSVec<double,dim> *Unnm1; //for 2-step implicit schemes with LS
   DistSVec<double,dim> *Unm2;
   DistSVec<double,dim> *UnBar;
   DistSVec<double,dim> *Unm1Bar;
@@ -64,6 +64,11 @@ private:
 
   TimeState<dim> **subTimeState;
 
+// Included (MB)
+  DistVec<double> *dIrey;
+  DistVec<double> *dIdti;
+  DistVec<double> *dIdtv;
+
 public:
 
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *, DistSVec<double,dim> * = 0);
@@ -73,6 +78,8 @@ public:
   TimeState<dim> &operator() (int i) const { return *subTimeState[i]; }
 
   void setResidual(DistSVec<double,dim> *rn) { if (Rn != 0) delete Rn; Rn = rn; }
+
+  void setGlobalTimeStep (double t) { *dt = t; }
 
   //void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
@@ -124,6 +131,9 @@ public:
   void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar);
 
   template<class Scalar>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar, double);
+  
+  template<class Scalar>
   void addToH2LS(DistVec<double> &, DistVec<double> &, DistMat<Scalar,1> &);
 
   template<class Scalar>
@@ -147,6 +157,16 @@ public:
   DistSVec<double,dim> &getUn() const { return *Un; }
 
   double getTime()  { return data->dt_n; }
+
+// Included (MB)
+  TimeData* getDataOpt() { return data; }
+
+  template<class Scalar, int neq>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
+
+  void rstVar(IoData &);
+
+  DistVec<double>* getDerivativeOfInvReynolds(DistGeoState &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, double);
 
 };
 

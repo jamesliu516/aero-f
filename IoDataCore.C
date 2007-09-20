@@ -33,6 +33,10 @@ InputData::InputData()
   rstdata = "";
   podFile = "";
   podFile2 = "";
+
+// Included (MB)  
+  shapederivatives = "";
+
 }
 
 //------------------------------------------------------------------------------
@@ -40,6 +44,7 @@ InputData::InputData()
 void InputData::setup(const char *name, ClassAssigner *father)
 {
 
+// Modified (MB)  
   ClassAssigner *ca = new ClassAssigner(name, 14, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
@@ -57,6 +62,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
 
+// Included (MB)  
+  new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
+
 }
 
 //------------------------------------------------------------------------------
@@ -65,7 +73,7 @@ PreconditionData::PreconditionData()
 {
   mach = 1.0;
   k = 1.0;
-	cmach = 1.0;
+  cmach = 1.0;
   betav = 0.0;
 }
 
@@ -74,7 +82,6 @@ PreconditionData::PreconditionData()
 void PreconditionData::setup(const char *name, ClassAssigner *father)
 {
 
-  //ClassAssigner *ca = new ClassAssigner(name,3,father);
   ClassAssigner *ca = new ClassAssigner(name,4,father);
 
   new ClassDouble<PreconditionData>(ca,"Mach", this, &PreconditionData::mach);
@@ -156,6 +163,21 @@ TransientData::TransientData()
   romFile = "";
   philevel = "";
 
+// Included (MB)  
+  velocitynorm = "";
+  dSolutions = "";
+  dDensity = "";
+  dMach = "";
+  dPressure = "";
+  dTotalpressure = "";
+  dTemperature = "";
+  dNutturb = "";
+  dVelocityScalar = "";
+  dVelocityVector = "";
+  dDisplacement = "";
+  dForces = "";
+  dEddyvis = "";
+
   frequency = 0;
   length = 1.0;
   surface = 1.0;
@@ -170,7 +192,8 @@ TransientData::TransientData()
 void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 54, father);
+// Modified (MB)  
+  ClassAssigner *ca = new ClassAssigner(name, 67, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "Solution", this, &TransientData::solutions);
@@ -182,6 +205,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HWTVelocityMagnitude", this, &TransientData::wtspeed);
   new ClassStr<TransientData>(ca, "AbsVelocity", this, &TransientData::absvelocity);
   new ClassStr<TransientData>(ca, "TavMach", this, &TransientData::tavmach);
+
   new ClassStr<TransientData>(ca, "Pressure", this, &TransientData::pressure);
   new ClassStr<TransientData>(ca, "DeltaPressure", this, &TransientData::diffpressure);
   new ClassStr<TransientData>(ca, "HydroStaticPressure", this, &TransientData::hydrostaticpressure);
@@ -192,6 +216,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TotalPressure", this, &TransientData::totalpressure);
   new ClassStr<TransientData>(ca, "TavTotalPressure", this, &TransientData::tavtotalpressure);
   new ClassStr<TransientData>(ca, "Vorticity", this, &TransientData::vorticity);
+
   new ClassStr<TransientData>(ca, "TavVorticity", this, &TransientData::tavvorticity);
   new ClassStr<TransientData>(ca, "NuTilde", this, &TransientData::nutturb);
   new ClassStr<TransientData>(ca, "K", this, &TransientData::kturb);
@@ -202,6 +227,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "CsDLES", this, &TransientData::csdles);
   new ClassStr<TransientData>(ca, "CsDVMS", this, &TransientData::csdvms);
   new ClassStr<TransientData>(ca, "MutOverMu", this, &TransientData::mutOmu);
+
   new ClassStr<TransientData>(ca, "Velocity", this, &TransientData::velocity);
   new ClassStr<TransientData>(ca, "TavVelocity", this, &TransientData::tavvelocity);
   new ClassStr<TransientData>(ca, "Displacement", this, &TransientData::displacement);
@@ -212,6 +238,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavForce", this, &TransientData::tavforces);
   new ClassStr<TransientData>(ca, "HydroStaticForce", this, &TransientData::hydrostaticforces);
   new ClassStr<TransientData>(ca, "HydroDynamicForce", this, &TransientData::hydrodynamicforces);
+
   new ClassStr<TransientData>(ca, "LiftandDrag", this, &TransientData::lift);
   new ClassStr<TransientData>(ca, "HydroStaticLiftandDrag", this, &TransientData::hydrostaticlift);
   new ClassStr<TransientData>(ca, "HydroDynamicLiftandDrag", this, &TransientData::hydrodynamiclift);
@@ -222,10 +249,27 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TransientData>(ca, "Surface", this, &TransientData::surface);
   new ClassDouble<TransientData>(ca, "XM", this, &TransientData::x0);
   new ClassDouble<TransientData>(ca, "YM", this, &TransientData::y0);
+
   new ClassDouble<TransientData>(ca, "ZM", this, &TransientData::z0);
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
+
+// Included (MB)  
+  new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
+  new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
+  new ClassStr<TransientData>(ca, "DensitySensitivity", this, &TransientData::dDensity);
+  new ClassStr<TransientData>(ca, "MachSensitivity", this, &TransientData::dMach);
+  new ClassStr<TransientData>(ca, "PressureSensitivity", this, &TransientData::dPressure);
+  new ClassStr<TransientData>(ca, "TemperatureSensitivity", this, &TransientData::dTemperature);
+
+  new ClassStr<TransientData>(ca, "TotalPressureSensitivity", this, &TransientData::dTotalpressure);
+  new ClassStr<TransientData>(ca, "NuTildeSensitivity", this, &TransientData::dNutturb);
+  new ClassStr<TransientData>(ca, "EddyViscositySensitivity", this, &TransientData::dEddyvis);
+  new ClassStr<TransientData>(ca, "VelocityNormSensitivity", this, &TransientData::dVelocityScalar);
+  new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
+  new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
+  new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
 
 }
 
@@ -315,6 +359,7 @@ ProblemData::ProblemData()
   alltype = _STEADY_;
   mode = NON_DIMENSIONAL;
   prec = NON_PRECONDITIONED;
+
   test = REGULAR;
   verbose = 4;
 
@@ -329,14 +374,14 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   
   new ClassToken<ProblemData>
     (ca, "Type", this, 
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 21, 
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22, 
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3, 
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyThermal", 6, "UnsteadyThermal", 7, "SteadyAeroThermoElastic", 8, 
      "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11, 
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
-     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20);
+     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this, 
@@ -361,7 +406,7 @@ ReferenceStateData::ReferenceStateData()
 {
 
   mach = -1.0;
-	velocity = -1.0;
+  velocity = -1.0;
   density = -1.0;
   pressure = -1.0;
   temperature = -1.0;
@@ -396,7 +441,7 @@ BcsFreeStreamData::BcsFreeStreamData()
 
   type = EXTERNAL;
   mach = -1.0;
-	velocity = -1.0;
+  velocity = -1.0;
   alpha = 400.0;
   beta = 400.0;
   density = -1.0;
@@ -822,6 +867,26 @@ void SmagorinskyLESData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+WaleLESData::WaleLESData()
+{
+
+  c_w = 0.325;
+
+}
+
+//------------------------------------------------------------------------------
+
+void WaleLESData::setup(const char *name, ClassAssigner *father)
+{
+  
+  ClassAssigner *ca = new ClassAssigner(name, 1, father);
+  
+  new ClassDouble<WaleLESData>(ca, "Cw", this, &WaleLESData::c_w);
+
+}
+
+//------------------------------------------------------------------------------
+
 DynamicLESData::DynamicLESData()
 {
 
@@ -934,11 +999,11 @@ LESModelData::LESModelData()
 void LESModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<LESModelData>
     (ca, "Type", this, reinterpret_cast<int LESModelData::*>
-     (&LESModelData::type), 4, "Smagorinsky", 0, "Dynamic", 1, "VMS", 2, "DynamicVMS", 3);
+     (&LESModelData::type), 5, "Smagorinsky", 0, "Dynamic", 1, "VMS", 2, "DynamicVMS", 3, "WALE", 4);
   new ClassToken<LESModelData>
 	(ca, "Delta", this,
 	 reinterpret_cast<int LESModelData::*>(&LESModelData::delta), 2,
@@ -948,6 +1013,7 @@ void LESModelData::setup(const char *name, ClassAssigner *father)
   dles.setup("Dynamic", ca);
   vms.setup("VMS", ca);
   dvms.setup("DynamicVMS", ca);
+  wale.setup("WALE", ca);
 
 }
 
@@ -1080,7 +1146,7 @@ SphereData::SphereData()
   rho    = -1.0;          
   t      = -1.0;
   mach   = -1.0;
-	vel    = -1.0;
+  vel    = -1.0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1786,6 +1852,7 @@ TsData::TsData()
   maxIts = 100;
   eps = 1.e-6;
   timestep = -1.0;
+  timestepinitial = -1.0;
   maxTime = 1.e99;
 
   residual = -1;
@@ -1804,7 +1871,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 18, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
   
   new ClassToken<TsData>(ca, "Type", this, 
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -1823,6 +1890,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassInt<TsData>(ca, "MaxIts", this, &TsData::maxIts);
   new ClassDouble<TsData>(ca, "Eps", this, &TsData::eps);
   new ClassDouble<TsData>(ca, "TimeStep", this, &TsData::timestep);
+  new ClassDouble<TsData>(ca, "TimeStepInitial", this, &TsData::timestepinitial);
   new ClassDouble<TsData>(ca, "MaxTime", this, &TsData::maxTime);
   new ClassInt<TsData>(ca, "Residual", this, &TsData::residual);
   new ClassDouble<TsData>(ca, "Cfl0", this, &TsData::cfl0);
@@ -1834,6 +1902,79 @@ void TsData::setup(const char *name, ClassAssigner *father)
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+SensitivityAnalysis::SensitivityAnalysis()
+{
+  method  = DIRECT;
+  scFlag = ANALYTICAL;
+  mvp = FD;
+  eps = 0.00001;
+  sensMesh = OFF_SENSITIVITYMESH;
+  sensMach = OFF_SENSITIVITYMACH;
+  sensAlpha = OFF_SENSITIVITYALPHA;
+  sensBeta = OFF_SENSITIVITYBETA;
+  si = 0;
+  sf = -1;
+
+// For debugging purposes
+  excsol = OFF_EXACTSOLUTION;
+  homotopy = OFF_HOMOTOPY;
+  comp3d = ON_COMPATIBLE3D;
+  angleRad = OFF_ANGLERAD;
+  viscJacContrib = EXACT_JACOBIAN;
+  mvpfdOrdera = FIRST_ORDER_A;
+  mvpfdOrdersa = SECOND_ORDER_SA;
+  machref = -1.0;
+  alpharef = 400.0;
+  betaref = 400.0;
+  sensoutput = "";
+  fres = 0.0;
+  fixsol = NONEFIX;
+  avgsIt = 0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 30, father);
+
+  new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
+  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 2, "FiniteDifference", 0, "Exact", 1);
+  new ClassDouble<SensitivityAnalysis>(ca, "FiniteDifferenceEps", this, &SensitivityAnalysis::eps);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "SensitivityBeta", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensBeta), 2, "Off", 0, "On", 1);
+  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableInitial", this, &SensitivityAnalysis::si);
+  new ClassInt<SensitivityAnalysis>(ca, "ShapeVariableFinal", this, &SensitivityAnalysis::sf);
+
+// For debugging purposes
+  new ClassToken<SensitivityAnalysis>(ca, "ExactSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::excsol), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "HomotopyComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::homotopy), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "Compatible3D", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "AngleRadians", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
+  new ClassToken<SensitivityAnalysis>(ca, "ExactViscousJacobian", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::viscJacContrib), 3, "None", 0, "Exact", 1, "FiniteDifference", 2);
+  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdera), 2, "FirstOrder", 1, "SecondOrder", 2);
+  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDSA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdersa), 2, "FirstOrder", 1, "SecondOrder", 2);
+  new ClassDouble<SensitivityAnalysis>(ca, "MachReference", this, &SensitivityAnalysis::machref);
+  new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference", this, &SensitivityAnalysis::alpharef);
+  new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
+  new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput", this, &SensitivityAnalysis::sensoutput);
+  new ClassDouble<SensitivityAnalysis>(ca, "ForceResidual", this, &SensitivityAnalysis::fres);
+  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1); 
+  new ClassInt<SensitivityAnalysis>(ca, "AverageStateIterations", this, &SensitivityAnalysis::avgsIt);
+
+  ksp.setup("LinearSolver", ca);
 
 }
 
@@ -1871,6 +2012,7 @@ DefoMeshMotionData::DefoMeshMotionData()
   type = BASIC;
   element = BALL_VERTEX;
   volStiff = 0.0;
+
   mode = NonRecursive;
   numIncrements = 1;
 
@@ -2099,9 +2241,7 @@ void AeroelasticData::setup(const char *name, ClassAssigner *father)
 ForcedData::ForcedData()
 {
 
-  type = FLEXIBLE;
-  positions = "";
-  amplification = 1.0;
+  type = HEAVING;
   frequency = -1.0;
   timestep = -1.0;
 
@@ -2112,17 +2252,117 @@ ForcedData::ForcedData()
 void ForcedData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
-  
-  new ClassToken<ForcedData>
-    (ca, "Type", this, 
-     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 2,
-     "Rigid", 0, "Flexible", 1);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
-  new ClassStr<ForcedData>(ca, "Position", this, &ForcedData::positions);
-  new ClassDouble<ForcedData>(ca, "Amplification", this, &ForcedData::amplification);
+  new ClassToken<ForcedData>
+    (ca, "Type", this,
+     reinterpret_cast<int ForcedData::*>(&ForcedData::type), 3,
+     "Heaving", 0, "Pitching", 1, "Deforming", 2);
+
   new ClassDouble<ForcedData>(ca, "Frequency", this, &ForcedData::frequency);
   new ClassDouble<ForcedData>(ca, "TimeStep", this, &ForcedData::timestep);
+
+  hv.setup("Heaving", ca);
+  pt.setup("Pitching", ca);
+  df.setup("Deforming", ca);
+
+}
+
+//------------------------------------------------------------------------------
+
+HeavingData::HeavingData()
+{
+
+  domain = VOLUME;
+  ax = 0.0;
+  ay = 0.0;
+  az = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void HeavingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<HeavingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int HeavingData::*>(&HeavingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<HeavingData>(ca, "AX", this, &HeavingData::ax);
+  new ClassDouble<HeavingData>(ca, "AY", this, &HeavingData::ay);
+  new ClassDouble<HeavingData>(ca, "AZ", this, &HeavingData::az);
+
+}
+
+//------------------------------------------------------------------------------
+
+PitchingData::PitchingData()
+{
+
+  domain = VOLUME;
+  alpha_in = 0.0;
+  alpha_max = 0.0;
+  x1 =  0.0;
+  y1 = -1.0;
+  z1 =  0.0;
+  x2 =  0.0;
+  y2 =  1.0;
+  z2 =  0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void PitchingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+
+  new ClassToken<PitchingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int PitchingData::*>(&PitchingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassDouble<PitchingData>(ca, "Alpha0", this, &PitchingData::alpha_in);
+  new ClassDouble<PitchingData>(ca, "AlphaMax", this, &PitchingData::alpha_max);
+  new ClassDouble<PitchingData>(ca, "X1", this, &PitchingData::x1);
+  new ClassDouble<PitchingData>(ca, "Y1", this, &PitchingData::y1);
+  new ClassDouble<PitchingData>(ca, "Z1", this, &PitchingData::z1);
+  new ClassDouble<PitchingData>(ca, "X2", this, &PitchingData::x2);
+  new ClassDouble<PitchingData>(ca, "Y2", this, &PitchingData::y2);
+  new ClassDouble<PitchingData>(ca, "Z2", this, &PitchingData::z2);
+
+}
+
+//------------------------------------------------------------------------------
+
+DeformingData::DeformingData()
+{
+
+  domain = VOLUME;
+  positions = "";
+  amplification = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void DeformingData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassToken<DeformingData>
+    (ca, "Domain", this,
+     reinterpret_cast<int DeformingData::*>(&DeformingData::domain), 2,
+     "Volume", 0, "Surface", 1);
+
+  new ClassStr<DeformingData>(ca, "Position", this, &DeformingData::positions);
+  new ClassDouble<DeformingData>(ca, "Amplification", this, &DeformingData::amplification);
 
 }
 
@@ -2138,6 +2378,7 @@ LinearizedData::LinearizedData()
   amplification = 1.0;
   frequency = 10.0;
   stepsize = -1.0;
+  stepsizeinitial = -1.0;
   eps = 1e-4;
   eps2 = -1;
   tolerance = 1e-8;
@@ -2454,6 +2695,10 @@ void IoData::setupCmdFileVariables()
   mf.setup("MultiFluid");
   schemes.setup("Space");
   ts.setup("Time");
+
+// Included (MB)
+  sa.setup("SensitivityAnalysis");
+
   dmesh.setup("MeshMotion");
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
@@ -2578,6 +2823,70 @@ void IoData::resetInputValues()
 
   // part 2
 
+// Included (MB)
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+
+    if (ts.implicit.coupling == ImplicitData::WEAK) {
+      com->fprintf(stderr, " ----- Time.Implicit.Coupling set to Strong -----\n");
+      ts.implicit.coupling = ImplicitData::STRONG;
+    }
+
+    if (ts.implicit.mvp != ImplicitData::FD) {
+      com->fprintf(stderr, " ----- Time.Implicit.MatrixVectorProduct set to FiniteDifference -----\n");
+      ts.implicit.mvp = ImplicitData::FD;
+    }
+
+    if (ts.implicit.mvp != ImplicitData::FD) {
+      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
+      ts.implicit.jacobian = ImplicitData::EXACT;
+    }
+
+    if (ts.implicit.jacobian != ImplicitData::EXACT) {
+      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
+      ts.implicit.jacobian = ImplicitData::EXACT;
+    }
+
+    ts.implicit.newton.ksp.ns.numVectors = 30;
+
+    ts.implicit.newton.ksp.ns.pc.fill = 0;
+
+    if (dmesh.type != DefoMeshMotionData::BASIC) {
+      com->fprintf(stderr, " ----- MeshMotion.Type has to be set to Basic -----\n");
+      exit(1);
+    }    
+
+    if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) {
+      com->fprintf(stderr, " ----- Boundaries.Type has to be set to StegerWarming -----\n");
+      exit(1);
+    }
+
+    if (eqs.fluidModel.fluid != FluidModelData::GAS) { 
+      com->fprintf(stderr, " ----- Equations.FluidModel.Type has to be set to Gas -----\n");
+      exit(1);
+    }
+
+    if (problem.mode == ProblemData::NON_DIMENSIONAL) {
+      com->fprintf(stderr, " ----- Problem.Mode has to be set to Dimensional -----\n");
+      exit(1);
+    }
+    
+    int trip;
+    if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 || 
+	 eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 || 
+	 eqs.tc.tr.bfix.z0 > eqs.tc.tr.bfix.z1 )
+      trip = 0;
+    else 
+      trip = 1;
+    
+    if (sa.mvp == SensitivityAnalysis::H2 && trip) {
+      com->fprintf(stderr, 
+		   " ----- SensitivityAnalysis.MatrixVectorProduct set to"
+		   " FiniteDifference to account for tripping -----\n");
+      sa.mvp = SensitivityAnalysis::FD;
+    }
+    
+  }
+
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] || 
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ || 
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
@@ -2661,13 +2970,9 @@ void IoData::resetInputValues()
      else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
               eqs.fluidModel2.fluid == FluidModelData::LIQUID)
        com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
-     else{
-       com->fprintf(stderr, " ----- GAS-LIQUID SIMULATIONS ARE NOT DEFINED -----\n -----> exiting program");
-			 /* need to change the following to run a liquid in gas simulation:
-			  *
-			  */	
-       //exit(1);
-     }
+     else
+       com->fprintf(stderr, " ----- GAS-LIQUID SIMULATION -----\n");
+     
   }
   else{
     com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
@@ -2900,6 +3205,23 @@ int IoData::checkInputValuesNonDimensional()
       }
     }
 
+// Included (MB)
+    if (eqs.type == EquationsData::NAVIER_STOKES)
+      com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
+    ref.dRe_mudMach = 0.0;
+    ref.dRe_lambdadMach = 0.0;
+
+    if (bc.inlet.density < 0.0)
+      sa.densFlag = false;
+    else
+      sa.densFlag = true;
+
+    if (bc.inlet.pressure < 0.0)
+      sa.pressFlag = false;
+    else
+      sa.pressFlag = true;
+
+
     double gamma = eqs.fluidModel.gasModel.specificHeatRatio;
 
     double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
@@ -2917,10 +3239,10 @@ int IoData::checkInputValuesNonDimensional()
       bc.inlet.density = 1.0;
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::GAS)
-				if(ref.mach>0.0)
+        if(ref.mach>0.0)
           bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
-		    else
-					com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
+        else
+          com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -3010,7 +3332,7 @@ int IoData::checkInputValuesDimensional()
       }
                                                                                                         
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-			if (mf.problem == MultiFluidData::BUBBLE)
+      if (mf.problem == MultiFluidData::BUBBLE)
         bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
     }
 
@@ -3028,8 +3350,8 @@ int IoData::checkInputValuesDimensional()
         ref.density = bc.inlet.density;
       if (ref.pressure < 0.0)
         ref.pressure = bc.inlet.pressure;
-			if (ref.mach <= 0.0)
-				ref.mach = ref.velocity /sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
+      if (ref.mach <= 0.0)
+        ref.mach = ref.velocity /sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
       double velocity = ref.mach * sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
       ref.temperature = (ref.pressure + gamma*Pstiff)/ (ref.density * R);
       double viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
@@ -3038,6 +3360,13 @@ int IoData::checkInputValuesDimensional()
       ref.reynolds_lambda = -3.0 * ref.reynolds_mu/2.0;
         //as we are considering a gas whose Lame coefficients respect the Stokes relation (3*lambda+2*mu=0)
         // we have a relation between Re_mu and Re_lambda
+
+// Included (MB)
+      double dvelocitydMach = sqrt(gamma * ref.pressure / ref.density);
+      if (eqs.type == EquationsData::NAVIER_STOKES)
+        com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
+      ref.dRe_mudMach = dvelocitydMach * ref.length * ref.density / viscosity;
+      ref.dRe_lambdadMach = -3.0 * ref.dRe_mudMach/2.0;
 
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
@@ -3058,6 +3387,10 @@ int IoData::checkInputValuesDimensional()
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
 
+// Included (MB)
+      ref.rv.dvelocitydMach = dvelocitydMach;
+      ref.rv.dtimedMach = - ref.length / (velocity * velocity) * dvelocitydMach;
+
       if (linearizedData.eps2 < 0)
         linearizedData.eps2 = ref.rv.time;
     }
@@ -3068,8 +3401,8 @@ int IoData::checkInputValuesDimensional()
         ref.pressure = bc.inlet.pressure;
       if (ref.temperature < 0.0)
         ref.temperature = bc.inlet.temperature;
-			if (ref.mach <= 0.0)
-				ref.mach = ref.velocity / sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
+      if (ref.mach <= 0.0)
+        ref.mach = ref.velocity / sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double velocity = ref.mach * sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double soundvelocity = sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double viscosity_mu = 0.000001; //NEEDS TO BE CHANGED ACCORDING TO THE VISCO LAW FOR WATER
@@ -3114,14 +3447,14 @@ int IoData::checkInputValuesDimensional()
 
     bc.inlet.density /= ref.rv.density;
     bc.inlet.pressure /= ref.rv.pressure;
-		bc.inlet.velocity /= ref.rv.velocity;
+    bc.inlet.velocity /= ref.rv.velocity;
     bc.inlet.temperature /= ref.rv.temperature;
     bc.inlet.nutilde /= ref.rv.nutilde;
     bc.inlet.kenergy /= ref.rv.kenergy;
     bc.inlet.eps /= ref.rv.epsilon;
     bc.outlet.density /= ref.rv.density;
     bc.outlet.pressure /= ref.rv.pressure;
-		bc.outlet.velocity /= ref.rv.velocity;
+    bc.outlet.velocity /= ref.rv.velocity;
     bc.outlet.temperature /= ref.rv.temperature;
     bc.outlet.nutilde /= ref.rv.nutilde;
     bc.outlet.kenergy /= ref.rv.kenergy;
@@ -3133,6 +3466,7 @@ int IoData::checkInputValuesDimensional()
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
     linearizedData.stepsize = ts.timestep;
+    linearizedData.stepsizeinitial = ts.timestepinitial;
     ts.timestep /= ref.rv.time;
     ts.maxTime /= ref.rv.time;
     rmesh.vx /= ref.rv.velocity;
@@ -3198,17 +3532,17 @@ int IoData::checkInputValuesEssentialBC()
   if (bc.inlet.mach < 0.0 && bc.inlet.velocity < 0.0)
     bc.inlet.mach = ref.mach;
 
-	if (ref.velocity < 0.0)
-		ref.velocity = bc.inlet.velocity;
+  if (ref.velocity < 0.0)
+    ref.velocity = bc.inlet.velocity;
 
   if (ref.mach <= 0.0) {
     com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
-		if (ref.velocity<0.0){
+    if (ref.velocity<0.0){
       com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given\n");
-			++error;
-	  }
-		else
-			com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
+      ++error;
+    }
+    else
+      com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
   }
   if (bc.inlet.alpha > 360.0) {
     com->fprintf(stderr, "*** Error: no valid angle of attack (%e) given\n", bc.inlet.alpha);
@@ -3218,6 +3552,18 @@ int IoData::checkInputValuesEssentialBC()
     com->fprintf(stderr, "*** Error: no valid yaw angle (%e) given\n", bc.inlet.beta);
     ++error;
   }
+
+// Included (MB)
+  if (sa.machref < 0.0)
+    sa.machref = bc.inlet.mach;
+  if (sa.alpharef > 360.0)
+    sa.alpharef = bc.inlet.alpha;
+  if (sa.betaref > 360.0)
+    sa.betaref = bc.inlet.beta;
+  if (!sa.angleRad) {
+    sa.alpharef *= acos(-1.0) / 180.0;
+    sa.betaref *= acos(-1.0) / 180.0;
+  }  
 
   return error;
 
@@ -3284,8 +3630,8 @@ void IoData::checkInputValuesDefaultOutlet()
 {
   if (bc.outlet.mach < 0.0)
     bc.outlet.mach = bc.inlet.mach;
-	if (bc.outlet.velocity < 0.0)
-		bc.outlet.velocity = bc.inlet.velocity;
+  if (bc.outlet.velocity < 0.0)
+    bc.outlet.velocity = bc.inlet.velocity;
   if (bc.outlet.density < 0.0)
     bc.outlet.density = bc.inlet.density;
   if (bc.outlet.pressure < 0.0)
@@ -3302,6 +3648,23 @@ void IoData::checkInputValuesDefaultOutlet()
     bc.outlet.alpha = bc.inlet.alpha;
   if (bc.outlet.beta > 360.0)
     bc.outlet.beta = bc.inlet.beta;
+
+/*
+// TDL: This is a bug... already done in :checkInputValues()
+// Modified (MB) 
+  if (!sa.angleRad) {
+    bc.inlet.alpha *= acos(-1.0) / 180.0;
+    bc.inlet.beta *= acos(-1.0) / 180.0;
+    bc.outlet.alpha *= acos(-1.0) / 180.0;
+    bc.outlet.beta *= acos(-1.0) / 180.0;
+  }
+*/
+  
+// Included (MB)
+  if (aero.pressure < 0.0)
+    sa.apressFlag = false;
+  else
+    sa.apressFlag = true;
 
 }
 

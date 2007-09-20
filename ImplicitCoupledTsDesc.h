@@ -33,6 +33,9 @@ public:
   void setOperators(DistSVec<double,dim> &);
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   
+// Included (MB)
+  void rstVarImplicitCoupledTsDesc(IoData &);
+
 };
 
 //------------------------------------------------------------------------------

@@ -67,6 +67,26 @@ void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, dou
                                                                      
 }
                                                                    
+// Included (MB)
+void VarFcn::conservativeToPrimitiveDerivativeGasEuler(double g, double Ps, double dPs, double *U, double *dU, double *V, double *dV)
+{
+                         
+  dV[0] = dU[0];
+
+  double invRho = 1.0 / V[0];
+
+  dV[1] = ( dU[1]  - dV[0] * V[1] ) * invRho;
+  dV[2] = ( dU[2]  - dV[0] * V[2] ) * invRho;
+  dV[3] = ( dU[3]  - dV[0] * V[3] ) * invRho;
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dV[4] = (g-1.0) * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2) - g*dPs;
+                                                                     
+}
+                                                                   
 //------------------------------------------------------------------------------
 
 void VarFcn::primitiveToConservativeGasEuler(double g, double invg1, double Ps,
@@ -80,6 +100,23 @@ void VarFcn::primitiveToConservativeGasEuler(double g, double invg1, double Ps,
   U[2] = V[0] * V[2];
   U[3] = V[0] * V[3];
   U[4] = (V[4]+g*Ps) * invg1 + 0.5 * V[0] * vel2;
+                                            
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void VarFcn::primitiveToConservativeDerivativeGasEuler(double g, double invg1, double Ps, double dPs, double *V, double *dV, double *U, double *dU)
+{
+                                                           
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dU[0] = dV[0];
+  dU[1] = dV[0] * V[1] + V[0] * dV[1];
+  dU[2] = dV[0] * V[2] + V[0] * dV[2];
+  dU[3] = dV[0] * V[3] + V[0] * dV[3];
+  dU[4] = (dV[4]+g*dPs) * invg1 + 0.5 * dV[0] * vel2 + 0.5 * V[0] * dvel2;
                                             
 }
 
@@ -553,12 +590,63 @@ void VarFcn::conservativeToPrimitiveGasSA(double g1, double *U, double *V)
   V[4] = g1 * (U[4] - 0.5 * U[0] * vel2);
   V[5] = U[5] * invRho;
 }
+//---------------------------------------------------------------------------
+
+// Included (MB)
+void VarFcn::conservativeToPrimitiveDerivativeGasSA(double g1, double *U, double *dU, double *V, double *dV)
+{
+  dV[0] = dU[0];
+
+  double invRho = 1.0 / V[0];
+
+  dV[1] = ( dU[1]  - dV[0] * V[1] ) * invRho;
+  dV[2] = ( dU[2]  - dV[0] * V[2] ) * invRho;
+  dV[3] = ( dU[3]  - dV[0] * V[3] ) * invRho;
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dV[4] = g1 * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2);
+
+  dV[5] = ( dU[5]  - dV[0] * V[5] ) * invRho;
+}
+
 //------------------------------------------------------------------------------
 
-void VarFcn::primitiveToConservativeGasSA(double *V, double *U)
+// Modified (MB)
+void VarFcn::primitiveToConservativeGasSA(double invg1, double *V, double *U)
 {
-  fprintf(stderr, "*** Error: primitiveToConservative not implemented\n");
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+  U[0] = V[0];
+  U[1] = V[0] * V[1];
+  U[2] = V[0] * V[2];
+  U[3] = V[0] * V[3];
+  U[4] = V[4] * invg1 + 0.5 * V[0] * vel2;
+  U[5] = V[0] * V[5];
+
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void VarFcn::primitiveToConservativeDerivativeGasSA(double invg1, double *V, double *dV, double *U, double *dU)
+{
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dU[0] = dV[0];
+  dU[1] = dV[0] * V[1] + V[0] * dV[1];
+  dU[2] = dV[0] * V[2] + V[0] * dV[2];
+  dU[3] = dV[0] * V[3] + V[0] * dV[3];
+  dU[4] = dV[4] * invg1 + 0.5 * dV[0] * vel2 + 0.5 * V[0] * dvel2;
+  dU[5] = dV[0] * V[5] + V[0] * dV[5];
+
+}
+
 //------------------------------------------------------------------------------
 
 void VarFcn::computedUdVGasSA(double invg1, double *V, double *dUdV)
@@ -600,10 +688,20 @@ void VarFcn::computedVdUGasSA(double g1, double *V, double *dVdU)
 }
 //------------------------------------------------------------------------------
 
-void VarFcn::multiplyBydVdUGasSA(double *V, double *vec, double *res)
+// Modified (MB)
+void VarFcn::multiplyBydVdUGasSA(double g1, double *V, double *vec, double *res)
 {
-  fprintf(stderr, "*** Error: multiplyBydVdU not implemented\n");
+  double dVdU[36];
+  computedVdUGasSA(g1, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0];
+  res[1] = dVdU[6]*vec[0]+dVdU[7]*vec[1];
+  res[2] = dVdU[12]*vec[0]+dVdU[14]*vec[2];
+  res[3] = dVdU[18]*vec[0]+dVdU[21]*vec[3];
+  res[4] = dVdU[24]*vec[0]+dVdU[25]*vec[1]+dVdU[26]*vec[2]+dVdU[27]*vec[3]+dVdU[28]*vec[4];
+  res[5] = dVdU[30]*vec[0]+dVdU[35]*vec[5];
 }
+
 //------------------------------------------------------------------------------
 
 void VarFcn::preMultiplyBydUdVGasSA(double invg1, double *V, double *mat, double *res)
@@ -784,10 +882,60 @@ void VarFcn::conservativeToPrimitiveGasKE(double g1, double *U, double *V)
 
 //------------------------------------------------------------------------------
 
-void VarFcn::primitiveToConservativeGasKE(double *V, double *U)
+// Included (MB)
+void VarFcn::conservativeToPrimitiveDerivativeGasKE(double g1, double *U, double *dU, double *V, double *dV)
 {
-  fprintf(stderr, "*** Error: primitiveToConservative not implemented\n");
+  dV[0] = dU[0];
+
+  double invRho = 1.0 / V[0];
+
+  dV[1] = ( dU[1]  - dV[0] * V[1] ) * invRho;
+  dV[2] = ( dU[2]  - dV[0] * V[2] ) * invRho;
+  dV[3] = ( dU[3]  - dV[0] * V[3] ) * invRho;
+
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dV[4] = g1 * (dU[4] - 0.5 * dU[0] * vel2  - 0.5 * U[0] * dvel2);
+
+  dV[5] = ( dU[5]  - dV[0] * V[5] ) * invRho;
+  dV[6] = ( dU[6]  - dV[0] * V[6] ) * invRho;
 }
+ 
+//------------------------------------------------------------------------------
+
+// Modified (MB)
+void VarFcn::primitiveToConservativeGasKE(double invg1, double *V, double *U)
+{
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+
+  U[0] = V[0];
+  U[1] = V[0] * V[1];
+  U[2] = V[0] * V[2];
+  U[3] = V[0] * V[3];
+  U[4] = V[4] * invg1 + 0.5 * V[0] * vel2;
+  U[5] = V[0] * V[5];
+  U[6] = V[0] * V[6];
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void VarFcn::primitiveToConservativeDerivativeGasKE(double invg1, double *V, double *dV, double *U, double *dU)
+{
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+  double dvel2 = 2.0 * V[1] * dV[1] + 2.0 * V[2] * dV[2] + 2.0 * V[3] * dV[3];
+
+  dU[0] = dV[0];
+  dU[1] = dV[0] * V[1] + V[0] * dV[1];
+  dU[2] = dV[0] * V[2] + V[0] * dV[2];
+  dU[3] = dV[0] * V[3] + V[0] * dV[3];
+  dU[4] = dV[4] * invg1 + 0.5 * dV[0] * vel2 + 0.5 * V[0] * dvel2;
+  dU[5] = dV[0] * V[5] + V[0] * dV[5];
+  dU[6] = dV[0] * V[6] + V[0] * dV[6];
+}
+
 //------------------------------------------------------------------------------
 
 void VarFcn::computedUdVGasKE(double invg1, double *V, double *dUdV)
@@ -835,9 +983,21 @@ void VarFcn::computedVdUGasKE(double g1, double *V, double *dVdU)
 
 //------------------------------------------------------------------------------
 
-void VarFcn::multiplyBydVdUGasKE(double *V, double *vec, double *res)
+// Modified (MB) 
+void VarFcn::multiplyBydVdUGasKE(double g1, double *V, double *vec, double *res)
 {
-  fprintf(stderr, "*** Error: multiplyBydVdU not implemented\n");
+
+  double dVdU[49];
+  computedVdUGasKE(g1, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0];
+  res[1] = dVdU[7]*vec[0]+dVdU[8]*vec[1];
+  res[2] = dVdU[14]*vec[0]+dVdU[16]*vec[2];
+  res[3] = dVdU[21]*vec[0]+dVdU[24]*vec[3];
+  res[4] = dVdU[28]*vec[0]+dVdU[29]*vec[1]+dVdU[30]*vec[2]+dVdU[31]*vec[3]+dVdU[32]*vec[4];
+  res[5] = dVdU[35]*vec[0]+dVdU[40]*vec[5];
+  res[6] = dVdU[42]*vec[0]+dVdU[48]*vec[6];
+
 }
 
 //------------------------------------------------------------------------------

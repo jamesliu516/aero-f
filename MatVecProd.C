@@ -16,15 +16,20 @@
 #include <Domain.h>
 #include <MemoryPool.h>
 
+// Included (MB)
+#include <FemEquationTermDesc.h>
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
+// Included (MB)
 MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
 				DistGeoState *gs, SpaceOperator<dim> *spo, 
-				Domain *domain, IoData &ioData) 
-  : geoState(gs), Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo()), 
-                  Qepstmp(domain->getNodeDistInfo()), Fepstmp(domain->getNodeDistInfo()),
-                  Q(domain->getNodeDistInfo()), F(domain->getNodeDistInfo())
+				Domain *domain, IoData &ioData, bool fdsa) 
+  : geoState(gs), Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo())
+                , Qepstmp(domain->getNodeDistInfo()), Fepstmp(domain->getNodeDistInfo())
+                , Q(domain->getNodeDistInfo()), F(domain->getNodeDistInfo())
+                , Ftmp(domain->getNodeDistInfo()), iod(&ioData)
 {
 
   com = domain->getCommunicator();
@@ -50,6 +55,12 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
     }
   }
 
+// Included (MB)
+  if (fdsa)
+    fdOrder = ioData.sa.mvpfdOrdersa; 
+  else
+    fdOrder = ioData.sa.mvpfdOrdera; 
+
 }
 
 //------------------------------------------------------------------------------
@@ -74,6 +85,7 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 
   X = &x;
   ctrlVol = &cv;
+  Qeps = q;
 
   if (recFcnCon) {
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
@@ -85,13 +97,67 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 
   }
   else  {
-    Qeps = q;
     Feps = f;
   }
 
   Qeps.strip(Q);
   Feps.strip(F);
   
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv,
+				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+{
+
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon) {
+    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    if (timeState)
+      timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+  else  {
+    Feps = f;
+  }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv,
+				 DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+{
+
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon) {
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+  }
+  else  {
+    Feps = f;
+  }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+
 }
 
 //------------------------------------------------------------------------------
@@ -104,6 +170,7 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   
   X = &x;
   ctrlVol = &cv;
+  Qeps = q;
   Phi = &phi;
 	Riemann = riemann;
                                                                                                                  
@@ -116,9 +183,9 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
     spaceOp->applyBCsToResidual(Qeps, Feps);
   }
   else  {
-    Qeps = q;
     Feps = f;
   }
+
   Qeps.strip(Q);
   Feps.strip(F);
   
@@ -130,7 +197,54 @@ template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
 {
 
-  double eps = computeEpsilon(Q, p)/4000;
+  double eps = computeEpsilon(Q, p);
+
+// Included (MB)
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  if(Phi)
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
+  else
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+  if (timeState)
+    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Feps.strip(Fepstmp);
+  
+  if (fdOrder == 1) {
+
+    prod = (1.0/eps) * (Fepstmp - F);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+
+    Qepstmp.pad(Qeps);
+
+    if(Phi)
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
+    else
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    if (timeState)
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod = (1.0/eps) * (Fepstmp - Ftmp);
+
+  }
+
+// Original
+/*
 
   //#define MVP_CHECK_ONE_EQ 5
 #if MVP_CHECK_ONE_EQ
@@ -147,9 +261,8 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     }
   }
 #else
-  DistSVec<double, neq> Qtmp(Q);
-  Qtmp = Q + eps * p;
-  Qtmp.pad(Qeps);
+  Qepstmp = Q + eps * p;
+  Qepstmp.pad(Qeps);
 #endif
 
   if(Phi)
@@ -166,6 +279,118 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Feps.strip(Fepstmp);
   
   prod = (1.0/eps) * (Fepstmp - F);
+*/
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
+{
+
+  double eps = computeEpsilon(Q, p);
+
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+  if (timeState)
+    timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+  Q.pad(Qeps);
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Feps.strip(Fepstmp);
+  
+  if (fdOrder == 1) {
+
+    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    if (timeState)
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+    
+    prod += (1.0/eps) * (Fepstmp - Ftmp);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+
+    Qepstmp.pad(Qeps);
+
+    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    if (timeState)
+      timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+    Q.pad(Qeps);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod += (1.0/eps) * (Fepstmp - Ftmp);
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
+{
+
+  double eps = computeEpsilon(Q, p);
+
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+  spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Feps.strip(Fepstmp);
+  
+  if (fdOrder == 1) {
+
+    Q.pad(Qeps);
+
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod += (1.0/eps) * (Fepstmp - Ftmp);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+
+    Qepstmp.pad(Qeps);
+
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+
+    spaceOp->applyBCsToResidual(Qeps, Feps);
+
+    Feps.strip(Ftmp);
+
+    prod += (1.0/eps) * (Fepstmp - Ftmp);
+
+  }
 
 }
 
@@ -220,6 +445,17 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
   else eps = eps0;
  
   return eps;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
+{
+
+  spaceOp->rstFluxFcn(ioData);
 
 }
 
@@ -395,9 +631,21 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
+{
+
+  spaceOp = spo;
+
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim>
+// Included (MB)
 MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeState<dim> *ts,
-				       SpaceOperator<dim> *spo, Domain *domain) :
+				       SpaceOperator<dim> *spo, Domain *domain, DistGeoState *gs) :
   DistMat<Scalar,dim>(domain), timeState(ts),
   aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()), 
   bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo())
@@ -415,12 +663,21 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
   // allocate for viscous flux jacobian term
   bool nsFlag = false;
   spaceOp = new SpaceOperator<dim>(*spo, false);
+
+// Included (MB*)
+  if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.bc.wall.integration != BcsWallData::WALL_FUNCTION))
+    nsFlag = true;
+
+// Original
+/*
   if (ioData.eqs.type == EquationsData::NAVIER_STOKES)  {
     R = new MatVecProdH1<dim, Scalar ,dim>(ts, spo, domain);
     nsFlag = true;
   }
   else
     R = 0;
+*/
+
 #pragma omp parallel for reduction (+: size)
   for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
 
@@ -437,9 +694,150 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
   this->com->printf(2, "%3.2f+%3.2f=%3.2f MB\n", size, coefsize, size+coefsize);
   
 
+// Included (MB)
   fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   fluxFcn -= BC_MIN_CODE;
-  //for GAS
+//for GAS
+  if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
+    if (ioData.eqs.type == EquationsData::NAVIER_STOKES && ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
+
+      if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS || ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+
+        if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+	  fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        else {
+	  fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+	  fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        else {
+	  fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+
+        fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+
+        fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+      }
+      else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+   
+        fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
+        fluxFcn -= BC_MIN_CODE;
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+
+        fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+      }
+    }
+    else {
+    
+      if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+          fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+          fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }
+      }
+      else {
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+      if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+          fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+          fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_INLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }
+      }
+      else {
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+                                                                                                        
+      fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+
+      fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+    }
+  }
+//for LIQUID
+  else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
+    if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+    }
+    else {
+      fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+    }
+    if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+    }
+    else {
+      fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+    }
+                                                                                                      
+    fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SYMMETRY] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+                                                                                                      
+    fluxFcn[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+  }
+
+// Orginal
+/*
+  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  fluxFcn -= BC_MIN_CODE;
+//for GAS
   if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
     if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
       if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
@@ -478,7 +876,8 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
     fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
     fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
     fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
-  }//for LIQUID
+  }
+//for LIQUID
   else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
     if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
       if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
@@ -519,8 +918,37 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
     fluxFcn[BC_SYMMETRY] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
                                                                                                       
   }
+*/
 
   spaceOp->setFluxFcn(fluxFcn);
+
+// Included (MB)
+  if (ioData.eqs.type == EquationsData::NAVIER_STOKES)  {
+    viscJacContrib = ioData.sa.viscJacContrib;
+    vProd = new DistSVec<double,dim>(domain->getNodeDistInfo());
+
+    if (viscJacContrib == 1) {
+      R = new MatVecProdH1<dim, Scalar ,dim>(ts, spo, domain);
+      RFD = 0;
+    }
+    else if (viscJacContrib == 2) {
+      R = 0;
+      if (gs)
+        RFD = new MatVecProdFD<dim,dim>(ioData.ts.implicit, ts, gs, spo, domain, ioData);
+      else
+        RFD = 0;
+    }
+    else {
+      vProd = 0;
+      R = 0;
+      RFD = 0;
+    }
+  }
+  else {
+    vProd = 0;
+    R = 0;
+    RFD = 0;
+  }
 
 }
 
@@ -563,6 +991,12 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x, DistVec<d
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
+// Included (MB)
+  evaluateInviscid(it, x, cv, q, f);
+  evaluateViscous(it, x, cv, q, f);
+
+// Original
+/*
   X = &x;
   ctrlVol = &cv;
   Q = &q;
@@ -579,6 +1013,49 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x, DistVec<d
     spaceOp->applyBCsToH2Jacobian(*Q, *this);
     R->evaluateViscous(it, *X, *ctrlVol);
     spaceOp->applyBCsToJacobian(*Q, *R);
+  }
+*/
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar, int dim>
+void MatVecProdH2<Scalar,dim>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+{
+
+  X = &x;
+  ctrlVol = &cv;
+  Q = &q;
+
+  spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
+
+  if (timeState)
+    timeState->addToH2(*ctrlVol, *Q, *this);
+
+  spaceOp->applyBCsToH2Jacobian(*Q, *this);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar, int dim>
+void MatVecProdH2<Scalar,dim>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
+{
+
+  // compute viscous flux jacobian
+  if (R)  {
+    R->evaluateViscous(it, *X, *ctrlVol);
+    spaceOp->applyBCsToJacobian(*Q, *R);
+  }
+
+  if (RFD) {
+    F = &f;
+    RFD->evaluateViscous(it, *X, *ctrlVol, *Q, *F);
   }
 
 }
@@ -597,8 +1074,36 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x,
 
   spaceOp->computeH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji);
 
-  if (timeState)
-    timeState->addToH2(*ctrlVol, *Q, *this, shift);
+  if (timeState) {
+     switch (it)  {
+       //case for the construction of the POD
+       case 0:
+         timeState->addToH2(*ctrlVol, *Q, *this, shift, 1.0);
+         break;   
+       case 1:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), 1.0);
+         break;
+       case 2:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -1.0);
+         break;
+       case 3:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(3.0), 2.0);
+         break;
+       case 4:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(4.0), -2.0);
+         break;
+       case 5:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(2.0), -2.0);
+         break;
+       case 6:
+         timeState->addToH2(*ctrlVol, *Q, *this, (Scalar(4.0)*shift+Scalar(2.0))/(shift*(shift+Scalar(1.0))), 2.0);
+         break;
+       case 7:
+         timeState->addToH2(*ctrlVol, *Q, *this, Scalar(8.0/3.0), 2.0);
+       break;
+
+    }
+  }
 
 }
 
@@ -641,13 +1146,52 @@ template<class Scalar, int dim>
 void MatVecProdH2<Scalar,dim>::apply(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
 {
 
+// Included (MB)
+  applyInviscid(p,prod);
+  applyViscous(p,prod);
+
+// Original
+/*
   spaceOp->applyH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
 
   if (R)  {
-  DistSVec<double, dim> vProd(p);
-  vProd = 0.0;
+    DistSVec<double, dim> vProd(p);
+    vProd = 0.0;
     R->apply(p, vProd);
     prod += vProd;
+  }
+*/
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar, int dim>
+void MatVecProdH2<Scalar,dim>::applyInviscid(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
+{
+
+  spaceOp->applyH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar, int dim>
+void MatVecProdH2<Scalar,dim>::applyViscous(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
+{
+
+  if (R)  {
+    *vProd = 0.0;
+    R->apply(p, *vProd);
+    prod += *vProd;
+  }
+
+  if (RFD)  {
+    *vProd = 0.0;
+    RFD->applyViscous(p, *vProd);
+    prod += *vProd;
   }
 
 }
@@ -682,6 +1226,154 @@ void MatVecProdH2<Scalar,dim>::applyT(DistSVec<bcomp,dim> &p,
 {
 
   spaceOp->applyH2T(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<class Scalar, int dim>
+void MatVecProdH2<Scalar,dim>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
+{
+
+  fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
+  fluxFcn -= BC_MIN_CODE;
+  //for GAS
+  if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
+    if (ioData.eqs.type == EquationsData::NAVIER_STOKES && ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
+
+      if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS || ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
+
+        if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+	  fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        else {
+	  fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+	  fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+        else {
+	  fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowSA3D(ioData, FluxFcn::PRIMITIVE);
+	  fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowSA3D(ioData, FluxFcn::PRIMITIVE);
+        }
+
+        fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData, FluxFcn::PRIMITIVE);
+
+        fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+      }
+      else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
+   
+        fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
+        fluxFcn -= BC_MIN_CODE;
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData, FluxFcn::PRIMITIVE);
+
+        fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+      }
+    }
+    else {
+    
+      if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+          fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+          fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }
+      }
+      else {
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+      if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+          fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+          fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+          fluxFcn[BC_INLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        }
+      }
+      else {
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+                                                                                                        
+      fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+
+      fluxFcn[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+    }
+  }//for LIQUID
+  else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
+    if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
+      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+        fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+    }
+    else {
+      fluxFcn[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+    }
+    if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
+      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
+        fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+        fluxFcn[BC_INLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+      }
+    }
+    else {
+      fluxFcn[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+      fluxFcn[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData, FluxFcn::PRIMITIVE);
+    }
+                                                                                                      
+    fluxFcn[BC_ADIABATIC_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ADIABATIC_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SYMMETRY] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+                                                                                                      
+    fluxFcn[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+  }
+
+  spaceOp->setFluxFcn(fluxFcn);
 
 }
 
@@ -778,9 +1470,6 @@ void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, Dis
                                                                                                              
   timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Qn, *Qnm1, *Qnm2, *F);
                                                                                                              
-  //spaceOp->computeH2LS(*X, *ctrlVol, *Q, U, *this);
-                                                                                                                    
-  //timeState->addToH2LS(*ctrlVol, *Q, *this);
                                                                                                                     
 }
 //------------------------------------------------------------------------------
@@ -848,3 +1537,4 @@ double MatVecProdLS<Scalar,dim,neq>::computeEpsilon(DistVec<double> &u, DistVec<
                                                                                                              
 }
 
+//------------------------------------------------------------------------------

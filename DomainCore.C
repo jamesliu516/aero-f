@@ -7,7 +7,7 @@
 #include <Vector3D.h>
 #include <DistVector.h>
 #include <Connectivity.h>
-//#include <KspPrec.h>
+#include <KspPrec.h>
 #include <BCApplier.h>
 #include <MatchNode.h>
 
@@ -40,6 +40,7 @@ Domain::Domain()
   nodeDistInfo = 0;
   edgeDistInfo = 0;
   faceDistInfo = 0;
+  faceNormDistInfo = 0;
   inletNodeDistInfo = 0;
 
   vecPat = 0;
@@ -64,6 +65,9 @@ Domain::Domain()
   tag = 0;
   tagBar = 0;
                                                                                                                       
+// Included (MB)
+  weightDerivativePat = 0;
+
   globCom = new Communicator;
   Communicator* allCom[MAX_CODES];
   globCom->split(FLUID_ID, MAX_CODES, allCom);
@@ -112,6 +116,7 @@ Domain::~Domain()
   if (nodeDistInfo) delete nodeDistInfo;
   if (edgeDistInfo) delete edgeDistInfo;
   if (faceDistInfo) delete faceDistInfo;
+  if (faceNormDistInfo) delete faceNormDistInfo;
   if (inletNodeDistInfo) delete inletNodeDistInfo;
 
   if (vecPat) delete vecPat;
@@ -135,6 +140,9 @@ Domain::~Domain()
   if (WPrT) delete(WPrT);
   if (tag) delete(tag);
   if (tagBar) delete(tagBar);
+
+// Included (MB)
+  if (weightDerivativePat) delete weightDerivativePat;
 
   //if (com) delete com;
   if(meshMotionBCs) delete meshMotionBCs; 
@@ -201,12 +209,16 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   csPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   fsPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
 
+// Included (MB)
+  weightDerivativePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+
   int numGlobSub = geoSource.getNumGlobSub();
   int *locSubToGlobSub = (*geoSource.getCpuToSub())[com->cpuNum()];
 
   nodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
-  faceDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   edgeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  faceDistInfo      = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
+  faceNormDistInfo  = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   inletNodeDistInfo = new DistInfo(numLocThreads, numLocSub, numGlobSub, locSubToGlobSub, com);
   if (!(ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL &&
         ioData.schemes.bc.type != BoundarySchemeData::STEGER_WARMING &&
@@ -223,6 +235,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   for (iSub = 0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->markLenNodes(*nodeDistInfo);
     subDomain[iSub]->markLenFaces(*faceDistInfo);
+    subDomain[iSub]->markLenFaceNorms(*faceNormDistInfo);
     subDomain[iSub]->setChannelNums(*subTopo);
     subDomain[iSub]->setComLenNodes(1, *volPat);
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
@@ -235,6 +248,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
 
   nodeDistInfo->finalize(true);
   faceDistInfo->finalize(false);
+  faceNormDistInfo->finalize(false);
 
   volPat->finalize();
   levelPat->finalize();
@@ -243,6 +257,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   vec3DPat->finalize();
   weightPat->finalize();
   momPat->finalize();
+
+// Included (MB)
+  weightDerivativePat->finalize();
 
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub) 
@@ -364,7 +381,6 @@ void Domain::setNodeType(IoData &ioData)
   bcpriority[BC_OUTLET_FIXED          ] =  1;
   bcpriority[BC_SYMMETRY              ] =  0;
   bcpriority[BC_INTERNAL              ] = -1;
-
 
   int iSub;
 #pragma omp parallel for
@@ -517,15 +533,6 @@ void Domain::setInletNodes(IoData &ioData)
 }
 
 //------------------------------------------------------------------------------
-void Domain::createNodeToTetConnectivity()
-{
-
-#pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->createNodeToTetConnectivity();
-
-}
-//------------------------------------------------------------------------------
 
 void Domain::makeRotationOwnership(IoData &ioData)  {
 
@@ -631,7 +638,7 @@ void Domain::printElementStatistics()
 	      minNum[1], maxNum[1], totNum[1]);
   com->printf(2, "Face statistics: min=%d, max=%d, total=%d\n", 
 	      minNum[2], maxNum[2], totNum[2]);
-  com->printf(2, "Tet statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Elem statistics: min=%d, max=%d, total=%d\n", 
 	      minNum[3], maxNum[3], totNum[3]);
 }
 
@@ -673,6 +680,33 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
+{
+
+  int iSub;
+
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->computeDerivativeOfControlVolumes(0, lscale, X(iSub), dX(iSub), dCtrlVol(iSub));
+    double (*locdCtrlVol)[1] = reinterpret_cast<double (*)[1]>(dCtrlVol.subData(iSub));
+    subDomain[iSub]->sndData(*volPat, locdCtrlVol);
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    double (*locdCtrlVol)[1] = reinterpret_cast<double (*)[1]>(dCtrlVol.subData(iSub));
+    subDomain[iSub]->addRcvData(*volPat, locdCtrlVol);
+  }
+
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
 void Domain::computeFaceNormals(DistSVec<double,3> &X, DistVec<Vec3D> &faceNorm)
 {
 #pragma omp parallel for
@@ -703,6 +737,29 @@ void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1
   for (iSub=0; iSub<numLocSub; ++iSub) 
     subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), 
 				edgeNormVel.subData(iSub));
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void Domain::computeDerivativeOfNormals(DistSVec<double,3> &X, DistSVec<double,3> &dX,
+		              DistVec<Vec3D> &edgeNorm, DistVec<Vec3D> &dEdgeNorm, DistVec<double> &edgeNormVel, DistVec<double> &dEdgeNormVel,
+			      DistVec<Vec3D> &faceNorm, DistVec<Vec3D> &dFaceNorm, DistVec<double> &faceNormVel, DistVec<double> &dFaceNormVel)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->computeDerivativeOfNormals(X(iSub), dX(iSub), edgeNorm(iSub), dEdgeNorm(iSub), edgeNormVel(iSub), dEdgeNormVel(iSub),
+				      faceNorm(iSub), dFaceNorm(iSub), faceNormVel(iSub), dFaceNormVel(iSub));
+    subDomain[iSub]->sndNormals(*edgePat, dEdgeNorm.subData(iSub), dEdgeNormVel.subData(iSub));
+  }
+  edgePat->exchange();
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->rcvNormals(*edgePat, dEdgeNorm.subData(iSub), dEdgeNormVel.subData(iSub));
+
 }
 
 //------------------------------------------------------------------------------
@@ -961,8 +1018,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 {
 
   int iSub;
-  //double t0 = timer->getTime();
-
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -977,8 +1032,6 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
     subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
     subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
   }
-
-  //timer->addNodalWeightsTime(t0);
 
 }
 
@@ -1011,6 +1064,43 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &
 
   //timer->addNodalWeightsTime(t0);
   if (count) delete count;
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,6> &dR)
+{
+
+  int iSub;
+
+  DistSVec<double,6> R(getNodeDistInfo());
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresEdgePart(X(iSub), dX(iSub), R(iSub), dR(iSub));
+    subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
+  }
+
+  weightPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->sndData(*weightDerivativePat, dR.subData(iSub));
+  }
+
+  weightDerivativePat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightDerivativePat, dR.subData(iSub));
+    subDomain[iSub]->computeDerivativeOfWeightsLeastSquaresNodePart(R(iSub), dR(iSub));
+  }
+
+  timer->addNodalWeightsTime(t0);
 
 }
 
@@ -1020,13 +1110,26 @@ void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &w
 				    DistSVec<double,3> &wij, DistSVec<double,3> &wji)
 {
 
-  //double t0 = timer->getTime();
-
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->computeWeightsGalerkin(X(iSub), wii(iSub), wij(iSub), wji(iSub));
 
-  //timer->addNodalWeightsTime(t0);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void Domain::computeDerivativeOfWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,3> &dwii,
+				    DistSVec<double,3> &dwij, DistSVec<double,3> &dwji)
+{
+
+  double t0 = timer->getTime();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->computeDerivativeOfWeightsGalerkin(X(iSub), dX(iSub), dwii(iSub), dwij(iSub), dwji(iSub));
+
+  timer->addNodalWeightsTime(t0);
 
 }
 
@@ -1153,6 +1256,5 @@ void Domain::printPhi(DistSVec<double,3> &X, DistVec<double> &Phi, int it)
     subDomain[iSub]->printPhi(X(iSub), Phi(iSub), numLocSub);
   com->barrier();
 }
-
 
 // ------------------------------------------------------------------------------------------

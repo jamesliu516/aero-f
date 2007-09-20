@@ -41,11 +41,6 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   else
     Unm2 = Unm1->alias();
 
-  if (data->use_nm1 && ioData.mf.method==MultiFluidData::GHOSTFLUID_WITH_RIEMANN)
-    Unnm1 = new DistSVec<double,dim>(domain->getNodeDistInfo());
-  else
-    Unnm1 = Un->alias();
-
   if (ioData.eqs.tc.les.type == LESModelData::DYNAMICVMS) {
     QBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
     VnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -80,6 +75,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   fet = spo->getFemEquationTerm();
 
   //preconditioner setup
+  mach = ioData.bc.inlet.mach;
   cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
@@ -120,6 +116,21 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   for (int iSub=0; iSub<numLocSub; ++iSub) 
     subTimeState[iSub] = 0;
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dIdti = new DistVec<double>(dom->getNodeDistInfo());
+    dIdtv = new DistVec<double>(dom->getNodeDistInfo());
+    dIrey = new DistVec<double>(dom->getNodeDistInfo());
+    *dIdti = 0.0; 
+    *dIdtv = 0.0; 
+    *dIrey = 0.0;
+  }
+  else {
+    dIdti = 0; 
+    dIdtv = 0; 
+    dIrey = 0;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -134,6 +145,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
 
   //preconditioner setup
+  mach = ioData.bc.inlet.mach;
   cmach = ioData.prec.cmach;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
@@ -183,6 +195,13 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   Unm1 = ts.Unm1;
   Unm2 = ts.Unm2;
   Rn = ts.Rn;
+
+  QBar = ts.QBar;
+  VnBar = ts.VnBar;
+  Vn = ts.Vn;
+  UnBar = ts.UnBar;
+  Unm1Bar = ts.Unm1Bar;
+  Unm2Bar = ts.Unm2Bar;
 
   domain = ts.domain;
 
@@ -336,6 +355,18 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistTimeState<dim>::rstVar(IoData & ioData) 
+{
+
+  mach = ioData.bc.inlet.mach;
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -593,6 +624,27 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
 				(*V)(iSub), A(iSub)); 
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
+				 DistMat<Scalar,neq> &A)
+{
+
+#ifdef DOUBLE_CHECK
+  varFcn->conservativeToPrimitive(U, *V);
+#endif
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
+				(*V)(iSub), A(iSub)); 
+
+}
+
 //------------------------------------------------------------------------------
                                                                                                                       
 template<int dim>
@@ -631,6 +683,28 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 
 }
 //------------------------------------------------------------------------------
+
+
+template<int dim>
+template<class Scalar>
+void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
+                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+{
+
+#ifdef DOUBLE_CHECK
+  varFcn->conservativeToPrimitive(U, *V);
+#endif
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub),
+                                (*V)(iSub), A(iSub), coefVol, coefA);
+
+}
+//------------------------------------------------------------------------------
+
+
+
 
 template<int dim>
 template<class Scalar>
@@ -861,6 +935,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
                                 DistVec<double> &Phi1, DistVec<double> &Phi2,
@@ -884,6 +959,7 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void DistTimeState<dim>::computeBar(bool doInitialTasks, DistMacroCellSet *macroCells,
                                     DistGeoState &geoState, int scopeDepth)
@@ -969,4 +1045,33 @@ void DistTimeState<dim>::get_dW_dt(bool doInitialTasks,
                                                                                                                           
 }
                                                                                                                           
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
+                                                          DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach)
+{
+
+//Remark: Error mesage for pointers
+  if (dIdti == 0) {
+    fprintf(stderr, "*** Error: Varible dIdti does not exist!\n");
+    exit(1);
+  }
+  if (dIdtv == 0) {
+    fprintf(stderr, "*** Error: Varible dIdtv does not exist!\n");
+    exit(1);
+  }
+  if (dIrey == 0) {
+    fprintf(stderr, "*** Error: Varible dIrey does not exist!\n");
+    exit(1);
+  }
+
+  //domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, dbeta, k1, cmach);
+  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, k1, cmach);
+
+  return dIrey;
+
+}
+
 //------------------------------------------------------------------------------

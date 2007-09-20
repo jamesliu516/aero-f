@@ -7,6 +7,7 @@
 #include <Domain.h>
 
 #include <math.h>
+#include <assert.h>
 
 //------------------------------------------------------------------------------
 
@@ -18,6 +19,41 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   Uinletnode(domain->getInletNodeDistInfo()), rotInfo(ioData.rotations.rotationMap.dataMap)
 {
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    this->dXdot = new DistSVec<double,3>(domain->getNodeDistInfo());
+    this->dTemp = new DistVec<double>(domain->getNodeDistInfo());
+    this->dUface = new DistSVec<double,dim>(domain->getFaceDistInfo());
+    this->dUnode = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    this->dUinletnode = new DistSVec<double,dim>(domain->getFaceDistInfo());
+    this->dUfarin = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    this->dUfarout = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  }
+  else {
+    this->dXdot = 0;
+    this->dTemp = 0;
+    this->dUface = 0;
+    this->dUnode = 0;
+    this->dUinletnode = 0;
+    this->dUfarin = 0;
+    this->dUfarout = 0;
+  }
+  if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
+    if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+      this->dUfaceSA = new DistSVec<double,dim>(domain->getFaceDistInfo());
+      this->dUnodeSA = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    } 
+    else {
+      this->dUfaceSA = 0;
+      this->dUnodeSA = 0;
+    }
+  }
+  else {
+    this->dUfaceSA = 0;
+    this->dUnodeSA = 0;
+  }
+
+
   this->numLocSub = domain->getNumLocSub();
   this->subDomain = domain->getSubDomain();
   this->com = domain->getCommunicator();
@@ -25,7 +61,33 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   subBcData = new BcData<dim>*[this->numLocSub];
 #pragma omp parallel for
   for (int iSub=0; iSub<this->numLocSub; ++iSub)
-    subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub));
+// Included (MB)
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
+        if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
+        }
+        else {
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub));
+	}
+      }
+      else {
+        subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUface)(iSub), (*dUnode)(iSub), (*dUinletnode)(iSub), (*dUfarin)(iSub), (*dUfarout)(iSub));
+      }
+    }
+    else {
+      if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
+        if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub), (*dUfaceSA)(iSub), (*dUnodeSA)(iSub));
+        }
+        else {
+          subBcData[iSub] = new BcData<dim>(this->Uface(iSub), this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub));
+	}
+      }
+      else {
+        subBcData[iSub] = new BcData<dim>(this->Uface(iSub),this->Unode(iSub), this->Uinletnode(iSub), this->Ufarin(iSub), this->Ufarout(iSub));
+      }
+    }
 
 
   if(vf->getType()==VarFcn::GAS || vf->getType()==VarFcn::GASINGAS)
@@ -62,6 +124,24 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   tref = ioData.ref.rv.time;
   vref = ioData.ref.rv.velocity;
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    (*dXdot) = 0.0;
+    (*dTemp) = 0.0;
+    (*dUface) = 0.0;
+    (*dUnode) = 0.0;
+    (*dUinletnode) = 0.0;
+    (*dUfarin) = 0.0;
+    (*dUfarout) = 0.0;
+  }
+  dtrefdMach = ioData.ref.rv.dtimedMach;
+  dvrefdMach = ioData.ref.rv.dvelocitydMach;
+  if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
+    if ((ioData.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+      (*dUfaceSA) = 0.0;
+      (*dUnodeSA) = 0.0;
+    } 
+
 }
 
 //------------------------------------------------------------------------------
@@ -77,6 +157,15 @@ DistBcData<dim>::~DistBcData()
 	delete subBcData[iSub];
     delete [] subBcData;
   }
+
+// Included (MB)
+  if (this->dXdot) delete this->dXdot;
+  if (this->dTemp) delete this->dTemp;
+  if (this->dUface) delete this->dUface;
+  if (this->dUnode) delete this->dUnode;
+  if (this->dUinletnode) delete this->dUinletnode;
+  if (this->dUfarin) delete this->dUfarin;
+  if (this->dUfarout) delete this->dUfarout;
 
 }
 
@@ -112,6 +201,32 @@ void DistBcData<dim>::finalize(VarFcn *varFcn, DistSVec<double,3> &X)
                                  this->Ufarout(iSub), this->Uface(iSub),
                                  this->Uinletnode(iSub));
   update(X);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcData<dim>::finalizeSA(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
+{
+
+//Remark: Error mesage for pointers
+  if (dUface == 0) {
+    fprintf(stderr, "*** Error: Varible dUface does not exist!\n");
+    exit(1);
+  }
+
+  varFcn->conservativeToPrimitiveDerivative(this->Uin, this->dUin, Vin, dVin);
+  varFcn->conservativeToPrimitiveDerivative(this->Uout, this->dUout, Vout, dVout);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->assignFreeStreamValues2((*dUfarin)(iSub),
+                                 (*dUfarout)(iSub), (*dUface)(iSub),
+                                 (*dUinletnode)(iSub));
+
+  updateSA(X, dX, dMach);
+
 }
 
 //------------------------------------------------------------------------------
@@ -180,6 +295,86 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void DistBcData<dim>::updateSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
+{
+
+//Remark: Error mesage for pointers
+  if (dUface == 0) {
+    fprintf(stderr, "*** Error: Varible dUface does not exist!\n");
+    exit(1);
+  }
+  if (dUnode == 0) {
+    fprintf(stderr, "*** Error: Varible dUnode does not exist!\n");
+    exit(1);
+  }
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->numLocSub; ++iSub) {
+    double (*dxdot)[3] = dXdot->subData(iSub);
+    double *dtemp = dTemp->subData(iSub);
+    double (*dunode)[dim] = dUnode->subData(iSub);
+    int *rotOwn = this->subDomain[iSub]->getRotOwn();
+    NodeSet &nodes = this->subDomain[iSub]->getNodes();
+    //int count = 0;
+    if (rotOwn)  { 
+      for (int i=0; i<dUnode->subSize(iSub); ++i) {
+        if(rotOwn[i]>=0) { // node belongs to a (potential) "rotating" surface
+          map<int,RotationData *>::iterator it = rotInfo.find(rotOwn[i]);
+          if(it != rotInfo.end()) { // the rotation data have been defined
+	    if(it->second->infRadius == RotationData::TRUE) {
+              double vel = it->second->omega / vref;
+              double dvel = -it->second->omega / (vref*vref)*dvrefdMach*dMach;
+	      dunode[i][1] = dvel*it->second->nx;
+	      dunode[i][2] = dvel*it->second->ny;
+	      dunode[i][3] = dvel*it->second->nz;
+	    }
+	    else {
+	      double ox = tref*it->second->omega*it->second->nx;
+	      double oy = tref*it->second->omega*it->second->ny;
+	      double oz = tref*it->second->omega*it->second->nz;
+	      double dox = dtrefdMach*dMach*it->second->omega*it->second->nx;
+	      double doy = dtrefdMach*dMach*it->second->omega*it->second->ny;
+	      double doz = dtrefdMach*dMach*it->second->omega*it->second->nz;
+	      double xd = nodes[i][0] - it->second->x0;
+	      double yd = nodes[i][1] - it->second->y0;
+	      double zd = nodes[i][2] - it->second->z0;
+	      dunode[i][1] = doy*zd-doz*yd + dxdot[i][0];
+	      dunode[i][2] = doz*xd-dox*zd + dxdot[i][1];
+	      dunode[i][3] = dox*yd-doy*xd + dxdot[i][2];
+	    }
+	  }
+	  else {
+            dunode[i][1] = dxdot[i][0];
+            dunode[i][2] = dxdot[i][1];
+            dunode[i][3] = dxdot[i][2];
+	  }
+        }
+        dunode[i][4] = dtemp[i];
+      }
+    }
+    else { // node does not belong to a "rotating" surface
+      for (int i=0; i<dUnode->subSize(iSub); ++i) {
+        dunode[i][1] = dxdot[i][0];
+        dunode[i][2] = dxdot[i][1];
+        dunode[i][3] = dxdot[i][2];
+        dunode[i][4] = dtemp[i];
+      }
+    }
+    //if(count) { fprintf(stderr," In DistBcData<dim>::update(): subd %3d has %6d 'rotating' nodes\n",subDomain[iSub]->getGlobSubNum(),count); fflush(stderr); }
+#if defined(STRONG_INLET_BC)
+    this->subDomain[iSub]->setNodeBcValue(dVin, (*dUnode)(iSub));
+#endif
+    this->subDomain[iSub]->computeFaceBcValue((*dUnode)(iSub), (*dUface)(iSub));
+  }
+
+  if ( this->gravity > 0.0 )
+    updateFarFieldSA(X, dX, dMach);
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void DistBcDataEuler<dim>::updateFarField(DistSVec<double,3> &X)
 {
@@ -197,6 +392,29 @@ void DistBcDataEuler<dim>::updateFarField(DistSVec<double,3> &X)
     this->subDomain[iSub]->assignFreeStreamValues2(this->Ufarin(iSub),
                                  this->Ufarout(iSub), this->Uface(iSub),
                                  this->Uinletnode(iSub));
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataEuler<dim>::updateFarFieldSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
+{
+// it does not matter what kind of simulation is done.
+// we only need to know which fluid is assumed to be at the
+//    boundary.
+  if (this->boundaryFluid == this->GAS)
+    updateFarFieldGasSA(X, dX, dMach);
+  else if(this->boundaryFluid == this->TAIT) {
+    fprintf(stderr, "*** Error: Function updateFarFieldSA (at DistBcData.C) does not support this option!\n");
+    exit(1);
+  }
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->assignFreeStreamValues2((*this->dUfarin)(iSub),
+                                 (*this->dUfarout)(iSub), (*this->dUface)(iSub),
+                                 (*this->dUinletnode)(iSub));
 }
 
 //------------------------------------------------------------------------------
@@ -225,6 +443,50 @@ void DistBcDataEuler<dim>::updateFarFieldGas(DistSVec<double,3> &X)
 
       uin[inode][4] = 0.5*this->Vin[0]*velin2 + (ptempin+gam*Pstiff)/(gam-1.0);
       uout[inode][4] = 0.5*this->Vout[0]*velout2 + (ptempout+gam*Pstiff)/(gam-1.0);
+
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataEuler<dim>::updateFarFieldGasSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
+{
+
+  // flow properties
+  double gam = this->vf->getGamma();
+  double Pstiff = this->vf->getPressureConstant();
+  double dPstiff = this->vf->getDerivativeOfPressureConstant()*dMach;
+
+//  assert(this->Vin[0]>0.0);
+//  assert(this->Vout[0]>0.0);
+
+#pragma parallel omp for
+  for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+    double (*x)[3]       = X.subData(iSub);
+    double (*dx)[3]      = dX.subData(iSub);
+    double (*duin)[dim]  = this->dUfarin->subData(iSub);
+    double (*duout)[dim] = this->dUfarout->subData(iSub);
+    double ptempin, dptempin, ptempout, dptempout, un, dun, velin2, dvelin2, velout2, dvelout2;
+
+    for(int inode = 0; inode<this->dUnode->subSize(iSub); inode++){
+      un = (x[inode][0]*this->ngravity[0]+x[inode][1]*this->ngravity[1]+x[inode][2]*this->ngravity[2]);
+      dun = (dx[inode][0]*this->ngravity[0]+dx[inode][1]*this->ngravity[1]+dx[inode][2]*this->ngravity[2]);
+      ptempin  = this->Vin[4] + this->Vin[0] *this->gravity*un;
+      ptempout = this->Vout[4]+ this->Vout[0]*this->gravity*un;
+      velin2  = this->Vin[1]*this->Vin[1]+this->Vin[2]*this->Vin[2]+this->Vin[3]*this->Vin[3];
+      velout2 = this->Vout[1]*this->Vout[1]+this->Vout[2]*this->Vout[2]+this->Vout[3]*this->Vout[3];
+      dptempin  = this->dVin[4] + this->dVin[0] *this->gravity*un + this->Vin[0] *this->gravity*dun;
+      dptempout = this->dVout[4] + this->dVout[0]*this->gravity*un + this->Vout[0]*this->gravity*dun;
+      dvelin2  = 2.0*(this->Vin[1]*this->dVin[1]+this->Vin[2]*this->dVin[2]+this->Vin[3]*this->dVin[3]);
+      dvelout2 = 2.0*(this->Vout[1]*this->dVout[1]+this->Vout[2]*this->dVout[2]+this->Vout[3]*this->dVout[3]);
+
+      duin[inode][4] = 0.5*this->dVin[0]*velin2 + 0.5*this->Vin[0]*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0);
+      duout[inode][4] = 0.5*this->dVout[0]*velout2 + 0.5*this->Vout[0]*dvelout2 + (dptempout+gam*dPstiff)/(gam-1.0);
 
     }
 
@@ -281,6 +543,7 @@ template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
                                 DistSVec<double,3> &X)
 {
+
 /* case 1: no gravity (typically aero simulation)
  *   pressure and density are constants and imposed as are
  *   velocity is constant but imposed as Mach*speed of sound
@@ -358,10 +621,119 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
       uout[inode][3] = this->Uout[3];
       uout[inode][4] = 0.5*rhoout*velout2 + (ptempout+gam*Pstiff)/(gam-1.0);
 
+
+// pressure pulse for channel flow along x
+      /*double amplitude = 0.2;
+      double dx = 0.1*0.1;
+      double radius2 = (x[inode][0]-0.)*(x[inode][0]-0.) +
+                       (x[inode][1]-0.)*(x[inode][1]-0.) +
+                       (x[inode][2]-0.)*(x[inode][2]-0.);
+      ptempin = pressurein*(1.0 + amplitude*exp( -pow((x[inode][0]-0.5),2)/dx));
+      ptempin = pressurein*(1.0 + amplitude*exp(-radius2/dx));
+      uin[inode][4] = 0.5*rhoin*velin2 +(ptempin+gam*Pstiff)/(gam-1.0);
+      */
     }
   }
   for (int idim=0; idim<dim; idim++)
     this->Ub[idim] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
+                                DistSVec<double,3> &X, DistSVec<double,3> &dX, double dM, double dA, double dB)
+{
+
+ // flow properties
+  double gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+  double Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
+  double dPstiff = -iod.eqs.fluidModel.gasModel.pressureConstant/(iod.ref.rv.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)) * dM;
+  double rhoin = iod.bc.inlet.density;
+  double rhoout = iod.bc.outlet.density;
+  double pressurein  = iod.bc.inlet.pressure + rhoin*this->gravity*this->depth;
+  double dpressurein = -2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach) * dM;
+  double pressureout = iod.bc.outlet.pressure + rhoout*this->gravity*this->depth;
+  double dpressureout = -2.0 / (gam * iod.bc.outlet.mach * iod.bc.outlet.mach * iod.bc.outlet.mach) * dM;
+
+  double velin2 = gam * (pressurein + Pstiff) * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin;
+  double dvelin2 = (gam * dPstiff * iod.bc.inlet.mach*iod.bc.inlet.mach / rhoin + 2.0 * gam * pressurein * iod.bc.inlet.mach / rhoin - 2.0 / (rhoin*iod.bc.inlet.mach)) * dM;
+  double velout2 = gam * (pressureout + Pstiff) * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout;
+  double dvelout2 = (gam * dPstiff * iod.bc.outlet.mach*iod.bc.outlet.mach / rhoout + 2.0 * gam * pressureout * iod.bc.outlet.mach / rhoout  - 2.0 / (rhoout*iod.bc.outlet.mach)) * dM;
+  double velin = sqrt(velin2);
+  double dvelin = dvelin2/(2*velin);
+  double velout = sqrt(velout2);
+  double dvelout = dvelout2/(2.0*velout);
+  this->dUin[0] = 0.0;
+  this->dUin[1] = rhoin * dvelin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
+  this->dUin[2] = rhoin * dvelin * cos(iod.bc.inlet.alpha)  * sin(iod.bc.inlet.beta);
+  this->dUin[3] = rhoin * dvelin * sin(iod.bc.inlet.alpha);
+  this->dUin[4] = (dpressurein + gam*dPstiff)/(gam - 1.0) + 0.5 * rhoin * dvelin2;
+
+  this->dUout[0] = 0.0;
+  this->dUout[1] = rhoout * dvelout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
+  this->dUout[2] = rhoout * dvelout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
+  this->dUout[3] = rhoout * dvelout * sin(iod.bc.outlet.alpha);
+  this->dUout[4] = (dpressureout + gam*dPstiff)/(gam - 1.0)  + 0.5 * rhoout * dvelout2;
+
+  this->dUin[0] += 0.0;
+  this->dUin[1] += rhoin * velin * (-sin(iod.bc.inlet.alpha)*dA) * cos(iod.bc.inlet.beta);
+  this->dUin[2] += rhoin * velin * (-sin(iod.bc.inlet.alpha)*dA) * sin(iod.bc.inlet.beta);
+  this->dUin[3] += rhoin * velin * (cos(iod.bc.inlet.alpha)*dA);
+  this->dUin[4] += 0.0;
+
+  this->dUout[0] += 0.0;
+  this->dUout[1] += rhoout * velout * (-sin(iod.bc.outlet.alpha)*dA) * cos(iod.bc.outlet.beta);
+  this->dUout[2] += rhoout * velout * (-sin(iod.bc.outlet.alpha)*dA) * sin(iod.bc.outlet.beta);
+  this->dUout[3] += rhoout * velout * (cos(iod.bc.outlet.alpha)*dA);
+  this->dUout[4] += 0.0;
+
+  this->dUin[0] += 0.0;
+  this->dUin[1] += rhoin * velin * cos(iod.bc.inlet.alpha) * (-sin(iod.bc.inlet.beta)*dB);
+  this->dUin[2] += rhoin * velin * cos(iod.bc.inlet.alpha) * (cos(iod.bc.inlet.beta)*dB);
+  this->dUin[3] += 0.0;
+  this->dUin[4] += 0.0;
+
+  this->dUout[0] += 0.0;
+  this->dUout[1] += rhoout * velout * cos(iod.bc.outlet.alpha) * (-sin(iod.bc.outlet.beta)*dB);
+  this->dUout[2] += rhoout * velout * cos(iod.bc.outlet.alpha) * (cos(iod.bc.outlet.beta)*dB);
+  this->dUout[3] += 0.0;
+  this->dUout[4] += 0.0;
+
+// computation for each node according to its depth
+// this will be passed in DistTimeState to initialize simulation 
+#pragma parallel omp for
+  for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+    double (*x)[3]       = X.subData(iSub);
+    double (*dx)[3]      = dX.subData(iSub);
+    double (*duin)[dim]  = this->dUfarin->subData(iSub);
+    double (*duout)[dim] = this->dUfarout->subData(iSub);
+    double ptempin, ptempout, dptempin, dptempout, un, dun;
+
+    for(int inode = 0; inode<this->dUnode->subSize(iSub); inode++){
+      un = (x[inode][0]*this->ngravity[0]+x[inode][1]*this->ngravity[1]+x[inode][2]*this->ngravity[2]);
+      dun = (dx[inode][0]*this->ngravity[0]+dx[inode][1]*this->ngravity[1]+dx[inode][2]*this->ngravity[2]);
+      ptempin  = pressurein  + rhoin *this->gravity*un;
+      ptempout = pressureout + rhoout*this->gravity*un;
+      dptempin  = dpressurein + rhoin*this->gravity*dun;
+      dptempout = dpressureout + rhoout*this->gravity*dun;
+
+      duin[inode][0] = this->dUin[0];
+      duin[inode][1] = this->dUin[1];
+      duin[inode][2] = this->dUin[2];
+      duin[inode][3] = this->dUin[3];
+      duin[inode][4] = 0.5*rhoin*dvelin2 + (dptempin+gam*dPstiff)/(gam-1.0); 
+
+      duout[inode][0] = this->dUout[0];
+      duout[inode][1] = this->dUout[1];
+      duout[inode][2] = this->dUout[2];
+      duout[inode][3] = this->dUout[3];
+      duout[inode][4] = 0.5*rhoout*dvelout2 + (dptempout+gam*dPstiff)/(gam-1.0);
+
+    }
+  }
 
 }
 
@@ -876,6 +1248,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
 
 //------------------------------------------------------------------------------
 
+
 template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod, VarFcn *vf,
 				DistSVec<double,3> &X)
@@ -974,6 +1347,115 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod, VarFcn *v
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3> &X)
+{
+
+  if (iod.eqs.numPhase == 1){
+    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+      setBoundaryConditionsGas(iod, X);
+    else if(iod.eqs.fluidModel.fluid == FluidModelData::LIQUID)
+      setBoundaryConditionsLiquid(iod, vf, X);
+    
+  }else if (iod.eqs.numPhase == 2){
+    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
+        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+      setBoundaryConditionsGasGas(iod, X);
+    
+    else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+      setBoundaryConditionsLiquidLiquid(iod, vf, X);
+    
+    else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+      setBoundaryConditionsGasLiquid(iod, vf, X);
+
+    else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
+        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+      setBoundaryConditionsLiquidGas(iod, vf, X);
+  }
+
+  if (dim == 5)
+    this->finalize(vf, X);
+
+  if (dim == 6) {
+    this->Uin[5] = this->Uin[0] * iod.bc.inlet.nutilde;
+    this->Uout[5] = this->Uout[0] * iod.bc.outlet.nutilde;
+    this->finalize(vf, X);
+  }
+
+  if (dim == 7) {
+    this->Uin[5] = this->Uin[0] * iod.bc.inlet.kenergy;
+    this->Uin[6] = this->Uin[0] * iod.bc.inlet.eps;
+    this->Uout[5] = this->Uout[0] * iod.bc.outlet.kenergy;
+    this->Uout[6] = this->Uout[0] * iod.bc.outlet.eps;
+    this->finalize(vf, X);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataEuler<dim>::initializeSA(IoData &iod, VarFcn *vf, DistSVec<double,3> &X, DistSVec<double,3> &dX, double & dM, double & dA, double & dB)
+{
+
+  if (iod.eqs.numPhase == 1){
+    if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
+      setDerivativeOfBoundaryConditionsGas(iod, X, dX, dM, dA, dB);
+    else if(iod.eqs.fluidModel.fluid == FluidModelData::LIQUID) {
+      fprintf(stderr, "*** Error: Function initializeSA (at DistBcData.C) does not support this option!\n");
+      exit(1);
+    }
+    
+  }else {
+    fprintf(stderr, "*** Error: Function initializeSA (at DistBcData.C) does not support this option!\n");
+    exit(1);
+  }
+
+  if (dim == 5)
+    this->finalizeSA(vf,X,dX,dM);
+
+  if (dim == 6) {
+    this->dUin[5] = 0.0;
+    this->dUout[5] = 0.0;
+    this->finalizeSA(vf,X,dX,dM);
+  }
+
+  if (dim == 7) {
+// Remark: it has to be derived correctly see function "optRestartBcFluxs", kenergy and eps are dependent on Mach
+//    Uin[5] = Uin[0] * iod.bc.inlet.kenergy;
+//    Uin[6] = Uin[0] * iod.bc.inlet.eps;
+//    Uout[5] = Uout[0] * iod.bc.outlet.kenergy;
+//    Uout[6] = Uout[0] * iod.bc.outlet.eps;
+
+    this->dUin[5] = 0.0;
+    this->dUin[6] = 0.0;
+    this->dUout[5] = 0.0;
+    this->dUout[6] = 0.0;
+    this->finalizeSA(vf,X,dX,dM);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+DistBcDataEuler<dim>::DistBcDataEuler(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<double,3> &X) :
+    DistBcData<dim>(iod, vf, dom)
+{
+
+  initialize(iod, vf, X);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Original
+/*
 template<int dim>
 DistBcDataEuler<dim>::DistBcDataEuler(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<double,3> &X) : 
   DistBcData<dim>(iod, vf, dom)
@@ -1006,6 +1488,22 @@ DistBcDataEuler<dim>::DistBcDataEuler(IoData &iod, VarFcn *vf, Domain *dom, Dist
     this->finalize(vf, X);
 
 }
+*/
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcData<dim>::rstVar(IoData &ioData)
+{
+
+  angles[0] = ioData.bc.inlet.alpha;
+  angles[1] = ioData.bc.inlet.beta;
+
+  tref = ioData.ref.rv.time;
+  dtrefdMach = ioData.ref.rv.dtimedMach;
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -1020,11 +1518,24 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION) {
     tmp = new DistSVec<double,2>(dom->getNodeDistInfo());
     vec2Pat = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
+
+// Included (MB)
+    if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dtmp = new DistSVec<double,2>(dom->getNodeDistInfo());
+    }
+    else {
+      dtmp = 0;
+    }
+
 #pragma omp parallel for
     for (int iSub = 0; iSub<this->numLocSub; ++iSub)
       this->subDomain[iSub]->setComLenNodes(2, *vec2Pat);
     vec2Pat->finalize();
   }
+// Included (MB)
+  else {
+    dtmp = 0;
+  }  
 
   this->Uin[5] = this->Uin[0] * iod.bc.inlet.nutilde;
   this->Uout[5] = this->Uout[0] * iod.bc.outlet.nutilde;
@@ -1039,6 +1550,36 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     }
   }
 
+// Included (MB)
+  if ((iod.eqs.type == EquationsData::NAVIER_STOKES) && (iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY)) {
+    if ((iod.bc.wall.integration == BcsWallData::WALL_FUNCTION) && (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)) {
+      dnormsa = new DistSVec<double,1>(dom->getNodeDistInfo());
+      dtmpsa = new DistSVec<double,dim>(dom->getNodeDistInfo());
+      vec1PatSA = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
+      vec2PatSA = new CommPattern<double>(dom->getSubTopo(), this->com, CommPattern<double>::CopyOnSend);
+
+#pragma omp parallel for
+      for (int iSub = 0; iSub<this->numLocSub; ++iSub) {
+        this->subDomain[iSub]->setComLenNodes(dim, *vec1PatSA);
+        this->subDomain[iSub]->setComLenNodes(1, *vec2PatSA);
+      }
+      vec1PatSA->finalize();
+      vec2PatSA->finalize();
+    }
+    else {
+      dnormsa = 0;
+      dtmpsa = 0;
+      vec1PatSA = 0;
+      vec2PatSA = 0;
+    }
+  }
+  else {
+    dnormsa = 0;
+    dtmpsa = 0;
+    vec1PatSA = 0;
+    vec2PatSA = 0;
+  }
+
   this->finalize(vf, X);
 
 }
@@ -1051,6 +1592,9 @@ DistBcDataSA<dim>::~DistBcDataSA()
 
   if (tmp) delete tmp;
   if (vec2Pat) delete vec2Pat;
+
+// Included (MB)
+  if (dtmp) delete dtmp;
 
 }
 
@@ -1089,6 +1633,84 @@ void DistBcDataSA<dim>::computeNodeValue(DistSVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void DistBcDataSA<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{
+
+//Remark: Error mesage for pointers
+  if (dtmp == 0) {
+    fprintf(stderr, "*** Warning: Varible dtmp does not exist!\n");
+    //exit(1);
+  }
+
+  if (dtmp) {
+    int iSub;
+#pragma omp parallel for
+    for (iSub=0; iSub<this->numLocSub; ++iSub) {
+      this->subDomain[iSub]->computeDerivativeOfNodeBcValue(X(iSub), dX(iSub), this->Uface(iSub), (*this->dUface)(iSub), (*dtmp)(iSub));
+      this->subDomain[iSub]->sndData(*vec2Pat, dtmp->subData(iSub));
+    }
+
+    vec2Pat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+      this->subDomain[iSub]->addRcvData(*vec2Pat, dtmp->subData(iSub));
+      double (*t)[2] = tmp->subData(iSub);
+      double (*dt)[2] = dtmp->subData(iSub);
+      double (*dunode)[dim] = this->dUnode->subData(iSub);
+      for (int i=0; i<this->dUnode->subSize(iSub); ++i) {
+	if (t[i][0] != 0.0) {
+	  double w = 1.0 / t[i][0];
+	  double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
+	  dunode[i][5] = dw * t[i][1] + w * dt[i][1];
+	}
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataSA<dim>::computeNodeWallValues(DistSVec<double,3> &X)
+{
+
+  if (dtmpsa) {
+    int iSub;
+#pragma omp parallel for
+    for (iSub=0; iSub<this->numLocSub; ++iSub) {
+      this->subDomain[iSub]->computeNodeBCsWallValues(X(iSub), (*dnormsa)(iSub), (*this->dUfaceSA)(iSub), (*dtmpsa)(iSub));
+      this->subDomain[iSub]->sndData(*vec1PatSA, dtmpsa->subData(iSub));
+      this->subDomain[iSub]->sndData(*vec2PatSA, dnormsa->subData(iSub));
+    }
+
+    vec1PatSA->exchange();
+    vec2PatSA->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+      this->subDomain[iSub]->addRcvData(*vec1PatSA, dtmpsa->subData(iSub));
+      this->subDomain[iSub]->addRcvData(*vec2PatSA, dnormsa->subData(iSub));
+      double (*dnsa)[1] = dnormsa->subData(iSub);
+      double (*dtsa)[dim] = dtmpsa->subData(iSub);
+      double (*dunodesa)[dim] = this->dUnodeSA->subData(iSub);
+      for (int i=0; i<this->dUnodeSA->subSize(iSub); ++i) {
+	if (dnsa[i][0] != 0.0) {
+	  for (int k=0; k<dim; ++k)
+	    dunodesa[i][k] = dtsa[i][k] / dnsa[i][0];
+	}
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<double,3> &X) : 
   DistBcDataEuler<dim>(iod, vf, dom, X)
@@ -1096,6 +1718,14 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
 
   tmp = new DistSVec<double,3>(dom->getNodeDistInfo());
   vec3Pat = dom->getVec3DPat();
+
+// Included (MB)
+  if (iod.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+    dtmp = new DistSVec<double,3>(dom->getNodeDistInfo());
+  }
+  else {
+    dtmp = 0;
+  }
 
   this->Uin[5] = this->Uin[0] * iod.bc.inlet.kenergy;
   this->Uin[6] = this->Uin[0] * iod.bc.inlet.eps;
@@ -1126,6 +1756,9 @@ DistBcDataKE<dim>::~DistBcDataKE()
 
   if (tmp) delete tmp;
 
+// Included (MB)
+  if (dtmp) delete dtmp;
+
 }
 //------------------------------------------------------------------------------
 // unode[i][5] contains k and unode[i][6] contains eps
@@ -1154,6 +1787,48 @@ void DistBcDataKE<dim>::computeNodeValue(DistSVec<double,3> &X)
 	double w = 1.0 / t[i][0];
 	unode[i][5] = w * t[i][1];
 	unode[i][6] = w * t[i][2];
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void DistBcDataKE<dim>::computeDerivativeOfNodeValue(DistSVec<double,3> &X, DistSVec<double,3> &dX)
+{
+
+//Remark: Error mesage for pointers
+  if (dtmp == 0) {
+    fprintf(stderr, "*** Warning: Varible dtmp does not exist!\n");
+    //fprintf(stderr, "*** Error: Varible dtmp does not exist!\n");
+    //exit(1);
+  }
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub=0; iSub<this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeDerivativeOfNodeBcValue(X(iSub), dX(iSub), this->Uface(iSub), (*this->dUface)(iSub), (*dtmp)(iSub));
+    this->subDomain[iSub]->sndData(*vec3Pat, dtmp->subData(iSub));
+  }
+
+  vec3Pat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->addRcvData(*vec3Pat, dtmp->subData(iSub));
+    double (*t)[3] = tmp->subData(iSub);
+    double (*dt)[3] = dtmp->subData(iSub);
+    double (*dunode)[dim] = this->dUnode->subData(iSub);
+    for (int i=0; i<this->dUnode->subSize(iSub); ++i) {
+      if (t[i][0] != 0.0) {
+	double w = 1.0 / t[i][0];
+	double dw = -1.0 / ( t[i][0] * t[i][0] ) * dt[i][0];
+	dunode[i][5] = dw * t[i][1] + w * dt[i][1];
+	dunode[i][6] = dw * t[i][2] + w * dt[i][2];
       }
     }
   }

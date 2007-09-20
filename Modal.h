@@ -51,13 +51,20 @@ class ModalSolver {
 
     SpaceOperator<dim> *spaceOp;
     PostOperator<dim> *postOp;
-    MatVecProd<dim, dim> *HOp;
+    //MatVecProd<dim, dim> *HOp;
+    MatVecProdH2<double, dim> *HOp;
+    MatVecProdH2<double, dim> *HOp2step1;
     MatVecProdH2<double, dim> *HOp2;
+    MatVecProdH2<double, dim> *HOpstep2;
+    MatVecProdH2<double, dim> *HOpstep3;
     MatVecProdH2<bcomp, dim> *HOpC;
 
     /*GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp;
     GmresSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;*/
     KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp;
+    KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp2;
+    KspSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp3;
+
     KspSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;
     GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspCompGcr;
 
@@ -70,6 +77,7 @@ class ModalSolver {
     
     DistSVec<double,3> Xref;
     double dt;
+    double dt0;
     double *K;
 
     VecSet< DistSVec<double,dim> > DX;
@@ -89,19 +97,18 @@ class ModalSolver {
                        double *delU, double *delY, int &iSnap, double sdt, char *snapFile = 0);
     void freqIntegrate(VecSet<DistSVec<double, dim> > &, double, int &, VecSet<DistSVec<bcomp, dim > > &);
     void freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> > &, double, int &, VecSet<DistSVec<bcomp, dim > > &);
-    void constructROM(VecSet<Vec<double> > &romOp, VecSet<Vec<double> > &ec, 
-                      VecSet<Vec<double> > &g, VecSet<DistSVec<double, dim> > &, int);
-    void constructROM2(VecSet<Vec<double> > &romOp, VecSet<Vec<double> > &ec, 
+   void constructROM2(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ec,
                       VecSet<Vec<double> > &g, VecSet<DistSVec<double, dim> > &, int);
 
     void evalAeroSys(VecSet<Vec<double> > &, VecSet<DistSVec<double, dim> > &pVec, int);
     void evalFluidSys(VecSet<DistSVec<double, dim> > &pVec, int);
     void formOutputRom(VecSet<Vec<double> > &, VecSet<DistSVec<double, dim> > &, int nPodVecs);
-    void timeIntegrateROM(VecSet<Vec<double> > &romOp, VecSet<Vec<double> > &ecMat,
+    void timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ecMat,
                           VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs,
                           int nSteps, int nPodVecs, double *delU, double *delY, double sdt);
 
     void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
+    void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
     void interpolatePOD();

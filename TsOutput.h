@@ -79,6 +79,19 @@ private:
   DistVec<double> *Qs;
   DistSVec<double,3> *Qv;
   
+// Included (MB)
+  bool switchOpt;
+
+  double dSscale[PostFcn::DSSIZE];
+  double dVscale[PostFcn::DVSIZE];
+
+  char *dScalars[PostFcn::DSSIZE];
+  char *dVectors[PostFcn::DVSIZE];
+  char *dSolutions;
+  char *dForces;
+
+  FILE *fpdForces;
+
 public:
 
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
@@ -106,6 +119,11 @@ public:
 //                                DistVec<double> &, DistSVec<double,dim> &, LevelSet *);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+
+// Included (MB)
+  void rstVar(IoData &);
+  void writeDerivativeOfForcesToDisk(int, int, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double &, double &);
+  void writeBinaryDerivativeOfVectorsToDisk(int, int, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
 };
 

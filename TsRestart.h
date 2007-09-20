@@ -40,6 +40,9 @@ public:
 		   DistTimeState<dim> &, DistGeoState &, 
 		   LevelSet *LS);
 
+// Included (MB)
+  void rstVar(IoData &);
+
 };
 
 //------------------------------------------------------------------------------

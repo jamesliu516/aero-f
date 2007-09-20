@@ -42,6 +42,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
       positions[i] = positions[0];
       levelsets[i] = levelsets[0];
       data[i] = data[0];
+
     }
 
     index = 0;
@@ -71,6 +72,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
 	sprintf(data[i], "%s.%drst", data[0], i);
       else
 	sprintf(data[i], "");
+
     }
 
     index = 1;
@@ -82,6 +84,17 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   energy[0] = iod.restart.energy;
   energy[1] = iod.restart.energy;
   frequency = iod.output.restart.frequency;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void TsRestart::rstVar(IoData &ioData) {
+
+  etime = ioData.restart.etime;
+  energy[0] = ioData.restart.energy;
+  energy[1] = ioData.restart.energy;
 
 }
 

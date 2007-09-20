@@ -22,6 +22,9 @@ public:
 
   int solve(IoData &);
 
+// Included (MB)
+  int fsaSolve(IoData &);
+
 };
 
 //------------------------------------------------------------------------------
@@ -53,6 +56,28 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<class ProblemDescriptor>
+int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
+{
+
+  typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
+
+  // initialize solutions and geometry
+  probDesc->setupTimeStepping(&U, ioData);
+
+  probDesc->fsaPrintTextOnScreen("**********************************\n");
+  probDesc->fsaPrintTextOnScreen("*** Fluid Sensitivity Analysis ***\n");
+  probDesc->fsaPrintTextOnScreen("**********************************\n");
+
+  probDesc->fsaHandler(ioData, U);
+
+  return 0;
+
+}
+
+//------------------------------------------------------------------------------
+
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType &U,
                                          IoData &ioData)
@@ -67,6 +92,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   double t = probDesc->getInitialTime();
 
   // setup solution output files
+
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   dts = probDesc->computePositionVector(&lastIt, it, t);
@@ -111,7 +137,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     } while (dtLeft != 0.0);
 
-    lastIt = probDesc->checkForLastIteration(it, t, dt, U);
+// Modified (MB)
+    lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t);

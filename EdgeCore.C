@@ -71,6 +71,7 @@ void EdgeSet::createPointers(Vec<int> &newNum)
 
   while (it != last) {
 
+    // XML I am not sure why one would need to renumber...
     ptr[l][0] = (*it).first.first;
     ptr[l][1] = (*it).first.second;
 

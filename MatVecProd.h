@@ -53,6 +53,14 @@ public:
   virtual void applyLS(DistVec<double> &, DistVec<double> &) { };
   virtual void applyLS(DistSVec<double,neq> &, DistSVec<double,neq> &) { };
   virtual void applyLS(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) { };
+
+// Included (MB)
+  virtual void evaluateInviscid(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+  virtual void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+  virtual void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
+  virtual void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
+  virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0) = 0;
+
 };
 
 //------------------------------------------------------------------------------
@@ -81,14 +89,22 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
 
   Communicator *com;
 
+// Included (MB)
+  DistSVec<double,neq> Ftmp;
+  IoData *iod;
+  int fdOrder;
+  double fdeps;
+
 private:
 
   double computeEpsilon(DistSVec<double,neq> &, DistSVec<double,neq> &);
 
 public:
 
+// Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 
-	       SpaceOperator<dim> *, Domain *, IoData &);
+	       SpaceOperator<dim> *, Domain *, IoData &, bool = false);
+
   ~MatVecProdFD();
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -105,6 +121,14 @@ public:
     cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y)  {
     cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
+
+// Included (MB)
+  void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+  
 };
 
 //------------------------------------------------------------------------------
@@ -151,6 +175,13 @@ public:
     cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" <<
  endl; }
 
+// Included (MB)
+  void evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f) { this->com->printf(2, "*** Error: function evaluateInviscid not implemented\n");}
+  void evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f) { this->com->printf(2, "*** Error: function evaluateViscous not implemented\n");}
+  void applyInviscid(DistSVec<double,neq> &x, DistSVec<double,neq> &y) { this->com->printf(2, "*** Error: function applyInviscid not implemented\n");}
+  void applyViscous(DistSVec<double,neq> &x, DistSVec<double,neq> &y) { this->com->printf(2, "*** Error: function applyViscous not implemented\n");}
+  void rstSpaceOp(IoData &iod, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+
 };
 
 //------------------------------------------------------------------------------
@@ -186,22 +217,42 @@ class MatVecProdH2 : public MatVecProd<dim,dim>, public DistMat<Scalar,dim> {
   // viscous flux jacobian and/or 1st order jac terms(ie face flux jac)
   MatVecProdH1<dim, Scalar ,dim> *R;
 
+// Included (MB)
+  MatVecProdFD<dim,dim> *RFD;
+  DistSVec<double,dim> *vProd;
+  int viscJacContrib;
+
 public:
 
+// Included (MB)
   MatVecProdH2(IoData &, VarFcn *, DistTimeState<dim> *, 
-	       SpaceOperator<dim> *, Domain *);
+	       SpaceOperator<dim> *, Domain *, DistGeoState * = 0);
+
   ~MatVecProdH2();
 
   DistMat<Scalar,dim> &operator= (const Scalar);
 
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
-  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+/*  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &, 
-		 DistSVec<double,dim> &, DistSVec<double,dim> &);
+		 DistSVec<double,dim> &, DistSVec<double,dim> &); */
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+
+  void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
+                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluate2step1(int, DistSVec<double,3> &, DistVec<double> &,
+                 DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -210,10 +261,16 @@ public:
   void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &);
   void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y);
 
+// Included (MB)
+  void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyInviscid(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyViscous(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+
 };
 
 
-//------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
                                                                                                                       
 template<class Scalar, int dim, int neq>
@@ -279,6 +336,14 @@ public:
   void applyLS(DistVec<double> &, DistVec<double> &);
 
   double computeEpsilon(DistVec<double> &, DistVec<double> &);
+
+// Included (MB)
+  void evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f) { this->com->printf(2, "*** Error: function evaluateInviscid not implemented\n");}
+  void evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f) { this->com->printf(2, "*** Error: function evaluateViscous not implemented\n");}
+  void applyInviscid(DistSVec<double,neq> &x, DistSVec<double,neq> &y) { this->com->printf(2, "*** Error: function applyInviscid not implemented\n");}
+  void applyViscous(DistSVec<double,neq> &x, DistSVec<double,neq> &y) { this->com->printf(2, "*** Error: function applyViscous not implemented\n");}
+  void rstSpaceOp(IoData &iod, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0) { this->com->printf(2, "*** Error: function rstSpaceOp not implemented\n");}
+
 };
                                                                                                                       
 //------------------------------------------------------------------------------

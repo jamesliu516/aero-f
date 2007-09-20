@@ -14,12 +14,6 @@ using std::max;
 #endif
 
 
-/* Note:
-** flag is a dummy index for this class.
-** It is only used for multiphase flows.
-** It does not need to be specified for single phase flows.
-*/
-
 //------------------------------------------------------------------------------
 
 void FluxFcnPerfectGasFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
@@ -31,11 +25,33 @@ void FluxFcnPerfectGasFDJacRoeEuler3D::compute(double length, double irey, doubl
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasFDJacRoeEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnPerfectGasApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                        double *VL, double *VR, double *flux, int flag)
 {
   computePerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasApprJacRoeEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
 }
 
 //------------------------------------------------------------------------------
@@ -60,6 +76,17 @@ void FluxFcnPerfectGasExactJacRoeEuler3D::compute(double length, double irey, do
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasExactJacRoeEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnPerfectGasExactJacRoeEuler3D::computeJacobians(double irey, double *normal, double normalVel,
                                                  double *VL, double *VR,
@@ -77,6 +104,17 @@ void FluxFcnPerfectGasVanLeerEuler3D::compute(double length, double irey, double
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasVanLeerEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
 
 }
 
@@ -103,6 +141,28 @@ void FluxFcnPerfectGasWallEuler3D::compute(double length, double irey, double *n
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnPerfectGasWallEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnPerfectGasWallEuler3D::computeJacobian(double irey, double *normal, double normalVel,
+                                                   double *V, double *Ub, double *jac, int flag)
+{
+
+  computeJacobianPerfectGas(normal, normalVel, V, Ub, jac);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnPerfectGasGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, int flag)
 {
@@ -123,11 +183,35 @@ void FluxFcnPerfectGasInflowEuler3D::compute(double length, double irey, double 
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void FluxFcnPerfectGasInflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+   computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnPerfectGasOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *V, double *Ub, double *flux, int flag)
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void FluxFcnPerfectGasOutflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
 
@@ -139,6 +223,17 @@ void FluxFcnPerfectGasInternalInflowEuler3D::compute(double length, double irey,
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasInternalInflowEuler3D::computeDerivative(double vfgam, double vfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -160,6 +255,17 @@ void FluxFcnPerfectGasInternalOutflowEuler3D::compute(double length, double irey
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasInternalOutflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -187,6 +293,17 @@ void FluxFcnPerfectGasFDJacRoeSA3D::compute(double length, double irey, double *
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasFDJacRoeSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnPerfectGasApprJacRoeSA3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *VL, double *VR, double *flux, int flag)
@@ -195,6 +312,17 @@ void FluxFcnPerfectGasApprJacRoeSA3D::compute(double length, double irey, double
   computePerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
   
                                                                                                                   
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasApprJacRoeSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
 }
 
 //------------------------------------------------------------------------------
@@ -215,6 +343,17 @@ void FluxFcnPerfectGasExactJacRoeSA3D::compute(double length, double irey, doubl
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasExactJacRoeSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
 
 }
 
@@ -241,6 +380,28 @@ void FluxFcnPerfectGasWallSA3D::compute(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnPerfectGasWallSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnPerfectGasWallSA3D::computeJacobian(double irey, double *normal, double normalVel,
+                                                   double *V, double *Ub, double *jac, int flag)
+{
+
+  computeJacobianPerfectGas(normal, normalVel, V, Ub, jac);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnPerfectGasOutflowSA3D::compute(double length, double irey, double *normal, double normalVel,
                                  double *V, double *Ub, double *flux, int flag)
 {
@@ -251,11 +412,33 @@ void FluxFcnPerfectGasOutflowSA3D::compute(double length, double irey, double *n
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnPerfectGasOutflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnPerfectGasInternalInflowSA3D::compute(double length, double irey, double *normal, double normalVel,
                                         double *V, double *Ub, double *flux, int flag)
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasInternalInflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                             double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -276,6 +459,17 @@ void FluxFcnPerfectGasInternalOutflowSA3D::compute(double length, double irey, d
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasInternalOutflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                             double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -354,11 +548,33 @@ void FluxFcnPerfectGasFDJacRoeKE3D::compute(double length, double irey, double *
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnPerfectGasFDJacRoeKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnPerfectGasApprJacRoeKE3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *VL, double *VR, double *flux, int flag)
 {
 
   computePerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasApprJacRoeKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(irey, dIrey, vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
 
 }
 
@@ -384,6 +600,18 @@ void FluxFcnPerfectGasExactJacRoeKE3D::compute(double length, double irey, doubl
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void FluxFcnPerfectGasExactJacRoeKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, VL, dVL, VR, dVR, 0.0*dMach, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnPerfectGasExactJacRoeKE3D::computeJacobians(double irey, double *normal, double normalVel,
                                               double *VL, double *VR,
@@ -405,12 +633,46 @@ void FluxFcnPerfectGasWallKE3D::compute(double length, double irey, double *norm
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnPerfectGasWallKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                   double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnPerfectGasWallKE3D::computeJacobian(double irey, double *normal, double normalVel,
+                                                   double *V, double *Ub, double *jac, int flag)
+{
+
+  computeJacobianPerfectGas(normal, normalVel, V, Ub, jac);
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                   
 void FluxFcnPerfectGasOutflowKE3D::compute(double length, double irey, double *normal, double normalVel,
                                  double *V, double *Ub, double *flux, int flag)
 {
 
   computePerfectGas(vf->getGamma(), vf->getPressureConstant(), normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void FluxFcnPerfectGasOutflowKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  computeDerivativeOfPerfectGas(vf->getGamma(), vf->getPressureConstant(), vf->getDerivativeOfPressureConstant(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
 

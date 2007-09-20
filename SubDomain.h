@@ -6,7 +6,7 @@
 #include <Node.h>
 #include <Edge.h>
 #include <Face.h>
-#include <Tet.h>
+#include <Elem.h>
 #include <InletNode.h>
 #include <DiagMatrix.h>
 #include <DistInfo.h>
@@ -33,6 +33,7 @@ class VMSLESTerm;
 class DynamicVMSTerm;
 class DynamicLESTerm;
 class SmagorinskyLESTerm;
+class WaleLESTerm;
 class SubDTopo;
 class TimeData;
 class GeoSource;
@@ -90,7 +91,6 @@ struct EdgeDef {
 
 
 class SubDomain {
-
   int testEdge;
 
   int locSubNum;
@@ -102,14 +102,16 @@ class SubDomain {
   char suffix[100];
 
   NodeSet &nodes;
-  EdgeSet edges;
+  EdgeSet  edges;
   FaceSet &faces;
-  TetSet &tets;
+  ElemSet &elems;
+
   InletNodeSet inletNodes;
 
   int *locToGlobNodeMap;
   int *locToGlobFaceMap;
-  int *locToGlobTetMap;
+  int *locToGlobElemMap;
+
   int numNeighb;
   int *neighb;
   int *sndChannel;
@@ -131,13 +133,17 @@ class SubDomain {
 
   int **nodeFlag;
   Connectivity *NodeToNode;
-  Connectivity *nodeToTet;
 
   int **totalNeiData;
+  double *gradP[3];
+
+// Included (MB*)
+  int numOffDiagEntries;
+  double *dGradP[3];
 
 public:
 
-  SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, TetSet *, 
+  SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
 	    int, int *, Connectivity *, int *, int *, int *, int, int (*)[3]);
   ~SubDomain();
 
@@ -147,18 +153,17 @@ public:
   int getLocSubNum()  { return locSubNum; }
   int numberEdges();
 
-  Connectivity *createNodeToNodeConnectivity();
-  void createNodeToTetConnectivity();
+  Connectivity *createElemBasedConnectivity();
+  Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
-  void createSharedInletNodeConnectivity1();
   void createSharedInletNodeConnectivity(int);
 
   compStruct *createRenumbering(Connectivity *, int, int);
 
   int numNodes() { return(nodes.size()); }
   int numFaces() { return(faces.size()); }
-  int numTets()  { return(tets.size()); }
+  int numElems() { return(elems.size()); }
 
   // geometry
 
@@ -279,6 +284,7 @@ public:
   int computeFiniteVolumeTerm(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&,
                               EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int, int);
+
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
@@ -337,7 +343,13 @@ public:
 				 SVec<double,dim> &);
 
   template<int dim>
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
+
+  template<int dim>
+  void computeMutOMuWale(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &,
@@ -513,7 +525,7 @@ public:
 
   template<int dim>
   void computeNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
-		SVec<double,dim> &, Vec<double> &, SVec<double,3> &, double *nodalForceWeights);
+		SVec<double,dim> &, Vec<double> &, SVec<double,3> &);
 
   template<int dim>
   void computeNodalHeatPower(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -523,7 +535,7 @@ public:
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
-			     Vec3D *, Vec3D *, double *nodalForceWeights, int = 0);
+			     Vec3D *, Vec3D *, int = 0);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -549,13 +561,14 @@ public:
 
   template<int dim>
   void computeForceCoefficients(PostFcn *, Vec3D &, GeoState &, BcData<dim> &, SVec<double,3> &, 
-                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double *nodalForceWeights);
+                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &);
 
   // communication
 
   void markLenNodes(DistInfo &distInfo) { distInfo.setLen(locSubNum, nodes.size()); }
   void markLenEdges(DistInfo &distInfo) { distInfo.setLen(locSubNum, edges.size()); }
   void markLenFaces(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.size()); }
+  void markLenFaceNorms(DistInfo &distInfo) { distInfo.setLen(locSubNum, faces.sizeNorms()); }
   void markLenInletNodes(DistInfo &distInfo) {distInfo.setLen(locSubNum, inletNodes.size()); }
   void markLenNull(DistInfo &distInfo) {distInfo.setLen(locSubNum, 0); }
   void makeMasterFlag(DistInfo &);
@@ -672,8 +685,9 @@ public:
                                 SurfaceData *slipSurfaces[]);
   
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
-  void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
+  void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
+  
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
   
@@ -767,6 +781,110 @@ public:
 
   void multiPade(bcomp *, int *, double *, bcomp *, bcomp *, int , int , int , double , double , bcomp *, double *);
                                                                                              
+// Included (MB)
+  int computeDerivativeOfControlVolumes(int, double, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+
+  void computeDerivativeOfNormals(SVec<double,3> &, SVec<double,3> &, Vec<Vec3D> &,
+                        Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &);
+
+  void computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,3> &, SVec<double,6> &, SVec<double,6> &);
+
+  void computeDerivativeOfWeightsLeastSquaresNodePart(SVec<double,6> &, SVec<double,6> &);
+
+  void computeDerivativeOfWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+			      SVec<double,3> &, SVec<double,3> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsLeastSquares(SVec<double,3> &, SVec<double,3> &,
+                    SVec<double,6> &, SVec<double,6> &,
+				    SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				    SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim, class Scalar>
+  void computeDerivativeOfGradientsGalerkin(Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &,
+                SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
+                SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				SVec<Scalar,dim> &, SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+				SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, SVec<double,3> &, Vec<double> &, Vec<double> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
+                  SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfFiniteVolumeTerm(Vec<double> &, Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+			       SVec<double,3>&, SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&,
+			       NodalGrad<dim>&, EdgeGrad<dim>*, double, SVec<double,dim>&);
+
+  template<int dim1, int dim2>
+  void computeDerivativeOfNodeBcValue(SVec<double,3> &, SVec<double,3> &, SVec<double,dim1> &, SVec<double,dim1> &, SVec<double,dim2> &);
+
+  template<int dim>
+  void computeDerivativeOfNodalForce(PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
+                                                                 SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, double [3],
+                                                                 SVec<double,3> &);
+
+  template<int dim>
+  void computeDerivativeOfForceAndMoment(map<int,int> &surfIndexMap, PostFcn *, BcData<dim> &, GeoState &, SVec<double,3> &, SVec<double,3> &,
+                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                                                           Vec3D &, Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+
+  template<int dim>
+  void computeDerivativeOfGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
+			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+  template<int dim>
+  void applyBCsToDerivativeOfResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
+
+  template<int dim, class Scalar>
+  void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
+
+  template<int dim, class Scalar, int neq>
+  void applyBCsToJacobianWallValues(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+
+  template<int dim>
+  void computeBCsJacobianWallValues(FemEquationTerm *, BcData<dim> &, GeoState &, 
+				   SVec<double,3> &, SVec<double,dim> &) ;
+
+  template<int dim>
+  void computeNodeBCsWallValues(SVec<double,3> &, SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim, class Scalar>
+  void applyBCsToProduct(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<Scalar,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfNodalHeatPower(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, SVec<double,3>&, 
+			     SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
+
+  template<int dim>
+  void computeDerivativeOfVolumicForceTerm(VolumicForceTerm *, Vec<double> &, Vec<double> &, 
+                               SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
+                                SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+                                Vec<double> &, Vec<double> &, double, double, double, double);
+
+  void checkVec(SVec<double,3> &);
+
+  template<int dim>
+  int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, int);
+
+  template<int dim>
+  void getGradP(NodalGrad<dim>&);
+
+  template<int dim>
+  void getDerivativeOfGradP(NodalGrad<dim>&);
+
 };
 
 //------------------------------------------------------------------------------

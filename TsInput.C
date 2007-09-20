@@ -56,6 +56,19 @@ TsInput::TsInput(IoData &iod)
     sprintf(podFile, "");
   }
 
+// Included
+  if (iod.input.shapederivatives[0] != 0) {
+    shapederivatives = new char[sp + strlen(iod.input.shapederivatives)];
+    if (strncmp(iod.input.shapederivatives, "/", 1) == 0)
+      sprintf(shapederivatives, "%s", iod.input.shapederivatives);
+    else
+      sprintf(shapederivatives, "%s%s", iod.input.prefix, iod.input.shapederivatives);
+  }
+  else {
+    shapederivatives = new char[1];
+    sprintf(shapederivatives, "");
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -66,5 +79,8 @@ TsInput::~TsInput()
   if (positions) delete [] positions;
   if (levelsets) delete [] levelsets;
   if (podFile)   delete [] podFile;
+
+// Included
+  if (shapederivatives)   delete [] shapederivatives;
 
 }

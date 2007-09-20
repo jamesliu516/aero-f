@@ -47,9 +47,8 @@ ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   mvpfd = new MatVecProdFD<dim, dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
 
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)  {
-    
-    mvp1 = new MatVecProdFD<dim, neq1>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
-    mvp2 = new MatVecProdFD<dim, neq2>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+    mvp1 = new MatVecProdFD<dim,neq1>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+    mvp2 = new MatVecProdFD<dim,neq2>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
   }
   else  {
     mvp1 = new MatVecProdH1<dim,MatScalar,neq1>(this->timeState, spaceOp1, this->domain, ioData);
@@ -474,7 +473,7 @@ int ImplicitSegTsDesc<dim,neq1,neq2>::solveLinearSystem(int it, DistSVec<double,
 
   dQ2 = 0.0;
 
-  ksp2->setup(it, this->maxItsNewton, b2);
+  ksp2->setup(it,this->maxItsNewton, b2);
 
   int lits2 = ksp2->solve(b2, dQ2);
 

@@ -34,6 +34,10 @@ public:
   virtual void computeJacobian(double, double *, double, double *, double *, double *, int = 1) {}
   virtual void computeJacobians(double, double *, double, double *, double *, double *, double *, int = 1) {}
 
+// Included (MB)
+  virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) = 0;
+  virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1) = 0;
+
   VarFcn *getVarFcn() { return vf; }
 };
 
@@ -60,6 +64,10 @@ public:
   void computeJacobian(double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
   
+// Included (MB)
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl = 1) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -103,10 +111,8 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
 
   }
 
-  if (type == CONSERVATIVE){
+  if (type == CONSERVATIVE)
     vf->postMultiplyBydVdU(VL, dfdVL, jacL, dflag);
-    //vf->postMultiplyBydVdU(VL, dfdVL, jacL);
-  }
   else{
     for (k=0; k<dim*dim; ++k) 
       jacL[k] = dfdVL[k];

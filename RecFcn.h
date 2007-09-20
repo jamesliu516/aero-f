@@ -32,6 +32,7 @@ public:
     beta4 = 1.0 - 4.0*beta;
     eps0 = 1.e-16;
     eps3 = e*e*e;
+
   }
   ~RecFcn() {}
 
@@ -89,6 +90,45 @@ public:
                 SVec<Scalar,dim> &, SVec<Scalar,dim> &, int,
                 Scalar *);
 
+// Included (MB)
+  void preconstantDerivative(double&, double&, double&, double&);
+
+  void prelinearDerivative(double&, double&, double&, double&);
+
+  void prevanalbadaDerivative(double, double, double, double, double, double, double, double,
+		    double&, double&, double&, double&);
+
+  double computeDerivativeOfDerivativeVanAlbadaFcn(double, double, double, double, double);
+
+  void constantDerivative(double, double, double&, double&);
+
+  void linearDerivative(double, double, double, double, double&, double&);
+
+  void vanalbadaDerivative(double, double, double, double, double, double, double, double, double&, double&);
+
+  double computeDerivativeOfBarthFcn(double, double, double, double, double, double, double, double, double, double);
+
+  void barthDerivative(double, double, double, double, double, double, double, double, double, double,
+	     double, double, double, double, double, double, double, double, double, double,
+	     double&, double&, double&, double&);
+
+  double computeDerivativeOfVanAlbadaFcn(double, double, double, double, double);
+
+  double computeDerivativeOfVenkatFcn(double, double, double, double, double, double, double, double, double, double);
+
+  void venkatDerivative(double, double, double, double, double, double, double, double, double, double,
+	      double, double, double, double, double, double, double, double, double, double,
+	      double&, double&, double&, double&);
+
+  template<int dim>
+  void computeDerivative(double*, double*, double*, double*,
+	       double*, double*, double*, double*, double*, double*);
+
+  virtual void precomputeDerivative(double*, double*, double*, double*, double*, double*, double*, double*,
+			  double*, double*, double*, double*);
+
+  virtual void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+
 };
 
 //------------------------------------------------------------------------------
@@ -103,11 +143,34 @@ void RecFcn::preconstant(double& aij, double& aji, double& bij, double& bji)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void RecFcn::preconstantDerivative(double& daij, double& daji, double& dbij, double& dbji)
+{
+
+  daij = daji = dbij = dbji = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::constant(double Vi, double Vj, double& Vij, double& Vji)
 {
   Vij = Vi;
   Vji = Vj;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::constantDerivative(double dVi, double dVj, double& dVij, double& dVji)
+{
+
+  dVij = dVi;
+  dVji = dVj;
 
 }
 
@@ -124,6 +187,18 @@ void RecFcn::prelinear(double& aij, double& aji, double& bij, double& bji)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void RecFcn::prelinearDerivative(double& daij, double& daji, double& dbij, double& dbji)
+{
+
+  daij = daji = 0.0;
+  dbij = dbji = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::linear(double Vi, double ddVij, double Vj, double ddVji, 
 		    double& Vij, double& Vji)
@@ -133,6 +208,21 @@ void RecFcn::linear(double Vi, double ddVij, double Vj, double ddVji,
 
   Vij = Vi + dV + beta * ddVij;
   Vji = Vj - dV - beta * ddVji;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::linearDerivative(double dVi, double dddVij, double dVj, double dddVji,
+		    double& dVij, double& dVji)
+{
+
+  double ddV = beta1 * (dVj - dVi);
+
+  dVij = dVi + ddV + beta * dddVij;
+  dVji = dVj - ddV - beta * dddVji;
 
 }
 
@@ -156,6 +246,27 @@ double RecFcn::computeVanAlbadaFcn(double eps, double a, double b)
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+double RecFcn::computeDerivativeOfVanAlbadaFcn(double eps, double a, double da, double b, double db)
+{
+
+  double a2 = a * a;
+  double da2 = 2.0*a*da;
+  double b2 = b * b;
+  double db2 = 2.0*b*db;
+
+  if (a*b > 0.0)
+    return ( ( da*(b2+eps) + a*db2 +db*(a2+eps) +b*da2 ) * ( a2 + b2 + 2.0*eps ) -  ( a*(b2+eps) + b*(a2+eps) ) * ( da2 + db2 ) ) / ( ( a2 + b2 + 2.0*eps ) * ( a2 + b2 + 2.0*eps ) );
+  else if (a*b == 0.0)
+    return 0.5 * eps * ( ( da + db ) * ( a2 + b2 + 2.0*eps ) - ( a + b ) * (da2 + db2) ) / ( (a2 + b2 + 2.0*eps) * (a2 + b2 + 2.0*eps) );
+  else
+    return 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 double RecFcn::computeDerivativeVanAlbadaFcn(double eps, double a, double b)
 {
@@ -167,6 +278,27 @@ double RecFcn::computeDerivativeVanAlbadaFcn(double eps, double a, double b)
     return (b2+eps) * (b2-a2+2.*eps+2.*a*b) / ((a2+b2+2.*eps)*(a2+b2+2.*eps));
   else if (a*b == 0.0)
     return 0.5 * (b2+eps) * (b2-a2+2.*eps) / ((a2+b2+2.*eps)*(a2+b2+2.*eps));
+  else
+    return 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+double RecFcn::computeDerivativeOfDerivativeVanAlbadaFcn(double eps, double a, double da, double b, double db)
+{
+
+  double a2 = a * a;
+  double da2 = 2.0 * a * da;
+  double b2 = b * b;
+  double db2 = 2.0 * b * db;
+
+  if (a*b > 0.0)
+    return ( ((db2) * (b2-a2+2.*eps+2.*a*b) + (b2+eps) * (db2-da2+2.*da*b+2.*a*db))*((a2+b2+2.*eps)*(a2+b2+2.*eps)) - ((b2+eps) * (b2-a2+2.*eps+2.*a*b))*( 2.0*(a2+b2+2.*eps)*(da2+db2)) ) / ( ((a2+b2+2.*eps)*(a2+b2+2.*eps))*((a2+b2+2.*eps)*(a2+b2+2.*eps)) ) ;
+  else if (a*b == 0.0)
+    return 0.5*( ((db2) * (b2-a2+2.*eps) + (b2+eps) * (db2-da2))*((a2+b2+2.*eps)*(a2+b2+2.*eps)) - ((b2+eps) * (b2-a2+2.*eps))*(2.0*(a2+b2+2.*eps)*(da2+db2)) ) / ( ((a2+b2+2.*eps)*(a2+b2+2.*eps))*((a2+b2+2.*eps)*(a2+b2+2.*eps)) );
   else
     return 0.0;
 
@@ -200,6 +332,39 @@ void RecFcn::prevanalbada(double Vi, double ddVij, double Vj, double ddVji,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void RecFcn::prevanalbadaDerivative(double Vi, double dVi, double ddVij, double dddVij, double Vj, double dVj, double ddVji, double dddVji,
+			  double& daij, double& daji, double& dbij, double& dbji)
+{
+
+  double d_Vji = Vj - Vi;
+  double d_V   = beta4 * d_Vji;
+
+  double dd_Vji = dVj - dVi;
+  double dd_V   = beta4 * dd_Vji;
+
+  double d_Vi = d_V + 4.0 * beta * ddVij;
+  double d_Vj = d_V + 4.0 * beta * ddVji;
+
+  double dd_Vi = dd_V + 4.0 * beta * dddVij;
+  double dd_Vj = dd_V + 4.0 * beta * dddVji;
+
+  double dlai = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vji, dd_Vji, d_Vi, dd_Vi);
+  double dlbi = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vi, dd_Vi, d_Vji, dd_Vji);
+
+  double dlaj = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vji, dd_Vji, d_Vj, dd_Vj);
+  double dlbj = computeDerivativeOfDerivativeVanAlbadaFcn(eps0, d_Vj, dd_Vj, d_Vji, dd_Vji);
+
+  daij = 0.5 * (dlai + beta4*dlbi);
+  dbij = 2.0 * beta * dlbi;
+  daji = 0.5 * (dlaj + beta4*dlbj);
+  dbji = 2.0 * beta * dlbj;
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::vanalbada(double Vi, double ddVij, double Vj, double ddVji,
 		       double& Vij, double& Vji)
@@ -213,6 +378,31 @@ void RecFcn::vanalbada(double Vi, double ddVij, double Vj, double ddVji,
 
   Vij = Vi + 0.5 * computeVanAlbadaFcn(eps0, dVi, dVji);
   Vji = Vj - 0.5 * computeVanAlbadaFcn(eps0, dVj, dVji);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::vanalbadaDerivative(double Vi, double dVi, double ddVij, double dddVij, double Vj, double dVj, double ddVji, double dddVji,
+		       double& dVij, double& dVji)
+{
+
+  double d_Vji = Vj - Vi;
+  double d_V   = beta4 * d_Vji;
+
+  double dd_Vji = dVj - dVi;
+  double dd_V   = beta4 * dd_Vji;
+
+  double d_Vi = d_V + 4.0 * beta * ddVij;
+  double d_Vj = d_V + 4.0 * beta * ddVji;
+
+  double dd_Vi = dd_V + 4.0 * beta * dddVij;
+  double dd_Vj = dd_V + 4.0 * beta * dddVji;
+
+  dVij = dVi + 0.5 * computeDerivativeOfVanAlbadaFcn(eps0, d_Vi, dd_Vi, d_Vji, dd_Vji);
+  dVji = dVj - 0.5 * computeDerivativeOfVanAlbadaFcn(eps0, d_Vj, dd_Vj, d_Vji, dd_Vji);
 
 }
 
@@ -240,6 +430,38 @@ double RecFcn::computeBarthFcn(double vmax, double vmin, double v,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+double RecFcn::computeDerivativeOfBarthFcn(double vmax, double dvmax, double vmin, double dvmin, double v, double dv,
+				double vrec, double dvrec, double eps2, double deps2)
+{
+
+  double eps = 1.e-3;
+
+  double num, den = vrec - v;
+
+  double dnum, dden = dvrec - dv;
+
+  if (den > eps) {
+    num = vmax - v;
+    dnum = dvmax - dv;
+  }
+  else if (den < -eps) {
+    num = vmin - v;
+    dnum = dvmin - dv;
+  }
+  else
+    return 0.0;
+
+  if (min(1.0, num / den) == 1.0  )
+    return 0.0;
+  else
+    return ( dnum * den - num * dden ) / ( den * den );
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::barth(double Vimax, double Vimin, double Vi, double Vij, double ctrlVoli,
 		   double Vjmax, double Vjmin, double Vj, double Vji, double ctrlVolj,
@@ -249,6 +471,27 @@ void RecFcn::barth(double Vimax, double Vimin, double Vi, double Vij, double ctr
   phii = min(phii, computeBarthFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli));
 
   phij = min(phij, computeBarthFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj));
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::barthDerivative(double Vimax, double dVimax, double Vimin, double dVimin, double Vi, double dVi, double Vij, double dVij, double ctrlVoli, double dCtrlVoli,
+		    double Vjmax, double dVjmax, double Vjmin, double dVjmin, double Vj, double dVj, double Vji, double dVji, double ctrlVolj, double dCtrlVolj,
+		    double& phii, double& dphii, double& phij, double& dphij)
+{
+
+  if (min(phii, computeBarthFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli)) != phii) {
+    phii = computeBarthFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli);
+    dphii = computeDerivativeOfBarthFcn(Vimax, dVimax, Vimin, dVimin, Vi, dVi, Vij, dVij, eps3 * ctrlVoli, eps3 * dCtrlVoli);
+  }
+
+  if (min(phij, computeBarthFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj)) != phij) {
+    phij = computeBarthFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj);
+    dphij = computeDerivativeOfBarthFcn(Vjmax, dVjmax, Vjmin, dVjmin, Vj, dVj, Vji, dVji, eps3 * ctrlVolj, eps3 * dCtrlVolj);
+  }
 
 }
 
@@ -276,6 +519,35 @@ double RecFcn::computeVenkatFcn(double vmax, double vmin, double v,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+double RecFcn::computeDerivativeOfVenkatFcn(double vmax, double dvmax, double vmin, double dvmin, double v, double dv,
+				double vrec, double dvrec, double eps2, double deps2)
+{
+
+  double eps = 1.e-3;
+
+  double num, den = vrec - v;
+
+  double dnum, dden = dvrec - dv;
+
+  if (den > eps) {
+    num = vmax - v;
+    dnum = dvmax - dv;
+  }
+  else if (den < -eps) {
+    num = vmin - v;
+    dnum = dvmin - dv;
+  }
+  else
+    return 0.0;
+
+  return ( ( 2.0*num*dnum + 2.0*dnum*den + 2.0*num*dden + deps2 ) * ( num*num + 2.0*den*den + num*den + eps2 ) - (num*num + 2.0*num*den + eps2) * (2.0*num*dnum + 4.0*den*dden + dnum*den + num*dden + deps2) ) / ( (num*num + 2.0*den*den + num*den + eps2) * (num*num + 2.0*den*den + num*den + eps2) );
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::venkat(double Vimax, double Vimin, double Vi, double Vij, double ctrlVoli,
 		    double Vjmax, double Vjmin, double Vj, double Vji, double ctrlVolj,
@@ -285,6 +557,27 @@ void RecFcn::venkat(double Vimax, double Vimin, double Vi, double Vij, double ct
   phii = min(phii, computeVenkatFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli));
 
   phij = min(phij, computeVenkatFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj));
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::venkatDerivative(double Vimax, double dVimax, double Vimin, double dVimin, double Vi, double dVi, double Vij, double dVij, double ctrlVoli, double dCtrlVoli,
+		    double Vjmax, double dVjmax, double Vjmin, double dVjmin, double Vj, double dVj, double Vji, double dVji, double ctrlVolj, double dCtrlVolj,
+		    double& phii, double& dphii, double& phij, double& dphij)
+{
+
+  if (min(phii, computeVenkatFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli)) != phii) {
+    phii = computeVenkatFcn(Vimax, Vimin, Vi, Vij, eps3 * ctrlVoli);
+    dphii = computeDerivativeOfVenkatFcn(Vimax, dVimax, Vimin, dVimin, Vi, dVi, Vij, dVij, eps3 * ctrlVoli, eps3 * dCtrlVoli);
+  }
+
+  if (min(phij, computeVenkatFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj)) != phij) {
+    phij = min(phij, computeVenkatFcn(Vjmax, Vjmin, Vj, Vji, eps3 * ctrlVolj));
+    dphij = computeDerivativeOfVenkatFcn(Vjmax, dVjmax, Vjmin, dVjmin, Vj, dVj, Vji, dVji, eps3 * ctrlVolj, eps3 * dCtrlVolj);
+  }
 
 }
 
@@ -319,12 +612,38 @@ void RecFcn::precompute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+inline
+void RecFcn::precomputeDerivative(double* Vi, double* dVi, double* ddVij, double* dddVij, double* Vj, double* dVj, double* ddVji, double* dddVji,
+			double* daij, double* daji, double* dbij, double* dbji)
+{
+
+  fprintf(stderr, "*** Error: RecFcn::precomputeDerivative is not overloaded\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
 inline
 void RecFcn::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 		     double* Vij, double* Vji)
 {
 
   fprintf(stderr, "*** Error: RecFcn::compute is not overloaded\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+inline
+void RecFcn::computeDerivative(double* Vi, double* dVi, double* ddVij, double* dddVij, double* Vj, double* dVj, double* ddVji, double* dddVji,
+		     double* Vij, double* Vji)
+{
+
+  fprintf(stderr, "*** Error: RecFcn::computeDerivative is not overloaded\n");
   exit(1);
 
 }

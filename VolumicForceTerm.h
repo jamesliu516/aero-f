@@ -23,6 +23,9 @@ public:
   void computeVolumeTerm(double ctrlVol, double *V, double *R);
   void computeJacobianVolumeTerm(int dim, double ctrlVol, double *V, double *jac);
 
+// Included (MB)
+  void computeDerivativeOfVolumeTerm(double ctrlVol, double dCtrlVol, double *V, double *dV, double *dR);
+
 };
   
 //------------------------------------------------------------------------------

@@ -44,6 +44,10 @@ TimeData::TimeData(IoData &ioData)
   else
     use_modal = false;
 
+// Included (MB)
+  if (ioData.sa.comp3d == SensitivityAnalysis::OFF_COMPATIBLE3D)
+    use_modal = true;
+
   if (ioData.linearizedData.domain == LinearizedData::FREQUENCY) use_freq = true;
   else use_freq = false;
 
@@ -118,6 +122,19 @@ void TimeData::computeVelocities(ImplicitData::Velocities typeVelocities,
   }
   else if (typeVelocities == ImplicitData::ZERO)
     Xdot = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void TimeData::rstVar(IoData &ioData)
+{
+
+  dt_imposed = ioData.ts.timestep;
+  dt_n = ioData.restart.dt_nm1;
+  dt_nm1 = ioData.restart.dt_nm1;
+  dt_nm2 = ioData.restart.dt_nm2;
 
 }
 

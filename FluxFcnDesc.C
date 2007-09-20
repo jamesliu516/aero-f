@@ -26,9 +26,6 @@ extern "C" {
                          const double&, const int&);
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
-                         const double&, const double&, const double&, const double&, const int&);
-  void F77NAME(roeflux5prim)(const int&, const double&, const double&, const double&, double*,
-                         const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
                          const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
@@ -66,6 +63,12 @@ extern "C" {
 			 const double&, const int&);
   void F77NAME(genbcfluxtait)(const int&, const double&, const double&, const double&, 
 			 const double&,  double*, const double&, double*, double*, double*);
+
+// Included (MB)
+  void F77NAME(gxroeflux5)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, const double&, const double&, const double&, const double&, const double&, const double&, const int&);
+  void F77NAME(gxroeflux6)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
+  void F77NAME(gxboundflux5)(const int&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*);
+
 };
 
 //------------------------------------------------------------------------------
@@ -84,7 +87,18 @@ void FluxFcnFDJacRoeEuler3D::computePerfectGas(double length, double irey, doubl
 				     double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5prim)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnFDJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
 
 }
 
@@ -93,7 +107,18 @@ void FluxFcnFDJacRoeEuler3D::computePerfectGas(double length, double irey, doubl
 void FluxFcnApprJacRoeEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux)
 {
-  F77NAME(roeflux5prim)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnApprJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+
 }
 
 //------------------------------------------------------------------------------
@@ -335,6 +360,17 @@ void FluxFcnExactJacRoeEuler3D::computePerfectGas(double vfgam, double vfp, doub
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnExactJacRoeEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux6)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnExactJacRoeEuler3D::computeJacobiansPerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 						 double *VL, double *VR, 
 						 double *jacL, double *jacR)
@@ -427,6 +463,127 @@ void FluxFcnVanLeerEuler3D::evalFlux(double vfgam, double vfp, double *normal, d
   else {
     for (int i = 0; i < 5; i++)
       f[i] = 0;  
+  }
+
+}
+
+//-----------------------------------------------------------------------
+// VL and VR are the primitive state variables !!
+
+// Included (MB)
+void FluxFcnVanLeerEuler3D::evalDerivativeOfFlux(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *V, double *dV, double dM, double *dF, int sign)
+{
+
+  //gamma 
+  double gam = vfgam;
+  double invgam = 1.0/gam;
+  double gam1 = gam - 1.0;
+  double invgam1 = 1.0/gam1;
+
+  // compute norm to remove area factor from computations
+  double norm = sqrt( normal[0]*normal[0]
+                    + normal[1]*normal[1]
+                    + normal[2]*normal[2] );
+
+  double dNorm = 1.0 / (2.0*norm) * (2.0*normal[0]*dNormal[0]
+                                   + 2.0*normal[1]*dNormal[1]
+                                   + 2.0*normal[2]*dNormal[2]);
+
+
+  double invNorm = 1.0 / norm;
+
+  double dInvNorm = -1.0 / (2.0*norm*norm*norm) * (2.0*normal[0]*dNormal[0]
+                                                 + 2.0*normal[1]*dNormal[1]
+                                                 + 2.0*normal[2]*dNormal[2]);
+
+  // normalize the normal
+  double nVec[3];
+  nVec[0] = normal[0]*invNorm;
+  nVec[1] = normal[1]*invNorm;
+  nVec[2] = normal[2]*invNorm;
+
+  double dNVec[3];
+  dNVec[0] = dNormal[0]*invNorm + normal[0]*dInvNorm;
+  dNVec[1] = dNormal[1]*invNorm + normal[1]*dInvNorm;
+  dNVec[2] = dNormal[2]*invNorm + normal[2]*dInvNorm;
+
+  //normalize grid velocity
+  double gridVel = normalVel * invNorm;
+  double dGridVel = dNormalVel * invNorm + normalVel * dInvNorm;
+
+  //compute speed of sound
+  double a = vf->computeSoundSpeed(V);
+  double da = vf->computeDerivativeOfSoundSpeed(V, dV, dM);
+
+  // compute fluid velocity
+  double fluidVel = V[1]*nVec[0] + V[2]*nVec[1] + V[3]*nVec[2];
+  double dFluidVel = dV[1]*nVec[0] + V[1]*dNVec[0] + dV[2]*nVec[1] + V[2]*dNVec[1] + dV[3]*nVec[2] + V[3]*dNVec[2];
+
+  // compute total velocity --> fluid vel. - grid vel.
+  double totVel = fluidVel - gridVel;
+  double dTotVel = dFluidVel - dGridVel;
+
+  //compute normal mach numbers
+  double mach = totVel / a;
+  double dMach = ( dTotVel * a - totVel * da ) / ( a * a );
+
+  // get conservative variables
+  double U[5], dU[5];
+  vf->primitiveToConservative(V, U);
+  vf->primitiveToConservativeDerivative(V, dV, U, dU);
+
+  double factor = mach*sign;
+  if (factor >= 1.0)  {
+    dF[0] = dNorm * U[0] * totVel + norm * dU[0] * totVel + norm * U[0] * dTotVel;
+
+    dF[1] = dNorm * ( U[1] * totVel + V[4] * nVec[0] ) +
+           norm * ( dU[1] * totVel + U[1] * dTotVel + dV[4] * nVec[0] + V[4] * dNVec[0] );
+
+    dF[2] = dNorm * ( U[2] * totVel + V[4] * nVec[1] ) +
+           norm * ( dU[2] * totVel + U[2] * dTotVel + dV[4] * nVec[1] + V[4] * dNVec[1] );
+
+    dF[3] = dNorm * ( U[3] * totVel + V[4] * nVec[2] ) +
+           norm * ( dU[3] * totVel + U[3] * dTotVel + dV[4] * nVec[2] + V[4] * dNVec[2] );
+
+    dF[4] = dNorm * ( U[4] * totVel + V[4] * fluidVel ) +
+           norm * ( dU[4] * totVel + U[4] * dTotVel + dV[4] * fluidVel + V[4] * dFluidVel );
+  }
+  else if (factor > -1.0)  {
+    // compute frequently used terms
+    double h = 0.25 * norm * sign * V[0] * a * (mach+sign)*(mach+sign);
+
+    double dh = 0.25 * dNorm * sign * V[0] * a * (mach+sign)*(mach+sign) +
+               0.25 * norm * sign * dV[0] * a * (mach+sign)*(mach+sign) +
+               0.25 * norm * sign * V[0] * a * 2.0 * (mach+sign) * dMach;
+
+    double f1 = invgam * (2*a*sign - totVel);
+
+    double df1 = invgam * (2*da*sign - dTotVel);
+
+    dF[0] = dh;
+
+    dF[1] = dh * (V[1] + f1 * nVec[0]) +
+           h * (dV[1] + df1 * nVec[0] + f1 * dNVec[0]);
+
+    dF[2] = dh * (V[2] + f1 * nVec[1]) +
+           h * (dV[2] + df1 * nVec[1] + f1 * dNVec[1]);
+
+    dF[3] = dh * (V[3] + f1 * nVec[2]) +
+           h * (dV[3] + df1 * nVec[2] + f1 * dNVec[2]);
+
+    dF[4] = dh * ( (2.0*a*a + 2.0*sign * gam1 * totVel * a
+                    - totVel*totVel*gam1)/(gam*gam - 1.0)
+                    + .5*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
+                    + gridVel*f1 ) +
+            h * ( (4.0*a*da + 2.0*sign * gam1 * dTotVel * a + 2.0*sign * gam1 * totVel * da
+                    - 2.0*totVel*dTotVel*gam1)/(gam*gam - 1.0)
+                    + .5*(2.0*V[1]*dV[1]+2.0*V[2]*dV[2]+2.0*V[3]*dV[3])
+                    + dGridVel*f1 + gridVel*df1 );
+  }
+  else {
+    for (int i = 0; i < 5; i++)
+      dF[i] = 0;
   }
 
 }
@@ -631,6 +788,32 @@ void FluxFcnVanLeerEuler3D::computePerfectGas(double vfgam, double vfp, double *
 } 
 
 //------------------------------------------------------------------------------
+// VL and VR are the primitive state variables !!
+
+// Included (MB)
+void FluxFcnVanLeerEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  //compute the split fluxes
+  double fPlus[5], fMinus[5];
+  evalFlux(vfgam, vfp, normal, normalVel, VL, fPlus, 1);
+  evalFlux(vfgam, vfp, normal, normalVel, VR, fMinus, -1);
+
+  for (int i = 0; i < 5; i++)
+    flux[i] = fPlus[i] + fMinus[i];
+
+  //compute the split fluxes
+  double dFPlus[5], dFMinus[5];
+  evalDerivativeOfFlux(vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, dMach, dFPlus, 1);
+  evalDerivativeOfFlux(vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VR, dVR, dMach, dFMinus, -1);
+
+  for (int i = 0; i < 5; i++)
+    dFlux[i] = dFPlus[i] + dFMinus[i];
+
+}
+
+//------------------------------------------------------------------------------
 
 void FluxFcnVanLeerEuler3D::computeJacobiansPerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 					     double *VL, double *VR, 
@@ -654,8 +837,76 @@ void FluxFcnWallEuler3D::computePerfectGas(double *normal, double normalVel,
   flux[2] = V[4] * normal[1];
   flux[3] = V[4] * normal[2];
   flux[4] = V[4] * normalVel;
- 
+
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnWallEuler3D::computeDerivativeOfPerfectGas(double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  dFlux[0] = 0.0;
+  dFlux[1] = V[4] * dNormal[0];
+  dFlux[2] = V[4] * dNormal[1];
+  dFlux[3] = V[4] * dNormal[2];
+  dFlux[4] = V[4] * dNormalVel;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnWallEuler3D::computeJacobianPerfectGas(double *normal, double normalVel, double *V, double *Ub, double *jac)
+{
+
+//  flux[0] = 0.0;
+//  flux[1] = V[4] * normal[0];
+//  flux[2] = V[4] * normal[1];
+//  flux[3] = V[4] * normal[2];
+//  flux[4] = V[4] * normalVel;
+
+  double dfdV[25];
+
+  dfdV[0] = 0.0;
+  dfdV[1] = 0.0;
+  dfdV[2] = 0.0;
+  dfdV[3] = 0.0;
+  dfdV[4] = 0.0;
+
+  dfdV[5] = 0.0;
+  dfdV[6] = 0.0;
+  dfdV[7] = 0.0;
+  dfdV[8] = 0.0;
+  dfdV[9] = normal[0];
+
+  dfdV[10] = 0.0;
+  dfdV[11] = 0.0;
+  dfdV[12] = 0.0;
+  dfdV[13] = 0.0;
+  dfdV[14] = normal[1];
+
+  dfdV[15] = 0.0;
+  dfdV[16] = 0.0;
+  dfdV[17] = 0.0;
+  dfdV[18] = 0.0;
+  dfdV[19] = normal[2];
+
+  dfdV[20] = 0.0;
+  dfdV[21] = 0.0;
+  dfdV[22] = 0.0;
+  dfdV[23] = 0.0;
+  dfdV[24] = normalVel;
+
+  if (type == FluxFcn::CONSERVATIVE)
+    vf->postMultiplyBydVdU(V, dfdV, jac);
+  else
+    for (int k=0; k<25; ++k)
+      jac[k] = dfdV[k];
+  
+}
+
 //------------------------------------------------------------------------------
 
 void FluxFcnGhidagliaEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel,
@@ -671,9 +922,22 @@ void FluxFcnGhidagliaEuler3D::computePerfectGas(double vfgam, double vfp, double
 void FluxFcnInflowEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 				   double *V, double *Ub, double *flux)
 {
+
   F77NAME(boundflux5)(0, vfgam, normal, normalVel, V, Ub, flux);
 
 }
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnInflowEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  F77NAME(gxboundflux5)(0, vfgam, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
 //------------------------------------------------------------------------------
 
 void FluxFcnOutflowEuler3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
@@ -681,6 +945,18 @@ void FluxFcnOutflowEuler3D::computePerfectGas(double vfgam, double vfp, double *
 {
 
   F77NAME(boundflux5)(0, vfgam, normal, normalVel, V, Ub, flux);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnOutflowEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  F77NAME(gxboundflux5)(0, vfgam, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
 
@@ -771,6 +1047,144 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
 }
 
 //------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+inline
+void influx3DDerivative(int type, VarFcn* varFcn, double* normal, double* dNormal,
+	      double normalVel, double dNormalVel, double* V, double* Ub, double* dUb, double* flux, double* dFlux, int flag)
+{
+
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+
+  double dflag = double(flag);
+
+  double gam, gam1, invgam1, pstiff;
+  if(flag==1){
+    gam = varFcn->getGamma();
+    pstiff = varFcn->getPressureConstant();
+  }else{
+    gam = varFcn->getGammabis();
+    pstiff = varFcn->getPressureConstantbis();
+  }
+  gam1 = gam - 1.0; 
+  invgam1 = 1.0 / gam1;
+
+  double S = sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2]);
+  double dS = 1/S*(normal[0]*dNormal[0] + normal[1]*dNormal[1] + normal[2]*dNormal[2]);
+
+  double ooS = 1.0 / S;
+  double dooS = -1.0 / (S*S) * dS;
+
+  double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
+  double dn[3] = {dNormal[0]*ooS + normal[0]*dooS, dNormal[1]*ooS + normal[1]*dooS, dNormal[2]*ooS + normal[2]*dooS};
+
+  double nVel = normalVel * ooS;
+  double dnVel = dNormalVel * ooS + normalVel * dooS;
+
+  double Vb[dim];
+  varFcn->conservativeToPrimitive(Ub, Vb, dflag);
+
+  double dVb[dim];
+  varFcn->conservativeToPrimitiveDerivative(Ub, dUb, Vb, dVb, dflag);
+
+  double rho, u, v, w, p, nut, eps, k;
+  double drho, du, dv, dw, dp, dnut, deps, dk;
+  
+  double dV[dim];
+  for (int i=1;i<dim;i++)
+    dV[i] = 0.0;
+  
+  if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] == 0.0){
+    rho = Vb[0];
+    u = V[1];
+    v = V[2];
+    w = V[3];
+    p = V[4];
+    drho = dVb[0];
+    du = dV[1];
+    dv = dV[2];
+    dw = dV[3];
+    dp = dV[4];
+  }
+
+  else if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] <= 0.0){
+    rho = Vb[0];
+    u = Vb[1];
+    v = Vb[2];
+    w = Vb[3];
+    p = V[4];
+    drho = dVb[0];
+    du = dVb[1];
+    dv = dVb[2];
+    dw = dVb[3];
+    dp = dV[4];
+    if (type == 1) {
+      nut = Vb[dimm1];
+      dnut = dVb[dimm1];
+    }
+    else if (type == 2){
+      k = Vb[dimm2];
+      eps = Vb[dimm2];
+      dk = Vb[dimm2];
+      deps = Vb[dimm2];
+    }
+  }else{
+    rho = V[0];
+    u = V[1];
+    v = V[2];
+    w = V[3];
+    p = Vb[4];
+    drho = dV[0];
+    du = dV[1];
+    dv = dV[2];
+    dw = dV[3];
+    dp = dVb[4];
+    if (type == 1) {
+      nut = V[dimm1];
+      dnut = dV[dimm1];
+    }
+    else if (type == 2){
+      k = V[dimm2];
+      eps = V[dimm2];
+      dk = dV[dimm2];
+      deps = dV[dimm2];
+    }
+
+  }
+  double rhoun = rho * (u*n[0] + v*n[1] + w*n[2] - nVel);
+  double q = u*u + v*v + w*w;
+  double drhoun = drho * (u*n[0] + v*n[1] + w*n[2] - nVel) + rho * (du*n[0] + u*dn[0] + dv*n[1] + v*dn[1] + dw*n[2] + w*dn[2] - dnVel);
+  double dq = 2.0*(u*du + v*dv + w*dw);
+
+  flux[0] = S * rhoun;
+  flux[1] = S * (rhoun*u + p*n[0]);
+  flux[2] = S * (rhoun*v + p*n[1]);
+  flux[3] = S * (rhoun*w + p*n[2]);
+  flux[4] = S * rhoun*(gam*invgam1*p/rho + 0.5*q);
+
+  dFlux[0] = dS * rhoun + S * drhoun;
+  dFlux[1] = dS * (rhoun*u + p*n[0]) + S * (drhoun*u + rhoun*du + dp*n[0] + p*dn[0]);
+  dFlux[2] = dS * (rhoun*v + p*n[1]) + S * (drhoun*v + rhoun*dv + dp*n[1] + p*dn[1]);
+  dFlux[3] = dS * (rhoun*w + p*n[2]) + S * (drhoun*w + rhoun*dw + dp*n[2] + p*dn[2]);
+  dFlux[4] = dS * rhoun*(gam*invgam1*p/rho + 0.5*q) + S * drhoun*(gam*invgam1*p/rho + 0.5*q) + S * rhoun*(gam*invgam1*(dp*rho-p*drho)/(rho*rho) + 0.5*dq);
+
+  if (type == 1) {
+    flux[5] = S * rhoun*nut;
+    dFlux[5] = dS * rhoun*nut + S * drhoun*nut + S * rhoun*dnut;
+  }
+  else if (type == 2) {
+    flux[5] = S * rhoun*k;
+    flux[6] = S * rhoun*eps;
+    dFlux[5] = dS * rhoun*k + S * drhoun*k + S * rhoun*dk;
+    dFlux[6] = dS * rhoun*eps + S * drhoun*eps + S * rhoun*deps;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 inline
 void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac, 
@@ -894,6 +1308,17 @@ void FluxFcnInternalInflowEuler3D::computePerfectGas(double vfgam, double vfp, d
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnInternalInflowEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnInternalInflowEuler3D::computeJacobianPerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 						   double *V, double *Ub, double *jacL, int flag)
 {
@@ -914,6 +1339,17 @@ void FluxFcnInternalOutflowEuler3D::computePerfectGas(double vfgam, double vfp, 
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnInternalOutflowEuler3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnInternalOutflowEuler3D::computeJacobianPerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 						    double *V, double *Ub, double *jacL, int flag)
 {
@@ -929,7 +1365,18 @@ void FluxFcnFDJacRoeSA3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnFDJacRoeSA3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
 
 }
 
@@ -939,7 +1386,18 @@ void FluxFcnApprJacRoeSA3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnApprJacRoeSA3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
 
 }
 
@@ -961,6 +1419,17 @@ void FluxFcnExactJacRoeSA3D::computePerfectGas(double vfgam, double vfp, double 
 {
 
   F77NAME(roeflux6)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnExactJacRoeSA3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux6)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
 
 }
 
@@ -992,6 +1461,87 @@ void FluxFcnWallSA3D::computePerfectGas(double *normal, double normalVel,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnWallSA3D::computeDerivativeOfPerfectGas(double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  dFlux[0] = 0.0;
+  dFlux[1] = V[4] * dNormal[0];
+  dFlux[2] = V[4] * dNormal[1];
+  dFlux[3] = V[4] * dNormal[2];
+  dFlux[4] = V[4] * dNormalVel;
+  dFlux[5] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnWallSA3D::computeJacobianPerfectGas(double *normal, double normalVel, double *V, double *Ub, double *jac)
+{
+
+//  flux[0] = 0.0;
+//  flux[1] = V[4] * normal[0];
+//  flux[2] = V[4] * normal[1];
+//  flux[3] = V[4] * normal[2];
+//  flux[4] = V[4] * normalVel;
+//  flux[5] = 0.0;
+
+  double dfdV[36];
+
+  dfdV[0] = 0.0;
+  dfdV[1] = 0.0;
+  dfdV[2] = 0.0;
+  dfdV[3] = 0.0;
+  dfdV[4] = 0.0;
+  dfdV[5] = 0.0;
+
+  dfdV[6] = 0.0;
+  dfdV[7] = 0.0;
+  dfdV[8] = 0.0;
+  dfdV[9] = 0.0;
+  dfdV[10] = normal[0];
+  dfdV[11] = 0.0;
+
+  dfdV[12] = 0.0;
+  dfdV[13] = 0.0;
+  dfdV[14] = 0.0;
+  dfdV[15] = 0.0;
+  dfdV[16] = normal[1];
+  dfdV[17] = 0.0;
+
+  dfdV[18] = 0.0;
+  dfdV[19] = 0.0;
+  dfdV[20] = 0.0;
+  dfdV[21] = 0.0;
+  dfdV[22] = normal[2];
+  dfdV[23] = 0.0;
+
+  dfdV[24] = 0.0;
+  dfdV[25] = 0.0;
+  dfdV[26] = 0.0;
+  dfdV[27] = 0.0;
+  dfdV[28] = normalVel;
+  dfdV[29] = 0.0;
+
+  dfdV[30] = 0.0;
+  dfdV[31] = 0.0;
+  dfdV[32] = 0.0;
+  dfdV[33] = 0.0;
+  dfdV[34] = 0.0;
+  dfdV[35] = 0.0;
+
+  if (type == FluxFcn::CONSERVATIVE)
+    vf->postMultiplyBydVdU(V, dfdV, jac);
+  else
+    for (int k=0; k<36; ++k)
+      jac[k] = dfdV[k];
+  
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnOutflowSA3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 				 double *V, double *Ub, double *flux)
 {
@@ -1002,11 +1552,33 @@ void FluxFcnOutflowSA3D::computePerfectGas(double vfgam, double vfp, double *nor
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnOutflowSA3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  F77NAME(gxboundflux5)(1, vfgam, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnInternalInflowSA3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 					double *V, double *Ub, double *flux, int flag)
 {
 
   influx3D<6>(1, vf, normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnInternalInflowSA3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                             double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -1027,6 +1599,17 @@ void FluxFcnInternalOutflowSA3D::computePerfectGas(double vfgam, double vfp, dou
 {
 
   influx3D<6>(1, vf, normal, normalVel, V, Ub, flux, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnInternalOutflowSA3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                             double *Ub, double *dUb, double *flux, double *dFlux, int flag)
+{
+
+  influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux, flag);
 
 }
 
@@ -1112,7 +1695,18 @@ void FluxFcnFDJacRoeKE3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnFDJacRoeKE3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
 
 }
 
@@ -1122,7 +1716,18 @@ void FluxFcnApprJacRoeKE3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnApprJacRoeKE3D::computeDerivativeOfPerfectGas(double irey, double dIrey, double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
 
 }
 
@@ -1144,6 +1749,17 @@ void FluxFcnExactJacRoeKE3D::computePerfectGas(double vfgam, double vfp, double 
 {
 
   F77NAME(roeflux6)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnExactJacRoeKE3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel,
+                                          double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
+{
+
+  F77NAME(gxroeflux6)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux);
 
 }
 
@@ -1176,11 +1792,119 @@ void FluxFcnWallKE3D::computePerfectGas(double *normal, double normalVel,
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+void FluxFcnWallKE3D::computeDerivativeOfPerfectGas(double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                   double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  dFlux[0] = 0.0;
+  dFlux[1] = V[4] * dNormal[0];
+  dFlux[2] = V[4] * dNormal[1];
+  dFlux[3] = V[4] * dNormal[2];
+  dFlux[4] = V[4] * dNormalVel;
+  dFlux[5] = 0.0;
+  dFlux[6] = 0.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB*)
+void FluxFcnWallKE3D::computeJacobianPerfectGas(double *normal, double normalVel, double *V, double *Ub, double *jac)
+{
+
+//  flux[0] = 0.0;
+//  flux[1] = V[4] * normal[0];
+//  flux[2] = V[4] * normal[1];
+//  flux[3] = V[4] * normal[2];
+//  flux[4] = V[4] * normalVel;
+//  flux[5] = 0.0;
+//  flux[6] = 0.0;
+
+  double dfdV[49];
+
+  dfdV[0] = 0.0;
+  dfdV[1] = 0.0;
+  dfdV[2] = 0.0;
+  dfdV[3] = 0.0;
+  dfdV[4] = 0.0;
+  dfdV[5] = 0.0;
+  dfdV[6] = 0.0;
+
+  dfdV[7] = 0.0;
+  dfdV[8] = 0.0;
+  dfdV[9] = 0.0;
+  dfdV[10] = 0.0;
+  dfdV[11] = normal[0];
+  dfdV[12] = 0.0;
+  dfdV[13] = 0.0;
+
+  dfdV[14] = 0.0;
+  dfdV[15] = 0.0;
+  dfdV[16] = 0.0;
+  dfdV[17] = 0.0;
+  dfdV[18] = normal[1];
+  dfdV[19] = 0.0;
+  dfdV[20] = 0.0;
+
+  dfdV[21] = 0.0;
+  dfdV[22] = 0.0;
+  dfdV[23] = 0.0;
+  dfdV[24] = 0.0;
+  dfdV[25] = normal[2];
+  dfdV[26] = 0.0;
+  dfdV[27] = 0.0;
+
+  dfdV[28] = 0.0;
+  dfdV[29] = 0.0;
+  dfdV[30] = 0.0;
+  dfdV[31] = 0.0;
+  dfdV[32] = normalVel;
+  dfdV[33] = 0.0;
+  dfdV[34] = 0.0;
+
+  dfdV[35] = 0.0;
+  dfdV[36] = 0.0;
+  dfdV[37] = 0.0;
+  dfdV[38] = 0.0;
+  dfdV[39] = 0.0;
+  dfdV[40] = 0.0;
+  dfdV[41] = 0.0;
+
+  dfdV[42] = 0.0;
+  dfdV[43] = 0.0;
+  dfdV[44] = 0.0;
+  dfdV[45] = 0.0;
+  dfdV[46] = 0.0;
+  dfdV[47] = 0.0;
+  dfdV[48] = 0.0;
+  
+  if (type == FluxFcn::CONSERVATIVE)
+    vf->postMultiplyBydVdU(V, dfdV, jac);
+  else
+    for (int k=0; k<49; ++k)
+      jac[k] = dfdV[k];
+  
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnOutflowKE3D::computePerfectGas(double vfgam, double vfp, double *normal, double normalVel, 
 				 double *V, double *Ub, double *flux)
 {
 
   F77NAME(boundflux5)(2, vfgam, normal, normalVel, V, Ub, flux);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void FluxFcnOutflowKE3D::computeDerivativeOfPerfectGas(double vfgam, double vfp, double dvfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
+                                      double *Ub, double *dUb, double *flux, double *dFlux)
+{
+
+  F77NAME(gxboundflux5)(2, vfgam, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
 
 }
 
@@ -1254,10 +1978,10 @@ void FluxFcnOutflowKEturb3D::computeJacobianPerfectGas(double vfgam, double vfp,
 template<int dim>
 inline
 void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, double vfa, 
-                  double vfb, double vfp, FluxFcn::Type typeJac, double* normal, 
-		              double normalVel, double* VL, double* VR, double* jacL, 
-		              double* jacR, double irey, double betaRef, double k1, 
-									double cmach, int prec, int flag)
+                       double vfb, double vfp, FluxFcn::Type typeJac, double* normal, 
+                       double normalVel, double* VL, double* VR, double* jacL, 
+                       double* jacR, double irey, double betaRef, double k1, 
+                       double cmach, int prec, int flag)
 {
 
   const int dimm1 = dim-1;
@@ -1271,10 +1995,10 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
   double n[3] = {normal[0], normal[1], normal[2]};
 
   F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, normalVel, 
-			                          VL, VR, dfdUL, betaRef, k1, cmach, irey, prec);
+                                VL, VR, dfdUL, betaRef, k1, cmach, irey, prec);
   n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
   F77NAME(roejac5waterdissprec)(type, gamma, vfcv, vfp, vfa, vfb, n, -normalVel,
-		                          	VR, VL, dfdUR, betaRef, k1, cmach, irey, prec);
+                                VR, VL, dfdUR, betaRef, k1, cmach, irey, prec);
 
   for (int k=0; k<dim2; k++)
     dfdUR[k] = -dfdUR[k];

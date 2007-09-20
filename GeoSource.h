@@ -8,6 +8,8 @@ class Connectivity;
 class Communicator;
 class BinFileHandler;
 class BCondSet;
+class ElemSet;
+class FaceSet;
 
 //------------------------------------------------------------------------------
 

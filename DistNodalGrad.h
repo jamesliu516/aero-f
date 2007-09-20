@@ -55,6 +55,19 @@ class DistNodalGrad {
 
   NodalGrad<dim, Scalar> **subNodalGrad;
 
+// Included (MB)
+  int lastConfigSA;
+  DistSVec<double,dim> *dVmin;
+  DistSVec<double,dim> *dVmax;
+  DistSVec<double,dim> *dphi;
+  DistSVec<double,6> *dR;
+  DistSVec<double,3> *dwii;
+  DistSVec<double,3> *dwij;
+  DistSVec<double,3> *dwji;
+  DistSVec<Scalar,dim> *dddx;
+  DistSVec<Scalar,dim> *dddy;
+  DistSVec<Scalar,dim> *dddz;
+
 public:
 
   DistNodalGrad(IoData &, Domain *);
@@ -72,9 +85,6 @@ public:
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
                DistVec<double> &, DistSVec<Scalar2,dim> &);
 
-  //template<class Scalar2>
-  //void computeLS(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &);
-
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 
   template<class Scalar2> 
@@ -88,6 +98,15 @@ public:
   void fix(DistSVec<int,2>&);
 
   void resetTag();
+
+// Included (MB)
+  void computeDerivativeOfWeights(DistSVec<double,3> &, DistSVec<double,3> &);
+
+  template<class Scalar2>
+  void computeDerivative(int, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
+
+  template<class Scalar2>
+  void limitDerivative(RecFcn *, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
 };
 

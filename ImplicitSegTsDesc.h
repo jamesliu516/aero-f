@@ -11,7 +11,6 @@ template<int dim, int neq> class MatVecProd;
 template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = double> class KspSolver;
 #endif
 
-
 //------------------------------------------------------------------------------
 
 template<int dim, int neq1, int neq2>
@@ -48,6 +47,7 @@ public:
 
   void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void setOperators(DistSVec<double,dim> &);
+
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
 };

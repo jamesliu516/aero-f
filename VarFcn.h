@@ -3,7 +3,6 @@
 
 #include <DistVector.h>
 #include <Vector3D.h>
-//#include <DistExactRiemannSolver.h>
 
 #include <math.h>
 #include <complex.h>
@@ -58,7 +57,7 @@ public:
   void setMeshVel(Vec3D &v)  { meshVel = v; }
 
 protected:
-  //GAS-EULER
+  //GAS_EULER
   void conservativeToPrimitiveGasEuler(double, double, double *, double *);
   void primitiveToConservativeGasEuler(double, double, double, double *, double *);
   void primitiveToCharacteristicVariationsGasEuler(double *, double, double, double *,
@@ -81,27 +80,49 @@ protected:
                                          double, double, double*, double*);
   int VerificationGasEuler(int, double, double, double, double*, double*);
 
+// Included (MB)
+  void conservativeToPrimitiveDerivativeGasEuler(double, double, double, double *, double *, double *, double *);
+  void primitiveToConservativeDerivativeGasEuler(double, double, double, double, double *, double *, double *, double *);
+
   //GAS_SA
   void conservativeToPrimitiveGasSA(double, double *, double *);
-  void primitiveToConservativeGasSA(double *, double *);
+// Modified (MB)
+  void primitiveToConservativeGasSA(double, double *, double *);
+
   void computedUdVGasSA(double, double *, double *);
   void computedVdUGasSA(double, double *, double *);
-  void multiplyBydVdUGasSA(double *, double *, double *);
+
+// Modified (MB)
+  void multiplyBydVdUGasSA(double, double *, double *, double *);
+
   void postMultiplyBydUdVGasSA(double, double *, double *, double *);
   void postMultiplyBydVdUGasSA(double, double *, double *, double *);
   void preMultiplyBydUdVGasSA(double, double *, double *, double *);
   int VerificationGasSA(int, double, double , double *, double *);
 
+// Included (MB)
+  void conservativeToPrimitiveDerivativeGasSA(double, double *, double *, double *, double *);
+  void primitiveToConservativeDerivativeGasSA(double, double *, double *, double *, double *);
+
   //GAS_KE
   void conservativeToPrimitiveGasKE(double, double *, double *);
-  void primitiveToConservativeGasKE(double *, double *);
+// Modified (MB)
+  void primitiveToConservativeGasKE(double, double *, double *);
+
   void computedUdVGasKE(double, double *, double *);
   void computedVdUGasKE(double, double *, double *);
-  void multiplyBydVdUGasKE(double *, double *, double *);
+
+// Modified (MB)
+  void multiplyBydVdUGasKE(double, double *, double *, double *);
+
   void postMultiplyBydUdVGasKE(double, double *, double *, double *);
   void postMultiplyBydVdUGasKE(double, double *, double *, double *);
   void preMultiplyBydUdVGasKE(double, double *, double *, double *);
   int VerificationGasKE(int, double, double , double *, double *);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivativeGasKE(double, double *, double *, double *, double *);
+  void primitiveToConservativeDerivativeGasKE(double, double *, double *, double *, double *);
 
   //LIQUID_EULER
   void conservativeToPrimitiveLiquidEuler(double, double *, double *);
@@ -230,6 +251,37 @@ public:
   virtual double getTurbulentNuTilde(double *V) { return 0.0; }
   virtual double getTurbulentKineticEnergy(double *V) { return 0.0; }
   virtual double getTurbulentDissipationRate(double *V) { return 0.0; }
+
+// Included (MB)
+  template<int dim>
+  void conservativeToPrimitiveDerivative(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, Vec<double> * = 0);
+  template<int dim>
+  void conservativeToPrimitiveDerivative(DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0);
+  template<int dim>
+  void primitiveToConservativeDerivative(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, Vec<double> * = 0);
+  template<int dim>
+  void primitiveToConservativeDerivative(DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> * = 0);
+
+  virtual void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) = 0;
+  virtual void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) = 0;
+
+  virtual Vec3D getDerivativeOfVelocity(double *dV) { return Vec3D(dV[1], dV[2], dV[3]); }
+  virtual double computeDerivativeOfTemperature(double *V, double *dV, double phi = 0.0) { return 0.0; }
+  virtual double computeDerivativeOfMachNumber(double *V, double *dV, double dMach, double phi = 0.0) { return 0.0; }
+  virtual double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach, double phi = 0.0) { return 0.0; }
+  virtual double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dmach, double phi = 0.0) { return 0.0; }
+
+  virtual double getVelocityNorm(double *V) { return 0.0; }
+  virtual double getDerivativeOfVelocityNorm(double *V, double *dV) { return 0.0; }
+  virtual void setDensity(double rho, double *V) { V[0] = rho; }
+  virtual void setPressure(double p, double *V) { V[4] = p; }
+  virtual double computeDensity(double p, double temp) { return 0.0; }
+  virtual double computePressure(double rho, double temp) { return 0.0; }
+  virtual double getTotalEnergy(double *U) { return U[4] / U[0]; }
+  virtual double getDerivativeOfPressureConstant() { return 0.0; }
+  virtual void rstVar(IoData &iod) {}
+  virtual void rV(IoData &iod) {  pmin  = iod.eqs.fluidModel.pmin;
+                                  pminp = iod.eqs.fluidModel2.pmin; }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -241,6 +293,9 @@ protected:
   double gam1;
   double invgam1;
   double Pstiff;  
+
+// Included (MB)
+  double dPstiff;  
 
 public:
   VarFcnPerfectGas(IoData &);
@@ -286,9 +341,38 @@ public:
     double machr2 = machr*machr;
     double popr = V[4]*gam*machr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
-    double opmachr = 1.0 + 0.5*gam1*machr2;
-    return popr*pow(opmach/opmachr, gam*invgam1);
+    //double opmachr = 1.0 + 0.5*gam1*machr2;
+    return V[4]*pow(opmach, gam*invgam1);
   }
+
+// Included (MB)
+  double getVelocityNorm(double *V) { return sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]); }
+  double getDerivativeOfVelocityNorm(double *V, double *dV) { return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]); }
+  double computeDerivativeOfTemperature(double *V, double *dV, double phi = 0.0) { return invgam1 * ( dV[4]*V[0] - V[4]*dV[0] ) / ( V[0]*V[0] ); }
+  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach, double phi = 0.0) {
+    return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );
+  }
+  double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach, double phi = 0.0) { return 1.0/( 2.0*sqrt(gam * (V[4]+Pstiff) / V[0]) ) * gam * ( (dV[4]+dPstiff*dMach) * V[0] - (V[4]+Pstiff) * dV[0] ) / ( V[0] * V[0] ); }
+  double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dMach, double phi = 0.0) {
+    double mach = computeMachNumber(V);
+    double dmach = computeDerivativeOfMachNumber(V, dV, dMach);
+    double machr2 = machr*machr;
+    double dmachr2 = 2.0*machr*dmachr;
+    double popr = V[4]*gam*machr2;
+    double dpopr = dV[4]*gam*machr2 + V[4]*gam*dmachr2;
+    double opmach = 1.0 + 0.5*gam1*mach*mach;
+    double dopmach = gam1*mach*dmach;
+
+//    double opmachr = 1.0 + 0.5*gam1*machr2;
+//    double dopmachr = 0.5*gam1*dmachr2;
+//    return dpopr*pow(opmach/opmachr, gam*invgam1) + popr*gam*invgam1*pow(opmach/opmachr, (gam*invgam1-1))*((dopmach*opmachr - opmach*dopmachr)/(opmachr*opmachr));
+
+    return dV[4]*pow(opmach, gam*invgam1) + V[4]*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
+  }
+  double computeDensity(double p, double temp) { return invgam1 * p / temp; }
+  double computePressure(double rho, double temp) { return temp * rho * gam1; }
+  double getDerivativeOfPressureConstant() {return dPstiff;}
+  void rstVar(IoData &iod) { dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)); rV(iod);}
 
 };
 
@@ -310,6 +394,10 @@ VarFcnPerfectGas::VarFcnPerfectGas(IoData &iod) : VarFcn(iod) {
   gam1 = gam -1.0;
   invgam1 = 1.0/gam1;
   Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
+
+// Included (MB)
+  dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
+
 }
 
 //------------------------------------------------------------------------------------
@@ -334,7 +422,7 @@ public:
   double getPrefWater()  {return Pref_water;}
 
   double getPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
-  double checkPressure(double *V, double phi = 0.0) { return 1.0; /*alpha_water * pow(V[0], beta_water);*/ }
+  double checkPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
   double computeTemperature(double *V, double phi = 0.0) { return V[4]; }
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -349,6 +437,9 @@ public:
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
   return 0.0;
   }
+
+// Included (MB)
+  void rstVar(IoData &iod) { rV(iod);}
 
 };
 
@@ -430,20 +521,18 @@ class VarFcnGasInGas : public VarFcn {
     
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
     double mach, machr2, popr, opmach, opmachr;
+    mach = computeMachNumber(V, phi);
+    machr2 = machr*machr;
     if (phi>=0.0) {
-      mach = computeMachNumber(V, phi);
-      machr2 = machr*machr;
       popr = V[4]*gam*machr2;
       opmach = 1.0 + 0.5*gam1*mach*mach;
-      opmachr = 1.0 + 0.5*gam1*machr2;
-      return popr*pow(opmach/opmachr, gam*invgam1);
+      //opmachr = 1.0 + 0.5*gam1*machr2;
+      return V[4]*pow(opmach, gam*invgam1);
     }else{
-      mach = computeMachNumber(V, phi);
-      machr2 = machr*machr;
       popr = V[4]*gamp*machr2;
       opmach = 1.0 + 0.5*gamp1*mach*mach;
-      opmachr = 1.0 + 0.5*gamp1*machr2;
-      return popr*pow(opmach/opmachr, gamp*invgamp1);
+      //opmachr = 1.0 + 0.5*gamp1*machr2;
+      return V[4]*pow(opmach, gamp*invgamp1);
     }
   }
 
@@ -533,6 +622,10 @@ public:
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
   return 0.0;
   }
+
+// Included (MB)
+  void rstVar(IoData &iod) { rV(iod);}
+
 };
 
 //--------------------------------------------------------------------------------------
@@ -594,7 +687,7 @@ public:
   }
   double checkPressure(double *V, double phi = 0.0) { 
     if (phi>=0.0) 
-      return 1.0; //Pref_water + alpha_water * pow(V[0], beta_water); 
+      return Pref_water + alpha_water * pow(V[0], beta_water); 
     else
       return V[4]+Pstiff;
   }
@@ -694,6 +787,25 @@ void VarFcn::conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, V
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,dim> &dU, SVec<double,dim> &V, SVec<double,dim> &dV, Vec<double> *Phi)
+{
+
+  if (Phi){
+    for (int i=0; i<U.size(); ++i){
+      conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i], (*Phi)[i]);
+    }
+  }else{
+    for (int i=0; i<U.size(); ++i){
+      conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<double> *Phi)
 {
@@ -718,22 +830,49 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
 template<int dim>
-void VarFcn::primitiveToConservative(SVec<double,dim> &U, SVec<double,dim> &V, Vec<double> *Phi)
+void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistVec<double> *Phi)
+{
+
+  int numLocSub = U.numLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*u)[dim] = U.subData(iSub);
+    double (*du)[dim] = dU.subData(iSub);
+    double (*v)[dim] = V.subData(iSub);
+    double (*dv)[dim] = dV.subData(iSub);
+    if (Phi){
+      double *phi = (*Phi).subData(iSub);
+      for (int i=0; i<U.subSize(iSub); ++i)
+        conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i], phi[i]);
+    }else{
+      for (int i=0; i<U.subSize(iSub); ++i)
+        conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void VarFcn::primitiveToConservative(SVec<double,dim> &V, SVec<double,dim> &U, Vec<double> *Phi)
 {
   if (Phi){
     for (int i=0; i<U.size(); ++i)
-      primitiveToConservative(U[i], V[i], (*Phi)[i]);
+      primitiveToConservative(V[i], U[i], (*Phi)[i]);
   }else{
     for (int i=0; i<U.size(); ++i)
-      primitiveToConservative(U[i], V[i]);
+      primitiveToConservative(V[i], U[i]);
   }
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void VarFcn::primitiveToConservative(DistSVec<double,dim> &U, DistSVec<double,dim> &V, DistVec<double> *Phi)
+void VarFcn::primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Phi)
 {
 
   int numLocSub = U.numLocSub();
@@ -744,10 +883,52 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &U, DistSVec<double,di
     if (Phi){
       double *phi = (*Phi).subData(iSub);
       for (int i=0; i<U.subSize(iSub); ++i)
-        primitiveToConservative(u[i], v[i], phi[i]);
+        primitiveToConservative(v[i], u[i], phi[i]);
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
-        primitiveToConservative(u[i], v[i]);
+        primitiveToConservative(v[i], u[i]);
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void VarFcn::primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,dim> &dV, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<double> *Phi)
+{
+
+  if (Phi){
+    for (int i=0; i<U.size(); ++i)
+      primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i], (*Phi)[i]);
+  }else{
+    for (int i=0; i<U.size(); ++i)
+      primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim>
+void VarFcn::primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec<double,dim> &dV, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistVec<double> *Phi)
+{
+
+  int numLocSub = U.numLocSub();
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*u)[dim] = U.subData(iSub);
+    double (*du)[dim] = dU.subData(iSub);
+    double (*v)[dim] = V.subData(iSub);
+    double (*dv)[dim] = dV.subData(iSub);
+    if (Phi){
+      double *phi = (*Phi).subData(iSub);
+      for (int i=0; i<U.subSize(iSub); ++i)
+        primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i], phi[i]);
+    }else{
+      for (int i=0; i<U.subSize(iSub); ++i)
+        primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);
     }
   }
 
@@ -820,6 +1001,7 @@ void VarFcn::computeNewPrimitive(SVec<double,dim> &U, SVec<double,dim> &V)
     computeNewPrimitive(U[i], V[i]);
 }
 
+//------------------------------------------------------------------------------
 
 
 #endif

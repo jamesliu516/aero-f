@@ -105,6 +105,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     probDesc->solveLinearSystem(it, rhs, dQ);
 
+// Included (MB)
+    probDesc->fixSolution(Q, dQ);
+
     rhs = Q;
     Q += dQ;
 

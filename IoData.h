@@ -30,6 +30,9 @@ struct InputData {
   const char *podFile;
   const char *podFile2;
 
+// Included (MB)  
+  const char *shapederivatives;
+
   InputData();
   ~InputData() {}
 
@@ -89,6 +92,21 @@ struct TransientData {
   const char *podFile;
   const char *romFile;
   const char *philevel;
+
+// Included (MB)  
+  const char *velocitynorm;
+  const char *dSolutions;
+  const char *dDensity;
+  const char *dMach;
+  const char *dPressure;
+  const char *dTemperature;
+  const char *dTotalpressure;
+  const char *dNutturb;
+  const char *dEddyvis;
+  const char *dVelocityScalar;
+  const char *dVelocityVector;
+  const char *dDisplacement;
+  const char *dForces;
 
   int frequency;
   double x0, y0, z0;
@@ -172,7 +190,7 @@ struct ProblemData {
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20} alltype;
+		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec; 
@@ -213,6 +231,10 @@ struct ReferenceStateData {
   double reynolds_mu;
   double reynolds_lambda;
   double length;
+
+// Included (MB)
+  double dRe_mudMach;
+  double dRe_lambdadMach;
 
   RefVal rv;
 
@@ -480,6 +502,19 @@ struct SmagorinskyLESData {
 
 //------------------------------------------------------------------------------
 
+struct WaleLESData {
+  
+  double c_w;
+  
+  WaleLESData();
+  ~WaleLESData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct ClippingData {
 
 
@@ -547,13 +582,14 @@ struct VMSLESData {
 
 struct LESModelData {
 
-  enum Type {SMAGORINSKY = 0, DYNAMIC = 1, VMS = 2, DYNAMICVMS = 3} type;
+  enum Type {SMAGORINSKY = 0, DYNAMIC = 1, VMS = 2, DYNAMICVMS = 3, WALE = 4} type;
   enum Delta {VOLUME = 0, SIDE = 1} delta;
 
   SmagorinskyLESData sma;
   DynamicLESData dles;
   VMSLESData vms;
   DynamicVMSData dvms;
+  WaleLESData wale;
 
   LESModelData();
   ~LESModelData() {}
@@ -731,7 +767,9 @@ struct SchemeData {
 
   enum AdvectiveOperator {FINITE_VOLUME = 0, FE_GALERKIN = 1} advectiveOperator;
   enum Flux {ROE = 0, VANLEER = 1} flux;
+
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
+
   enum Limiter {NONE = 0, VANALBADA = 1, BARTH = 2, VENKAT = 3, P_SENSOR = 4} limiter;
   enum Gradient {LEAST_SQUARES = 0, GALERKIN = 1, NON_NODAL = 2} gradient;
   enum Dissipation {SECOND_ORDER = 0, SIXTH_ORDER = 1} dissipation;
@@ -987,6 +1025,7 @@ struct ImplicitData {
   enum Coupling {WEAK = 0, STRONG = 1} coupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
+
   enum Normals {AUTO = 0, FIRST_ORDER_GCL = 1, SECOND_ORDER_GCL = 2, 
 		FIRST_ORDER_EZGCL = 3, SECOND_ORDER_EZGCL = 4, THIRD_ORDER_EZGCL = 5, 
 		CURRENT_CFG = 6, LATEST_CFG = 7} normals;
@@ -995,6 +1034,7 @@ struct ImplicitData {
 		   IMPOSED_THREE_POINT_BDF_VEL = 5, ZERO = 6} velocities;
 
   NewtonData<KspFluidData> newton;
+
 
   ImplicitData();
   ~ImplicitData() {}
@@ -1017,6 +1057,7 @@ struct TsData {
   int maxIts;
   double eps;
   double timestep;
+  double timestepinitial;
   double maxTime;
 
   int residual;
@@ -1033,6 +1074,54 @@ struct TsData {
 
   TsData();
   ~TsData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+struct SensitivityAnalysis {
+
+  enum Method {DIRECT = 0, ADJOINT = 1} method;
+  enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
+  enum Mvp {FD = 0, H2 = 1} mvp;
+  enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
+  enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
+  enum viscousJacobianContribution {NONE = 0, EXACT_JACOBIAN = 1, FINITE_DIFFERENCE_JACOBIAN = 2} viscJacContrib;
+  enum OrderMVPFDA {FIRST_ORDER_A = 1, SECOND_ORDER_A = 2} mvpfdOrdera;
+  enum OrderMVPFDSA {FIRST_ORDER_SA = 1, SECOND_ORDER_SA = 2} mvpfdOrdersa;
+  enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
+  enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
+  enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
+  enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+  enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+  enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
+  enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
+
+  double machref;
+  double alpharef;
+  double betaref;
+
+  const char* meshderiv;
+  const char* sensoutput;
+
+  bool densFlag;
+  bool pressFlag;
+  bool apressFlag;
+
+  int si;
+  int sf;
+  int avgsIt;
+
+  double eps;
+  double fres;
+
+  KspFluidData ksp;
+  
+  SensitivityAnalysis();
+  ~SensitivityAnalysis() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -1075,6 +1164,7 @@ struct DefoMeshMotionData {
 
   enum Type {BASIC = 0, COROTATIONAL = 1} type;
   enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3} element;
+
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;
   int numIncrements;
@@ -1177,15 +1267,72 @@ struct AeroelasticData {
 
 //------------------------------------------------------------------------------
 
-struct ForcedData {
+struct HeavingData {
 
-  enum Type {RIGID = 0, FLEXIBLE = 1} type;
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double ax;
+  double ay;
+  double az;
+
+  HeavingData();
+  ~HeavingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct PitchingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
+
+  double alpha_in;
+  double alpha_max;
+  double x1;
+  double y1;
+  double z1;
+  double x2;
+  double y2;
+  double z2;
+
+  PitchingData();
+  ~PitchingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct DeformingData {
+
+  enum Domain {VOLUME = 0, SURFACE = 1} domain;
 
   const char *positions;
 
   double amplification;
+
+  DeformingData();
+  ~DeformingData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//----------------------------------------------------------
+
+struct ForcedData {
+
+  enum Type {HEAVING = 0, PITCHING = 1, DEFORMING = 2} type;
+
   double frequency;
   double timestep;
+
+  HeavingData hv;
+  PitchingData pt;
+  DeformingData df;
 
   ForcedData();
   ~ForcedData() {}
@@ -1242,6 +1389,7 @@ struct LinearizedData {
   double amplification;
   double frequency;
   double stepsize;
+  double stepsizeinitial;
   double freqStep;
   double eps;
   double eps2;
@@ -1377,6 +1525,10 @@ public:
   EquationsData eqs;
   MultiFluidData mf;
   SchemesData schemes;
+
+// Included (MB)
+  SensitivityAnalysis sa;
+
   TsData ts;
   DefoMeshMotionData dmesh;
   RigidMeshMotionData rmesh;
@@ -1386,7 +1538,6 @@ public:
   Surfaces surfaces;
   Velocity rotations;
   PorousMedia porousmedia;
-  
 public:
 
   IoData(Communicator *);

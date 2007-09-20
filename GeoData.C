@@ -5,6 +5,23 @@
 GeoData::GeoData(IoData &ioData)
 {
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+
+    if (ioData.ts.type != TsData::IMPLICIT)
+      ioData.ts.type = TsData::IMPLICIT;
+
+    if (ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
+      ioData.ts.implicit.type = ImplicitData::BACKWARD_EULER;
+
+    if (ioData.ts.implicit.normals != ImplicitData::FIRST_ORDER_GCL)
+      ioData.ts.implicit.normals = ImplicitData::FIRST_ORDER_GCL;
+      
+    if (ioData.ts.implicit.velocities != ImplicitData::ZERO)
+      typeVelocities = ImplicitData::ZERO;
+
+  }
+
   use_n = false;
   use_nm1 = false;
   use_nm2 = false;

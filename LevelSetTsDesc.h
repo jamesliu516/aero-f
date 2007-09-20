@@ -42,7 +42,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   double computeTimeStep(int, double *, DistSVec<double,dim> &);
-  void updateStateVectors(DistSVec<double,dim> &, int);
+  void updateStateVectors(DistSVec<double,dim> &, int = 0);
   int checkSolution(DistSVec<double,dim> &);
   void setupOutputToDisk(IoData &, bool *, int, double, 
                         DistSVec<double,dim> &);

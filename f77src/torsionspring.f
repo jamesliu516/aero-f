@@ -1,12 +1,11 @@
 c     *******************************************************************
 c 
-      subroutine GetSingleTet(ele, coor, nu, ktetglob)
+      subroutine TorsionSpring(coor, nu, ktetglob)
       IMPLICIT NONE
       real*8 coor(3,*)
       integer nu(4)
 c
 c
-      integer ele
       integer map_pointer(4,3,4)
       integer nufaces, nucycles
 c      COMMON/cmymvmsh/map_pointer, nufaces, nucycles

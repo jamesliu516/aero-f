@@ -12,6 +12,9 @@ struct TsInput {
   char *levelsets;
   char *podFile;
 
+// Included
+  char *shapederivatives;
+
   TsInput(IoData &);
   ~TsInput();
 

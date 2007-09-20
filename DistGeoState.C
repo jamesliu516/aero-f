@@ -63,38 +63,60 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   else
     *d2wall = 0.0;
 
-  edgeNorm = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-  faceNorm = new DistVec<Vec3D>(domain->getFaceDistInfo());
+  edgeNorm    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
   edgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
-  faceNormVel = new DistVec<double>(domain->getFaceDistInfo());
-  edgeNorm_nm1 = 0;
-  faceNorm_nm1 = 0;
+  edgeNorm_nm1    = 0;
   edgeNormVel_nm1 = 0;
-  faceNormVel_nm1 = 0;
-  edgeNorm_nm2 = 0;
-  faceNorm_nm2 = 0;
+  edgeNorm_nm2    = 0;
   edgeNormVel_nm2 = 0;
+
+  faceNorm    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
+  faceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
+  faceNorm_nm1    = 0;
+  faceNormVel_nm1 = 0;
+  faceNorm_nm2    = 0;
   faceNormVel_nm2 = 0;
   
   inletNodeNorm = new DistVec<Vec3D>(domain->getInletNodeDistInfo());
   numFaceNeighb = new DistVec<int>(domain->getInletNodeDistInfo());
 
 
+// Included (MB)
+  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_){
+    optFlag = 1;
+    Xsa = new DistSVec<double,3>(domain->getNodeDistInfo());
+    dXsa = new DistSVec<double,3>(domain->getNodeDistInfo());
+    dEdgeNorm = new DistVec<Vec3D>(domain->getEdgeDistInfo());
+    dFaceNorm = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
+    dEdgeNormVel = new DistVec<double>(domain->getEdgeDistInfo());
+    dFaceNormVel = new DistVec<double>(domain->getFaceNormDistInfo());
+  }
+  else {
+    optFlag = 0;
+    Xsa = 0;
+    dXsa = 0;
+    dEdgeNorm = 0;
+    dFaceNorm = 0;
+    dEdgeNormVel = 0;
+    dFaceNormVel = 0;
+  }
+
+
   if (data.typeNormals == ImplicitData::SECOND_ORDER_GCL) {
-    edgeNorm_nm1 = new DistVec<Vec3D>(domain->getEdgeDistInfo());
-    faceNorm_nm1 = new DistVec<Vec3D>(domain->getFaceDistInfo());
+    edgeNorm_nm1    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNorm_nm1    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
   else if (data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
   else if (data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm1 = new DistVec<double>(domain->getFaceDistInfo());
     edgeNormVel_nm2 = new DistVec<double>(domain->getEdgeDistInfo());
-    faceNormVel_nm2 = new DistVec<double>(domain->getFaceDistInfo());
+    faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
+    faceNormVel_nm2 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
 
   subGeoState = new GeoState*[numLocSub];
@@ -126,16 +148,17 @@ DistGeoState::~DistGeoState()
   if (d2wall) delete d2wall;
 
   if (edgeNorm) delete edgeNorm;
-  if (faceNorm) delete faceNorm;
   if (edgeNormVel) delete edgeNormVel;
-  if (faceNormVel) delete faceNormVel;
   if (edgeNorm_nm1) delete edgeNorm_nm1;
-  if (faceNorm_nm1) delete faceNorm_nm1;
   if (edgeNormVel_nm1) delete edgeNormVel_nm1;
-  if (faceNormVel_nm1) delete faceNormVel_nm1;
   if (edgeNorm_nm2) delete edgeNorm_nm2;
-  if (faceNorm_nm2) delete faceNorm_nm2;
   if (edgeNormVel_nm2) delete edgeNormVel_nm2;
+
+  if (faceNorm) delete faceNorm;
+  if (faceNormVel) delete faceNormVel;
+  if (faceNorm_nm1) delete faceNorm_nm1;
+  if (faceNormVel_nm1) delete faceNormVel_nm1;
+  if (faceNorm_nm2) delete faceNorm_nm2;
   if (faceNormVel_nm2) delete faceNormVel_nm2;
   
   if (inletNodeNorm) delete inletNodeNorm;
@@ -149,6 +172,13 @@ DistGeoState::~DistGeoState()
     
     delete [] subGeoState;
   }
+
+//Included
+  if (Xsa) delete Xsa;
+  if (dXsa) delete dXsa;
+  if (dEdgeNorm) delete dEdgeNorm;
+  if (dFaceNorm) delete dFaceNorm;
+  if (dEdgeNormVel) delete dEdgeNormVel;
 
 }
 
@@ -246,9 +276,20 @@ void DistGeoState::setup2(TimeData &timeData)
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub)
     if (!subGeoState[iSub])
+// Included (MB)
+      if (optFlag)
+      subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
+				       (*ctrlVol_nm2)(iSub), (*d2wall)(iSub),
+				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
+				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
+				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub),
+				       (*dEdgeNorm)(iSub), (*dFaceNorm)(iSub),
+				       (*dEdgeNormVel)(iSub), (*dFaceNormVel)(iSub),
+                                       (*Xsa)(iSub), (*dXsa)(iSub));
+      else
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
 				       (*ctrlVol_nm2)(iSub), (*d2wall)(iSub), 
-				       (*edgeNorm)(iSub), (*faceNorm)(iSub), 
+				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
 
@@ -298,6 +339,69 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   
   domain->computeInletNormals(*inletNodeNorm, *faceNorm, *numFaceNeighb);
 
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,3> &Xsdot, DistSVec<double,3> &dXsdot, DistVec<double> &dCtrlVol)
+{
+
+//Remark: Error mesage for pointers
+  if (Xsa == 0) {
+    fprintf(stderr, "*** Error: Varible Xsa does not exist!\n");
+    exit(1);
+  }
+  if (dXsa == 0) {
+    fprintf(stderr, "*** Error: Varible dXsa does not exist!\n");
+    exit(1);
+  }
+  if (dEdgeNorm == 0) {
+    fprintf(stderr, "*** Error: Varible dEdgeNorm does not exist!\n");
+    exit(1);
+  }
+  if (dFaceNorm == 0) {
+    fprintf(stderr, "*** Error: Varible dFaceNorm does not exist!\n");
+    exit(1);
+  }
+  if (dEdgeNormVel == 0) {
+    fprintf(stderr, "*** Error: Varible dEdgeNormVel does not exist!\n");
+    exit(1);
+  }
+  if (dFaceNormVel == 0) {
+    fprintf(stderr, "*** Error: Varible dFaceNormVel does not exist!\n");
+    exit(1);
+  }
+
+  data.configSA += 1;
+
+  *Xsa=X;
+  *dXsa=dX;
+
+  if (data.typeNormals == ImplicitData::FIRST_ORDER_GCL) {
+    domain->computeDerivativeOfNormals(*Xsa, *dXsa, *edgeNorm, *dEdgeNorm, *edgeNormVel, *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
+  }
+  else {
+    fprintf(stderr, "*******************************************************************\n");
+    fprintf(stderr, "*** Warning: The normal and the derivative can not be computed, ***\n");
+    fprintf(stderr, "*** please check the function type chosen in the class domain!  ***\n");
+    fprintf(stderr, "********************************************************************\n");
+    fprintf(stderr, "%d %d\n", data.typeNormals, ImplicitData::FIRST_ORDER_GCL);
+    exit(1);
+  }
+
+  dCtrlVol = 0.0;
+  domain->computeDerivativeOfControlVolumes(lscale, *Xsa, *dXsa, dCtrlVol);
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+void DistGeoState::reset(DistSVec<double,3> &Xmod)
+{
+  *Xn=Xmod;
+  *Xnm1=Xmod;
 }
 
 //------------------------------------------------------------------------------

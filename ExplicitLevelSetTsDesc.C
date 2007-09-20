@@ -43,6 +43,7 @@ ExplicitLevelSetTsDesc<dim>::~ExplicitLevelSetTsDesc()
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
