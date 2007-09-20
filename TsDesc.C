@@ -152,6 +152,8 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
       if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInGasEuler3D(ioData);
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        vf = new VarFcnGasInLiquidEuler3D(ioData);
     }else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
@@ -268,8 +270,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   geoState->setup2(timeState->getData());
 
-  timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);  //Ufarin
-  //timeState->setup(input->solutions, bcData->getInletConservativeState(), *X, *U);  //Uin
+  timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
@@ -381,7 +382,7 @@ void TsDesc<dim>::computeMeshMetrics()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U)
+void TsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
 
   geoState->update(*X, *A);
@@ -515,7 +516,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-  restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
+  restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
 
   if (*lastIt) {
     timer->setRunTime();
@@ -609,10 +610,6 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   if (data->resType == -1){
     res = (*R)*(*R);
     res -= res2;
-    if(res<0.0){
-      fprintf(stderr, "square of residual is negative: res*res=%f and res2*res2 = %f\n", res, res2);
-      exit(1);
-    }
   }else {
     int iSub;
     const DistInfo& distInfo = R->info();
@@ -698,16 +695,6 @@ bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
     return false;
 
 }
-
-//------------------------------------------------------------------------------
-/*
-template<int dim>
-void TsDesc<dim>::reinitLS(DistVec<double> &Phi)
-{
-                                                                                                                                                                                             
-  spaceOp->reinitLS(Phi);
-}
-*/
 
 //------------------------------------------------------------------------------
 

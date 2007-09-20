@@ -107,7 +107,8 @@ public:
   double computePositionVector(bool *, int, double);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics();
-  virtual void updateStateVectors(DistSVec<double,dim> &);
+  virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
+  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &);
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
@@ -121,8 +122,8 @@ public:
 		    DistSVec<double,dim> &);
 
   void outputPositionVectorToDisk();
-  virtual void resetOutputToStructure(DistSVec<double,dim> &);
-  virtual  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+  void resetOutputToStructure(DistSVec<double,dim> &);
+  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &U) { return 0; }
   virtual int checkSolution(DistSVec<double,dim> &);

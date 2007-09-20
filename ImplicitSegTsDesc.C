@@ -101,12 +101,10 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
   double gamma = ioData.schemes.ns.gamma;
 
   int prec;
-  double mach = ioData.bc.inlet.mach;
-  if(mach == 0.0)
-    mach = ioData.ref.mach;
-  double betaRef = ioData.prec.k2*mach;
-  double K1 = ioData.prec.k1;
-  double cmach = ioData.prec.mach;
+  double betaRef = ioData.prec.mach;
+  double K1 = ioData.prec.k;
+  //double cmach = 1.0;
+  double cmach = ioData.prec.cmach;
 
   if (ioData.problem.prec == ProblemData::PRECONDITIONED){
    if(ioData.problem.alltype == ProblemData::_STEADY_ ||
@@ -234,12 +232,10 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
   double gamma = ioData.schemes.ns.gamma;
 
   int prec;
-  double mach = ioData.bc.inlet.mach;
-  if(mach == 0.0)
-    mach = ioData.ref.mach;
-  double betaRef = ioData.prec.k2*mach;
-  double K1 = ioData.prec.k1;
-  double cmach = ioData.prec.mach;
+  double betaRef = ioData.prec.mach;
+  double K1 = ioData.prec.k;
+  double cmach = ioData.prec.cmach;
+  //double cmach = 1.0;
 
   if (ioData.problem.prec == ProblemData::PRECONDITIONED){
    if(ioData.problem.alltype == ProblemData::_STEADY_ ||

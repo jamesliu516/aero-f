@@ -127,34 +127,39 @@ public:
 
   template<int dim>
   void computeDerivativeOfForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
-                                                       Vec<double> &, double *, double *, SVec<double,dim> &,
-                                                       SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double * gradP[3], double* dGradP[3], int = 0);
+                                Vec<double> &, double *, double *, SVec<double,dim> &,
+                                SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, 
+                                Vec3D &, Vec3D &, double * gradP[3], double* dGradP[3], int = 0);
   template<int dim>
   void computeDerivativeOfForceTransmitted(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
-                                                       Vec<double> &, double *, double *, SVec<double,dim> &,
-                                                       SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double* gradP[3], double* dGradP[3], int = 0);
+                                           Vec<double> &, double *, double *, SVec<double,dim> &,
+                                           SVec<double,dim> &, double [3], double *, Vec3D &, Vec3D &, 
+                                           Vec3D &, Vec3D &, double* gradP[3], double* dGradP[3], int = 0);
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
-                                                                Vec<double> &, double *, double *,
-                                                                SVec<double,dim> &, SVec<double,dim> &,
-                                                                double, double [3], SVec<double,3> &, double * gradP[3], double* dGradP[3]);
+                                     Vec<double> &, double *, double *,
+                                     SVec<double,dim> &, SVec<double,dim> &,
+                                     double, double [3], SVec<double,3> &, 
+                                     double * gradP[3], double* dGradP[3]);
   template<int dim>
   void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, SVec<double,3>&, Vec<double>&, 
-			     double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
+                                         double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&);
 
   template<int dim>
   void computeDerivativeOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
-                                                                           Vec<double> &, double *, double *,
-                                                                           SVec<double,dim> &, SVec<double,dim> &, double [3],
-                                                                           Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double * gradP[3], double* dGradP[3], int = 0);
+                                         Vec<double> &, double *, double *,
+                                         SVec<double,dim> &, SVec<double,dim> &, double [3],
+                                         Vec3D &, Vec3D &, Vec3D &, Vec3D &, Vec3D &, 
+                                         double * gradP[3], double* dGradP[3], int = 0);
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
-			   Vec<double> &, double *, double *, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+                                       Vec<double> &, double *, double *, SVec<double,dim> &, 
+                                       SVec<double,dim> &, double, SVec<double,dim> &);
   
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
-				   Vec<double> &, double *, double *,
-				   SVec<double,dim> &);
+				    Vec<double> &, double *, double *,
+				    SVec<double,dim> &);
 				   
   void computeNormalAndDerivative(SVec<double,3> &, SVec<double,3> &, Vec3D &, Vec3D &);
 

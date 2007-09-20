@@ -15,7 +15,7 @@ template<class Scalar, int dim> class DistSVec;
 template<int dim>
 class ExplicitTsDesc : public TsDesc<dim> {
 
-protected:
+private:
   LiquidModelData::Check check;
   DistSVec<double,dim> U0;
   DistSVec<double,dim> k1;
@@ -30,22 +30,15 @@ public:
   ExplicitTsDesc(IoData&, GeoSource&, Domain*);
   ~ExplicitTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double,dim>&);
-  void computeRKFourthOrder(DistSVec<double,dim>&);
-  void computeRKSecondOrder(DistSVec<double,dim>&);
+  virtual int solveNonLinearSystem(DistSVec<double,dim>&);
 
-  void computeRKUpdate(DistSVec<double,dim>&, DistSVec<double,dim>&);
+private:
 
-  virtual void computeFunctionLS(int, DistVec<double> &, DistVec<double> &,  DistVec<double> &,
-                         DistSVec<double,dim> &,DistVec<double> &) { };
-                                                                                                                                                         
-  //-- overrides the functions implemented in ExplicitCoupledTsDesc.
-  virtual void computeJacobianLS(int, DistVec<double> &, DistVec<double> &,
-                         DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &) { };
+  virtual void computeRKFourthOrder(DistSVec<double,dim>&);
+  virtual void computeRKSecondOrder(DistSVec<double,dim>&);
 
-  virtual int solveLinearSystemLS(int, DistVec<double> &, DistVec<double> &) { };
+  virtual void computeRKUpdate(DistSVec<double,dim>&, DistSVec<double,dim>&);
 
-  double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti);
 };
 
 //-------------------------------------------------------------------------

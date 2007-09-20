@@ -120,12 +120,15 @@ public:
 
 // Included (MB)
   virtual void computeDerivativeOfNodalForce(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
-                                                                Vec<double> &, double *, double *,
-                                                                SVec<double,dim> &, SVec<double,dim> &,
-                                                                double, double [3], SVec<double,3> &, double* gradP[3], double* dGradP[3]) = 0;
+                                             Vec<double> &, double *, double *,
+                                             SVec<double,dim> &, SVec<double,dim> &,
+                                             double, double [3], SVec<double,3> &, 
+                                             double* gradP[3], double* dGradP[3]) = 0;
 
-  virtual void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, SVec<double,3>&, Vec<double>&, 
-			     double*, double*, SVec<double,dim>&, SVec<double,dim>&, double [3], Vec<double>&) = 0;
+  virtual void computeDerivativeOfNodalHeatPower(ElemSet&, PostFcn*, SVec<double,3>&, 
+                                                 SVec<double,3>&, Vec<double>&, 
+			                         double*, double*, SVec<double,dim>&, 
+                                                 SVec<double,dim>&, double [3], Vec<double>&) = 0;
 
   virtual void computeDerivativeOfForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, SVec<double,3> &,
                                                  Vec<double> &, double *, double *,
@@ -134,9 +137,11 @@ public:
                                                  double* gradP[3], double* dGradP[3], int = 0) = 0;
 
   virtual void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, SVec<double,3> &,
-			   Vec<double> &, double *, double *, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
+                                               Vec<double> &, double *, double *, SVec<double,dim> &, 
+                                               SVec<double,dim> &, double, SVec<double,dim> &) = 0;
   
-  virtual void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, Vec<double> &, double *, double *, SVec<double,dim> &) = 0;
+  virtual void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
+                                            Vec<double> &, double *, double *, SVec<double,dim> &) = 0;
 
 };
 
@@ -226,27 +231,30 @@ public:
     t->computeDerivativeOfNodalForce(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, pin, dS, dF, gradP, dGradP);
   }
 
-  void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
-				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
+  void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, 
+                                         SVec<double,3>& dX, Vec<double>& d2wall, double* Vwall, 
+                                         double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, 
+                                         double dS[3], Vec<double>& dP) {
     t->computeDerivativeOfNodalHeatPower(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, dP);
   }
 
   void computeDerivativeOfForceAndMoment(ElemSet &elems, PostFcn *postFcn,
-                                             SVec<double,3> &X, SVec<double,3> &dX,
-                                             Vec<double> &d2wall, double *Vwall, double *dVwall,
-                                             SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
-                                             Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
-				             double* gradP[3], double* dGradP[3], int hydro) {
+                                         SVec<double,3> &X, SVec<double,3> &dX,
+                                         Vec<double> &d2wall, double *Vwall, double *dVwall,
+                                         SVec<double,dim> &V, SVec<double,dim> &dV, double dS[3],
+                                         Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
+                                         double* gradP[3], double* dGradP[3], int hydro) {
     t->computeDerivativeOfForceAndMoment(elems, postFcn, X, dX, d2wall, Vwall, dVwall, V, dV, dS, x0, dFi, dMi, dFv, dMv, gradP, dGradP, hydro);
   }
 
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
-			       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+                                       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, 
+                                       SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
     t->computeDerivativeOfGalerkinTerm(elems, fet, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
   }
 
   void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
-                                        double *Vwall, double *dVwall, SVec<double,dim> &V) {
+                                    double *Vwall, double *dVwall, SVec<double,dim> &V) {
     t->computeBCsJacobianWallValues(elems, fet, X, d2wall, Vwall, dVwall, V);
   }
 
@@ -479,7 +487,7 @@ public:
   template<int dim>
   void computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normal, Vec<double> &normalVel,
 		       SVec<double,dim> &V, Vec<double> &dt, double beta,
-		       double k1, double cmach);
+		       double k1, double cmach, Vec<double> &Phi);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
@@ -501,13 +509,7 @@ public:
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				 Vec<double> &normalVel, SVec<double,dim> &V,
-				 Vec<double> &Phi, Vec<double> &PhiF);
-
-  /* WARNING NOT IMPLEMENTED IN TRIANGLE ? */
-  template<int dim>
-  void computeFiniteVolumeBarTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
-				  Vec<double> &normalVel, SVec<double,dim> &V,
-				  double *d, SVec<double,dim> &Phi, SVec<double,1> &PhiF);
+				 SVec<double,1> &Phi, Vec<double> &PhiF);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -518,6 +520,17 @@ public:
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				       Vec<double> &normalVel, SVec<double,dim> &V,
 				       double *Ub, GenMat<Scalar,neq> &A, int* nodeType);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
+				       Vec<double> &normalVel, SVec<double,dim> &V, 
+				       double *Ub, GenMat<Scalar,neq> &A, Vec<double> &Phi);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
+				       Vec<double> &normalVel, SVec<double,dim> &V,
+				       double *Ub, GenMat<Scalar,neq> &A, Vec<double> &Phi,
+                                       int* nodeType);
 
   template<int dim, class Scalar>
   void computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normal,
@@ -614,7 +627,7 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double dbeta, double k1, double cmach);
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach);
 
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
@@ -771,7 +784,8 @@ public:
 
   template<int dim>
   void computeDerivativeOfNodalHeatPower(ElemSet& elems, PostFcn* postFcn, SVec<double,3>& X, SVec<double,3>& dX, 
-				 Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
+                                         Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, 
+                                         SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
 
     fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
   }
@@ -789,13 +803,14 @@ public:
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
-			       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
+                                       Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, 
+                                       SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
     fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
-                                        double *Vwall, double *dVwall, SVec<double,dim> &V) {
+                                    double *Vwall, double *dVwall, SVec<double,dim> &V) {
     fprintf(stderr, "Error: undifined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
   }
 
@@ -830,7 +845,7 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       double, double, double);
+                       double, double, double, Vec<double> &);
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
@@ -847,12 +862,7 @@ public:
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
-				 SVec<double,dim> &, Vec<double> &, Vec<double> &);
-
-  /* Not implemented */
-  template<int dim>
-  void computeFiniteVolumeBarTerm(FluxFcn **, BcData<dim> &, GeoState &, 
-				  SVec<double,dim> &, SVec<double,dim> &, SVec<double,1> &);
+				 SVec<double,dim> &, SVec<double,1> &, Vec<double> &);
 
   // DEBUG /* Not implemented */
   template<int dim>
@@ -866,6 +876,16 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, int*);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
+				       SVec<double,dim> &, GenMat<Scalar,neq> &,
+                                       Vec<double> &);
+
+  template<int dim, class Scalar, int neq>
+  void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
+                                       SVec<double,dim> &, GenMat<Scalar,neq> &,
+                                       Vec<double> &, int*);
 
   template<int dim, class Scalar>
   void computeJacobianFiniteVolumeTermLS(GeoState &, 
@@ -883,10 +903,11 @@ public:
 // Included (MB)
   template<int dim>
   void computeDerivativeOfFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
-			       SVec<double,dim> &, SVec<double,dim> &);
+                                           SVec<double,dim> &, SVec<double,dim> &);
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &,
-			   SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+                                       SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, 
+                                       SVec<double,dim> &, double, SVec<double,dim> &);
 
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &, FemEquationTerm *, BcData<dim> &, 
@@ -894,7 +915,7 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 			      SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, 
-			      Vec<double> &, Vec<double> &, double, double, double, double, double);
+			      Vec<double> &, Vec<double> &, double, double, double, double);
 
 };
 

@@ -36,7 +36,7 @@ struct Vec3D {
   double &operator[](int i) { return v[i]; }
   double operator[](int i) const { return v[i]; }
 
-  void print(const char *msg = "") { fprintf(stderr, "%s(%e %e %e)\n", msg, v[0], v[1], v[2]); }
+  void print(const char *msg = "") { fprintf(stdout, "%s(%e %e %e)\n", msg, v[0], v[1], v[2]); }
 
   double norm() { return(sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2])); }
 };

@@ -33,7 +33,6 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       tsSolver.solve(ioData);
     }
     else if (ioData.ts.type == TsData::EXPLICIT) {
-      com->fprintf(stderr, "explicit solver\n");
       ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
       tsSolver.solve(ioData);

@@ -125,9 +125,9 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
       IluPrec<PrecScalar,dim> *ilu = dynamic_cast<IluPrec<PrecScalar,dim> *>(pc);
       
       if (jac) 
-	jac->getData(*mvph1);
+        jac->getData(*mvph1);
       else if (ilu) 
-	ilu->getData(*mvph1);
+        ilu->getData(*mvph1);
     }
 
   }
@@ -153,7 +153,7 @@ int ImplicitCoupledTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &
 
   dQ = 0.0;
 
-  ksp->setup(it,this-> maxItsNewton, b);
+  ksp->setup(it, this->maxItsNewton, b);
 
   int lits = ksp->solve(b, dQ);
 

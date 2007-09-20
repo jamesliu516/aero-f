@@ -15,7 +15,7 @@ using std::max;
 
 //------------------------------------------------------------------------------
 
-void FluxFcnLiquidInLiquidFDJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                      double *VL, double *VR, double *flux, int flag)
 {
 
@@ -24,7 +24,7 @@ void FluxFcnLiquidInLiquidFDJacRoeEuler3D::compute(double irey, double *normal, 
 }
 
 //------------------------------------------------------------------------------
-void FluxFcnLiquidInLiquidApprJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                        double *VL, double *VR, double *flux, int flag)
 {
   if ( flag == 1 )
@@ -55,7 +55,7 @@ void FluxFcnLiquidInLiquidApprJacRoeEuler3D::computeJacobians(double irey, doubl
 
 //------------------------------------------------------------------------------
                                                                                                                   
-void FluxFcnLiquidInLiquidExactJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                         double *VL, double *VR, double *flux, int flag)
 {
 
@@ -74,7 +74,7 @@ void FluxFcnLiquidInLiquidExactJacRoeEuler3D::computeJacobians(double irey, doub
 }
 
 //-----------------------------------------------------------------------
-void FluxFcnLiquidInLiquidWallEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnLiquidInLiquidWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				   double *VL, double *VR, double *flux, int flag)
 {
   if ( flag == 1)
@@ -86,7 +86,7 @@ void FluxFcnLiquidInLiquidWallEuler3D::compute(double irey, double *normal, doub
 
 //------------------------------------------------------------------------------
 
-void FluxFcnLiquidInLiquidGhidagliaEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )
@@ -98,7 +98,7 @@ void FluxFcnLiquidInLiquidGhidagliaEuler3D::compute(double irey, double *normal,
 }
 
 //------------------------------------------------------------------------------
-void FluxFcnLiquidInLiquidInflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, int flag)
 {
   fprintf(stderr, "*** Error2: StegerWarming not available for Tait\n");
@@ -106,7 +106,7 @@ void FluxFcnLiquidInLiquidInflowEuler3D::compute(double irey, double *normal, do
 }
 
 //------------------------------------------------------------------------------
-void FluxFcnLiquidInLiquidOutflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *V, double *Ub, double *flux, int flag)
 {
   fprintf(stderr, "*** Error2: StegerWarming not available for Tait\n");
@@ -115,7 +115,7 @@ void FluxFcnLiquidInLiquidOutflowEuler3D::compute(double irey, double *normal, d
 
 //------------------------------------------------------------------------------
  
-void FluxFcnLiquidInLiquidInternalInflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                            double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )
@@ -137,7 +137,7 @@ void FluxFcnLiquidInLiquidInternalInflowEuler3D::computeJacobian(double irey, do
 
 //------------------------------------------------------------------------------
 
-void FluxFcnLiquidInLiquidInternalOutflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnLiquidInLiquidInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                             double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )
