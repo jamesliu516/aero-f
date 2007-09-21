@@ -1360,10 +1360,8 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
     ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
 
-  double tInit = timer->getTime();
   domain->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, *bcData, *geoState, X, *V,
                                     *ngrad, *ngradLS, egrad, PhiS, PhiF);
-  timer->addLSFiniteVolumeTermTime(tInit);
 
   if (use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
