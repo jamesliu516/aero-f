@@ -1487,8 +1487,8 @@ void ElemTet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double
 			     int typeTracking)
 {
 
-  if(Tag[nodeNumTet[0]]>0 && Tag[nodeNumTet[1]]>0 &&
-     Tag[nodeNumTet[2]]>0 && Tag[nodeNumTet[3]]>0)
+  if(!(Tag[nodeNumTet[0]]>0 && Tag[nodeNumTet[1]]>0 &&
+     Tag[nodeNumTet[2]]>0 && Tag[nodeNumTet[3]]>0))
     return;
   //find what kind of tetrahedron this is:
   //  0 - no levelset phi=0 in it
@@ -2256,8 +2256,8 @@ void ElemTet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddz,
                                     Vec<double> &Phi,SVec<double,dim> &Psi)
 {
-  if (fabs(Tag[nodeNumTet[0]])==1 && fabs(Tag[nodeNumTet[1]])==1 &&
-      fabs(Tag[nodeNumTet[2]])==1 && fabs(Tag[nodeNumTet[3]])==1)
+  if (!(fabs(Tag[nodeNumTet[0]])==1 && fabs(Tag[nodeNumTet[1]])==1 &&
+      fabs(Tag[nodeNumTet[2]])==1 && fabs(Tag[nodeNumTet[3]])==1))
     return;
 
   // We want to get the values of Psi for the nodes that are closest to 
@@ -2280,8 +2280,8 @@ void ElemTet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddz,
                                     Vec<double> &Phi,SVec<double,dim> &Psi)
 {
-  if (Tag[nodeNumTet[0]]==-1 || Tag[nodeNumTet[1]]==-1 ||
-      Tag[nodeNumTet[2]]==-1 || Tag[nodeNumTet[3]]==-1)
+  if (!(Tag[nodeNumTet[0]]==-1 || Tag[nodeNumTet[1]]==-1 ||
+      Tag[nodeNumTet[2]]==-1 || Tag[nodeNumTet[3]]==-1))
     return;
 
   int reorder[4] = {0,1,2,3}; //no change in ordering
@@ -2295,7 +2295,7 @@ template<int dim>
 void ElemTet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
                                     SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi)
 {
-  if ((Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
+  if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
        Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ) )
     return;
 
