@@ -482,6 +482,9 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   timer->setSetupTime();
 
   if (it == 0) {
+    // First time step: compute GradP before computing forces
+    spaceOp->computeGradP(*X, *A, U);
+
     output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
