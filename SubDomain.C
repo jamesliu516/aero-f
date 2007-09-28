@@ -3106,9 +3106,10 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
         idx = -1;
     }
 
-    if(idx >= 0)
+    if(idx >= 0)  {
       faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, 
                        Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro);
+    }
   }
 
 }
@@ -4024,8 +4025,8 @@ void SubDomain::getGradP(NodalGrad<dim>& ngrad)
 
   for (int i=0;i<nodes.size();i++) {
     gradP[0][i] = dVdx[i][4];
-    gradP[1][i] = dVdx[i][4];
-    gradP[2][i] = dVdx[i][4];
+    gradP[1][i] = dVdy[i][4];
+    gradP[2][i] = dVdz[i][4];
   }
 
 }
@@ -4043,8 +4044,8 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
 
   for (int i=0;i<nodes.size();i++) {
     dGradP[0][i] = ddVdx[i][4];
-    dGradP[1][i] = ddVdx[i][4];
-    dGradP[2][i] = ddVdx[i][4];
+    dGradP[1][i] = ddVdy[i][4];
+    dGradP[2][i] = ddVdz[i][4];
   }
 
 }

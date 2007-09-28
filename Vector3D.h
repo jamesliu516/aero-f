@@ -23,7 +23,7 @@ struct Vec3D {
   Vec3D &operator-=(const Vec3D &);
   Vec3D &operator*=(double);
   Vec3D &operator/=(double);
-  Vec3D operator/(double);
+  Vec3D operator/(double) const;
 
   Vec3D operator+(const Vec3D &);
   Vec3D operator-(const Vec3D &);
@@ -142,13 +142,14 @@ Vec3D &Vec3D::operator/=(double cst)
 //------------------------------------------------------------------------------
 
 inline
-Vec3D Vec3D::operator/(double cst)
+Vec3D Vec3D::operator/(double cst)  const
 {
-  v[0] /= cst;
-  v[1] /= cst;
-  v[2] /= cst;
+  Vec3D vnew;
+  vnew[0] = v[0] / cst;
+  vnew[1] = v[1] / cst;
+  vnew[2] = v[2] / cst;
 
-  return *this;
+  return vnew;
 }
 
 //------------------------------------------------------------------------------

@@ -389,7 +389,7 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
   strExc->negotiate();
   strExc->getInfo();
 
-  com->fprintf(stderr, " ... Starting Struct Solver\n");
+  //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
   mms = new TetMeshMotionSolver(ioData.dmesh, matchNodes, domain, mp);
 
@@ -500,6 +500,8 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (algNum != 10 && algNum != 1)
     strExc->sendForce(F);
 
+  com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
+
   return dt;
 
 }
@@ -545,7 +547,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     return 0.0;
 
   if (algNum != 10 || it == it0)  {
-    com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
+    //com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
 	
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
 
