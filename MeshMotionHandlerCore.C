@@ -481,9 +481,9 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  //com->fprintf(stdout, "\n \t \t Just Entered AeroMeshMotionHandler::updateStep1 \n");
 
   int algNum = strExc->getAlgorithmNumber();
+  
   double dt = strExc->getTimeStep();
   if (steady)
     dt = 0.0;
@@ -495,12 +495,9 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     getModalMotion(X);
     *lastIt = true;
   }
-  else if (algNum == 4) {
-    strExc->getDisplacement(X0, X, Xdot, dX);
-    if (*lastIt) 
-      return 0.0;
-  }
-  else if (it > it0 && algNum != 10)
+  else if (algNum == 10 && (it == 0 || *lastIt) )
+    strExc->sendForce(F);
+  else if (algNum != 10 && algNum != 1)
     strExc->sendForce(F);
 
   return dt;
@@ -531,29 +528,21 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     return dt;
   }
 
-  if (algNum == 4) {
-    if (*lastIt) 
-      return 0.0;
-    strExc->sendForce(F);
-  }
-  else {
-    if (it > it0 && algNum != 10) {
-      if (steady) {
-	strExc->negotiateStopping(lastIt);
-	if (*lastIt) 
-	  return 0.0;
-      }
+  if (it > it0 && algNum != 10) {
+    if (steady) {
+      strExc->negotiateStopping(lastIt);
+     if (*lastIt) 
+       return 0.0;
     }
-    if (algNum != 10 && !*lastIt)
-      strExc->getDisplacement(X0, X, Xdot, dX);
-    else
-      if (it == it0)
-        strExc->getDisplacement(X0, X, Xdot, dX);
-      if (*lastIt)
-        strExc->sendForce(F);
-    if (*lastIt) 
-      return 0.0;
   }
+  if (algNum != 10 && !*lastIt) 
+    strExc->getDisplacement(X0, X, Xdot, dX);
+  else
+    if (it == it0)
+      strExc->getDisplacement(X0, X, Xdot, dX);
+
+  if (*lastIt) 
+    return 0.0;
 
   if (algNum != 10 || it == it0)  {
     com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
