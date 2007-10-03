@@ -239,7 +239,7 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
   dX = 0.0;
   Xdot = 0.0;
 
-  if (algNum == 4) recParity = 1 - recParity;
+  if (algNum == 4 || algNum == 5) recParity = 1 - recParity;
 
   if (numStrNodes) {
 
@@ -313,7 +313,7 @@ void StructExc::getTemperature(DistVec<double>& Temp)
 void StructExc::sendForce(DistSVec<double,3> &F) 
 {
 
-  if (algNum == 4) sndParity = 1 - sndParity;
+  if (algNum == 4 || algNum == 5) sndParity = 1 - sndParity;
 
   double norm = 0.0;
 
