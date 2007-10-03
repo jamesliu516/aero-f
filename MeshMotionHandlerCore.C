@@ -483,24 +483,28 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 {
 
   int algNum = strExc->getAlgorithmNumber();
-  
   double dt = strExc->getTimeStep();
   if (steady)
     dt = 0.0;
 
-  if (algNum == 6 && it == 0) 
+  if (algNum == 6 && it == 0)
     dt *= 0.5;
 
   if (algNum == 8) {
     getModalMotion(X);
     *lastIt = true;
   }
+  else if (algNum == 4) {
+    if (*lastIt)
+      return 0.0;
+    strExc->getDisplacement(X0, X, Xdot, dX);
+  }
   else if (algNum == 10 && (it == 0 || *lastIt) )
     strExc->sendForce(F);
-  else if (algNum != 10 && algNum != 1)
+  else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
 
-  com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
+  //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
 
   return dt;
 
@@ -530,31 +534,42 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     return dt;
   }
 
-  if (it > it0 && algNum != 10) {
-    if (steady) {
-      strExc->negotiateStopping(lastIt);
-     if (*lastIt) 
-       return 0.0;
+
+  if (algNum == 4) {
+    if (*lastIt)
+      return 0.0;
+    strExc->sendForce(F);
+  }
+  else {
+    if (it > it0 && algNum != 10) {
+      if (steady) {
+        strExc->negotiateStopping(lastIt);
+        if (*lastIt)
+          return 0.0;
+      }
+    }
+    if (algNum != 10 && !*lastIt)
+      strExc->getDisplacement(X0, X, Xdot, dX);
+    else
+      if (it == it0)
+        strExc->getDisplacement(X0, X, Xdot, dX);
+
+    if (*lastIt){
+      strExc->sendForce(F);
+      return 0.0;
     }
   }
-  if (algNum != 10 && !*lastIt) 
-    strExc->getDisplacement(X0, X, Xdot, dX);
-  else
-    if (it == it0)
-      strExc->getDisplacement(X0, X, Xdot, dX);
 
-  if (*lastIt) 
-    return 0.0;
 
   if (algNum != 10 || it == it0)  {
-    //com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
-	
-    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
+    com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
 
+    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
+
   }
 
-  if (algNum == 1) 
+  if (algNum == 1)
     *lastIt = true;
 
   return dt;
