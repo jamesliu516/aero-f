@@ -1225,14 +1225,14 @@ int ElemTet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double
 */
 
   int degree = 3; //degree of the polynomial
-  bcomp coeff[degree+1]; //coeff of the polynomial
+  bcomp *coeff= new bcomp[degree+1]; //coeff of the polynomial
   coeff[3] = bcomp(2.0*(f1-f2)+fp1+fp2,0.0);
   coeff[2] = bcomp(-3.0*(f1-f2)-2.0*fp1-fp2,0.0);
   coeff[1] = bcomp(fp1,0.0);
   coeff[0] = bcomp(f1,0.0);
 
 
-  bcomp roots[degree]; //roots of the polynomial
+  bcomp *roots = new bcomp[degree]; //roots of the polynomial
   int err = zroots(coeff, degree, roots, true);
   if(err>0) return 1000;
 
@@ -1251,6 +1251,8 @@ int ElemTet::findRootPolynomialLaguerre(double f1, double f2, double fp1, double
   root = real(roots[index]); //we assume f1*f2<0 and 
                              //thus there must be such a solution 
                              //and index should be well defined!
+  delete [] coeff;
+  delete [] roots;
   return counter;
 }
 

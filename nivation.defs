@@ -4,7 +4,7 @@ OFLAGS        = -O2 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DSYNCHRO_WRITE #-mfp
 #OFLAGS       = -g -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DHB_MESHMOTION_DEBUG #-DEDGE_LENGTH
 SOFLAGS       = -shared
 LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB)
-MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
+##MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 DLLIBS        = -ldl
 SAR           = ar cr
 LD            = g++
@@ -35,9 +35,14 @@ endif
 #FORTLIBS    = -L$(FXXDIR)/lib -lifcore -lg2c
 
 ifeq ($(compiler),intel)
-	LOCALMPIFLAG= $(MPIFLAG) -I/share/apps/mpich/gnu/include/mpi2c++ -I/share/apps/mpich/gnu/include
+# Using libraries in /share/apps/mpich/intel
+        MPLIBS      = -L/share/apps/mpich/intel/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
+	LOCALMPIFLAG= $(MPIFLAG) -I/share/apps/mpich/intel/include/mpi2c++ -I/share/apps/mpich/intel/include
 	CXXFLAGS    = -Wno-deprecated -I. $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS) 
 else
+# Using libraries in /opt/mpich/myrinet/gnu
+# Why not /share/apps/mpich/gnu ??
+        MPLIBS      = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 	LOCALMPIFLAG= $(MPIFLAG) -I/opt/mpich/myrinet/gnu/include/mpi2c++ -I/opt/mpich/myrinet/gnu/include
         CXXFLAGS    = -Wno-deprecated -I. -I/usr/lib/gcc/i386-redhat-linux/3.4.4/include/ $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS)
 endif
