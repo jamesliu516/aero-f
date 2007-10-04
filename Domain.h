@@ -269,8 +269,8 @@ public:
   template<int dim>  
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
-	template<int dim>
-	void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
+  template<int dim>
+  void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
                               DistVec<double> &weight, DistVec<double> &Phi);
 	
   template<int dim>
