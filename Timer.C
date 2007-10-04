@@ -301,14 +301,14 @@ double Timer::addMeshMetricsTime(double t0)
                                                                                                                              
 double Timer::addStructUpdTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[structUpd]++;
   data[structUpd] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
@@ -382,129 +382,129 @@ double Timer::addMeshKspTime(double t0)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addPodConstrTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[podConstr]++;
   data[podConstr] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addSnapsLinSolvTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[snapsLinSolv]++;
   data[snapsLinSolv] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addPadeReconstrTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[padeReconstr]++;
   data[padeReconstr] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addCorrelMatrixTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[correlMatrix]++;
   data[correlMatrix] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addEigSolvTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[eigSolv]++;
   data[eigSolv] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addGramSchmidtTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[gramSchmidt]++;
   data[gramSchmidt] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addRomSolTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[romSol]++;
   data[romSol] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addRomConstrTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[romConstr]++;
   data[romConstr] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                             
+
 double Timer::addRomTimeIntegTime(double t0)
 {
-                                                                                                                             
+
   double t = getTime() - t0;
-                                                                                                                             
+
   counter[romTimeInteg]++;
   data[romTimeInteg] += t;
-                                                                                                                             
+
   return t;
-                                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------

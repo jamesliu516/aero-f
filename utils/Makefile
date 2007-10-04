@@ -1,6 +1,7 @@
 LIB = libutils.a
 
-OBJS = $(LIB)(Predicate.o) 
+OBJS = $(LIB)(Predicate.o \
+              Laguerre.o ) 
 
 $(LIB): $(OBJS)
 	echo $(LIB)

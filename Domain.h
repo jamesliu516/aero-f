@@ -43,6 +43,7 @@ template<class T> class CommPattern;
 template<class Scalar> class DistVec;
 template<class Scalar, int dim> class DistSVec;
 template<class Scalar, int dim> class DistMat;
+template<int dim> class DistExactRiemannSolver;
 
 #ifndef _DNDGRAD_TMPL_
 #define _DNDGRAD_TMPL_
@@ -137,7 +138,8 @@ public:
   CommPattern<double> *getCommPat(DistSVec<double,dim> &vec) { return vecPat; }
   template<int dim>
   CommPattern<bcomp> *getCommPat(DistSVec<bcomp,dim> &vec) { return compVecPat; }
-  CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
+  //CommPattern<double> *getCommPat(DistVec<double> &vec) { return vecPat; }
+	// should return volPat....
 
   Communicator *getCommunicator() const { return com; }
   Communicator *getStrCommunicator() { return strCom; }
@@ -161,8 +163,6 @@ public:
   void makeRotationOwnership(IoData &);
   void setFaceToElementConnectivity();
   void printElementStatistics();
-  template<int dim>  
-  void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
   int computeControlVolumes(double, DistSVec<double,3> &, DistVec<double> &);
   void computeFaceNormals(DistSVec<double,3> &, DistVec<Vec3D> &);
   void computeNormalsGCL1(DistSVec<double,3> &, DistSVec<double,3> &, 
@@ -260,15 +260,44 @@ public:
   void computePressureSensor(double, DistSVec<double,3>&,
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
-                             DistSVec<bcomp,3>&, DistVec<bcomp>&) { cout << "computePressureSensor not implemented for complex operations" <<endl; }
+                             DistSVec<bcomp,3>&, DistVec<bcomp>&) {
+	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
+  void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level);
+	void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
+	
+  template<int dim>  
+  void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
+
+	template<int dim>
+	void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
+                              DistVec<double> &weight, DistVec<double> &Phi);
+	
   template<int dim>
-  double reinitLS(DistSVec<double,3> &X, DistVec<double> &Phi, DistSVec<double,dim> &U, int iti);
-                                                                                                              
-  void solveLSequation(DistSVec<double,3> &X, DistVec<double> &Phi, DistSVec<double,6> &ddx,DistSVec<double,6> &ddy, DistSVec<double,6> &ddz, DistVec<double> &PhiF);
+  void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
+			  DistVec<double> &Phi, DistSVec<double,dim> &Psi,
+			  DistVec<int> &Tag,
+			  DistVec<double> &w, DistVec<double> &beta,
+			  DistSVec<double,dim> &PsiRes, bool localdt,
+			  int typeTracking);
+  template<int dim>
+  void computeDistanceCloseNodes(DistVec<int> &Tag, DistSVec<double,3> &X,
+                                 DistNodalGrad<dim> &lsgrad,
+                                 DistVec<double> &Phi,DistSVec<double,dim> &Psi,
+                                 MultiFluidData::CopyCloseNodes copy);
+  template<int dim>
+  void computeDistanceLevelNodes(DistVec<int> &Tag, int level,
+                                 DistSVec<double,3> &X,DistSVec<double,dim> &Psi,
+                                 double &res, DistVec<double> &Phi,
+                                 MultiFluidData::CopyCloseNodes copy);
+  template<int dim>
+  void checkNodePhaseChange(DistSVec<double,dim> &X);
+  template<int dim>
+  void getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi);
+  template<int dim>
+  void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
 
-  void solveLS(DistVec<double> &b, DistVec<double> &dPhi, double);
- 
+
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 
 			       DistSVec<double,3>&, DistSVec<double,dim>&, 
@@ -276,17 +305,19 @@ public:
 			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
-  void computeFiniteVolumeTerm(DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistSVec<double,dim>&, int, int);
+                               DistNodalGrad<1>&,
+                               DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistNodalGrad<dim>&, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &);
+                               DistNodalGrad<dim>&, DistNodalGrad<1>&, DistEdgeGrad<dim>*,
+                               DistSVec<double,1> &, DistVec<double> &);
 
   template<int dim>
   void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, 
@@ -302,7 +333,9 @@ public:
 				       DistMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &,
+  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &, 
+                                       FluxFcn **, DistBcData<dim> &, DistGeoState &,
+                                       DistNodalGrad<dim>&, DistNodalGrad<1>&,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, DistVec<double> &);
   template<int dim>
@@ -492,7 +525,7 @@ public:
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, DistSVec<double,dim> &, DistVec<double> &);
+  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&);
@@ -517,7 +550,7 @@ public:
   template<int dim>
   void printInletVariable(DistSVec<double,dim>&);
   template<int dim>
-  void printAllVariable(DistSVec<double,3> &, DistSVec<double,dim>&, int );
+  void printAllVariable(DistVec<int> &, DistSVec<double,dim>&, int );
 
   void printPhi(DistSVec<double,3> &, DistVec<double> &, int);
 
@@ -613,7 +646,7 @@ public:
   template<int dim>  
   void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &, 
 			     DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
-			     DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, double, double, double, double, double, double);
+			     DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, double, double, double, double, double);
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);

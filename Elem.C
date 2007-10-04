@@ -173,4 +173,55 @@ void ElemSet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
 }
 
 //------------------------------------------------------------------------------
+// Level Set Reinitialization functions
+
+template<int dim>
+void ElemSet::computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+				SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+			   	SVec<double,dim> &ddz, Vec<int> &Tag,
+                                Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+ 				int typeTracking)
+{
+
+  for (int i=0; i<numElems; i++)
+    elems[i]->computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void ElemSet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                       SVec<double,dim> &ddz,
+                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+
+  for (int i=0; i<numElems; i++)
+    elems[i]->computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ElemSet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                       SVec<double,dim> &ddz,
+                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+{
+
+  for (int i=0; i<numElems; i++)
+    elems[i]->recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ElemSet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi)
+{
+
+  for (int i=0; i<numElems; i++)
+    elems[i]->computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+
+}
+// End of Level Set Reinitialization functions
+//-------------------------------------------------------------------------------
 

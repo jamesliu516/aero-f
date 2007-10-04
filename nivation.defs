@@ -4,7 +4,7 @@ OFLAGS        = -O2 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DSYNCHRO_WRITE #-mfp
 #OFLAGS       = -g -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DHB_MESHMOTION_DEBUG #-DEDGE_LENGTH
 SOFLAGS       = -shared
 LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB)
-MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -L/opt/gm/lib/ -lgm -lpthread
+MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 DLLIBS        = -ldl
 SAR           = ar cr
 LD            = g++

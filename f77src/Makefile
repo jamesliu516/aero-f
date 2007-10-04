@@ -7,6 +7,7 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(printmask.o) \
        $(LIB)(roeflux5.o) \
        $(LIB)(g_roeflux5.o) \
+       $(LIB)(roeflux5prim.o) \
        $(LIB)(roeflux6.o) \
        $(LIB)(g_roeflux6.o) \
        $(LIB)(roejac2.o) \
@@ -17,6 +18,8 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(roejacwaterdissprim.o) \
        $(LIB)(roejac2water.o) \
        $(LIB)(eriemann_gw.o) \
+       $(LIB)(eriemann_gg.o) \
+       $(LIB)(eriemann_ww.o) \
        $(LIB)(torsionspring.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \

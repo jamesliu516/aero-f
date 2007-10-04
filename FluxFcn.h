@@ -11,15 +11,6 @@
 using std::min;
 using std::max;
 #endif
-
-extern "C" {
-                                                                                                 
-   void F77NAME(eriemanngw) (const double&, const double&, const double&,
-                             const double&, const double&, const double&,
-                             const double&, const double&, const double &,
-                             const double &, const double&, const double&,
-                             const double &, const double&);
-};
 //----------------------------------------------------------------------------------------
 //CHANGES_FOR_WATER
 // the class FluxFcn and its subclasses have been modified because the computation of
@@ -39,18 +30,15 @@ public:
   FluxFcn(VarFcn *varFcn, Type tp);
   ~FluxFcn() { if (vf) delete vf; }
 
-  virtual void compute(double, double *, double, double *, double *, double *, int = 1) = 0;
+  virtual void compute(double, double, double *, double, double *, double *, double *, int = 1) = 0;
   virtual void computeJacobian(double, double *, double, double *, double *, double *, int = 1) {}
   virtual void computeJacobians(double, double *, double, double *, double *, double *, double *, int = 1) {}
-  virtual void computeLS(double *, double, double *, double, double &) {};
 
 // Included (MB)
   virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) = 0;
   virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1) = 0;
 
   VarFcn *getVarFcn() { return vf; }
-  void compute_riemann(double, double, double, double, double, double, 
-                       double &, double &, double &, double &, double, double, double, double);
 };
 
 
@@ -62,17 +50,6 @@ FluxFcn::FluxFcn(VarFcn *varFcn,Type tp) : vf(varFcn) {
   type = tp;
   
 }
-
-//------------------------------------------------------------------------------
-inline 
-void FluxFcn::compute_riemann(double DL, double UL, double PL,
-                              double DR, double UR, double PR,
-                              double &PI, double &UI, double &RIL, double &RIR,
-                              double alpha, double beta, double pref, double gam)
-{
-   F77NAME(eriemanngw) (DL, UL, PL, DR, UR, PR, PI, UI, RIL, RIR,alpha,beta,pref,gam);
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +60,7 @@ public:
   FluxFcnFD(VarFcn *vf,Type tp) : FluxFcn(vf,tp) {}
   ~FluxFcnFD() {}
 
-  virtual void compute(double, double *, double, double *, double *, double *, int) = 0;
+  virtual void compute(double, double, double *, double, double *, double *, double *, int) = 0;
   void computeJacobian(double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
   
@@ -101,11 +78,12 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
                                      double *VL, double *VR, double *jacL, int flag)
 {
 
+  double dflag = static_cast<double>(flag);
   const double eps0 = 1.e-6;
 
   double Veps[dim], flux[dim], fluxeps[dim], dfdVL[dim*dim];
 
-  compute(irey,  normal, normalVel, VL, VR, flux, flag);
+  compute(1.0, irey, normal, normalVel, VL, VR, flux, flag); //1.0 for length
 
   int k;
   for (k=0; k<dim; ++k)
@@ -126,16 +104,15 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
     if (k != 0)
       Veps[k-1] = VL[k-1];
 
-    compute(irey,  normal, normalVel, Veps, VR, fluxeps, flag);
+    compute(1.0, irey, normal, normalVel, Veps, VR, fluxeps, flag);
 
     for (int j=0; j<dim; ++j) 
       dfdVL[dim*j + k] = (fluxeps[j]-flux[j]) * inveps;
 
   }
 
-  if (type == CONSERVATIVE){
-    vf->postMultiplyBydVdU(VL, dfdVL, jacL);
-  }
+  if (type == CONSERVATIVE)
+    vf->postMultiplyBydVdU(VL, dfdVL, jacL, dflag);
   else{
     for (k=0; k<dim*dim; ++k) 
       jacL[k] = dfdVL[k];

@@ -170,7 +170,7 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if(type == HYDRODYNAMICPRESSURE)
     q = varFcn->getPressure(V, phi) - V[0]*gravity*(depth + nGravity[0]*X[0] + nGravity[1]*X[1] + nGravity[2]*X[2]);
   else if(type == PHILEVEL)
-    q = phi;
+    q = phi/varFcn->getDensity(V);
 
 // Included (MB)
   else if (type == VELOCITY_NORM)

@@ -11,8 +11,8 @@ public:
   ~VarFcnPerfectGasEuler3D() {}
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
 
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -28,7 +28,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0);
 
 };
 
@@ -66,25 +66,25 @@ void VarFcnPerfectGasEuler3D::conservativeToPrimitiveDerivative(double *U, doubl
 //------------------------------------------------------------------------------
 
 inline
-void VarFcnPerfectGasEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnPerfectGasEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
-  VerificationGasEuler(pmin, gam, Pstiff, U, V);
+  return VerificationGasEuler(glob, pmin, gam, Pstiff, U, V);
 }
 
 //------------------------------------------------------------------------------
 
 inline
-void VarFcnPerfectGasEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasEuler3D::primitiveToConservative(double *V, double *U, double phi)
 {
-   primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+  primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
 }
 
 //------------------------------------------------------------------------------
 
 // Included (MB)
 inline
-void VarFcnPerfectGasEuler3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasEuler3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi)
 {
   primitiveToConservativeDerivativeGasEuler(gam, invgam1, Pstiff, dPstiff, V, dV, U, dU);
 }
@@ -94,7 +94,7 @@ void VarFcnPerfectGasEuler3D::primitiveToConservativeDerivative(double *V, doubl
 inline
 void VarFcnPerfectGasEuler3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
 {
-    multiplyBydVdUGasEuler(gam1, V, vec, res);
+  multiplyBydVdUGasEuler(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ void VarFcnPerfectGasEuler3D::multiplyBydVdU(double *V, double *vec, double *res
 inline
 void VarFcnPerfectGasEuler3D::multiplyBydVdU(double *V, bcomp *vec, bcomp *res, double phi)
 {
-   multiplyBydVdUGasEuler(gam1, V, vec, res);
+  multiplyBydVdUGasEuler(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ void VarFcnPerfectGasEuler3D::multiplyBydVdU(double *V, bcomp *vec, bcomp *res, 
 inline
 void VarFcnPerfectGasEuler3D::multiplyBydVdUT(double *V, double *vec, double *res, double phi)
 {
-   multiplyBydVdUTGasEuler(gam1, V, vec, res);
+  multiplyBydVdUTGasEuler(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ void VarFcnPerfectGasEuler3D::multiplyBydVdUT(double *V, double *vec, double *re
 inline
 void VarFcnPerfectGasEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcomp *res, double phi)
 {
-   multiplyBydVdUTGasEuler(gam1, V, vec, res);
+  multiplyBydVdUTGasEuler(gam1, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -126,7 +126,7 @@ void VarFcnPerfectGasEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcomp *res,
 inline
 void VarFcnPerfectGasEuler3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
-    preMultiplyBydUdVGasEuler(invgam1, V, mat, res);
+  preMultiplyBydUdVGasEuler(invgam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
@@ -134,7 +134,7 @@ void VarFcnPerfectGasEuler3D::preMultiplyBydUdV(double *V, double *mat, double *
 inline
 void VarFcnPerfectGasEuler3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
 {
-    postMultiplyBydVdUGasEuler(gam1, V, mat, res);
+  postMultiplyBydVdUGasEuler(gam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
@@ -142,7 +142,7 @@ void VarFcnPerfectGasEuler3D::postMultiplyBydVdU(double *V, double *mat, double 
 inline
 void VarFcnPerfectGasEuler3D::postMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
-   postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
+  postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
@@ -180,8 +180,8 @@ public:
   ~VarFcnPerfectGasSA3D() {}
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
   void postMultiplyBydVdU(double *, double *, double *, double = 0.0);
@@ -190,7 +190,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0);
 
 };
 
@@ -214,7 +214,7 @@ VarFcnPerfectGasSA3D::VarFcnPerfectGasSA3D(IoData &iod) : VarFcnPerfectGas(iod)
 inline
 void VarFcnPerfectGasSA3D::conservativeToPrimitive(double *U, double *V, double phi)
 {
-   conservativeToPrimitiveGasSA(gam1, U, V);
+  conservativeToPrimitiveGasSA(gam1, U, V);
 }
 
 //------------------------------------------------------------------------------
@@ -229,17 +229,17 @@ void VarFcnPerfectGasSA3D::conservativeToPrimitiveDerivative(double *U, double *
 //------------------------------------------------------------------------------
 
 inline
-void VarFcnPerfectGasSA3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnPerfectGasSA3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   conservativeToPrimitiveGasSA(gam1, U, V);
-  VerificationGasSA(pmin, gam1, U, V);
+  return VerificationGasSA(glob, pmin, gam1, U, V);
 }
 
 //------------------------------------------------------------------------------
 
 // Modified (MB)
 inline
-void VarFcnPerfectGasSA3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasSA3D::primitiveToConservative(double *V, double *U, double phi)
 {
   primitiveToConservativeGasSA(invgam1, V, U);
 }
@@ -248,7 +248,7 @@ void VarFcnPerfectGasSA3D::primitiveToConservative(double *V, double *U, double 
 
 // Included (MB)
 inline
-void VarFcnPerfectGasSA3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasSA3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi)
 {
   primitiveToConservativeDerivativeGasSA(invgam1, V, dV, U, dU);
 }
@@ -267,7 +267,7 @@ void VarFcnPerfectGasSA3D::multiplyBydVdU(double *V, double *vec, double *res, d
 inline
 void VarFcnPerfectGasSA3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
-   preMultiplyBydUdVGasSA(invgam1, V, mat, res);
+  preMultiplyBydUdVGasSA(invgam1, V, mat, res);
 }
  
 //------------------------------------------------------------------------------
@@ -275,7 +275,7 @@ void VarFcnPerfectGasSA3D::preMultiplyBydUdV(double *V, double *mat, double *res
 inline
 void VarFcnPerfectGasSA3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
 {
-    postMultiplyBydVdUGasSA(gam1, V, mat, res);
+  postMultiplyBydVdUGasSA(gam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
@@ -295,8 +295,8 @@ public:
   ~VarFcnPerfectGasKE3D() {}
 
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
   void postMultiplyBydVdU(double *, double *, double *, double = 0.0);
@@ -306,7 +306,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0);
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0);
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0);
 
 };
 
@@ -331,7 +331,7 @@ VarFcnPerfectGasKE3D::VarFcnPerfectGasKE3D(IoData &iod) : VarFcnPerfectGas(iod)
 inline
 void VarFcnPerfectGasKE3D::conservativeToPrimitive(double *U, double *V, double phi)
 {
-   conservativeToPrimitiveGasKE(gam1, U, V);
+  conservativeToPrimitiveGasKE(gam1, U, V);
 }
 
 //------------------------------------------------------------------------------
@@ -346,17 +346,17 @@ void VarFcnPerfectGasKE3D::conservativeToPrimitiveDerivative(double *U, double *
 //------------------------------------------------------------------------------
 
 inline
-void VarFcnPerfectGasKE3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnPerfectGasKE3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
-   conservativeToPrimitiveGasKE(gam1, U, V);
-   VerificationGasKE(pmin, gam1, U, V);
+  conservativeToPrimitiveGasKE(gam1, U, V);
+  return VerificationGasKE(glob, pmin, gam1, U, V);
 }
 
 //------------------------------------------------------------------------------
 
 // Modified (MB)
 inline
-void VarFcnPerfectGasKE3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasKE3D::primitiveToConservative(double *V, double *U, double phi)
 {
   primitiveToConservativeGasKE(invgam1, V, U);
 }
@@ -365,7 +365,7 @@ void VarFcnPerfectGasKE3D::primitiveToConservative(double *V, double *U, double 
 
 // Included (MB)
 inline
-void VarFcnPerfectGasKE3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi, double *phi1, double *vgf)
+void VarFcnPerfectGasKE3D::primitiveToConservativeDerivative(double *V, double *dV, double *U, double *dU, double phi)
 {
   primitiveToConservativeDerivativeGasKE(invgam1, V, dV, U, dU);
 }
@@ -384,14 +384,14 @@ void VarFcnPerfectGasKE3D::multiplyBydVdU(double *V, double *vec, double *res, d
 inline
 void VarFcnPerfectGasKE3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
-   preMultiplyBydUdVGasKE(invgam1, V, mat, res);
+  preMultiplyBydUdVGasKE(invgam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
 inline
 void VarFcnPerfectGasKE3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
 {
-   postMultiplyBydVdUGasKE(gam1, V, mat, res);
+  postMultiplyBydVdUGasKE(gam1, V, mat, res);
 }
 
 //------------------------------------------------------------------------------
@@ -408,9 +408,9 @@ public:
   VarFcnWaterCompressibleEuler3D(IoData &);
   ~VarFcnWaterCompressibleEuler3D() {}
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
-                                                                                            
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
   void multiplyBydVdUT(double *, double *, double *, double = 0.0);
@@ -430,7 +430,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
 
 };
                                                                                             
@@ -472,18 +472,18 @@ void VarFcnWaterCompressibleEuler3D::conservativeToPrimitive(double *U, double *
 //------------------------------------------------------------------------------
 
 inline
-void VarFcnWaterCompressibleEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnWaterCompressibleEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   conservativeToPrimitiveLiquidEuler(invCv, U, V);
-  VerificationLiquidEuler(pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
+  return VerificationLiquidEuler(glob, pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
 }
 
 //------------------------------------------------------------------------------
                                                                                             
 inline
-void VarFcnWaterCompressibleEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnWaterCompressibleEuler3D::primitiveToConservative(double *V, double *U, double phi)
 {
-   primitiveToConservativeLiquidEuler(Cv, V, U);
+  primitiveToConservativeLiquidEuler(Cv, V, U);
 }
                                                                                          
 //------------------------------------------------------------------------------
@@ -491,7 +491,7 @@ void VarFcnWaterCompressibleEuler3D::primitiveToConservative(double *V, double *
 inline
 void VarFcnWaterCompressibleEuler3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
 {
-    multiplyBydVdULiquidEuler(invCv, V, vec, res);                                                                                        
+  multiplyBydVdULiquidEuler(invCv, V, vec, res);
 }
 
 //------------------------------------------------------------------------------
@@ -522,7 +522,7 @@ void VarFcnWaterCompressibleEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcom
 inline
 void VarFcnWaterCompressibleEuler3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
 {
-    preMultiplyBydUdVLiquidEuler(Cv, V, mat, res);                                                                                    
+  preMultiplyBydUdVLiquidEuler(Cv, V, mat, res);
 }
                                                                                             
 //------------------------------------------------------------------------------
@@ -581,8 +581,10 @@ public:
   ~VarFcnGasInGasEuler3D() {}
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
+  bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
                                                                                             
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
@@ -601,7 +603,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
 
 };
                                                                                             
@@ -632,24 +634,56 @@ void VarFcnGasInGasEuler3D::conservativeToPrimitive(double *U, double *V, double
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnGasInGasEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnGasInGasEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   if (phi>=0.0){
     conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
-    VerificationGasEuler(pmin, gam, Pstiff, U, V);
+    return VerificationGasEuler(glob, pmin, gam, Pstiff, U, V);
   }else{
     conservativeToPrimitiveGasEuler(gamp, Pstiffp, U, V);
-    VerificationGasEuler(pminp, gamp, Pstiffp, U, V);
+    return VerificationGasEuler(glob, pminp, gamp, Pstiffp, U, V);
   }
 
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnGasInGasEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnGasInGasEuler3D::primitiveToConservative(double *V, double *U, double phi)
 {
   if (phi>=0.0)
     primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
   else  primitiveToConservativeGasEuler(gamp, invgamp1, Pstiffp, V, U);
+}
+//------------------------------------------------------------------------------    
+inline
+bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
+                            double phin, double *Riemann, double weight)
+{
+
+  //nature of fluid at this node has not changed over time
+  if(phi*phin > 0.0){
+    if(phi>=0.0)
+      primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+    else primitiveToConservativeGasEuler(gamp, invgamp1, Pstiffp, V, U);
+
+  //nature of fluid at this node has changed over time
+  }else{
+    if(weight<=0.0){
+      fprintf(stdout, "negative weight in updatePhaseChange\n");
+      exit(1);
+    }
+    for(int k=0; k<5; k++)
+    //for(int k=0; k<1; k++)
+      V[k] = Riemann[k]/weight;
+
+    // from Fluid2 to Fluid1, ie Gas To Gas
+    if(phi>=0.0 && phin<0.0)
+      primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+
+    // from Fluid1 to Fluid2, ie Gas To Gas
+    else primitiveToConservativeGasEuler(gamp, invgamp1, Pstiffp, V, U);
+
+  }
+
 }
 //------------------------------------------------------------------------------    
 inline
@@ -722,7 +756,7 @@ inline
 void VarFcnGasInGasEuler3D::extrapolateBoundaryPrimitive(double un, double c, double *Vb,
                                                 double *Vinter, double *V, double phi)
 {
-    extrapolatePrimitiveGasEuler(un, c, Vb, Vinter, V);
+  extrapolatePrimitiveGasEuler(un, c, Vb, Vinter, V);
 }
 
 //------------------------------------------------------------------------------
@@ -745,9 +779,11 @@ public:
   ~VarFcnLiquidInLiquidEuler3D() {}
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
-                                                                                            
+  int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
+  bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
+
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
   void multiplyBydVdUT(double *, double *, double *, double = 0.0);
@@ -765,7 +801,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
 
 };
                                                                                             
@@ -796,24 +832,51 @@ void VarFcnLiquidInLiquidEuler3D::conservativeToPrimitive(double *U, double *V, 
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnLiquidInLiquidEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnLiquidInLiquidEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   if (phi>=0.0){
     conservativeToPrimitiveLiquidEuler(invCv, U, V);
-    VerificationLiquidEuler(pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
+    return VerificationLiquidEuler(glob, pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
   }else{
     conservativeToPrimitiveLiquidEuler(invCvbis, U, V);
-    VerificationLiquidEuler(pminp, alpha_waterbis, beta_waterbis, Pref_waterbis, invCvbis, U, V);
+    return VerificationLiquidEuler(glob, pminp, alpha_waterbis, beta_waterbis, Pref_waterbis, invCvbis, U, V);
   }
 
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnLiquidInLiquidEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnLiquidInLiquidEuler3D::primitiveToConservative(double *V, double *U, double phi)
 {
   if (phi>=0.0)
     primitiveToConservativeLiquidEuler(Cv, V, U);
   else  primitiveToConservativeLiquidEuler(Cvbis, V, U);
+}
+//------------------------------------------------------------------------------    
+inline
+bool VarFcnLiquidInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
+                                  double phin, double *Riemann, double weight)
+{
+
+  //nature of fluid at this node has not changed over time
+  if(phi*phin > 0.0){
+    if(phi>=0.0)
+      primitiveToConservativeLiquidEuler(Cv, V, U);
+    else primitiveToConservativeLiquidEuler(Cvbis, V, U);
+
+  //nature of fluid at this node has changed over time
+  }else{
+    for(int k=0; k<5; k++)
+      V[k] = Riemann[k]/weight;
+
+    // from Fluid2 to Fluid1, ie Liquid to Liquid
+    if(phi>=0.0 && phin<0.0)
+      primitiveToConservativeLiquidEuler(Cv, V, U);
+
+    // from Fluid1 to Fluid2, ie Liquid to Liquid
+    else primitiveToConservativeLiquidEuler(Cvbis, V, U);
+
+  }
+
 }
 //------------------------------------------------------------------------------    
 inline
@@ -885,7 +948,7 @@ inline
 void VarFcnLiquidInLiquidEuler3D::extrapolateBoundaryPrimitive(double un, double c, double *Vb,
                                                 double *Vinter, double *V, double phi)
 {
-    extrapolatePrimitiveLiquidEuler(un, c, Vb, Vinter, V);
+  extrapolatePrimitiveLiquidEuler(un, c, Vb, Vinter, V);
 }
 
 //------------------------------------------------------------------------------
@@ -909,9 +972,11 @@ public:
   ~VarFcnGasInLiquidEuler3D() {}
   
   void conservativeToPrimitive(double *, double *, double = 0.0);
-  void conservativeToPrimitiveVerification(double *, double *, double = 0.0);
-  void primitiveToConservative(double *, double *, double = 0.0, double * = 0, double * = 0);
-                                                                                            
+  int  conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
+  bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
+
   void multiplyBydVdU(double *, double *, double *, double = 0.0);
   void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
   void multiplyBydVdUT(double *, double *, double *, double = 0.0);
@@ -929,7 +994,7 @@ public:
 
 // Included (MB)
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
-  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0, double * = 0, double * = 0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
 
 };
                                                                                             
@@ -960,49 +1025,115 @@ void VarFcnGasInLiquidEuler3D::conservativeToPrimitive(double *U, double *V, dou
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnGasInLiquidEuler3D::conservativeToPrimitiveVerification(double *U, double *V, double phi)
+int VarFcnGasInLiquidEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
 {
   if (phi>=0.0){
     conservativeToPrimitiveLiquidEuler(invCv, U, V);
-    VerificationLiquidEuler(pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
+    return VerificationLiquidEuler(glob, pmin, alpha_water, beta_water, Pref_water, invCv, U, V);
   }else{
     conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
-    VerificationGasEuler(pminp, gam, Pstiff, U, V);
+    return VerificationGasEuler(glob, pminp, gam, Pstiff, U, V);
   }
 
 }
 //------------------------------------------------------------------------------
 inline
-void VarFcnGasInLiquidEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf)
+void VarFcnGasInLiquidEuler3D::primitiveToConservative(double *V, double *U, double phi)
+{
+
+  if (phi>=0.0)
+    primitiveToConservativeLiquidEuler(Cv, V, U);
+  else  primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+
+}
+//------------------------------------------------------------------------------    
+inline
+bool VarFcnGasInLiquidEuler3D::updatePhaseChange(double *V, double *U, double phi,
+                               double phin, double *Riemann, double weight)
+{
+
+  //nature of fluid at this node has not changed over time
+  if(phi*phin > 0.0){
+    if(phi>=0.0)
+      primitiveToConservativeLiquidEuler(Cv, V, U);
+    else primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+    return false;
+
+  //nature of fluid at this node has changed over time
+  }else{
+
+    if(weight<=0.0){
+      fprintf(stdout, "negative weight in updatePhaseChange\n");
+      exit(1);
+    }
+    // from Fluid2 to Fluid1, ie Gas To Liquid
+    if(phi>=0.0 && phin<0.0){
+      fprintf(stdout, "V1 = %e %e %e\n", V[0],V[1],V[4]);
+      for(int k=0; k<5; k++)
+        V[k] = Riemann[k]/weight;
+      fprintf(stdout, "V2 = %e %e %e\n", V[0],V[1],V[4]);
+      primitiveToConservativeLiquidEuler(Cv,V,U);
+
+    // from Fluid1 to Fluid2, ie Liquid To Gas
+    }else{
+      V[4] = getPressure(V,phin);
+      primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+
+      //for(int k=0; k<5; k++)
+      //  V[k] = Riemann[k]/weight;
+      //primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+    }
+    return true;
+  }
+
+}
+//------------------------------------------------------------------------------
+/*
+inline
+void VarFcnGasInLiquidEuler3D::primitiveToConservative(double *V, double *U, double phi, double *phi1, double *vgf, int node)
 {
   if (!phi1) {
     if (phi>=0.0)
       primitiveToConservativeLiquidEuler(Cv, V, U);
     else  primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
   }
+
   else {
     if (phi * (*phi1) < 0.0) { // the fluid at this node has changed
       if (phi >= 0.0 && (*phi1) < 0.0) { // gas to liquid
+
+        if(vgf[0]<0.0) fprintf(stdout, "*** Warning: interface jumped more than 2 nodes in 1 time step\n");
+        if(node_change) {
+          fprintf(stdout, "local node %d changed from gas to liquid\n", node);
+          fprintf(stdout, "gaspressure = %e and density = %e", V[4], V[0]);
+        }
+
+
         V[0]   = vgf[0];
         V[1]   = vgf[1];
         V[2]   = vgf[2];
         V[3]   = vgf[3];
         V[4]   = vgf[4];
+
+        if(node_change) fprintf(stdout, " become %e and %e\n", getPressure(V, phi),V[0]);
+
         primitiveToConservativeLiquidEuler(Cv, V, U);
       }
       if (phi < 0.0 && (*phi1) >= 0.0) { // liquid to gas
+        if(node_change) fprintf(stdout, "node changed from liquid to gas\n");
         double P_g  = getPressure(V, *phi1); 
         V[4] = P_g;
         primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
       }
     }
-    else {
+    else {  // the fluid at this node did not change
       if (phi>=0.0)
         primitiveToConservativeLiquidEuler(Cv, V, U);
       else  primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
     }
   }
 }
+*/
 //------------------------------------------------------------------------------    
 inline
 void VarFcnGasInLiquidEuler3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)

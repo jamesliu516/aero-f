@@ -980,7 +980,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
 template<int dim>
 void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical(IoData &ioData, DistSVec<double,3> &X,
-
                                              DistVec<double> &A,
                                              DistSVec<double,dim> &U,
                                              DistSVec<double,dim> &dFdS)

@@ -1,77 +1,93 @@
-//
-//       Class LevelSet   created by Francois Courty (C.A.S. Boulder)
-//       March 2004
-//
-///////////////////////////////////////////////////////////////////////
 #include <LevelSet.h>
 
 
 
-#include <SubDomain.h>
-
-#include <Vector3D.h>
-#include <Vector.h>
-#include <DistVector.h>
-#include <Communicator.h>
-
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
-#include <alloca.h>
-
-
-
-
-
-LevelSet::LevelSet(DistSVec<double,3> & X, IoData &iod, Domain *domain) : Phi(domain->getNodeDistInfo()),  PhiRet(domain->getNodeDistInfo()), Phi1(domain->getNodeDistInfo()), Phi2(domain->getNodeDistInfo())
-
-{ 
- int numLocSub = Phi.numLocSub();
- com       = domain->getCommunicator();
- double cenx, ceny, cenz;
-
- nspheres = 0;
- spheres[nspheres][0] = iod.mf.icd.s1.cen_x;
- spheres[nspheres][1] = iod.mf.icd.s1.cen_y;
- spheres[nspheres][2] = iod.mf.icd.s1.cen_z;
- spheres[nspheres][3] = iod.mf.icd.s1.r;
- ++nspheres;
-
- double dist[10];
- int j = 0;
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub){
-    double (*x)[3] = X.subData(iSub);
-    double (*phi) = Phi.subData(iSub);
-    for (int i=0; i<X.subSize(iSub); i++){
-      //for bubble
-      dist[j] = - spheres[j][3] + sqrt((x[i][0]-spheres[j][0])*(x[i][0]-spheres[j][0])+
-                                         (x[i][1]-spheres[j][1])*(x[i][1]-spheres[j][1])+
-                                         (x[i][2]-spheres[j][2])*(x[i][2]-spheres[j][2]));
-      //for shock tube (Charbel's regular quasi-1D mesh with x from 0 to 1)
-      //cf DistTimeState.C
-      //dist[j]  = x[i][0]  -0.5  +0.001;
-
-      phi[i]  = dist[j];
-//      com->printf(2, "phi init = %f\n", phi[i]);
-    }
- }
-
- Phi1 = Phi;
- Phi2 = Phi;
- com->printf(2,"Norm, min, max of Phi = %6.4f %6.4f %6.4f\n",Phi.norm(),Phi.min(), Phi.max());
- com->printf(2,"Center of bubble = %6.4f %6.4f %6.4f\n",iod.mf.icd.s1.cen_x, iod.mf.icd.s1.cen_y, iod.mf.icd.s1.cen_z);
-}
 //-------------------------------------------------------------------------
+LevelSet::LevelSet(IoData &iod, Domain *dom):
+  Phin(dom->getNodeDistInfo()), Phinm1(dom->getNodeDistInfo()), Phinm2(dom->getNodeDistInfo()),
+  Psi(dom->getNodeDistInfo()), dt(dom->getNodeDistInfo()), PsiRes(dom->getNodeDistInfo()),
+  w(dom->getNodeDistInfo()), domain(dom), Phi0(dom->getNodeDistInfo()),
+  Tag(dom->getNodeDistInfo())
+{
+
+  com = domain->getCommunicator();
+  numLocSub = domain->getNumLocSub();
+
+  data = new TimeData(iod);
+
+  bandlevel = iod.mf.bandlevel;
+  localtime = iod.mf.localtime;
+  subIt = iod.mf.subIt;
+  cfl_psi = iod.mf.cfl;
+  typeTracking = iod.mf.typeTracking;
+  copy = iod.mf.copy;
+  conv_eps = iod.mf.eps;
+  diff = bool(iod.mf.outputdiff);
+  if(typeTracking == MultiFluidData::GRADIENT){
+    fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
+  }
+
+  lsgrad  = new DistNodalGrad<1,double>(iod,dom,2);
+
+}
+
+//-------------------------------------------------------------------------
+
 LevelSet::~LevelSet()
 {
+  if(data) delete data;
+  if(lsgrad) delete lsgrad;
+}
+
+//---------------------------------------------------------------------------------------------------------
+void LevelSet::update(DistVec<double> &Phi)
+{
+
+  if (data->use_nm2 && data->exist_nm1) {
+    Phinm2 = Phinm1;
+    data->exist_nm2 = true;
+  }
+  if (data->use_nm1) {
+    Phinm1 = Phin;
+    data->exist_nm1 = true;
+  }
+  Phin = Phi;
+}
+
+//---------------------------------------------------------------------------------------------------------
+void LevelSet::writeToDisk(char *name)
+{
+
+  DistSVec<double,1> WritePhi(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phin.data()));
+  domain->writeVectorToFile(name, 0, 0.0, WritePhi);
+
+  if (data->use_nm1){
+    DistSVec<double,1> WritePhi1(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phinm1.data()));
+    domain->writeVectorToFile(name, 1, 0.0, WritePhi1);
+  }
+
+  if (data->use_nm2){
+    DistSVec<double,1> WritePhi2(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phinm2.data()));
+    domain->writeVectorToFile(name, 2, 0.0, WritePhi2);
+  }
+
 }
 //---------------------------------------------------------------------------------------------------------
-DistVec<double>& LevelSet::getPhi()
+bool LevelSet::checkConvergencePsi(int iteration, double &res0)
 {
-    return Phi;
+
+  double eps = 1.0e-6;
+  double res = sqrt(PsiRes*PsiRes);
+
+  if(iteration == 0)
+    res0 = res;
+
+  double target = eps*res0;
+  if(res < target || iteration >= subIt || res < 1.e-12){
+    com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
+    return true;
+  }
+
+  return false;
+
 }
-
-
-
