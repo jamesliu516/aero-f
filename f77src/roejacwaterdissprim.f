@@ -33,7 +33,7 @@ c--------------------------------------------------------------------
       REAL*8 g_vp1(5),g_vp4(5),g_vp5(5)
       REAL*8 flur1,flur2,flur3,flur4,flur5
       REAL*8 g_flur1(5),g_flur2(5),g_flur3(5),g_flur4(5),g_flur5(5)
-      REAL*8 i,k,dim
+      INTEGER i,k,dim
       REAL*8 tet1, tet2, tet3
       REAL*8 coeff1, coeff2, coeff3, coeff4, coeff5, coeff6, eps
       REAL*8 coeff7
