@@ -1945,7 +1945,7 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
   for (iVec = 0; iVec < nPodVecs; iVec++)  {
     for (jVec = 0; jVec < nPodVecs; jVec++)
       com->fprintf(romFP, "%.16e ", romOperator[iVec][jVec]);
-    com->fprintf(romFP, "\n ");
+    com->fprintf(romFP, "\n");
   }
 
   delete[] romFile;
@@ -2064,7 +2064,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   for (iVec = 0; iVec < sysSize; iVec++)  {
     for (jVec = 0; jVec < sysSize; jVec++)
       com->fprintf(romFP, "%.16e ", sysVals[jVec*sysSize+iVec]);
-    com->fprintf(romFP, "\n ");
+    com->fprintf(romFP, "\n");
   }
 
   delete[] romFile;
