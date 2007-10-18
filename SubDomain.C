@@ -3400,15 +3400,14 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   if (!(varFcn->doVerification())){
     for (int i=0; i<U.size(); ++i) {
 
-      varFcn->conservativeToPrimitive(U[i], V, Phi[i]);
-      rho = varFcn->getDensity(V);
-      p = varFcn->checkPressure(V, Phi[i]);
-
-      if (!(rho > 0.0)) {
+      if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-              rho, locToGlobNodeMap[i] + 1);
+              U[i][0], locToGlobNodeMap[i] + 1);
         ++ierr;
       }
+
+      varFcn->conservativeToPrimitive(U[i], V, Phi[i]);
+      p = varFcn->checkPressure(V, Phi[i]);
       if (p < 0.0) {
         fprintf(stderr, "*** Error: negative pressure (%e) for node %d(%e)\n",
               p, locToGlobNodeMap[i] + 1,Phi[i]);
@@ -3419,14 +3418,13 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
   else{
     for (int i=0; i<U.size(); ++i) {
 
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, Phi[i]);
-      rho = varFcn->getDensity(V);
-
-      if (!(rho > 0.0)) {
+      if (!(U[i][0] > 0.0)) {
         fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%e\n",
-              rho, locToGlobNodeMap[i] + 1, Phi[i]);
+              U[i][0], locToGlobNodeMap[i] + 1, Phi[i]);
         ++ierr;
       }
+
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, Phi[i]);
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
@@ -4074,12 +4072,17 @@ template<int dim>
 void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                              SVec<double,dim> &Update, Vec<double> &Weight)
 {
+  // this function checks that a node that changed phases has an update.
+  // if that node does not have an update, then it is assumed that 
+  //    some complex phenomenon makes the flow cavitates, which we prevent
+  //    by enforcing that phi value at that node is unchanged between tn and tn+1
 
   for(int i=0; i<nodes.size(); i++){
     if(Phi[i]*Phin[i]<0.0 && !(Weight[i]>0.0)){
-      fprintf(stdout, "node %d (loc %d in %d) has weight = %f\n", locToGlobNodeMap[i]+1,i,globSubNum,Weight[i]);
-      fprintf(stdout, "   update = %e %e %e %e %e\n", Update[i][0],Update[i][1],Update[i][2],Update[i][3],Update[i][4]);
-      fprintf(stdout, "   phi = %e %e\n", Phin[i], Phi[i]);
+      fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset"
+                      " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+                      globSubNum,Weight[i],Phin[i],Phi[i]);
+      Phi[i] = Phin[i];
     }
   }
 
