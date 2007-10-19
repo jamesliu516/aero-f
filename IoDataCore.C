@@ -45,7 +45,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
