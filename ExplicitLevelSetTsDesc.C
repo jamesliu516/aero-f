@@ -123,12 +123,14 @@ void ExplicitLevelSetTsDesc<dim>::solveNonLinearSystemEuler(DistSVec<double,dim>
 
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  checkSolution(U0);
   computeRKUpdate(U0, k2,2);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
 
   U -= 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
+  checkSolution(U);
   
   }
   this->timer->addFluidSolutionTime(t0);
