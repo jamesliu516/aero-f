@@ -1457,6 +1457,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
     // the solution of the riemann problem is used to replace values of a node
     // that changed nature (fluid1 to fluid2 or vice versa)
     // **** GFMPAR-like ****
+    // checkWeights is to suppress 'cavitation'
     domain->checkWeights(Phi, Phin, *(riemann->getRiemannUpdate()), *(riemann->getRiemannWeight()));
     varFcn->updatePhaseChange(Vg, U, Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
   }

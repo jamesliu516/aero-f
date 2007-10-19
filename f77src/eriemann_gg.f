@@ -74,6 +74,9 @@ C     SOLVER FOR EACH CASE
 C     INITIALIZE NEWTON ITERATION
       
       PM = MIN(PR,PL)
+      IF(PM .lt. 0.0) THEN
+        PM = TOLPRE
+      ENDIF
       POLD = PM
          
 *     
