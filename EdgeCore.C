@@ -111,7 +111,8 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
   double rho = vf->getDensity(Vi);
   double p   = vf->checkPressure(Vi,phii);
-  double pp  = vf->checkPressure(Vi,phij);
+  // not useful anymore since taken care of in LocalRiemannSolver (f77src/eriemann.f)
+  //double pp  = vf->checkPressure(Vi,phij);
 
   if (rho <= 0.0) {
     if(!failsafe){
@@ -139,14 +140,14 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
       ++ierr;
     }
   }
-  if(phii!=phij && pp <= 0.0){
+  /*if(phii!=phij && pp <= 0.0){
     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
               pp, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
   }
-
+  */
   rho = vf->getDensity(Vj);
   p   = vf->checkPressure(Vj,phij);
-  pp  = vf->checkPressure(Vj,phii);
+  //pp  = vf->checkPressure(Vj,phii);
 
   if (rho <= 0.0) {
     if(!failsafe){
@@ -174,11 +175,11 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
       ++ierr;
     }
   }
-  if(phii!=phij && pp <= 0.0){
+  /*if(phii!=phij && pp <= 0.0){
     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
               pp, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
   }
-
+  */
   return ierr;
 
 }
