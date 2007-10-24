@@ -11,7 +11,7 @@
 template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
                                             Vec<double> &_weight):
-                         rupdate(_rupdate), weight(_weight)
+                                            rupdate(_rupdate), weight(_weight)
 {
 
   iteration = -1;
