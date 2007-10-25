@@ -3543,3 +3543,15 @@ void SubDomain::checkVec(SVec<double,3> &V)
 }
 
 //--------------------------------------------------------------------------
+
+void SubDomain::setPhi(Vec<double> &phi)  {
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == -1)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        phi[nodeNums[iNode]] = -1.0;
+      
+    }
+  }
+}

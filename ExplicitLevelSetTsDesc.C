@@ -43,6 +43,7 @@ ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   ExplicitTsDesc<dim>(ioData, geoSource, dom), Vg(dom->getNodeDistInfo())
 {
 
+  Communicator *com = dom->getCommunicator();
   DistSVec<double,3> X0(this->domain->getNodeDistInfo());
   this->domain->getReferenceMeshPosition(X0);
   LS = new LevelSet(X0, ioData, this->domain);

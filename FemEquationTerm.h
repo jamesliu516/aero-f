@@ -21,10 +21,11 @@ public:
 protected:
 
   WallFcn* wallFcn;
+  map<int, PorousMedia *> &volInfo;
 
 public:
 
-  FemEquationTerm() { wallFcn = 0; }
+  FemEquationTerm(map<int, PorousMedia *> &pm) : volInfo(pm) { wallFcn = 0; }
   ~FemEquationTerm() { if (wallFcn) delete wallFcn; }
 
   virtual double computeViscousTimeStep(double *, double *) = 0;

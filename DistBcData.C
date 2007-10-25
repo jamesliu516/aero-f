@@ -864,8 +864,8 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
 
 // Ub set up with outlet values and properties of fluidModel2 = GasModel2
     // for bubble type of computation
-  gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
-  Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+  gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
+  Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
   velout2 = gam * (iod.mf.icd.s1.p + Pstiff) *
     iod.mf.icd.s1.mach*iod.mf.icd.s1.mach / iod.mf.icd.s1.rho;
   velout = sqrt(velout2);
@@ -1037,8 +1037,8 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
     }
   }
 
-  double gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
-  double Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+  double gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
+  double Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
   velout2 = gam * (iod.mf.icd.s1.p + Pstiff) *
         iod.mf.icd.s1.mach*iod.mf.icd.s1.mach / iod.mf.icd.s1.rho;
   velout = sqrt(velout2);
@@ -1066,15 +1066,15 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
     
   }else if (iod.eqs.numPhase == 2){
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
       setBoundaryConditionsGasGas(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidLiquid(iod, vf, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
       setBoundaryConditionsGasLiquid(iod, vf, X);
     
   }
@@ -1171,15 +1171,15 @@ DistBcDataEuler<dim>::DistBcDataEuler(IoData &iod, VarFcn *vf, Domain *dom, Dist
     
   }else if (iod.eqs.numPhase == 2){
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
       setBoundaryConditionsGasGas(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidLiquid(iod, vf, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
       setBoundaryConditionsGasLiquid(iod, vf, X);
     
   }

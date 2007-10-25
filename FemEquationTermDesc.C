@@ -23,7 +23,7 @@ const double NavierStokesTerm::fourth = 1.0/4.0;
 //------------------------------------------------------------------------------
 
 FemEquationTermNS::FemEquationTermNS(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -73,7 +73,7 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 					  double *V[4], double *r, double *S, 
                                           double *PR, double tetVol, 
                                           SVec<double,3> &X, int nodeNum[4],  
-                                          int volume_id)
+                                          int material_id)
 {
 
   bool porousmedia = false; 
@@ -98,9 +98,9 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   double (*R)[5] = reinterpret_cast<double (*)[5]>(r);
   computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
        porousmedia = true;
 
        double RR[9], K[9];
@@ -154,7 +154,7 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
            PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
        }
     } 
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       for (int j=0; j<12; ++j) PR[j] = 0.0; 
     }
   }
@@ -174,7 +174,7 @@ bool FemEquationTermNS::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Included (MB)
 bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
 					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false; 
@@ -218,14 +218,14 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   double (*dR)[5] = reinterpret_cast<double (*)[5]>(dr);
   computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
        porousmedia = true;
        fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
        exit(1);
     } 
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       for (int j=0; j<12; ++j) dPR[j] = 0.0; 
     }
   }
@@ -246,7 +246,7 @@ bool FemEquationTermNS::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 // Included (MB*)
 bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -306,9 +306,9 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   
   computeJacobianVolumeTermNS(dp1dxj, mu, dmu, lambda, dlambda, kappa, dkappa, V, T, dRdU);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
        porousmedia = true;
        double RR[9], K[9], B[9];
        double alpha[3], beta[3];
@@ -442,7 +442,7 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       for(int i=0; i<5; ++i)
          for(int j=0; j<5; ++j)
            for(int k=0; k<5; ++k)
@@ -461,7 +461,7 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 /*
 bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -477,9 +477,9 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 
   computeJacobianVolumeTermNS(dp1dxj, mu, lambda, kappa, V, T, dRdU);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
        porousmedia = true;
        double RR[9], K[9], B[9];
        double alpha[3], beta[3];
@@ -613,7 +613,7 @@ bool FemEquationTermNS::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       for(int i=0; i<5; ++i)
          for(int j=0; j<5; ++j)
            for(int k=0; k<5; ++k)
@@ -701,7 +701,7 @@ void FemEquationTermNS::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -797,7 +797,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 					  double *V[4], double *r, double *S, 
                                           double *PR, double tetVol,
                                           SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -897,9 +897,9 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     S[5] = 0.0;
   }
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -965,7 +965,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
           PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid 
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
      mu = ooreynolds_mu * (mul + mut);
      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
@@ -989,7 +989,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Included (MB)
 bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
 					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -1178,14 +1178,14 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   }
 
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
       exit(1);
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid 
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
       mu = ooreynolds_mu * (mul + mut);
       dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
@@ -1214,7 +1214,7 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 // Included (MB*)
 bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -1334,9 +1334,9 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
   else
     computeJacobianVolumeTermSA<6,5>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU);
      
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -1510,7 +1510,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -1537,7 +1537,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 /*
 bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -1574,9 +1574,9 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 
   computeJacobianVolumeTermSA<6,5>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -1750,7 +1750,7 @@ bool FemEquationTermSA::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -1871,7 +1871,7 @@ void FemEquationTermSA::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSAmean::FemEquationTermSAmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -1956,7 +1956,7 @@ double FemEquationTermSAmean::computeDerivativeOfViscousTimeStep(double X[3], do
 
 bool FemEquationTermSAmean::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						      double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -1997,9 +1997,9 @@ bool FemEquationTermSAmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -2151,7 +2151,7 @@ bool FemEquationTermSAmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -2203,7 +2203,7 @@ void FemEquationTermSAmean::computeJacobianSurfaceTerm(double dp1dxj[4][3], int 
 //------------------------------------------------------------------------------
 
 FemEquationTermSAturb::FemEquationTermSAturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
 }
@@ -2213,7 +2213,7 @@ FemEquationTermSAturb::FemEquationTermSAturb(IoData &iod, VarFcn *vf) :
 bool FemEquationTermSAturb::computeJacobianVolumeTerm(double dp1dxj[4][3], 
 						      double d2w[4], double *V[4], 
 						      double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   double u[4][3], ucg[3];
@@ -2241,7 +2241,7 @@ bool FemEquationTermSAturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2340,7 +2340,7 @@ double FemEquationTermDES::computeDerivativeOfViscousTimeStep(double X[3], doubl
 bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 					  double *V[4], double *r, double *S, double *PR, double tetVol,
                                           SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -2454,9 +2454,9 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     S[5] = 0.0;
   }
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -2522,7 +2522,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
           PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid 
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
      mu = ooreynolds_mu * (mul + mut);
      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
@@ -2546,7 +2546,7 @@ bool FemEquationTermDES::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Included (MB)
 bool FemEquationTermDES::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
 					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -2562,7 +2562,7 @@ bool FemEquationTermDES::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doub
 
 bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -2599,9 +2599,9 @@ bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d
 
   computeJacobianVolumeTermDES<6,5>(dp1dxj, d2w, dudxj, mul, mutilde, V, dRdU, dSdU, X, nodeNum);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -2775,7 +2775,7 @@ bool FemEquationTermDES::computeJacobianVolumeTerm(double dp1dxj[4][3], double d
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -2877,7 +2877,7 @@ void FemEquationTermDES::computeJacobianSurfaceTerm(double dp1dxj[4][3], int cod
 //------------------------------------------------------------------------------
 
 FemEquationTermDESmean::FemEquationTermDESmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2962,7 +2962,7 @@ double FemEquationTermDESmean::computeDerivativeOfViscousTimeStep(double X[3], d
 
 bool FemEquationTermDESmean::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						      double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -3004,9 +3004,9 @@ bool FemEquationTermDESmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doub
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -3157,7 +3157,7 @@ bool FemEquationTermDESmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doub
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -3209,7 +3209,7 @@ void FemEquationTermDESmean::computeJacobianSurfaceTerm(double dp1dxj[4][3], int
 //------------------------------------------------------------------------------
 
 FemEquationTermDESturb::FemEquationTermDESturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
 }
@@ -3219,7 +3219,7 @@ FemEquationTermDESturb::FemEquationTermDESturb(IoData &iod, VarFcn *vf) :
 bool FemEquationTermDESturb::computeJacobianVolumeTerm(double dp1dxj[4][3], 
 						      double d2w[4], double *V[4], 
 						      double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   double u[4][3], ucg[3];
@@ -3246,7 +3246,7 @@ bool FemEquationTermDESturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   wallFcn = new WallFcnKE(iod, varFcn, viscoFcn);
@@ -3341,7 +3341,7 @@ double FemEquationTermKE::computeDerivativeOfViscousTimeStep(double X[3], double
 
 bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 					  double *V[4], double *r, double *S, double *PR, double tetVol,
-                                          SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                          SVec<double,3> &X, int nodeNum[4], int material_id)
 {
   bool porousmedia = false;
 
@@ -3420,9 +3420,9 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   S[5] = - rhoeps + prod;
   S[6] = (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) / rhok;
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -3488,7 +3488,7 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
           PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid 
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
      mu = ooreynolds_mu * (mul + mut);
      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut); 
@@ -3512,7 +3512,7 @@ bool FemEquationTermKE::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
 // Included (MB)
 bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], double ddp1dxj[4][3], double d2w[4],
 					  double *V[4], double *dV[4], double dMach, double *dr, double *dS, double *dPR, double dtetVol, SVec<double,3> &X,
-                                          int nodeNum[4], int volume_id)
+                                          int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -3644,15 +3644,15 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dS[5] = - drhoeps + dprod;
   dS[6] = ( (sigma_eps1 * drhoeps * prod + sigma_eps1 * rhoeps * dprod  - sigma_eps2 * 2.0*rhoeps*drhoeps) * rhok -  (sigma_eps1 * rhoeps * prod - sigma_eps2 * rhoeps*rhoeps) * drhok ) / ( rhok * rhok );
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
       exit(1);
 
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid 
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid 
      mu = ooreynolds_mu * (mul + mut);
      dmu = dooreynolds_mu * (mul + mut) + ooreynolds_mu * (dmul + dmut);
      lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);												    
@@ -3681,7 +3681,7 @@ bool FemEquationTermKE::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
 bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						  double *V[4], double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                  SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                  SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -3716,9 +3716,9 @@ bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
 
   computeJacobianVolumeTermKE<7,5>(dp1dxj, mul, mut, rhok, rhoeps, V, dRdU, dSdU);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -3892,7 +3892,7 @@ bool FemEquationTermKE::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -3961,7 +3961,7 @@ void FemEquationTermKE::computeJacobianSurfaceTerm(int code, Vec3D &n,
 //------------------------------------------------------------------------------
 
 FemEquationTermKEmean::FemEquationTermKEmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
   wallFcn = new WallFcn(iod, varFcn, viscoFcn);
@@ -4045,7 +4045,7 @@ double FemEquationTermKEmean::computeDerivativeOfViscousTimeStep(double X[3], do
 
 bool FemEquationTermKEmean::computeJacobianVolumeTerm(double dp1dxj[4][3], double d2w[4], 
 						      double *V[4], double *drdu, double *dSdU, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   bool porousmedia = false;
@@ -4088,9 +4088,9 @@ bool FemEquationTermKEmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
   double (*dRdU)[3][5][5] = reinterpret_cast<double (*)[3][5][5]>(drdu);
   double (*dPdU)[4][5][5] = reinterpret_cast<double (*)[4][5][5]>(dpdu);
 
-  if(volume_id>0) {
-    map<int,VolumeData *>::iterator it = volInfo.find(volume_id);
-    if(it!=  volInfo.end()) {     // if porous media with volume_id has been defined in the input file
+  if(material_id>0) {
+    map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
+    if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
       double cmu = 0.09;
       double coeff = 1.2247*pow(cmu,0.25);
@@ -4242,7 +4242,7 @@ bool FemEquationTermKEmean::computeJacobianVolumeTerm(double dp1dxj[4][3], doubl
         }
       }
     }
-    else { // if porous media with volume_id has NOT been defined in the input file -> treat as standard fluid
+    else { // if porous media with material_id has NOT been defined in the input file -> treat as standard fluid
       mu = ooreynolds_mu * (mul + mut);
       lambda = ooreynolds_lambda * viscoFcn->compute_lambda(Tcg, mu);
       kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
@@ -4281,7 +4281,7 @@ void FemEquationTermKEmean::computeJacobianSurfaceTerm(int code, Vec3D &n,
 //------------------------------------------------------------------------------
 
 FemEquationTermKEturb::FemEquationTermKEturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), volInfo(iod.porousmedia.volumeMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
 {
 
 }
@@ -4291,7 +4291,7 @@ FemEquationTermKEturb::FemEquationTermKEturb(IoData &iod, VarFcn *vf) :
 bool FemEquationTermKEturb::computeJacobianVolumeTerm(double dp1dxj[4][3], 
 						      double d2w[4], double *V[4], 
 						      double *drdu, double *dsdu, double *dpdu, double tetVol,
-                                                      SVec<double,3> &X, int nodeNum[4], int volume_id)
+                                                      SVec<double,3> &X, int nodeNum[4], int material_id)
 {
 
   double T[4], Tcg;

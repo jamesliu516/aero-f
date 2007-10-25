@@ -150,12 +150,12 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     }
   }else if (ioData.eqs.numPhase == 2 ){
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
-      if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
+      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInGasEuler3D(ioData);
     }else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
+      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
-      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnLiquidInLiquidEuler3D(ioData);
     }
   }
@@ -364,10 +364,11 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::computeMeshMetrics()
+void TsDesc<dim>::computeMeshMetrics(int it)
 {
 
   if (mmh) {
+    if (it >= 0) com->fprintf(stderr, "GeoState Computing for it %d\n", it);
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
     timer->addMeshMetricsTime(t0);

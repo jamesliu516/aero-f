@@ -14,7 +14,7 @@ typedef complex<double> bcomp;
 VarFcn::VarFcn(IoData &iod)
 {
   pmin  = iod.eqs.fluidModel.pmin;
-  pminp = iod.eqs.fluidModel2.pmin;
+  pminp = iod.eqs.volumes.fluidModel2.pmin;
 
   gravity = 0.0;
   ngravity[0] = cos(iod.bc.hydro.alpha)*cos(iod.bc.hydro.beta);

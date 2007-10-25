@@ -475,7 +475,6 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
     dt_glob = *dtLeft / double(*numSubCycles);
     *dtLeft -= dt_glob;
   }
-
   data->computeCoefficients(*dt, dt_glob);
 
   return dt_glob;

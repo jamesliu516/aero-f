@@ -5,10 +5,12 @@
 #include <Vector3D.h>
 #include <Vector.h>
 #include <BinFileHandler.h>
+#include <IoData.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <map.h>
 
 //------------------------------------------------------------------------------
 
@@ -112,7 +114,8 @@ ElemSet::~ElemSet()
 
 //------------------------------------------------------------------------------
 
-int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *map)  
+int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *elemMap,
+                  map<int, VolumeData *> &volInfo, map<int, PorousMedia *> &porousMap)  
 {
 
   // read in number of elems in cluster (not used)
@@ -158,11 +161,28 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
       }
 
       // read in global elem number
-      file.read(&map[count], 1);
+      file.read(&elemMap[count], 1);
 
       // read in volume id (for porous)
       file.read(&volume_id, 1);
-      elems[count]->setVolumeID(volume_id);
+      map<int, VolumeData *>::iterator volIt = volInfo.find(volume_id);
+
+      if (volIt == volInfo.end())
+        elems[count]->setVolumeID(0);
+      else  {
+        if (volIt->second->type == VolumeData::FLUID2)
+          elems[count]->setVolumeID(-1);
+        else if (volIt->second->type == VolumeData::POROUS)  {
+          map<int, PorousMedia *>::iterator pm = porousMap.find(volIt->second->porousID);
+          if (pm == porousMap.end())  {
+            elems[count]->setVolumeID(0);
+          }
+          else
+            elems[count]->setVolumeID(volIt->second->porousID);
+        }
+        else
+          elems[count]->setVolumeID(0);
+      }
 
       // read in elem nodes
       file.read( elems[count]->nodeNum(), elems[count]->numNodes());

@@ -684,10 +684,6 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "\n");
   com->fprintf(fp, "Fluid Solution                : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[fluid], tmax[fluid], tavg[fluid]);
-  //com->fprintf(fp, "  Nodal Weights           : %10.2f %10.2f %10.2f %9d\n", 
-//	       tmin[nodalWeights], tmax[nodalWeights], tavg[nodalWeights], 
-//	       counter[nodalWeights]);
-  //com->fprintf(fp, "  Nodal Gradients         : %10.2f %10.2f %10.2f %9d\n", 
   com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);

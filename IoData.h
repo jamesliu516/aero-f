@@ -412,6 +412,28 @@ struct ThermalCondModelData {
 };
 
 //------------------------------------------------------------------------------
+struct VolumeData  {
+
+  enum Type {FLUID1 = 0, FLUID2 = 1, POROUS = 2} type;
+  int porousID;
+
+  VolumeData();
+  Assigner *getAssigner();
+
+};
+
+//------------------------------------------------------------------------------
+
+template<class DataType>
+class ObjectMap {
+
+public:
+
+  map<int, DataType *> dataMap;
+  void setup(const char *name, ClassAssigner *);
+};
+
+//------------------------------------------------------------------------------
 
 struct SAModelData {
 
@@ -722,6 +744,34 @@ struct MultiFluidData {
 
 
 //------------------------------------------------------------------------------
+
+struct PorousMedia  {
+
+  double iprimex, iprimey, iprimez;
+  double jprimex, jprimey, jprimez;
+  double kprimex, kprimey, kprimez;
+  double alphax,alphay,alphaz;
+  double betax,betay,betaz;
+  double idr,ldr;
+
+  PorousMedia();
+  Assigner *getAssigner();
+
+};
+
+//------------------------------------------------------------------------------
+
+struct Volumes  {
+
+  ObjectMap<VolumeData> volumeMap;
+  ObjectMap<PorousMedia> porousMap;
+  FluidModelData fluidModel2;
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
                                                                                               
 struct EquationsData {
                                                                                               
@@ -737,10 +787,10 @@ struct EquationsData {
 // with the values given to characterize the first fluid!
                                                                                               
   FluidModelData fluidModel;
-  FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;
   ThermalCondModelData thermalCondModel;
   TurbulenceClosureData tc;
+  Volumes volumes;
 
   EquationsData();
   ~EquationsData() {}
@@ -1418,29 +1468,17 @@ struct SurfaceData  {
 
 //------------------------------------------------------------------------------
 
-template<class DataType>
-class ObjectMap {
-
-public:
-
-  map<int, DataType *> dataMap;
-  void setup(const char *name, ClassAssigner *);
-};
-
-//------------------------------------------------------------------------------
-
 struct Surfaces  {
 
   ObjectMap<SurfaceData> surfaceMap;
-
   void setup(const char *);
 };
 
 //------------------------------------------------------------------------------
 
 struct PadeFreq  {
-                                                                                   ObjectMap<double> freqMap;
-                                                                           
+
+  ObjectMap<double> freqMap;
   void setup(const char *);
 };
                                                                                            
@@ -1466,33 +1504,6 @@ struct Velocity  {
 
   void setup(const char *);
 };
-
-//------------------------------------------------------------------------------
-
-struct VolumeData  {
-
-  double iprimex, iprimey, iprimez;
-  double jprimex, jprimey, jprimez;
-  double kprimex, kprimey, kprimez;
-  double alphax,alphay,alphaz;
-  double betax,betay,betaz;
-  double idr,ldr;
-
-  VolumeData();
-  Assigner *getAssigner();
-
-};
-
-//------------------------------------------------------------------------------
-
-struct PorousMedia  {
-
-  ObjectMap<VolumeData> volumeMap;
-
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
 
 class IoData {
 
@@ -1525,7 +1536,8 @@ public:
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
-  PorousMedia porousmedia;
+  //PorousMedia porousmedia;
+
 public:
 
   IoData(Communicator *);

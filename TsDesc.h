@@ -106,7 +106,7 @@ public:
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
   double computePositionVector(bool *, int, double);
   void interpolatePositionVector(double, double);
-  void computeMeshMetrics();
+  void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &);
 
 // Modified (MB)

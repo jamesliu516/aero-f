@@ -434,7 +434,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   }
   else if (ioData.eqs.numPhase == 2){
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
-      if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS){
+      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS){
         ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
         ff -= BC_MIN_CODE;
         if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
@@ -491,7 +491,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
       }
     }
     else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID){
+      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID){
         ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
         ff -= BC_MIN_CODE;
         if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
@@ -537,7 +537,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
             ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidExactJacRoeEuler3D(gamma, ioData);
         }
       }
-      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS){
+      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS){
         ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
         ff -= BC_MIN_CODE;
         if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {

@@ -29,7 +29,7 @@ protected:
 
 public:
 
-  ElemTet() { volume_id=-1; }
+  ElemTet() { volume_id = 0; }
   ~ElemTet() {}
 
   int* nodeNum() { return nodeNumTet; }

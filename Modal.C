@@ -2064,7 +2064,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   for (iVec = 0; iVec < sysSize; iVec++)  {
     for (jVec = 0; jVec < sysSize; jVec++)
       com->fprintf(romFP, "%.16e ", sysVals[jVec*sysSize+iVec]);
-    com->fprintf(romFP, "\n ");
+    com->fprintf(romFP, "\n");
   }
 
   delete[] romFile;

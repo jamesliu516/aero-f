@@ -40,10 +40,16 @@ LevelSet::LevelSet(DistSVec<double,3> & X, IoData &iod, Domain *domain) : Phi(do
  double dist[10];
  int j = 0;
 
+  SubDomain **subDomain = domain->getSubDomain();
+
+  // initialize Phi to 1
+  Phi = 1.0;
+
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*x)[3] = X.subData(iSub);
     double (*phi) = Phi.subData(iSub);
+/*
     for (int i=0; i<X.subSize(iSub); i++){
       //for bubble
       dist[j] = - spheres[j][3] + sqrt((x[i][0]-spheres[j][0])*(x[i][0]-spheres[j][0])+
@@ -56,7 +62,13 @@ LevelSet::LevelSet(DistSVec<double,3> & X, IoData &iod, Domain *domain) : Phi(do
       phi[i]  = dist[j];
 //      com->printf(2, "phi init = %f\n", phi[i]);
     }
- }
+
+    // Initialize Phi to +1 for fluid0 and -1 for fluidN
+    // loop over sub elems
+*/
+    subDomain[iSub]->setPhi(Phi(iSub));
+  }
+
 
  Phi1 = Phi;
  Phi2 = Phi;

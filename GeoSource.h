@@ -32,6 +32,7 @@ class GeoSource {
   MatchNodeSet **matchNodes;
 
   double oolscale;
+  IoData *iod;
 
   BCondSet *clus_bconds;
 

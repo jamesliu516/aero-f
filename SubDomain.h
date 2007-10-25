@@ -220,6 +220,7 @@ public:
   void computeLocalAvg(SVec<double,3> &, Vec<double> &, Vec<double> &);
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
+  void setPhi(Vec<double> &);
                                                                                                                           
   // moving mesh
 
