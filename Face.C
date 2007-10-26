@@ -384,11 +384,8 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
       code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED       ||
       code == BC_SYMMETRY
       ) {
-    //at wall either U.n = 0 (Euler) or U = 0 (Navier-Stokes)
-    for (int l=0; l<numNodes(); ++l) {
-      Uf = -getNormalVel(normalVel, l);
-      PhiF[ nodeNum(l) ] += Uf*Phi[nodeNum(l)][0];
-    }
+    //at wall either U.n = Uwall.n (Euler) or U = Uwall (Navier-Stokes)
+    //and thus the flux is 0.0
   }else{
     for (int l=0; l<numNodes(); ++l) {
       Vec3D normal = getNormal(normals, l);
