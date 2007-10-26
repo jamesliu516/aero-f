@@ -281,7 +281,7 @@ public:
   virtual double getDerivativeOfPressureConstant() { return 0.0; }
   virtual void rstVar(IoData &iod) {}
   virtual void rV(IoData &iod) {  pmin  = iod.eqs.fluidModel.pmin;
-                                  pminp = iod.eqs.fluidModel2.pmin; }
+                                  pminp = iod.eqs.volumes.fluidModel2.pmin; }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -551,10 +551,10 @@ VarFcnGasInGas::VarFcnGasInGas(IoData &iod)
   invgam1 = 1.0/gam1;
   Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
 
-  gamp = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
+  gamp = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
   gamp1 = gamp - 1.0;
   invgamp1 = 1.0/gamp1;
-  Pstiffp = iod.eqs.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+  Pstiffp = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
 
 }
 
@@ -645,9 +645,9 @@ VarFcnLiquidInLiquid::VarFcnLiquidInLiquid(IoData &iod)
   
   Cvbis=1.0;
   invCvbis=1.0/Cvbis;
-  alpha_waterbis = iod.eqs.fluidModel2.liquidModel.alpha;
-  beta_waterbis  = iod.eqs.fluidModel2.liquidModel.beta;
-  Pref_waterbis  = iod.eqs.fluidModel2.liquidModel.Pref;
+  alpha_waterbis = iod.eqs.volumes.fluidModel2.liquidModel.alpha;
+  beta_waterbis  = iod.eqs.volumes.fluidModel2.liquidModel.beta;
+  Pref_waterbis  = iod.eqs.volumes.fluidModel2.liquidModel.Pref;
 
 }
 
@@ -736,13 +736,13 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
   type = GASINLIQUID; 
   subType = NONE;
 
+<<<<<<< /home/arallu/RESEARCH/fluid/Repository/ShareRepository.d/VarFcn.h
   if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
      iod.eqs.fluidModel2.fluid == FluidModelData::GAS){
-    //gam  = 1.0  +iod.eqs.fluidModel2.gasModel.idealGasConstant/iod.eqs.fluidModel.liquidModel.Cv;
-    gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
+    gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
     gam1 = gam -1.0;
     invgam1 = 1.0/gam1;
-    Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+    Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
 
     Cv=1.0;
     invCv=1.0/Cv;
@@ -752,7 +752,7 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
     Pref_water  = iod.eqs.fluidModel.liquidModel.Pref;
 
   }else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-           iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID){
+           iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID){
     gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
     gam1 = gam -1.0;
     invgam1 = 1.0/gam1;
@@ -761,9 +761,9 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
     Cv=1.0;
     invCv=1.0/Cv;
 
-    alpha_water = iod.eqs.fluidModel2.liquidModel.alpha;
-    beta_water  = iod.eqs.fluidModel2.liquidModel.beta;
-    Pref_water  = iod.eqs.fluidModel2.liquidModel.Pref;
+    alpha_water = iod.eqs.volumes.fluidModel2.liquidModel.alpha;
+    beta_water  = iod.eqs.volumes.fluidModel2.liquidModel.beta;
+    Pref_water  = iod.eqs.volumes.fluidModel2.liquidModel.Pref;
 
   }
 

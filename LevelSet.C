@@ -2,8 +2,6 @@
 
 #include <math.h>
 
-
-
 //-------------------------------------------------------------------------
 template<int dim>
 void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
@@ -21,26 +19,30 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
   zb   = iod.mf.icd.s1.cen_z;
   r    = iod.mf.icd.s1.r;
 
+  // initialize Phi to 1
+  Phi = 1.0;
+
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*x)[3] = X.subData(iSub);
     double (*u)[dim] = U.subData(iSub);
     double (*phi) = Phi.subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
-      //for bubble
       if(iod.mf.problem == MultiFluidData::BUBBLE){
         phi[i] = invertGasLiquid*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
                                         (x[i][1] -yb)*(x[i][1] -yb)  +
                                         (x[i][2] -zb)*(x[i][2] -zb))  -r);
-        //phi[i] = 2.0*sin(phi[i]/4.0)+1.3;
       }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
-      //for shock tube (comments: cf LevelSetCore.C)
-          phi[i] = x[i][0] - r;
-          //phi[i] = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
+        phi[i] = x[i][0] - r;
       }
       phi[i] *= u[i][0];
     }
   }
+
+  // Initialize Phi to +1 for fluid0 and -1 for fluidN
+  // loop over sub elems
+  //domain->setPhi(Phi(iSub));
+
   Phin   = Phi;
   Phinm1 = Phin;
   Phinm2 = Phinm1;

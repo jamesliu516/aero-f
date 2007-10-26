@@ -14,7 +14,7 @@ typedef complex<double> bcomp;
 VarFcn::VarFcn(IoData &iod)
 {
   pmin  = iod.eqs.fluidModel.pmin;
-  pminp = iod.eqs.fluidModel2.pmin;
+  pminp = iod.eqs.volumes.fluidModel2.pmin;
   verif_clipping = false;
   node_change = true;
 

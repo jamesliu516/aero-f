@@ -263,8 +263,9 @@ public:
                              DistSVec<bcomp,3>&, DistVec<bcomp>&) {
 	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
+  void setPhi(DistVec<double> &Phi);
   void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level);
-	void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
+  void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
 	
   template<int dim>  
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);

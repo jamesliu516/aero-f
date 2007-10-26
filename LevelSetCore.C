@@ -30,7 +30,6 @@ LevelSet::LevelSet(IoData &iod, Domain *dom):
   lsgrad  = new DistNodalGrad<1,double>(iod,dom,2);
 
 }
-
 //-------------------------------------------------------------------------
 
 LevelSet::~LevelSet()

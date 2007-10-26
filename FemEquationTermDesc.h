@@ -19,7 +19,7 @@ class FemEquationTermNS : public FemEquationTerm, public NavierStokesTerm {
 
 public:
 
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermNS(IoData &, VarFcn *);
@@ -67,7 +67,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermSA(IoData &, VarFcn *);
@@ -115,7 +115,7 @@ public:
   double x0,y0,z0,x1,y1,z1;
   double cdes;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermDES(IoData &, VarFcn *);
@@ -168,7 +168,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermSAmean(IoData &, VarFcn *);
@@ -241,7 +241,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  ////map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermDESmean(IoData &, VarFcn *);
@@ -315,7 +315,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
 
   FemEquationTermSAturb(IoData &, VarFcn *);
   ~FemEquationTermSAturb() {}
@@ -402,7 +402,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
 
   FemEquationTermDESturb(IoData &, VarFcn *);
   ~FemEquationTermDESturb() {}
@@ -490,7 +490,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermKE(IoData &, VarFcn *);
@@ -552,7 +552,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermKEmean(IoData &, VarFcn *);
@@ -629,7 +629,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  map<int, VolumeData *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
 
   FemEquationTermKEturb(IoData &, VarFcn *);
   ~FemEquationTermKEturb() {}

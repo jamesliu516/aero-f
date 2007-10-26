@@ -1205,6 +1205,16 @@ void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsD
 //------------------------------------------------------------------------------
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
+void Domain::setPhi(DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhi(Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
 void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level)
 {
 

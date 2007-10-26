@@ -66,6 +66,8 @@ class BinFileHandler;
 class GeoState;
 class FaceSet;
 class Face;
+class PorousMedia;
+class VolumeData;
 
 struct Vec3D;
 
@@ -862,7 +864,7 @@ public:
 
   int size() const { return numElems; }
 
-  int read(BinFileHandler&, int, int (*)[2], int *);
+  int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &, map<int, PorousMedia *> &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 

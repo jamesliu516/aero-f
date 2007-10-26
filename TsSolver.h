@@ -46,7 +46,7 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
   // initialize solutions and geometry
-   probDesc->setupTimeStepping(&U, ioData);
+  probDesc->setupTimeStepping(&U, ioData);
 
   int status = resolve(U, ioData);
 
