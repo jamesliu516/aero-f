@@ -174,6 +174,11 @@ c  eigenvalues - Preconditioned
       vpb = 0.5d0*dsqrt(4.0d0*b2*cr2+(VdotN*(1.0d0-b2))**2)
       vp4 = vpa+vpb
       vp5 = vpa-vpb
+
+c Dynamic Mesh inclusion
+      vp1 = vp1 - vitno
+      vp4 = vp4 - vitno
+      vp5 = vp5 - vitno
       
       
 c  useful values

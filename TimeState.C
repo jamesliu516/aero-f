@@ -68,7 +68,8 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 template<int dim>
 void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState, 
 					Vec<double> &ctrlVol, Vec<double> &Q, 
-					Vec<double> &R, Vec<double> &Q1, Vec<double> &Q2)
+					Vec<double> &Qn, Vec<double> &Qnm1,
+					Vec<double> &Qnm2, Vec<double> &R)
 {
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
@@ -93,13 +94,12 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
       c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
     }
 
-                                                                                                                      
-      double dAWdt = invDt * (c_np1*Q[i] + c_n*Q1[i] +
-                              c_nm1*Q2[i]);
-      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
-        R[i] = dAWdt + 0.5 * (R[i] + Rn[i][1]);
-      else
-        R[i] += dAWdt;
+    double dAWdt = invDt * (c_np1*Q[i] + c_n*Qn[i] +
+                            c_nm1*Qnm1[i] + c_nm2*Qnm2[i]);
+    if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+      R[i] = dAWdt + 0.5 * (R[i] + Rn[i][1]);
+    else
+      R[i] += dAWdt;
 
   }
 }
@@ -215,7 +215,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
                           {u*nu*mu,     1.0 - u2*mu*gam1/c2, -u*v*mu*gam1/c2,      -u*w*mu*gam1/c2,     u*mu*gam1/c2 },
                           {v*nu*mu,     -u*v*mu*gam1/c2 ,    1.0 - v2*mu*gam1/c2,  -v*w*mu*gam1/c2,     v*mu*gam1/c2 },
                           {w*nu*mu,     -u*w*mu*gam1/c2 ,    -v*w*mu*gam1/c2,      1.0 - w2*mu*gam1/c2, w*mu*gam1/c2 },
-     	  	{0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
+     	                  {0.5*mu*(1.0+nu)*q2,    -u*mu*(1+nu), -v*mu*(1+nu), -w*mu*(1+nu), (1.0/beta2)+mu*nu } };
 
     for (int l=0; l<5; ++l)
       for (int m=0; m<5; ++m)

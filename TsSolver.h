@@ -2,7 +2,6 @@
 #define _TS_SOLVER_H_
 
 # include<IoData.h>
-# include<LevelSet.h>
 
 class IoData;
 
@@ -134,7 +133,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);
 
-      probDesc->updateStateVectors(U);
+      probDesc->updateStateVectors(U, it);
 
     } while (dtLeft != 0.0);
 

@@ -16,7 +16,7 @@ c   same time (we don t compute |A| and Q, but rather directly |A|Q since
 c   the analytical expression is simple.
 c-----------------------------------------------------------------------
       IMPLICIT NONE
-      REAL*8 Ug(*), Ud(*), normal(3), enormal(3), evitno, jac(*)
+      REAL*8 Ug(*), Ud(*), enormal(3), evitno, jac(*)
       REAL*8 gamma
       REAL*8 Cv, Pr, alpha, beta
       INTEGER type
@@ -173,6 +173,7 @@ c precision
      &        ( 1.0d0 / beta1 )
       endif
 
+
       uar2 = (squsrg*Ug(2) + squsrd*Ud(2))*usro
       uar3 = (squsrg*Ug(3) + squsrd*Ud(3))*usro
       uar4 = (squsrg*Ug(4) + squsrd*Ud(4))*usro
@@ -214,6 +215,7 @@ c differentiation of roe variables
         g_uar1(1) = oobeta*oobeta1*uar1**(2.0d0-beta)
      &           *(beta*(Ug(1)**beta1)*difro-difroB)/difro**2
       endif
+
 
       g_uar2(1) = -pre*(Ug(2)+uar2)
 c      g_uar2(1) = -squsrd*Ug(2)*pre
@@ -416,14 +418,14 @@ c differentiation of all the previous values
      &         +nz           *dif5 )
      
       do i=1,5
-        g_flur1(i) = g_vp1(i)*(
+        g_flur3(i) = g_vp1(i)*(
      &          P1*nz        *dif1  
      &         +(P2*nz*nx-ny)*dif2
      &         +(P2*nz*ny+nx)*dif3
      &         +(P2*nz*nz   )*dif4
      &         +nz           *dif5 )
      
-        g_flur1(i) = g_flur1(i)+vp1*(
+        g_flur3(i) = g_flur1(i)+vp1*(
      &          g_P1(i)*nz   *dif1 
      &         + P1*nz       *g_dif1(i)
      &         +g_P2(i)*nz*nx*dif2
@@ -472,7 +474,7 @@ c Final operation
      &          + r2*g_flur4(i) + s2*g_flur5(i) )
      
       H(2,i) = H(2,i) - gamma*(
-     &          uar1*(nz*g_flur2(i)-ny*g_flur3(i))
+     &          uar1 *(nz*g_flur2(i)- ny*g_flur3(i)) 
      &      + (oob2*uar2*r2-r*cr2*nx)*g_flur4(i)
      &      + (oob2*uar2*s2-s*cr2*nx)*g_flur5(i) )
     
