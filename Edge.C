@@ -520,38 +520,24 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     if (!masterFlag[l]) continue;
     int i = ptr[l][0];
     int j = ptr[l][1];
-    //if (egrad)
-    //  egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
-    //else {
-      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-      for (int k=0; k<dim; ++k) {
-        ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-        ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-      }
-    //}
-
-    //if (egradLS)
-    //  egradLS->compute(l, i, j, elems, X, Phi, dPhidx, dPhidy, dPhidz, ddPij, ddPji);
-    //else {
-      //double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-        ddPij[0] = dx[0]*dPhidx[i][0] + dx[1]*dPhidy[i][0] + dx[2]*dPhidz[i][0];
-        ddPji[0] = dx[0]*dPhidx[j][0] + dx[1]*dPhidy[j][0] + dx[2]*dPhidz[j][0];
-      //}
-    //}
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+    }
+    ddPij[0] = dx[0]*dPhidx[i][0] + dx[1]*dPhidy[i][0] + dx[2]*dPhidz[i][0];
+    ddPji[0] = dx[0]*dPhidx[j][0] + dx[1]*dPhidy[j][0] + dx[2]*dPhidz[j][0];
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
 
-    Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2];
-    Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2];
+    Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2] - normalVel[l];
+    Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2] - normalVel[l];
     //Roe averaged variables
     if(fabs(Pj[0]-Pi[0])<1.e-12*fabs(Pi[0]) || Pj[0]==Pi[0])
       uroe     = 0.5*(Unj + Uni);
     else
       uroe     = (Pj[0]*Unj - Pi[0]*Uni)/(Pj[0]-Pi[0]);
-
-    //dynamic mesh inclusion
-    uroe -= normalVel[l];
 
     // roe flux
     Phia = Uni*Pi[0] + Unj*Pj[0] - fabs(uroe)*(Pj[0]-Pi[0]);
