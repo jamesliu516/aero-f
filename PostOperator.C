@@ -14,6 +14,7 @@
 #include <DistDynamicLESTerm.h>
 #include <DistDynamicVMSTerm.h>
 #include <SpaceOperator.h>
+#include <VectorSet.h>
 
 //------------------------------------------------------------------------------
 
@@ -234,7 +235,8 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
 					      DistSVec<double,dim> &U, Vec3D *Fi, 
-					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro)
+					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+                                              VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
   int iSurf;
@@ -258,8 +260,16 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       fv[iSurf] = 0.0;
       mv[iSurf] = 0.0;
     }
-    subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
-					   X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro);
+
+    if (mX) {
+      SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
+					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
+    }
+    else 
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                             X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
+
     for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical
       Fi[iSurf] += fi[iSurf];
@@ -921,8 +931,9 @@ void PostOperator<dim>::computeForceDerivs(DistSVec<double,3> &X, DistSVec<doubl
 template<int dim>
 void PostOperator<dim>::computeForceCoefficients(Vec3D &x0, DistSVec<double,3> &X,
                                             DistSVec<double,dim> &U, Vec3D &CFi,
-                                            Vec3D &CMi, Vec3D &CFv, Vec3D &CMv)  {
-
+                                            Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, 
+                                            VecSet< DistSVec<double,3> > *mX , DistVec<double> *genCF)  
+{
 
   CFi = 0.0;
   CMi = 0.0;
