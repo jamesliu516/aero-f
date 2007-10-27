@@ -533,7 +533,9 @@ public:
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
-			     Vec3D *, Vec3D *, int = 0);
+			     Vec3D *, Vec3D *, int = 0, 
+                             SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
+                             Vec<double> *genCF = 0);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -559,7 +561,8 @@ public:
 
   template<int dim>
   void computeForceCoefficients(PostFcn *, Vec3D &, GeoState &, BcData<dim> &, SVec<double,3> &, 
-                     SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &);
+                                SVec<double,dim> &, double, Vec3D &, Vec3D &, Vec3D &, Vec3D &, 
+                                VecSet< SVec<double,3> > *mX = 0 , Vec<double> *genCF = 0);
 
   // communication
 
