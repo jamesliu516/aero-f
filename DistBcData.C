@@ -1371,7 +1371,7 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
       setBoundaryConditionsGasLiquid(iod, vf, X);
 
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidGas(iod, vf, X);
   }
 
