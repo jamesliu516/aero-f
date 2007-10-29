@@ -35,7 +35,6 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
       }else if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
         phi[i] = x[i][0] - r;
       }
-      phi[i] *= u[i][0];
     }
   }
 

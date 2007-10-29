@@ -299,11 +299,11 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 }
 
 //------------------------------------------------------------------------------
-
 template<int dim>
 void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
-				double *Ub, DistSVec<double,3> &X,
-				DistSVec<double,dim> &U, IoData &iod)
+                               double *Ub, DistSVec<double,3> &X,
+                               DistVec<double> &Phi,
+                               DistSVec<double,dim> &U, IoData &iod)
 {
   *Un = Ufar;
 
@@ -318,19 +318,12 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*x)[3] = X.subData(iSub);
     double (*u)[dim] = Un->subData(iSub);
+    double *phi = Phi.subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
-      if(iod.mf.problem==MultiFluidData::BUBBLE){
-        dist = 1.0*(sqrt( (x[i][0] -xb)*(x[i][0] -xb)  +
-                          (x[i][1] -yb)*(x[i][1] -yb)  +
-                          (x[i][2] -zb)*(x[i][2] -zb))  -r);
-      }else if(iod.mf.problem==MultiFluidData::SHOCKTUBE){
-        dist = x[i][0] - r;
-        //dist = (xb*x[i][0]+yb*x[i][1]+zb*x[i][2]+r)/sqrt(xb*xb+yb*yb+zb*zb);
-      }
-      if(dist <  0.0){
+      if (phi[i]<0.0)
         for (int j=0; j<dim; j++)
-          u[i][j]  = Ub[j];
-      }
+          u[i][j] = Ub[j];
+      phi[i] *= u[i][0];
     }
   }
 
