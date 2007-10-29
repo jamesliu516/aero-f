@@ -62,7 +62,7 @@ private:
   char *hydrodynamiclift;
   char *generalizedforces;
   char *residuals;
-  const char *modeFile;
+  char *modeFile;
   Vec3D *TavF, *TavM; 
   Vec3D *TavL;
   VecSet< DistSVec<double,3> > *mX;

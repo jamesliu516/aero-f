@@ -287,7 +287,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   if (iod.output.transient.generalizedforces[0] != 0) {
     generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
     sprintf(generalizedforces, "%s%s", iod.output.transient.prefix, iod.output.transient.generalizedforces);
-    modeFile = iod.input.strModesFile;
+    modeFile = new char [MAXLINE];
+    sprintf(modeFile, "%s%s", iod.input.prefix, iod.input.strModesFile);
     DistSVec<double, dim> tmpVec(domain->getNodeDistInfo());
     DistSVec<double, 3> Xtmp(domain->getNodeDistInfo());
     double f;
@@ -499,6 +500,7 @@ TsOutput<dim>::~TsOutput()
   if(TavF) delete [] TavF;
   if(TavM) delete [] TavM;
   if(TavL) delete [] TavL;
+  if(modeFile) delete [] modeFile;
   if(mX) delete mX;
 }
 
