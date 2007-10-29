@@ -736,9 +736,8 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
   type = GASINLIQUID; 
   subType = NONE;
 
-<<<<<<< /home/arallu/RESEARCH/fluid/Repository/ShareRepository.d/VarFcn.h
   if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-     iod.eqs.fluidModel2.fluid == FluidModelData::GAS){
+     iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS){
     gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
     gam1 = gam -1.0;
     invgam1 = 1.0/gam1;

@@ -84,7 +84,7 @@ public:
   //void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
-             DistSVec<double,dim> &U, IoData &iod);
+             DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
               DistVec<double> &Phi1, DistVec<double> &Phi2,
