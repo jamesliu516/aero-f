@@ -494,7 +494,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     getModalMotion(X);
     *lastIt = true;
   }
-  else if (algNum == 4 | algNum == 5) {
+  else if (algNum == 4 || algNum == 5) {
     if (*lastIt)
       return 0.0;
     strExc->getDisplacement(X0, X, Xdot, dX);

@@ -29,6 +29,7 @@ struct InputData {
   const char *rstdata;
   const char *podFile;
   const char *podFile2;
+  const char *strModesFile;
 
 // Included (MB)  
   const char *shapederivatives;
@@ -84,6 +85,7 @@ struct TransientData {
   const char *tavforces;
   const char *hydrostaticforces;
   const char *hydrodynamicforces;
+  const char *generalizedforces;
   const char *lift;
   const char *tavlift;
   const char *hydrostaticlift;

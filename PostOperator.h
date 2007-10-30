@@ -80,7 +80,8 @@ public:
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
-			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0);
+			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
+                             VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
 
@@ -100,7 +101,8 @@ public:
                           DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);
 
   void computeForceCoefficients(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
-                                Vec3D &, Vec3D &, Vec3D &, Vec3D &);
+                                Vec3D &, Vec3D &, Vec3D &, Vec3D &,  
+                                VecSet< DistSVec<double,3> > *mX = 0, DistVec<double> *genCF = 0);
   int getNumSurf() { return numSurf; }
   map<int, int> &getSurfMap() { return surfOutMap; }
 

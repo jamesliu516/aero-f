@@ -111,7 +111,7 @@ void TimeData::computeVelocities(ImplicitData::Velocities typeVelocities,
   if (typeVelocities == ImplicitData::BACKWARD_EULER_VEL ||
       typeVelocities == ImplicitData::IMPOSED_BACKWARD_EULER_VEL)  {
     Xdot = 1.0 / dt_n * (X - Xn);
-    fprintf(stderr, "Computing Velocity using dt_n = %f\n", dt_n);
+    //fprintf(stderr, "Computing Velocity using dt_n = %f\n", dt_n);
   }
   else if (typeVelocities == ImplicitData::THREE_POINT_BDF_VEL ||
 	   typeVelocities == ImplicitData::IMPOSED_THREE_POINT_BDF_VEL) {

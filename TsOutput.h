@@ -59,9 +59,13 @@ private:
   char *tavlift;
   char *hydrostaticlift;
   char *hydrodynamiclift;
+  char *generalizedforces;
   char *residuals;
+  char *modeFile;
   Vec3D *TavF, *TavM; 
   Vec3D *TavL;
+  VecSet< DistSVec<double,3> > *mX;
+
   double tprevf, tprevl, tinit;
   double tener,tenerold;
 
@@ -74,6 +78,7 @@ private:
   FILE **fpHydroStaticLift;
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
+  FILE *fpGnForces;
 
 
   DistVec<double> *Qs;

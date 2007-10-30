@@ -61,6 +61,8 @@ template<int dim> class BcData;
 template<class Scalar> class Vec;
 template<class Scalar, int dim> class GenMat;
 template<class Scalar, int dim> class SVec;
+template<class VecType> class VecSet;
+template<class VecType, class VT2> class SubVecSet;
 
 class FaceTria;
 
@@ -100,7 +102,8 @@ public:
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
-				     Vec3D &, Vec3D &,  double* gradP[3], int = 0) = 0;
+				     Vec3D &, Vec3D &,  double* gradP[3], int = 0, 
+                                     SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF) = 0;
   virtual double computeInterfaceWork(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				      double, double*, SVec<double,dim>&, double) = 0;
   virtual void computeScalarQuantity(PostFcn::ScalarType, ElemSet &, PostFcn *, SVec<double,3> &, 
@@ -113,7 +116,8 @@ public:
   virtual void computeForceCoefficients(PostFcn *, Vec3D &, ElemSet &, SVec<double,3> &, 
 					SVec<double,dim> &, Vec<double> &, 
 					SVec<double, dim> &,  double, Vec3D &, Vec3D &, 
-					Vec3D &, Vec3D &, double* gradP[3]) = 0;
+					Vec3D &, Vec3D &, double* gradP[3], VecSet< SVec<double,3> > *mX = 0,
+                                        Vec<double> *genCF = 0) = 0;
   virtual void computeFDerivs(ElemSet &, VarFcn *, SVec<double,3> &, 
 			      SVec<double,dim> &, Vec3D (*)) = 0;
 
@@ -182,9 +186,10 @@ public:
 			     PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-			      double* gradP[3], int hydro) {
+			      double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
+                                        Vec<double> *genCF = 0) {
     t->computeForceAndMoment(elems, postFcn, X,  d2wall, Vwall, V, 
-			     x0, Fi, Mi, Fv, Mv, gradP, hydro);
+			     x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
   }
   
   double computeInterfaceWork(ElemSet &elems, PostFcn* postFcn, 
@@ -214,9 +219,10 @@ public:
   void computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &elems, 
 				SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &d2wall, 
 				SVec<double, dim> &Vwall, double pInfty, Vec3D &CFi, Vec3D &CMi, 
-				Vec3D &CFv, Vec3D &CMv, double* gradP[3]) {
+				Vec3D &CFv, Vec3D &CMv, double* gradP[3], VecSet< SVec<double,3> > *mX = 0,
+                                        Vec<double> *genCF = 0) {
     t->computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, 
-				CFi, CMi, CFv, CMv, gradP);
+				CFi, CMi, CFv, CMv, gradP, mX, genCF);
   }
 
   void computeFDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
@@ -453,13 +459,14 @@ public:
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-			     double* gradP[3], int hydro) {
+			     double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
     FaceHelper_dim<dim> h;
     char xx[64];
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeForceAndMoment(elems, postFcn, X,  d2wall, Vwall, V, 
-			     x0, Fi, Mi, Fv, Mv, gradP, hydro);
+			     x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
   }
   
   template<int dim>
@@ -719,7 +726,8 @@ public:
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-			     double* gradP[3], int hydro) {
+			     double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
   
@@ -764,7 +772,8 @@ public:
   void computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &elems, 
 				SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &d2wall, 
 				SVec<double, dim> &Vwall, double pInfty, Vec3D &CFi, Vec3D &CMi, 
-				Vec3D &CFv, Vec3D &CMv, double* gradP[3]) {
+				Vec3D &CFv, Vec3D &CMv, double* gradP[3], VecSet< SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
 
