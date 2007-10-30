@@ -42,6 +42,7 @@ using std::max;
 #include <MemoryPool.h>
 #include <Communicator.h>
 #include <BinFileHandler.h>
+#include <VectorSet.h>
 #include <LinkF77.h>
 
 extern "C" {
@@ -3125,8 +3126,10 @@ template<int dim>
 void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData, 
 				      GeoState &geoState, SVec<double,3> &X, 
 				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi, 
-				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro)
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
 {
+
   Vec<double> &d2wall = geoState.getDistanceToWall();
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
@@ -3146,7 +3149,7 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
 
     if(idx >= 0)  {
       faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, 
-                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro);
+                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro, mX, genCF);
     }
   }
 
@@ -3687,7 +3690,9 @@ void SubDomain::computeForceDerivs(VarFcn *varFcn, SVec<double,3> &X,
 template<int dim>
 void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &geoState, 
                                          BcData<dim> &bcData, SVec<double,3> &X, SVec<double,dim> &V, 
-					 double pInfty, Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv) {
+					 double pInfty, Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv,
+                                         VecSet< SVec<double,3> > *mX , Vec<double> *genCF) 
+{
 
   CFi = 0.0;
   CMi = 0.0;
@@ -3698,7 +3703,8 @@ void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, CFi, CMi, CFv, CMv, gradP);
+    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, 
+                                      CFi, CMi, CFv, CMv, gradP, mX, genCF);
 
 }
 
