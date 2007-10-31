@@ -11,6 +11,7 @@
 #include <DistVector.h>
 #include <BinFileHandler.h>
 #include <LevelSet.h>
+#include <VectorSet.h>
 
 //------------------------------------------------------------------------------
 
@@ -282,7 +283,33 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     hydrodynamicforces = 0;
 
+  mX = 0;
+  if (iod.output.transient.generalizedforces[0] != 0) {
+    generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
+    sprintf(generalizedforces, "%s%s", iod.output.transient.prefix, iod.output.transient.generalizedforces);
+    modeFile = new char [MAXLINE];
+    sprintf(modeFile, "%s%s", iod.input.prefix, iod.input.strModesFile);
+    DistSVec<double, dim> tmpVec(domain->getNodeDistInfo());
+    DistSVec<double, 3> Xtmp(domain->getNodeDistInfo());
+    double f;
 
+    if (strcmp(modeFile, "") != 0)  {
+      com->fprintf(stderr, " ... Reading Modefile %s\n", modeFile);
+      domain->readVectorFromFile(modeFile, 0, &f, Xtmp);
+      int nStrMode = int(f);
+
+      // We read the modal deformations
+      mX = new VecSet<DistSVec<double,3> >(nStrMode, domain->getNodeDistInfo());
+
+      for(int iMode = 0; iMode < nStrMode; ++iMode) 
+        domain->readVectorFromFile(modeFile, iMode+1, &f, (*mX)[iMode]);
+     }
+     else 
+      mX = 0;
+  }
+  else 
+    generalizedforces = 0;
+  
   if (iod.output.transient.lift[0] != 0){
     lift = new char[sp + strlen(iod.output.transient.lift)];
     sprintf(lift, "%s%s", iod.output.transient.prefix, iod.output.transient.lift);
@@ -329,6 +356,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qs = 0;
   Qv = 0;
   fpResiduals = 0;
+  fpGnForces  = 0;
 
   int nSurf = postOp->getNumSurf();
   fpForces             = new FILE *[nSurf];
@@ -339,6 +367,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpHydroDynamicForces = new FILE *[nSurf];
   fpHydroStaticLift    = new FILE *[nSurf];
   fpHydroDynamicLift   = new FILE *[nSurf];
+
   for (int iSurf = 0; iSurf < nSurf; iSurf++)  {
     fpForces[iSurf]          = 0;
     fpLift[iSurf]            = 0;
@@ -457,7 +486,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
-
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -471,6 +500,8 @@ TsOutput<dim>::~TsOutput()
   if(TavF) delete [] TavF;
   if(TavM) delete [] TavM;
   if(TavL) delete [] TavL;
+  if(modeFile) delete [] modeFile;
+  if(mX) delete mX;
 }
 
 //------------------------------------------------------------------------------
@@ -738,6 +769,51 @@ void TsOutput<dim>::openAsciiFiles()
     }
   }
 
+
+  if (generalizedforces) {
+    if (it0 != 0)
+      fpGnForces = backupAsciiFile(generalizedforces);
+    if (it0 == 0 || fpGnForces == 0) {
+      fpGnForces = fopen(generalizedforces, "w");
+      if (!fpGnForces) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", generalizedforces);
+        exit(1);
+      }
+      const char *addvar = "";
+      if (rmmh) addvar = rmmh->getTagName();
+      fprintf(fpGnForces, "# TimeIteration Time SubCycles NewtonSteps ");
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpGnForces, "Coefficient of Generalized Forces %s\n", addvar);
+      else
+        fprintf(fpGnForces, "Generalized Forces %s\n", addvar);
+    }
+    fflush(fpGnForces);
+  }
+
+  if (generalizedforces) {
+    for (iSurf = 1; iSurf < nSurf; iSurf++) {
+      char filename[256];
+      sprintf(filename,"%s%d", generalizedforces, surfNums[iSurf]);
+      if (it0 != 0)
+        fpGnForces = backupAsciiFile(filename);
+      if (it0 == 0 || fpGnForces == 0) {
+        fpGnForces = fopen(filename, "w");
+        if (!fpGnForces) {
+           fprintf(stderr, "*** Error: could not open \'%s\'\n", filename);
+           exit(1);
+        }
+        const char *addvar = "";
+        if (rmmh) addvar = rmmh->getTagName();
+        fprintf(fpGnForces, "# TimeIteration Time SubCycles NewtonSteps ");
+        if (refVal->mode == RefVal::NON_DIMENSIONAL)
+          fprintf(fpGnForces, "Coefficient of Generalized Forces %s\n", addvar);
+        else
+          fprintf(fpGnForces, "Generalized Forces %s\n", addvar);
+      }
+      fflush(fpGnForces);
+    }
+  }
+
   if (lift) {
    if(it0 !=0)
       fpLift[0] = backupAsciiFile(lift);
@@ -914,6 +990,7 @@ void TsOutput<dim>::closeAsciiFiles()
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
   }
   if (fpResiduals) fclose(fpResiduals);
+  if (fpGnForces) fclose(fpGnForces);
 
 }
 
@@ -931,6 +1008,9 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   Vec3D *Fv = new Vec3D[nSurfs];
   Vec3D *Mv = new Vec3D[nSurfs];
 
+  Vec<double> GF( mX ? mX->numVectors(): 0);
+  if(mX) GF = 0.0;
+
   double del_t;
 
   if (TavF ==0 && TavM == 0) {
@@ -941,7 +1021,6 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
       TavM[i] = 0.0;
     }
   }
- 
 
   if(counter == 0) {
     tinit = refVal->time*t;
@@ -951,9 +1030,14 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   }
 
   double time = refVal->time * t;
+
   if (forces || tavforces)  {
     Vec3D rVec = x0;
-    postOp->computeForceAndMoment(rVec, X, U, Fi, Mi, Fv, Mv);    
+    postOp->computeForceAndMoment(rVec, X, U, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+
+    if(mX != 0) 
+      com->globalSum(GF.size(), GF.data());
+
     Vec3D F = Fi[0] + Fv[0];
     Vec3D moment = Mi[0] + Mv[0];
     F *= refVal->force;
@@ -961,6 +1045,7 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   }
 
   int iSurf;
+
   if (fpForces[0] || fpTavForces[0]) {
  
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
@@ -1008,6 +1093,20 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
       fflush(fpTavForces[iSurf]);
     }
+  }
+  if (fpGnForces) {
+
+     fprintf(fpGnForces,"%d %e %d %d", it, time, itSc, itNl);
+     for (int i=0; i < mX->numVectors(); i++) {
+       if (refVal->mode == RefVal::NON_DIMENSIONAL) 
+         fprintf(fpGnForces," %e", 2.0*refVal->length*refVal->length*GF[i]/surface);
+       else 
+         fprintf(fpGnForces," %e", refVal->force*GF[i]);
+     } 
+
+      fprintf(fpGnForces, "\n");
+
+      fflush(fpGnForces);
   }
 
   if (!steady) {
