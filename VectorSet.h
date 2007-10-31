@@ -53,6 +53,16 @@ public:
 
 };
 
+
+template<class VecType, class SubVecType>
+class SubVecSet {
+   VecSet<VecType> *vs;
+   int subIdx;
+  public:
+   SubVecSet(VecSet<VecType> *_vs, int part) : vs(_vs), subIdx(part) {}
+   SubVecType &operator[] (int i) { return (*vs)[i](subIdx); }
+};
+
 //------------------------------------------------------------------------------
 
 template<class VecType>

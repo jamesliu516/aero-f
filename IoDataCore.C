@@ -32,6 +32,7 @@ InputData::InputData()
   rstdata = "";
   podFile = "";
   podFile2 = "";
+  strModesFile = "";
 
 // Included (MB)  
   shapederivatives = "";
@@ -44,7 +45,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -62,6 +63,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
 // Included (MB)  
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
+  new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
 }
 
@@ -159,6 +161,7 @@ TransientData::TransientData()
   tavforces = "";
   hydrostaticforces = "";
   hydrodynamicforces = "";
+  generalizedforces = "";
   lift = "";
   tavlift = "";
   hydrostaticlift = "";
@@ -198,7 +201,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 67, father);
+  ClassAssigner *ca = new ClassAssigner(name, 68, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "Solution", this, &TransientData::solutions);
@@ -243,6 +246,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavForce", this, &TransientData::tavforces);
   new ClassStr<TransientData>(ca, "HydroStaticForce", this, &TransientData::hydrostaticforces);
   new ClassStr<TransientData>(ca, "HydroDynamicForce", this, &TransientData::hydrodynamicforces);
+  new ClassStr<TransientData>(ca, "GeneralizedForces", this, &TransientData::generalizedforces);
 
   new ClassStr<TransientData>(ca, "LiftandDrag", this, &TransientData::lift);
   new ClassStr<TransientData>(ca, "HydroStaticLiftandDrag", this, &TransientData::hydrostaticlift);

@@ -13,6 +13,7 @@
 #include <Vector3D.h>
 #include <Vector.h>
 #include <GenMatrix.h>
+#include <VectorSet.h>
 
 #include <math.h>
 
@@ -326,7 +327,9 @@ template<int dim>
 void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
 				     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 				     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-				      double* gradP[3], int hydro)
+				     double* gradP[3], int hydro,
+                                     SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                     Vec<double> *genCF)
 {
     Vec3D x[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
     Vec3D dx[3] = {x[0]-x0 , x[1]-x0 , x[2]-x0};
@@ -338,10 +341,19 @@ void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<doub
     Fi += fi0 + fi1 + fi2;
     Fv += fv;
 
+// XML Debug
+    Vec3D ff = fi0+fi2+fi1;
 // Moments need to be computed based on Transmitted forces, which takes care of spatial distribution of force
     computeForceTransmitted(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
     Mi += (dx[0] ^ fi0) + (dx[1] ^ fi1) + (dx[2] ^ fi2); // dont remove paranthesis, they are needed for priority reasons
     Mv += dxm ^ fv;
+
+    if(genCF != 0) {
+      for(int i = 0; i < genCF->size(); i++) {
+        Vec3D d[3] = { (*mX)[i][nodeNum(0)],  (*mX)[i][nodeNum(1)], (*mX)[i][nodeNum(2)] };
+        (*genCF)[i] += d[0]*fi0 + d[1]*fi1 + d[2]*fi2;
+      }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -637,7 +649,8 @@ void FaceTria::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &el
 					SVec<double,3> &X, 
 					SVec<double,dim> &V, Vec<double> &d2wall, 
 					SVec<double, dim> &Vwall, double pInfty, 
-					Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, double* gradP[3]) 
+					Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv, double* gradP[3],
+                                        VecSet< SVec<double,3> > *mX, Vec<double> *genCF) 
 {
   static double third = 1.0/3.0;
 
@@ -658,6 +671,13 @@ void FaceTria::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, ElemSet &el
     computeForceTransmitted(elems, postFcn, X, d2wall, vWall, V, &pInfty, Fi0,Fi1,Fi2,Fv, gradP);
     CMi += (x[0] - x0) ^ Fi0 + (x[1] - x0) ^ Fi1 + (x[2] - x0) ^ Fi2; // dont remove paranthesis, they are needed for priority reasons
     CMv += (xcg - x0) ^ Fv;
+
+    if(genCF != 0) {
+     for(int i = 0; i < genCF->size(); i++) {
+       Vec3D d[3] = { (*mX)[i][nodeNum(0)],  (*mX)[i][nodeNum(1)], (*mX)[i][nodeNum(2)] };
+       (*genCF)[i] += d[0]*Fi0 + d[1]*Fi1 + d[2]*Fi2;
+     }
+    }
 
   }
 }
