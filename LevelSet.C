@@ -9,7 +9,7 @@ void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
 {
 
   if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS && 
-     iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+     iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
   else invertGasLiquid = 1.0;
 

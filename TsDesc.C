@@ -152,7 +152,7 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
       if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInGasEuler3D(ioData);
-      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
     }else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
