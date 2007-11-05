@@ -2989,7 +2989,7 @@ void IoData::resetInputValues()
               eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
        if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
-       else if (eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+       else if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ---- BAROTROPIC LIQUID-STIFFENED GAS SIMULATION -----\n");
        else{
          com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
