@@ -487,7 +487,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           }
         }
       }
-			else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID){
+      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID){
         ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
         ff -= BC_MIN_CODE;
         if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {

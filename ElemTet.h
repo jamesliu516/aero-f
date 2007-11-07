@@ -56,6 +56,8 @@ public:
   double computeVolume(SVec<double,3> &);
   double computeControlVolumes(SVec<double,3> &, Vec<double> &);
   void printInvalidElement(int, double, int, int *, int *, SVec<double,3> &, SVec<double,3> &);
+  void computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel);
   void computeEdgeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			      Vec<Vec3D> &, Vec<double> &);
   void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 

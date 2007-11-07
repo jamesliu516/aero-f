@@ -165,6 +165,10 @@ public:
   void printElementStatistics();
   int computeControlVolumes(double, DistSVec<double,3> &, DistVec<double> &);
   void computeFaceNormals(DistSVec<double,3> &, DistVec<Vec3D> &);
+  void computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3> &Xdot,
+                            DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
+                            DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel,
+                            bool communicate = true);
   void computeNormalsGCL1(DistSVec<double,3> &, DistSVec<double,3> &, 
 			  DistSVec<double,3> &, DistVec<Vec3D> &, DistVec<double> &,
 			  DistVec<Vec3D> &, DistVec<double> &);
@@ -178,7 +182,7 @@ public:
   void computeNormalsEZGCL3(TimeData&, DistVec<double>&, DistVec<double>&, DistVec<double>&, 
 			    DistVec<double>&, DistVec<double>&, DistVec<double>&);
   void computeInletNormals(DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<int> &);
-  void computeVelocities(ImplicitData::Velocities, TimeData &, DistSVec<double,3> &, 
+  void computeVelocities(DGCLData::Velocities, TimeData &, DistSVec<double,3> &, 
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, 
 			 DistSVec<double,3> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
@@ -326,6 +330,12 @@ public:
                                   DistMacroCellSet *, DistSVec<double,dim> &, DistSVec<double,1> &,
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
+
+  template<int dim>
+  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
+                               DistSVec<double,dim> &U, DistSVec<double,dim> &R);
+  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
+                               DistVec<double> &Phi, DistVec<double> &dPhi);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 

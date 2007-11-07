@@ -164,6 +164,61 @@ void ElemTet::printInvalidElement(int numInvElem, double lscale, int i, int *nod
   year = 2003,
 } 
 */
+
+void ElemTet::computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                         Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel)
+{
+
+  static const double c0 = 13.0/36.0, c1 = 5.0/36.0;
+  static const int edgeOpEnd[6][2] = { {2,3}, {3,1}, {1,2}, {0,3}, {2,0}, {0,1} };
+
+  Vec3D x[4] = {Xconfig[ nodeNum(0) ], Xconfig[ nodeNum(1) ],
+                Xconfig[ nodeNum(2) ], Xconfig[ nodeNum(3) ]};
+
+  Vec3D xdot[4] =  {Xdot[ nodeNum(0) ], Xdot[ nodeNum(1) ],
+                    Xdot[ nodeNum(2) ], Xdot[ nodeNum(3) ]};
+
+  Vec3D e[6], f[4], g;
+
+  e[0] = 0.5 * (x[0] + x[1]);
+  e[1] = 0.5 * (x[0] + x[2]);
+  e[2] = 0.5 * (x[0] + x[3]);
+  e[3] = 0.5 * (x[1] + x[2]);
+  e[4] = 0.5 * (x[1] + x[3]);
+  e[5] = 0.5 * (x[2] + x[3]);
+
+  f[0] = third * (x[0] + x[1] + x[2]);
+  f[1] = third * (x[0] + x[1] + x[3]);
+  f[2] = third * (x[0] + x[2] + x[3]);
+  f[3] = third * (x[1] + x[2] + x[3]);
+
+  g = 0.5 * (e[0] + e[5]);
+
+  for (int l=0; l<6; ++l) {
+    Vec3D e0 = f[ edgeFace(l,0) ] - e[l];
+    Vec3D e1 = f[ edgeFace(l,1) ] - e[l];
+    Vec3D eg = g - e[l];
+    Vec3D n0 = 0.5 * (e0 ^ eg);
+    Vec3D n1 = 0.5 * (eg ^ e1);
+    Vec3D n = n0 + n1;
+
+    double ndot = ( c0 * (xdot[ edgeEnd(l,0) ] + xdot[ edgeEnd(l,1) ]) +
+                    c1 * (xdot[ edgeOpEnd[l][0] ] + xdot[ edgeOpEnd[l][1] ]) ) * n;
+
+    if (nodeNum( edgeEnd(l,0) ) < nodeNum( edgeEnd(l,1) )) {
+      edgeNorm[ edgeNum(l) ] += n;
+      edgeNormVel[ edgeNum(l) ] += ndot;
+    }
+    else {
+      edgeNorm[ edgeNum(l) ] -= n;
+      edgeNormVel[ edgeNum(l) ] -= ndot;
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 void ElemTet::computeEdgeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
 				 SVec<double,3> &Xdot, Vec<Vec3D> &edgeNorm, 
 				 Vec<double> &edgeNormVel)

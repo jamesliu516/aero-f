@@ -180,6 +180,7 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
   // or only at the beginning of the scheme....
   //this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Ulocal);
   this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, dU, this->riemann,it);
+  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
   this->timeState->multiplyByTimeStep(dU);
 }
 
@@ -190,6 +191,7 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
 {
 
   this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
+  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Philocal, dPhi);
   this->timeState->multiplyByTimeStep(dPhi);
 
 }

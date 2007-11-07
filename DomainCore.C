@@ -715,6 +715,49 @@ void Domain::computeFaceNormals(DistSVec<double,3> &X, DistVec<Vec3D> &faceNorm)
 }
 
 //------------------------------------------------------------------------------
+void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
+                                     DistVec<double> &Phi,
+                                     DistVec<double> &dPhi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
+                                             Phi(iSub), dPhi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3> &Xdot,
+                                  DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
+                                  DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel,
+                                  bool communicate)
+{
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->computeNormalsConfig(Xconfig(iSub), Xdot(iSub), edgeNorm(iSub), edgeNormVel(iSub),
+                                          faceNorm(iSub), faceNormVel(iSub));
+
+  // due to implementation in DistGeoState, communication (snd and Rcv of normals)
+  // is done only after last configuration has been computed.
+  if(communicate){
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub), edgeNormVel.subData(iSub));
+
+    edgePat->exchange();
+
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), edgeNormVel.subData(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
 
 void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1, 
 				DistSVec<double,3> &Xdot,
@@ -979,7 +1022,7 @@ void Domain::computeInletNormals(DistVec<Vec3D>& inletNodeNorm, DistVec<Vec3D>& 
 
 //------------------------------------------------------------------------------
 
-void Domain::computeVelocities(ImplicitData::Velocities typeVel, TimeData &timeData, 
+void Domain::computeVelocities(DGCLData::Velocities typeVel, TimeData &timeData, 
 			       DistSVec<double,3> &Xsdot, DistSVec<double,3> &Xnm1, 
 			       DistSVec<double,3> &Xn, DistSVec<double,3> &X, 
 			       DistSVec<double,3> &Xdot)
@@ -987,11 +1030,11 @@ void Domain::computeVelocities(ImplicitData::Velocities typeVel, TimeData &timeD
 
   timeData.computeVelocities(typeVel, Xnm1, Xn, X, Xdot);
 
-  if (typeVel == ImplicitData::IMPOSED_VEL) {
+  if (typeVel == DGCLData::IMPLICIT_IMPOSED_VEL) {
     Xdot = Xsdot;
   }
-  else if (typeVel == ImplicitData::IMPOSED_BACKWARD_EULER_VEL ||
-	   typeVel == ImplicitData::IMPOSED_THREE_POINT_BDF_VEL) {
+  else if (typeVel == DGCLData::IMPLICIT_IMPOSED_BACKWARD_EULER_VEL ||
+	   typeVel == DGCLData::IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 

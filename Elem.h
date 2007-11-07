@@ -437,6 +437,8 @@ public:
   virtual double computeControlVolumes(SVec<double,3> &, Vec<double> &) = 0;
   virtual void printInvalidElement(int, double, int, int *, int *, 
 				   SVec<double,3> &, SVec<double,3> &) = 0;
+  virtual void computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                        Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel) = 0;
   virtual void computeEdgeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, 
 				      Vec<Vec3D> &, Vec<double> &) = 0;
   virtual void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 

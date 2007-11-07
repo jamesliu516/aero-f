@@ -1674,6 +1674,7 @@ void ExplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this,
      reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 2,
      "RungeKutta4", 0, "RungeKutta2", 1);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1785,8 +1786,8 @@ ImplicitData::ImplicitData()
   coupling = WEAK;
   mvp = H1;
   jacobian = APPROXIMATE;
-  normals = AUTO;
-  velocities = AUTO_VEL;
+  //normals = AUTO;
+  //velocities = AUTO_VEL;
 
 }
 
@@ -1795,7 +1796,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
   
   new ClassToken<ImplicitData>
     (ca, "Type", this, 
@@ -1824,7 +1825,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
 
-  new ClassToken<ImplicitData>
+  /*new ClassToken<ImplicitData>
     (ca, "Normals", this, 
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::normals), 7,
      "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3, 
@@ -1836,7 +1837,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::velocities), 5,
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5);
-  
+  */
   newton.setup("Newton", ca);
 
 }
@@ -1910,6 +1911,46 @@ void TsData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
+
+DGCLData::DGCLData()
+{
+
+  normals = AUTO;
+  velocities = AUTO_VEL;
+  volumes = AUTO_VOL;
+
+}
+
+//------------------------------------------------------------------------------
+
+void DGCLData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassToken<DGCLData>
+    (ca, "Normals", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::normals), 8,
+     "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3,
+     "SecondOrderEZGcl", 4, "ThirdOrderEZGcl", 5, "CurrentConfiguration", 6,
+     "LatestConfiguration", 7, "RK2Gcl", 8);
+
+  new ClassToken<DGCLData>
+    (ca, "Velocities", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::velocities), 6,
+     "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
+     "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
+     "RK2Gcl", 6);
+
+  new ClassToken<DGCLData>
+    (ca, "Volumes", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::volumes), 1,
+     "RK2Gcl", 1);
+
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 SensitivityAnalysis::SensitivityAnalysis()
@@ -2933,8 +2974,10 @@ void IoData::resetInputValues()
   }
 
   if (problem.type[ProblemData::AERO] && !problem.type[ProblemData::UNSTEADY]) {
-    ts.implicit.normals = ImplicitData::LATEST_CFG;
-    ts.implicit.velocities = ImplicitData::ZERO;
+    //ts.implicit.normals = ImplicitData::LATEST_CFG;
+    //ts.implicit.velocities = ImplicitData::ZERO;
+    dgcl.normals = DGCLData::IMPLICIT_LATEST_CFG;
+    dgcl.velocities = DGCLData::IMPLICIT_ZERO;
   }
 
   if (bc.wall.integration == BcsWallData::AUTO) {
@@ -2989,7 +3032,7 @@ void IoData::resetInputValues()
               eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
        if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
-       else if (eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+       else if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ---- BAROTROPIC LIQUID-STIFFENED GAS SIMULATION -----\n");
        else{
          com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");

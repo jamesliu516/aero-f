@@ -181,6 +181,9 @@ public:
   void propagateInfoAlongEdges(Vec<double>&);
   void computeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, 
 			  Vec<Vec3D> &, Vec<double> &, Vec<Vec3D> &, Vec<double> &);
+  void computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                            Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
+                            Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel);
   void computeNormalsEZGCL1(double, SVec<double,3>&, SVec<double,3>&, Vec<Vec3D>&, 
 			    Vec<double>&, Vec<Vec3D>&, Vec<double>&);
   void computeSmoothedSensor(SVec<double,3>&, Vec<double>&, SVec<double,3>&);
@@ -306,6 +309,12 @@ public:
   template<int dim>
   void computeFiniteVolumeBar_Step2(MacroCellSet **,SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &, int);
 
+  template<int dim>
+  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
+                               SVec<double,dim> &U, SVec<double,dim> &R);
+  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
+                               Vec<double> &Phi, Vec<double> &dPhi);
+ 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
                                        Vec<double> &, Vec<double> &, 

@@ -593,6 +593,32 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
 }
 
 //------------------------------------------------------------------------------
+void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
+                                        Vec<double> &Phi, Vec<double> &dPhi)
+{
+  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
+
+  for (int i=0; i<nodes.size(); ++i)
+    dPhi[i] += ctrlVol_dot[i]/ctrlVol[i]*Phi[i];
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                     Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
+                                     Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel)
+{
+  int i;
+  for (i=0; i<elems.size(); ++i)
+    elems[i].computeEdgeNormalsConfig(Xconfig, Xdot, edgeNorm, edgeNormVel);
+
+  for (i=0; i<faces.size(); ++i)
+    faces[i].computeNormalConfig(Xconfig, Xdot, faceNorm[i], faceNormVel[i]);
+
+}
+
+//------------------------------------------------------------------------------
 
 void SubDomain::computeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
 				   SVec<double,3> &Xdot,

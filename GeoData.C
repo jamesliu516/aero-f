@@ -14,19 +14,21 @@ GeoData::GeoData(IoData &ioData)
     if (ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
       ioData.ts.implicit.type = ImplicitData::BACKWARD_EULER;
 
-    if (ioData.ts.implicit.normals != ImplicitData::FIRST_ORDER_GCL)
-      ioData.ts.implicit.normals = ImplicitData::FIRST_ORDER_GCL;
+    if (ioData.dgcl.normals != DGCLData::IMPLICIT_FIRST_ORDER_GCL)
+      ioData.dgcl.normals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
       
-    if (ioData.ts.implicit.velocities != ImplicitData::ZERO)
-      typeVelocities = ImplicitData::ZERO;
+    if (ioData.dgcl.velocities != DGCLData::IMPLICIT_ZERO)
+      typeVelocities = DGCLData::IMPLICIT_ZERO;
 
   }
 
   use_n = false;
   use_nm1 = false;
   use_nm2 = false;
-  typeNormals = ImplicitData::FIRST_ORDER_GCL;
-  typeVelocities = ImplicitData::BACKWARD_EULER_VEL;
+  use_save = false;
+  typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
+  typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+  typeVolumeChanges = DGCLData::AUTO_VOL;
 
   if (ioData.problem.type[ProblemData::ACCELERATED] ||
       ioData.problem.type[ProblemData::AERO] ||
@@ -41,34 +43,44 @@ GeoData::GeoData(IoData &ioData)
 	use_nm2 = true;
       }
 
-      if (ioData.ts.implicit.normals == ImplicitData::AUTO) {
+      if (ioData.dgcl.normals == DGCLData::AUTO) {
 	if (ioData.ts.implicit.type == ImplicitData::BACKWARD_EULER ||
 	    ioData.ts.implicit.type == ImplicitData::CRANK_NICOLSON)
-	  typeNormals = ImplicitData::FIRST_ORDER_GCL;
+	  typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
 	else if (ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF)
-	  typeNormals = ImplicitData::SECOND_ORDER_GCL;
+	  typeNormals = DGCLData::IMPLICIT_SECOND_ORDER_GCL;
 	else if (ioData.ts.implicit.type == ImplicitData::FOUR_POINT_BDF)
-	  typeNormals = ImplicitData::THIRD_ORDER_EZGCL;
+	  typeNormals = DGCLData::IMPLICIT_THIRD_ORDER_EZGCL;
       }
       else
-	typeNormals = ioData.ts.implicit.normals;    
+	typeNormals = ioData.dgcl.normals;    
       
-      if (ioData.ts.implicit.velocities == ImplicitData::AUTO_VEL)
-	typeVelocities = ImplicitData::BACKWARD_EULER_VEL;
+      if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
+	typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
       else
-	typeVelocities = ioData.ts.implicit.velocities;
+	typeVelocities = ioData.dgcl.velocities;
     }
     else if (ioData.ts.type == TsData::EXPLICIT) {
       use_n = true;
-      if (ioData.ts.implicit.normals == ImplicitData::AUTO)
-	typeNormals = ImplicitData::LATEST_CFG;
-      else
-	typeNormals = ioData.ts.implicit.normals;  // CBM  
+      use_save = true;
+      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
+        typeNormals = DGCLData::EXPLICIT_RK2;
+        typeVelocities = DGCLData::EXPLICIT_RK2_VEL;
+        typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
+      }
+      else{ // RK4 does not have proper algorithm yet!
+        if (ioData.dgcl.normals == DGCLData::AUTO)
+	  typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
+        else
+	  typeNormals = ioData.dgcl.normals;  // CBM  
+  
+        if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
+          typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+        else
+          typeVelocities = ioData.dgcl.velocities;  // CBM
 
-      if (ioData.ts.implicit.velocities == ImplicitData::AUTO_VEL)
-        typeVelocities = ImplicitData::BACKWARD_EULER_VEL;
-      else
-        typeVelocities = ioData.ts.implicit.velocities;  // CBM
+        typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
+      }
     }
   }
   if (ioData.problem.type[ProblemData::LINEARIZED])  {

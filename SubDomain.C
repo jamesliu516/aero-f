@@ -864,6 +864,21 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
+                                        SVec<double,dim> &U, SVec<double,dim> &R)
+{
+  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
+
+  for (int i=0; i<nodes.size(); ++i) {
+    double ratio = ctrlVol_dot[i]/ctrlVol[i];
+    for (int j=0; j<dim; ++j)
+      R[i][j] += ratio*U[i][j];
+  }
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
                                                 GeoState &geoState, Vec<double> &irey,

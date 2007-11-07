@@ -987,8 +987,9 @@ struct SchemesData {
 
 struct ExplicitData {
 
+//time-integration scheme used
   enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1} type;
-  
+
   ExplicitData();
   ~ExplicitData() {}
   
@@ -1078,15 +1079,7 @@ struct ImplicitData {
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
 
-  enum Normals {AUTO = 0, FIRST_ORDER_GCL = 1, SECOND_ORDER_GCL = 2, 
-		FIRST_ORDER_EZGCL = 3, SECOND_ORDER_EZGCL = 4, THIRD_ORDER_EZGCL = 5, 
-		CURRENT_CFG = 6, LATEST_CFG = 7} normals;
-  enum Velocities {AUTO_VEL = 0, BACKWARD_EULER_VEL = 1, THREE_POINT_BDF_VEL = 2, 
-		   IMPOSED_VEL = 3, IMPOSED_BACKWARD_EULER_VEL = 4, 
-		   IMPOSED_THREE_POINT_BDF_VEL = 5, ZERO = 6} velocities;
-
   NewtonData<KspFluidData> newton;
-
 
   ImplicitData();
   ~ImplicitData() {}
@@ -1126,6 +1119,25 @@ struct TsData {
 
   TsData();
   ~TsData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct DGCLData{
+
+  enum Normals {AUTO = 0, IMPLICIT_FIRST_ORDER_GCL = 1, IMPLICIT_SECOND_ORDER_GCL = 2,
+                IMPLICIT_FIRST_ORDER_EZGCL = 3, IMPLICIT_SECOND_ORDER_EZGCL = 4, IMPLICIT_THIRD_ORDER_EZGCL = 5,
+                IMPLICIT_CURRENT_CFG = 6, IMPLICIT_LATEST_CFG = 7, EXPLICIT_RK2 = 8} normals;
+  enum Velocities {AUTO_VEL = 0, IMPLICIT_BACKWARD_EULER_VEL = 1, IMPLICIT_THREE_POINT_BDF_VEL = 2,
+                   IMPLICIT_IMPOSED_VEL = 3, IMPLICIT_IMPOSED_BACKWARD_EULER_VEL = 4,
+                   IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL = 5, IMPLICIT_ZERO = 6, EXPLICIT_RK2_VEL = 7} velocities;
+  enum Volumes {AUTO_VOL = 0, EXPLICIT_RK2_VOL = 1} volumes;
+
+  DGCLData();
+  ~DGCLData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -1543,6 +1555,7 @@ public:
   SensitivityAnalysis sa;
 
   TsData ts;
+  DGCLData dgcl;
   DefoMeshMotionData dmesh;
   RigidMeshMotionData rmesh;
   AeroelasticData aero;

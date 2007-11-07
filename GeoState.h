@@ -17,6 +17,7 @@ class GeoState {
   Vec<double> &ctrlVol_n;
   Vec<double> &ctrlVol_nm1;
   Vec<double> &ctrlVol_nm2;
+  Vec<double> &ctrlVol_dot;
 
   Vec<double> &d2wall;
 
@@ -39,16 +40,19 @@ public:
 
 // Included (MB)
   GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, 
+           Vec<double> &,
 	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&,
            Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, SVec<double,3> &, SVec<double,3> &);
 
   GeoState(GeoData &, Vec<double> &, Vec<double> &, Vec<double> &, Vec<double> &, 
+           Vec<double> &,
 	   Vec<Vec3D> &, Vec<Vec3D> &, Vec<double> &, Vec<double> &, Vec<Vec3D> &, Vec<int>&);
   ~GeoState() {}
 
   Vec<double> &getCtrlVol_n() const { return ctrlVol_n; }
   Vec<double> &getCtrlVol_nm1() const { return ctrlVol_nm1; }
   Vec<double> &getCtrlVol_nm2() const { return ctrlVol_nm2; }
+  Vec<double> &getCtrlVol_dot() const { return ctrlVol_dot; }
   Vec<double> &getDistanceToWall() const { return d2wall; }
   Vec<Vec3D> &getEdgeNormal() const { return edgeNorm; }
   Vec<Vec3D> &getFaceNormal() const { return faceNorm; }
