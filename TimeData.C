@@ -112,7 +112,6 @@ void TimeData::computeVelocities(DGCLData::Velocities typeVelocities,
       typeVelocities == DGCLData::IMPLICIT_IMPOSED_BACKWARD_EULER_VEL ||
       typeVelocities == DGCLData::EXPLICIT_RK2_VEL)  {
     Xdot = 1.0 / dt_n * (X - Xn);
-    //fprintf(stderr, "Computing Velocity using dt_n = %f\n", dt_n);
   }
   else if (typeVelocities == DGCLData::IMPLICIT_THREE_POINT_BDF_VEL ||
 	   typeVelocities == DGCLData::IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL) {
