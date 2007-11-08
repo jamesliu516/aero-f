@@ -1,4 +1,4 @@
-      SUBROUTINE ROEFLUX5(type,gamma,gam,pstiff,enormal,evitno,
+      SUBROUTINE ROEFLUX5PRIM(type,gamma,gam,pstiff,enormal,evitno,
      &     Ugr,Ug,Udr,Ud,phi,mach,k1,cmach,irey,length,prec)
 c-----------------------------------------------------------------------
 c This routine computes the Flux of Roe taken at the vectors Ug, Ud
@@ -10,7 +10,7 @@ c The Roe-Turkel Preconditioning is applied for LowMach Simulations
 c-----------------------------------------------------------------------
       IMPLICIT NONE
       REAL*8 Ug(*), Ud(*), normal(3), enormal(3), evitno, phi(*)
-      REAL*8 Ugr(*), Udr(*), energ, enerd
+      REAL*8 Ugr(*), Udr(*)
       REAL*8 H, vitno, updir, gamma 
       REAL*8 VdotN , rnorm, invnorm
       REAL*8 flur1 , flur2 , flur3 , flur4 , flur5
@@ -23,8 +23,8 @@ c-----------------------------------------------------------------------
       REAL*8 tet1 , tet2 , tet3
       REAL*8 gam , gam1, vitg2, vitd2, pstiff
       REAL*8 r,s,t,A,B,H1,beta, mach00,beta2
-      REAL*8 maxu2,maxrho,minpres,mach,k1,shock
-      REAL*8 locMach, cmach, irey, length
+      REAL*8 maxu2,maxrho,minpres,mach,k1
+      REAL*8 locMach, cmach, irey, shock, length
       INTEGER type, prec
 
 c
@@ -80,8 +80,10 @@ c
 c
       usro                      = 1.d0/(squsr1 + squsr2)
 c
-      uar1                      = (squsr1*Ug(1) +
-     &                                  squsr2*Ud(1))*usro
+c      uar1                      = (squsr1*Ug(1) +
+c     &                                  squsr2*Ud(1))*usro
+
+      uar1                      = DSQRT(Ug(1)*Ud(1))
 c
       uar2                      = (squsr1*Ug(2) +
      &                                squsr2*Ud(2))*usro
@@ -125,27 +127,23 @@ c
       if (prec .eq. 0) then
         beta = 1.d0
       else
-c       local Preconditioning (ARL)
-        shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
-        locMach = DSQRT(2.0d0*qir*cr2)
-        beta = MAX(k1*locMach, mach)
-        beta = (1.0d0+DSQRT(irey))*beta+shock
-        beta = MIN(beta, cmach)
+c
+c        local Preconditioning (ARL)
+      shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
+      locMach = DSQRT(2.0d0*qir*cr2)
+      beta = MAX(k1*locMach, mach)
+      beta = (1.0d0+DSQRT(irey))*beta+shock
+      beta = MIN(beta, cmach)
+c      write (*,*) 'beta = ',beta
       end if
       
       beta2 = beta * beta 
 
-      energ = Ugr(5)/gam1 + 
-     &     0.5d0*Ugr(1)*(Ugr(2)*Ugr(2) + Ugr(3)*Ugr(3) + Ugr(4)*Ugr(4))
-      enerd = Udr(5)/gam1 + 
-     &     0.5d0*Udr(1)*(Udr(2)*Udr(2) + Udr(3)*Udr(3) + Udr(4)*Udr(4))
-
-
       dif1                     = - Ugr(1) + Udr(1)
-      dif2                     = - Ugr(1)*Ugr(2) + Udr(1)*Udr(2)
-      dif3                     = - Ugr(1)*Ugr(3) + Udr(1)*Udr(3)
-      dif4                     = - Ugr(1)*Ugr(4) + Udr(1)*Udr(4)
-      dif5                     = - energ + enerd
+      dif2                     = - Ugr(2) + Udr(2)
+      dif3                     = - Ugr(3) + Udr(3)
+      dif4                     = - Ugr(4) + Udr(4)
+      dif5                     = - Ugr(5) + Udr(5)
 
       vp1 = VdotN
       vp4 = 0.5d0*((1.d0+beta2)*VdotN +
@@ -170,59 +168,34 @@ c Dynamic mesh inclusion
 
 c
       flur1                     = DABS(vp1)*
-     &              ((normal(1)*(1.d0 - gam1*qir*cr2) - tet1)*dif1 +
-     &               (normal(1)*gam1*uar2*cr2)*dif2  +
-     &               (normal(3)  + (normal(1)*gam1*uar3*cr2))*dif3   +
-     &               (-normal(2) + (normal(1)*gam1*uar4*cr2))*dif4   -
-     &               (normal(1)*gam1*cr2)*dif5)
+     &          (normal(1)*dif1 +
+     &           uar1*normal(3)*dif3 -
+     &           uar1*normal(2)*dif4 -
+     &           normal(1)*cr2*dif5)
 c
       flur2                     = DABS(vp1)*
-     &              ((normal(2)*(1.d0 - gam1*qir*cr2) - tet2)*dif1 +
-     &               (-normal(3) + (normal(2)*gam1*uar2*cr2))*dif2   +
-     &               (normal(2)*gam1*uar3*cr2)*dif3  +
-     &               (normal(1)  + (normal(2)*gam1*uar4*cr2))*dif4   -
-     &               (normal(2)*gam1*cr2)*dif5)
+     &          (normal(2)*dif1 -
+     &           uar1*normal(3)*dif2 +
+     &           uar1*normal(1)*dif4 -
+     &           normal(2)*cr2*dif5)
 c
       flur3                     = DABS(vp1)*
-     &              ((normal(3)*(1.d0 - gam1*qir*cr2) - tet3)*dif1 +
-     &               (normal(2)  + (normal(3)*gam1*uar2*cr2))*dif2   +
-     &               (-normal(1) + (normal(3)*gam1*uar3*cr2))*dif3   +
-     &               (normal(3)*gam1*uar4*cr2)*dif4  -
-     &               (normal(3)*gam1*cr2)*dif5)
+     &          (normal(3)*dif1 +
+     &           uar1*normal(2)*dif2 -
+     &           uar1*normal(1)*dif3 -
+     &           normal(3)*cr2*dif5)
 c
-c      flur4                     = vp4*
-c     &              ((-cr*VdotN   + gam1*qir)*dif1  +
-c     &               ( cr*normal(1) - gam1*uar2)*dif2 +
-c     &               ( cr*normal(2) - gam1*uar3)*dif3 +
-c     &               ( cr*normal(3) - gam1*uar4)*dif4 +
-c     &               gam1*dif5)
-
-c
-c      flur5                     = vp5*
-c     &              (( cr*VdotN  + gam1* qir)*dif1 +
-c     &               (-cr*normal(1) - gam1*uar2)*dif2 +
-c     &               (-cr*normal(2) - gam1*uar3)*dif3 +
-c     &               (-cr*normal(3) - gam1*uar4)*dif4 +
-c     &               gam1*dif5)
-
-
 c Roe-Turkel
-       
-       flur4                     = DABS(vp4)* 
-     &          ((cr**2*VdotN/t + gam1*qir*s/(t*beta2))*dif1  -
-     &           (cr**2*normal(1)/t + gam1*uar2*s/(t*beta2))*dif2 -
-     &           (cr**2*normal(2)/t + gam1*uar3*s/(t*beta2))*dif3 -
-     &           (cr**2*normal(3)/t + gam1*uar4*s/(t*beta2))*dif4 +
-     &            gam1*s/(t*beta2)*dif5)
-      
-
- 
-       flur5                     = DABS(vp5)*  
-     &          (-(cr**2*VdotN/t  + gam1*qir*r/(beta2*t))*dif1 +
-     &           (cr**2*normal(1)/t + gam1*uar2*r/(beta2*t))*dif2 +
-     &           (cr**2*normal(2)/t + gam1*uar3*r/(beta2*t))*dif3 +
-     &           (cr**2*normal(3)/t + gam1*uar4*r/(beta2*t))*dif4 -
-     &            gam1*r/(beta2*t)*dif5)
+c       
+       flur4                    = DABS(vp4)* 
+     &          (-uar1/(cr2*t)*
+     &            (normal(1)*dif2+normal(2)*dif3+normal(3)*dif4)+
+     &           s/(t*beta2)*dif5)
+c 
+       flur5                    = DABS(vp5)*  
+     &          (uar1/(cr2*t)*
+     &            (normal(1)*dif2+normal(2)*dif3+normal(3)*dif4)-
+     &           r/(t*beta2)*dif5)
 
 
 c

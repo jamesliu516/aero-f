@@ -352,7 +352,6 @@ void SparseMat<Scalar,dim>::symbolicILU(const int levfill)
 template<class Scalar, int dim>
 void SparseMat<Scalar,dim>::numericILU(int *marker)
 {
-
   int i, j, k, kk, l, m, ierr;
 
   Scalar mult[1][dim*dim], res[1][dim*dim];
@@ -388,7 +387,7 @@ void SparseMat<Scalar,dim>::numericILU(int *marker)
 
     for (k=ia[i]; k<ia[i+1]; ++k) 
       marker[ ja[k] ] = -1;
-
+    
     ierr = invertDenseMatrix<Scalar,dim>(a[ ju[i] ]);
 
     if (ierr) {

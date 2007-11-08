@@ -43,7 +43,7 @@ public:
 
   void update();
   void computeCoefficients(DistVec<double> &, double);
-  void computeVelocities(ImplicitData::Velocities, DistSVec<double,3> &,
+  void computeVelocities(DGCLData::Velocities, DistSVec<double,3> &,
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
 // Included

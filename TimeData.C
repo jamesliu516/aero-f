@@ -103,24 +103,25 @@ void TimeData::computeCoefficients(DistVec<double> &dt, double dt_glob)
 
 //------------------------------------------------------------------------------
 
-void TimeData::computeVelocities(ImplicitData::Velocities typeVelocities, 
+void TimeData::computeVelocities(DGCLData::Velocities typeVelocities, 
 				 DistSVec<double,3> &Xnm1, DistSVec<double,3> &Xn,
 				 DistSVec<double,3> &X, DistSVec<double,3> &Xdot)
 {
 
-  if (typeVelocities == ImplicitData::BACKWARD_EULER_VEL ||
-      typeVelocities == ImplicitData::IMPOSED_BACKWARD_EULER_VEL)  {
+  if (typeVelocities == DGCLData::IMPLICIT_BACKWARD_EULER_VEL ||
+      typeVelocities == DGCLData::IMPLICIT_IMPOSED_BACKWARD_EULER_VEL ||
+      typeVelocities == DGCLData::EXPLICIT_RK2_VEL)  {
     Xdot = 1.0 / dt_n * (X - Xn);
   }
-  else if (typeVelocities == ImplicitData::THREE_POINT_BDF_VEL ||
-	   typeVelocities == ImplicitData::IMPOSED_THREE_POINT_BDF_VEL) {
+  else if (typeVelocities == DGCLData::IMPLICIT_THREE_POINT_BDF_VEL ||
+	   typeVelocities == DGCLData::IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL) {
     double c_np1 = alpha_np1 / dt_n;
     double c_n = alpha_n / dt_n;
     double c_nm1 = alpha_nm1 / dt_n;
 
     Xdot = c_np1 * X + c_n * Xn + c_nm1 * Xnm1;
   }
-  else if (typeVelocities == ImplicitData::ZERO)
+  else if (typeVelocities == DGCLData::IMPLICIT_ZERO)
     Xdot = 0.0;
 
 }
