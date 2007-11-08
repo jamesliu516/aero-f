@@ -15,7 +15,7 @@ public:
     FluxFcnFDJacRoeEuler3D(gg, br, K1, cm, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -33,7 +33,7 @@ public:
     FluxFcnApprJacRoeEuler3D(rs, gg, br, K1, cm, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacRoeEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -52,7 +52,7 @@ public:
     FluxFcnExactJacRoeEuler3D(gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasExactJacRoeEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -71,7 +71,7 @@ public:
     FluxFcnVanLeerEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasVanLeerEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -89,7 +89,7 @@ public:
     FluxFcnWallEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasWallEuler3D() {}
   
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -107,7 +107,7 @@ public:
     FluxFcnGhidagliaEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasGhidagliaEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -125,7 +125,7 @@ public:
     FluxFcnInflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasInflowEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -143,7 +143,7 @@ public:
     FluxFcnInternalInflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -162,7 +162,7 @@ public:
     FluxFcnOutflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -180,7 +180,7 @@ public:
     FluxFcnInternalOutflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowEuler3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -216,7 +216,7 @@ class FluxFcnPerfectGasFDJacRoeSA3D : public FluxFcnFDJacRoeSA3D {
     FluxFcnFDJacRoeSA3D(gg, br, K1, cm, pr, new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -234,7 +234,7 @@ public:
     FluxFcnApprJacRoeSA3D(rs,gg, br, K1, cm, pr, new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacRoeSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -253,7 +253,7 @@ public:
     FluxFcnExactJacRoeSA3D(gg, new VarFcnPerfectGasSA3D(ioData), tp) { }
   ~FluxFcnPerfectGasExactJacRoeSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -272,7 +272,7 @@ public:
     FluxFcnWallSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasWallSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -291,7 +291,7 @@ public:
     FluxFcnOutflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -309,7 +309,7 @@ public:
     FluxFcnInternalInflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -328,7 +328,7 @@ public:
     FluxFcnInternalOutflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowSA3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -349,7 +349,7 @@ public:
     //FluxFcnRoeSAturb3D(gg, new VarFcnPerfectGasSA3D(ioData), tp) { }
   ~FluxFcnPerfectGasRoeSAturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -367,7 +367,7 @@ public:
     FluxFcnWallSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasWallSAturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -385,7 +385,7 @@ public:
     FluxFcnOutflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowSAturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -403,7 +403,7 @@ public:
     FluxFcnInternalInflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowSAturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -421,7 +421,7 @@ public:
     FluxFcnInternalOutflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowSAturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -440,7 +440,7 @@ public:
     FluxFcnFDJacRoeKE3D(gg, br, K1, cm, pr, new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeKE3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -457,7 +457,7 @@ public:
     FluxFcnApprJacRoeKE3D(rs, gg, br, K1, cm, pr, new VarFcnPerfectGasKE3D(ioData), tp) { }
   ~FluxFcnPerfectGasApprJacRoeKE3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -475,7 +475,7 @@ public:
     FluxFcnExactJacRoeKE3D(gg, new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasExactJacRoeKE3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -494,7 +494,7 @@ public:
     FluxFcnWallKE3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasWallKE3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -513,7 +513,7 @@ public:
     FluxFcnOutflowKE3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowKE3D() {}
 
-  void compute(double, double *, double, double *, double *, double *, int);
+  void compute(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -532,7 +532,7 @@ public:
   //  FluxFcnRoeKEturb3D(gg, new VarFcnPerfectGasKE3D(ioData), tp) { }
   ~FluxFcnPerfectGasRoeKEturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
@@ -551,7 +551,7 @@ public:
     FluxFcnWallKEturb3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasWallKEturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
@@ -570,7 +570,7 @@ public:
     FluxFcnOutflowKEturb3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowKEturb3D() {}
 
-  void compute(double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
   void computeJacobian(double, double *, double, double *, double *, double *, int);
 
 // Included (MB)

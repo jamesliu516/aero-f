@@ -15,7 +15,7 @@ using std::max;
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInLiquidFDJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                      double *VL, double *VR, double *flux, int flag)
 {
 
@@ -26,7 +26,7 @@ void FluxFcnGasInLiquidFDJacRoeEuler3D::compute(double irey, double *normal, dou
 
 //------------------------------------------------------------------------------
                                                                                                                   
-void FluxFcnGasInLiquidApprJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                        double *VL, double *VR, double *flux, int flag)
 {
                        
@@ -34,7 +34,7 @@ void FluxFcnGasInLiquidApprJacRoeEuler3D::compute(double irey, double *normal, d
      computeBarotropicLiquid(irey, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, VL, VR, flux);
   }
   else{
-    computePerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
+    computePerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, flux);
   }
 }
 
@@ -53,7 +53,7 @@ void FluxFcnGasInLiquidApprJacRoeEuler3D::computeJacobians(double irey, double *
 
 //------------------------------------------------------------------------------
                                                                                                                   
-void FluxFcnGasInLiquidExactJacRoeEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                         double *VL, double *VR, double *flux, int flag)
 {
   fprintf(stderr, "no exact jacobian for gas-liquid simulations\n");
@@ -72,7 +72,7 @@ void FluxFcnGasInLiquidExactJacRoeEuler3D::computeJacobians(double irey, double 
 
 //-----------------------------------------------------------------------
 
-void FluxFcnGasInLiquidWallEuler3D::compute(double irey, double *normal, double normalVel, 
+void FluxFcnGasInLiquidWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				   double *VL, double *VR, double *flux, int flag)
 {
   
@@ -85,7 +85,7 @@ void FluxFcnGasInLiquidWallEuler3D::compute(double irey, double *normal, double 
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInLiquidGhidagliaEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )
@@ -98,7 +98,7 @@ void FluxFcnGasInLiquidGhidagliaEuler3D::compute(double irey, double *normal, do
 //------------------------------------------------------------------------------
                                                                                                                   
                                                                                                                   
-void FluxFcnGasInLiquidInflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                    double *V, double *Ub, double *flux, int flag)
 {
                                                                                                                   
@@ -109,7 +109,7 @@ void FluxFcnGasInLiquidInflowEuler3D::compute(double irey, double *normal, doubl
 
 //------------------------------------------------------------------------------
                                                                                                                   
-void FluxFcnGasInLiquidOutflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                     double *V, double *Ub, double *flux, int flag)
 {
   fprintf(stderr, "*** Error1: StegerWarming not available for Tait\n");
@@ -120,7 +120,7 @@ void FluxFcnGasInLiquidOutflowEuler3D::compute(double irey, double *normal, doub
 //------------------------------------------------------------------------------
  
                                                                                                                   
-void FluxFcnGasInLiquidInternalInflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                            double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )
@@ -143,7 +143,7 @@ void FluxFcnGasInLiquidInternalInflowEuler3D::computeJacobian(double irey, doubl
 //------------------------------------------------------------------------------
 
                                                                                                                   
-void FluxFcnGasInLiquidInternalOutflowEuler3D::compute(double irey, double *normal, double normalVel,
+void FluxFcnGasInLiquidInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                             double *V, double *Ub, double *flux, int flag)
 {
   if ( flag == 1 )

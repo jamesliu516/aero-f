@@ -10,7 +10,6 @@
 #include <KspPrec.h>
 #include <BCApplier.h>
 #include <MatchNode.h>
-#include<LevelSet.h>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -716,6 +715,49 @@ void Domain::computeFaceNormals(DistSVec<double,3> &X, DistVec<Vec3D> &faceNorm)
 }
 
 //------------------------------------------------------------------------------
+void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
+                                     DistVec<double> &Phi,
+                                     DistVec<double> &dPhi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
+                                             Phi(iSub), dPhi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3> &Xdot,
+                                  DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
+                                  DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel,
+                                  bool communicate)
+{
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->computeNormalsConfig(Xconfig(iSub), Xdot(iSub), edgeNorm(iSub), edgeNormVel(iSub),
+                                          faceNorm(iSub), faceNormVel(iSub));
+
+  // due to implementation in DistGeoState, communication (snd and Rcv of normals)
+  // is done only after last configuration has been computed.
+  if(communicate){
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub), edgeNormVel.subData(iSub));
+
+    edgePat->exchange();
+
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub)
+      subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), edgeNormVel.subData(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
 
 void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1, 
 				DistSVec<double,3> &Xdot,
@@ -980,7 +1022,7 @@ void Domain::computeInletNormals(DistVec<Vec3D>& inletNodeNorm, DistVec<Vec3D>& 
 
 //------------------------------------------------------------------------------
 
-void Domain::computeVelocities(ImplicitData::Velocities typeVel, TimeData &timeData, 
+void Domain::computeVelocities(DGCLData::Velocities typeVel, TimeData &timeData, 
 			       DistSVec<double,3> &Xsdot, DistSVec<double,3> &Xnm1, 
 			       DistSVec<double,3> &Xn, DistSVec<double,3> &X, 
 			       DistSVec<double,3> &Xdot)
@@ -988,11 +1030,11 @@ void Domain::computeVelocities(ImplicitData::Velocities typeVel, TimeData &timeD
 
   timeData.computeVelocities(typeVel, Xnm1, Xn, X, Xdot);
 
-  if (typeVel == ImplicitData::IMPOSED_VEL) {
+  if (typeVel == DGCLData::IMPLICIT_IMPOSED_VEL) {
     Xdot = Xsdot;
   }
-  else if (typeVel == ImplicitData::IMPOSED_BACKWARD_EULER_VEL ||
-	   typeVel == ImplicitData::IMPOSED_THREE_POINT_BDF_VEL) {
+  else if (typeVel == DGCLData::IMPLICIT_IMPOSED_BACKWARD_EULER_VEL ||
+	   typeVel == DGCLData::IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
 
@@ -1043,21 +1085,28 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &
 {
 
   int iSub;
+  //double t0 = timer->getTime();
+  DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), Phi(iSub), R(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), Phi(iSub), (*count)(iSub), R(iSub));
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
+    subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
 
   weightPat->exchange();
+  levelPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->addRcvData(*weightPat, R.subData(iSub));
-    subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
+    subDomain[iSub]->addRcvData(*levelPat, (*count).subData(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresNodePart((*count)(iSub), R(iSub));
   }
 
+  //timer->addNodalWeightsTime(t0);
+  if (count) delete count;
 }
 
 //------------------------------------------------------------------------------
@@ -1197,50 +1246,61 @@ void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsD
 }
 
 //------------------------------------------------------------------------------
-/*
-double Domain::reinitLS(DistSVec<double,3> &X, DistVec<double> &Phi, DistSVec<double,dim> &U, int iti)
+//         LEVEL SET SOLUTION AND REINITIALIZATION                           --
+//------------------------------------------------------------------------------
+void Domain::setPhi(DistVec<double> &Phi)
 {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhi(Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level)
+{
+
   int iSub;
-  Communicator *com = getCommunicator();
-  double (*rb) = reinterpret_cast<double (*)>(alloca(sizeof(double) * numLocSub));                                                                                                   
-  double rbg  = 0.0;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
-    rb[iSub]  = subDomain[iSub]->reinitLS(X(iSub),Phi(iSub), U(iSub), iti);
-    rbg       = max(rbg, rb[iSub]);
+    subDomain[iSub]->TagInterfaceNodes(Tag(iSub),Phi(iSub),level);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
   }
-                                                                                                  
-  com->globalMax(1, &rbg);
-                                                                                                  
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->reinitLS(X(iSub),Phi(iSub), U(iSub), rbg, iti);
-                                                                                                  
-  return rbg;
-}
-*/
-//------------------------------------------------------------------------------
 
-void Domain::solveLSequation(DistSVec<double,3> &X, DistVec<double> &Phi, 
-			DistSVec<double,6> &ddx,DistSVec<double,6> &ddy, 
-			DistSVec<double,6> &ddz, DistVec<double> &PhiF)
-{
-  int iSub;
-  Communicator *com = getCommunicator();
+  levelPat->exchange();
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->SolveLSequation(X(iSub), Phi(iSub),ddx(iSub), ddy(iSub), ddz(iSub), PhiF(iSub));
+    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+
+
+
 }
 //------------------------------------------------------------------------------
-void Domain::solveLS(DistVec<double> &b, DistVec<double> &dPhi, double dt)
+void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
+                                    int level)
 {
-  int iSub;
-  Communicator *com = getCommunicator();
+
+	int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+    subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
+  }
+
+  levelPat->exchange();
+  volPat->exchange();
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->solveLS(b(iSub), dPhi(iSub), dt);
-}
+    subDomain[iSub]->TagPsiExchangeData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),
+                                        *volPat, Psi.subData(iSub));
 
+}
 //------------------------------------------------------------------------------
+
 void Domain::printPhi(DistSVec<double,3> &X, DistVec<double> &Phi, int it)
 {
   com->barrier();

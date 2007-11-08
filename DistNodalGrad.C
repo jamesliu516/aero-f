@@ -33,16 +33,16 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     phi = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
 
 // Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
-  }
-  else {
-    dVmin = 0;
-    dVmax = 0;
-    dphi = 0;
-  }
+    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+      dVmin = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      dVmax = new DistSVec<double,dim>(domain->getNodeDistInfo());
+      dphi = new DistSVec<double,dim>(domain->getNodeDistInfo());
+    }
+    else {
+      dVmin = 0;
+      dVmax = 0;
+      dphi = 0;
+    }
 
   }
   else {
@@ -349,9 +349,10 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 }
 
 //------------------------------------------------------------------------------
-                                                                                                      
+// constructor for levelset variable (ie phi or rhophi)
+// no need for fixes since phi can be both positive or negative
 template<int dim, class Scalar>
-DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : domain(dom)
+DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int whichone) : domain(dom)
 {
                                                                                                       
   int iSub;
@@ -387,74 +388,53 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int i) : 
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
                                                                                                       
-// Included (MB)
-  if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-    dddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
-    dddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
-    dddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
-    *dddx = 0.0;
-    *dddy = 0.0;
-    *dddz = 0.0;
-  }
-  else {
-    dddx = 0;
-    dddy = 0;
-    dddz = 0;
-  }
-
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
-                                                                                                      
-  if (typeGradient == SchemeData::LEAST_SQUARES) {
-    R = new DistSVec<double,6>(domain->getNodeDistInfo());
-    wii = wij = wji = 0;
 
-// Included (MB)
-    dwii = 0;
-    dwij = 0;
-    dwji = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-      dR = new DistSVec<double,6>(domain->getNodeDistInfo());
-    }
-    else {
-      dR = 0;
-    }
-
-  }
-  else if (typeGradient == SchemeData::GALERKIN) {
+  if(whichone==3){
+    //select galerkin gradient
     R = 0;
     wii = new DistSVec<double,3>(domain->getNodeDistInfo());
     wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
     wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
-
-// Included (MB)
-    dR = 0;
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-      dwii = new DistSVec<double,3>(domain->getNodeDistInfo());
-      dwij = new DistSVec<double,3>(domain->getEdgeDistInfo());
-      dwji = new DistSVec<double,3>(domain->getEdgeDistInfo());
+    typeGradient = SchemeData::GALERKIN;
+  }else if(whichone==2){
+    //select least square gradient
+    R = new DistSVec<double,6>(domain->getNodeDistInfo());
+    wii = wij = wji = 0;
+    typeGradient = SchemeData::LEAST_SQUARES;
+  } else {
+    if (typeGradient == SchemeData::LEAST_SQUARES) {
+      R = new DistSVec<double,6>(domain->getNodeDistInfo());
+      wii = wij = wji = 0;
     }
-    else {
-      dwii = 0;
-      dwij = 0;
-      dwji = 0;
+    else if (typeGradient == SchemeData::GALERKIN) {
+      R = 0;
+      wii = new DistSVec<double,3>(domain->getNodeDistInfo());
+      wij = new DistSVec<double,3>(domain->getEdgeDistInfo());
+      wji = new DistSVec<double,3>(domain->getEdgeDistInfo());
     }
-
   }
-                                                                                                      
+
   subNodalGrad = new NodalGrad<dim, Scalar>*[numLocSub];
+  lastConfig = -1;
                                                                                                       
-// Included (MB)
+  lastConfigSA = -1;
+  dVmin = 0;
+  dVmax = 0;
+  dphi  = 0;
+  dR    = 0;
+  dwii  = 0;
+  dwij  = 0;
+  dwji  = 0;
+  dddx  = 0;
+  dddy  = 0;
+  dddz  = 0;
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub),
-                                             (*dddx)(iSub), (*dddy)(iSub), (*dddz)(iSub));
-    }
-    else
-      subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
-
+    subNodalGrad[iSub] = new NodalGrad<dim, Scalar>((*ddx)(iSub), (*ddy)(iSub), (*ddz)(iSub));
 }
 //------------------------------------------------------------------------------
 
@@ -615,32 +595,27 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistVec<double> &Phi,
                                  DistSVec<Scalar2, dim> &V)
 {
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
 
   domain->computeWeightsLeastSquares(X, Phi, *R);
-
   domain->computeGradientsLeastSquares(X, Phi, *R, V, *ddx, *ddy, *ddz);
 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                              
 template<int dim, class Scalar>
-template<class Scalar2>
-void DistNodalGrad<dim, Scalar>::computeLS(int config, DistSVec<double,3> &X,
-                                 DistVec<double> &ctrlVol, DistSVec<Scalar2, dim> &V)
+void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
+				         DistSVec<double,dim> &Psi)
 {
-                                                                                                                              
-  computeWeights(X);
+  assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  if (typeGradient == SchemeData::LEAST_SQUARES)
-    domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);
-  else if (typeGradient == SchemeData::GALERKIN)
-    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);
-                                                                                                                              
+  if (config != lastConfig)
+    computeWeights(X);
+
+  domain->computeGradientsLeastSquares(X, *R, Psi, *ddx, *ddy, *ddz);
+
 }
-
 //------------------------------------------------------------------------------
-
 
 template<int dim, class Scalar>
 template<class Scalar2>

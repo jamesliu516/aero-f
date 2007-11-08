@@ -29,6 +29,7 @@ InputData::InputData()
   perturbed = "";
   solutions = "";
   positions = "";
+  levelsets = "";
   rstdata = "";
   podFile = "";
   podFile2 = "";
@@ -57,6 +58,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "Perturbed", this, &InputData::perturbed);
   new ClassStr<InputData>(ca, "Solution", this, &InputData::solutions);
   new ClassStr<InputData>(ca, "Position", this, &InputData::positions);
+  new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
@@ -71,14 +73,10 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
 PreconditionData::PreconditionData()
 {
-
- mach = 1.0;
- k1 = 1.0;
- k2 = 0.5;
- alpha = 1.0;
- delta = 0.0;
- beta = 1.0;
- betav = 0.0;
+  mach = 1.0;
+  k = 1.0;
+  cmach = 1.0;
+  betav = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -86,14 +84,11 @@ PreconditionData::PreconditionData()
 void PreconditionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name,7,father);
+  ClassAssigner *ca = new ClassAssigner(name,4,father);
 
-  new ClassDouble<PreconditionData>(ca,"CutoffMach", this, &PreconditionData::mach);
-  new ClassDouble<PreconditionData>(ca,"k1", this, &PreconditionData::k1);
-  new ClassDouble<PreconditionData>(ca,"k2", this, &PreconditionData::k2);
-  new ClassDouble<PreconditionData>(ca,"Alpha", this, &PreconditionData::alpha);
-  new ClassDouble<PreconditionData>(ca,"Delta", this, &PreconditionData::delta);
-  new ClassDouble<PreconditionData>(ca,"Beta", this, &PreconditionData::beta);
+  new ClassDouble<PreconditionData>(ca,"Mach", this, &PreconditionData::mach);
+  new ClassDouble<PreconditionData>(ca,"CutOffMach", this, &PreconditionData::cmach);
+  new ClassDouble<PreconditionData>(ca,"k", this, &PreconditionData::k);
   new ClassDouble<PreconditionData>(ca,"Betav", this, &PreconditionData::betav);
 
 }
@@ -291,6 +286,7 @@ RestartData::RestartData()
   prefix = "";
   solutions = "DEFAULT.SOL";
   positions = "DEFAULT.POS";
+  levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
   
   frequency = 0;
@@ -302,7 +298,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassToken<RestartData>(ca, "Type", this, 
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
@@ -311,6 +307,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "Prefix", this, &RestartData::prefix);
   new ClassStr<RestartData>(ca, "Solution", this, &RestartData::solutions);
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
+  new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
 
@@ -413,6 +410,7 @@ ReferenceStateData::ReferenceStateData()
 {
 
   mach = -1.0;
+  velocity = -1.0;
   density = -1.0;
   pressure = -1.0;
   temperature = -1.0;
@@ -427,9 +425,10 @@ ReferenceStateData::ReferenceStateData()
 void ReferenceStateData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
   
   new ClassDouble<ReferenceStateData>(ca, "Mach", this, &ReferenceStateData::mach);
+  new ClassDouble<ReferenceStateData>(ca, "Velocity", this, &ReferenceStateData::velocity);
   new ClassDouble<ReferenceStateData>(ca, "Density", this, &ReferenceStateData::density);
   new ClassDouble<ReferenceStateData>(ca, "Pressure", this, &ReferenceStateData::pressure);
   new ClassDouble<ReferenceStateData>(ca, "Temperature", this, &ReferenceStateData::temperature);
@@ -446,6 +445,7 @@ BcsFreeStreamData::BcsFreeStreamData()
 
   type = EXTERNAL;
   mach = -1.0;
+  velocity = -1.0;
   alpha = 400.0;
   beta = 400.0;
   density = -1.0;
@@ -468,6 +468,7 @@ void BcsFreeStreamData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this, reinterpret_cast<int BcsFreeStreamData::*>(&BcsFreeStreamData::type), 2, 
      "External", 0, "Internal", 1);
   new ClassDouble<BcsFreeStreamData>(ca, "Mach", this, &BcsFreeStreamData::mach);
+  new ClassDouble<BcsFreeStreamData>(ca, "Velocity", this, &BcsFreeStreamData::velocity);
   new ClassDouble<BcsFreeStreamData>(ca, "Alpha", this, &BcsFreeStreamData::alpha);
   new ClassDouble<BcsFreeStreamData>(ca, "Beta", this, &BcsFreeStreamData::beta);
   new ClassDouble<BcsFreeStreamData>(ca, "Density", this, &BcsFreeStreamData::density);
@@ -583,9 +584,9 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
 			       reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
 			       "Ideal", 0, "Stiffened", 1);
   new ClassDouble<GasModelData>(ca, "SpecificHeatRatio", this, 
-				&GasModelData::specificHeatRatio);
+                                &GasModelData::specificHeatRatio);
   new ClassDouble<GasModelData>(ca, "IdealGasConstant", this, 
-				&GasModelData::idealGasConstant);
+                                &GasModelData::idealGasConstant);
   new ClassDouble<GasModelData>(ca, "PressureConstant", this,
                                 &GasModelData::pressureConstant);
 
@@ -622,10 +623,11 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
                                                                                                   
   new ClassToken<LiquidModelData>(ca, "Type", this,
-                               reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1, "Compressible", 0);
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1,
+            "Compressible", 0);
   new ClassToken<LiquidModelData>(ca, "Check", this,
-                               reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2, "Yes", 0, "No", 1);
-                                                                                                  
+            reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::check), 2,
+            "Yes", 0, "No", 1);
   new ClassDouble<LiquidModelData>(ca, "SpecificHeatRatio", this,
                                 &LiquidModelData::specificHeatRatio);
   new ClassDouble<LiquidModelData>(ca, "Cv", this, &LiquidModelData::Cv);
@@ -645,7 +647,6 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
-
   pmin = -1.e6;
                                                                                                   
 }
@@ -687,8 +688,8 @@ void ViscosityModelData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ViscosityModelData>
     (ca, "Type", this, reinterpret_cast<int ViscosityModelData::*>
-     (&ViscosityModelData::type), 4,
-     "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
+                       (&ViscosityModelData::type), 4,
+                       "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this, 
 				      &ViscosityModelData::sutherlandReferenceTemperature);
   new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this, 
@@ -714,12 +715,12 @@ void ThermalCondModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 2, father);
  
   new ClassToken<ThermalCondModelData>
-    (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
+     (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
      (&ThermalCondModelData::type), 2,
      "ConstantPrandtl", 0, "Water", 1);
 
   new ClassDouble<ThermalCondModelData>
-    (ca, "Prandtl", this, &ThermalCondModelData::prandtl);
+     (ca, "Prandtl", this, &ThermalCondModelData::prandtl);
 
 }
 
@@ -1148,7 +1149,8 @@ SphereData::SphereData()
   p      = -1.0;
   rho    = -1.0;          
   t      = -1.0;
-  mach   = 0.0;
+  mach   = -1.0;
+  vel    = -1.0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1156,7 +1158,7 @@ SphereData::SphereData()
 void SphereData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                         
-  ClassAssigner *ca = new ClassAssigner(name, 9, father);
+  ClassAssigner *ca = new ClassAssigner(name, 10, father);
                                                                                                         
   new ClassToken<SphereData>
     (ca, "Type", this, reinterpret_cast<int SphereData::*>
@@ -1179,6 +1181,8 @@ void SphereData::setup(const char *name, ClassAssigner *father)
     (ca, "Temperature", this, &SphereData::t);
   new ClassDouble<SphereData>
     (ca, "Mach", this, &SphereData::mach);
+  new ClassDouble<SphereData>
+    (ca, "Velocity", this, &SphereData::vel);
 }
 
 //------------------------------------------------------------------------------
@@ -1299,20 +1303,59 @@ void ICData::setup(const char *name, ClassAssigner *father)
                                                                                                         
 MultiFluidData::MultiFluidData()
 {
-                                                                                                        
+
   method = GHOSTFLUID_FOR_POOR;
+  problem = BUBBLE;
+  typePhaseChange = RIEMANN_SOLUTION;
+  localtime  = GLOBAL;
+  typeTracking = LINEAR;
+  bandlevel = 3;
+  subIt = 10;
+  cfl = 0.7;
+  frequency = 0;
+  eps = 1.e-6;
+  outputdiff = 0;
+  copy = FALSE;
 }
                                                                                                         
 //------------------------------------------------------------------------------
                                                                                                         
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                        
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
-                                                                                                        
+
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
+
   new ClassToken<MultiFluidData>(ca, "Method", this,
-                         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
-                         "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
+             "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2,
+             "RealFluidMethod", 3);
+  new ClassToken<MultiFluidData>(ca, "Problem", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
+             "Bubble", 0, "ShockTube", 1);
+	new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
+             "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
+  new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
+		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
+             "Global", 0, "Local", 1);
+  new ClassToken<MultiFluidData>(ca, "InterfaceTracking", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typeTracking),3,
+             "Linear", 0, "Gradient", 1, "Hermite", 2);
+  new ClassInt<MultiFluidData>(ca, "BandLevel", this,
+             &MultiFluidData::bandlevel);
+  new ClassInt<MultiFluidData>(ca, "SubIt", this,
+             &MultiFluidData::subIt);
+  new ClassDouble<MultiFluidData>(ca, "Cfl", this,
+             &MultiFluidData::cfl);
+  new ClassInt<MultiFluidData>(ca, "Frequency", this,
+             &MultiFluidData::frequency);
+  new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
+             &MultiFluidData::eps);
+  new ClassInt<MultiFluidData>(ca, "OutputDiff", this,
+             &MultiFluidData::outputdiff);
+  new ClassToken<MultiFluidData>(ca, "CopyCloseNodes", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copy),2,
+             "False", 0, "True", 1);
                                                                                                         
   icd.setup("InitialConditions", ca);
                                                                                                         
@@ -1631,6 +1674,7 @@ void ExplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this,
      reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 2,
      "RungeKutta4", 0, "RungeKutta2", 1);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1742,8 +1786,8 @@ ImplicitData::ImplicitData()
   coupling = WEAK;
   mvp = H1;
   jacobian = APPROXIMATE;
-  normals = AUTO;
-  velocities = AUTO_VEL;
+  //normals = AUTO;
+  //velocities = AUTO_VEL;
 
 }
 
@@ -1752,7 +1796,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
   
   new ClassToken<ImplicitData>
     (ca, "Type", this, 
@@ -1781,7 +1825,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
 
-  new ClassToken<ImplicitData>
+  /*new ClassToken<ImplicitData>
     (ca, "Normals", this, 
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::normals), 7,
      "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3, 
@@ -1793,7 +1837,7 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::velocities), 5,
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5);
-  
+  */
   newton.setup("Newton", ca);
 
 }
@@ -1867,6 +1911,46 @@ void TsData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
+
+DGCLData::DGCLData()
+{
+
+  normals = AUTO;
+  velocities = AUTO_VEL;
+  volumes = AUTO_VOL;
+
+}
+
+//------------------------------------------------------------------------------
+
+void DGCLData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassToken<DGCLData>
+    (ca, "Normals", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::normals), 8,
+     "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3,
+     "SecondOrderEZGcl", 4, "ThirdOrderEZGcl", 5, "CurrentConfiguration", 6,
+     "LatestConfiguration", 7, "RK2Gcl", 8);
+
+  new ClassToken<DGCLData>
+    (ca, "Velocities", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::velocities), 6,
+     "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
+     "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
+     "RK2Gcl", 6);
+
+  new ClassToken<DGCLData>
+    (ca, "Volumes", this,
+     reinterpret_cast<int DGCLData::*>(&DGCLData::volumes), 1,
+     "RK2Gcl", 1);
+
+}
+
+//------------------------------------------------------------------------------
+
 
 // Included (MB)
 SensitivityAnalysis::SensitivityAnalysis()
@@ -2890,8 +2974,10 @@ void IoData::resetInputValues()
   }
 
   if (problem.type[ProblemData::AERO] && !problem.type[ProblemData::UNSTEADY]) {
-    ts.implicit.normals = ImplicitData::LATEST_CFG;
-    ts.implicit.velocities = ImplicitData::ZERO;
+    //ts.implicit.normals = ImplicitData::LATEST_CFG;
+    //ts.implicit.velocities = ImplicitData::ZERO;
+    dgcl.normals = DGCLData::IMPLICIT_LATEST_CFG;
+    dgcl.velocities = DGCLData::IMPLICIT_ZERO;
   }
 
   if (bc.wall.integration == BcsWallData::AUTO) {
@@ -2923,36 +3009,41 @@ void IoData::resetInputValues()
     }
   }
   else if (eqs.numPhase == 2) {
-   
-    com->fprintf(stderr, " ----- TWO-PHASE FLOW SIMULATION -----\n");
-    if (eqs.fluidModel.fluid == FluidModelData::GAS && eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
-      if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
-        com->fprintf(stderr, " ----- PERFECT GAS-PERFECT GAS SIMULATION -----\n");
-      else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED && eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-        com->fprintf(stderr, " ----- STIFFENED GAS-STIFFENED GAS SIMULATION -----\n");
-      else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL && eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-        com->fprintf(stderr, " ----- PERFECT GAS-STIFFENED GAS SIMULATION -----\n");
-      else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED && eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
-        com->fprintf(stderr, " ----- STIFFENED GAS-PERFECT GAS SIMULATION -----\n");
-      else{
-        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
-        exit(1);
-      }
-    else if (eqs.fluidModel.fluid == FluidModelData::LIQUID && eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
-      if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
-        com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
-      else if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-        com->fprintf(stderr, " ---- BAROTROPIC LIQUID-STIFFENED GAS SIMULATION -----\n");
-      else{
-        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
-        exit(1);
-      }
-    else if (eqs.fluidModel.fluid == FluidModelData::LIQUID && eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
-      com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
-    else  {
-      com->fprintf(stderr, " ----- LIQUID-LIQUID and GAS-LIQUID SIMULATIONS ARE NOT DEFINED -----\n -----> exiting program");
-      exit(1);
-    }
+     com->fprintf(stderr, " ----- TWO-PHASE FLOW SIMULATION -----\n");
+     if (eqs.fluidModel.fluid == FluidModelData::GAS &&
+         eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
+       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+           eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
+         com->fprintf(stderr, " ----- PERFECT GAS-PERFECT GAS SIMULATION -----\n");
+       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
+               eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+         com->fprintf(stderr, " ----- STIFFENED GAS-STIFFENED GAS SIMULATION -----\n");
+       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+               eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+         com->fprintf(stderr, " ----- PERFECT GAS-STIFFENED GAS SIMULATION -----\n");
+       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
+               eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
+         com->fprintf(stderr, " ----- STIFFENED GAS-PERFECT GAS SIMULATION -----\n");
+       else{
+         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
+         exit(1);
+       }
+     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+              eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
+       if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::IDEAL)
+         com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
+       else if (eqs.volumes.fluidModel2.gasModel.type == GasModelData::STIFFENED)
+         com->fprintf(stderr, " ---- BAROTROPIC LIQUID-STIFFENED GAS SIMULATION -----\n");
+       else{
+         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
+         exit(1);
+       }
+     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+              eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
+       com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
+     else
+       com->fprintf(stderr, " ----- GAS-LIQUID SIMULATION -----\n");
+     
   }
   else{
     com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
@@ -2960,7 +3051,8 @@ void IoData::resetInputValues()
   }
                                                                                                   
   if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    if(schemes.bc.type == BoundarySchemeData::STEGER_WARMING && bc.inlet.type != BcsFreeStreamData::INTERNAL){
+    if(schemes.bc.type == BoundarySchemeData::STEGER_WARMING &&
+       bc.inlet.type != BcsFreeStreamData::INTERNAL){
       com->fprintf(stderr, "*** Error: for an hydrodynamic simulation, numerical treatment of boundary conditions needs to be an extrapolation method\n");
       exit(1);
     }
@@ -3098,7 +3190,7 @@ int IoData::checkFileNames()
 
 int IoData::checkInputValues()
 {
-  
+/*
   double k1water = eqs.fluidModel.liquidModel.k1water;
   double k2water = eqs.fluidModel.liquidModel.k2water;
   double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
@@ -3111,8 +3203,8 @@ int IoData::checkInputValues()
   }                                                                                                
   double k1water2, k2water2, Prefwater2, RHOrefwater2;
   double Pref2, awater2, bwater2;
-                                                                                                  
-  if (eqs.numPhase == 2){
+                                                                                                
+  if(eqs.numPhase == 2){
     k1water2 = eqs.volumes.fluidModel2.liquidModel.k1water;
     k2water2 = eqs.volumes.fluidModel2.liquidModel.k2water;
     Prefwater2 = eqs.volumes.fluidModel2.liquidModel.Prefwater;
@@ -3122,8 +3214,8 @@ int IoData::checkInputValues()
       awater2 = (Prefwater2 + k1water2/k2water2)/pow(RHOrefwater2, k2water2);
       bwater2 = k2water2;
     }
-                                                                                                  
   }
+*/
 
   int error = 0;
   error += checkInputValuesEssentialBC();
@@ -3218,7 +3310,10 @@ int IoData::checkInputValuesNonDimensional()
       bc.inlet.density = 1.0;
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::GAS)
-        bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        if(ref.mach>0.0)
+          bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        else
+          com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -3259,7 +3354,7 @@ int IoData::checkInputValuesDimensional()
   double R = eqs.fluidModel.gasModel.idealGasConstant;
   double gamma = eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = eqs.fluidModel.gasModel.pressureConstant;
-                                                                                                        
+
   double Cv = eqs.fluidModel.liquidModel.Cv;
   double k1water = eqs.fluidModel.liquidModel.k1water;
   double k2water = eqs.fluidModel.liquidModel.k2water;
@@ -3294,7 +3389,7 @@ int IoData::checkInputValuesDimensional()
   if (problem.mode == ProblemData::DIMENSIONAL) {
     if (bc.inlet.pressure < 0.0)  {
       if(eqs.fluidModel.fluid == FluidModelData::GAS){
-        com->fprintf(stderr, "*** Error: no valid inlet pressure (%d) given\n", bc.inlet.pressure);
+        com->fprintf(stderr, "*** Error: no valid inlet pressure (%f) given\n", bc.inlet.pressure);
         ++error;
       }else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
         bc.inlet.pressure = Prefwater;
@@ -3303,20 +3398,20 @@ int IoData::checkInputValuesDimensional()
     }
     if (bc.inlet.density < 0.0)
       if(eqs.fluidModel.fluid == FluidModelData::GAS){
-        com->fprintf(stderr, "*** Error: no valid inlet density (%d) given\n", bc.inlet.density);
+        com->fprintf(stderr, "*** Error: no valid inlet density (%f) given\n", bc.inlet.density);
         ++error;
       }
                                                                                                         
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
-      //fprintf(stdout, "REMOVE COMMENTS WHEN NOT SHOCKTUBE\n");
+      if (mf.problem == MultiFluidData::BUBBLE)
+        bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
     }
 
     if(bc.inlet.temperature < 0.0) {
       if(eqs.fluidModel.fluid == FluidModelData::GAS)
         bc.inlet.temperature = (bc.inlet.pressure + gamma*Pstiff)/(R*bc.inlet.density);
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
-        com->fprintf(stderr, "*** Error: no valid inlet temperature (%d) given\n", bc.inlet.temperature);
+        com->fprintf(stderr, "*** Error: no valid inlet temperature (%f) given\n", bc.inlet.temperature);
         ++error;
       }
     }
@@ -3326,6 +3421,8 @@ int IoData::checkInputValuesDimensional()
         ref.density = bc.inlet.density;
       if (ref.pressure < 0.0)
         ref.pressure = bc.inlet.pressure;
+      if (ref.mach <= 0.0)
+        ref.mach = ref.velocity /sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
       double velocity = ref.mach * sqrt(gamma * (ref.pressure+Pstiff) / ref.density);
       ref.temperature = (ref.pressure + gamma*Pstiff)/ (ref.density * R);
       double viscosity = eqs.viscosityModel.sutherlandConstant * sqrt(ref.temperature) /
@@ -3373,16 +3470,18 @@ int IoData::checkInputValuesDimensional()
         ref.density = bc.inlet.density;
       if (ref.pressure < 0.0)
         ref.pressure = bc.inlet.pressure;
-      if(ref.temperature < 0.0)
+      if (ref.temperature < 0.0)
         ref.temperature = bc.inlet.temperature;
+      if (ref.mach <= 0.0)
+        ref.mach = ref.velocity / sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double velocity = ref.mach * sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double soundvelocity = sqrt(bwater*awater*pow(ref.density, bwater - 1.0));
       double viscosity_mu = 0.000001; //NEEDS TO BE CHANGED ACCORDING TO THE VISCO LAW FOR WATER
       double viscosity_lambda = 0.00000000001;
       ref.reynolds_mu = velocity * ref.length * ref.density / viscosity_mu;
       ref.reynolds_lambda = velocity * ref.length * ref.length / viscosity_lambda;
-                                                                                                        
       ref.rv.mode = RefVal::DIMENSIONAL;
+
       ref.rv.density = ref.density;
       ref.rv.velocity = velocity;
       ref.rv.pressure = ref.density * velocity*velocity;
@@ -3419,12 +3518,14 @@ int IoData::checkInputValuesDimensional()
 
     bc.inlet.density /= ref.rv.density;
     bc.inlet.pressure /= ref.rv.pressure;
+    bc.inlet.velocity /= ref.rv.velocity;
     bc.inlet.temperature /= ref.rv.temperature;
     bc.inlet.nutilde /= ref.rv.nutilde;
     bc.inlet.kenergy /= ref.rv.kenergy;
     bc.inlet.eps /= ref.rv.epsilon;
     bc.outlet.density /= ref.rv.density;
     bc.outlet.pressure /= ref.rv.pressure;
+    bc.outlet.velocity /= ref.rv.velocity;
     bc.outlet.temperature /= ref.rv.temperature;
     bc.outlet.nutilde /= ref.rv.nutilde;
     bc.outlet.kenergy /= ref.rv.kenergy;
@@ -3499,12 +3600,20 @@ int IoData::checkInputValuesEssentialBC()
   if (ref.mach < 0.0)
     ref.mach = bc.inlet.mach;
 
-  if (bc.inlet.mach < 0.0)
+  if (bc.inlet.mach < 0.0 && bc.inlet.velocity < 0.0)
     bc.inlet.mach = ref.mach;
 
+  if (ref.velocity < 0.0)
+    ref.velocity = bc.inlet.velocity;
+
   if (ref.mach <= 0.0) {
-    com->fprintf(stderr, "*** Error: no valid Mach number (%e) given\n", ref.mach);
-    ++error;
+    com->fprintf(stderr, "*** Warning: no valid Mach number (%e) given\n", ref.mach);
+    if (ref.velocity<0.0){
+      com->fprintf(stderr, "*** Error: no valid Mach number and no valid velocity given\n");
+      ++error;
+    }
+    else
+      com->fprintf(stderr, "*** Warning: velocity used instead of mach number\n");
   }
   if (bc.inlet.alpha > 360.0) {
     com->fprintf(stderr, "*** Error: no valid angle of attack (%e) given\n", bc.inlet.alpha);
@@ -3592,6 +3701,8 @@ void IoData::checkInputValuesDefaultOutlet()
 {
   if (bc.outlet.mach < 0.0)
     bc.outlet.mach = bc.inlet.mach;
+  if (bc.outlet.velocity < 0.0)
+    bc.outlet.velocity = bc.inlet.velocity;
   if (bc.outlet.density < 0.0)
     bc.outlet.density = bc.inlet.density;
   if (bc.outlet.pressure < 0.0)
@@ -3697,23 +3808,22 @@ int IoData::checkInputValuesInitializeMulti()
             double Pref2 = -k1water2/k2water2;
             double awater2 = (Prefwater2 + k1water2/k2water2)/pow(RHOrefwater2, k2water2);
             double bwater2 = k2water2;
-	    if(mf.icd.sphere[i]->p < 0.0){     
-	      mf.icd.sphere[i]->p = Pref2 + awater2*pow(mf.icd.sphere[i]->rho,bwater2);
-	    }
-	    else{
-	      mf.icd.sphere[i]->rho = pow( (mf.icd.sphere[i]->p - Pref2)/awater2, 1.0/bwater2);
-	      com->fprintf(stderr, "*** Warning: the pressure inside the bubble is set using the state equation and the input density\n");
-	    }
-	  }
-	}
-	mf.icd.sphere[i]->rho /= ref.rv.density;
-	mf.icd.sphere[i]->p /= ref.rv.pressure;
-	mf.icd.sphere[i]->t /= ref.rv.temperature;
+            if(mf.icd.sphere[i]->p < 0.0){     
+              mf.icd.sphere[i]->p = Pref2 + awater2*pow(mf.icd.sphere[i]->rho,bwater2);
+            }
+            else{
+              mf.icd.sphere[i]->rho = pow( (mf.icd.sphere[i]->p - Pref2)/awater2, 1.0/bwater2);
+              com->fprintf(stderr, "*** Warning: the pressure inside the bubble is set using the state equation and the input density\n");
+            }
+          }
+        }
+        mf.icd.sphere[i]->rho /= ref.rv.density;
+        mf.icd.sphere[i]->p /= ref.rv.pressure;
+        mf.icd.sphere[i]->t /= ref.rv.temperature;
+        mf.icd.sphere[i]->vel /= ref.rv.velocity;
       }
     }
   }
 
   return error;
 }
-	  
-//------------------------------------------------------------------------------

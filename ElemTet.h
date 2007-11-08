@@ -56,6 +56,8 @@ public:
   double computeVolume(SVec<double,3> &);
   double computeControlVolumes(SVec<double,3> &, Vec<double> &);
   void printInvalidElement(int, double, int, int *, int *, SVec<double,3> &, SVec<double,3> &);
+  void computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel);
   void computeEdgeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &,
 			      Vec<Vec3D> &, Vec<double> &);
   void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 
@@ -64,13 +66,13 @@ public:
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, SVec<double,9> &);
   double computeGradientP1Function(SVec<double,3> &, double [4][3], double * = NULL);
+  double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
+                                   double nGrad[4][3]);
   void computeStiffAndForce(double *, double *, 
 			    SVec<double, 3> &, SVec<double,3> &, double volStiff = 0.0);
   void computeStiffAndForceLIN(double *, SVec<double,3> &, SVec<double,3> &);
   void computeStiffBallVertex(double *, SVec<double, 3> &);
   void computeStiffTorsionSpring(double *, SVec<double, 3> &);
-
-  //-----functions in Tet.h
 
   void computeLij(double [3][3], double [3], double [6], double [5]);
 
@@ -172,6 +174,103 @@ public:
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, Vec3D &,
 			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
 			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+// Level Set Reinitialization
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,
+                          SVec<double,dim> &ddz, Vec<int> &Tag,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking);
+
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+
+
+
+private:
+
+  //--------------functions in ElemTetCore.C
+
+//Level Set Reinitialization
+  void computePsiResidualSubTet(double psi[4], double phi[4],
+                                Vec3D A, Vec3D B, Vec3D C, Vec3D D,
+                                double locdphi[4], double locw[4],
+                                double locbeta[4], bool debug);
+  double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
+  int findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2, double &root);
+  bool computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
+                                       Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToEdges(double phi[3], Vec3D Y0,
+                                     Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToVertices(double phi[3], Vec3D Y0,
+                                        Vec3D Y1, Vec3D Y2, double &mini, bool show = false);
+  bool computeDistancePlusPhiToEdge(double phi0, double phi1,
+                                    Vec3D Y0, Vec3D Y1, double &mini, bool show = false);
+  int computeDistanceToAll(double phi[3],Vec3D Y0,Vec3D Y1,Vec3D Y2, double &psi);
+
+  //--------------functions in ElemTet.C
+
+//Level Set Reinitialization
+  template<int dim>
+  int findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
+                              SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+ 			      SVec<double,3> &X,
+                              int reorder[4], Vec3D P[4], int typeTracking);
+  template<int dim>
+  void findLSIntersectionPointLinear(Vec<double> &Phi, SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+  template<int dim>
+  void findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+				 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+  template<int dim>
+  int findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+                                 SVec<double,dim> &ddy, SVec<double,dim> &ddz,
+                                 SVec<double,3> &X,
+                                 int reorder[4], Vec3D P[4], int scenario);
+
+  template<int dim>
+  void computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
+  template<int dim>
+  void computePsiResidual1(int reorder[4], Vec3D P[4],
+                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
+  template<int dim>
+  void computePsiResidual2(int reorder[4], Vec3D P[4],
+                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
+
+  template<int dim>
+  void computeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                  Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
+  template<int dim>
+  void recomputeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],
+                                Vec3D P[4], SVec<double,dim> &Psi, Vec<int> &Tag);
+
+  template<int dim>
+  double computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi);
+
+
 
 };
 

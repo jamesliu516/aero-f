@@ -9,8 +9,9 @@ class GeoData {
 
 public:
 
-  ImplicitData::Normals typeNormals;
-  ImplicitData::Velocities typeVelocities;
+  DGCLData::Normals typeNormals;
+  DGCLData::Velocities typeVelocities;
+  DGCLData::Volumes typeVolumeChanges;
 
   int config;
 
@@ -20,6 +21,7 @@ public:
   bool use_n;
   bool use_nm1;
   bool use_nm2;
+  bool use_save;
 
 public:
 

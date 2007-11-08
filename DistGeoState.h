@@ -27,10 +27,13 @@ class DistGeoState {
   DistSVec<double,3> *Xnm1;
   DistSVec<double,3> *Xnm2;
   DistSVec<double,3> *Xdot;
+  DistSVec<double,3> *Xsave;
 
   DistVec<double> *ctrlVol_n;
   DistVec<double> *ctrlVol_nm1;
   DistVec<double> *ctrlVol_nm2;
+  DistVec<double> *ctrlVol_save;
+  DistVec<double> *ctrlVol_dot;
 
   DistVec<double> *d2wall;
 

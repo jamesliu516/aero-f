@@ -1,21 +1,15 @@
 #ifndef _IMPLICIT_LEVELSET_TS_DESC_H_
 #define _IMPLICIT_LEVELSET_TS_DESC_H_
 
-#include <ImplicitCoupledTsDesc.h>
+#include <LevelSetTsDesc.h>
 
 #include <IoData.h>
 #include <KspPrec.h>
 #include <Domain.h>
-#include <TsOutput.h>
-#include <TsInput.h>
-#include <TsRestart.h>
-#include <TsParameters.h>
 
 struct DistInfo;
 
 class GeoSource;
-class DistGeoState;
-
 class LevelSet; 
 template<class Scalar, int dim> class DistSVec;
 template<int dim, int neq> class MatVecProd;
@@ -30,54 +24,66 @@ template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = d
 //------------------------------------------------------------------------
 
 template<int dim>
-class ImplicitLevelSetTsDesc : public ImplicitCoupledTsDesc<dim> {
+class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
+ protected: 
+  DistSVec<bool,2> *tag;
 
-  LevelSet *LS;
+  MatVecProd<dim,dim> *mvp;
+  KspPrec<dim> *pc;
+  KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
+	
   MatVecProd<dim,1> *mvpLS;
-  KspSolver<DistVec<double>, MatVecProd<dim,1>, KspPrec<dim>, Communicator> *kspLS;
-  DistSVec<double,dim> Vg;
+  KspPrec<1> *pcLS;
+  KspSolver<DistVec<double>, MatVecProd<dim,1>, KspPrec<1>, Communicator> *kspLS;
+
+  NewtonSolver<ImplicitLevelSetTsDesc<dim> > *ns;
+
+  int failSafeNewton;
+  int maxItsNewton;
+  double epsNewton;
+
 
  public:
- 
   ImplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitLevelSetTsDesc();
-
   
-  LevelSet *getLevelSet() {return LS;};
-  
-  //-- overrides the functions implemented in TsDesc.
-  virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
-  virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
-  virtual void updateStateVectors(DistSVec<double,dim> &);
-  virtual int checkSolution(DistSVec<double,dim> &);
-  virtual void setupOutputToDisk(IoData &, bool *, int, double, 
-                        DistSVec<double,dim> &);
-  virtual void outputToDisk(IoData &, bool*, int, int, int, double, double, 
-		    	DistSVec<double,dim> &);
-  virtual void resetOutputToStructure(DistSVec<double,dim> &);
-  virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+  int getMaxItsNewton() const { return maxItsNewton; }
+  double getEpsNewton() const { return epsNewton; }
 
-  //-- overrides the functions implemented in ImplicitTsDesc.
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &);
-  virtual void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void computeFunctionLS(int, DistVec<double> &, DistVec<double> &,  DistVec<double> &,
-                         DistSVec<double,dim> &,DistVec<double> &);
-  virtual void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  //-- functions for solving Euler equations
+  int solveNonLinearSystem(DistSVec<double,dim> &);
+  void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
   
-  virtual int checkFailSafe(DistSVec<double,dim>&);
-  virtual void resetFixesTag();
+  int checkFailSafe(DistSVec<double,dim>&);
+  void resetFixesTag();
 
-  //-- overrides the functions implemented in ImplicitCoupledTsDesc.
-  virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void computeJacobianLS(int, DistVec<double> &, DistVec<double> &,
-                         DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
+  void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void setOperators(DistSVec<double,dim> &);
+  int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  //-- new functions for solving LevelSet equation
+  void computeFunctionLS(int, DistSVec<double,dim> &,DistVec<double> &);
+  void computeJacobianLS(int, DistSVec<double,dim> &,DistVec<double> &);
   int solveLinearSystemLS(int, DistVec<double> &, DistVec<double> &);
 
 
+ protected:
+  template<class Scalar, int neq>
+  KspPrec<neq> *createPreconditioner(PcData &, Domain *);
 
+  template<int neq>
+  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>,
+  Communicator> *createKrylovSolver(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
+                                    KspPrec<neq> *, Communicator *);
+
+
+  template<int neq>
+  KspSolver<DistVec<double>, MatVecProd<dim,neq>, KspPrec<neq,double>,
+  Communicator> *createKrylovSolverLS(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
+                                        KspPrec<neq,double> *, Communicator *);
 };
-
 
 //------------------------------------------------------------------------------
 

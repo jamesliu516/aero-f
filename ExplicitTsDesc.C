@@ -116,13 +116,9 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
 
   this->spaceOp->applyBCsToSolutionVector(U);
   this->spaceOp->computeResidual(*this->X, *this->A, U, dU, this->timeState);
+  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, U, dU);
   this->timeState->multiplyByTimeStep(dU);
   this->timeState->multiplyByPreconditioner(U,dU);
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-double ExplicitTsDesc<dim>::reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti)
-{
-  return this->spaceOp->reinitLS(*this->X, Phi, U, iti);
-}

@@ -52,6 +52,17 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
 
   Xdot = new DistSVec<double,3>(domain->getNodeDistInfo());
 
+// for mesh motion (ALE) with RK2 only
+  ctrlVol_dot = new DistVec<double>(domain->getNodeDistInfo());
+  if (data.use_save) { //true only if explicit with moving mesh
+    ctrlVol_save = new DistVec<double>(domain->getNodeDistInfo());
+    Xsave = new DistSVec<double,3>(domain->getNodeDistInfo());
+  }else{
+    ctrlVol_save = 0;
+    Xsave = 0;
+  }
+// end ALE-RK2
+
   d2wall = new DistVec<double>(domain->getNodeDistInfo());
   if (ioData.input.d2wall[0] != 0) {
     char* name = new char[strlen(ioData.input.prefix) + strlen(ioData.input.d2wall) + 1];
@@ -102,17 +113,17 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   }
 
 
-  if (data.typeNormals == ImplicitData::SECOND_ORDER_GCL) {
+  if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_GCL) {
     edgeNorm_nm1    = new DistVec<Vec3D>(domain->getEdgeDistInfo());
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
     faceNorm_nm1    = new DistVec<Vec3D>(domain->getFaceNormDistInfo());
     faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
-  else if (data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
     faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
   } 
-  else if (data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_THIRD_ORDER_EZGCL) {
     edgeNormVel_nm1 = new DistVec<double>(domain->getEdgeDistInfo());
     edgeNormVel_nm2 = new DistVec<double>(domain->getEdgeDistInfo());
     faceNormVel_nm1 = new DistVec<double>(domain->getFaceNormDistInfo());
@@ -140,10 +151,13 @@ DistGeoState::~DistGeoState()
   if (Xnm1) delete Xnm1;
   if (Xnm2) delete Xnm2;
   if (Xdot) delete Xdot;
+  if (Xsave) delete Xsave;
 
   if (ctrlVol_n) delete ctrlVol_n;
   if (ctrlVol_nm1) delete ctrlVol_nm1;
   if (ctrlVol_nm2) delete ctrlVol_nm2;
+  if (ctrlVol_save) delete ctrlVol_save;
+  if (ctrlVol_dot) delete ctrlVol_dot;
 
   if (d2wall) delete d2wall;
 
@@ -243,6 +257,7 @@ void DistGeoState::setup1(char *name, DistSVec<double,3> *X, DistVec<double> *ct
 
   com->printf(2, "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n", 
 	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum());
+
 }
 
 //-----------------------------------------------------------------------------
@@ -252,21 +267,40 @@ void DistGeoState::setup2(TimeData &timeData)
 
   double oodtnm1 = 1.0 / timeData.dt_nm1;
   double oodtnm2 = 1.0 / timeData.dt_nm2;
-  if (data.typeVelocities == ImplicitData::ZERO)
+  if (data.typeVelocities == DGCLData::IMPLICIT_ZERO ||
+      data.typeVelocities == DGCLData::EXPLICIT_RK2_VEL)
     *Xdot = 0.0;
   else
     *Xdot = oodtnm1 * (*Xn - *Xnm1);
 
-  domain->computeNormalsGCL1(*Xnm1, *Xn, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel);
+// for mesh motion (ALE) with RK2 only
+  if (ctrlVol_dot)   *ctrlVol_dot = 0.0;
+  if (ctrlVol_save)  *ctrlVol_save = *ctrlVol_n;
+  if (Xsave)         *Xsave = *Xn;
+// end ALE-RK2
+  
+  /*if(data.typeNormals    == DGCLData::EXPLICIT_RK2 &&
+     data.typeVelocities == DGCLData::EXPLICIT_RK2_VEL &&
+     data.use_save){
+    *edgeNorm = 0.0;
+    *edgeNormVel = 0.0;
+    *faceNorm = 0.0;
+    *faceNormVel = 0.0;
+
+    domain->computeNormalsConfig(*Xn, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel);
+
+  }else*/
+    domain->computeNormalsGCL1(*Xnm1, *Xn, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel);
+
   domain->computeInletNormals(*inletNodeNorm, *faceNorm, *numFaceNeighb);
 
-  if (data.typeNormals == ImplicitData::SECOND_ORDER_GCL)
+  if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_GCL)
     domain->computeNormalsGCL1(*Xnm1, *Xn, *Xdot, *edgeNorm_nm1, *edgeNormVel_nm1, 
 			       *faceNorm_nm1, *faceNormVel_nm1);
-  else if (data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL)
+  else if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_EZGCL)
     domain->computeNormalsEZGCL1(oodtnm1, *Xnm1, *Xn, *edgeNorm, *edgeNormVel_nm1, 
 				 *faceNorm, *faceNormVel_nm1);
-  else if (data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_THIRD_ORDER_EZGCL) {
     domain->computeNormalsEZGCL1(oodtnm2, *Xnm2, *Xnm1, *edgeNorm, *edgeNormVel_nm2, 
 				 *faceNorm, *faceNormVel_nm2);
     domain->computeNormalsEZGCL1(oodtnm1, *Xnm1, *Xn, *edgeNorm, *edgeNormVel_nm1, 
@@ -279,7 +313,8 @@ void DistGeoState::setup2(TimeData &timeData)
 // Included (MB)
       if (optFlag)
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
-				       (*ctrlVol_nm2)(iSub), (*d2wall)(iSub),
+				       (*ctrlVol_nm2)(iSub),
+                                       (*ctrlVol_dot)(iSub), (*d2wall)(iSub),
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub),
@@ -288,7 +323,8 @@ void DistGeoState::setup2(TimeData &timeData)
                                        (*Xsa)(iSub), (*dXsa)(iSub));
       else
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
-				       (*ctrlVol_nm2)(iSub), (*d2wall)(iSub), 
+				       (*ctrlVol_nm2)(iSub),
+                                       (*ctrlVol_dot)(iSub), (*d2wall)(iSub), 
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
@@ -303,40 +339,93 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
 
   data.config += 1;
     
+  //ctrlVol has the control volumes of Xnp1 
   domain->computeControlVolumes(lscale, X, ctrlVol);
 
+  //Xdot
   domain->computeVelocities(data.typeVelocities, timeData, Xsdot, *Xnm1, *Xn, X, *Xdot);
 
-  if (data.typeNormals == ImplicitData::FIRST_ORDER_GCL || 
-      data.typeNormals == ImplicitData::SECOND_ORDER_GCL) {
+  //normals -> edgeNorm, edgeNormVel, faceNorm, faceNormVel
+  if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL || 
+      data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_GCL) {
     domain->computeNormalsGCL1(*Xn, X, *Xdot, *edgeNorm, *edgeNormVel, 
 			       *faceNorm, *faceNormVel);
-    if (data.typeNormals == ImplicitData::SECOND_ORDER_GCL)
+    if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_GCL)
       domain->computeNormalsGCL2(timeData, *edgeNorm, *edgeNorm_nm1, *edgeNormVel, 
 				 *edgeNormVel_nm1, *faceNorm, *faceNorm_nm1,
 				 *faceNormVel, *faceNormVel_nm1);
   }
-  else if (data.typeNormals == ImplicitData::FIRST_ORDER_EZGCL || 
-	   data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL ||
-	   data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_EZGCL || 
+	   data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_EZGCL ||
+	   data.typeNormals == DGCLData::IMPLICIT_THIRD_ORDER_EZGCL) {
     domain->computeNormalsEZGCL1(1.0/timeData.dt_n, *Xn, X, *edgeNorm, *edgeNormVel, 
 				 *faceNorm, *faceNormVel);
-    if (data.typeNormals == ImplicitData::SECOND_ORDER_EZGCL)
+    if (data.typeNormals == DGCLData::IMPLICIT_SECOND_ORDER_EZGCL)
       domain->computeNormalsEZGCL2(timeData, *edgeNormVel, *edgeNormVel_nm1, 
 				   *faceNormVel, *faceNormVel_nm1);
-    else if (data.typeNormals == ImplicitData::THIRD_ORDER_EZGCL)
+    else if (data.typeNormals == DGCLData::IMPLICIT_THIRD_ORDER_EZGCL)
       domain->computeNormalsEZGCL3(timeData, *edgeNormVel, *edgeNormVel_nm1, *edgeNormVel_nm2,
 				   *faceNormVel, *faceNormVel_nm1, *faceNormVel_nm2);
   }
-  else if (data.typeNormals == ImplicitData::CURRENT_CFG) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_CURRENT_CFG) {
     domain->computeNormalsGCL1(*Xn, *Xn, *Xdot, *edgeNorm, *edgeNormVel, 
 			       *faceNorm, *faceNormVel);
   }
-  else if (data.typeNormals == ImplicitData::LATEST_CFG) {
+  else if (data.typeNormals == DGCLData::IMPLICIT_LATEST_CFG) {
     domain->computeNormalsGCL1(X, X, *Xdot, *edgeNorm, *edgeNormVel, 
 			       *faceNorm, *faceNormVel);
   }
-  
+  else if (data.typeNormals == DGCLData::EXPLICIT_RK2 && data.use_save){
+
+    //ctrlVol_dot computed for DGCLData::EXPLICIT_RK2_VOL
+    *ctrlVol_dot = (1.0 / timeData.dt_n) * (ctrlVol - *ctrlVol_n);
+
+
+    // Xsave is temporarily used to compute the different configurations on which to compute the normals
+    //       and the normal velocities
+    *edgeNorm = 0.0;
+    *edgeNormVel = 0.0;
+    *faceNorm = 0.0;
+    *faceNormVel = 0.0;
+
+    *Xsave = 0.5*(1.0-1.0/sqrt(3))*X + 0.5*(1.0+1.0/sqrt(3))*(*Xn);
+    domain->computeNormalsConfig(*Xsave, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel, false);
+
+    *Xsave = 0.5*(1.0+1.0/sqrt(3))*X + 0.5*(1.0-1.0/sqrt(3))*(*Xn);
+    domain->computeNormalsConfig(*Xsave, *Xdot, *edgeNorm, *edgeNormVel, *faceNorm, *faceNormVel, true);
+
+    *edgeNorm *= 0.5;
+    *edgeNormVel *= 0.5;
+    *faceNorm *= 0.5;
+    *faceNormVel *= 0.5;
+
+    // save values of actual configuration Xnp1
+
+    *Xsave = X;
+    *ctrlVol_save = ctrlVol;
+
+    // return values X and ctrlVol on which to compute the fluxes!
+    // for Eulerian fluxes, implicit formulation/coding requires only normals and normal velocities
+    //                      explicit formulation/coding requires normals, normal velocities and volumes(!)
+    // for Viscous terms, it is always required to have Xconfig which is not necessarily Xnp1!
+    
+    //X = 0.5*(*Xn) + 0.5*X;
+    X += *Xn;
+    X *= 0.5;
+    domain->computeControlVolumes(lscale, X, ctrlVol);
+
+    // now X and ctrlVol have the configuration on which to compute the fluxes 
+    // but do not correspond to Xnp1 and ctrlVol_np1 which will need to be restored
+    // at end of iteration!
+
+  }
+  else{
+    com->fprintf(stderr, "*** Error: Running a mesh moving simulation\n");
+    com->fprintf(stderr, "***        but no update of the normals!!!!\n");
+    com->fprintf(stderr, "*** Exiting\n");
+    exit(1);
+  }
+
   domain->computeInletNormals(*inletNodeNorm, *faceNorm, *numFaceNeighb);
 
 }
@@ -378,7 +467,7 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
   *Xsa=X;
   *dXsa=dX;
 
-  if (data.typeNormals == ImplicitData::FIRST_ORDER_GCL) {
+  if (data.typeNormals == DGCLData::IMPLICIT_FIRST_ORDER_GCL) {
     domain->computeDerivativeOfNormals(*Xsa, *dXsa, *edgeNorm, *dEdgeNorm, *edgeNormVel, *dEdgeNormVel, *faceNorm, *dFaceNorm, *faceNormVel, *dFaceNormVel);
   }
   else {
@@ -386,7 +475,7 @@ void DistGeoState::computeDerivatives(DistSVec<double,3> &X, DistSVec<double,3> 
     fprintf(stderr, "*** Warning: The normal and the derivative can not be computed, ***\n");
     fprintf(stderr, "*** please check the function type chosen in the class domain!  ***\n");
     fprintf(stderr, "********************************************************************\n");
-    fprintf(stderr, "%d %d\n", data.typeNormals, ImplicitData::FIRST_ORDER_GCL);
+    fprintf(stderr, "%d %d\n", data.typeNormals, DGCLData::IMPLICIT_FIRST_ORDER_GCL);
     exit(1);
   }
 
@@ -420,6 +509,13 @@ void DistGeoState::interpolate(double dt, double dtLeft,
 
 void DistGeoState::update(DistSVec<double,3> &X, DistVec<double> &ctrlVol)
 {
+
+  if (data.use_save){
+    // X and ctrlVol had configuration on which fluxes were computed
+    // Xnp1 and ctrlVol_np1 are restored to X and ctrlVol
+    X = *Xsave;
+    ctrlVol = *ctrlVol_save;
+  }
 
   if (data.use_nm2) {
     *Xnm2 = *Xnm1;
