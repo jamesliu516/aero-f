@@ -45,8 +45,7 @@ public:
   NewtonSolver(ProblemDescriptor *);
   ~NewtonSolver() {}
   int solve(typename ProblemDescriptor::SolVecType &);
-  int solve(typename ProblemDescriptor::SolVecType &, typename ProblemDescriptor::VolVecType &);
-  int solveLS(typename ProblemDescriptor::VolVecType &,typename ProblemDescriptor::VolVecType &,typename ProblemDescriptor::VolVecType &, typename ProblemDescriptor::SolVecType &);
+  int solveLS(typename ProblemDescriptor::VolVecType &, typename ProblemDescriptor::SolVecType &);
 
 };
 
@@ -54,7 +53,9 @@ public:
 
 template<class ProblemDescriptor>
 NewtonSolver<ProblemDescriptor>::NewtonSolver(ProblemDescriptor *prbd) : 
-  F(prbd->getVecInfo()), Finlet(prbd->getVecInfo()), dQ(prbd->getVecInfo()), rhs(prbd->getVecInfo()), dPhi(prbd->getVecInfo()), PhiF(prbd->getVecInfo()), rhsPhi(prbd->getVecInfo())
+  F(prbd->getVecInfo()), Finlet(prbd->getVecInfo()), dQ(prbd->getVecInfo()),
+  rhs(prbd->getVecInfo()), dPhi(prbd->getVecInfo()), PhiF(prbd->getVecInfo()), 
+  rhsPhi(prbd->getVecInfo())
 {
 
   probDesc = prbd;
@@ -81,6 +82,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     probDesc->computeFunction(it, Q, F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
+    if(res<0.0){
+      probDesc->printf(1, "*** negative residual\n");
+      exit(1);
+    }
     res = sqrt(F*F-res2);
 
     if (it == 0) {
@@ -114,8 +119,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 	--it;
 	++fsIt;
       }
-      else
+      else{
+	probDesc->printf(1, "***Exiting\n");
 	exit(1);
+      }
     }
 
   }
@@ -134,34 +141,33 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 //------------------------------------------------------------------------------
 template<class ProblemDescriptor>
 int
-NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::VolVecType &Phi, typename ProblemDescriptor::VolVecType &Phi1, typename ProblemDescriptor::VolVecType &Phi2, typename ProblemDescriptor::SolVecType &U )
+NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::VolVecType &Phi,
+					 typename ProblemDescriptor::SolVecType &U )
 {
 
   double res, target, res1;
 
   int fsIt = 0;
-  //int maxIts = probDesc->getMaxItsNewton();
-  //double eps = probDesc->getEpsNewton();
-  int maxIts  = 2;
-  double eps  = 0.01;
+  int maxIts = probDesc->getMaxItsNewton();
+  double eps = probDesc->getEpsNewton();
   int it;
   for (it=0; it<maxIts; ++it) {
 
     // compute the nonlinear function value for the Level Set Equation
-    probDesc->computeFunctionLS(it, Phi, Phi1, Phi2, U, PhiF);
-
+    probDesc->computeFunctionLS(it, U, PhiF);
     res = sqrt(PhiF*PhiF);
 
-    if (it == 0) target = eps*res;
-                         
-    if (it ==0) res1  = res;
-                                                                                           
+    if (it == 0){
+      target = eps*res;
+      res1  = res;
+    }
+
     if (res == 0.0 || res <= target) break;
-                                                                                                                    
+
     rhsPhi = -1.0* PhiF;
-    
+
     // compute the Jacobian for the Level Set Equation 
-    probDesc->computeJacobianLS(it, Phi, Phi1, Phi2, U, PhiF);
+    probDesc->computeJacobianLS(it, U, PhiF);
  
     // Solve the linearized system of equations
     probDesc->solveLinearSystemLS(it, rhsPhi, dPhi);
@@ -171,15 +177,11 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::VolVecType 
 
   }
   if (it == maxIts && maxIts != 1) {
-    //probDesc->printf(1, "*** Warning: Newton solver for LS reached %d its", maxIts);
-    //probDesc->printf(1, " (initial=%.2e, res=%.2e, target=%.2e)\n", res1, res, target);
+    probDesc->printf(1, "*** Warning: Newton solver for LS reached %d its", maxIts);
+    probDesc->printf(1, " (initial=%.2e, res=%.2e, target=%.2e)\n", res1, res, target);
   }
-
-  int iti = probDesc->getInitialIteration();
-  //if (iti % 100  == 0 )  probDesc->printf(1,"Radius of Bubble %f\n",probDesc->reinitLS(Phi, U, iti));
 
   return it;
 }
 //------------------------------------------------------------------------------
-
 #endif

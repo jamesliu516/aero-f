@@ -29,6 +29,7 @@ c-----------------------------------------------------------------------
 c
 c Initialisation
 c
+
       gam1 = gam - 1.d0      
 
       rnorm = DSQRT(enormal(1)*enormal(1) + enormal(2)*enormal(2) + 
@@ -105,13 +106,13 @@ c preconditioning_stiffenedgas.pdf and RoeTurkel_SG_Flux.pdf)
       r4(2) = r4(1)*(Vinf(2)+c*normal(1))
       r4(3) = r4(1)*(Vinf(3)+c*normal(2))
       r4(4) = r4(1)*(Vinf(4)+c*normal(3))
-      r4(5) = r4(1)*(enerinf/Vinf(1)+Vinf(5)+c*VdotNinf)
+      r4(5) = r4(1)*(enerinf/Vinf(1)+Vinf(5)/Vinf(1)+c*VdotNinf)
 
       r5(1) = 0.5d0*c2
       r5(2) = r4(1)*(Vinf(2)-c*normal(1))
       r5(3) = r4(1)*(Vinf(3)-c*normal(2))
       r5(4) = r4(1)*(Vinf(4)-c*normal(3))
-      r5(5) = r4(1)*(enerinf/Vinf(1)+Vinf(5)-c*VdotNinf)
+      r5(5) = r4(1)*(enerinf/Vinf(1)+Vinf(5)/Vinf(1)-c*VdotNinf)
 
 c Computation of eigenvalues using value at infinity
       vp(1) = VdotNinf-vitno
@@ -216,6 +217,7 @@ c
       phi(3) = phi(3)*rnorm
       phi(4) = phi(4)*rnorm
       phi(5) = phi(5)*rnorm
+
 
 c
 c For one and two equation turbulence models

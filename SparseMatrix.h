@@ -79,9 +79,9 @@ public:
   int *rowptr() { return ia.v; }
   Scalar (*data())[dim*dim] { return a.v; }
 
-  Scalar *getElem_ii(int i) { return *(a.v + ptr_ii[i]); }
-  Scalar *getElem_ij(int edgeNumber) { return *(a.v + ptr_ij[edgeNumber]); }
-  Scalar *getElem_ji(int edgeNumber) { return *(a.v + ptr_ji[edgeNumber]); }
+  Scalar *getElem_ii(int i) { /*fprintf(stdout, "getElem_ii(%d) = %d\n", i, ptr_ii[i]);*/ return *(a.v + ptr_ii[i]); }
+  Scalar *getElem_ij(int edgeNumber) { /*fprintf(stdout, "getElem_ij(%d) = %d\n", edgeNumber, ptr_ij[edgeNumber]);*/ return *(a.v + ptr_ij[edgeNumber]); }
+  Scalar *getElem_ji(int edgeNumber) { /*fprintf(stdout, "getElem_ji(%d) = %d\n", edgeNumber, ptr_ji[edgeNumber]);*/ return *(a.v + ptr_ji[edgeNumber]); }
 
   void addContrib(int, int *, double *);
 
