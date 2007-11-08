@@ -21,7 +21,6 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   maxItsNewton = ioData.ts.implicit.newton.maxIts;
   epsNewton = ioData.ts.implicit.newton.eps;  
 
-  //this->timeState = new DistTimeState<dim>(ioData, this->varFcn, this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);
 
@@ -131,35 +130,6 @@ ImplicitTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
 }
 
 //------------------------------------------------------------------------------
-
-template<int dim>
-template<int neq>
-KspSolver<DistVec<double>, MatVecProd<dim,1>, KspPrec<neq,double>, Communicator, double> *
-ImplicitTsDesc<dim>::createKrylovSolverLS(const DistInfo &info, KspData &kspdata,
-                                        MatVecProd<dim,1> *_mvpLS, KspPrec<neq,double> *_pc,
-                                        Communicator *_com)
-{
-                                                                                                      
-  KspSolver<DistVec<double>, MatVecProd<dim,1>,
-    KspPrec<neq>, Communicator> *_ksp = 0;
-
-  if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistVec<double>, MatVecProd<dim,1>,
-                           KspPrec<neq>, Communicator>(info, kspdata, _mvpLS, _pc, _com);
-  else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistVec<double>, MatVecProd<dim,1>,
-                           KspPrec<neq>, Communicator>(info, kspdata, _mvpLS, _pc, _com);
-  else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistVec<double>, MatVecProd<dim,1>,
-                           KspPrec<neq>, Communicator>(info, kspdata, _mvpLS, _pc, _com);
-  else if (kspdata.type == KspData::GCR)
-    _ksp = new GcrSolver<DistVec<double>, MatVecProd<dim,1>,
-                           KspPrec<neq>, Communicator>(info, kspdata, _mvpLS, _pc, _com);                                                                                                                                                                 
-  return _ksp;
-                                                                                                      
-}
-
-//------------------------------------------------------------------------------
 template<int dim>
 int ImplicitTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 {
@@ -186,8 +156,3 @@ void ImplicitTsDesc<dim>::resetFixesTag()
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-double ImplicitTsDesc<dim>::reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti)
-{
-  return this->spaceOp->reinitLS(*this->X, Phi, U, iti);
-}

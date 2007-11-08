@@ -44,6 +44,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   recFcnCon = 0;
   Rn = 0;
   Phi = 0;
+	Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
     recFcnCon = new RecFcnConstant<dim>;
@@ -163,6 +164,7 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
                                  DistSVec<double,dim> &q, DistVec<double> &phi,
+                                 DistExactRiemannSolver<dim> *riemann,
                                  DistSVec<double,dim> &f)
 {
   
@@ -170,9 +172,10 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   ctrlVol = &cv;
   Qeps = q;
   Phi = &phi;
+	Riemann = riemann;
                                                                                                                  
   if (recFcnCon) {
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann);
                                                                                                                  
     if (timeState)
       timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -202,7 +205,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp.pad(Qeps);
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -225,7 +228,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Qepstmp.pad(Qeps);
 
     if(Phi)
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
     else
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -263,7 +266,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 #endif
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -293,10 +296,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
   Qepstmp.pad(Qeps);
 
-  if(Phi)
-    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-  else
-    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -309,10 +309,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
   
   if (fdOrder == 1) {
 
-   if(Phi)
-      spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-    else
-      spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -330,10 +327,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     Qepstmp.pad(Qeps);
 
-    if(Phi)
-      spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-    else
-      spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    spaceOp->computeInviscidResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -363,10 +357,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
   Qepstmp.pad(Qeps);
 
-  if(Phi)
-    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-  else
-    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -376,10 +367,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
     Q.pad(Qeps);
 
-    if(Phi)
-      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-    else
-      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -394,10 +382,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
     Qepstmp.pad(Qeps);
 
-    if(Phi)
-      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, *Phi, Feps);
-    else
-      spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    spaceOp->computeViscousResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     spaceOp->applyBCsToResidual(Qeps, Feps);
 
@@ -596,10 +581,11 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                             DistSVec<double,dim> &Q, DistVec<double> &Phi,
+                                            DistExactRiemannSolver<dim> *riemann,
                                             DistSVec<double,dim> &F)
 {
 
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, Phi);
+  spaceOp->computeJacobian(X, ctrlVol, Q, *this, Phi, riemann);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
@@ -1396,11 +1382,13 @@ void MatVecProdH2<Scalar,dim>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, Space
 template<class Scalar,int dim, int neq>
 MatVecProdLS<Scalar,dim,neq>::MatVecProdLS(IoData &ioData, VarFcn *varFcn, 
                                            DistTimeState<dim> *ts, DistGeoState *gs,
-                                           SpaceOperator<dim> *spo, Domain *domain) :
-  DistMat<Scalar,neq>(domain), timeState(ts), geoState(gs),
+                                           SpaceOperator<dim> *spo, Domain *domain,
+																					 LevelSet *ls) :
+  DistMat<Scalar,neq>(domain), timeState(ts), geoState(gs), LS(ls),
   aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()),
   bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo()), 
-  Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo())
+  Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo()),
+	QepsV(domain->getNodeDistInfo()), QV(domain->getNodeDistInfo())
 {
 
 #ifdef _OPENMP
@@ -1445,41 +1433,42 @@ MatVecProdLS<Scalar,dim,neq>::~MatVecProdLS()
 //------------------------------------------------------------------------------
 // note: this can be done in another way (but less efficient) !!
 // (1) compute off-diag products (2) assemble (3) compute diag products (->redundancy)
-                                                                                                                     
+
 template<class Scalar,int dim, int neq>
 void MatVecProdLS<Scalar,dim,neq>::applyLS(DistVec<double> &p, DistVec<double> &prod)
 {
   double eps = computeEpsilon(*Q, p);
-                                                                                                             
+
   Qeps = (*Q) + eps * p;
-                                                                                                             
+
   spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *U, Feps);
-                                                                                                             
-  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, *Q1, *Q2, Feps);
-                                                                                                             
+
+  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, *Qn, *Qnm1, *Qnm2, Feps);
+
   prod = (1.0/eps) * (Feps - (*F));
-                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                    
+
 template<class Scalar,int dim, int neq>
 void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                                      DistVec<double> &q,  DistVec<double> &q1,
-                                                      DistVec<double> &q2, DistSVec<double,dim> &u, 
-                                                      DistVec<double> &f)
+                                                      DistVec<double> &q,  DistVec<double> &qn,
+                                                      DistVec<double> &qnm1, DistVec<double> &qnm2,
+						      DistSVec<double,dim> &u, DistVec<double> &f)
 {
                                                                                                                     
   X = &x;
   ctrlVol = &cv;
   Q = &q;
-  Q1= &q1;
-  Q2= &q2;
+  Qn= &qn;
+  Qnm1= &qnm1;
+  Qnm2= &qnm2;
   U = &u;
   F = &f;                                                                                                                    
   spaceOp->computeResidualLS(*X, *ctrlVol, *Q, *U, *F);
                                                                                                              
-  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Q1, *Q2, *F);
+  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Qn, *Qnm1, *Qnm2, *F);
                                                                                                              
                                                                                                                     
 }
@@ -1493,7 +1482,7 @@ DistMat<Scalar,neq> &MatVecProdLS<Scalar,dim,neq>::operator= (const Scalar x)
     *A[iSub] = x;
                                                                                                                       
   return *this;
-                                                                                                                      
+
 }
 //------------------------------------------------------------------------------
 template<class Scalar,int dim, int neq>

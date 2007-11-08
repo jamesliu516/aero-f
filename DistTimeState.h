@@ -13,6 +13,7 @@ class FemEquationTerm;
 template<int dim> class TimeState;
 template<class Scalar, int dim> class DistMat;
 template<int dim> class SpaceOperator;
+template<int dim> class DistExactRiemannSolver;
 
 //------------------------------------------------------------------------------
 
@@ -35,14 +36,12 @@ private:
 
   double gam;
   double pstiff;
-  double beta;
+
   bool prec;
+  double beta;
   double mach;
   double cmach;
   double k1;
-  double k2;
-  double alpha;
-  double delta;
   double betav;
   double viscousCst;
 
@@ -66,7 +65,6 @@ private:
   TimeState<dim> **subTimeState;
 
 // Included (MB)
-  double dbeta;
   DistVec<double> *dIrey;
   DistVec<double> *dIdti;
   DistVec<double> *dIdtv;
@@ -83,14 +81,15 @@ public:
 
   void setGlobalTimeStep (double t) { *dt = t; }
 
-  void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  //void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
-  void setup(char *name, double *Ucst, double *Ub, DistSVec<double,3> &X, 
-					DistSVec<double,dim> &U, IoData &iod);
   void setup(char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
-						 DistSVec<double,dim> &U, IoData &iod);
+             DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
-  void update(DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, DistVec<double> &);
+  void update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
+              DistVec<double> &Phi1, DistVec<double> &Phi2,
+              DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+              DistExactRiemannSolver<dim> *riemann);
 
   void writeToDisk(char *);
 
@@ -105,7 +104,7 @@ public:
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistVec<double> &, DistVec<double> &, DistVec<double> &, 
-			 DistVec<double> &);
+			 DistVec<double> &, DistVec<double> &);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -149,6 +148,7 @@ public:
   DistVec<double>* getInvReynolds(){ return irey; }
                                                                                                                           
   void multiplyByTimeStep(DistSVec<double,dim>&);
+  void multiplyByTimeStep(DistVec<double>&);
   void multiplyByPreconditioner(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerPerfectGas(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerLiquid(DistSVec<double,dim> &, DistSVec<double,dim>&);

@@ -155,6 +155,30 @@ public:
 			       SVec<double,3> &, SVec<double,3> &, Vec<double> &, double *, double *,
 			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &) = 0;
 
+// Level Set Reinitialization
+  virtual
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,
+                          SVec<double,dim> &ddz, Vec<int> &Tag,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking) = 0;
+
+  virtual
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi) = 0;
+
+  virtual
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi) = 0;
+
+  virtual
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi) = 0;
+
 };
 
 template<class Scalar, int dim, int neq>
@@ -251,6 +275,34 @@ public:
 				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
 				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
     t->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
+  }
+
+// Level Set Reinitialization
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,
+                          SVec<double,dim> &ddz, Vec<int> &Tag,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking){
+    t->computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
+  }
+
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    t->computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    t->recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi){
+    t->computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
   }
 
 };
@@ -385,6 +437,8 @@ public:
   virtual double computeControlVolumes(SVec<double,3> &, Vec<double> &) = 0;
   virtual void printInvalidElement(int, double, int, int *, int *, 
 				   SVec<double,3> &, SVec<double,3> &) = 0;
+  virtual void computeEdgeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
+                                        Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel) = 0;
   virtual void computeEdgeNormalsGCL1(SVec<double,3> &, SVec<double,3> &, SVec<double,3> &, 
 				      Vec<Vec3D> &, Vec<double> &) = 0;
   virtual void computeEdgeNormalsEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 
@@ -599,6 +653,54 @@ public:
     wrapper->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
   }
 
+// Level Set Reinitialization
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy, 
+                          SVec<double,dim> &ddz, Vec<int> &Tag,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking){
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
+  }
+
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  }
+
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi){
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+  }
+
 };
 
 //--------------- DUMMY ELEM CLASS ---------------------------------------------
@@ -613,14 +715,14 @@ public:
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
 			   SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *vmst, SVec<double,dim> &VBar,
 			 SVec<double,3> &X, SVec<double,dim> &V,
 			 SVec<double,dim> &Sigma) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
@@ -628,7 +730,7 @@ public:
 		       SVec<double,1> **volRatio, SVec<double,3> &X,
 		       SVec<double,dim> &V, SVec<double,dim> &MBar,
 		       SVec<double,dim> &M) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
@@ -637,46 +739,46 @@ public:
 			     SVec<double,dim> &S, Vec<double> &CsDelSq,
 			     Vec<double> &PrT, Vec<double> *Cs,
 			     Vec<double> &Delta) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
   void computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 				 SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 		          SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
   
   template<int dim>
   void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
 			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
   void computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, 
 			       SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
 			       SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
   void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
 		    SVec<double,3> &X, SVec<double,dim> &V, double gam, double R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim>
   void computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
 		       SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
 		       SVec<double,3> &X, double gam, double R) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
 
@@ -684,7 +786,7 @@ public:
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 				   Vec<double> &ctrlVol, Vec<double> &d2wall, 
 				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
   template<int dim, class Scalar, int neq>
@@ -692,7 +794,7 @@ public:
 				       Vec3D &n, SVec<double,3> &X, Vec<double> &ctrlVol,
 				       Vec<double> &d2wall, double *Vwall, 
 				       SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
-    fprintf(stderr, "Error: undifined function for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
 // Included (MB)
@@ -700,15 +802,47 @@ public:
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
 			      Vec<double> &d2wall, SVec<double,dim> &V, SVec<double,dim> &dV, double dMach,
 			      SVec<double,dim> &dR) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfGalerkinTerm) for this elem type\n"); exit(1);
   }
 
   template<int dim>
   void computeDerivativeOfFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, Vec3D &dn,
 				  SVec<double,3> &X, SVec<double,3> &dX, Vec<double> &d2wall, double *Vwall, double *dVwall,
 				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfFaceGalerkinTerm) for this elem type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfFaceGalerkinTerm) for this elem type\n"); exit(1);
   }
+
+// Level Set Reinitialization
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,SVec<double,dim> &ddz,
+                          Vec<int> &Tag, Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking){
+    fprintf(stderr, "Error: undefined function (computePsiResidual) for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    fprintf(stderr, "Error: undefined function (computeDistanceCloseNodes) for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi){
+    fprintf(stderr, "Error: undefined function (recomputeDistanceCloseNodes) for this elem type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi){
+    fprintf(stderr, "Error: undefined function (computeDistanceLevelNodes) for this elem type\n"); exit(1);
+  }
+
 
 };
 
@@ -782,6 +916,28 @@ public:
   template<int dim>
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, SVec<double,3> &,
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
+
+// Level Set Reinitialization
+  template<int dim>
+  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+			  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+			  SVec<double,dim> &ddz, Vec<int> &Tag,
+			  Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+			  int typeTracking);
+  template<int dim>
+  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
+                                 SVec<double,dim> &ddz,
+                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+  template<int dim>
+  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+
 
 };
 

@@ -103,6 +103,103 @@ void EdgeSet::updateLength(SVec<double,3>& X)
 #endif
 
 //------------------------------------------------------------------------------
+int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf, 
+				int *locToGlobNodeMap, int failsafe, SVec<int,2>& tag,
+                                double phii, double phij)
+{
+  int ierr = 0;
+
+  double rho = vf->getDensity(Vi);
+  double p   = vf->checkPressure(Vi,phii);
+  // not useful anymore since taken care of in LocalRiemannSolver (f77src/eriemann.f)
+  //double pp  = vf->checkPressure(Vi,phij);
+
+  if (rho <= 0.0) {
+    if(!failsafe){
+      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      ++ierr;
+    }
+    else {
+      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+           rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      tag[i][0] = 1;
+      ++ierr;
+    }
+  }
+  if (p <= 0.0) {
+    if(!failsafe) {
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      ++ierr;
+    }
+    else {
+     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+     tag[i][0] = 1;
+      ++ierr;
+    }
+  }
+  /*if(phii!=phij && pp <= 0.0){
+    fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+              pp, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+  }
+  */
+  rho = vf->getDensity(Vj);
+  p   = vf->checkPressure(Vj,phij);
+  //pp  = vf->checkPressure(Vj,phii);
+
+  if (rho <= 0.0) {
+    if(!failsafe){
+      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      ++ierr;
+    }
+    else {
+      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
+          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      tag[j][0] = 1;
+      ++ierr;
+    }
+  }
+  if (p <= 0.0) {
+    if(!failsafe) {
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      ++ierr;
+    }
+    else {
+     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+     tag[j][0] = 1;
+      ++ierr;
+    }
+  }
+  /*if(phii!=phij && pp <= 0.0){
+    fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
+              pp, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+  }
+  */
+  return ierr;
+
+}
+//------------------------------------------------------------------------------
+void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
+{
+
+  int tag = 1;
+  for(int l=0; l<numEdges; l++){
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    if(Phi[i]*Phi[j]<=1.0e-12){
+      Tag[i] = tag;
+      Tag[j] = tag;
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
 
 int EdgeSet::checkReconstruction(double rho[2], double p[2], int i, int j, 
                                  int* locToGlobNodeMap, int failsafe, SVec<int,2>& tag)
