@@ -102,7 +102,7 @@ public:
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
-				     Vec3D &, Vec3D &,  double* gradP[3], int = 0, 
+				     Vec3D &, Vec3D &,  double* gradP[3], int, 
                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF) = 0;
   virtual double computeInterfaceWork(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				      double, double*, SVec<double,dim>&, double) = 0;
@@ -186,8 +186,8 @@ public:
 			     PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
-			      double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
-                                        Vec<double> *genCF = 0) {
+			      double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
     t->computeForceAndMoment(elems, postFcn, X,  d2wall, Vwall, V, 
 			     x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
   }
