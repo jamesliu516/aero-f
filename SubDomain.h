@@ -545,7 +545,7 @@ public:
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
-			     Vec3D *, Vec3D *, int = 0, 
+			     Vec3D *, Vec3D *, int , 
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
 

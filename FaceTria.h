@@ -86,9 +86,9 @@ public:
   template<int dim>
   void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 			     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
-			     Vec3D &, Vec3D &, double* gradP[3], int = 0, 
-                             SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
-                             Vec<double> *genCF = 0);
+			     Vec3D &, Vec3D &, double* gradP[3], int, 
+                             SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                             Vec<double> *genCF);
 
   template<int dim>
   double computeInterfaceWork(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
