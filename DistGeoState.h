@@ -82,8 +82,8 @@ public:
 
   GeoState &operator() (int i) const { return *subGeoState[i]; }
 
-  void setup(char *, TimeData &, DistSVec<double,3> *, DistVec<double> *);
-  void setup1(char *, DistSVec<double,3> *, DistVec<double> *);
+  void setup(const char *, TimeData &, DistSVec<double,3> *, DistVec<double> *);
+  void setup1(const char *, DistSVec<double,3> *, DistVec<double> *);
   void setup2(TimeData &);
   void compute(TimeData &, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
   void interpolate(double, double, DistSVec<double,3> &, DistSVec<double,3> &);

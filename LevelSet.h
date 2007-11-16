@@ -45,7 +45,7 @@ class LevelSet {
   ~LevelSet();
 
   template<int dim>
-  void setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
+  void setup(const char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
              DistSVec<double,dim> &U, IoData &iod);
   void update(DistVec<double> &Phi);
   void writeToDisk(char *name);

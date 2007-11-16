@@ -4,7 +4,7 @@
 
 //-------------------------------------------------------------------------
 template<int dim>
-void LevelSet::setup(char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
+void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
 		     DistSVec<double,dim> &U, IoData &iod)
 {
 

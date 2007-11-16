@@ -46,7 +46,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 15, father);
+  ClassAssigner *ca = new ClassAssigner(name, 16, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -2439,7 +2439,7 @@ LinearizedData::LinearizedData()
 
 //------------------------------------------------------------------------------
 
-void LinearizedData::setup(char *name, ClassAssigner *father)
+void LinearizedData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 15, father);
@@ -2503,7 +2503,7 @@ PadeData::PadeData()
                                                         
 //------------------------------------------------------------------------------
                                                         
-void PadeData::setup(char *name, ClassAssigner *father)
+void PadeData::setup(const char *name, ClassAssigner *father)
 {
                                                         
                                                         

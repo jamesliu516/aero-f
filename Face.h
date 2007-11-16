@@ -396,7 +396,7 @@ public:
   // Compute subface normals and save then in Vec<Vec3D>
   virtual void computeNormal(SVec<double,3> &, Vec<Vec3D> &) = 0;
   virtual void computeNormalConfig(SVec<double,3> &, SVec<double,3> &,
-                                   Vec3D &, double &) = 0;
+                                   Vec<Vec3D> &, Vec<double> &) = 0;
   virtual void computeNormalGCL1(SVec<double,3> &, SVec<double,3> &, 
 				 SVec<double,3> &, Vec<Vec3D> &, Vec<double> &) = 0;
   virtual void computeNormalEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 
