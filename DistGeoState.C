@@ -198,8 +198,8 @@ DistGeoState::~DistGeoState()
 
 //------------------------------------------------------------------------------
 
-void DistGeoState::setup(char *name, TimeData &timeData,
-			DistSVec<double,3> *X, DistVec<double> *ctrlVol)
+void DistGeoState::setup(const char *name, TimeData &timeData,
+			 DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
   setup1(name, X, ctrlVol);
   setup2(timeData);
@@ -207,7 +207,7 @@ void DistGeoState::setup(char *name, TimeData &timeData,
 
 //------------------------------------------------------------------------------
 
-void DistGeoState::setup1(char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
+void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
 
   if (!data.use_n) {

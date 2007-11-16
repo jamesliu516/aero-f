@@ -81,9 +81,9 @@ public:
 
   void setGlobalTimeStep (double t) { *dt = t; }
 
-  //void setup(char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
-  void setup(char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
-  void setup(char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
+  //void setup(const char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void setup(const char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<double> &Phi,

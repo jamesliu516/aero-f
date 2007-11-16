@@ -244,7 +244,8 @@ DistTimeState<dim>::~DistTimeState()
 //------------------------------------------------------------------------------
 /*
 template<int dim>
-void DistTimeState<dim>::setup(char *name, double *Ucst, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+void DistTimeState<dim>::setup(const char *name, double *Ucst, 
+                               DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
   Un->set(Ucst);
 
@@ -272,8 +273,8 @@ void DistTimeState<dim>::setup(char *name, double *Ucst, DistSVec<double,3> &X, 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
-			DistSVec<double,3> &X, DistSVec<double,dim> &U)
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
+			       DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
   *Un = Ufar;
 
@@ -300,7 +301,7 @@ void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void DistTimeState<dim>::setup(char *name, DistSVec<double,dim> &Ufar,
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
                                DistVec<double> &Phi,
                                DistSVec<double,dim> &U, IoData &iod)

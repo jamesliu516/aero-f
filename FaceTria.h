@@ -60,7 +60,7 @@ public:
   // Compute subface normals and save then in Vec<Vec3D>
   void computeNormal(SVec<double,3> &, Vec<Vec3D> &);
   void computeNormalConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
-                           Vec3D &faceNorm, double &faceNormVel);
+                           Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel);
   void computeNormalGCL1(SVec<double,3> &, SVec<double,3> &, 
 			 SVec<double,3> &, Vec<Vec3D> &, Vec<double> &);
   void computeNormalEZGCL1(double, SVec<double,3> &, SVec<double,3> &, 

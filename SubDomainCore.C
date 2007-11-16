@@ -614,7 +614,7 @@ void SubDomain::computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xd
     elems[i].computeEdgeNormalsConfig(Xconfig, Xdot, edgeNorm, edgeNormVel);
 
   for (i=0; i<faces.size(); ++i)
-    faces[i].computeNormalConfig(Xconfig, Xdot, faceNorm[i], faceNormVel[i]);
+    faces[i].computeNormalConfig(Xconfig, Xdot, faceNorm, faceNormVel);
 
 }
 

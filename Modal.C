@@ -1722,8 +1722,9 @@ ModalSolver<dim>::interpolatePOD()  {
   com->fprintf(stderr, " ... Interpolating POD\n");
   char **podFile = new char *[nData];
 
-  char *vecFile = tInput->podFile;
-  if (!vecFile)  vecFile = "podFiles.in";
+  const char *vecFile = tInput->podFile;
+  if (!vecFile) vecFile = "podFiles.in";
+
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);

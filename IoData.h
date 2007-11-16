@@ -1430,13 +1430,9 @@ struct PadeData {
   
   PadeData();
   ~PadeData() {}
-                                                                                                                 
-                                                        
-                                                        
-  void setup(char *, ClassAssigner * = 0);
-                                                        
-                                                        
-                                                                                                                 
+    
+  void setup(const char *, ClassAssigner * = 0);
+  
 };
 
 //------------------------------------------------------------------------------
@@ -1471,7 +1467,7 @@ struct LinearizedData {
   LinearizedData();
   ~LinearizedData() {}
 
-  void setup(char *, ClassAssigner * = 0);
+  void setup(const char *, ClassAssigner * = 0);
 
 };
 

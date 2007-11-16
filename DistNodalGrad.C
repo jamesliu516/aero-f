@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <alloca.h>
+#include <assert.h>
 
 //------------------------------------------------------------------------------
 
