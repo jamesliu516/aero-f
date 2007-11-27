@@ -283,10 +283,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     hydrodynamicforces = 0;
 
   mX = 0;
+  modeFile = 0;
   if (iod.output.transient.generalizedforces[0] != 0) {
     generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
     sprintf(generalizedforces, "%s%s", iod.output.transient.prefix, iod.output.transient.generalizedforces);
-    modeFile = new char [MAXLINE];
+    modeFile = new char[strlen(iod.input.prefix) +strlen(iod.input.strModesFile)];
     sprintf(modeFile, "%s%s", iod.input.prefix, iod.input.strModesFile);
     DistSVec<double, dim> tmpVec(domain->getNodeDistInfo());
     DistSVec<double, 3> Xtmp(domain->getNodeDistInfo());

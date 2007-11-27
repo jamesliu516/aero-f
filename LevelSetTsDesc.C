@@ -58,8 +58,9 @@ LevelSetTsDesc<dim>::~LevelSetTsDesc()
 {
 
   if (LS) delete LS;
-  if (Vgf) delete Vgf;
   if (riemann) delete riemann;
+  if (Vgf) delete Vgf;
+  if (Vgfweight) delete Vgfweight;
 
 }
 
