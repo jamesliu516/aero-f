@@ -192,6 +192,8 @@ public:
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
+  DistSVec<double,3> getModes();
+
   void setup(DistSVec<double, 3> &X);
 
 };
@@ -223,6 +225,8 @@ public:
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
+  DistSVec<double,3> getModes();
+
   void setup(DistSVec<double, 3> &X);
 
 };
@@ -246,6 +250,8 @@ public:
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  DistSVec<double,3> getModes();
 
   void setup(DistSVec<double, 3> &X);
 

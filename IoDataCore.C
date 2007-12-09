@@ -241,7 +241,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TavForce", this, &TransientData::tavforces);
   new ClassStr<TransientData>(ca, "HydroStaticForce", this, &TransientData::hydrostaticforces);
   new ClassStr<TransientData>(ca, "HydroDynamicForce", this, &TransientData::hydrodynamicforces);
-  new ClassStr<TransientData>(ca, "GeneralizedForces", this, &TransientData::generalizedforces);
+  new ClassStr<TransientData>(ca, "GeneralizedForce", this, &TransientData::generalizedforces);
 
   new ClassStr<TransientData>(ca, "LiftandDrag", this, &TransientData::lift);
   new ClassStr<TransientData>(ca, "HydroStaticLiftandDrag", this, &TransientData::hydrostaticlift);

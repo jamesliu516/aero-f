@@ -9,7 +9,11 @@
 class IoData;
 class RefVal;
 class Domain;
+class MeshMotionHandler;
 class RigidMeshMotionHandler;
+class HeavingMeshMotionHandler;
+class PitchingMeshMotionHandler;
+class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 class LevelSet;
@@ -28,6 +32,9 @@ private:
   RefVal *refVal;
   PostOperator<dim> *postOp;
   RigidMeshMotionHandler *rmmh;
+  HeavingMeshMotionHandler *hmmh;
+  PitchingMeshMotionHandler *pmmh;
+  DeformingMeshMotionHandler *dmmh;
   Domain *domain;
   Communicator *com;
 
@@ -102,7 +109,7 @@ public:
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
   ~TsOutput();
 
-  void setMeshMotionHandler(RigidMeshMotionHandler *);
+  void setMeshMotionHandler(IoData&, MeshMotionHandler*);
   FILE *backupAsciiFile(char *);
   void openAsciiFiles();
   void closeAsciiFiles();

@@ -160,7 +160,7 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   else
     monitorInitialState(it, U);
 
-  this->output->setMeshMotionHandler(dynamic_cast<RigidMeshMotionHandler *>(this->mmh));
+  this->output->setMeshMotionHandler(ioData, this->mmh);
   this->output->openAsciiFiles();
 
   if (it == 0) {

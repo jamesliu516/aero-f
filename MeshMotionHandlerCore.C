@@ -724,6 +724,15 @@ void DeformingMeshMotionHandler::setup(DistSVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+DistSVec<double,3> DeformingMeshMotionHandler::getModes()
+{
+
+  return(*dXmax);
+
+}
+
+//------------------------------------------------------------------------------
+
 double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
                                           DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
@@ -867,6 +876,57 @@ void PitchingMeshMotionHandler::setup(DistSVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+DistSVec<double,3> PitchingMeshMotionHandler::getModes()
+{
+
+  int numLocSub = domain->getNumLocSub();
+
+  double theta = alpha_in + alpha_max;
+  double costheta = cos(theta);
+  double sintheta = sin(theta);
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    double (*dx)[3] = dX.subData(iSub);
+    double (*x0)[3] = X0.subData(iSub);
+
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = 0.0; dx[i][1] = 0.0; dx[i][2] = 0.0;
+
+      double p[3];
+      p[0] = x0[i][0] -  x1[0];
+      p[1] = x0[i][1] -  x1[1];
+      p[2] = x0[i][2] -  x1[2];
+
+      dx[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
+      dx[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
+      dx[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
+
+      dx[i][1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];
+      dx[i][1] += (costheta + (1 - costheta) * iy * iy) * p[1];
+      dx[i][1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];
+
+      dx[i][2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];
+      dx[i][2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];
+      dx[i][2] += (costheta + (1 - costheta) * iz * iz) * p[2];
+
+      dx[i][0] += x1[0];
+      dx[i][1] += x1[1];
+      dx[i][2] += x1[2];
+
+    }
+  }
+
+  dX -= X0;
+
+  return(dX);
+
+}
+
+//------------------------------------------------------------------------------
+
 double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
@@ -1002,6 +1062,30 @@ void HeavingMeshMotionHandler::setup(DistSVec<double,3> &X)
 {
 
   if(mms) mms->setup(X);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+DistSVec<double,3> HeavingMeshMotionHandler::getModes()
+{
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*dx)[3] = dX.subData(iSub);
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = delta[0];
+      dx[i][1] = delta[1];
+      dx[i][2] = delta[2];
+
+    }
+  }
+
+ return(dX);
 
 }
 
