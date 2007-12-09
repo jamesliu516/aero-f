@@ -281,13 +281,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     hydrodynamicforces = 0;
-
+    
   mX = 0;
-  modeFile = 0;
-  if (iod.output.transient.generalizedforces[0] != 0) {
+  if (iod.output.transient.generalizedforces[0] != 0 && strcmp(iod.input.strModesFile, "") != 0) {
     generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
     sprintf(generalizedforces, "%s%s", iod.output.transient.prefix, iod.output.transient.generalizedforces);
-    modeFile = new char[strlen(iod.input.prefix) +strlen(iod.input.strModesFile)];
+    modeFile = new char [MAXLINE];
     sprintf(modeFile, "%s%s", iod.input.prefix, iod.input.strModesFile);
     DistSVec<double, dim> tmpVec(domain->getNodeDistInfo());
     DistSVec<double, 3> Xtmp(domain->getNodeDistInfo());
@@ -309,6 +308,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else 
     generalizedforces = 0;
+  
+  if (iod.output.transient.generalizedforces[0] != 0 && !(iod.problem.type[ProblemData::FORCED]) && strcmp(iod.input.strModesFile, "") == 0)
+    fprintf(stderr, "Error : StrModes file for Generalized Forces not given.. Aborting !! \n");
+    
   
   if (iod.output.transient.lift[0] != 0){
     lift = new char[sp + strlen(iod.output.transient.lift)];
@@ -507,10 +510,37 @@ TsOutput<dim>::~TsOutput()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::setMeshMotionHandler(RigidMeshMotionHandler *mmh)
+void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
 {
 
-  rmmh = mmh;
+  rmmh = dynamic_cast<RigidMeshMotionHandler *>(mmh);
+
+  if (ioData.problem.type[ProblemData::FORCED]) {
+     if (ioData.forced.type == ForcedData::HEAVING)
+       hmmh = dynamic_cast<HeavingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::PITCHING)
+       pmmh = dynamic_cast<PitchingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::DEFORMING)
+       dmmh = dynamic_cast<DeformingMeshMotionHandler *>(mmh);
+  }
+
+  if (ioData.output.transient.generalizedforces[0] != 0 && ioData.problem.type[ProblemData::FORCED] && strcmp(ioData.input.strModesFile, "") == 0) {
+    int sp = strlen(ioData.output.transient.prefix) + 1;
+    generalizedforces = new char[sp + strlen(ioData.output.transient.generalizedforces)];
+    sprintf(generalizedforces, "%s%s", ioData.output.transient.prefix, ioData.output.transient.generalizedforces);
+
+    mX = new VecSet<DistSVec<double,3> >(1, domain->getNodeDistInfo());
+
+    if (hmmh)
+       (*mX)[0] = hmmh->getModes(); 
+    else if(pmmh)
+       (*mX)[0] = pmmh->getModes(); 
+    else if(dmmh)
+       (*mX)[0] = dmmh->getModes();
+
+  }
+//  else
+//    generalizedforces = 0;
 
 }
 

@@ -478,7 +478,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   else
     monitorInitialState(it, U);
   
-  output->setMeshMotionHandler(dynamic_cast<RigidMeshMotionHandler *>(mmh));
+  output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
 
   timer->setSetupTime();
