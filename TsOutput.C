@@ -18,6 +18,12 @@ template<int dim>
 TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
   refVal(rv), domain(dom), postOp(po), rmmh(0)
 {
+  modeFile = 0;
+  TavF = 0;
+  TavM = 0;
+  TavL = 0;
+  Qs = 0;
+  Qv = 0;
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -356,8 +362,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[1] = iod.output.transient.y0;
   x0[2] = iod.output.transient.z0;
 
-  Qs = 0;
-  Qv = 0;
   fpResiduals = 0;
   fpGnForces  = 0;
 
@@ -382,9 +386,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     fpHydroDynamicLift[iSurf]   = 0;
   }
 
-  TavF = 0;
-  TavM = 0;
-  TavL = 0;
 
 // Included (MB)
   if (iod.output.transient.velocitynorm[0] != 0) {
