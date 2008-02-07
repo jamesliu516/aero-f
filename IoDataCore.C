@@ -77,6 +77,7 @@ PreconditionData::PreconditionData()
   k = 1.0;
   cmach = 1.0;
   betav = 0.0;
+  shockreducer = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -84,12 +85,13 @@ PreconditionData::PreconditionData()
 void PreconditionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name,4,father);
+  ClassAssigner *ca = new ClassAssigner(name,5,father);
 
   new ClassDouble<PreconditionData>(ca,"Mach", this, &PreconditionData::mach);
   new ClassDouble<PreconditionData>(ca,"CutOffMach", this, &PreconditionData::cmach);
   new ClassDouble<PreconditionData>(ca,"k", this, &PreconditionData::k);
   new ClassDouble<PreconditionData>(ca,"Betav", this, &PreconditionData::betav);
+  new ClassDouble<PreconditionData>(ca,"ShockReducer", this, &PreconditionData::shockreducer);
 
 }
 

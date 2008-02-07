@@ -836,7 +836,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       riemann.computeRiemannSolution(Vi,Vj,Phi[i],Phi[j],gradphi,varFcn,
                                      epsi,epsj,Wi,Wj,i,j);
       fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, epsi);
-			fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, epsj);
+      fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, epsj);
 
     }
 
