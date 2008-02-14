@@ -268,6 +268,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
   double betaRef = ioData.prec.mach;
   double K1 = ioData.prec.k;
   double cmach = ioData.prec.cmach;
+  double shockreducer = ioData.prec.shockreducer;
 
   //for GAS
   if (ioData.eqs.numPhase == 1){
@@ -303,9 +304,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData);
 
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(gamma, ioData);
         }
@@ -325,9 +326,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData);
 
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(gamma, ioData);
         }
@@ -378,9 +379,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_INTERNAL] = new FluxFcnPerfectGasVanLeerEuler3D(ioData);
         else if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeEuler3D(gamma, ioData);
         }
@@ -422,9 +423,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
       ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
       if (ioData.schemes.ns.flux == SchemeData::ROE) {
         if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
           ff[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(gamma, ioData);
       }
@@ -477,10 +478,10 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                   
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE){
-            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE){
-            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInGasExactJacRoeEuler3D(gamma, ioData);
@@ -532,10 +533,10 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                   
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE){
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE){
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInLiquidExactJacRoeEuler3D(gamma, ioData);
@@ -583,9 +584,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                                                                                                                      
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidExactJacRoeEuler3D(gamma, ioData);
         }
@@ -629,9 +630,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                                                                                                                      
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnGasInLiquidExactJacRoeEuler3D(gamma, ioData);
         }

@@ -77,6 +77,7 @@ PreconditionData::PreconditionData()
   k = 1.0;
   cmach = 1.0;
   betav = 0.0;
+  shockreducer = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -84,12 +85,13 @@ PreconditionData::PreconditionData()
 void PreconditionData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name,4,father);
+  ClassAssigner *ca = new ClassAssigner(name,5,father);
 
   new ClassDouble<PreconditionData>(ca,"Mach", this, &PreconditionData::mach);
   new ClassDouble<PreconditionData>(ca,"CutOffMach", this, &PreconditionData::cmach);
   new ClassDouble<PreconditionData>(ca,"k", this, &PreconditionData::k);
   new ClassDouble<PreconditionData>(ca,"Betav", this, &PreconditionData::betav);
+  new ClassDouble<PreconditionData>(ca,"ShockReducer", this, &PreconditionData::shockreducer);
 
 }
 
@@ -381,7 +383,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22, 
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3, 
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
-     "SteadyThermal", 6, "UnsteadyThermal", 7, "SteadyAeroThermoElastic", 8, 
+     "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8, 
      "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11, 
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,

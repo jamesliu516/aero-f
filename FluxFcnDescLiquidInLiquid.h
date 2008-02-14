@@ -11,8 +11,8 @@ class FluxFcnLiquidInLiquidFDJacRoeEuler3D : public FluxFcnFDJacRoeEuler3D {
 
 public:
 
-  FluxFcnLiquidInLiquidFDJacRoeEuler3D(double gg, double br, double K1, double cm, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeEuler3D(gg, br, K1, cm, pr, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+  FluxFcnLiquidInLiquidFDJacRoeEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacRoeEuler3D(gg, br, K1, cm, sr, pr, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
   ~FluxFcnLiquidInLiquidFDJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -29,8 +29,8 @@ class FluxFcnLiquidInLiquidApprJacRoeEuler3D : public FluxFcnApprJacRoeEuler3D {
 
 public:
 
-  FluxFcnLiquidInLiquidApprJacRoeEuler3D(int rs, double gg, double br, double K1, double cm, int pr, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeEuler3D(rs, gg, br, K1, cm, pr, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+  FluxFcnLiquidInLiquidApprJacRoeEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) : 
+    FluxFcnApprJacRoeEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
   ~FluxFcnLiquidInLiquidApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
