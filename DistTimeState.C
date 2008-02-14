@@ -76,7 +76,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 
   //preconditioner setup
   mach = ioData.bc.inlet.mach;
-  cmach = ioData.prec.cmach;
+  cmach = 1.0;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
   beta = 1.0;
@@ -96,6 +96,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
         else{
           prec = true;
           beta = ioData.prec.mach;
+          cmach = ioData.prec.cmach;
         }
         
       }
@@ -146,7 +147,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
 
   //preconditioner setup
   mach = ioData.bc.inlet.mach;
-  cmach = ioData.prec.cmach;
+  cmach = 1.0;
   k1 = ioData.prec.k;
   betav = ioData.prec.betav;
   beta = 1.0;
@@ -166,6 +167,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
         else{
           prec = true;
           beta = ioData.prec.mach;
+          cmach = ioData.prec.cmach;
         }
       }
    if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||

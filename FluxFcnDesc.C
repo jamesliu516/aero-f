@@ -27,7 +27,7 @@ extern "C" {
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
-                         const double&, const int&);
+                         const double&, const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*);
   void F77NAME(roejac2)(const int&, const double&, const double&, 
@@ -87,7 +87,7 @@ void FluxFcnFDJacRoeEuler3D::computePerfectGas(double length, double irey, doubl
 				     double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
 }
 
@@ -107,7 +107,7 @@ void FluxFcnFDJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double d
 void FluxFcnApprJacRoeEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux)
 {
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 }
 
 //------------------------------------------------------------------------------
@@ -1365,7 +1365,7 @@ void FluxFcnFDJacRoeSA3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
 }
 
@@ -1386,7 +1386,7 @@ void FluxFcnApprJacRoeSA3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
 }
 
@@ -1695,7 +1695,7 @@ void FluxFcnFDJacRoeKE3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
 }
 
@@ -1716,7 +1716,7 @@ void FluxFcnApprJacRoeKE3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
 }
 

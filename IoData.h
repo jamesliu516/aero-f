@@ -213,6 +213,7 @@ struct PreconditionData {
   double cmach;
   double k;
   double betav;
+  double shockreducer;
 
   PreconditionData();
   ~PreconditionData() {}
