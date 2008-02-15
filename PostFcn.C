@@ -946,7 +946,7 @@ double PostFcnNS::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3],
     double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
     double qj[3];
     computeHeatFluxVector(kappa, dTdxj, qj);
-    hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2];
+    hp = -qj[0]*n[0] - qj[1]*n[1] - qj[2]*n[2]; // negative because of the sign convention (AJ)
   }
 
   return hp;
@@ -980,7 +980,7 @@ double PostFcnNS::computeDerivativeOfHeatPower(double dp1dxj[4][3], double ddp1d
     computeHeatFluxVector(kappa, dTdxj, qj);
     double dqj[3];
     computeDerivativeOfHeatFluxVector(kappa, dkappa, dTdxj, ddTdxj, dqj);
-    dhp = dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2];
+    dhp = -(dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2]); // negative because of sign convention (AJ)
   }
 
   return dhp;
