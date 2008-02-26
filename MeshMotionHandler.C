@@ -39,12 +39,7 @@ void AeroMeshMotionHandler::setup(int *rstrt, double *maxTime, PostOperator<dim>
 				  DistSVec<double,3> &X, DistSVec<double,dim> &U)
 {
 
-  //if (strExc->getAlgorithmNumber() == 4)
-  com->fprintf(stderr, "AEro MMH Setup\n");
   postOp->computeNodalForce(X, U, Pin, F);
-  com->fprintf(stderr, "MMH Setup Force = %e\n", F.norm());
-  postOp->computeNodalForce(X, U, Pin, F);
-  com->fprintf(stderr, "MMH Setup Force2 = %e\n", F.norm());
   
   *rstrt = strExc->getRestartFrequency();
   *maxTime = strExc->getMaxTime();

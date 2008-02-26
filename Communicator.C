@@ -362,21 +362,26 @@ void Communicator::globalOp(int len, Scalar *x, MPI_Op op)
   double t0;
   if (timer) t0 = timer->getTime();
 
-  Scalar *work;
-  int segSize = (len > 65536) ? 65536 : len;
+  int  segSize = (len > 65536) ? 65536 : len;
 
-  if (segSize > 5000)
+  Scalar *work;
+  bool delete_work = false;
+
+  if (segSize > 5000) {    
+    delete_work =  true;
     work = new Scalar[segSize];
-  else
+  } else
     work = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar)*segSize));
 
   for (int offset = 0; offset < len; offset += segSize) {
+    if (offset+segSize > len)
+      segSize = len-offset;
     MPI_Allreduce(x+offset, work, CommTrace<Scalar>::multiplicity*segSize, CommTrace<Scalar>::MPIType, op, comm);
     for (int j = 0; j < segSize; ++j)
       x[offset+j] = work[j];
   }
 
-  if (segSize > 5000) delete [] work;
+  if (delete_work) delete [] work;
 
   if (timer) timer->addGlobalComTime(t0);
 
