@@ -33,7 +33,7 @@ SPACES [ \t]+
              }
 
 
-"\""[A-z0-9._\/\-]*"\""	{
+"\""[A-z0-9._\/\-\+]*"\""	{
      char *string = new char[ strlen(yyCmdftext)-1]; 
      string[0] = 0;
      strncat(string, yyCmdftext+1, strlen(yyCmdftext)-2);
