@@ -550,8 +550,10 @@ void TsDesc<dim>::outputPositionVectorToDisk()
 
   *X = *Xs;
 
-  int algNum = mmh->getAlgNum();
-  if (algNum == 8)  return;
+  if (mmh)  {
+    int algNum = mmh->getAlgNum();
+    if (algNum == 8)  return;
+  }
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 

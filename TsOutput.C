@@ -1468,8 +1468,12 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
+    if (solutions)  {
+      DistSVec<double,dim> soltn(U);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(solutions, step, tag, soltn);
+    }
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {

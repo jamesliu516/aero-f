@@ -521,6 +521,9 @@ public:
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
 
+  template<class Scalar, int dim>
+  void scaleSolution(DistSVec<Scalar,dim> &, RefVal*);
+
   template<int dim>
   void computeForceDerivs(VarFcn *, DistSVec<double,3> &, DistSVec<double,dim> &, 
                           DistSVec<double ,dim> &, Vec<double> &, VecSet< DistSVec<double,3> > &);
