@@ -2320,6 +2320,40 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 
 //------------------------------------------------------------------------------
 
+template<class Scalar, int dim>
+void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
+
+  int iSub;
+
+  double scale[dim];
+  if (dim == 5)  {
+
+    scale[0] = refVal->density;
+    scale[1] = refVal->density*refVal->velocity;
+    scale[2] = refVal->density*refVal->velocity;
+    scale[3] = refVal->density*refVal->velocity;
+    scale[4] = refVal->energy;
+  }
+  else  {
+
+    com->fprintf(stderr, " ... ERROR: Solution Scaling only implemented Fluid System of Dimension 5\n");
+    exit(-1);
+  }
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)  {
+
+    SVec<Scalar, dim> &subData = data(iSub);
+
+    for (int i = 0; i < data.size(); ++i)
+      for (int j = 0; i < dim; ++i)
+        subData[i][j] *= scale[j];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<class S1, class S2>
 void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<double,3>& X, 
                                   DistSVec<double,3>& F, DistMat<S1,3>& K, 
