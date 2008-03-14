@@ -980,7 +980,7 @@ double PostFcnNS::computeDerivativeOfHeatPower(double dp1dxj[4][3], double ddp1d
     computeHeatFluxVector(kappa, dTdxj, qj);
     double dqj[3];
     computeDerivativeOfHeatFluxVector(kappa, dkappa, dTdxj, ddTdxj, dqj);
-    dhp = -(dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2]); // negative because of sign convention (AJ)
+    dhp = dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2]; 
   }
 
   return dhp;
