@@ -2786,11 +2786,13 @@ void IoData::setupCmdFileVariables()
 void IoData::readCmdFile() 
 {
 
+  extern FILE *yyCmdfin;
   extern int yyCmdfparse();
 
   setupCmdFileVariables();
 
-  cmdFilePtr = freopen(cmdFileName, "r", stdin);
+//  cmdFilePtr = freopen(cmdFileName, "r", stdin);
+  yyCmdfin = cmdFilePtr = fopen(cmdFileName, "r");
  
   if (!cmdFilePtr) {
     com->fprintf(stderr,"*** Error: could not open \'%s\'\n", cmdFileName);
@@ -2802,6 +2804,7 @@ void IoData::readCmdFile()
     com->fprintf(stderr,"*** Error: command file contained parsing errors\n");
     exit(error);
   }
+  fclose(cmdFilePtr);
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
@@ -2809,7 +2812,8 @@ void IoData::readCmdFile()
       sprintf(name, "%s", input.rstdata);
     else
       sprintf(name, "%s%s", input.prefix, input.rstdata);
-    FILE *fp = freopen(name, "r", stdin);
+//    FILE *fp = freopen(name, "r", stdin);
+    FILE *fp = yyCmdfin = fopen(name, "r"); 
     if (!fp) {
       com->fprintf(stderr, "*** Error: could not open \'%s\'\n", name);
       exit(-1);
@@ -2819,6 +2823,7 @@ void IoData::readCmdFile()
       com->fprintf(stderr, "*** Error: parameter file contained parsing errors\n");
       exit(error);
     }
+    fclose(fp);
   }
 
   resetInputValues();

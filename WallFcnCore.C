@@ -168,6 +168,8 @@ double WallFcn::computeFrictionVelocity(Vec3D &t, double delta, double rho, Vec3
 
   double ut = u * t;
 
+  if (ut < 0.0) ut = 0.0; 
+
   double utau = sqrt(mu * ut / (reynolds * rho * delta));
 
   int it;
@@ -222,6 +224,8 @@ double WallFcn::computeDerivativeOfFrictionVelocity(Vec3D &t, Vec3D &dt, double 
   double eps = 1.e-6;
 
   double ut = u * t;
+
+  if(ut < 0.0) ut = 0.0;
 
   double dut = du * t + u * dt;
 
