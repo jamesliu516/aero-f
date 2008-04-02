@@ -60,11 +60,16 @@ int ExplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 
   solveNonLinearSystemEuler(U);
 
-  this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
+  if(!(this->interfaceType==MultiFluidData::FSF)){
+    this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, 
+                                          this->Vgf, this->Vgfweight);
 
-  solveNonLinearSystemLevelSet(U);
+    solveNonLinearSystemLevelSet(U);
 
-  this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight, this->riemann);
+    this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, 
+                                     this->LS->Phin, this->Vgf, 
+                                     this->Vgfweight, this->riemann);
+  }
 
   checkSolution(U);
 

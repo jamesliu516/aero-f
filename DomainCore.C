@@ -1248,17 +1248,64 @@ void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsD
 //------------------------------------------------------------------------------
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
-void Domain::setPhi(DistVec<double> &Phi)
+void Domain::setPhiForFluid1(DistVec<double> &Phi)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhi(Phi(iSub));
+    subDomain[iSub]->setPhiForFluid1(Phi(iSub));
 
 }
 
 //------------------------------------------------------------------------------
-void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level)
+void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb, 
+                                          double zb, double r, double invertGasLiquid,
+                                          DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiWithDistanceToGeometry(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb, 
+                                          double zb, double r, double invertGasLiquid,
+                                          DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiByGeometricOverwriting(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
+                                DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForShockTube(X(iSub), radius, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
+                             double z, double radius,
+                             double invertGasLiquid, DistVec<double> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForBubble(X(iSub),
+                                     x, y, z, radius, invertGasLiquid,
+                                     Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi,
+                               int level)
 {
 
   int iSub;

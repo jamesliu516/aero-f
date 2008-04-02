@@ -750,6 +750,8 @@ struct MultiFluidData {
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
+  enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
+  enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
   ICData icd;
 
   MultiFluidData();

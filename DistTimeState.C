@@ -945,7 +945,6 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
   }
   if (data->use_nm1) {
     varFcn->conservativeToPrimitive(*Un, *V, &Phi1);
-    fprintf(stdout, "finish changes and check if it works first\n");
     varFcn->updatePhaseChange(*V, *Unm1, Phi, Phi1, Vgf, Vgfweight, riemann);
     data->exist_nm1 = true;
   }

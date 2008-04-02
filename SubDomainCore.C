@@ -3624,15 +3624,95 @@ void SubDomain::checkVec(SVec<double,3> &V)
 }
 
 //--------------------------------------------------------------------------
-
-void SubDomain::setPhi(Vec<double> &phi)  {
+void SubDomain::setPhiForFluid1(Vec<double> &phi)  {
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
-    if (elems[iElem].getVolumeID() == -1)  {
+    if (elems[iElem].getVolumeID() != -1)  {
       int *nodeNums = elems[iElem].nodeNum();
       for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        phi[nodeNums[iNode]] = -1.0;
+        phi[nodeNums[iNode]] = 1.0;
       
     }
   }
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x, 
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             Vec<double> &Phi)  {
+
+// assume it is a sphere!
+  double dist; //dist to center of sphere
+  for (int i=0; i<nodes.size(); i++){
+    dist = (X[i][0]-x)*(X[i][0]-x) + (X[i][1]-y)*(X[i][1]-y) + (X[i][2]-z)*(X[i][2]-z);
+    dist = sqrt(dist);
+    Phi[i] *= std::abs(dist - r);
+  }
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x, 
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             Vec<double> &Phi)  {
+
+//WARNING: routine cannot do like in setPhiWithDistanceToGeometry
+//         where phi was computed by : Phi[i] *= std::abs(dist - r);
+//         because in that routine Phi[i] had value 1 or -1
+//         Here this is not possible because we do not loop on nodes,
+//         we loop on elements, and thus we pass several times on each
+//         node, and we cannot say that Phi[i] is 1 or -1.
+
+
+  // assume it is a sphere!
+  double dist; //dist to center of sphere
+  int node;
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() != -1)  {
+    // nodes in element with volumeID != -1 --> Phi>0 except where we specify otherwise
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        Phi[node] = dist - r;
+
+      }
+    }else{
+    // nodes in element with volumeID = -1 --> Phi<0
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        //Phi[node] *= std::abs(dist-r); // does not work (cf WARNING)
+        Phi[node] = -std::abs(dist-r);
+      }
+
+    }
+  }
+
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiForShockTube(SVec<double,3> &X,
+                                   double radius, Vec<double> &Phi)
+{
+
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i] = X[i][0] - radius;
+
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
+                             double z, double radius, double invertGasLiquid,
+                             Vec<double> &Phi)
+{
+
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
+                                    (X[i][1] -y)*(X[i][1] -y)  +
+                                    (X[i][2] -z)*(X[i][2] -z))
+                                  - radius);
 }
