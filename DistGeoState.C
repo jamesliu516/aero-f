@@ -257,6 +257,10 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
 
   com->printf(2, "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n", 
 	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum());
+  com->printf(2, "Mesh bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n",
+              (X->min())[0], (X->min())[1], (X->min())[2]);
+  com->printf(2, "                   (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
+              (X->max())[0], (X->max())[1], (X->max())[2]);
 
 }
 
