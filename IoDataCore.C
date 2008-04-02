@@ -1318,6 +1318,10 @@ MultiFluidData::MultiFluidData()
   eps = 1.e-6;
   outputdiff = 0;
   copy = FALSE;
+
+  lsInit = VOLUMES;
+  interfaceType = FSF;
+
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1325,7 +1329,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 13, father);
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1334,7 +1338,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "Problem", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
              "Bubble", 0, "ShockTube", 1);
-	new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
+  new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
              "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
@@ -1358,7 +1362,13 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "CopyCloseNodes", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::copy),2,
              "False", 0, "True", 1);
-                                                                                                        
+  new ClassToken<MultiFluidData>(ca, "LSInit", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::lsInit),3,
+             "Old", 0, "Volumes", 1, "Geometric", 2);
+  new ClassToken<MultiFluidData>(ca, "InterfaceType", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
+             "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
+
   icd.setup("InitialConditions", ca);
                                                                                                         
 }

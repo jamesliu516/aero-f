@@ -226,8 +226,21 @@ public:
   void computeLocalAvg(SVec<double,3> &, Vec<double> &, Vec<double> &);
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
-  void setPhi(Vec<double> &);
-                                                                                                                          
+  void setPhiForFluid1(Vec<double> &);
+  void setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
+                                    double y, double z, double r,
+                                    double invertGasLiquid,
+                                    Vec<double> &Phi);
+  void setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
+                                    double y, double z, double r,
+                                    double invertGasLiquid,
+                                    Vec<double> &Phi);
+  void setPhiForShockTube(SVec<double,3> &X,
+                          double radius, Vec<double> &Phi);
+  void setPhiForBubble(SVec<double,3> &X, double x, double y,
+                       double z, double radius, double invertGasLiquid,
+                       Vec<double> &Phi);
+
   // moving mesh
 
   void getNdAeroLists(int &, int *&, int &, int *&, int &, int *&, MatchNodeSet* matchNodes=0);

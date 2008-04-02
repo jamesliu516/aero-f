@@ -267,7 +267,18 @@ public:
                              DistSVec<bcomp,3>&, DistVec<bcomp>&) {
 	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
-  void setPhi(DistVec<double> &Phi);
+  void setPhiForFluid1(DistVec<double> &Phi);
+  void setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
+                                    double zb, double r, double invertGasLiquid,
+                                    DistVec<double> &Phi);
+  void setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
+                                    double zb, double r, double invertGasLiquid,
+                                    DistVec<double> &Phi);
+  void setPhiForShockTube(DistSVec<double,3> &X, double radius,
+                          DistVec<double> &Phi);
+  void setPhiForBubble(DistSVec<double,3> &X, double x, double y,
+                       double z, double radius, double invertGasLiquid,
+                       DistVec<double> &Phi);
   void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level);
   void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
 	

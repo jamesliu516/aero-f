@@ -31,6 +31,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   // frequency for reinitialization of level set
   int frequencyLS;
+
+  MultiFluidData::InterfaceType interfaceType; //to advance levelset or not
   
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);

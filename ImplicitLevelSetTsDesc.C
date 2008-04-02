@@ -178,13 +178,18 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
 
-  this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, this->Vgfweight);
+  if(!(this->interfaceType==MultiFluidData::FSF)){
+    this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, 
+                                          this->Vgfweight);
 
-  double t1 = this->timer->getTime();
-  int itsLS = this->ns->solveLS(this->Phi, U);
-  this->timer->addLevelSetSolutionTime(t1);
+    double t1 = this->timer->getTime();
+    int itsLS = this->ns->solveLS(this->Phi, U);
+    this->timer->addLevelSetSolutionTime(t1);
 
-  this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin, this->Vgf, this->Vgfweight, this->riemann);
+    this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin,
+                                     this->Vgf, this->Vgfweight, 
+                                     this->riemann);
+  }
 
   checkSolution(U);
 

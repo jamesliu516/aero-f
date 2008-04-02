@@ -48,6 +48,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   }
 
   frequencyLS = ioData.mf.frequency;
+  interfaceType = ioData.mf.interfaceType;
 
 }
 

@@ -917,7 +917,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
 // Ub set up with inlet values and properties of fluidModel2 = GasModel2
 // fluidModel1 is on the right/outlet 
 // fluidModel2 is on the left/inlet
-    fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
+    //fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
     gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
     Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
     if(iod.bc.inlet.mach >= 0.0){
@@ -1061,7 +1061,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
 // Ub set up with inlet values and properties of fluidModel2 = LiquidModel2
 // fluidModel1 is on the right/outlet 
 // fluidModel2 is on the left/inlet
-    fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
+    //fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
     if(iod.bc.inlet.mach >= 0.0)
       velin2 = iod.bc.inlet.mach*iod.bc.inlet.mach* a*b*pow(iod.bc.inlet.density, b-1.0);
     else
@@ -1201,7 +1201,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
 // Ub set up with inlet values and properties of fluidModel2 = LiquidModel2
 // fluidModel1 = Liquid is on the right/outlet 
 // fluidModel2 = Gas    is on the left/inlet
-    fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
+    //fprintf(stdout, "\n\nSHOCKTUBE PROBLEM\n\n");
   
     double gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
     double Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
