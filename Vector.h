@@ -875,6 +875,26 @@ public:
   }
 #endif
 
+  Scalar * min() const {
+    Scalar * vmin= new Scalar[dim];
+    for (int idim=0; idim<dim; idim++)
+      vmin[idim] = v[0][idim];
+    for (int i=1; i<len; ++i)
+      for (int idim=0; idim<dim; idim++)
+        vmin[idim] = v[i][idim] < vmin[idim] ? v[i][idim] : vmin[idim];
+    return vmin;
+  }
+
+  Scalar * max() const {
+    Scalar * vmax= new Scalar[dim];
+    for (int idim=0; idim<dim; idim++)
+      vmax[idim] = v[0][idim];
+    for (int i=1; i<len; ++i)
+      for (int idim=0; idim<dim; idim++)
+        vmax[idim] = v[i][idim] > vmax[idim] ? v[i][idim] : vmax[idim];
+    return vmax;
+  }
+
 };
 
 //------------------------------------------------------------------------------

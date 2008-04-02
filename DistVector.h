@@ -727,6 +727,10 @@ public:
 
   Scalar operator*(const DistSVec<Scalar,dim> &);
 
+  Scalar * min() const;
+
+  Scalar * max() const;
+
   template<class T>
   DistSVec<Scalar,dim> &operator=(const Expr<T, Scalar> &);
 
@@ -1771,6 +1775,66 @@ DistSVec<Scalar,dim>::pad(DistSVec<Scalar,dim1> &y)
     }
 
   }
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+inline
+Scalar *
+DistSVec<Scalar,dim>::min() const
+{
+
+  int iSub;
+
+  Scalar *allmin = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub * dim));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub)
+    for (int idim=0; idim<dim; idim++)
+      allmin[iSub*dim+idim] = (subVec[iSub]->min())[idim];
+
+  Scalar * vmin = new Scalar[dim];
+  for (int idim=0; idim<dim; idim++)
+    vmin[idim] = allmin[idim];
+  for (iSub = 1; iSub < distInfo.numLocSub; ++iSub)
+    for (int idim=0; idim<dim; idim++)
+      vmin[idim] = vmin[idim] < allmin[iSub*dim+idim] ? vmin[idim] : allmin[iSub*dim+idim];
+
+  distInfo.com->globalMin(dim, vmin);
+
+  return vmin;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+inline
+Scalar *
+DistSVec<Scalar,dim>::max() const
+{
+
+  int iSub;
+
+  Scalar *allmax = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub * dim));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub)
+    for (int idim=0; idim<dim; idim++)
+      allmax[iSub*dim+idim] = (subVec[iSub]->max())[idim];
+
+  Scalar * vmax = new Scalar[dim];
+  for (int idim=0; idim<dim; idim++)
+    vmax[idim] = allmax[idim];
+  for (iSub = 1; iSub < distInfo.numLocSub; ++iSub)
+    for (int idim=0; idim<dim; idim++)
+      vmax[idim] = vmax[idim] > allmax[iSub*dim+idim] ? vmax[idim] : allmax[iSub*dim+idim];
+
+  distInfo.com->globalMax(dim, vmax);
+
+  return vmax;
+
 }
 
 //------------------------------------------------------------------------------
