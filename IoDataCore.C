@@ -1952,7 +1952,7 @@ void DGCLData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int DGCLData::*>(&DGCLData::velocities), 6,
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
-     "RK2Gcl", 6);
+     "RK2Gcl", 7);
 
   new ClassToken<DGCLData>
     (ca, "Volumes", this,
@@ -2776,6 +2776,7 @@ void IoData::setupCmdFileVariables()
   mf.setup("MultiFluid");
   schemes.setup("Space");
   ts.setup("Time");
+  dgcl.setup("DGCL");
 
 // Included (MB)
   sa.setup("SensitivityAnalysis");
@@ -3782,6 +3783,12 @@ int IoData::checkSolverValues()
   if (eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ISOTHERMAL && 
       !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
     com->fprintf(stderr, "*** Error: no valid wall temperature (%d) given\n", bc.wall.temperature);
+    ++error;
+  }
+
+// for Multiphase flow using levelset
+  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT){
+    com->fprintf(stderr, "*** Error: Linear reconstruction of the levelset is needed!\n");
     ++error;
   }
 
