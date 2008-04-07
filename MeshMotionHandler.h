@@ -120,6 +120,7 @@ protected:
   enum TimeIntegrator {IMPLICIT_FIRST_ORDER, IMPLICIT_SECOND_ORDER} timeIntegrator;
   bool steady;
   int it0;
+  double mppFactor;
 
   DistSVec<double,3>* Fn;
   DistSVec<double,3>* Fnp1;

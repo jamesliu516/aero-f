@@ -387,7 +387,7 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
 
   strExc = new StructExc(ioData, matchNodes, 6, domain->getStrCommunicator(), domain);
   strExc->negotiate();
-  strExc->getInfo();
+  mppFactor = strExc->getInfo();
 
   //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
@@ -598,7 +598,10 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
   strExc->getMdFreq(nf, f);
   com->fprintf(stderr, " ... Reading %d modal frequencies\n", nf);
   com->fprintf(stderr, " ... Writing Fluid mesh modes to %s\n", posFile);
+  com->fprintf(stderr, " ... Using MppFactor: %f\n", mppFactor);
   domain->writeVectorToFile(posFile, 0, nf, X);
+  DistVec<double> cv(domain->getNodeDistInfo());
+  double lscale = 1.0/oolscale;
 
   for (int im = 0; im < nf; ++im) {
     X = X0;
@@ -608,7 +611,10 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
 
     mms->solve(dX, X);
 
+    // verify mesh integrity
+    domain->computeControlVolumes(lscale, X, cv);
     dX = X - X0;
+    dX *= mppFactor;
     domain->writeVectorToFile(posFile, im+1, f[im], dX);
   }
 

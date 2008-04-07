@@ -156,7 +156,7 @@ void StructExc::negotiate()
 
 //------------------------------------------------------------------------------
 
-void StructExc::getInfo() 
+double StructExc::getInfo() 
 {
 
   double info[5];
@@ -173,6 +173,12 @@ void StructExc::getInfo()
   smode = int(info[4]);
 
   if (algNum == 6) tmax -= 0.5 * dt;
+
+  double mppFactor = 1.0;
+  if (algNum == 8)
+    mppFactor = 1.0/info[2];
+
+  return mppFactor;
 
 }
 
