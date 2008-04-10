@@ -2921,7 +2921,37 @@ void Domain::padeReconstruction(VecSet<DistSVec<double, dim> >&snapsCoarse, VecS
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void Domain::hardyInterpolationLogMap(VecSet<DistSVec<double, dim> >**logMap, VecSet<DistSVec<double, dim> >&logMapInterp, int nData, int numPod, int iDataMin, FullM &B, FullM &b)
+{
 
+  SVec<double, dim> ***locVecSet = new SVec<double, dim> **[nData];
+  for (int iSub = 0; iSub < numLocSub; ++iSub)  {
+    for (int iData=0; iData < nData; ++iData) {
+      if (iData != iDataMin) {
+        locVecSet[iData] = new SVec<double, dim> *[numPod];
+        for (int iPod = 0; iPod < numPod; ++iPod)
+          (locVecSet[iData])[iPod] = &((*(logMap[iData]))[iPod])(iSub);
+      }
+    }
+    SVec<double, dim> **locLogMapInterp = new SVec<double, dim> *[numPod];
+    for (int iPod = 0; iPod < numPod; ++iPod)
+      locLogMapInterp[iPod] = &logMapInterp[iPod](iSub);
+    subDomain[iSub]->hardyInterpolationLogMap(locVecSet,locLogMapInterp,nData,numPod,iDataMin,B,b);
+    for (int iPod = 0; iPod < numPod; ++iPod)
+      locLogMapInterp[iPod] = 0;
+    delete[] locLogMapInterp;
+  }
+  for (int iData=0; iData < nData; ++iData) {
+    if (iData != iDataMin){
+      for (int iPod=0; iPod<numPod;++iPod)
+        (locVecSet[iData])[iPod] = 0;
+      delete [] locVecSet[iData];
+    }
+  }
+  delete [] locVecSet;
+}
+//------------------------------------------------------------------------------
 // Included (MB)
 template<int dim>
 void Domain::getGradP(DistNodalGrad<dim>& ngrad)

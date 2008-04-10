@@ -197,6 +197,31 @@ GenFullM<Scalar>::operator^(GenFullM<Scalar> &m)
    }
  return res;
 }
+
+template<class Scalar>
+void
+GenFullM<Scalar>::invert()
+{
+
+  if (nrow != ncolumn)
+    std::cout << "*** Matrix to be inverted is not square ***" << std::endl;
+
+  GenFullM tmp(*this);
+  tmp.factor();
+  double *rhs = new double[ncolumn];
+  for (int i=0; i < ncolumn; ++i) { //for each i solve Axi = ei
+    for (int j=0; j < ncolumn; ++j) {
+      if (j!=i)
+        rhs[j] = 0.0;
+      else
+        rhs[j] = 1.0;
+    }
+    tmp.reSolve(rhs);
+    for (int j=0; j < ncolumn; ++j)
+      (*this)[j][i] = rhs[j];
+  }
+
+}
 /*
 template<class Scalar>
 GenFullM
