@@ -4260,6 +4260,58 @@ void SubDomain::snapshotsConstruction(SVec<double, dim> **data, bcomp* snaps, in
   Z = 0;
                                                         
 }
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::hardyInterpolationLogMap(SVec<double, dim> ***dataCoarse, SVec<double, dim> **dataInterp, int nData, int numPod, int iDataMin, FullM &B, FullM &b)
+{
+
+  double tempMat[dim*nData];
+  double *hardyCoefs = new double[nData];
+  //for each vector
+  for (int iPod = 0; iPod < numPod; ++iPod) {
+    //for each node
+    for (int iNode = 0; iNode < (*(dataInterp[0])).len; ++iNode) {
+      extractElementsRelativeToANodeAndAVector(dataCoarse,tempMat,iNode,nData,iDataMin,iPod);
+      // for each component
+      for (int iDim = 0; iDim < dim; ++iDim) {
+        //hardyCoefs = B*data(component)
+        for (int iData = 0; iData < nData; ++iData) {
+          hardyCoefs[iData] = 0.0;
+          for (int jData = 0; jData < nData; ++jData)
+            hardyCoefs[iData] += B[iData][jData]*tempMat[iDim*nData+jData];
+        }
+        //compute the interpolated analog quantity
+        (*(dataInterp[iPod]))[iNode][iDim] = 0.0;
+        for (int iData = 0; iData < nData; ++iData)
+          (*(dataInterp[iPod]))[iNode][iDim] += b[iData][0]*hardyCoefs[iData];
+      }
+    }
+  }
+  delete [] hardyCoefs;
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::extractElementsRelativeToANodeAndAVector(SVec<double, dim> ***dataCoarse, double *tempMat, int iNode, int nData, int jDataMin, int iPod)
+{
+
+
+  for (int jData = 0; jData < nData; ++jData) {
+    if (jData !=jDataMin) {
+      SVec<double, dim> *X = dataCoarse[jData][iPod];
+      for (int iDim = 0; iDim < dim; ++iDim)
+        *(tempMat + iDim*nData + jData)  = (*X)[iNode][iDim];  //tempMat[iDim][jData]
+    }
+    else {
+      for (int iDim = 0; iDim < dim; ++iDim)
+        *(tempMat + iDim*nData + jData)  = 0.0;
+    }
+
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)

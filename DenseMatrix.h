@@ -41,7 +41,7 @@ class GenFullM {
    GenFullM<Scalar> operator %(GenFullM<Scalar>&); // product A*B^T
 
 //   Vector operator *(const Vector &v);
-
+   void invert();
 //   GenFullM invert();
 //   GenFullM transpose();
 

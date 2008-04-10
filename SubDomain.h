@@ -11,6 +11,7 @@
 #include <DiagMatrix.h>
 #include <DistInfo.h>
 #include <BCond.h>
+#include <DenseMatrix.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -783,6 +784,9 @@ public:
   void printAllMatrix(GenMat<Scalar,neq> &, int );
 
   template<int dim>
+  void hardyInterpolationLogMap(SVec<double, dim> ***, SVec<double, dim> **, int, int, int, FullM &, FullM &);
+
+  template<int dim>
    void padeReconstruction(SVec<double, dim> **, SVec<double, dim> **, int *, double *, double, int, int, int, int );                                                        
   void buildPadeMatrix(bcomp *, int *, int, double *, bcomp *, int, int, int );
                                                         
@@ -797,6 +801,9 @@ public:
                                                         
   template<int dim>
   void extractElementsRelativeToANode(SVec<double, dim> **, double *, int , int );
+
+  template<int dim>
+  void extractElementsRelativeToANodeAndAVector(SVec<double, dim> ***, double *, int , int , int , int );
                                                         
   template<int dim>
   void snapshotsConstruction(SVec<double, dim> **, bcomp* , int , int , int, int , int , double );
@@ -805,8 +812,7 @@ public:
 
   int multiPointsFreq(int , int , double *, int , int );
 
-  void multiPade(bcomp *, int *, double *, bcomp *, bcomp *, int , int , int , double , double , bcomp *, double *);
-                                                                                             
+  void multiPade(bcomp *, int *, double *, bcomp *, bcomp *, int , int , int , double , double , bcomp *, double *);                                                                                             
 // Included (MB)
   int computeDerivativeOfControlVolumes(int, double, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
 

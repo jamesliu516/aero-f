@@ -31,6 +31,12 @@ extern "C"      {
    void F77NAME(dsvdc)(double *, int &, int &, int&, double *,
                         double *, double *, int &, double *, int &,
                         double *, const int &, int &);
+
+   void F77NAME(thinsvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, double *, int &,
+                        int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
+                        int &, double *, int &);
+  void F77NAME(lworksize)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
+
 }
 
 //----------------------------------------------------------------------------------
@@ -191,8 +197,8 @@ void ModalSolver<dim>::solveInTimeDomain()  {
     readPodVecs(podVecs, nPodVecs);
 
     // print out ROM if requested
-    if (ioData->output.transient.romFile != "")  {
-
+    if (ioData->output.transient.romFile[0] != 0)  {
+      
       if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)  {
         VecSet<Vec<double> > outputRom(nPodVecs, nStrMode);
         formOutputRom(outputRom, podVecs, nPodVecs);
@@ -207,7 +213,7 @@ void ModalSolver<dim>::solveInTimeDomain()  {
     // timeIntegrate ROM
     int modeNum = ioData->linearizedData.modeNumber - 1;
     if (ioData->problem.alltype == ProblemData::_ROM_)
-      com->fprintf(stderr, " ... Running Unsteady Linearized ROM w/no structural initializaitons\n");
+      com->fprintf(stderr, " ... Running Unsteady Linearized ROM w/no structural initializations\n");
     else if (ioData->linearizedData.initCond == LinearizedData::DISPLACEMENT)  {
       com->fprintf(stderr, " ... Initializing with Displacement Mode: %d\n", ioData->linearizedData.modeNumber);
       delU[modeNum] = ioData->linearizedData.amplification;
@@ -1699,7 +1705,6 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 }
 
 //---------------------------------------------------------------------------------------
-
 template<int dim>
 void
 ModalSolver<dim>::outputModalDisp(double *delU, double *delY, double sdt, int cnt,
@@ -1712,198 +1717,708 @@ ModalSolver<dim>::outputModalDisp(double *delU, double *delY, double sdt, int cn
 }
 
 //----------------------------------------------------------------------------------
-
 template<int dim>
-void
-ModalSolver<dim>::interpolatePOD()  {
+void ModalSolver<dim>::setTransfer(int* locDomSize,int* cpuNodes,int &nCpuBl,int blockFactor) {
+
+  int numLocSub = domain.getNumLocSub();
+
+  // loop over all domain nodes and compute the cpu to send to
+  // -1 indicates that it's a slave node and no sending
+  DistVec<int> cpuDestination(domain.getNodeDistInfo());
+  cpuDestination = -1;
+
+  SubDomain **subDomain = domain.getSubDomain();
+
+  int nTotCpus = com->size();
+  int thisCPU = com->cpuNum();
+
+  // count non-overlapping subdomain sizes
+  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
+    locDomSize[iCpu] = 0;
+
+  #pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    bool *locMasterFlag = cpuDestination.getMasterFlag(iSub);
+    for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); iNode++)  {
+      if (locMasterFlag[iNode])
+        locDomSize[thisCPU]++;
+    }
+  }
+
+  int maxDomainSize = locDomSize[thisCPU];
+  com->globalMax(1, &maxDomainSize);
+  //add globally
+  com->globalSum(nTotCpus, locDomSize);
+
+  // compute the number of blocks needed bu cpu
+  int numTotalNodes = 0;
+  for (int iCpu=0; iCpu < nTotCpus; ++iCpu)
+    numTotalNodes += locDomSize[iCpu];
+  //com->fprintf(stderr, "There are %d nodes in total \n",numTotalNodes);
+
+  //total number of blocks required
+  int numBlocks = int(ceil(double(numTotalNodes)/double(blockFactor)));
+  //size of the last block
+  int nLastBlock = blockFactor - (numBlocks*blockFactor - numTotalNodes);
+  //number of blocks per Cpu
+  nCpuBl = int(ceil(double(numBlocks)/double(nTotCpus)));
+  int *cpuBlocks = new int[nTotCpus];
+  for (int iCpu=0; iCpu < nTotCpus; ++iCpu)
+    cpuBlocks[iCpu] = nCpuBl;
+  for (int i=1; i<=nTotCpus*nCpuBl-numBlocks; ++i)
+    cpuBlocks[nTotCpus-i] -= 1;
+  int lastCpu;
+  if (nLastBlock>0){
+    lastCpu = nTotCpus - (nTotCpus*nCpuBl-numBlocks) -1;
+  }
+  else
+    lastCpu = nTotCpus - (nTotCpus*nCpuBl-numBlocks);
+
+  // compute the number of nodes needed by cpu
+  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
+    cpuNodes[iCpu] = cpuBlocks[iCpu]*blockFactor;
+  if (nLastBlock < blockFactor)
+    cpuNodes[lastCpu] += (nLastBlock-blockFactor);
+
+  delete[] cpuBlocks;
+}
+//----------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps) {
+
+  int numLocSub = domain.getNumLocSub();
+
+  // specify the block size (in terms of nodes)
+  // blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
+  int blockFactor = int(floor(2*nSnaps/dim));
+
+  SubDomain **subDomain = domain.getSubDomain();
+
+  int nTotCpus = com->size();
+  int thisCPU = com->cpuNum();
+
+  int *cpuNodes = new int[nTotCpus];
+  int *locDomSize = new int[nTotCpus];
+  int *locSendReceive = new int[nTotCpus];
+  //set the transfer parameters
+  int nCpuBl=0;
+  setTransfer(locDomSize,cpuNodes,nCpuBl,blockFactor);
+  //create the matrix of snapshots with the right distribution
+  double *subMat = new double[blockFactor*dim*nCpuBl*nSnaps];
+  for (int i=0; i < blockFactor*dim*nCpuBl*nSnaps; ++i)
+    subMat[i] =0.0;
+
+
+  //transfer the extra nodes where needed and fill subMat
+  transferData(snaps,subMat,locDomSize,cpuNodes,locSendReceive,nSnaps,nCpuBl,blockFactor);
+
+  com->barrier();
+  // Allocate for svd call
+  // allocate for eigenvectors and eigenvalues
+  int locLLD = dim * cpuNodes[thisCPU];
+  int maxLLD = locLLD;
+  com->globalMax(1, &maxLLD);
+  int maxLocC = nSnaps;
+  int locLLD_V = 1;
+  if (thisCPU == 0)
+    locLLD_V = nSnaps;
+
+  double *U = new double[locLLD*maxLocC];
+  double *V = new double[locLLD_V*maxLocC];
+  for (int iSnaps=0; iSnaps<nSnaps; ++iSnaps)
+    S[iSnaps] = 0.0;
+  int nprow = nTotCpus;
+  int npcol = 1;
+  int globNumRows = dim * snaps[0].nonOverlapSize();
+  // call svd
+  int lwork = 0;
+  int myrow, mycol, ictxt, info;
+  int rowIndex = 1;
+  int colIndex = 1;
+  blockFactor *= dim;
+
+  F77NAME(lworksize)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
+                   blockFactor, blockFactor, lwork);
+
+  com->barrier();
+  double *work = new double[lwork + 2];
+  work[0] = -99.0;
+  
+  com->barrier();
+  F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
+                   blockFactor, blockFactor, subMat, maxLLD, locLLD, nSnaps,
+                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
+                   info);
+
+//  delete[] subMat;
+
+  //fprintf(stderr, "CPU %d Exiting SVD with info code: %d and work size %d\n", thisCPU, info, work[0]);
+  com->barrier();
+
+  for (int i = 0; i < nSnaps; i++){
+    for (int j = 0; j < nSnaps; j++) {
+      Vtrue[i][j] = 0.0;
+      if (thisCPU==0)
+        Vtrue[i][j] = V[nSnaps*i+j];
+    }
+  }
+  delete[] V;
+
+  com->globalSum(nSnaps*nSnaps, Vtrue.data());
+
+  //Permute back matrix U
+  com->barrier();
+
+  //VecSet< DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
+  for (int i = 0; i < nSnaps; ++i)
+    Utrue[i] = 0.0;
+  transferDataBack(U, Utrue , locDomSize, cpuNodes, locSendReceive, nSnaps);
+
+  com->barrier();
+  delete[] locDomSize;
+  delete[] cpuNodes;
+  delete[] locSendReceive;
+  delete[] work;
+  delete[] U;
+}
+
+//----------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, double* subMat, int *locDomSize, int *cpuNodes, int *locSendReceive, int nSnaps, int nCpuBl, int blockFactor ) {
+
+
+  int numLocSub = domain.getNumLocSub();
+  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+  int nTotCpus = com->size();
+  int thisCPU = com->cpuNum();
+
+  int *locDomSizeCpy = new int[nTotCpus];
+  for (int iCpu=0; iCpu<nTotCpus; ++iCpu)
+    locDomSizeCpy[iCpu] = locDomSize[iCpu];
+
+  int subMatRowsNum = cpuNodes[thisCPU]*dim;
+  double *recData;
+  double *buffer;
+
+  // send/receive for each cpu (if positive, it has received, if negative, it has sent)
+  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
+    locSendReceive[iCpu] = 0;
+
+  // loop over all domain nodes and compute the cpu to send to
+  // -1 indicates that it's a slave node and no sending
+  DistVec<int> cpuDestination(domain.getNodeDistInfo());
+  cpuDestination = -1;
+
+  SubDomain **subDomain = domain.getSubDomain();
+  int *totalSentNodes = new int[nTotCpus];
+  int nSendNodes,buffLen,index;
+  int nRecNodes = 0;
+  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu){
+    totalSentNodes[iCpu] = 0;
+    if (locDomSizeCpy[iCpu] - cpuNodes[iCpu] > 0){
+      for (int jCpu = 0; jCpu < nTotCpus; ++jCpu){
+        if (locDomSizeCpy[iCpu] - cpuNodes[iCpu] > 0 && locDomSizeCpy[jCpu] - cpuNodes[jCpu] < 0) {
+          nSendNodes = min(locDomSizeCpy[iCpu] - cpuNodes[iCpu],-(locDomSizeCpy[jCpu] - cpuNodes[jCpu]));
+          //send Here from iCpu to jCpu
+          if (thisCPU==iCpu)
+            locSendReceive[jCpu] = -nSendNodes;
+          else if(thisCPU==jCpu)
+            locSendReceive[iCpu] = nSendNodes;
+
+          buffLen = nSendNodes*dim*nSnaps;
+          // create array for received data
+          if (thisCPU==jCpu)
+            recData = new double[buffLen];
+
+          if (thisCPU==iCpu) {
+            // create buffer
+            buffer = new double[buffLen];
+            //fill buffer
+            for (int iSnap = 0; iSnap < nSnaps; ++iSnap)  {
+              index = 0;
+              for (int iSub = 0; iSub < numLocSub; ++iSub) {
+                // create buffer
+                double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
+                bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
+                for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
+                  if (locMasterFlag[iNode]) {
+                    if (index == nSendNodes+totalSentNodes[iCpu])  break;
+                    index++;
+                    if (index-1 >= totalSentNodes[iCpu])  {
+                      for (int j = 0; j < dim; ++j)
+                        buffer[(index-totalSentNodes[iCpu]-1)*dim+j+iSnap*nSendNodes*dim] = locSnap[iNode][j];
+                    }
+                  }
+                }
+              }
+            }
+            totalSentNodes[iCpu] = index;
+
+            // send data in buffer
+            //fprintf(stderr, "*** CPU #%d sending to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
+            com->sendTo(jCpu, thisCPU*nTotCpus+jCpu, buffer, buffLen);
+            com->waitForAllReq();
+          }
+
+          // receive data and populate submatrix
+          if (thisCPU==jCpu) {
+            com->recFrom(iCpu, iCpu*nTotCpus+thisCPU, recData, buffLen);
+            for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+              for (int k = nRecNodes; k < nSendNodes+nRecNodes; ++k)  {
+                for (int j = 0; j < dim; ++j)
+                  subMat[iSnap*subMatRowsNum + k*dim+j] = recData[(k-nRecNodes)*dim+j+iSnap*nSendNodes*dim];
+              }
+            }
+            nRecNodes += nSendNodes;
+          }
+          locDomSizeCpy[jCpu] += nSendNodes;
+          locDomSizeCpy[iCpu] -= nSendNodes;
+          if (thisCPU==iCpu)
+            delete[] buffer;
+          else if (thisCPU==jCpu)
+            delete[] recData;
+        }
+      }
+      com->barrier();
+    }
+  }
+
+  //for each CPU fill the rest of subMat with its own data
+  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
+    if (thisCPU == iCpu) {
+      int k = nRecNodes;
+      for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+        k = nRecNodes;
+        index = 0;
+        for (int iSub = 0; iSub < numLocSub; ++iSub) {
+          double (*locSnap)[dim] = snaps[iSnap].subData(iSub);
+          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
+          for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
+            if (locMasterFlag[iNode]) {
+              //if not already sent
+              if (index >= totalSentNodes[iCpu])  {
+                for (int j = 0; j < dim; ++j)
+                  subMat[iSnap*subMatRowsNum + k*dim+j] = locSnap[iNode][j];
+                if (iSnap==nSnaps-1)
+                  locDomSizeCpy[iCpu]--;
+                k++;
+              }
+              index++;
+            }
+          }
+        }
+      }
+    }
+  }
+  delete[] totalSentNodes;
+}
+
+//----------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::transferDataBack(double *U, VecSet< DistSVec<double, dim> > &Utrue , int *locDomSize, int *cpuNodes, int *locSendReceive, int nSnaps) {
+
+  int numLocSub = domain.getNumLocSub();
+  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
+  int nTotCpus = com->size();
+  int thisCPU = com->cpuNum();
+
+  double *recData;
+  double *buffer;
+
+  int locLLD = dim * cpuNodes[thisCPU];
+  // loop over all domain nodes and compute the cpu to send to
+  // -1 indicates that it's a slave node and no sending
+  DistVec<int> cpuDestination(domain.getNodeDistInfo());
+  cpuDestination = -1;
+
+  SubDomain **subDomain = domain.getSubDomain();
+  int *totalSentNodes = new int[nTotCpus];
+  int nSendNodes,buffLen,index;
+  int transf = 0;
+  int nRecNodes = 0;
+  com->barrier();
+  for (int iCpu=0; iCpu < nTotCpus; ++iCpu) {
+    totalSentNodes[iCpu] = 0;
+    for (int jCpu=0; jCpu < nTotCpus; ++jCpu) {
+      nSendNodes = 0;
+      buffLen = 0;
+      transf = 0;
+      if (thisCPU==iCpu) {
+        if (locSendReceive[jCpu] > 0) {
+          nSendNodes = locSendReceive[jCpu];
+          buffLen = nSendNodes*dim*nSnaps;
+          transf = 1;
+        }
+      }
+      else if (thisCPU==jCpu) {
+        if (locSendReceive[iCpu] < 0) {
+          nSendNodes = -locSendReceive[iCpu];
+          buffLen = nSendNodes*dim*nSnaps;
+          transf = 1;
+        }
+      }
+      com->barrier();
+      com->globalSum(1, &transf);
+      if (transf > 1) {
+        // create array for received data
+        if (thisCPU==jCpu)
+          recData = new double[buffLen];
+        com->barrier();
+        //create buffer
+        if (thisCPU==iCpu) {
+          buffer = new double[buffLen];
+           //fill buffer
+          for (int iSnap = 0; iSnap < nSnaps; ++iSnap)  {
+            index = 0;
+            for (int iSub = 0; iSub < numLocSub; ++iSub) {
+              // create buffer
+              bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
+              for (int iNode = 0; iNode < cpuNodes[iCpu]; ++iNode)  {
+                if (index == nSendNodes+totalSentNodes[iCpu])  break;
+                index++;
+                if (index-1 >= totalSentNodes[iCpu])  {
+                  for (int j = 0; j < dim; ++j)
+                    buffer[(index-totalSentNodes[iCpu]-1)*dim+j+iSnap*nSendNodes*dim] = U[locLLD*iSnap+dim*iNode+j];
+                }
+              }
+            }
+          }
+          totalSentNodes[iCpu] = index;
+          // send data in buffer
+          //fprintf(stderr, "*** CPU #%d sending back to CPU #%d: %d nodes = %d entries\n", thisCPU, jCpu, nSendNodes, buffLen);
+          com->sendTo(jCpu, 10*thisCPU*nTotCpus+jCpu, buffer, buffLen);
+        }
+        com->barrier();
+        // receive data and populate submatrix
+        if (thisCPU==jCpu) {
+          com->recFrom(iCpu, 10*iCpu*nTotCpus+thisCPU, recData, buffLen);
+          for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+            index = 0;
+            int k=0;
+            for (int iSub = 0; iSub < numLocSub; ++iSub) {
+              double (*locU)[dim] = Utrue[iSnap].subData(iSub);
+              bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
+              for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
+                if (locMasterFlag[iNode]) {
+                  if (k>=nRecNodes && k <nSendNodes+nRecNodes) {
+                    for (int j = 0; j < dim; ++j)
+                      locU[iNode][j] = recData[(k-nRecNodes)*dim+j+iSnap*nSendNodes*dim];
+                  }
+                  k++;
+                }
+              }
+            }
+          }
+          nRecNodes += nSendNodes;
+          delete[] recData;
+
+        }
+        com->barrier();
+        if (thisCPU==iCpu)
+          delete[] buffer;
+      }
+      com->barrier();
+    }
+  }
+  //Completing the rest of the matrices
+  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
+    if (thisCPU == iCpu) {
+      int k;
+      for (int iSnap = 0; iSnap < nSnaps; ++iSnap) {
+        k = totalSentNodes[iCpu];
+        index = 0;
+        for (int iSub = 0; iSub < numLocSub; ++iSub) {
+          double (*locU)[dim] = Utrue[iSnap].subData(iSub);
+          bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);
+          for (int iNode = 0; iNode < subDomain[iSub]->numNodes(); ++iNode)  {
+            if (locMasterFlag[iNode]) {
+              //if not already sent
+              if (index >= nRecNodes)  {
+                for (int j = 0; j < dim; ++j)
+                  locU[iNode][j] = U[iSnap*locLLD+k*dim+j];
+                k++;
+              }
+              index++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  //complete the slave nodes
+  CommPattern<double> *vpat = domain.getVecPat();
+  for (int iSnap=0; iSnap < nSnaps; ++iSnap)
+    domain.assemble(vpat, Utrue[iSnap]);
+}
+
+//----------------------------------------------------------------------------------
+template<int dim>
+void ModalSolver<dim>::interpolatePOD()  {
+
 
   Timer *modalTimer = domain.getTimer();
-  int nData = 2;
-  com->fprintf(stderr, " ... Interpolating POD\n");
-  char **podFile = new char *[nData];
+  com->fprintf(stderr, " ... Interpolating POD on a tangent space to the Grassmann manifold \n");
 
-  const char *vecFile = tInput->podFile;
-  if (!vecFile) vecFile = "podFiles.in";
-
+  char *vecFile = tInput->podFile;
+  if (!vecFile)
+    vecFile = "podFiles.in";
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
     exit (-1);
   }
+  int nData;
+  fscanf(inFP, "%d",&nData);
 
-  char podFile1[500], podFile2[500]; 
-  fscanf(inFP, "%s %s", podFile1, podFile2);
-  podFile[0] = podFile1;
-  podFile[1] = podFile2;
-  com->fprintf(stderr, " ... Reading POD from %s and %s\n", podFile[0], podFile[1]);
+  char **podFile = new char *[nData];
+
+  for (int iData = 0; iData < nData; ++iData){
+    podFile[iData] = new char[500];
+    //char *podFile1 = new char[500];
+    fscanf(inFP, "%s", podFile[iData]);
+    //podFile[iData] = podFile1;
+    com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
+  }
+
 
   if (ioData->output.transient.podFile[0] == 0)  {
     com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
     exit (-1);
   }
   int sp = strlen(ioData->output.transient.prefix);
-  char *outFile = new char[sp + strlen(ioData->output.transient.podFile)];
+  char *outFile = new char[sp + strlen(ioData->output.transient.podFile)+1];
   sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
 
   int numPod = ioData->linearizedData.numPOD;
 
   double *mach = new double[nData];
-  double newMach = ioData->ref.mach;
-  fscanf(inFP, "%lf  %lf  %lf", mach+0, mach+1, &newMach);
+  double *angle =new double[nData];
+  double newMach;
+  double newAngle;
+  for (int iData = 0; iData < nData; ++iData)
+    fscanf(inFP, "%lf", mach+iData);
+  fscanf(inFP, "%lf", &newMach);
+  for (int iData = 0; iData < nData; ++iData)
+    fscanf(inFP, "%lf", angle+iData);
+  fscanf(inFP, "%lf", &newAngle);
 
-  com->fprintf(stderr, " ... Interpolating new Mach %f between %f and %f\n", newMach, mach[0], mach[1]);
+  com->fprintf(stderr, " ... Interpolating new POD basis at Mach = %f and angle of attack = %f from :\n",newMach, newAngle);
+  for (int iData = 0; iData < nData; ++iData)
+    com->fprintf(stderr,"      -> Mach = %f and angle of attack = %f\n", mach[iData], angle[iData]);
 
-  VecSet< DistSVec<double, dim> > pod1(numPod, domain.getNodeDistInfo());
-  VecSet< DistSVec<double, dim> > pod2(numPod, domain.getNodeDistInfo());
 
-  // read in Pod Vectors
+  VecSet< DistSVec<double, dim> > **pod = new VecSet< DistSVec<double, dim> >*[nData];
+  for (int iData=0; iData < nData; ++iData){
+    pod[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+    // read in Pod Vectors
+    double *eig = new double[numPod];
 
-// Comment/Uncomment here
-  int iPod;
-  int j, k;
-  double *eig1 = new double[numPod];
-  double *eig2 = new double[numPod];
+    domain.readVectorFromFile(podFile[iData], 0, &eig[0], (*pod[iData])[0] );
+    if (numPod > eig[0])  {
+      com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig[0]);
+      numPod = (int) eig[0];
+    }
 
-  domain.readVectorFromFile(podFile[0], 0, &eig1[0], pod1[0]);
-  if (numPod > eig1[0])  {
-    com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig1[0]);
-    numPod = (int) eig1[0];
-  }
-  domain.readVectorFromFile(podFile[1], 0, &eig2[0], pod2[0]);
-  if (numPod > eig2[0])  {
-    com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig2[0]);
-    numPod = (int) eig2[0];
-  }
-
-  for (iPod = 0; iPod < numPod; iPod++)  {
-    domain.readVectorFromFile(podFile[0], iPod+1, &eig1[iPod], pod1[iPod]);
-    domain.readVectorFromFile(podFile[1], iPod+1, &eig2[iPod], pod2[iPod]);
+    for (int iPod = 0; iPod < numPod; ++iPod)
+      domain.readVectorFromFile(podFile[iData], iPod+1, &eig[iPod], (*pod[iData])[iPod]);
+      delete [] eig;
   }
 
   double t0 = modalTimer->getTime();
-  // compute principle angles and vectors between pod subspaces
-  double *matVals = new double[numPod*numPod];
-  for (j = 0; j < numPod; j++)
-    for (k = 0; k < numPod; k++)
-      matVals[j*numPod + k] = pod1[k] * pod2[j];
 
-  double *sigma = new double[numPod];
-  double *error = new double[numPod];
-  double *work = new double[numPod];
-  int info;
-  double *zVec = new double[numPod*numPod]; // right singular vectors
-  double *yVec = new double[numPod*numPod]; // left singular vectors
+  //build the reduced coordinates
+  double *reducedMach = new double[nData];
+  double *reducedAngle = new double[nData];
+  if (newAngle!=0.0) {
+    for (int iData=0; iData < nData; ++iData) {
+      reducedMach[iData] = mach[iData]/newMach-1;
+      reducedAngle[iData] = angle[iData]/newAngle-1;
+    }
+  }
+  else {
+    for (int iData=0; iData < nData; ++iData) {
+      reducedMach[iData] = mach[iData]-newMach;
+      reducedAngle[iData] = angle[iData]-newAngle;
+    }
+  }
+  //find the central point
+  int iDataMin = 0;
+  double radMinSq = reducedMach[0]*reducedMach[0] + reducedAngle[0]*reducedAngle[0];
+  double radSq = 0.0;
+  for (int iData=1; iData < nData; ++iData) {
+     radSq = reducedMach[iData]*reducedMach[iData] + reducedAngle[iData]*reducedAngle[iData];
+     if (radSq < radMinSq){
+       iDataMin = iData;
+       radMinSq = radSq;
+     }
+   }
+  //store the reference pod basis
+  VecSet< DistSVec<double, dim> > podRef(*(pod[iDataMin]));
 
-  F77NAME(dsvdc)(matVals, numPod, numPod, numPod, sigma, error,
-                 yVec, numPod, zVec, numPod, work, 11, info);
-  com->fprintf(stderr, " ... Computed SVD with code %d for mach %f\n", info, newMach);
+  //Logarithmic mappings
+  VecSet< DistSVec<double, dim> > **projMap = new VecSet< DistSVec<double, dim> >*[nData];
+  FullM matVals(numPod);
 
-  // compute principle vectors and interpolate on angles
-  double machCoef = (newMach-mach[0])/(mach[1]-mach[0]);
-  DistSVec<double, dim> U(domain.getNodeDistInfo());  // left principle vector
-  Vec<double> Utmp(numPod);  
-  DistSVec<double, dim> V(domain.getNodeDistInfo());  // right principle vector
-  Vec<double> Vtmp(numPod);  
-  double pAngle;  // interpolated principle angle
+  //compute the matrices (Phi0'*Phi)^(-1)
+  for (int iData=0; iData < nData; ++iData){
+    if (iData!=iDataMin) {
+      for (int j = 0; j < numPod; ++j) {
+        for (int k = 0; k < numPod; ++k)
+          matVals[j][ k] = podRef[j] * ((*pod[iData])[k]);
+      }
+      com->barrier();
+      matVals.invert();
 
-  VecSet<DistSVec<double, dim> > pod(numPod, domain.getNodeDistInfo());
-  DistSVec<double, dim> orthoVec(domain.getNodeDistInfo());
+      //compute the projection mapping = Phi*(Phi0'*Phi)^(-1)-Phi0
+      projMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+      com->barrier();
+      for (int iPod = 0; iPod < numPod; ++iPod) {
+        (*projMap[iData])[iPod] = 0.0;
+        for (int jPod = 0; jPod < numPod; ++jPod) {
+          (*projMap[iData])[iPod] += (*pod[iData])[jPod] * matVals[jPod][iPod];
+        }
+      }
+      com->barrier();
+      for (int iPod = 0; iPod < numPod; ++iPod)
+        (*projMap[iData])[iPod] = (*projMap[iData])[iPod] - podRef[iPod];
+      com->barrier();
+   }
+  }
 
   com->barrier();
-  for (j = 0; j < numPod; j++)  {
+  for (int iData=0; iData<nData;++iData){
+    delete pod[iData];
+    com->barrier();
+  }
 
-    U = 0.0;  V = 0.0;
-    pAngle = acos(sigma[j]) * machCoef;
-    com->fprintf(stderr, " ... Interpolating vec %d to angle %e (%e)\n", j, pAngle, acos(sigma[j])); 
-     
-    for (k = 0; k < numPod; k++)  {
-      Utmp[k] = yVec[j*numPod+k]; 
-      Vtmp[k] = zVec[j*numPod+k]; 
-    }
-    for (k = 0; k < numPod; k++)  {
-      U += pod1[k] * Utmp[k];
-      V += pod2[k] * Vtmp[k];
-    }
+  com->barrier();
+  delete [] pod;
+  //SVD decomposition of projMap
+  VecSet<DistSVec<double, dim> > U(numPod, domain.getNodeDistInfo());
+  double *Sigma = new double[numPod];
+  FullM V(numPod);
+  double *Theta = new double[numPod];
+  VecSet<DistSVec<double, dim> > U2(numPod, domain.getNodeDistInfo());
+  double *Sigma2 = new double[numPod];
+  FullM V2(numPod);
+  //Logarithmic mapping
+  VecSet< DistSVec<double, dim> > **logMap = new VecSet< DistSVec<double, dim> >*[nData];
+  for (int iData=0; iData < nData; ++iData) {
+    if (iData!=iDataMin) {
+      //compute SVD
+      parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here
+      com->barrier();
+      delete projMap[iData];
 
-    orthoVec = V - (U*V)*U;
-    orthoVec *= 1.0/orthoVec.norm();
-    pod[j] = U*cos(pAngle) + orthoVec*sin(pAngle);
+      //compute tan^(-1) Sigma
+      for (int iPod = 0; iPod < numPod; ++iPod)
+        Theta[iPod] = atan(Sigma[iPod]);
+      //compute the logarithmic mapping
+
+      //build logMap
+      logMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+      for (int iPod = 0; iPod < numPod; ++iPod) {
+        (*logMap[iData])[iPod] = 0.0;
+        for (int jPod = 0; jPod < numPod; ++jPod){
+          (*logMap[iData])[iPod] += ((Theta[jPod]*V[iPod][jPod])*U[jPod]);  // logMap = U tan^(-1) Sig V^T
+        }
+      }
+   }
+  }
+  delete [] Theta;
+  delete [] Sigma;
+
+  VecSet< DistSVec<double, dim> > logMapInterp(numPod, domain.getNodeDistInfo());
+  // Interpolation (Hardy's multiquadrics method is here used)
+  // see "Two Dimensional Spline Interpolation Algorithms", H. Spath, A.K. Peters Ltd  
+  double q = 0.25;
+  double Rsq;
+
+  //find Rsq
+  double minReducedM = reducedMach[0];
+  double maxReducedM = reducedMach[0];
+  double minReducedA = reducedAngle[0];
+  double maxReducedA = reducedAngle[0];
+  for (int iData=1; iData < nData; ++iData) {
+    if (reducedMach[iData] < minReducedM)
+      minReducedM = reducedMach[iData];
+    if (reducedMach[iData] > maxReducedM)
+      maxReducedM = reducedMach[iData];
+    if (reducedAngle[iData] < minReducedA)
+      minReducedA = reducedAngle[iData];
+    if (reducedAngle[iData] > maxReducedA)
+      maxReducedA = reducedAngle[iData];
+  }
+  double maxDelM = maxReducedM - minReducedM;
+  double maxDelA = maxReducedA - minReducedA;
+  double maxConst = maxDelM > maxDelA ? maxDelM : maxDelA;
+  Rsq = 0.1*maxConst;
+
+  FullM B(nData), b(nData,1);
+
+
+  double rsq;
+  for (int j=0; j < nData; ++j) {
+    for (int k=0; k < nData; ++k) {
+      rsq = pow(reducedMach[j]-reducedMach[k],2)+pow(reducedAngle[j]-reducedAngle[k],2);
+      B[j][k] = pow(rsq+Rsq,q);
+    }
+    rsq = pow(reducedMach[j],2)+pow(reducedAngle[j],2);
+    b[j][0] = pow(rsq+Rsq,q);
+  }
+  B.invert();
+
+  //compute the interpolated POD basis
+  domain.hardyInterpolationLogMap(logMap,logMapInterp,nData,numPod,iDataMin,B,b);
+  //Exponential mapping
+  VecSet<DistSVec<double, dim> > UInterp(numPod, domain.getNodeDistInfo());
+  double *SigInterp = new double[numPod];
+  FullM VInterp(numPod);
+
+  parallelSVD(logMapInterp,UInterp,SigInterp,VInterp,numPod);//call SVD here
+
+  //compute podRefVInterp
+  VecSet<DistSVec<double, dim> > podRefVInterp(numPod, domain.getNodeDistInfo());
+  for (int iPod = 0; iPod < numPod; ++iPod) {
+    podRefVInterp[iPod] = 0.0;
+    for (int jPod = 0; jPod < numPod; ++jPod)
+      podRefVInterp[iPod] += VInterp[jPod][iPod]*podRef[jPod];
+ }
+
+  VecSet<DistSVec<double, dim> >newPOD(numPod,domain.getNodeDistInfo());
+
+  for (int iPod = 0; iPod < numPod; ++iPod) {
+    newPOD[iPod] = cos(SigInterp[iPod])*podRefVInterp[iPod]+ sin(SigInterp[iPod])*UInterp[iPod];
+
+  //Do a Gramm-Schmidt to finalize the POD reconstruction
+  for (int j = 0; j < iPod; ++j)
+    newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
+    newPOD[iPod] *= 1.0/newPOD[iPod].norm();
+
   }
 
   com->fprintf(stderr, " ... Writing Interpolated POD to %s\n", outFile);
   // output interpolated pod vectors
-  DistSVec<double, dim> newPOD(domain.getNodeDistInfo());
-  domain.writeVectorToFile(outFile, 0, numPod, newPOD); 
-  double newEig;
-  for (j = 0; j < numPod; j++)  {
-    newPOD = 0.0;
-    for (k = 0; k < numPod; k++)
-      newPOD += pod[k] * zVec[k*numPod+j];
+  domain.writeVectorToFile(outFile, 0, numPod, newPOD[0]);
+  double newEig=-1.0;
 
-    newEig = machCoef*(eig2[j]-eig1[j]);
-    com->fprintf(stderr, " ... Writing pod vec %d with newEig %f(%f-%f)\n", j+1, newEig, eig2[j],eig1[j]);
-    domain.writeVectorToFile(outFile, j+1, newEig, newPOD); 
+  for (int jPod = 0; jPod < numPod; ++jPod)  {
+    com->fprintf(stderr, " ... Writing pod vec %d\n", jPod+1);
+    domain.writeVectorToFile(outFile, jPod+1, newEig, newPOD[jPod]);
   }
   modalTimer->addMeshSolutionTime(t0);
 
-// Comment/Uncomment here
-// This block of code is for testing purposed ONLY.  It does interpolation using Lagranges method
-// directly on  the POD basis vectors and not the subspace angles.
-/*
+  delete[] SigInterp;
+  for (int iData=0; iData< nData; ++iData)
+    delete [] podFile[iData];
+  delete[] podFile;
+  delete[] outFile;
 
-  VecSet<DistSVec<double, dim> > newPOD(numPod, domain.getNodeDistInfo());
-  VecSet< DistSVec<double, dim> > pod(nData, domain.getNodeDistInfo());
-  DistSVec<double, dim>  testPod(domain.getNodeDistInfo());
-  DistSVec<double, dim>  switchPod(domain.getNodeDistInfo());
+  modalTimer->setRunTime();
 
-  double *eig = new double [nData];
-  double newEig;
-  domain.writeVectorToFile(outFile, 0, numPod, newPOD[0]); 
-  int iPod, j, k;
-
-  for (iPod = 0; iPod < numPod; iPod++)  {
-
-    for (j = 0; j < nData; j++)
-      domain.readVectorFromFile(podFile[j], iPod+1, eig+j, pod[j]);
-
-    for (j = 1; j < nData; j++)  {
-      testPod = pod[j] - pod[j-1];
-      if (testPod.norm() > 1.0)  {
-        double refNorm = testPod.norm();
-        pod[j] *= -1.0;
-        testPod = pod[j] - pod[j-1];
-        if (testPod.norm() > refNorm)
-          pod[j] *= -1.0;
-      }
-    }
-
-    newPOD[iPod] = 0.0;
-    newEig = 0.0;
-
-    double dM = 1.0;
-    for (j = 0; j < nData; j++)  {
-
-      for (k = 0; k < nData; k++)  {
-        if (k == j) continue;
-        dM *= (newMach - mach[k]) / (mach[j] - mach[k]);
-      }
-      newPOD[iPod] += pod[j]*dM;
-      newEig += eig[j]*dM;
-    }
-
-    for (j = 0; j < iPod; j++)
-      newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
-       
-    newPOD[iPod] *= 1.0/newPOD[iPod].norm();
-
-    domain.writeVectorToFile(outFile, iPod+1, newEig, newPOD[iPod]); 
-  }
-*/
-  //modalTimer->setRunTime();
-  //modalTimer->print(modalTimer);
 
 }
-
 //----------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs)  {

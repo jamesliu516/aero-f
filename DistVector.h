@@ -1614,6 +1614,7 @@ DistSVec<Scalar,dim>::nonOverlapSize() const
 	if (distInfo.masterFlag[ distInfo.subOffset[iSub]+i ]) ++tsize;
 
     }
+    distInfo.com->globalSum(1, &tsize);
 
   } 
   else
