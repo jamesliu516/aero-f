@@ -1,9 +1,11 @@
 ARPACKDIR     = .
 ARPACKLIB     = $(ARPACKDIR)/libarpack_SUN4.a
+SCALAPACKDIR     = /home/lieut/lib
+SCALAPACKLIB     = $(SCALAPACKDIR)/libscalapack_LINUX.a $(SCALAPACKDIR)/blacsF77init_MPI-LINUX-0.a $(SCALAPACKDIR)/blacs_MPI-LINUX-0.a $(SCALAPACKDIR)/blacsF77init_MPI-LINUX-0.a
 OFLAGS        = -O2 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DSYNCHRO_WRITE #-mfpmath=sse -msse -msse2 #-ffloat-store #-DEDGE_LENGTH
 #OFLAGS       = -g -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DHB_MESHMOTION_DEBUG #-DEDGE_LENGTH
 SOFLAGS       = -shared
-LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB)
+LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB) $(SCALAPACKLIB)
 ##MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 DLLIBS        = -ldl
 SAR           = ar cr

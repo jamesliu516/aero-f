@@ -23,7 +23,9 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(torsionspring.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
-       $(LIB)(genbcfluxtait.o)
+       $(LIB)(genbcfluxtait.o) \
+       $(LIB)(thinsvd.o) \
+       $(LIB)(lworksize.o)
 
 $(LIB): $(OBJS)
 	echo $(LIB)
