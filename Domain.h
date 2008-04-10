@@ -7,6 +7,7 @@
 #include <VectorSet.h>
 #include <Vector.h>
 #include <complex.h>
+#include <DenseMatrix.h>
 typedef complex<double> bcomp;
 
 class VarFcn;
@@ -590,6 +591,9 @@ public:
 
   template<int dim>
   void padeReconstruction(VecSet<DistSVec<double, dim> >&, VecSet<DistSVec<double, dim> >&, int*, double*, double, int, int, int, int );
+
+  template<int dim>
+  void hardyInterpolationLogMap(VecSet<DistSVec<double, dim> >**, VecSet<DistSVec<double, dim> >&, int, int, int, FullM &, FullM &);
 
 // Included (MB)
   int computeDerivativeOfControlVolumes(double, DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &);
