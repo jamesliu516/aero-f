@@ -58,7 +58,7 @@ void AeroMeshMotionHandler::resetOutputToStructure(PostOperator<dim>* postOp,
 
   if (forceComputation == AeroelasticData::AVERAGED) {
     *Favg = 0.0;
-    if (timeIntegrator == IMPLICIT_SECOND_ORDER) 
+    if (timeIntegrator == IMPLICIT_SECOND_ORDER)
       postOp->computeNodalForce(X, U, Pin, *Fn);
   }
 
@@ -75,16 +75,16 @@ void AeroMeshMotionHandler::updateOutputToStructure(double dt, double dtLeft,
 
   if (forceComputation == AeroelasticData::AVERAGED) {
     switch (timeIntegrator) {
-    case IMPLICIT_FIRST_ORDER : {
-      postOp->computeNodalForce(X, U, Pin, F);
-      break;
-    }
-    case IMPLICIT_SECOND_ORDER : {
-      postOp->computeNodalForce(X, U, Pin, *Fnp1);
-      F = 0.5 * (*Fn + *Fnp1);
-      *Fn = *Fnp1;
-      break;
-    }
+      case IMPLICIT_FIRST_ORDER : {
+        postOp->computeNodalForce(X, U, Pin, F);
+        break;
+      }
+      case IMPLICIT_SECOND_ORDER : {
+        postOp->computeNodalForce(X, U, Pin, *Fnp1);
+        F = 0.5 * (*Fn + *Fnp1);
+        *Fn = *Fnp1;
+        break;
+      }
     }
     *Favg += dt * F;
   }

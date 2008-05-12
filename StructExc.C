@@ -173,6 +173,8 @@ double StructExc::getInfo()
   smode = int(info[4]);
 
   if (algNum == 6) tmax -= 0.5 * dt;
+  if (algNum == 20) tmax -= 0.5 * dt;
+  if (algNum == 21) tmax += 1.5 * dt;
 
   double mppFactor = 1.0;
   if (algNum == 8)

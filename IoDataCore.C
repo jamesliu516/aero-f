@@ -1317,7 +1317,7 @@ MultiFluidData::MultiFluidData()
   frequency = 0;
   eps = 1.e-6;
   outputdiff = 0;
-  copy = FALSE;
+  copy = TRUE;
 
   lsInit = VOLUMES;
   interfaceType = FSF;

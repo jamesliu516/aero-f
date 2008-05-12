@@ -217,6 +217,22 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     else
       _mmh = new AeroMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(),
 				       geoSource.getMatchNodes(), domain, mp);
+    //check that algorithm number is consistent with simulation in special case RK2-CD
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+      if(!(ioData.ts.type == TsData::EXPLICIT &&
+           ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)){
+        com->fprintf(stderr, "***Error: Aeroelastic scheme is not consistent\n");
+        com->fprintf(stderr, "***       with time-discretization of fluid subsystem\n");
+        exit(1);
+      }
+      if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
+           ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL &&
+           ioData.dgcl.volumes    == DGCLData::EXPLICIT_RK2_VOL)){
+        com->fprintf(stderr, "***Error: Computation of the normals, velocities or volumes (%d,%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities, ioData.dgcl.volumes);
+        com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
+        exit(1);
+      }
+    }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
     if (ioData.problem.type[ProblemData::ACCELERATED])

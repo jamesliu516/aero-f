@@ -234,6 +234,8 @@ public:
   virtual double getVelocityZ(double *V) {return V[3];}
   virtual double getPressure(double *V, double phi = 0.0) {return 0.0;}
   virtual double checkPressure(double *V, double phi = 0.0) {return 0.0;}
+  virtual void   setDensity(double *V, double *Vorig){}
+  virtual void   setPressure(double *V, double *Vorig, double phi=0.0){}
   virtual double computeTemperature(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeRhoEnergy(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeRhoEpsilon(double *V, double phi = 0.0) {return 0.0;} //this function computes the internal energy (=rho*e-0.5*rho*u^2)
@@ -307,6 +309,8 @@ public:
 
   double getPressure(double *V, double phi = 0.0) { return V[4]; }
   double checkPressure(double *V, double phi = 0.0) { return V[4]+Pstiff; }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0]; }
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[4] = Vorig[4]; }
   double computeTemperature(double *V, double phi = 0.0 ) {
     if (isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
@@ -396,7 +400,7 @@ VarFcnPerfectGas::VarFcnPerfectGas(IoData &iod) : VarFcn(iod) {
   Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
 
 // Included (MB)
-  dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
+  dPstiff = 0.0;//iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
 
 }
 
@@ -423,6 +427,8 @@ public:
 
   double getPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
   double checkPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[0] = Vorig[0];}
   double computeTemperature(double *V, double phi = 0.0) { return V[4]; }
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -489,6 +495,8 @@ class VarFcnGasInGas : public VarFcn {
   double checkPressure(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4]+Pstiff;
     else          return V[4]+Pstiffp; }
+  void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
+  void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
   
   double computeTemperature(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
@@ -596,6 +604,8 @@ public:
     return 1.0;
     if (phi>=0.0) return Pref_water + alpha_water * pow(V[0], beta_water);
     else          return Pref_waterbis + alpha_waterbis * pow(V[0], beta_waterbis); }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[0] = Vorig[0];}
 
   double computeTemperature(double *V, double phi = 0.0) { return V[4]; }
   double computeRhoEnergy(double *V, double phi = 0.0) {
@@ -691,6 +701,10 @@ public:
     else
       return V[4]+Pstiff;
   }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) {
+    if (phi>=0.0) V[0] = Vorig[0];
+    else          V[4] = Vorig[4]; }
     
   double computeTemperature(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4];

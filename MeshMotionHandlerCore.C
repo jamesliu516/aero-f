@@ -434,6 +434,8 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0) 
     dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
+    dt *= 0.5;
 
   if (algNum == 8) {
     getModalMotion(X);
@@ -489,8 +491,14 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0)
     dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
+    dt *= 0.5;
 
-  if (algNum == 8) {
+  if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
+    if(it==it0) {strExc->getDisplacement(X0,X,Xdot,dX);}
+    else if(it!=1){strExc->sendForce(F);}
+  }
+  else if (algNum == 8) {
     getModalMotion(X);
     *lastIt = true;
   }
@@ -528,8 +536,15 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0) 
     dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
+    dt *= 0.5;
 
-  if (algNum == 8) {
+  if (algNum == 20 || algNum == 21){
+    if(it==0){ strExc->sendForce(F);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else return 0.0; // last iteration!
+  }
+  else if (algNum == 8) {
     return dt;
   }
 
@@ -539,7 +554,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       return 0.0;
     strExc->sendForce(F);
   }
-  else {
+  else if(!(algNum == 20 || algNum == 21)){
     if (it > it0 && algNum != 10) {
       if (steady) {
         strExc->negotiateStopping(lastIt);
