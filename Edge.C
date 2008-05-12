@@ -432,10 +432,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
 
+    //if(Phi[i]*Phi[j] > 0.0) recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+    //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);
+
     // check for negative pressure or density //
     if (!rshift)
       ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
-                                       failsafe, tag, Phi[i], Phi[j]);
+                                       failsafe, tag, V[i], V[j], Phi[i], Phi[j]);
 
     if (ierr) continue;
 

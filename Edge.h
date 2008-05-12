@@ -158,9 +158,8 @@ public:
 			      Vec<double> &, Vec<double> &, double, double, double, double);
   int checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf,
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
+                               double *originalVi = 0, double *originalVj = 0,
                                double phii = 1.0, double phij = 1.0);
-  int checkReconstruction(double rho[2], double p[2], int i, int j, 
-                          int* locToGlobNodeMap, int failsafe, SVec<int,2>& tag);
 
 };
 
