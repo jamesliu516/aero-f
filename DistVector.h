@@ -727,9 +727,9 @@ public:
 
   Scalar operator*(const DistSVec<Scalar,dim> &);
 
-  Scalar * min() const;
-
-  Scalar * max() const;
+  void min(Scalar vmin[dim]) const;
+  
+  void max(Scalar vmax[dim]) const;
 
   template<class T>
   DistSVec<Scalar,dim> &operator=(const Expr<T, Scalar> &);
@@ -1782,8 +1782,7 @@ DistSVec<Scalar,dim>::pad(DistSVec<Scalar,dim1> &y)
 
 template<class Scalar, int dim>
 inline
-Scalar *
-DistSVec<Scalar,dim>::min() const
+void DistSVec<Scalar,dim>::min(Scalar vmin[dim]) const
 {
 
   int iSub;
@@ -1791,11 +1790,12 @@ DistSVec<Scalar,dim>::min() const
   Scalar *allmin = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub * dim));
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub)
+  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+    subVec[iSub]->min(vmin);
     for (int idim=0; idim<dim; idim++)
-      allmin[iSub*dim+idim] = (subVec[iSub]->min())[idim];
+      allmin[iSub*dim+idim] = vmin[idim];
+  }
 
-  Scalar * vmin = new Scalar[dim];
   for (int idim=0; idim<dim; idim++)
     vmin[idim] = allmin[idim];
   for (iSub = 1; iSub < distInfo.numLocSub; ++iSub)
@@ -1804,16 +1804,13 @@ DistSVec<Scalar,dim>::min() const
 
   distInfo.com->globalMin(dim, vmin);
 
-  return vmin;
-
 }
 
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
 inline
-Scalar *
-DistSVec<Scalar,dim>::max() const
+void DistSVec<Scalar,dim>::max(Scalar vmax[dim]) const
 {
 
   int iSub;
@@ -1821,11 +1818,12 @@ DistSVec<Scalar,dim>::max() const
   Scalar *allmax = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numLocSub * dim));
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub)
+  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+    subVec[iSub]->max(vmax);
     for (int idim=0; idim<dim; idim++)
-      allmax[iSub*dim+idim] = (subVec[iSub]->max())[idim];
+      allmax[iSub*dim+idim] = vmax[idim];
+  }
 
-  Scalar * vmax = new Scalar[dim];
   for (int idim=0; idim<dim; idim++)
     vmax[idim] = allmax[idim];
   for (iSub = 1; iSub < distInfo.numLocSub; ++iSub)
@@ -1834,10 +1832,7 @@ DistSVec<Scalar,dim>::max() const
 
   distInfo.com->globalMax(dim, vmax);
 
-  return vmax;
-
 }
 
 //------------------------------------------------------------------------------
-
 #endif
