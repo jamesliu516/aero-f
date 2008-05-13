@@ -3639,7 +3639,7 @@ void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
 
   int i, j;
   for (i=0; i<faces.size(); ++i)
-    for (j=0; j<3; ++j) 
+    for (j=0; j<faces[i].numNodes(); ++j) 
       nodeCodes[ faces[i][j] ] += 1;
 
   char fname1[MAXLINE], fname2[MAXLINE];
