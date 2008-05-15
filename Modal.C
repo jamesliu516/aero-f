@@ -1007,13 +1007,12 @@ void ModalSolver<dim>::preProcess()  {
   double dummyTime = 0.0;
   int dummySubCycles = 1;
   tState->computeTimeStep(1.0, &dummyTime, &dummySubCycles, *geoState, Xref, controlVol, Uref);
-  double sdt = ioData->linearizedData.eps2;
   dt = ioData->linearizedData.stepsize/ioData->ref.rv.time;    //ts.timestep/  (ref.length/velocity)
   
   //time step for the first iteration (Forward Euler) has to be much smaller : here sdt0 = sdt^2
   
   dt0 = (ioData->linearizedData.stepsize)*(ioData->linearizedData.stepsize)/ioData->ref.rv.time; 
-  com->fprintf(stderr, " ... Running Modal Solver w/%d struct modes, coupling timestep: %f and fluid step: %f, RefTime = %f (%f/%f)\n", nStrMode, sdt, dt, ioData->ref.rv.time, ioData->ref.rv.length, ioData->ref.rv.velocity);
+  com->fprintf(stderr, " ... Running Modal Solver w/%d struct modes, fluid step: %f, RefTime = %f (%f/%f)\n", nStrMode, dt, ioData->ref.rv.time, ioData->ref.rv.length, ioData->ref.rv.velocity);
 
   geoState->compute(tState->getData(), bcData->getVelocityVector(), Xref, controlVol);
   geoState->update(Xref, controlVol);
@@ -1057,7 +1056,6 @@ void ModalSolver<dim>::preProcess()  {
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
     
     spaceOp->computeResidual(Xnp1, CV1, Uref, F1, tState);
-
     spaceOp->applyBCsToResidual(Uref, F1);
 
     //***Computing F(X2,V=0)
@@ -1067,7 +1065,6 @@ void ModalSolver<dim>::preProcess()  {
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV2);
 
     spaceOp->computeResidual(Xnp1, CV2, Uref, F2, tState);
-
     spaceOp->applyBCsToResidual(Uref, F2);
 
     DX[ic] = 1.0/(2.0*eps)*(F2 - F1);
@@ -1094,33 +1091,31 @@ void ModalSolver<dim>::preProcess()  {
     DE[ic] = ioData->ref.rv.time*E;
     
     // Then DFDXdot*****************************************
-    // Computing F(X0,V1) sdt is dimensional
-    double bigeps = 0.5*eps/sdt;
-    //double bigeps = 0.5*eps/ioData->ref.rv.time;
+    // Computing F(X0,V1) 
         
-    Xnp1 = Xref - sdt*bigeps*(mX[ic]);
+    Xnp1 = Xref - eps*(mX[ic]);
     
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
     geoState->update(Xnp1, CV1);
     
-    Xnp1 = Xref + sdt*bigeps*(mX[ic]);
+    Xnp1 = Xref + eps*(mX[ic]);
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
 
-    spaceOp->computeResidual(Xnp1, CV1, Uref, F1, tState);
-    tState->add_dAW_dt(1,*geoState,CV1,Uref,F1);
+    //spaceOp->computeResidual(Xnp1, CV1, Uref, F1, tState);
+    spaceOp->computeResidual(Xref, controlVol, Uref, F1, tState);
     spaceOp->applyBCsToResidual(Uref, F1);
  
     // Computing F(X0, -V1)
-    Xnp1 = Xref + sdt*bigeps*(mX[ic]);
+    Xnp1 = Xref + eps*(mX[ic]);
   
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
     geoState->update(Xnp1, CV1);
 
-    Xnp1 = Xref - sdt*bigeps*(mX[ic]);
+    Xnp1 = Xref - eps*(mX[ic]);
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
 
-    spaceOp->computeResidual(Xnp1, CV1, Uref, F2, tState);
-    tState->add_dAW_dt(1,*geoState,CV1,Uref,F2);
+    //spaceOp->computeResidual(Xnp1, CV1, Uref, F2, tState);
+    spaceOp->computeResidual(Xref, controlVol, Uref, F2, tState);
     spaceOp->applyBCsToResidual(Uref, F2);
 
 
@@ -1128,7 +1123,8 @@ void ModalSolver<dim>::preProcess()  {
     // given displacement change by dt to define its velocity.
     // Thus with Xnp1 = X0+dt*eps*Xm and Xn = X0-dt*eps*Xm: V_n+1/2 = 2*eps*Xm
     
-    DV[ic] = (1.0/(4*bigeps))*(F1-F2);
+    DV[ic] = (1.0/(2*eps))*(F1-F2);
+    DV[ic] *= ioData->ref.rv.time;
 
     com->fprintf(stderr, " ... Norm DV, Mode %i: %e\n",ic, DV[ic].norm());
 
@@ -1674,6 +1670,13 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   com->fprintf(stderr, " ... Forming %d x %d Correlation Matrix\n", nSnaps, nSnaps);
   double t0 = modalTimer->getTime();
 
+  VecSet<DistSVec<double, dim> > Utrue(nPOD, domain.getNodeDistInfo());
+  Vec<double> singVals(nPOD);
+  FullM Vtrue(nPOD);
+
+  //parallelSVD(snaps, Utrue, singVals.data(), Vtrue, nSnaps);
+  //outputPODVectors(Utrue, singVals, nPOD);
+
   // allocate for upper half of sym. eigprob
   double *eigVals = new double[nPOD];
   double *eigVecs = new double[nPOD*nSnaps];
@@ -1783,6 +1786,7 @@ void ModalSolver<dim>::setTransfer(int* locDomSize,int* cpuNodes,int &nCpuBl,int
   delete[] cpuBlocks;
 }
 //----------------------------------------------------------------------------------
+
 template<int dim>
 void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps) {
 
@@ -1850,9 +1854,6 @@ void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
                    locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
                    info);
 
-//  delete[] subMat;
-
-  //fprintf(stderr, "CPU %d Exiting SVD with info code: %d and work size %d\n", thisCPU, info, work[0]);
   com->barrier();
 
   for (int i = 0; i < nSnaps; i++){
@@ -1869,7 +1870,6 @@ void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
   //Permute back matrix U
   com->barrier();
 
-  //VecSet< DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
   for (int i = 0; i < nSnaps; ++i)
     Utrue[i] = 0.0;
   transferDataBack(U, Utrue , locDomSize, cpuNodes, locSendReceive, nSnaps);
@@ -2651,9 +2651,50 @@ void ModalSolver<dim>::readPodVecs(VecSet<DistSVec<Scalar, dim> > &podVecs,
 
 //------------------------------------------------------------------------------
 #ifdef DO_MODAL
+
+template<int dim>
+void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs, 
+                       Vec<double> &sVals, int nPOD)  {
+
+   Timer *modalTimer = domain.getTimer();
+
+  // write header
+  int sp = strlen(ioData->output.transient.prefix) + 1;
+
+  char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
+  sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
+
+  com->fprintf(stderr, " ... Writing %d (%f)podVecs to File\n", nPOD, (double) nPOD);
+
+  domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
+
+  double t0;
+  int jj, kk;
+  DistSVec<double, dim> tmpVec(domain.getNodeDistInfo());
+
+  for (jj = 0; jj < nPOD; jj++)  {
+    t0 = modalTimer->getTime();
+
+    // do gram-schmidt on podVecs
+    tmpVec = 0.0;
+    for (int jVec = 0; jVec < jj; jVec++)  {
+      //podVecs[jj] -= podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
+      tmpVec += podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
+    }
+    podVecs[jj] -= tmpVec;
+
+    double norm = sqrt(podVecs[jj]*podVecs[jj]);
+    podVecs[jj] *= (1.0 / norm);
+    modalTimer->addGramSchmidtTime(t0);
+    domain.writeVectorToFile(podFileName, jj+1, sVals[jj], podVecs[jj]);
+    com->fprintf(stderr, "%d %e, residual = %e\n", jj, sVals[jj], tmpVec.norm());
+  }
+}
+
+//------------------------------------------------------------------------------
 template<int dim>
 void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
-                                        VecSet<DistSVec<double, dim> > &snaps, int nPOD, int numSnapsTot)  {
+                       VecSet<DistSVec<double, dim> > &snaps, int nPOD, int numSnapsTot)  {
  
    Timer *modalTimer = domain.getTimer();
 
@@ -2668,7 +2709,6 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
 
   podVecs[0] = 0;
   com->fprintf(stderr, " ... Writing %d (%f)podVecs to File\n", nPOD, (double) nPOD);
-  //const char *podFileName = ioData->output.transient.podFile;
 
   domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
 

@@ -120,6 +120,7 @@ class ModalSolver {
     void readPodVecs(VecSet<DistSVec<Scalar, dim> > &, int &);
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
+    void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
 #endif
 
 };
