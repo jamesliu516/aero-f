@@ -2437,7 +2437,7 @@ LinearizedData::LinearizedData()
   stepsize = -1.0;
   stepsizeinitial = -1.0;
   eps = 1e-4;
-  eps2 = -1;
+  eps2 = 5.0;
   tolerance = 1e-8;
   strModesFile = "";
   modeNumber = 1;
@@ -3479,9 +3479,6 @@ int IoData::checkInputValuesDimensional()
 // Included (MB)
       ref.rv.dvelocitydMach = dvelocitydMach;
       ref.rv.dtimedMach = - ref.length / (velocity * velocity) * dvelocitydMach;
-
-      if (linearizedData.eps2 < 0)
-        linearizedData.eps2 = ref.rv.time;
     }
     else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ref.density < 0.0)
