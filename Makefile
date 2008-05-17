@@ -104,9 +104,15 @@ FORTLIBS  = # Fortran libraries needed for linking when compiled with the Intel 
 CXX       = g++
 #include default.defs
 #include nivation.defs
+usescalapack = false
 
 host := $(shell hostname -s)
 ifeq ($(host), frontend-0)
+  host = nivation
+  CXX = g++
+endif
+
+ifeq ($(host), nivation)
   host = nivation
   CXX = g++
 endif
@@ -124,16 +130,6 @@ endif
 ifeq ($(findstring compute-2-, $(host)), compute-2-)
   host = 64bit
   CXX = g++
-endif
-
-ifeq ($(findstring node, $(host)), node)
-  host = lancer
-  CXX = g++
-endif
-
-ifeq ($(findstring falcon, $(host)), falcon)
-  host = falcon
-  CXX = CC
 endif
 
 ifeq ($(host), thunderbird)
@@ -163,7 +159,7 @@ findarpack = $(shell ls $(ARPACKLIB))
 ifeq ($(findstring $(ARPACKLIB), $(findarpack)), $(ARPACKLIB))
   DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float -DDO_MODAL
 else
-#  ARPACKLIB = 
+  ARPACKLIB = 
   DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
 endif
 

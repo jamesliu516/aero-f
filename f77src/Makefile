@@ -23,11 +23,19 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(torsionspring.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
-       $(LIB)(genbcfluxtait.o) \
-       $(LIB)(thinsvd.o) \
-       $(LIB)(lworksize.o)
+       $(LIB)(genbcfluxtait.o)
+#       $(LIB)(thinsvd.o) \
+#       $(LIB)(lworksize.o)
 
-$(LIB): $(OBJS)
+ifeq ($(usescalapack), true)
+
+  SOBJS = $(LIB)(thinsvd.o) \
+          $(LIB)(lworksize.o)
+else
+  SBOJS =
+endif
+
+$(LIB): $(OBJS) $(SOBJS)
 	echo $(LIB)
 
 clean:
