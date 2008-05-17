@@ -1042,6 +1042,9 @@ void ModalSolver<dim>::preProcess()  {
   DE.resize(nStrMode);
 
   double eps = ioData->linearizedData.eps;
+  double alpha = dt/ioData->linearizedData.eps2;
+  double eps2 = eps*alpha;
+  com->fprintf(stderr, "Alpha = %f\n", alpha);
 
   // Loop over the modes
   
@@ -1093,12 +1096,12 @@ void ModalSolver<dim>::preProcess()  {
     // Then DFDXdot*****************************************
     // Computing F(X0,V1) 
         
-    Xnp1 = Xref - eps*(mX[ic]);
+    Xnp1 = Xref - eps2*(mX[ic]);
     
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
     geoState->update(Xnp1, CV1);
     
-    Xnp1 = Xref + eps*(mX[ic]);
+    Xnp1 = Xref + eps2*(mX[ic]);
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
 
     //spaceOp->computeResidual(Xnp1, CV1, Uref, F1, tState);
@@ -1106,12 +1109,12 @@ void ModalSolver<dim>::preProcess()  {
     spaceOp->applyBCsToResidual(Uref, F1);
  
     // Computing F(X0, -V1)
-    Xnp1 = Xref + eps*(mX[ic]);
+    Xnp1 = Xref + eps2*(mX[ic]);
   
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
     geoState->update(Xnp1, CV1);
 
-    Xnp1 = Xref - eps*(mX[ic]);
+    Xnp1 = Xref - eps2*(mX[ic]);
     geoState->compute(tState->getData(), bcData->getVelocityVector(), Xnp1, CV1);
 
     //spaceOp->computeResidual(Xnp1, CV1, Uref, F2, tState);
