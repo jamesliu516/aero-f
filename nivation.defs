@@ -1,15 +1,25 @@
 ARPACKDIR     = .
 ARPACKLIB     = $(ARPACKDIR)/libarpack_SUN4.a
-SCALAPACKDIR     = /home/lieut/lib
+SCALAPACKDIR     = /share/apps/icme/lib/scalapack
 SCALAPACKLIB     = $(SCALAPACKDIR)/libscalapack_LINUX.a $(SCALAPACKDIR)/blacsF77init_MPI-LINUX-0.a $(SCALAPACKDIR)/blacs_MPI-LINUX-0.a $(SCALAPACKDIR)/blacsF77init_MPI-LINUX-0.a
 OFLAGS        = -O2 -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DSYNCHRO_WRITE #-mfpmath=sse -msse -msse2 #-ffloat-store #-DEDGE_LENGTH
 #OFLAGS       = -g -DTEMPLATE_FIX -D_FILE_OFFSET_BITS=64 #-DHB_MESHMOTION_DEBUG #-DEDGE_LENGTH
 SOFLAGS       = -shared
 LIBS          = $(ARPACKLIB) -llapack -lcblas -lf77blas -lm -lg2c -latlas $(ARPACKLIB) $(SCALAPACKLIB)
-##MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
+#MPLIBS        = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 DLLIBS        = -ldl
 SAR           = ar cr
 LD            = g++
+
+usescalapack = false;
+#usescalapack = true;
+
+ifeq ($(usescalapack), true)
+  SFLAGS       = -DDO_SCALAPACK
+else
+  SFLAGS       =
+endif
+
 
 # Intel C/C++ & Fortran compiler
 #compiler = intel
@@ -40,11 +50,11 @@ ifeq ($(compiler),intel)
 # Using libraries in /share/apps/mpich/intel
         MPLIBS      = -L/share/apps/mpich/intel/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 	LOCALMPIFLAG= $(MPIFLAG) -I/share/apps/mpich/intel/include/mpi2c++ -I/share/apps/mpich/intel/include
-	CXXFLAGS    = -Wno-deprecated -I. $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS) 
+	CXXFLAGS    = -Wno-deprecated -I. $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS) $(SFLAGS)
 else
 # Using libraries in /opt/mpich/myrinet/gnu
 # Why not /share/apps/mpich/gnu ??
         MPLIBS      = -L/opt/mpich/myrinet/gnu/lib -lpmpich++ -lmpich -L/opt/gm/lib/ -lgm -lpthread
 	LOCALMPIFLAG= $(MPIFLAG) -I/opt/mpich/myrinet/gnu/include/mpi2c++ -I/opt/mpich/myrinet/gnu/include
-        CXXFLAGS    = -Wno-deprecated -I. -I/usr/lib/gcc/i386-redhat-linux/3.4.4/include/ $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS)
+        CXXFLAGS    = -Wno-deprecated -I. -I/usr/lib/gcc/i386-redhat-linux/3.4.4/include/ $(OFLAGS) $(OMPFLAG) $(LOCALMPIFLAG) $(DFLAGS) $(SFLAGS)
 endif

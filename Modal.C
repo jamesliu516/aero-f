@@ -1793,6 +1793,7 @@ void ModalSolver<dim>::setTransfer(int* locDomSize,int* cpuNodes,int &nCpuBl,int
 template<int dim>
 void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps) {
 
+#ifdef DO_SCALAPACK
   int numLocSub = domain.getNumLocSub();
 
   // specify the block size (in terms of nodes)
@@ -1844,6 +1845,7 @@ void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
   int colIndex = 1;
   blockFactor *= dim;
 
+
   F77NAME(lworksize)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                    blockFactor, blockFactor, lwork);
 
@@ -1883,6 +1885,11 @@ void ModalSolver<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
   delete[] locSendReceive;
   delete[] work;
   delete[] U;
+
+#else
+  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
+  exit(-1);
+#endif
 }
 
 //----------------------------------------------------------------------------------
