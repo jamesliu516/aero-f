@@ -24,9 +24,8 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
        $(LIB)(genbcfluxtait.o)
-#       $(LIB)(thinsvd.o) \
-#       $(LIB)(lworksize.o)
 
+#usescalapack = true
 ifeq ($(usescalapack), true)
 
   SOBJS = $(LIB)(thinsvd.o) \
