@@ -104,7 +104,15 @@ FORTLIBS  = # Fortran libraries needed for linking when compiled with the Intel 
 CXX       = g++
 #include default.defs
 #include nivation.defs
+
 usescalapack = false
+#usescalapack = true
+ifeq ($(usescalapack),true)
+  SFLAGS       = -DDO_SCALAPACK
+else
+  SFLAGS       =
+endif
+
 
 host := $(shell hostname -s)
 ifeq ($(host), frontend-0)
@@ -184,7 +192,7 @@ fluid.so: $(CXXOBJS) f77src parser utils
 	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(FORTLIBS)
 
 f77src::
-	(cd f77src; $(MAKE) "FC=$(F77)" "F77=$(F77)" "FFLAGS=$(OFLAGS)")
+	(cd f77src; $(MAKE) "FC=$(F77)" "F77=$(F77)" "FFLAGS=$(OFLAGS)" "usescalapack=$(usescalapack)")
 
 parser::
 	(cd parser; $(MAKE) "CXX=$(CXX)" "CXXFLAGS=$(CXXFLAGS)" "SAR=$(SAR)")

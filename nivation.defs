@@ -11,16 +11,6 @@ DLLIBS        = -ldl
 SAR           = ar cr
 LD            = g++
 
-usescalapack = false;
-#usescalapack = true;
-
-ifeq ($(usescalapack), true)
-  SFLAGS       = -DDO_SCALAPACK
-else
-  SFLAGS       =
-endif
-
-
 # Intel C/C++ & Fortran compiler
 #compiler = intel
 #useomp = true
