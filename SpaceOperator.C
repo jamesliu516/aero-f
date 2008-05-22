@@ -1342,7 +1342,7 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
   PhiF = 0.0;
   DistSVec<double,1> PhiS(Phi.info(), reinterpret_cast<double (*)[1]>(Phi.data()));
 
-  varFcn->conservativeToPrimitive(U, *V);
+  varFcn->conservativeToPrimitive(U, *V, &Phi);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
     double t0 = timer->getTime();
@@ -1533,7 +1533,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
                                          DistVec<double> &Phi, DistExactRiemannSolver<dim> *riemann)
 {
 
-  fprintf(stdout, "going through computeJacobian for two-phase flows\n");
+  //fprintf(stdout, "going through computeJacobian for two-phase flows\n");
 #ifdef DOUBLE_CHECK
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 #endif
@@ -1623,7 +1623,7 @@ void SpaceOperator<dim>::getExtrapolationValue(DistSVec<double,dim> &U,
 
   if(xpol){
     DistSVec<double,dim>* VV = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    varFcn->conservativeToPrimitive(U, *VV);
+    varFcn->conservativeToPrimitive(U, *VV); //assumption : only one phase at far-field boundary
     domain->getExtrapolationValue(xpol, *VV, Ubc, varFcn, *bcData, *geoState, X);
     delete VV;
   }

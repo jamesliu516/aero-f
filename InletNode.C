@@ -38,19 +38,18 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
 				int* tet, int* mask, SVec<double,dim> &Ubc,
 				SVec<double,3> &X, int i,
 				int *locToGlobNodeMap)
+// function called only for single-phase flow //
 {
 
   double S = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
   double ooS = 1.0/S;
   double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
 
-  //double Vb[dim];	//far field values
   double Vfar[dim];
   double Vinter[dim];	//interpolated values from inside the domain
   double Vextra[dim];	//values that will be imposed
   double dV[dim];
 
-  //vf->conservativeToPrimitive(Ub,Vb);
   vf->conservativeToPrimitive(Ufar,Vfar);
   double cb = vf->computeSoundSpeed(Vfar);
   double unb = Vfar[1]*n[0] + Vfar[2]*n[1] + Vfar[3]*n[2];
@@ -102,13 +101,11 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
   double ooS = 1.0/S;
   double n[3] = {normal[0]*ooS, normal[1]*ooS, normal[2]*ooS};
 
-  //double Vb[dim];
   double Vfar[dim];
   double Vinter[dim];
   double Vextra[dim];
   double dV[dim];
 
-  //vf->conservativeToPrimitive(Ub,Vb, phi);
   vf->conservativeToPrimitive(Ufar,Vfar, phi);
   double cb = vf->computeSoundSpeed(Vfar, phi);
   double unb = Vfar[1]*n[0] + Vfar[2]*n[1] + Vfar[3]*n[2];
@@ -304,7 +301,7 @@ void InletNodeSet::printVariable(SVec<double,dim> &V, Connectivity* sharedInletN
 	fprintf(stderr, "printing variables: \n");
 	for (int i=0; i<numInletNodes; i++){
             node = inletNodes[i].getNodeNum();
-	    vf->conservativeToPrimitive(V[node], U);
+	    vf->conservativeToPrimitive(V[node], U);// assumption : only one phase at infinity boundary
 	    fprintf(stderr, "V[%d] = ", node);                                   
 	    for (int k=0; k<dim; k++){
 		fprintf(stderr, " %f  ", U[k]);
@@ -352,7 +349,7 @@ void InletNodeSet::checkExtrapolationValue(SVec<double,dim> &U, Connectivity* sh
 	int node, i, k;
 	for (i=0; i<numInletNodes; i++){
 		node = inletNodes[i].getNodeNum();
- 		vf->conservativeToPrimitive(Ub[i],Vb);
+ 		vf->conservativeToPrimitive(Ub[i],Vb); // assumption : only one phase at infinity boundary
 		machb = vf->computeMachNumber(Vb);
 	        cb = vf->computeSoundSpeed(Vb);
 		unb = Vb[1]*n[i][0] + Vb[2]*n[i][1] + Vb[3]*n[i][2];

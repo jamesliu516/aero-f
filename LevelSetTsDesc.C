@@ -49,7 +49,6 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   frequencyLS = ioData.mf.frequency;
   interfaceType = ioData.mf.interfaceType;
-
 }
 
 //------------------------------------------------------------------------------
@@ -84,13 +83,11 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
-    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U);
-  else if (this->hth)
-    this->hth->setup(&this->restart->frequency, &this->data->maxTime);
+    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, &Phi);
 
   *this->Xs = *this->X;
 
-  this->timer->setSetupTime();
+  //this->timer->setSetupTime();
 }
 
 //------------------------------------------------------------------------------
@@ -124,6 +121,7 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
 
   this->geoState->update(*this->X, *this->A);
+
   LS->update(Phi);
 
   this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
@@ -159,19 +157,19 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   if (it == this->data->maxIts)
     *lastIt = true;
   else
-    monitorInitialState(it, U);
+    monitorInitialState(it, U); // Phi?
 
   this->output->setMeshMotionHandler(ioData, this->mmh);
+
   this->output->openAsciiFiles();
 
   if (it == 0) {
-    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U); // Phi?
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U); // Phi?
+    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U); // Phi?
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U); // Phi?
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
-    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
 }
@@ -191,12 +189,11 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
                                                                                                       
-  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U); // Phi?
+  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U); // Phi?
+  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U); // Phi?
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
-  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   if (*lastIt) {
@@ -207,3 +204,50 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   }
 
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+void LevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
+                               double t, double dt, DistSVec<double,dim> &U)  {
+
+  double cpu = this->timer->getRunTime();
+  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U); // Phi?
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void LevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
+{
+  this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
+
+  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
+  if (_mmh) 
+    _mmh->resetOutputToStructure(this->postOp, *this->X, U, &Phi);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
+					  DistSVec<double,dim> &U)
+{
+
+  this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
+  if (this->mmh) {
+    double work[2];
+    this->mmh->computeInterfaceWork(dt, this->postOp, this->geoState->getXn(), 
+                                    this->timeState->getUn(), *this->X, U, 
+                                    work, &(LS->Phin), &Phi);
+    this->restart->energy[0] += work[0];
+    this->restart->energy[1] += work[1];
+  }
+
+  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
+  if (_mmh)
+    _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &Phi);
+
+}
+
+//------------------------------------------------------------------------------

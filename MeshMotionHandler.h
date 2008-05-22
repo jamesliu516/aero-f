@@ -46,7 +46,8 @@ public:
   template<int dim>
   void computeInterfaceWork(double, PostOperator<dim>*, DistSVec<double,3>&, 
 			    DistSVec<double,dim>&, DistSVec<double,3>&,
-			    DistSVec<double,dim>&, double*);
+			    DistSVec<double,dim>&, double*,
+			    DistVec<double> * = 0, DistVec<double> * = 0);
 
   virtual int getAlgNum()  { return 0; }
 
@@ -138,14 +139,17 @@ public:
   ~AeroMeshMotionHandler();
 
   template<int dim>
-  void setup(int *, double *, PostOperator<dim>*, DistSVec<double,3>&, DistSVec<double,dim>&);
+  void setup(int *, double *, PostOperator<dim>*, DistSVec<double,3>&, 
+             DistSVec<double,dim>&, DistVec<double> * = 0);
 
   template<int dim>
-  void resetOutputToStructure(PostOperator<dim>*, DistSVec<double,3>&, DistSVec<double,dim>&);
+  void resetOutputToStructure(PostOperator<dim>*, DistSVec<double,3>&,
+                              DistSVec<double,dim>&, DistVec<double> * = 0);
 
   template<int dim>
-  void updateOutputToStructure(double, double, PostOperator<dim>*, 
-			       DistSVec<double,3>&, DistSVec<double,dim>&);
+  void updateOutputToStructure(double, double, PostOperator<dim>*,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistVec<double> * = 0);
 
   int getModalMotion(DistSVec<double,3> &);
 

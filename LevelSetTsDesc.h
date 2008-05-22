@@ -50,6 +50,10 @@ class LevelSetTsDesc : public TsDesc<dim> {
                         DistSVec<double,dim> &);
   void outputToDisk(IoData &, bool*, int, int, int, double, double, 
 		    	DistSVec<double,dim> &);
+  void outputForces(IoData &, bool*, int, int, int, double, double,
+                    DistSVec<double,dim> &);
+  void resetOutputToStructure(DistSVec<double,dim> &);
+  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;

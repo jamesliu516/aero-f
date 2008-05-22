@@ -75,7 +75,8 @@ public:
   ~PostOperator();
 
   void computeNodalForce(DistSVec<double,3> &, DistSVec<double,dim> &, 
-			 DistVec<double> &, DistSVec<double,3> &);
+			 DistVec<double> &, DistSVec<double,3> &,
+			 DistVec<double> * = 0);
 
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);

@@ -157,12 +157,14 @@ PostOperator<dim>::~PostOperator()
 
 template<int dim>
 void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
-					  DistVec<double> &Pin, DistSVec<double,3> &F)
+					  DistVec<double> &Pin, DistSVec<double,3> &F,
+					  DistVec<double> *Phi)
 {
+
+  varFcn->conservativeToPrimitive(U,*V,Phi);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     subDomain[iSub]->computeNodalForce(postFcn, (*bcData)(iSub), (*geoState)(iSub),
 				       X(iSub), (*V)(iSub), Pin(iSub), F(iSub));
   }
@@ -710,9 +712,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     }
                                                                                               
                                                                                               
+  varFcn->conservativeToPrimitive(U, *V, &Phi);
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+      //varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
       subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub),
                                                  (*geoState)(iSub), X(iSub),
                                                  (*V)(iSub), (*tmp2)(iSub));
@@ -758,9 +761,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double (*u)[dim] = U.subData(iSub);
       double (*t3)[3] = tmp3.subData(iSub);
       double (*x)[3] = X.subData(iSub);
+      double *phi = Phi.subData(iSub);
       for (int i=0; i<tmp3.subSize(iSub); ++i) {
         double v[dim];
-        varFcn->conservativeToPrimitive(u[i], v);
+        varFcn->conservativeToPrimitive(u[i], v, phi[i]);
         t3[i][0] = v[1];
         t3[i][1] = v[2];
         t3[i][2] = v[3];

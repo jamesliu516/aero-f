@@ -174,6 +174,7 @@ DistBcData<dim>::~DistBcData()
 template<int dim>
 void DistBcData<dim>::finalize(VarFcn *varFcn, DistSVec<double,3> &X)
 {
+  //assumption : only one phase is found at the far-field boundary
 
   varFcn->conservativeToPrimitive(this->Uin, Vin);
   varFcn->conservativeToPrimitive(this->Uout, Vout);

@@ -286,7 +286,7 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
       Aii[k + k*neq] += c_np1;
   }else{        //Navier-Stokes (part of segregated turb model or alone) or fully coupled
     double V[dim];
-    vf->conservativeToPrimitive(Un[i],V);
+    vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
     double e = vf->computeRhoEnergy(V)/V[0];
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
     beta = fmax(k1*locMach, beta);
