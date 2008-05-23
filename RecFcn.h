@@ -74,6 +74,7 @@ public:
 			  double*, double*, double*, double*);
 
   virtual void compute(double*, double*, double*, double*, double*, double*);
+  virtual void compute(double*, double*, double*, double*, double*, double*, double, double);
 
   template<int dim, class Scalar1, class Scalar2, class Scalar3>
   void compute(double *, SVec<Scalar1,dim> &, SVec<Scalar1,dim> &,
@@ -129,6 +130,7 @@ public:
 
   virtual void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
 
+  void interface(double, double, double, double, double&, double&, double, double);
 };
 
 //------------------------------------------------------------------------------
@@ -637,6 +639,18 @@ void RecFcn::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 
 //------------------------------------------------------------------------------
 
+inline
+void RecFcn::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+		     double* Vij, double* Vji, double phii, double phij)
+{
+
+  fprintf(stderr, "*** Error: RecFcn::compute is not overloaded\n");
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 inline
 void RecFcn::computeDerivative(double* Vi, double* dVi, double* ddVij, double* dddVij, double* Vj, double* dVj, double* ddVji, double* dddVji,
@@ -707,6 +721,31 @@ void RecFcn::computeTb(SVec<Scalar,dim> &p,
 
 //------------------------------------------------------------------------------
 
+inline
+void RecFcn::interface(double Vi, double ddVij, double Vj, double ddVji,
+                    double& Vij, double& Vji, double phii, double phij)
+{
+
+  if(phii*phij<0.0){
+
+    double absphii = max(phii, -phii);
+    double absphij = max(phij, -phij);
+    double invTot = 1.0/(absphii+absphij);
+
+    Vij = Vi + absphii*invTot * ddVij;
+    Vji = Vj - absphij*invTot * ddVji;
+
+  }else if(phii*phij==0){
+    Vij = Vi;
+    Vji = Vj;
+  }else{
+    fprintf(stderr, "***Error: RecFcn::interface should not be called! Exiting\n");
+    exit(1);
+  }
+
+}
+
+//------------------------------------------------------------------------------
 
 
 

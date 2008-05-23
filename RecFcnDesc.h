@@ -16,6 +16,7 @@ public:
   void precompute(double *, double *, double *, double *, 
 		  double *, double *, double *, double *);
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
@@ -38,6 +39,7 @@ public:
   void precompute(double *, double *, double *, double *, 
 		  double *, double *, double *, double *); 
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
@@ -60,6 +62,7 @@ public:
   void precompute(double *, double *, double *, double *, 
 		  double *, double *, double *, double *); 
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precomputeDerivative(double *, double *, double *, double *, double *, double *, double *, double *,
@@ -143,6 +146,7 @@ public:
   ~RecFcnLinearConstant() {}
 
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precompute(double *, double *, double *, double *, 
@@ -164,6 +168,7 @@ public:
   ~RecFcnVanAlbadaConstant() {}
 
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precompute(double *, double *, double *, double *, 
@@ -185,6 +190,7 @@ public:
   ~RecFcnLinearVanAlbada() {}
 
   void compute(double *, double *, double *, double *, double *, double *);
+  void compute(double *, double *, double *, double *, double *, double *, double, double);
 
 // Included (MB)
   void precompute(double *, double *, double *, double *, 
@@ -304,6 +310,18 @@ void RecFcnConstant<dim>::compute(double* Vi, double* ddVij, double* Vj, double*
 
   for (int k=0; k<dim; ++k)
     constant(Vi[k], Vj[k], Vij[k], Vji[k]);
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnConstant<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
+{
+
+  for (int k=0; k<dim; ++k)
+    interface(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k], phii, phij);
 
 }
 
@@ -500,6 +518,18 @@ void RecFcnLinear<dim>::compute(double* Vi, double* ddVij, double* Vj, double* d
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnLinear<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
+{
+
+  for (int k=0; k<dim; ++k)
+    interface(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k], phii, phij);
+
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -616,6 +646,18 @@ void RecFcnVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double
 
   for (int k=0; k<dim; ++k)
     vanalbada(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k]);
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
+{
+
+  for (int k=0; k<dim; ++k)
+    interface(Vi[k], ddVij[k], Vj[k], ddVji[k], Vij[k], Vji[k], phii, phij);
 
 }
 
@@ -920,6 +962,18 @@ void RecFcnLinearConstant<dim>::compute(double* Vi, double* ddVij, double* Vj, d
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnLinearConstant<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
+{
+
+  fprintf(stderr, "*** Error: RecFcnLinearConstant<%d>::compute is not overloaded\n", dim);
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -1093,6 +1147,18 @@ void RecFcnVanAlbadaConstant<dim>::compute(double* Vi, double* ddVij, double* Vj
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnVanAlbadaConstant<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
+{
+
+  fprintf(stderr, "*** Error: RecFcnVanAlbadaConstant<%d>::compute is not overloaded\n", dim);
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -1258,6 +1324,18 @@ template<int dim>
 inline
 void RecFcnLinearVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 					 double* Vij, double* Vji)
+{
+
+  fprintf(stderr, "*** Error: RecFcnLinearVanAlbada<%d>::compute is not overloaded\n", dim);
+  exit(1);
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+inline
+void RecFcnLinearVanAlbada<dim>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
+                                  double* Vij, double* Vji, double phii, double phij)
 {
 
   fprintf(stderr, "*** Error: RecFcnLinearVanAlbada<%d>::compute is not overloaded\n", dim);
