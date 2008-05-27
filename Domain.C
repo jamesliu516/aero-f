@@ -1032,7 +1032,6 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
     com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
 
   }else{
-    fprintf(stdout, "forming jacobian matrix\n");
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, 
