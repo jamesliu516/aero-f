@@ -339,7 +339,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
   Timer *modalTimer = domain.getTimer();
   double t0;
-  double currentTime = 0.0;
 
   DistSVec<double,dim> FF(domain.getNodeDistInfo());
   VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
@@ -433,8 +432,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
       HOp2step1->apply(delWint,rhs);
 
-      currentTime += dt0;
-
       rhsA = 0.0;
       rhsB = 0.0;
       rhsC = 0.0;
@@ -464,7 +461,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
     }
     else if (cnt == 1) {
  
-      currentTime += 0.5*dt;
       rhs = delW*(2.0+2.0/r) - delWnm1*(2.0*r/(1.0+r));
 
       rhs *= controlVol;
@@ -501,7 +497,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
 
     }
     else if (cnt == 2) {
-      currentTime += dt;
       rhs = delW*3.0 - delWnm1*(1.0/3.0);
 
       rhs *= controlVol;
@@ -543,7 +538,6 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
       rhs *= controlVol;
 
       rhs *= 1.0/dt;
-      currentTime += dt;
 
       rhsA = 0.0;  rhsB = 0.0; rhsC = 0.0; rhsD = 0.0;
       for (i = 0; i < nStrMode; ++i)  {
@@ -765,14 +759,12 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
   delWFull += Uref;
   tOutput->writeForcesToDisk(0, 0, 0, 0, 0.0, com->cpuNum(), tRestart->energy, deltmp, delWFull);
 
-  double currentTime = 0.0;
   for (int cnt = 0; cnt < nSteps; ++cnt) {
 
     cntp1 = cnt+1;
 
     if (cnt == 0) {
 
-      currentTime += dt0;
       rhs = 0.0;
       rhsTemp = 0.0;
 
@@ -797,7 +789,6 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
     else if (cnt == 1){
      
-      currentTime +=0.5*dt;
       rhs = 0.0;
       rhsTemp = 0.0;
 
@@ -823,7 +814,6 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
     else if (cnt == 2){
 
-      currentTime +=dt;
       rhs = 0.0;
       rhsTemp = 0.0;
 
@@ -850,7 +840,6 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
         
     else {
 
-      currentTime += dt;
       rhs = 0.0;
       rhsTemp = 0.0;
 
@@ -875,16 +864,18 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
     }
   
-// Output the reduced order vector
-    for (int kk = 0; kk < nStrMode; kk++)  {
-      prevU[kk] = delU[kk];
-      prevY[kk] = delY[kk];
+    // Output the reduced order vector
+    if (ioData->problem.alltype == ProblemData::_ROM_AEROELASTIC_)  {
+      for (int kk = 0; kk < nStrMode; kk++)  {
+        prevU[kk] = delU[kk];
+        prevY[kk] = delY[kk];
+      }
+  
+      if (cnt == 0)
+        computeModalDispStep1(sdt0,deltmp, delWFull, delU, delY, refModalF);
+      else
+        computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF);
     }
-
-    if (cnt == 0)
-      computeModalDispStep1(sdt0,deltmp, delWFull, delU, delY, refModalF);
-    else
-      computeModalDisp(sdt, deltmp, delWFull, delU, delY, refModalF);
 
     // compute Cl, Cm
     deltmp = 0.0;
@@ -2470,7 +2461,7 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
   com->fprintf(romFP, "%d 0\n", nPodVecs);
   for (iVec = 0; iVec < nPodVecs; iVec++)  {
     for (jVec = 0; jVec < nPodVecs; jVec++)
-      com->fprintf(romFP, "%.16e ", romOperator[iVec][jVec]);
+      com->fprintf(romFP, "%.16e ", romOperator[jVec][iVec]);
     com->fprintf(romFP, "\n");
   }
 
@@ -2524,8 +2515,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   double invDt = -1.0/ioData->ref.rv.time;
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
-    //tmpVec = DE[iVec] * invDt; #BUG#
-    tmpVec = DE[iVec];
+    tmpVec = DE[iVec] * invDt;
     tmpVec2 = DX[iVec];
     tmpVec /= controlVol;
     tmpVec2 /= controlVol;
