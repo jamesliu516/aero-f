@@ -866,7 +866,7 @@ public:
 
   int size() const { return numElems; }
 
-  int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &, map<int, PorousMedia *> &);
+  int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 

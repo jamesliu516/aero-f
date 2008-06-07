@@ -21,11 +21,40 @@ public:
 protected:
 
   WallFcn* wallFcn;
-  map<int, PorousMedia *> &volInfo;
+  map<int, PorousMedia *> volInfo;
 
 public:
 
-  FemEquationTerm(map<int, PorousMedia *> &pm) : volInfo(pm) { wallFcn = 0; }
+  FemEquationTerm(map<int, VolumeData *> &volData) {
+    wallFcn = 0; 
+    //construction of volInfo (map from id to porousMedia)
+    if(!volInfo.empty()) fprintf(stdout, "volInfo is not empty... weird\n");
+    else fprintf(stdout, "volInfo is empty\n");
+    //...loop on all the VolumeData and check which one is a PorousMedia...
+    map<int, VolumeData *>::iterator it;
+    if(!volData.empty()){
+      for(it=volData.begin(); it!=volData.end(); it++){
+        //...if it a PorousMedia, add it to volInfo
+        if(it->second->type == VolumeData::POROUS){
+          fprintf(stdout, "***Debug : vol_id = %d corresponds to a porous medium\n", it->first);
+          //...check if it already exists...
+          map<int, PorousMedia *>::iterator pmit = volInfo.find(it->first);
+          if(pmit != volInfo.end()) 
+            fprintf(stdout, "***Debug : vol_id = %d has already a porous medium connected to it!\n", it->first);
+  
+          //...otherwise add it...
+          volInfo[it->first] = &(it->second->porousMedia);
+        }
+        else if(it->second->type == VolumeData::FLUID)
+          fprintf(stdout, "***Debug : vol_id = %d corresponds to a fluid medium\n", it->first);
+        else
+          fprintf(stdout, "***Debug : vol_id = %d corresponds to nothing\n", it->first);
+      
+      }
+    }
+  }
+
+  //FemEquationTerm(map<int, PorousMedia *> &pm) : volInfo(pm) { wallFcn = 0; }
   ~FemEquationTerm() { if (wallFcn) delete wallFcn; }
 
   virtual double computeViscousTimeStep(double *, double *) = 0;

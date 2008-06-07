@@ -2704,6 +2704,58 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm, 
+                   VolumeInitialConditions &ic, DistSVec<double,dim> &U)
+{
+
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its 
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+  if(fm.fluid == FluidModelData::GAS){
+    double UU[5];
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+  }
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUVolumesInitialConditions(volid, fm, ic, U(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
+                   SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsSphere(fm, ic, X(iSub), U(iSub));
+
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                                                          
 template<int dim>
 void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)

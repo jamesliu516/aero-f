@@ -371,7 +371,7 @@ struct LiquidModelData {
                                                                                               
 struct FluidModelData {
                                                                                               
-  enum Fluid { GAS = 0, LIQUID = 1 } fluid;
+  enum Fluid { GAS = 0, LIQUID = 1, UNDEFINED = 2} fluid;
   double pmin;
                                                                                               
   GasModelData gasModel;
@@ -416,10 +416,48 @@ struct ThermalCondModelData {
 };
 
 //------------------------------------------------------------------------------
+
+struct PorousMedia  {
+
+  double iprimex, iprimey, iprimez;
+  double jprimex, jprimey, jprimez;
+  double kprimex, kprimey, kprimez;
+  double alphax,alphay,alphaz;
+  double betax,betay,betaz;
+  double idr,ldr;
+
+  PorousMedia();
+  //Assigner *getAssigner();
+  void setup(const char*, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct VolumeInitialConditions {
+
+  double mach;
+  double velocity;
+  double alpha, beta;
+  double pressure;
+  double density;
+  double temperature;
+
+  VolumeInitialConditions();
+  //Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct VolumeData  {
 
-  enum Type {FLUID1 = 0, FLUID2 = 1, POROUS = 2} type;
-  int porousID;
+  enum Type {FLUID = 0, POROUS = 1} type;
+
+  PorousMedia   porousMedia;
+  FluidModelData fluidModel;
+  VolumeInitialConditions volumeInitialConditions;
 
   VolumeData();
   Assigner *getAssigner();
@@ -677,19 +715,21 @@ struct TurbulenceClosureData {
 struct SphereData {
    
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
-  double cen_x, cen_y, cen_z, r;
-  double p, rho, t, mach, vel;  
+  double cen_x, cen_y, cen_z, radius;
+  double pressure, density, temperature, mach, velocity;
+  double alpha, beta;
 
   SphereData();
   ~SphereData() {}
   void setup(const char *, ClassAssigner * = 0);
+
 };
 
 //------------------------------------------------------------------------------
                                                                                               
 struct PlaneData {
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
-  double cen_x, cen_y, cen_z, normal_x, normal_y, normal_z;
+  double cen_x, cen_y, cen_z, nx, ny, nz;
   double p, rho, t, mach;
 
   PlaneData();
@@ -699,39 +739,19 @@ struct PlaneData {
 
 //------------------------------------------------------------------------------
                                                                                               
-struct ICData {
+struct InitialConditionsData {
                                                                                               
-  static const int nsphere = 10;
+  static const int nsphere = 2;
   int nspheres;
   SphereData* sphere[nsphere];
-  static const int nplane = 10;
-  int nplanes;
-  PlaneData* plane[nplane];
 
   SphereData s1;
   SphereData s2;
-  SphereData s3;
-  SphereData s4;
-  SphereData s5;
-  SphereData s6;
-  SphereData s7;
-  SphereData s8;
-  SphereData s9;
-  SphereData s10;
-                                                                                        
-  PlaneData p1;
-  PlaneData p2;
-  PlaneData p3;
-  PlaneData p4;
-  PlaneData p5;
-  PlaneData p6;
-  PlaneData p7;
-  PlaneData p8;
-  PlaneData p9;
-  PlaneData p10;
 
-  ICData();
-  ~ICData() {}
+  PlaneData p1;
+
+  InitialConditionsData();
+  ~InitialConditionsData() {}
   void setup(const char *, ClassAssigner * = 0);
 };
 
@@ -752,7 +772,11 @@ struct MultiFluidData {
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
-  ICData icd;
+
+  FluidModelData fluidModel;
+  FluidModelData fluidModel2;
+  InitialConditionsData initialConditions;
+
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -762,27 +786,9 @@ struct MultiFluidData {
 
 //------------------------------------------------------------------------------
 
-struct PorousMedia  {
-
-  double iprimex, iprimey, iprimez;
-  double jprimex, jprimey, jprimez;
-  double kprimex, kprimey, kprimez;
-  double alphax,alphay,alphaz;
-  double betax,betay,betaz;
-  double idr,ldr;
-
-  PorousMedia();
-  Assigner *getAssigner();
-
-};
-
-//------------------------------------------------------------------------------
-
 struct Volumes  {
 
   ObjectMap<VolumeData> volumeMap;
-  ObjectMap<PorousMedia> porousMap;
-  FluidModelData fluidModel2;
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -804,10 +810,10 @@ struct EquationsData {
 // with the values given to characterize the first fluid!
                                                                                               
   FluidModelData fluidModel;
+  FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;
   ThermalCondModelData thermalCondModel;
   TurbulenceClosureData tc;
-  Volumes volumes;
 
   EquationsData();
   ~EquationsData() {}
@@ -1530,6 +1536,8 @@ struct Velocity  {
   void setup(const char *);
 };
 
+//------------------------------------------------------------------------------
+
 class IoData {
 
   char *cmdFileName;
@@ -1562,7 +1570,7 @@ public:
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
-  //PorousMedia porousmedia;
+  Volumes volumes;
 
 public:
 
@@ -1582,6 +1590,16 @@ public:
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
   int checkSolverValues();
+  int checkInputValuesMulti_step1();
+  void checkInputValuesMulti_step2();
+  int checkInputValuesMultiEOS();
+  int checkInputValuesVolumesInitialization();
+  int checkVolumeInitialization(FluidModelData &fm, 
+                                VolumeInitialConditions &ic, int volid);
+  int checkInputValuesMultiFluidInitialization();
+  int printMultiEOS();
+  void nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic);
+  void nonDimensionalizeFluidModel(FluidModelData &fm);
   int checkInputValuesInitializeMulti();
 
 };   

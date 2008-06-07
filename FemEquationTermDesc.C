@@ -23,7 +23,7 @@ const double NavierStokesTerm::fourth = 1.0/4.0;
 //------------------------------------------------------------------------------
 
 FemEquationTermNS::FemEquationTermNS(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -701,7 +701,7 @@ void FemEquationTermNS::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -1871,7 +1871,7 @@ void FemEquationTermSA::computeJacobianSurfaceTerm(double dp1dxj[4][3], int code
 //------------------------------------------------------------------------------
 
 FemEquationTermSAmean::FemEquationTermSAmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2203,7 +2203,7 @@ void FemEquationTermSAmean::computeJacobianSurfaceTerm(double dp1dxj[4][3], int 
 //------------------------------------------------------------------------------
 
 FemEquationTermSAturb::FemEquationTermSAturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), SATerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
 }
@@ -2241,7 +2241,7 @@ bool FemEquationTermSAturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -2877,7 +2877,7 @@ void FemEquationTermDES::computeJacobianSurfaceTerm(double dp1dxj[4][3], int cod
 //------------------------------------------------------------------------------
 
 FemEquationTermDESmean::FemEquationTermDESmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
@@ -3209,7 +3209,7 @@ void FemEquationTermDESmean::computeJacobianSurfaceTerm(double dp1dxj[4][3], int
 //------------------------------------------------------------------------------
 
 FemEquationTermDESturb::FemEquationTermDESturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), DESTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
 }
@@ -3246,7 +3246,7 @@ bool FemEquationTermDESturb::computeJacobianVolumeTerm(double dp1dxj[4][3],
 //------------------------------------------------------------------------------
 
 FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   wallFcn = new WallFcnKE(iod, varFcn, viscoFcn);
@@ -3961,7 +3961,7 @@ void FemEquationTermKE::computeJacobianSurfaceTerm(int code, Vec3D &n,
 //------------------------------------------------------------------------------
 
 FemEquationTermKEmean::FemEquationTermKEmean(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
   wallFcn = new WallFcn(iod, varFcn, viscoFcn);
@@ -4281,7 +4281,7 @@ void FemEquationTermKEmean::computeJacobianSurfaceTerm(int code, Vec3D &n,
 //------------------------------------------------------------------------------
 
 FemEquationTermKEturb::FemEquationTermKEturb(IoData &iod, VarFcn *vf) :
-  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.eqs.volumes.porousMap.dataMap)
+  NavierStokesTerm(iod, vf), KEpsilonTerm(iod), FemEquationTerm(iod.volumes.volumeMap.dataMap)
 {
 
 }

@@ -241,6 +241,15 @@ public:
   void setPhiForBubble(SVec<double,3> &X, double x, double y,
                        double z, double radius, double invertGasLiquid,
                        Vec<double> &Phi);
+  void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
+                                 SVec<double,3> &X, Vec<double> &Phi);
+  template<int dim>
+  void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
+             VolumeInitialConditions &ic, SVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+             SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
 
   // moving mesh
 

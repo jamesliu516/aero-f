@@ -29,8 +29,6 @@ private:
   DistSVec<double,dim> *VnBar;
   DistSVec<double,dim> *QBar;
 
-private:
-
   bool locAlloc;
   int numLocSub;
 
@@ -81,8 +79,11 @@ public:
 
   void setGlobalTimeStep (double t) { *dt = t; }
 
-  //void setup(const char *, double *, DistSVec<double,3> &, DistSVec<double,dim> &);
   void setup(const char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
+             DistSVec<double,dim> &U, IoData &iod);
+  void setupUVolumesInitialConditions(IoData &iod);
+  void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);

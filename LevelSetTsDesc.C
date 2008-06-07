@@ -71,15 +71,10 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
   this->geoState->setup2(this->timeState->getData());
 
-  LS->setup(this->input->levelsets, *this->X, Phi, *U, ioData);
 
   // initalize solution
-  if(ioData.mf.problem == MultiFluidData::SHOCKTUBE)
-    this->timeState->setup(this->input->solutions, this->bcData->getOutletBoundaryVector(),
-                           this->bcData->getInterface(), *this->X, Phi, *U, ioData);
-  else if(ioData.mf.problem == MultiFluidData::BUBBLE)
-    this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(),
-                           this->bcData->getInterface(), *this->X, Phi, *U, ioData);
+  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)

@@ -4,20 +4,79 @@
 
 //-------------------------------------------------------------------------
 template<int dim>
+void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                     DistVec<double> &Phi, IoData &iod)
+{
+
+  if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
+     iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+    invertGasLiquid = -1.0;
+  else invertGasLiquid = 1.0;
+
+  // CONVENTION: phi >= 0 --- fluid1 --- 'normal' volID
+  //             phi <  0 --- fluid2 --- 'special' volID
+  // Initialization of Phi is done through the use of volumeID and
+  // through the knowledge of a geometric shape (with its position).
+
+  Phi0 = 1.0;
+  setupPhiVolumesInitialConditions(iod, Phi0);
+  setupPhiMultiFluidInitialConditions(iod,X, Phi0);
+  primitiveToConservative(Phi0, Phi, U);
+
+  Phin   = Phi;
+  Phinm1 = Phin;
+  Phinm2 = Phinm1;
+
+  if (name[0] != 0) {
+    DistSVec<double,1> ReadPhi(domain->getNodeDistInfo());
+    domain->readVectorFromFile(name, 0, 0, ReadPhi);
+    DistVec<double> PhiRead(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi.data()));
+    Phi  = PhiRead;
+    Phin = PhiRead;
+
+    if (data->use_nm1){
+      DistSVec<double,1> ReadPhi1(domain->getNodeDistInfo());
+      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
+      DistVec<double> PhiRead1(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi1.data()));
+      Phinm1 = PhiRead1;
+    }
+
+    if (data->use_nm2){
+      DistSVec<double,1> ReadPhi2(domain->getNodeDistInfo());
+      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
+      DistVec<double> PhiRead2(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi2.data()));
+      Phinm2 = PhiRead2;
+    }
+  }
+
+  if (data->use_nm1 && !data->exist_nm1){
+    Phinm1 = Phin;
+  }
+  if (data->use_nm2 && !data->exist_nm2){
+    Phinm2 = Phinm1;
+  }
+
+  // for reinitialization testing
+  Phi0 = Phi;
+
+}
+
+//-------------------------------------------------------------------------
+/*template<int dim>
 void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
-		     DistSVec<double,dim> &U, IoData &iod)
+		     IoData &iod)
 {
 
   if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS && 
-     iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
+     iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
   else invertGasLiquid = 1.0;
 
   double r, xb, yb, zb;
-  xb   = iod.mf.icd.s1.cen_x;
-  yb   = iod.mf.icd.s1.cen_y;
-  zb   = iod.mf.icd.s1.cen_z;
-  r    = iod.mf.icd.s1.r;
+  xb   = iod.mf.initialConditions.s1.cen_x;
+  yb   = iod.mf.initialConditions.s1.cen_y;
+  zb   = iod.mf.initialConditions.s1.cen_z;
+  r    = iod.mf.initialConditions.s1.radius;
 
   // CONVENTION: phi >= 0 --- fluid1 --- 'normal' volID
   //             phi <  0 --- fluid2 --- 'special' volID
@@ -27,7 +86,6 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistVec<double> &P
   // then loop through the remaining 'normal' elements and set them to 1.
   // In the case where there is a geometric shape, then we compute the
   // absolute distance to that shape and multiply by the existing phi.
-  // Is this really what we want for fluid-structure-fluid and fluid-fluid?
 
 
   if(iod.mf.lsInit == MultiFluidData::OLD){
@@ -85,7 +143,7 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistVec<double> &P
   Phi0 = Phi;
 
 }
-
+*/
 //-------------------------------------------------------------------------
 template<int dim>
 void LevelSet::conservativeToPrimitive(DistVec<double> &Cons, DistVec<double> &Prim, 

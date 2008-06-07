@@ -1304,6 +1304,35 @@ void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
 
 }
 //------------------------------------------------------------------------------
+
+void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi){
+
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+  com->fprintf(stdout, "setting up Phi for volume %d\n", volid);
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
+               DistSVec<double,3> &X, DistVec<double> &Phi){
+
+  com->fprintf(stdout, "setting up Phi for MultiFluid\n");
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsSphere(ic, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
 void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi,
                                int level)
 {

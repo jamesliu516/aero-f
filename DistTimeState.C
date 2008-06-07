@@ -70,7 +70,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     Rn = Un->alias();
 
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
-  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
   fet = spo->getFemEquationTerm();
 
@@ -143,7 +143,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   locAlloc = typeAlloc;
 
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
-  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
   //preconditioner setup
   mach = ioData.bc.inlet.mach;
@@ -303,19 +303,77 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
 
 //------------------------------------------------------------------------------
 template<int dim>
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
+                               DistSVec<double,dim> &Ufar,
+                               DistSVec<double,dim> &U, IoData &iod)
+{
+
+  *Un = Ufar;
+
+  setupUVolumesInitialConditions(iod);
+  setupUMultiFluidInitialConditions(iod,X);
+
+  if (name[0] != 0) {
+    domain->readVectorFromFile(name, 0, 0, *Un);
+    if (data->use_nm1)
+      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
+    if (data->use_nm2)
+      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
+  }
+
+  U  = *Un;
+  if (data->use_nm1 && !data->exist_nm1)
+    *Unm1 = *Un;
+  if (data->use_nm2 && !data->exist_nm2)
+    *Unm2 = *Unm1;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    if (!subTimeState[iSub])
+      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
+                                              (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
+{
+
+  // loop on all Volumes to setup U0
+  if(!iod.volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
+        //                                 and equation of state 'fluidModel'
+        domain->setupUVolumesInitialConditions(it->first, it->second->fluidModel, it->second->volumeInitialConditions, *Un);
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
+{
+  // These initial conditions are setup using MultiFluid.FluidModel2
+  // which can be a gas or a liquid.
+  // Note that Un was already initialized either using the far-field
+  // or using the definition of volumes. Therefore the only initialization
+  // left to do is for the spheres and other geometric shapes.
+
+  if(iod.mf.initialConditions.nspheres>0)
+    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
+      domain->setupUMultiFluidInitialConditionsSphere(iod.mf.fluidModel2, *(iod.mf.initialConditions.sphere[i]),X,*Un);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
                                DistVec<double> &Phi,
                                DistSVec<double,dim> &U, IoData &iod)
 {
   *Un = Ufar;
-
-  double dist, r, xb, yb, zb;
-  xb   = iod.mf.icd.s1.cen_x;
-  yb   = iod.mf.icd.s1.cen_y;
-  zb   = iod.mf.icd.s1.cen_z;
-  r    = iod.mf.icd.s1.r;
-  int glob;
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){

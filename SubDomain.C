@@ -3877,6 +3877,132 @@ void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
+                                VolumeInitialConditions &ic, SVec<double,dim> &U){
+
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ic.density;
+    double temperature = ic.temperature;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        for (int idim = 0; idim<dim; idim++)
+          U[nodeNums[iNode]][idim] = UU[idim];
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+                       SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U){
+
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ic.density;
+    double temperature = ic.temperature;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  double dist = 0.0;
+  double x = ic.cen_x;
+  double y = ic.cen_y;
+  double z = ic.cen_z;
+  double r = ic.radius;
+
+  for (int i=0; i<U.size(); i++){
+    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
+    if(sqrt(dist) < r) //it is inside the sphere
+      for (int idim=0; idim<dim; idim++)
+        U[i][idim] = UU[idim];
+  }
+
+}
+
+//------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {

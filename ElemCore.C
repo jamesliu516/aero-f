@@ -115,7 +115,7 @@ ElemSet::~ElemSet()
 //------------------------------------------------------------------------------
 
 int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *elemMap,
-                  map<int, VolumeData *> &volInfo, map<int, PorousMedia *> &porousMap)  
+                  map<int, VolumeData *> &volInfo)  
 {
 
   // read in number of elems in cluster (not used)
@@ -169,19 +169,13 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
 
       if (volIt == volInfo.end())
         elems[count]->setVolumeID(0);
-      else  {
-        if (volIt->second->type == VolumeData::FLUID2)
-          elems[count]->setVolumeID(-1);
-        else if (volIt->second->type == VolumeData::POROUS)  {
-          map<int, PorousMedia *>::iterator pm = porousMap.find(volIt->second->porousID);
-          if (pm == porousMap.end())  {
-            elems[count]->setVolumeID(0);
-          }
-          else
-            elems[count]->setVolumeID(volIt->second->porousID);
+      else { //these elements have a volume_id tag
+        // volume_id and volIt->first should be the same
+        if (volume_id != volIt->first){
+          fprintf(stderr, "Error_DEBUG : inconsistency in tagging of elements\n");
+          exit(1);
         }
-        else
-          elems[count]->setVolumeID(0);
+        elems[count]->setVolumeID(volume_id);
       }
 
       // read in elem nodes

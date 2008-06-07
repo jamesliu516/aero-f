@@ -77,7 +77,7 @@ void RigidMeshMotionHandler::setupVelocityPoints(IoData &ioData)
 {
 
   // compute body velocity using Mach number and AoA
-  double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
   double velBody2 =  ioData.eqs.fluidModel.gasModel.specificHeatRatio * (ioData.bc.inlet.pressure + Pstiff)
                   * ioData.bc.inlet.mach*ioData.bc.inlet.mach / ioData.bc.inlet.density;
   double velBody = sqrt(velBody2);

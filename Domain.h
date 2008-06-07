@@ -268,6 +268,7 @@ public:
                              DistSVec<bcomp,3>&, DistVec<bcomp>&) {
 	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
+  // ----- BEGIN LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
   void setPhiForFluid1(DistVec<double> &Phi);
   void setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
                                     double zb, double r, double invertGasLiquid,
@@ -282,6 +283,16 @@ public:
                        DistVec<double> &Phi);
   void TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level);
   void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
+
+  void setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
+                    DistSVec<double,3> &X, DistVec<double> &Phi);
+  template<int dim>
+  void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
+             VolumeInitialConditions &ic, DistSVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
+             SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
 	
   template<int dim>  
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
@@ -314,6 +325,7 @@ public:
   template<int dim>
   void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
 
+  // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 

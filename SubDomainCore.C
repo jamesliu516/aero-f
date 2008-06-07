@@ -3716,3 +3716,34 @@ void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
                                     (X[i][2] -z)*(X[i][2] -z))
                                   - radius);
 }
+
+//--------------------------------------------------------------------------
+void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi){
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        Phi[nodeNums[iNode]] = (volid==0) ? 1.0 : -1.0;
+    }
+  }
+
+}
+
+//--------------------------------------------------------------------------
+void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
+                                 SVec<double,3> &X, Vec<double> &Phi){
+
+  double dist = 0.0;
+  double x = ic.cen_x;
+  double y = ic.cen_y;
+  double z = ic.cen_z;
+  double r = ic.radius;
+
+  for (int i=0; i<Phi.size(); i++){
+    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
+    Phi[i] *= sqrt(dist) - r;
+  }
+
+}
+

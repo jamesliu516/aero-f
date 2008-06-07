@@ -330,8 +330,7 @@ SubDomain *GeoSource::getSubDomain(int iSub)
 
   // read the elems
   geoFile.seek(tocOffset[1]);
-  elems->read(geoFile, numElemRanges, elemRanges, locToGlobElemMap, iod->eqs.volumes.volumeMap.dataMap, 
-              iod->eqs.volumes.porousMap.dataMap); 
+  elems->read(geoFile, numElemRanges, elemRanges, locToGlobElemMap, iod->volumes.volumeMap.dataMap);
 
   // read the faces
   geoFile.seek(tocOffset[2]);

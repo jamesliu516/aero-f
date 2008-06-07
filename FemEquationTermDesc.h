@@ -241,7 +241,7 @@ public:
 
   double x0,y0,z0,x1,y1,z1;
   bool trip;
-  ////map<int, PorousMedia *> &volInfo;
+  //map<int, PorousMedia *> &volInfo;
   double velocity, density, length;
 
   FemEquationTermDESmean(IoData &, VarFcn *);
