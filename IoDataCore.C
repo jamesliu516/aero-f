@@ -3209,8 +3209,17 @@ int IoData::checkInputValuesMulti_step1(){
                 mf.initialConditions.p1.ny*mf.initialConditions.p1.ny+
                 mf.initialConditions.p1.nz*mf.initialConditions.p1.nz;
   if(eqs.numPhase==1 && !volumes.volumeMap.dataMap.empty()){
-    eqs.numPhase = 2;
-    mf.interfaceType = MultiFluidData::FSF;
+    // we still need to check that there is a fluid volume (if only porous volume, then it is still a single phase flow
+    map<int, VolumeData *>::iterator it;
+    int countFluids = 0;
+    for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        countFluids++;
+
+    if(countFluids>0){ // check if volumeMap contains fluids or porous.
+      eqs.numPhase = 2;
+      mf.interfaceType = MultiFluidData::FSF;
+    }
   }else if(eqs.numPhase == 2){
     mf.interfaceType = MultiFluidData::FF;
     if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14){
