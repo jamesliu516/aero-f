@@ -690,7 +690,7 @@ public:
   int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
-  void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&);
+  void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<double> * = 0);
 
   template<int dim, int neq>
   int clipSolution(TsData::Clipping, BcsWallData::Integration, VarFcn*, 

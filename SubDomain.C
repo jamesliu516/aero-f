@@ -3564,16 +3564,24 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U, SVec<bool,2>& tag)
+void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U, 
+                  SVec<bool,2>& tag, Vec<double> *Phi)
 {
 
   for (int i=0; i<U.size(); ++i) {
     tag[i][0] = false;
     tag[i][1] = false;
     double V[dim];
-    varFcn->conservativeToPrimitive(U[i], V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
+    double rho, p;
+    if(!Phi){
+      varFcn->conservativeToPrimitive(U[i], V);
+      rho = varFcn->getDensity(V);
+      p = varFcn->getPressure(V);
+    }else{
+      varFcn->conservativeToPrimitive(U[i], V, (*Phi)[i]);
+      rho = varFcn->getDensity(V);
+      p = varFcn->getPressure(V, (*Phi)[i]);
+    }
     if (rho <= 0.0 || p <= 0.0)
       tag[i][0] = true;
   }

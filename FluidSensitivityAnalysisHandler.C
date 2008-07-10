@@ -390,7 +390,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetEfforts(IoData &ioData,
 
   this->spaceOp->computeGradP(X, *this->A, U);
 
-  this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
+  this->postOp->computeForceAndMoment(x0, X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;
@@ -486,7 +486,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   this->spaceOp->computeGradP(X, A, U);
 
-  this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
+  this->postOp->computeForceAndMoment(x0, X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;
@@ -520,7 +520,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   this->spaceOp->computeGradP(*Xp, *Ap, *Up);
 
-  this->postOp->computeForceAndMoment(x0, *Xp, *Up, Fip, Mip, Fvp, Mvp);
+  this->postOp->computeForceAndMoment(x0, *Xp, *Up, 0, Fip, Mip, Fvp, Mvp);
 
   Fplus = 0.0;
   Mp = 0.0;
@@ -550,7 +550,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
 
   this->spaceOp->computeGradP(*Xm, *Am, *Um);
 
-  this->postOp->computeForceAndMoment(x0, *Xm, *Um, Fim, Mim, Fvm, Mvm);
+  this->postOp->computeForceAndMoment(x0, *Xm, *Um, 0, Fim, Mim, Fvm, Mvm);
 
   Fminus = 0.0;
   Mm = 0.0;
@@ -628,7 +628,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsAnalytical(I
 
   this->spaceOp->computeGradP(X, *this->A, U);
 
-  this->postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);
+  this->postOp->computeForceAndMoment(x0, X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;

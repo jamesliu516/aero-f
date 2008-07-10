@@ -81,6 +81,7 @@ public:
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
+                             DistVec<double> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
 

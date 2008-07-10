@@ -1029,7 +1029,8 @@ void TsOutput<dim>::closeAsciiFiles()
 
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1064,7 +1065,9 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
   if (forces || tavforces)  {
     Vec3D rVec = x0;
-    postOp->computeForceAndMoment(rVec, X, U, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+    // if single-phase flow -- Phi is a null pointer
+    // if multi-phase flow  -- Phi points to a DistVec<double>
+    postOp->computeForceAndMoment(rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
 
     if(mX != 0) 
       com->globalSum(GF.size(), GF.data());
@@ -1172,7 +1175,8 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 
 template<int dim>
 void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1188,10 +1192,12 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
   double time = refVal->time * t;
 
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (hydrostaticforces)
-    postOp->computeForceAndMoment(x0, X, U, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamicforces)
-    postOp->computeForceAndMoment(x0, X, U, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticForces[0]) {
@@ -1256,7 +1262,8 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
 template<int dim>
 void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
 // This routine outputs both the non-averaged and time-averaged values of the lift and drag 
@@ -1285,8 +1292,10 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
     del_t = 0.0;
   }
 
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (lift || tavlift)
-    postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);    
+    postOp->computeForceAndMoment(x0, X, U, Phi, Fi, Mi, Fv, Mv);    
 
   double time = refVal->time * t;
 
@@ -1344,7 +1353,8 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
                                                                                                                                                                                                      
 template<int dim>
 void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
-                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1359,11 +1369,13 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
   Vec3D *MvD = new Vec3D[nSurfs];
 
   double time = refVal->time * t;
-                                                                                                                                                                                                     
+
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (hydrostaticlift)
-    postOp->computeForceAndMoment(x0, X, U, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamiclift)
-    postOp->computeForceAndMoment(x0, X, U, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticLift[0]) {

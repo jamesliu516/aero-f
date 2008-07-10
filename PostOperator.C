@@ -236,10 +236,14 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
-					      DistSVec<double,dim> &U, Vec3D *Fi, 
+					      DistSVec<double,dim> &U, 
+                                              DistVec<double> *Phi, Vec3D *Fi, 
 					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
+
+// Phi must be a null pointer for single-phase flow
+// Phi points to a DistVec<double> for multi-phase flow
 
   int iSurf;
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
@@ -249,9 +253,10 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     Mv[iSurf] = 0.0;
   }
 
+  varFcn->conservativeToPrimitive(U, *V, Phi);
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
     Vec3D *fi = new Vec3D[numSurf];
     Vec3D *mi = new Vec3D[numSurf];
     Vec3D *fv = new Vec3D[numSurf];

@@ -738,7 +738,7 @@ bool TsDesc<dim>::monitorForceConvergence(IoData &ioData, int it, DistSVec<doubl
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
-  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+  postOp->computeForceAndMoment(x0, *this->X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;
@@ -788,7 +788,7 @@ bool TsDesc<dim>::monitorAvgForceConvergence(IoData &ioData, int it, DistSVec<do
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
-  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+  postOp->computeForceAndMoment(x0, *this->X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;

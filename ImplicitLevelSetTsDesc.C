@@ -234,7 +234,7 @@ int ImplicitLevelSetTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
   if (!this->tag)
     this->tag = new DistSVec<bool,2>(this->getVecInfo());
 
-  this->domain->checkFailSafe(this->varFcn, U, *this->tag);
+  this->domain->checkFailSafe(this->varFcn, U, *this->tag, &(this->Phi));
   this->spaceOp->fix(*this->tag);
 
   return 1;

@@ -2521,12 +2521,17 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::checkFailSafe(VarFcn* varFcn, DistSVec<double,dim>& U, DistSVec<bool,2>& tag)
+void Domain::checkFailSafe(VarFcn* varFcn, DistSVec<double,dim>& U, 
+               DistSVec<bool,2>& tag, DistVec<double> *Phi)
 {
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->checkFailSafe(varFcn, U(iSub), tag(iSub));
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    if(!Phi)
+      subDomain[iSub]->checkFailSafe(varFcn, U(iSub), tag(iSub));
+    else
+      subDomain[iSub]->checkFailSafe(varFcn, U(iSub), tag(iSub), &(*Phi)(iSub));
+  }
 
 }
 
