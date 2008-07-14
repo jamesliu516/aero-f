@@ -1244,10 +1244,13 @@ PlaneData::PlaneData()
   nx     = 0.0;
   ny     = 0.0;
   nz     = 0.0;   
-  p      = 0.0;   
-  rho    = 0.0;
-  t      = 0.0;
-  mach   = 0.0;
+  pressure    = 0.0;   
+  density     = 0.0;
+  temperature = 0.0;
+  velocity    = 0.0;
+
+  alpha = 400.0;
+  beta  = 400.0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1255,7 +1258,7 @@ PlaneData::PlaneData()
 void PlaneData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                         
-  ClassAssigner *ca = new ClassAssigner(name, 11, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
                                                                                                         
   new ClassToken<PlaneData>
     (ca, "Type", this, reinterpret_cast<int PlaneData::*>
@@ -1275,24 +1278,29 @@ void PlaneData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<PlaneData>
     (ca, "Normal_z", this, &PlaneData::nz);
   new ClassDouble<PlaneData>
-    (ca, "Pressure", this, &PlaneData::p);
+    (ca, "Pressure", this, &PlaneData::pressure);
   new ClassDouble<PlaneData>
-    (ca, "Density", this, &PlaneData::rho);
+    (ca, "Density", this, &PlaneData::density);
   new ClassDouble<PlaneData>
-    (ca, "Temperature", this, &PlaneData::t);
+    (ca, "Temperature", this, &PlaneData::temperature);
   new ClassDouble<PlaneData>
-    (ca, "Mach", this, &PlaneData::mach);
+    (ca, "Velocity", this, &PlaneData::velocity);
+  new ClassDouble<PlaneData>
+    (ca, "Alpha", this, &PlaneData::alpha);
+  new ClassDouble<PlaneData>
+    (ca, "Beta", this, &PlaneData::beta);
 }
 //------------------------------------------------------------------------------
                                                                                                         
 InitialConditionsData::InitialConditionsData()
 {
 
-  nspheres   = 0;
+  nspheres  = 0;
 
   sphere[0] = &s1;
   sphere[1] = &s2;
 
+  nplanes   = 0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1304,6 +1312,7 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 
   s1.setup("Sphere1", ca);
   s2.setup("Sphere2", ca);
+  p1.setup("Plane1", ca);
 
 }
 
@@ -3222,7 +3231,8 @@ int IoData::checkInputValuesMulti_step1(){
     }
   }else if(eqs.numPhase == 2){
     mf.interfaceType = MultiFluidData::FF;
-    if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14){
+    if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14)
+    {
       error++;
       com->fprintf(stdout, "*** Error : no multiphase flow detected\n");
     }
@@ -3267,6 +3277,13 @@ void IoData::checkInputValuesMulti_step2(){
         mf.initialConditions.sphere[i]->alpha       *= acos(-1.0) / 180.0;
         mf.initialConditions.sphere[i]->beta        *= acos(-1.0) / 180.0;
       }
+
+      mf.initialConditions.p1.density        /= ref.rv.density;
+      mf.initialConditions.p1.pressure       /= ref.rv.pressure;
+      mf.initialConditions.p1.temperature    /= ref.rv.temperature;
+      mf.initialConditions.p1.velocity       /= ref.rv.velocity;
+      mf.initialConditions.p1.alpha         *= acos(-1.0) / 180.0;
+      mf.initialConditions.p1.beta          *= acos(-1.0) / 180.0;
 
       nonDimensionalizeFluidModel(mf.fluidModel);
       nonDimensionalizeFluidModel(mf.fluidModel2);
@@ -3473,6 +3490,50 @@ int IoData::checkInputValuesMultiFluidInitialization(){
           }
         }
       }
+    }
+
+    // for planes (shocktube)
+    double norm = mf.initialConditions.p1.nx*mf.initialConditions.p1.nx+
+                  mf.initialConditions.p1.ny*mf.initialConditions.p1.ny+
+                  mf.initialConditions.p1.nz*mf.initialConditions.p1.nz;
+    if(norm > 0.0){
+      mf.initialConditions.nplanes = 1;
+      if(mf.initialConditions.p1.velocity < 0 ){
+          error++;
+          com->fprintf(stdout, "*** Error : a velocity norm must be specified for Plane\n");
+      }
+      if(mf.initialConditions.p1.alpha>360.0 || mf.initialConditions.p1.beta>360.0){
+        error++;
+        com->fprintf(stdout, "*** Error : angles of flow must be specified for Plane\n");
+      }
+        if(mf.fluidModel2.fluid == FluidModelData::GAS){
+          if(mf.initialConditions.p1.density < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a density must be specified for Plane\n");
+          }
+          if(mf.initialConditions.p1.pressure < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a pressure must be specified for Plane\n");
+          }
+        }else if(mf.fluidModel2.fluid == FluidModelData::LIQUID){
+          if(mf.initialConditions.p1.pressure < 0 && mf.initialConditions.p1.density < 0 ){
+            error++;
+            com->fprintf(stdout, "*** Error : either pressure or density must be specified for Plane\n");
+          }else if(mf.initialConditions.p1.pressure < 0){ //pressure computed from density
+            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
+            mf.initialConditions.p1.pressure = -k1ok2 +
+                                 (mf.fluidModel2.liquidModel.Prefwater+k1ok2)*
+                         pow(mf.initialConditions.p1.density/mf.fluidModel2.liquidModel.RHOrefwater, mf.fluidModel2.liquidModel.k2water);
+          }else{  //pressure is given, whatever the density, it is recomputed given pressure.
+            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
+            mf.initialConditions.p1.density = mf.fluidModel2.liquidModel.RHOrefwater*pow((mf.initialConditions.p1.pressure+k1ok2)/(mf.fluidModel2.liquidModel.Prefwater+k1ok2),1.0/mf.fluidModel2.liquidModel.k2water);
+          }
+          if(mf.initialConditions.p1.temperature < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a temperature must be specified for Plane\n");
+          }
+       }
+
     }
   }
 

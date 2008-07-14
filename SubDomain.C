@@ -4011,6 +4011,70 @@ void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                       PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U){
+
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ip.density;
+    double temperature = ip.temperature;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double nx = ip.nx;
+  double ny = ip.ny;
+  double nz = ip.nz;
+
+  for (int i=0; i<U.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    if(scalar > 0.0) //node is on the same side indicated by vector
+      for (int idim=0; idim<dim; idim++)
+        U[i][idim] = UU[idim];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {

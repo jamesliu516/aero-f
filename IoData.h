@@ -730,7 +730,8 @@ struct SphereData {
 struct PlaneData {
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
   double cen_x, cen_y, cen_z, nx, ny, nz;
-  double p, rho, t, mach;
+  double pressure, density, temperature, velocity;
+  double alpha, beta;
 
   PlaneData();
   ~PlaneData() {}
@@ -747,6 +748,8 @@ struct InitialConditionsData {
 
   SphereData s1;
   SphereData s2;
+
+  int nplanes;
 
   PlaneData p1;
 

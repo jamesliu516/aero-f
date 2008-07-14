@@ -365,6 +365,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
     for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
       domain->setupUMultiFluidInitialConditionsSphere(iod.mf.fluidModel2, *(iod.mf.initialConditions.sphere[i]),X,*Un);
 
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, X, *Un);
+
 }
 //------------------------------------------------------------------------------
 template<int dim>
