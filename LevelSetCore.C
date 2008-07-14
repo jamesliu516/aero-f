@@ -71,6 +71,9 @@ void LevelSet::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,
     for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
       domain->setupPhiMultiFluidInitialConditionsSphere(*(iod.mf.initialConditions.sphere[i]),X,Phi);
 
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupPhiMultiFluidInitialConditionsPlane(iod.mf.initialConditions.p1,X,Phi);
+
 }
 
 //---------------------------------------------------------------------------------------------------------

@@ -287,12 +287,17 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
                     DistSVec<double,3> &X, DistVec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+                    DistSVec<double,3> &X, DistVec<double> &Phi);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, DistSVec<double,dim> &U);
   template<int dim>
   void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
              SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm, 
+             PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
 	
   template<int dim>  
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);

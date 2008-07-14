@@ -2757,11 +2757,22 @@ void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->setupUMultiFluidInitialConditionsSphere(fm, ic, X(iSub), U(iSub));
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm, 
+                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub));
 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                                                         
+
 template<int dim>
 void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)
 {

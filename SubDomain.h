@@ -244,12 +244,17 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, Vec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+                                 SVec<double,3> &X, Vec<double> &Phi);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, SVec<double,dim> &U);
   template<int dim>
   void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
              SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+             PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
 
   // moving mesh
 
