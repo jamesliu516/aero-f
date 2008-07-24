@@ -1657,20 +1657,22 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   
   Timer *modalTimer = domain.getTimer();
 
-#ifdef DO_MODAL
+#ifdef DO_SCALAPACK
   int nPOD = ioData->linearizedData.numPOD;
   int nconv = 0;
 
   com->fprintf(stderr, " ... Forming %d x %d Correlation Matrix\n", nSnaps, nSnaps);
+
+  VecSet<DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
+  Vec<double> singVals(nSnaps);
+  FullM Vtrue(nSnaps);
+
   double t0 = modalTimer->getTime();
+  parallelSVD(snaps, Utrue, singVals.data(), Vtrue, nSnaps);
+  modalTimer->addEigSolvTime(t0);
 
-  VecSet<DistSVec<double, dim> > Utrue(nPOD, domain.getNodeDistInfo());
-  Vec<double> singVals(nPOD);
-  FullM Vtrue(nPOD);
-
-  //parallelSVD(snaps, Utrue, singVals.data(), Vtrue, nSnaps);
-  //outputPODVectors(Utrue, singVals, nPOD);
-
+  outputPODVectors(Utrue, singVals, nSnaps);
+/*
   // allocate for upper half of sym. eigprob
   double *eigVals = new double[nPOD];
   double *eigVecs = new double[nPOD*nSnaps];
@@ -1693,9 +1695,9 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
   com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, nSnaps);
   outputPODVectors(podEigProb, snaps, nPOD, nSnaps);
-
+*/
 #else
-  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
+  com->fprintf(stderr, "*** Error: REQUIRES COMPILATION WITH SCALAPACK \n");
   exit(-1);
 
 #endif
