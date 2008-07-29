@@ -46,6 +46,13 @@ ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   fddata.mvp = ImplicitData::FD;
   mvpfd = new MatVecProdFD<dim, dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
 
+  if (implicitData.mvp == ImplicitData::H2) {
+    this->com->printf(6,
+		      "*** Warning: Exact Jacobian not supported for Segregated Implicit Solver.\n"
+		      "             FiniteDifference will be used.\n");
+    implicitData.mvp = ImplicitData::FD;
+  }
+
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)  {
     mvp1 = new MatVecProdFD<dim,neq1>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
     mvp2 = new MatVecProdFD<dim,neq2>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
