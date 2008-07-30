@@ -827,7 +827,7 @@ struct EquationsData {
 struct SchemeData {
 
   enum AdvectiveOperator {FINITE_VOLUME = 0, FE_GALERKIN = 1} advectiveOperator;
-  enum Flux {ROE = 0, VANLEER = 1} flux;
+  enum Flux {ROE = 0, VANLEER = 1, HLLE = 2, HLLC = 3} flux;
 
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
 
