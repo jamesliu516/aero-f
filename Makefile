@@ -189,7 +189,7 @@ default: $(CXXOBJS) f77src parser utils
 fluid.so: $(CXXOBJS) f77src parser utils
 	mkdir -p bin
 	$(CXX) $(CXXFLAGS) -DCREATE_DSO -c Main.C
-	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(FORTLIBS)
+	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(MPLIBS) $(FORTLIBS)
 
 f77src::
 	(cd f77src; $(MAKE) "FC=$(F77)" "F77=$(F77)" "FFLAGS=$(OFLAGS)" "usescalapack=$(usescalapack)")
