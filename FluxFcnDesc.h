@@ -87,6 +87,119 @@ protected:
 };
 
 //------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLEEuler3D : public FluxFcnFD<5> {
+
+ protected:
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+ public:
+
+  FluxFcnFDJacHLLEEuler3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+
+  ~FluxFcnFDJacHLLEEuler3D() {}
+
+ protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLEEuler3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+public:
+
+  FluxFcnApprJacHLLEEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+
+  ~FluxFcnApprJacHLLEEuler3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, 
+                                     double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLCEuler3D : public FluxFcnFD<5> {
+
+ protected:
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+ public:
+
+  FluxFcnFDJacHLLCEuler3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+
+  ~FluxFcnFDJacHLLCEuler3D() {}
+
+ protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLCEuler3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+public:
+
+  FluxFcnApprJacHLLCEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+
+  ~FluxFcnApprJacHLLCEuler3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, 
+double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnVanLeerEuler3D : public FluxFcn {
 
 public:
@@ -226,11 +339,6 @@ protected:
 //------------------------------------------------------------------------------
 //turbulence
 
-
-
-
-
-
 class FluxFcnFDJacRoeSA3D : public FluxFcnFD<6> {
 
  protected:
@@ -302,6 +410,61 @@ protected:
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLESA3D : public FluxFcnFD<6> {
+
+ protected:
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+ public:
+
+  FluxFcnFDJacHLLESA3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  ~FluxFcnFDJacHLLESA3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double,
+ double *, double *){}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLESA3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+public:
+
+  FluxFcnApprJacHLLESA3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn* vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  ~FluxFcnApprJacHLLESA3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *){}
 
 };
 
@@ -536,6 +699,61 @@ protected:
   void computeDerivativeOfPerfectGas(double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
 
   
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLEKE3D : public FluxFcnFD<7> {
+
+ protected:
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+public:
+
+  FluxFcnFDJacHLLEKE3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  ~FluxFcnFDJacHLLEKE3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double
+*, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLEKE3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  int prec;
+  double betaRef;
+  double k1;
+  double cmach;
+  double shockreducer;
+
+public:
+  FluxFcnApprJacHLLEKE3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr; }
+  ~FluxFcnApprJacHLLEKE3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double
+*, double, double *, double *) {}
+
 };
 
 //------------------------------------------------------------------------------

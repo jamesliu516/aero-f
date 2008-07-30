@@ -1415,8 +1415,8 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SchemeData>
     (ca, "Flux", this, 
-     reinterpret_cast<int SchemeData::*>(&SchemeData::flux), 2,
-     "Roe", 0, "VanLeer", 1);
+     reinterpret_cast<int SchemeData::*>(&SchemeData::flux), 4,
+     "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
 
   new ClassToken<SchemeData>
     (ca, "Reconstruction", this,  

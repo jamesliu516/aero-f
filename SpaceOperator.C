@@ -303,12 +303,25 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSA3D(ioData);
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSA3D(ioData);
 
-          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
-          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
-          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(gamma, ioData);
+          if (ioData.schemes.ns.flux == SchemeData::ROE) {
+            if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(gamma, ioData);
+          }
+          else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
+            if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLESA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLESA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            }
+            else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+              fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
+              exit(1);
+            }
+          }
         }
         else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
           ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
@@ -325,12 +338,26 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKE3D(ioData);
           ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKE3D(ioData);
 
-          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
-          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
-          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(gamma, ioData);
+
+          if (ioData.schemes.ns.flux == SchemeData::ROE) {
+            if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(gamma, ioData);
+          }
+          else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
+            if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            }
+            else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+              fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
+              exit(1);
+            }
+          }
         }
       } else {
         ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
@@ -384,6 +411,28 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeEuler3D(gamma, ioData);
+        }
+	else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!"); 
+            exit(1);
+          }
+        }
+        else if (ioData.schemes.ns.flux == SchemeData::HLLC) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLCEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLCEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLC with Exact Jacobian not Implemented.. Aborting !!");
+            exit(1);
+          }
         }
       }
     }//for LIQUID (turbulent parts not yet implemented)

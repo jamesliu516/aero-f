@@ -24,6 +24,10 @@ extern "C" {
 			 const double&, double*, double*, double*,
 			 const double&, const double&, const double&,
                          const double&, const int&);
+  void F77NAME(hlleflux1)(const double&, const double&, const double&, double*, 
+			 const double&, double*, double*, double*,
+			 const double&, const double&, const double&,
+                         const double&, const int&);
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
@@ -40,12 +44,25 @@ extern "C" {
   void F77NAME(roejac6)(const int&, const double&, const double&, const double&, double*, 
 			const double&, double*, double*, double*,const int&,
                         const double&, const double&, const double&, const double&, const int&);
+  void F77NAME(hllejac)(const int&, const double&, const double&, const double&, double*, 
+			const double&, double*, double*, double*,const int&,
+                        const double&, const double&, const double&, const double&, const int&);
   void F77NAME(boundflux5)(const int&, const double&, double*, const double&, 
 			   double*, double*, double*);
   void F77NAME(boundjac2)(const int&, const double&, double*, const double&, 
 			  double*, double*, double*);
   void F77NAME(genbcfluxgas)(const int&, const double &, const double&, double*, 
 			     const double&, double*, double*, double*);
+  void F77NAME(hlleflux)(const int&, const double&, const double&, const double&, double*,
+                         const double&, double*, double*, double*, double*, double*, 
+                         const double&, const double&, const double&, const double&, 
+                         const double&, const double&, const int&);
+
+  void F77NAME(hllcflux)(const int&, const double&, const double&, const double&, double*,
+                         const double&, double*, double*, double*, double*, double*,
+                         const double&, const double&, const double&, const double&,
+                         const double&, const double&, const int&);
+
 
 // BAROTROPIC LIQUID			  
   void F77NAME(roeflux1water)(const double&, const double&, const double&,
@@ -827,6 +844,183 @@ void FluxFcnVanLeerEuler3D::computeJacobiansPerfectGas(double vfgam, double vfp,
 } 
 
 //------------------------------------------------------------------------------
+/*
+@ARTICLE{roe-81,
+  author = "Roe, P. L.",
+  title = "Approximate {R}iemann Solvers, Parameter Vectors
+           and Difference Schemes",
+  journal = j. comp. phys.,
+  year = 1981,
+  volume = 43,
+  pages = "357--372",
+} 
+*/
+
+void FluxFcnFDJacHLLEEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
+				     double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, double vfp, 
+                  FluxFcn::Type typeJac, double* normal, double normalVel, double* VL, 
+		  double* VR, double* jacL, double* jacR, double irey, double betaRef, 
+		  double k1, double cmach, int prec, int flag)
+{
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+  double dflag = static_cast<double>(flag);
+
+
+  double dfdVL[dim2], dfdVR[dim2];
+  double dfdUL[dim2], dfdUR[dim2];
+  double n[3] = {normal[0], normal[1], normal[2]};
+
+  F77NAME(hllejac)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, irey, prec);
+  F77NAME(hllejac)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, irey, prec);
+
+  if (type == 1 || type == 2) {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, dflag);
+
+    double f1;
+    F77NAME(hlleflux1)(gamma, vfgam, vfp, n, normalVel, VL, VR, &f1, betaRef,k1,cmach,irey,prec);
+
+
+    if (type == 1) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-6] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-6] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    else if (type == 2) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-14] = dfdVL[0]*VL[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VL[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VL[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VL[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VL[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VL[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VL[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VL[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VL[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VL[dimm2];
+        dfdVL[dim2-9] = f1;                  dfdVR[dim2-9] = 0.0;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-14] = dfdVL[0]*VR[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VR[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VR[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VR[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VR[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VR[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VR[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VR[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VR[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VR[dimm2];
+        dfdVL[dim2-9] = 0.0;                 dfdVR[dim2-9] = f1;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, dflag);
+    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, dflag);
+  }
+
+  int k;
+
+  if (typeJac == FluxFcn::CONSERVATIVE) {
+    for (k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEEuler3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                                           double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                       double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+
+//------------------------------------------------------------------------------
+/*
+@ARTICLE{roe-81,
+  author = "Roe, P. L.",
+  title = "Approximate {R}iemann Solvers, Parameter Vectors
+           and Difference Schemes",
+  journal = j. comp. phys.,
+  year = 1981,
+  volume = 43,
+  pages = "357--372",
+}
+*/
+
+void FluxFcnFDJacHLLCEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                     double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hllcflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLCEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                       double *VL, double *VR, double *flux)
+{
+  F77NAME(hllcflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+}
+
+//------------------------------------------------------------------------------
+
+// boundary conditions
 
 void FluxFcnWallEuler3D::computePerfectGas(double *normal, double normalVel,
                                  double *V, double *Ub, double *flux)
@@ -1446,6 +1640,37 @@ void FluxFcnExactJacRoeSA3D::computeJacobiansPerfectGas(double vfgam, double vfp
 
 //------------------------------------------------------------------------------
 
+
+void FluxFcnFDJacHLLESA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLESA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLESA3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                             double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnWallSA3D::computePerfectGas(double *normal, double normalVel, 
 			      double *V, double *Ub, double *flux)
 {
@@ -1771,6 +1996,37 @@ void FluxFcnExactJacRoeKE3D::computeJacobiansPerfectGas(double vfgam, double vfp
 {
 
   roejacexact3D<7>(2, gamma, vf, type, normal, normalVel, VL, VR, jacL, jacR);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnFDJacHLLEKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, shockreducer, irey, length, prec);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, shockreducer, irey, length, prec)
+;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEKE3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                             double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
 
 }
 

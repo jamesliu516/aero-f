@@ -63,6 +63,79 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnPerfectGasFDJacHLLEEuler3D : public FluxFcnFDJacHLLEEuler3D {
+
+public:
+
+  FluxFcnPerfectGasFDJacHLLEEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacHLLEEuler3D(gg, br, K1, cm, sr, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+  ~FluxFcnPerfectGasFDJacHLLEEuler3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasApprJacHLLEEuler3D : public FluxFcnApprJacHLLEEuler3D {
+
+public:
+
+  FluxFcnPerfectGasApprJacHLLEEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLEEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+  ~FluxFcnPerfectGasApprJacHLLEEuler3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasFDJacHLLCEuler3D : public FluxFcnFDJacHLLCEuler3D {
+
+public:
+
+  FluxFcnPerfectGasFDJacHLLCEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacHLLCEuler3D(gg, br, K1, cm, sr, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+  ~FluxFcnPerfectGasFDJacHLLCEuler3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasApprJacHLLCEuler3D : public FluxFcnApprJacHLLCEuler3D {
+
+public:
+
+  FluxFcnPerfectGasApprJacHLLCEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLCEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+  ~FluxFcnPerfectGasApprJacHLLCEuler3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnPerfectGasVanLeerEuler3D : public FluxFcnVanLeerEuler3D {
 
 public:
@@ -258,6 +331,43 @@ public:
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasFDJacHLLESA3D : public FluxFcnFDJacHLLESA3D {
+
+ public:
+
+  FluxFcnPerfectGasFDJacHLLESA3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+  FluxFcnFDJacHLLESA3D(gg, br, K1, cm, sr, pr, new VarFcnPerfectGasSA3D(ioData), tp) {}
+  ~FluxFcnPerfectGasFDJacHLLESA3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1){}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasApprJacHLLESA3D : public FluxFcnApprJacHLLESA3D {
+
+public:
+
+  FluxFcnPerfectGasApprJacHLLESA3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+  FluxFcnApprJacHLLESA3D(rs,gg, br, K1, cm, sr, pr, new VarFcnPerfectGasSA3D(ioData), tp) {}
+  ~FluxFcnPerfectGasApprJacHLLESA3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1){}
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
 
 };
@@ -463,6 +573,44 @@ public:
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasFDJacHLLEKE3D : public FluxFcnFDJacHLLEKE3D{
+
+public:
+
+  FluxFcnPerfectGasFDJacHLLEKE3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacHLLEKE3D(gg, br, K1, cm, sr, pr, new VarFcnPerfectGasKE3D(ioData), tp) {}
+  ~FluxFcnPerfectGasFDJacHLLEKE3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int =
+ 1){}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double
+*df, int fl=1) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnPerfectGasApprJacHLLEKE3D : public FluxFcnApprJacHLLEKE3D {
+
+public:
+  FluxFcnPerfectGasApprJacHLLEKE3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLEKE3D(rs, gg, br, K1, cm, sr, pr, new VarFcnPerfectGasKE3D(ioData), tp) { }
+  ~FluxFcnPerfectGasApprJacHLLEKE3D() {}
+
+  void compute(double, double, double *, double, double *, double *, double *, int);
+  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
+  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double*df, int fl=1) {}
 
 };
 
