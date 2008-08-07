@@ -43,14 +43,14 @@ void FluxFcnGasInGasApprJacRoeEuler3D::compute(double length, double irey, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInGasApprJacRoeEuler3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasApprJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                                 double *VL, double *VR,
                                                 double *jacL, double *jacR, int flag)
 {
   if ( flag == 1 ) {
-    computeJacobiansPerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
+    computeJacobiansPerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
   }else{
-    computeJacobiansPerfectGas(irey, vf->getGammabis(), vf->getPressureConstantbis(), normal, normalVel, VL, VR, jacL, jacR, flag);
+    computeJacobiansPerfectGas(length, irey, vf->getGammabis(), vf->getPressureConstantbis(), normal, normalVel, VL, VR, jacL, jacR, flag);
   }                                                                                                                  
 }
 
@@ -65,7 +65,7 @@ void FluxFcnGasInGasExactJacRoeEuler3D::compute(double length, double irey, doub
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInGasExactJacRoeEuler3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasExactJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                                  double *VL, double *VR,
                                                  double *jacL, double *jacR, int flag)
 {
@@ -84,7 +84,7 @@ void FluxFcnGasInGasVanLeerEuler3D::compute(double length, double irey, double *
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInGasVanLeerEuler3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasVanLeerEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                              double *VL, double *VR,
                                              double *jacL, double *jacR, int flag)
 {
@@ -150,7 +150,7 @@ void FluxFcnGasInGasInternalInflowEuler3D::compute(double length, double irey, d
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInGasInternalInflowEuler3D::computeJacobian(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasInternalInflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                                    double *V, double *Ub, double *jacL, int flag)
 {
   if ( flag == 1 )
@@ -173,7 +173,7 @@ void FluxFcnGasInGasInternalOutflowEuler3D::compute(double length, double irey, 
 
 //------------------------------------------------------------------------------
 
-void FluxFcnGasInGasInternalOutflowEuler3D::computeJacobian(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasInternalOutflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel,
                                                     double *V, double *Ub, double *jacL, int flag)
 {
   if ( flag == 1 )

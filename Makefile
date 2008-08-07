@@ -40,7 +40,9 @@ CXXOBJS    = BcFcnCore.o \
              FluxFcnDesc.o \
              FluxFcnDescPerfectGas.o \
              FluxFcnDescWaterCompressible.o \
+             FluxFcnDescJWL.o \
              FluxFcnDescGasInGas.o \
+             FluxFcnDescJWLInGas.o \
              FluxFcnDescLiquidInLiquid.o \
              FluxFcnDescGasInLiquid.o \
              GeoData.o \
