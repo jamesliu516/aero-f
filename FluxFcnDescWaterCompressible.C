@@ -36,11 +36,11 @@ void FluxFcnWaterCompressibleApprJacRoeEuler3D::compute(double length, double ir
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleApprJacRoeEuler3D::computeJacobians(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleApprJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, int flag)
 {
-  computeJacobiansBarotropicLiquid(irey, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, VL, VR, jacL, jacR, flag);
+  computeJacobiansBarotropicLiquid(length, irey, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, VL, VR, jacL, jacR, flag);
 }
 
 //------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ void FluxFcnWaterCompressibleExactJacRoeEuler3D::compute(double length, double i
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleExactJacRoeEuler3D::computeJacobians(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleExactJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						 double *VL, double *VR, 
 						 double *jacL, double *jacR, int flag)
 {
@@ -121,7 +121,7 @@ void FluxFcnWaterCompressibleInternalInflowEuler3D::compute(double length, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleInternalInflowEuler3D::computeJacobian(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleInternalInflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
 						   double *V, double *Ub, double *jacL, int flag)
 {
 
@@ -141,7 +141,7 @@ void FluxFcnWaterCompressibleInternalOutflowEuler3D::compute(double length, doub
 
 //------------------------------------------------------------------------------
 
-void FluxFcnWaterCompressibleInternalOutflowEuler3D::computeJacobian(double irey, double *normal, double normalVel, 
+void FluxFcnWaterCompressibleInternalOutflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
 						    double *V, double *Ub, double *jacL, int flag)
 {
  

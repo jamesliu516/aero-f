@@ -34,7 +34,7 @@ public:
   ~FluxFcnPerfectGasApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -53,7 +53,7 @@ public:
   ~FluxFcnPerfectGasExactJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -145,7 +145,7 @@ public:
   ~FluxFcnPerfectGasVanLeerEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -167,7 +167,7 @@ public:
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1);
-  void computeJacobian(double, double *, double, double *, double *, double *, int = 1);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int = 1);
 
 };
 //------------------------------------------------------------------------------
@@ -217,7 +217,7 @@ public:
   ~FluxFcnPerfectGasInternalInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -254,7 +254,7 @@ public:
   ~FluxFcnPerfectGasInternalOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -308,7 +308,7 @@ public:
   ~FluxFcnPerfectGasApprJacRoeSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -327,7 +327,7 @@ public:
   ~FluxFcnPerfectGasExactJacRoeSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -387,7 +387,7 @@ public:
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1);
-  void computeJacobian(double, double *, double, double *, double *, double *, int = 1);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int = 1);
 
 };
 
@@ -420,7 +420,7 @@ public:
   ~FluxFcnPerfectGasInternalInflowSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -439,7 +439,7 @@ public:
   ~FluxFcnPerfectGasInternalOutflowSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -460,7 +460,7 @@ public:
   ~FluxFcnPerfectGasRoeSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -478,7 +478,7 @@ public:
   ~FluxFcnPerfectGasWallSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -496,7 +496,7 @@ public:
   ~FluxFcnPerfectGasOutflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -514,7 +514,7 @@ public:
   ~FluxFcnPerfectGasInternalInflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -532,7 +532,7 @@ public:
   ~FluxFcnPerfectGasInternalOutflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -568,7 +568,7 @@ public:
   ~FluxFcnPerfectGasApprJacRoeKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -624,7 +624,7 @@ public:
   ~FluxFcnPerfectGasExactJacRoeKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1);
@@ -647,7 +647,7 @@ public:
 // Included (MB*)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, int = 1);
-  void computeJacobian(double, double *, double, double *, double *, double *, int = 1);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int = 1);
 
 };
 
@@ -681,7 +681,7 @@ public:
   ~FluxFcnPerfectGasRoeKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -700,7 +700,7 @@ public:
   ~FluxFcnPerfectGasWallKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}
@@ -719,7 +719,7 @@ public:
   ~FluxFcnPerfectGasOutflowKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl=1) {}

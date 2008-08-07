@@ -7,6 +7,7 @@
 #include <RecFcnDesc.h>
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescPerfectGas.h>
+#include <FluxFcnDescJWL.h>
 #include <FluxFcnDescLiquidInLiquid.h>
 #include <FluxFcnDescGasInGas.h>
 #include <FluxFcnDescGasInLiquid.h>
@@ -832,6 +833,23 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
     fluxFcn[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
 
   }
+  else if (ioData.eqs.fluidModel.fluid == FluidModelData::JWL){
+    fluxFcn[BC_OUTLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_INLET_MOVING]  = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_INLET_FIXED]   = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+
+    fluxFcn[BC_ADIABATIC_WALL_MOVING]  = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ADIABATIC_WALL_FIXED]   = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_MOVING]       = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_FIXED]        = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_FIXED]  = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SYMMETRY]               = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+                                                                                                      
+    fluxFcn[BC_INTERNAL] = new FluxFcnJWLExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+  }
 
 // Orginal
 /*
@@ -1370,6 +1388,23 @@ void MatVecProdH2<Scalar,dim>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, Space
     fluxFcn[BC_SYMMETRY] = new FluxFcnWaterCompressibleWallEuler3D(ioData, FluxFcn::PRIMITIVE);
                                                                                                       
     fluxFcn[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
+
+  }//for JWL
+  else if (ioData.eqs.fluidModel.fluid == FluidModelData::JWL){
+    fluxFcn[BC_OUTLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_OUTLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_INLET_MOVING]  = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_INLET_FIXED]   = new FluxFcnJWLGhidagliaEuler3D(ioData, FluxFcn::PRIMITIVE);
+
+    fluxFcn[BC_ADIABATIC_WALL_MOVING]  = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ADIABATIC_WALL_FIXED]   = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_MOVING]       = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SLIP_WALL_FIXED]        = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_ISOTHERMAL_WALL_FIXED]  = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+    fluxFcn[BC_SYMMETRY]               = new FluxFcnJWLWallEuler3D(ioData, FluxFcn::PRIMITIVE);
+                                                                                                      
+    fluxFcn[BC_INTERNAL] = new FluxFcnJWLExactJacRoeEuler3D(ioData.schemes.ns.gamma, ioData, FluxFcn::PRIMITIVE);
 
   }
 

@@ -287,12 +287,17 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
                     DistSVec<double,3> &X, DistVec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+                    DistSVec<double,3> &X, DistVec<double> &Phi);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, DistSVec<double,dim> &U);
   template<int dim>
   void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
              SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm, 
+             PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
 	
   template<int dim>  
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
@@ -364,6 +369,7 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 
 				       DistVec<double> &,
+				       DistSVec<double,3> &,
 				       DistVec<double> &, DistSVec<double,dim> &, 
 				       DistMat<Scalar,neq> &);
 
@@ -371,6 +377,7 @@ public:
   void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &, 
                                        FluxFcn **, DistBcData<dim> &, DistGeoState &,
                                        DistNodalGrad<dim>&, DistNodalGrad<1>&,
+				       DistSVec<double,3> &,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, DistVec<double> &);
   template<int dim>

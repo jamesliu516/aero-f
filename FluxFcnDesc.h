@@ -55,8 +55,11 @@ public:
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
-  void computeJacobiansBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJWL(double, double, double, double, double, double, double, double *, double, double *, double *, double *);
+
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansBarotropicLiquid(double, double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansJWL(double, double, double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -234,6 +237,7 @@ public:
 protected:
   void computePerfectGas(double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double *, double, double *, double *, double *);
+  void computeJWL(double *, double, double *, double *, double *);
 
 // Included (MB*)
   void computeDerivativeOfPerfectGas(double *, double *, double, double, double *, double *, double *, double *, double *);
@@ -254,6 +258,7 @@ public:
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJWL(double, double, double, double, double, double *, double, double *, double *, double *);
 };
 
 //------------------------------------------------------------------------------
@@ -384,7 +389,7 @@ public:
   
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -563,7 +568,7 @@ public:
   
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *);
 
 };
 
@@ -672,7 +677,7 @@ public:
 
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
   
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -813,7 +818,7 @@ public:
 
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *);
   
 };
 

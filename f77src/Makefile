@@ -24,6 +24,9 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
        $(LIB)(genbcfluxtait.o) \
+       $(LIB)(genbcfluxjwl.o) \
+       $(LIB)(roeflux5jwl.o) \
+       $(LIB)(roejac6jwl.o)
        $(LIB)(hlleflux.o) \
        $(LIB)(hllejac.o) \
        $(LIB)(hlleflux1.o) \

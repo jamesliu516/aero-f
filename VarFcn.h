@@ -18,7 +18,7 @@ class VarFcn {
 public:
   
   const char** pname;
-  enum Type{ GAS = 0, LIQUID = 1, GASINGAS = 2, GASINLIQUID = 3, LIQUIDINLIQUID = 4} type;
+  enum Type{ GAS = 0, LIQUID = 1, JWL = 2, GASINGAS = 3, GASINLIQUID = 4, LIQUIDINLIQUID = 5, JWLINGAS = 6} type;
   enum SubType { NONE = 0, IDEAL = 1, STIFFENED = 2} subType;
   Vec3D meshVel;
 
@@ -148,6 +148,32 @@ protected:
   void computeNewPrimitiveLiquidEuler(double, double, double, double *, double *);
   void computeOldPrimitiveLiquidEuler(double, double, double, double *, double *);
   int VerificationLiquidEuler(int, double, double, double, double, double, double *, double *);
+
+  //JWL EOS
+  void conservativeToPrimitiveJWLEuler(double, double, double *, double *);
+  void primitiveToConservativeJWLEuler(double, double, double *, double *);
+  void primitiveToCharacteristicVariationsJWLEuler(double, double *, double *,
+                                                   double *, double *);
+  void characteristicToPrimitiveVariationsJWLEuler(double, double *, double *,
+                                                   double *, double *);
+  void computedVdUJWLEuler(double, double, double *, double *);
+  void computedUdVJWLEuler(double, double, double *, double *);
+  void multiplyBydVdUJWLEuler(double, double, double *, double *, double *);
+  void multiplyBydVdUJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void multiplyBydVdUTJWLEuler(double, double, double *, double *, double *) ;
+  void multiplyBydVdUTJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void preMultiplyBydUdVJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydUdVJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydVdUJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydUdVJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void extrapolatePrimitiveJWLEuler(double, double, double*, double*, double*);
+  void extrapolateCharacteristicJWLEuler(double ,double , double*,
+                                         double*, double*);
+  int VerificationJWLEuler(int, double, double, double, double*, double*);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivativeJWLEuler(double, double, double, double *, double *, double *, double *);
+  void primitiveToConservativeDerivativeJWLEuler(double, double, double, double, double *, double *, double *, double *);
 public:
 
   template<int dim>
@@ -226,12 +252,49 @@ public:
   virtual double getPrefWaterbis() {
         fprintf(stderr, "*** Warning: getPrefWaterbis Function not defined\n");
         return 0.0;}
-                                                               
+  virtual double getOmega() {
+        fprintf(stderr, "*** Warning: getOmega Function not defined\n");
+        return 0.0;}
+  virtual double getOmegap1() {
+        fprintf(stderr, "*** Warning: getOmegap1 Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmega() {
+        fprintf(stderr, "*** Warning: getInvOmega Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmegap1() {
+        fprintf(stderr, "*** Warning: getInvOmegap1 Function not defined\n");
+        return 0.0;}
+  virtual double getA1() {
+        fprintf(stderr, "*** Warning: getA1 Function not defined\n");
+        return 0.0;}
+  virtual double getA2() {
+        fprintf(stderr, "*** Warning: getA2 Function not defined\n");
+        return 0.0;}
+  virtual double getR1() {
+        fprintf(stderr, "*** Warning: getR1 Function not defined\n");
+        return 0.0;}
+  virtual double getR2() {
+        fprintf(stderr, "*** Warning: getR2 Function not defined\n");
+        return 0.0;}
+  virtual double getRhoref() {
+        fprintf(stderr, "*** Warning: getRhoref Function not defined\n");
+        return 0.0;}
+  virtual double getR1r() {
+        fprintf(stderr, "*** Warning: getR1r Function not defined\n");
+        return 0.0;}
+  virtual double getR2r() {
+        fprintf(stderr, "*** Warning: getR2r Function not defined\n");
+        return 0.0;}
+        
   virtual Vec3D getVelocity(double *V) { return Vec3D(V[1], V[2], V[3]); }
   virtual double getDensity(double *V) { return V[0]; }
   virtual double getVelocityX(double *V) {return V[1];}
   virtual double getVelocityY(double *V) {return V[2];}
   virtual double getVelocityZ(double *V) {return V[3];}
+  virtual double computeFrho(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeFrhop(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeFrho(double rho, double phi = 0.0) {return 0.0;}
+  virtual double computeFrhop(double rho, double phi = 0.0) {return 0.0;}
   virtual double getPressure(double *V, double phi = 0.0) {return 0.0;}
   virtual double checkPressure(double *V, double phi = 0.0) {return 0.0;}
   virtual void   setDensity(double *V, double *Vorig){}
@@ -467,7 +530,104 @@ VarFcnWaterCompressible::VarFcnWaterCompressible(IoData &iod)
 }
 
 //-----------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------
+
+class VarFcnJWL: public VarFcn {
+
+protected:
+  double omega;
+  double invomega;
+  double omegap1;
+  double invomegap1;
+  double A1, A2, R1, R2, rhoref;
+  double R1r, R2r;
+
+public:
+  VarFcnJWL(IoData &);
+  ~VarFcnJWL() {}
+    
+  double getOmega()       {return omega;}
+  double getOmegap1()     {return omegap1;}
+  double getInvOmega()    {return invomega;}
+  double getInvOmegap1()  {return invomegap1;}
+  double getA1()          {return A1;}
+  double getA2()          {return A2;}
+  double getR1()          {return R1;}
+  double getR2()          {return R2;}
+  double getRhoref()      {return rhoref;}
+  double getR1r()         {return R1r;}
+  double getR2r()         {return R2r;}
+  
+  double computeFrho(double *V, double phi = 0.0) {
+    return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
+         + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
+  }
+  double computeFrhop(double *V, double phi = 0.0) {
+    double rho2 = V[0]*V[0];
+    return A1*(-omega/R1r+(1.0-omega*V[0]/R1r)*R1r/rho2)*exp(-R1r/V[0])
+         + A2*(-omega/R2r+(1.0-omega*V[0]/R2r)*R2r/rho2)*exp(-R2r/V[0]);
+  }
+  double computeFrho(double rho, double phi = 0.0) {
+    return A1*(1.0-omega*rho/R1r)*exp(-R1r/rho)
+         + A2*(1.0-omega*rho/R2r)*exp(-R2r/rho);
+  }
+  double computeFrhop(double rho, double phi = 0.0) {
+    double rho2 = rho*rho;
+    return A1*(-omega/R1r+(1.0-omega*rho/R1r)*R1r/rho2)*exp(-R1r/rho)
+         + A2*(-omega/R2r+(1.0-omega*rho/R2r)*R2r/rho2)*exp(-R2r/rho);
+  }
+  double getPressure(double *V, double phi = 0.0) { return V[4]; }
+  double checkPressure(double *V, double phi = 0.0) { return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1;}
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[4] = Vorig[4];}
+  double computeTemperature(double *V, double phi = 0.0) { return invomega * (V[4]-computeFrho(V)) / V[0]; }
+  double computeRhoEnergy(double *V, double phi = 0.0) {
+    return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+  double computeRhoEpsilon(double *V, double phi = 0.0) { return invomega * (V[4]-computeFrho(V)); }
+  double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]); }
+  double computeMachNumber(double *V, double phi = 0.0) {
+    double c=computeSoundSpeed(V);
+    double u=sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]));
+    return u/c;
+  }
+  double computeTotalPressure(double machr, double *V, double phi = 0.0){
+    fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
+    return 0.0;
+  }
+
+// Included (MB)
+  void rstVar(IoData &iod) { rV(iod);}
+
+};
+
+//--------------------------------------------------------------------------------------
+
+inline
+VarFcnJWL::VarFcnJWL(IoData &iod)
+: VarFcn(iod) {
+
+  type = JWL;
+  subType == NONE;
+
+  omega        = iod.eqs.fluidModel.jwlModel.omega;
+  omegap1      = iod.eqs.fluidModel.jwlModel.omega + 1.0;
+  invomega     = 1.0/iod.eqs.fluidModel.jwlModel.omega;
+  invomegap1   = 1.0/(iod.eqs.fluidModel.jwlModel.omega+1.0);
+
+  A1           = iod.eqs.fluidModel.jwlModel.A1;
+  A2           = iod.eqs.fluidModel.jwlModel.A2;
+  R1           = iod.eqs.fluidModel.jwlModel.R1;
+  R2           = iod.eqs.fluidModel.jwlModel.R2;
+  rhoref       = iod.eqs.fluidModel.jwlModel.rhoref;
+  R1r          = R1*rhoref;
+  R2r          = R2*rhoref;
+
+}
+
 //-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+
 class VarFcnGasInGas : public VarFcn {
 
  protected:
@@ -783,6 +943,131 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
 }
 
 //------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+
+class VarFcnJWLInGas : public VarFcn {
+
+ protected:
+  double gam, gam1, invgam1;
+  double Pstiff;
+
+  double omega, invomega, omegap1, invomegap1;
+  double A1,A2,R1,R2,rhoref;
+  double R1r,R2r;
+
+ public:
+  VarFcnJWLInGas(IoData &);
+  ~VarFcnJWLInGas() {}
+
+  double getGamma() {return gam;}
+  double getGamma1() {return gam1;}
+  double getPressureConstant() {return Pstiff;}
+
+  double getOmega()       {return omega;}
+  double getOmegap1()     {return omegap1;}
+  double getInvOmega()    {return invomega;}
+  double getInvOmegap1()  {return invomegap1;}
+  double getA1()          {return A1;}
+  double getA2()          {return A2;}
+  double getR1()          {return R1;}
+  double getR2()          {return R2;}
+  double getRhoref()      {return rhoref;}
+  double getR1r()         {return R1r;}
+  double getR2r()         {return R2r;}
+
+  double computeFrho(double *V, double phi = 0.0) {
+    return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
+         + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
+  }
+  double computeFrhop(double *V, double phi = 0.0) {
+    double rho2 = V[0]*V[0];
+    return A1*(-omega/R1r+(1.0-omega*V[0]/R1r)*R1r/rho2)*exp(-R1r/V[0])
+         + A2*(-omega/R2r+(1.0-omega*V[0]/R2r)*R2r/rho2)*exp(-R2r/V[0]);
+  }
+  double computeFrho(double rho, double phi = 0.0) {
+    return A1*(1.0-omega*rho/R1r)*exp(-R1r/rho)
+         + A2*(1.0-omega*rho/R2r)*exp(-R2r/rho);
+  }
+  double computeFrhop(double rho, double phi = 0.0) {
+    double rho2 = rho*rho;
+    return A1*(-omega/R1r+(1.0-omega*rho/R1r)*R1r/rho2)*exp(-R1r/rho)
+         + A2*(-omega/R2r+(1.0-omega*rho/R2r)*R2r/rho2)*exp(-R2r/rho);
+  }
+
+  double getPressure(double *V, double phi = 0.0) { return V[4]; }
+  double checkPressure(double *V, double phi = 0.0) {
+    if (phi>=0.0) return V[4]+Pstiff;
+    else          return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1; }
+  void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
+  void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
+  
+  double computeTemperature(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
+    else         return invomega*(V[4]-computeFrho(V))/V[0]; }
+    
+  double computeRhoEnergy(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    else         return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+    
+  double computeRhoEpsilon(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
+    else         return invomega * (V[4]-computeFrho(V)); }
+     
+  double computeSoundSpeed(double *V, double phi = 0.0) { 
+    if (phi>=0.0){
+      if(gam * (V[4]+Pstiff) / V[0]<0.0) 
+        fprintf(stdout, "gam = %e, Pres = %e, pstiff = %e, rho = %e\n", gam,V[4],Pstiff,V[0]);
+      return sqrt(gam * (V[4]+Pstiff) / V[0]); 
+    }
+    else{
+      return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]);
+    }
+  }
+    
+  double computeMachNumber(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)));
+    else         return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V); }
+    
+  double computeTotalPressure(double machr, double *V, double phi = 0.0){
+    fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
+    return 0.0;
+  }
+
+};
+//--------------------------------------------------------------------------------------
+
+inline
+VarFcnJWLInGas::VarFcnJWLInGas(IoData &iod)
+: VarFcn(iod) {
+
+// Assumes that fluidModel1 is the PGas
+//          and fluidModel2 is the JWL
+  type = JWLINGAS;
+  subType = NONE;
+
+  gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+  gam1 = gam -1.0;
+  invgam1 = 1.0/gam1;
+  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
+
+
+  omega        = iod.eqs.fluidModel2.jwlModel.omega;
+  omegap1      = omega + 1.0;
+  invomega     = 1.0/omega;
+  invomegap1   = 1.0/omegap1;
+
+  A1           = iod.eqs.fluidModel2.jwlModel.A1;
+  A2           = iod.eqs.fluidModel2.jwlModel.A2;
+  R1           = iod.eqs.fluidModel2.jwlModel.R1;
+  R2           = iod.eqs.fluidModel2.jwlModel.R2;
+  rhoref       = iod.eqs.fluidModel2.jwlModel.rhoref;
+  R1r          = R1*rhoref;
+  R2r          = R2*rhoref;
+
+}
+
+//-----------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1003,6 +1288,7 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
     }
   }
+
 
 }
 
