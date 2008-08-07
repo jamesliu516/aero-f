@@ -495,8 +495,9 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     dt *= 0.5;
 
   if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
-    if(it==it0) {strExc->getDisplacement(X0,X,Xdot,dX);}
-    else if(it!=1){strExc->sendForce(F);}
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    else if(it==it0) {/*nothing to do*/}
+    else if(it!=1){;strExc->sendForce(F);}
   }
   else if (algNum == 8) {
     getModalMotion(X);
