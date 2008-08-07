@@ -31,8 +31,8 @@ public:
   ~FluxFcn() { if (vf) delete vf; }
 
   virtual void compute(double, double, double *, double, double *, double *, double *, int = 1) = 0;
-  virtual void computeJacobian(double, double *, double, double *, double *, double *, int = 1) {}
-  virtual void computeJacobians(double, double *, double, double *, double *, double *, double *, int = 1) {}
+  virtual void computeJacobian(double, double, double *, double, double *, double *, double *, int = 1) {}
+  virtual void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int = 1) {}
 
 // Included (MB)
   virtual void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) = 0;
@@ -61,8 +61,8 @@ public:
   ~FluxFcnFD() {}
 
   virtual void compute(double, double, double *, double, double *, double *, double *, int) = 0;
-  void computeJacobian(double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
   
 // Included (MB)
   void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int fl = 1) {}
@@ -74,7 +74,7 @@ public:
 
 template<int dim>
 inline
-void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalVel,
+void FluxFcnFD<dim>::computeJacobian(double length, double irey, double *normal, double normalVel,
                                      double *VL, double *VR, double *jacL, int flag)
 {
 
@@ -83,7 +83,7 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
 
   double Veps[dim], flux[dim], fluxeps[dim], dfdVL[dim*dim];
 
-  compute(1.0, irey, normal, normalVel, VL, VR, flux, flag); //1.0 for length
+  compute(length, irey, normal, normalVel, VL, VR, flux, flag); 
 
   int k;
   for (k=0; k<dim; ++k)
@@ -104,7 +104,7 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
     if (k != 0)
       Veps[k-1] = VL[k-1];
 
-    compute(1.0, irey, normal, normalVel, Veps, VR, fluxeps, flag);
+    compute(length, irey, normal, normalVel, Veps, VR, fluxeps, flag);
 
     for (int j=0; j<dim; ++j) 
       dfdVL[dim*j + k] = (fluxeps[j]-flux[j]) * inveps;
@@ -124,16 +124,16 @@ void FluxFcnFD<dim>::computeJacobian(double irey, double *normal, double normalV
 
 template<int dim>
 inline
-void FluxFcnFD<dim>::computeJacobians(double irey, double *normal, double normalVel, double *VL,
+void FluxFcnFD<dim>::computeJacobians(double length, double irey, double *normal, double normalVel, double *VL,
                                       double *VR, double *jacL, double *jacR, int flag)
 {
 
   double n[3] = {normal[0], normal[1], normal[2]};
 
-  computeJacobian(irey, n, normalVel, VL, VR, jacL, flag);
+  computeJacobian(length, irey, n, normalVel, VL, VR, jacL, flag);
 
   n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
-  computeJacobian(irey, n, -normalVel, VR, VL, jacR, flag);
+  computeJacobian(length, irey, n, -normalVel, VR, VL, jacR, flag);
   for (int k=0; k<dim*dim; ++k) jacR[k] = -jacR[k];
 
 }

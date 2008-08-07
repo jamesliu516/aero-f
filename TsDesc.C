@@ -150,18 +150,24 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     else if(ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       vf = new VarFcnWaterCompressibleEuler3D(ioData);
     }
+    else if(ioData.eqs.fluidModel.fluid == FluidModelData::JWL)
+      vf = new VarFcnJWLEuler3D(ioData);
   }else if (ioData.eqs.numPhase == 2 ){
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
       if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInGasEuler3D(ioData);
       else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::JWL)
+        vf = new VarFcnJWLInGasEuler3D(ioData);
     }else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
       else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnLiquidInLiquidEuler3D(ioData);
-    }
+    }//else if (ioData.eqs.fluidModel.fluid == FluidModelData::JWL)
+     // if (ioData.eqs.fluidModel2.fluid == FluidModelData::JWL)
+     //   vf = new VarFcnJWLInJWLEuler3D(ioData);
   }
 
   if (!vf) {

@@ -39,7 +39,8 @@ extern "C" {
 			const double&, double*, double*, double*);
   void F77NAME(roejac6)(const int&, const double&, const double&, const double&, double*, 
 			const double&, double*, double*, double*,const int&,
-                        const double&, const double&, const double&, const double&, const int&);
+                        const double&, const double&, const double&, const double&, 
+                        const double&, const double&, const int&);
   void F77NAME(boundflux5)(const int&, const double&, double*, const double&, 
 			   double*, double*, double*);
   void F77NAME(boundjac2)(const int&, const double&, double*, const double&, 
@@ -63,6 +64,21 @@ extern "C" {
 			 const double&, const int&);
   void F77NAME(genbcfluxtait)(const int&, const double&, const double&, const double&, 
 			 const double&,  double*, const double&, double*, double*, double*);
+
+// JWL EOS
+  void F77NAME(roeflux5jwl)(const int&, const double&, const double&, const double&, 
+                            const double&, const double&, const double&,
+                            double*, const double&,double*,double*,double*,double*,double*,
+                            const double&, const double&, const double&, const double&, 
+                            const double&, const double&, const int&);
+  void F77NAME(roejac6jwl)(const int&, const double&, const double&, const double&, 
+                           const double&, const double&, const double&, double*, 
+			   const double&, double*, double*, double*,const int&,
+                           const double&, const double&, const double&, const double&, 
+                           const double&, const double&, const int&);
+  void F77NAME(genbcfluxjwl)(const int&, const double&, const double&, 
+                             const double&, const double&, const double&,
+                             double*, const double&,double*,double*,double*);
 
 // Included (MB)
   void F77NAME(gxroeflux5)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, const double&, const double&, const double&, const double&, const double&, const double&, const int&);
@@ -241,7 +257,8 @@ inline
 void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, double vfp, 
                   FluxFcn::Type typeJac, double* normal, double normalVel, double* VL, 
 		  double* VR, double* jacL, double* jacR, double irey, double betaRef, 
-		  double k1, double cmach, int prec, int flag)
+		  double k1, double cmach, double shockreducer, double length,
+                  int prec, int flag)
 {
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
@@ -254,8 +271,8 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
   double n[3] = {normal[0], normal[1], normal[2]};
 
 
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, irey, prec);
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, irey, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, shockreducer, irey, length, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
   if (type == 1 || type == 2) {
     varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
@@ -339,12 +356,12 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeEuler3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeEuler3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, int flag)
 {
 	
-  roejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, shockreducer, length, prec, flag);
 
 }
 
@@ -1403,12 +1420,12 @@ void FluxFcnApprJacRoeSA3D::computeDerivativeOfPerfectGas(double irey, double dI
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeSA3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeSA3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					     double *VL, double *VR, 
 					     double *jacL, double *jacR, int flag)
 {
 
-  roejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, shockreducer, length, prec, flag);
 
 }
 
@@ -1626,12 +1643,12 @@ void FluxFcnInternalOutflowSA3D::computeJacobianPerfectGas(double vfgam, double 
 //------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
 
-void FluxFcnRoeSAturb3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnRoeSAturb3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					  double *VL, double *VR, 
 					  double *jacL, double *jacR)
 {
 
-  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, betaRef,k1,cmach,irey,prec);
+  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, betaRef,k1,cmach,irey, prec);
 
 }
 
@@ -1733,12 +1750,12 @@ void FluxFcnApprJacRoeKE3D::computeDerivativeOfPerfectGas(double irey, double dI
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeKE3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeKE3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					     double *VL, double *VR, 
 					     double *jacL, double *jacR, int flag)
 {
 
-  roejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, shockreducer, length, prec, flag);
 
 }
 
@@ -1911,7 +1928,7 @@ void FluxFcnOutflowKE3D::computeDerivativeOfPerfectGas(double vfgam, double vfp,
 //------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
 
-void FluxFcnRoeKEturb3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp,
+void FluxFcnRoeKEturb3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp,
 					  double *normal, double normalVel, 
 					  double *VL, double *VR, 
 					  double *jacL, double *jacR)
@@ -1981,7 +1998,7 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
                        double vfb, double vfp, FluxFcn::Type typeJac, double* normal, 
                        double normalVel, double* VL, double* VR, double* jacL, 
                        double* jacR, double irey, double betaRef, double k1, 
-                       double cmach, int prec, int flag)
+                       double cmach, double shockreducer, double length, int prec, int flag)
 {
 
   const int dimm1 = dim-1;
@@ -2041,13 +2058,13 @@ void FluxFcnApprJacRoeEuler3D::computeBarotropicLiquid(double irey, double vfCv,
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeEuler3D::computeJacobiansBarotropicLiquid(double irey, double vfCv, double vfPr,
+void FluxFcnApprJacRoeEuler3D::computeJacobiansBarotropicLiquid(double length, double irey, double vfCv, double vfPr,
 						double vfa, double vfb, 
 						double *normal, double normalVel, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, int flag)
 {
-  roejacappr3Dwater<5>(0, gamma, vf, vfCv, vfa, vfb, vfPr, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dwater<5>(0, gamma, vf, vfCv, vfa, vfb, vfPr, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, shockreducer, length, prec, flag);
 }
 
 //------------------------------------------------------------------------------
@@ -2371,6 +2388,115 @@ void FluxFcnInternalOutflowEuler3D::computeJacobianBarotropicLiquid(double vfCv,
 				     double *V, double *Ub, double *jacL)
 {
     jacflux3Dwater<5>(0,vf,type,normal,normalVel,V,Ub,jacL);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//----------------------------   JWL   -----------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+template<int dim>
+inline
+void roejacappr3Djwl(int type, double gamma, VarFcn* varFcn, double omega,
+                       double A1, double A2, double R1r, double R2r,
+                       FluxFcn::Type typeJac, double* normal, 
+                       double normalVel, double* VL, double* VR, double* jacL, 
+                       double* jacR, double irey, double betaRef, double k1, 
+                       double cmach, double shockreducer, double length,
+                       int prec, int flag)
+{
+
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+  double dflag = static_cast<double>(flag);
+
+
+  double dfdUL[dim2], dfdUR[dim2];
+  for (int kk = 0; kk<dim2; kk++) dfdUR[kk] = 0.0;
+  double n[3] = {normal[0], normal[1], normal[2]};
+
+  F77NAME(roejac6jwl)(type, gamma, omega, A1, A2, R1r, R2r, n, normalVel, 
+                      VL, VR, dfdUL, 1, betaRef, k1, cmach, shockreducer, 
+                      irey, length, prec);
+  F77NAME(roejac6jwl)(type, gamma, omega, A1, A2, R1r, R2r, n, normalVel,
+                      VR, VL, dfdUR, 2, betaRef, k1, cmach, shockreducer, 
+                      irey, length, prec);
+
+  if (typeJac == FluxFcn::CONSERVATIVE) {
+    for (int k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacRoeEuler3D::computeJWL(double length, double irey, double omega, double A1, double A2,
+                                     double R1r, double R2r, double *normal, double normalVel, 
+				     double *VL, double *VR, double *flux)
+{
+   //fprintf(stderr, "                and with %e %e %e %e %e\n", VL[0],VL[1],VL[2],VL[3],VL[4]);
+   //fprintf(stderr, "                and with %e %e %e %e %e\n", VR[0],VR[1],VR[2],VR[3],VR[4]);
+   F77NAME(roeflux5jwl)(0, gamma, omega, A1, A2, R1r, R2r,
+                        normal, normalVel, 
+                        VL, VL+rshift, VR, VR+rshift, flux, 
+                        betaRef, k1, cmach, shockreducer, irey, length, prec);
+   //fprintf(stderr, "done with this edge\n\n\n\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacRoeEuler3D::computeJacobiansJWL(double length, double irey, double omega, double A1,
+						double A2, double R1r, double R2r, 
+						double *normal, double normalVel, 
+						double *VL, double *VR, 
+						double *jacL, double *jacR, int flag)
+{
+  roejacappr3Djwl<5>(0, gamma, vf, omega, A1, A2, R1r, R2r, 
+                     type, normal, normalVel, VL, VR, jacL, jacR, 
+                     irey, betaRef, k1, cmach, shockreducer, length,
+                     prec, flag);
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnWallEuler3D::computeJWL(double *normal, double normalVel,
+            	                    double *V, double *Ub, double *flux)
+{
+  
+  flux[0] = 0.0;
+  flux[1] = V[4] * normal[0];
+  flux[2] = V[4] * normal[1];
+  flux[3] = V[4] * normal[2];
+  flux[4] = V[4] * normalVel;
+
+}
+//------------------------------------------------------------------------------
+
+void FluxFcnGhidagliaEuler3D::computeJWL(double omega, double A1, double A2,
+                                     double R1r, double R2r,
+                                     double *normal, double normalVel, 
+				     double *V, double *Ub, double *flux)
+{
+  F77NAME(genbcfluxjwl)(0, omega, A1, A2, R1r, R2r, normal, normalVel, V, Ub, flux);
 }
 
 //------------------------------------------------------------------------------

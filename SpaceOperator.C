@@ -4,7 +4,9 @@
 #include <BcDef.h>
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescPerfectGas.h>
+#include <FluxFcnDescJWL.h>
 #include <FluxFcnDescGasInGas.h>
+#include <FluxFcnDescJWLInGas.h>
 #include <FluxFcnDescLiquidInLiquid.h>
 #include <FluxFcnDescGasInLiquid.h>
 #include <RecFcnDesc.h>
@@ -429,6 +431,30 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
         else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
           ff[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(gamma, ioData);
       }
+    }//for JWL EOS
+    else if (ioData.eqs.fluidModel.fluid == FluidModelData::JWL){
+      ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
+      ff -= BC_MIN_CODE;
+      ff[BC_INLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData);
+      ff[BC_INLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
+      ff[BC_OUTLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData);
+      ff[BC_OUTLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
+
+      ff[BC_ADIABATIC_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_ADIABATIC_WALL_FIXED] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_SLIP_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_SLIP_WALL_FIXED] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_SYMMETRY] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData);
+      ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnJWLWallEuler3D(ioData);
+      if (ioData.schemes.ns.flux == SchemeData::ROE) {
+        if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+          ff[BC_INTERNAL] = new FluxFcnJWLFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+        else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+          ff[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+        else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
+          ff[BC_INTERNAL] = new FluxFcnJWLExactJacRoeEuler3D(gamma, ioData);
+      }
     }
   }
   else if (ioData.eqs.numPhase == 2){
@@ -541,6 +567,26 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInLiquidExactJacRoeEuler3D(gamma, ioData);
           }
+        }
+      }
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::JWL){
+        ff = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
+        ff -= BC_MIN_CODE;
+        ff[BC_OUTLET_MOVING] = new FluxFcnJWLInGasGhidagliaEuler3D(ioData);
+        ff[BC_OUTLET_FIXED]  = new FluxFcnJWLInGasGhidagliaEuler3D(ioData);
+        ff[BC_INLET_MOVING] = new FluxFcnJWLInGasGhidagliaEuler3D(ioData);
+        ff[BC_INLET_FIXED]  = new FluxFcnJWLInGasGhidagliaEuler3D(ioData);
+
+        ff[BC_ADIABATIC_WALL_MOVING] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_ADIABATIC_WALL_FIXED] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_SLIP_WALL_MOVING] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_SLIP_WALL_FIXED] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnJWLInGasWallEuler3D(ioData);
+        ff[BC_SYMMETRY] = new FluxFcnJWLInGasWallEuler3D(ioData);
+                                                                                                  
+        if (ioData.schemes.ns.flux == SchemeData::ROE) {
+          ff[BC_INTERNAL] = new FluxFcnJWLInGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
         }
       }
     }
@@ -1506,7 +1552,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, unitCtrlVol, *V, A);
 
-    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, unitCtrlVol, *V, A);
+    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, unitCtrlVol, *V, A);
 
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, unitCtrlVol, *V, A);
@@ -1516,7 +1562,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
 
-    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, ctrlVol, *V, A);
+    domain->computeJacobianFiniteVolumeTerm(fluxFcn, *bcData, *geoState, *irey, X, ctrlVol, *V, A);
 
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
@@ -1547,7 +1593,7 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   else  {
     if (fet)
       domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
-    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *ngrad, *ngradLS, ctrlVol, *V, A, Phi);
+    domain->computeJacobianFiniteVolumeTerm(*riemann, fluxFcn, *bcData, *geoState, *ngrad, *ngradLS, X, ctrlVol, *V, A, Phi);
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
   }

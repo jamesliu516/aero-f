@@ -882,16 +882,16 @@ void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
                                                 GeoState &geoState, Vec<double> &irey,
-                                                Vec<double> &ctrlVol, 
+                                                SVec<double,3> &X, Vec<double> &ctrlVol, 
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 CommPattern<double>* flag) 
 {
   if (!flag){  
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, ctrlVol, V, A);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A);
 
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, ctrlVol, V, A, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A, nodeType);
 
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
   }
@@ -952,15 +952,15 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                                 FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState, 
                                                 NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
-                                                Vec<double> &ctrlVol,
+                                                SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 Vec<double> &Phi, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi, nodeType);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
   }
                                                                                               
@@ -1798,7 +1798,7 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    fluxFcn[0]->computeJacobians(0.0, edgeNorm[l], edgeNormVel[l],
+    fluxFcn[0]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l],
                                  V[i], V[j], dfdUi, dfdUj);
 
     Aii = A.getElem_ii(i);
@@ -1875,7 +1875,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
 
-    fluxFcn[BC_INTERNAL]->computeJacobians(0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
+    fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
 
     Aij = A.getElem_ij(l);
     Aji = A.getElem_ji(l);
@@ -3911,6 +3911,35 @@ void SubDomain::setupUVolumesInitialConditions(const int volid, FluidModelData &
     UU[3] = rho*w;
     UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
 
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
+                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
+
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
+
   }else if(fm.fluid == FluidModelData::LIQUID){
     double pref  = fm.liquidModel.Pref;
     double alpha = fm.liquidModel.alpha;
@@ -3971,6 +4000,36 @@ void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
     UU[2] = rho*v;
     UU[3] = rho*w;
     UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
+                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
+
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
 
   }else if(fm.fluid == FluidModelData::LIQUID){
     double pref  = fm.liquidModel.Pref;
@@ -4034,6 +4093,32 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
     UU[2] = rho*v;
     UU[3] = rho*w;
     UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
 
   }else if(fm.fluid == FluidModelData::LIQUID){
     double pref  = fm.liquidModel.Pref;

@@ -23,7 +23,10 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(torsionspring.o) \
        $(LIB)(ballvertex.o) \
        $(LIB)(genbcfluxgas.o) \
-       $(LIB)(genbcfluxtait.o)
+       $(LIB)(genbcfluxtait.o) \
+       $(LIB)(genbcfluxjwl.o) \
+       $(LIB)(roeflux5jwl.o) \
+       $(LIB)(roejac6jwl.o)
 
 #usescalapack = true
 ifeq ($(usescalapack), true)

@@ -21,7 +21,7 @@ template<int dim>
 class DistBcData {
 
 protected:
-  enum BoundaryFluid { GAS=0, TAIT=1 } boundaryFluid;
+  enum BoundaryFluid { GAS=0, TAIT=1, JWL=2 } boundaryFluid;
 
   double angles[2];
 
@@ -120,14 +120,17 @@ class DistBcDataEuler : public DistBcData<dim> {
 private:
   void setBoundaryConditionsGas(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
+  void setBoundaryConditionsJWL(IoData &, VarFcn *, DistSVec<double,3> &);
   void setBoundaryConditionsGasGas(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsLiquidLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
   void setBoundaryConditionsGasLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
   void setBoundaryConditionsLiquidGas(IoData &, VarFcn *, DistSVec<double,3> &);
+  void setBoundaryConditionsJWLGas(IoData &, VarFcn *, DistSVec<double,3> &);
 
   void updateFarField(DistSVec<double,3> &);
   void updateFarFieldGas(DistSVec<double,3> &);
   void updateFarFieldLiquid(DistSVec<double,3> &);
+  void updateFarFieldJWL(DistSVec<double,3> &);
 
 // Included (MB)
   void initialize(IoData &, VarFcn *, DistSVec<double,3> &);

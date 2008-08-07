@@ -4,6 +4,7 @@
 #include <BcDef.h>
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescPerfectGas.h>
+#include <FluxFcnDescJWL.h>
 #include <FluxFcnDescGasInGas.h>
 #include <FluxFcnDescLiquidInLiquid.h>
 #include <FluxFcnDescGasInLiquid.h>
@@ -199,6 +200,21 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
     ff1[BC_SLIP_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
     ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
     ff1[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
+  }
+  else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
+    ff1[BC_OUTLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData);
+    ff1[BC_OUTLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
+    ff1[BC_INLET_MOVING]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
+    ff1[BC_INLET_FIXED]   = new FluxFcnJWLGhidagliaEuler3D(ioData);
+
+    ff1[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(0, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+
+    ff1[BC_ADIABATIC_WALL_MOVING]  = new FluxFcnJWLWallEuler3D(ioData);
+    ff1[BC_ADIABATIC_WALL_FIXED]   = new FluxFcnJWLWallEuler3D(ioData);
+    ff1[BC_SLIP_WALL_MOVING]       = new FluxFcnJWLWallEuler3D(ioData);
+    ff1[BC_SLIP_WALL_FIXED]        = new FluxFcnJWLWallEuler3D(ioData);
+    ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData);
+    ff1[BC_ISOTHERMAL_WALL_FIXED]  = new FluxFcnJWLWallEuler3D(ioData);
   }
 
   BcFcn *bf1 = 0;

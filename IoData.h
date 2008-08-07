@@ -338,6 +338,23 @@ struct GasModelData {
 };
 
 //------------------------------------------------------------------------------
+
+struct JWLModelData {
+
+  enum Type {IDEAL = 0, JWL = 1} type;
+
+  double omega; // = specificHeatRatio-1.0
+  double idealGasConstant;
+  double A1,R1,rhoref,A2,R2;
+
+  JWLModelData();
+  ~JWLModelData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
                                                                                               
 struct LiquidModelData {
                                                                                               
@@ -371,10 +388,11 @@ struct LiquidModelData {
                                                                                               
 struct FluidModelData {
                                                                                               
-  enum Fluid { GAS = 0, LIQUID = 1, UNDEFINED = 2} fluid;
+  enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
   double pmin;
                                                                                               
   GasModelData gasModel;
+  JWLModelData jwlModel;
   LiquidModelData liquidModel;
                                                                                               
   FluidModelData();

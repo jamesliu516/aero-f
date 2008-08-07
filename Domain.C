@@ -952,6 +952,7 @@ void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geo
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
                                              DistGeoState &geoState, DistVec<double> &irey,
+                                             DistSVec<double,3> &X,
                                              DistVec<double> &ctrlVol,
                                              DistSVec<double,dim> &V, DistMat<Scalar,neq> &A)
 {
@@ -963,7 +964,7 @@ void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> 
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn, bcData(iSub), geoState(iSub), irey(iSub),
-                                                     ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
+                                                     X(iSub), ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
 
@@ -980,7 +981,7 @@ void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> 
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(fluxFcn, bcData(iSub), geoState(iSub), irey(iSub),
-                                                     ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
+                                                     X(iSub), ctrlVol(iSub), V(iSub), A(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
 
@@ -1003,6 +1004,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                              FluxFcn **fluxFcn, DistBcData<dim> &bcData,
                                              DistGeoState &geoState, 
                                              DistNodalGrad<dim> &ngrad, DistNodalGrad<1> &ngradLS,
+                                             DistSVec<double,3> &X,
                                              DistVec<double> &ctrlVol,
                                              DistSVec<double,dim> &V, DistMat<Scalar,neq> &A,
                                              DistVec<double> &Phi)
@@ -1019,6 +1021,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, 
                                                      bcData(iSub), geoState(iSub),
                                                      ngrad(iSub), ngradLS(iSub),
+                                                     X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
                                                      Phi(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
@@ -1037,6 +1040,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
       subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, 
                                                      bcData(iSub), geoState(iSub),
                                                      ngrad(iSub), ngradLS(iSub),
+                                                     X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
                                                     Phi(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
@@ -2721,26 +2725,6 @@ void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
   // the boundary of two fluids. A fluid node then gets its 
   // id from the element id and there cannot be any problem
   // for parallelization.
-  if(fm.fluid == FluidModelData::GAS){
-    double UU[5];
-    double gam = fm.gasModel.specificHeatRatio;
-    double ps = fm.gasModel.pressureConstant;
-
-    double rho = ic.density;
-    double p   = ic.pressure;
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
-  }
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->setupUVolumesInitialConditions(volid, fm, ic, U(iSub));

@@ -414,7 +414,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
-    fluxFcn[code]->computeJacobian(0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<neq*neq; ++k) 
       Aii[k] += jac[k];
@@ -438,7 +438,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
       Vec3D normal = getNormal(normals, l);
       double normVel= getNormalVel(normalVel, l);
 
-      fluxFcn[code]->computeJacobian(0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
       Scalar *Aii = A.getElem_ii(nodeNum(l));
       for (int k=0; k<neq*neq; ++k)
         Aii[k] += jac[k];
@@ -461,7 +461,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
-    fluxFcn[code]->computeJacobian(0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<neq*neq; ++k) 
       Aii[k] += jac[k];
@@ -486,7 +486,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
       Vec3D normal = getNormal(normals, l);
       double normVel= getNormalVel(normalVel, l);
 
-      fluxFcn[code]->computeJacobian(0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
       Scalar *Aii = A.getElem_ii(nodeNum(l));
       for (int k=0; k<neq*neq; ++k)
         Aii[k] += jac[k];
