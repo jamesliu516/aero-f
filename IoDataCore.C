@@ -596,6 +596,44 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
                                                                                                   
+JWLModelData::JWLModelData()
+{
+
+  type = JWL;
+  omega = 0.4;
+  idealGasConstant = 287.1;
+  A1 = 0.0;
+  A2 = 0.0;
+  R1 = 1.0;
+  R2 = 1.0;
+  rhoref = 1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void JWLModelData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  
+  new ClassToken<JWLModelData>(ca, "Type", this, 
+			       reinterpret_cast<int JWLModelData::*>(&JWLModelData::type), 2,
+			       "Ideal", 0, "JWL", 1);
+  new ClassDouble<JWLModelData>(ca, "Omega", this, 
+                                &JWLModelData::omega);
+  new ClassDouble<JWLModelData>(ca, "IdealGasConstant", this, 
+                                &JWLModelData::idealGasConstant);
+  new ClassDouble<JWLModelData>(ca, "A1", this, &JWLModelData::A1);
+  new ClassDouble<JWLModelData>(ca, "A2", this, &JWLModelData::A2);
+  new ClassDouble<JWLModelData>(ca, "R1", this, &JWLModelData::R1);
+  new ClassDouble<JWLModelData>(ca, "R2", this, &JWLModelData::R2);
+  new ClassDouble<JWLModelData>(ca, "ReferenceDensity", this, &JWLModelData::rhoref);
+
+}
+
+//------------------------------------------------------------------------------
+
 LiquidModelData::LiquidModelData()
 {
   //data is available in 'Properties of Water and Steam', Wagner & Kruse, Springer, 1997
@@ -661,11 +699,12 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
                                                                                                   
   new ClassToken<FluidModelData>(ca, "Fluid", this,
-                                 reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 3,
-                                 "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0);
+                                 reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
+                                 "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
   new ClassDouble<FluidModelData>(ca, "Pmin", this, &FluidModelData::pmin);
                                                                                                   
   gasModel.setup("GasModel", ca);
+  jwlModel.setup("JWLModel", ca);
   liquidModel.setup("LiquidModel", ca);
                                                                                                   
 };
@@ -1244,10 +1283,13 @@ PlaneData::PlaneData()
   nx     = 0.0;
   ny     = 0.0;
   nz     = 0.0;   
-  p      = 0.0;   
-  rho    = 0.0;
-  t      = 0.0;
-  mach   = 0.0;
+  pressure    = 0.0;   
+  density     = 0.0;
+  temperature = 0.0;
+  velocity    = 0.0;
+
+  alpha = 400.0;
+  beta  = 400.0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1255,7 +1297,7 @@ PlaneData::PlaneData()
 void PlaneData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                         
-  ClassAssigner *ca = new ClassAssigner(name, 11, father);
+  ClassAssigner *ca = new ClassAssigner(name, 13, father);
                                                                                                         
   new ClassToken<PlaneData>
     (ca, "Type", this, reinterpret_cast<int PlaneData::*>
@@ -1275,24 +1317,29 @@ void PlaneData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<PlaneData>
     (ca, "Normal_z", this, &PlaneData::nz);
   new ClassDouble<PlaneData>
-    (ca, "Pressure", this, &PlaneData::p);
+    (ca, "Pressure", this, &PlaneData::pressure);
   new ClassDouble<PlaneData>
-    (ca, "Density", this, &PlaneData::rho);
+    (ca, "Density", this, &PlaneData::density);
   new ClassDouble<PlaneData>
-    (ca, "Temperature", this, &PlaneData::t);
+    (ca, "Temperature", this, &PlaneData::temperature);
   new ClassDouble<PlaneData>
-    (ca, "Mach", this, &PlaneData::mach);
+    (ca, "Velocity", this, &PlaneData::velocity);
+  new ClassDouble<PlaneData>
+    (ca, "Alpha", this, &PlaneData::alpha);
+  new ClassDouble<PlaneData>
+    (ca, "Beta", this, &PlaneData::beta);
 }
 //------------------------------------------------------------------------------
                                                                                                         
 InitialConditionsData::InitialConditionsData()
 {
 
-  nspheres   = 0;
+  nspheres  = 0;
 
   sphere[0] = &s1;
   sphere[1] = &s2;
 
+  nplanes   = 0;
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1304,6 +1351,7 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 
   s1.setup("Sphere1", ca);
   s2.setup("Sphere2", ca);
+  p1.setup("Plane1", ca);
 
 }
 
@@ -3222,7 +3270,8 @@ int IoData::checkInputValuesMulti_step1(){
     }
   }else if(eqs.numPhase == 2){
     mf.interfaceType = MultiFluidData::FF;
-    if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14){
+    if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14)
+    {
       error++;
       com->fprintf(stdout, "*** Error : no multiphase flow detected\n");
     }
@@ -3267,6 +3316,13 @@ void IoData::checkInputValuesMulti_step2(){
         mf.initialConditions.sphere[i]->alpha       *= acos(-1.0) / 180.0;
         mf.initialConditions.sphere[i]->beta        *= acos(-1.0) / 180.0;
       }
+
+      mf.initialConditions.p1.density        /= ref.rv.density;
+      mf.initialConditions.p1.pressure       /= ref.rv.pressure;
+      mf.initialConditions.p1.temperature    /= ref.rv.temperature;
+      mf.initialConditions.p1.velocity       /= ref.rv.velocity;
+      mf.initialConditions.p1.alpha         *= acos(-1.0) / 180.0;
+      mf.initialConditions.p1.beta          *= acos(-1.0) / 180.0;
 
       nonDimensionalizeFluidModel(mf.fluidModel);
       nonDimensionalizeFluidModel(mf.fluidModel2);
@@ -3315,6 +3371,16 @@ int IoData::checkInputValuesMultiEOS(){
         error++;
         com->fprintf(stdout, "*** Warning : FluidModel(GAS) in MultiFluid and in Volumes have different constants\n");
       }        
+      else if(eqs.fluidModel.fluid == FluidModelData::JWL && (
+              eqs.fluidModel.jwlModel.omega   != mf.fluidModel.jwlModel.omega   ||
+              eqs.fluidModel.jwlModel.A1      != mf.fluidModel.jwlModel.A1      ||
+              eqs.fluidModel.jwlModel.A2      != mf.fluidModel.jwlModel.A2      ||
+              eqs.fluidModel.jwlModel.R1      != mf.fluidModel.jwlModel.R1      ||
+              eqs.fluidModel.jwlModel.R2      != mf.fluidModel.jwlModel.R2      ||
+              eqs.fluidModel.jwlModel.rhoref  != mf.fluidModel.jwlModel.rhoref  )){
+        error++;
+        com->fprintf(stdout, "*** Warning : FluidModel(JWL) in MultiFluid and in Volumes have different constants\n");
+      }        
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID && (
               eqs.fluidModel.liquidModel.Cv          != mf.fluidModel.liquidModel.Cv ||
               eqs.fluidModel.liquidModel.k1water     != mf.fluidModel.liquidModel.k1water ||
@@ -3338,6 +3404,16 @@ int IoData::checkInputValuesMultiEOS(){
         error++;
         com->fprintf(stdout, "*** Warning : FluidModel2(GAS) in MultiFluid and in Volumes have different constants\n");
       }
+      else if(eqs.fluidModel2.fluid == FluidModelData::JWL && (
+              eqs.fluidModel2.jwlModel.omega   != mf.fluidModel2.jwlModel.omega   ||
+              eqs.fluidModel2.jwlModel.A1      != mf.fluidModel2.jwlModel.A1      ||
+              eqs.fluidModel2.jwlModel.A2      != mf.fluidModel2.jwlModel.A2      ||
+              eqs.fluidModel2.jwlModel.R1      != mf.fluidModel2.jwlModel.R1      ||
+              eqs.fluidModel2.jwlModel.R2      != mf.fluidModel2.jwlModel.R2      ||
+              eqs.fluidModel2.jwlModel.rhoref  != mf.fluidModel2.jwlModel.rhoref  )){
+        error++;
+        com->fprintf(stdout, "*** Warning : FluidModel2(JWL) in MultiFluid and in Volumes have different constants\n");
+      }        
       else if(eqs.fluidModel2.fluid == FluidModelData::LIQUID && (
               eqs.fluidModel2.liquidModel.Cv          != mf.fluidModel2.liquidModel.Cv ||
               eqs.fluidModel2.liquidModel.k1water     != mf.fluidModel2.liquidModel.k1water ||
@@ -3393,7 +3469,7 @@ int IoData::checkVolumeInitialization(FluidModelData &fm, VolumeInitialCondition
     com->fprintf(stdout, "*** Error : a velocity norm or a mach number must be specified for VolumeData[%d]\n", volid);
   }
 
-  if(fm.fluid == FluidModelData::GAS){
+  if(fm.fluid == FluidModelData::GAS || fm.fluid == FluidModelData::JWL){
     if(ic.density < 0){
       error++;
       com->fprintf(stdout, "*** Error : a density must be specified for VolumeData[%d]\n", volid);
@@ -3445,7 +3521,7 @@ int IoData::checkInputValuesMultiFluidInitialization(){
           com->fprintf(stdout, "*** Error : angles of flow must be specified for Sphere %d\n", i);
         }
 
-        if(mf.fluidModel2.fluid == FluidModelData::GAS){
+        if(mf.fluidModel2.fluid == FluidModelData::GAS || mf.fluidModel2.fluid == FluidModelData::JWL){
           if(mf.initialConditions.sphere[i]->density < 0){
             error++;
             com->fprintf(stdout, "*** Error : a density must be specified for Sphere %d\n", i);
@@ -3474,6 +3550,50 @@ int IoData::checkInputValuesMultiFluidInitialization(){
         }
       }
     }
+
+    // for planes (shocktube)
+    double norm = mf.initialConditions.p1.nx*mf.initialConditions.p1.nx+
+                  mf.initialConditions.p1.ny*mf.initialConditions.p1.ny+
+                  mf.initialConditions.p1.nz*mf.initialConditions.p1.nz;
+    if(norm > 0.0){
+      mf.initialConditions.nplanes = 1;
+      if(mf.initialConditions.p1.velocity < 0 ){
+          error++;
+          com->fprintf(stdout, "*** Error : a velocity norm must be specified for Plane\n");
+      }
+      if(mf.initialConditions.p1.alpha>360.0 || mf.initialConditions.p1.beta>360.0){
+        error++;
+        com->fprintf(stdout, "*** Error : angles of flow must be specified for Plane\n");
+      }
+        if(mf.fluidModel2.fluid == FluidModelData::GAS || mf.fluidModel2.fluid == FluidModelData::JWL){
+          if(mf.initialConditions.p1.density < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a density must be specified for Plane\n");
+          }
+          if(mf.initialConditions.p1.pressure < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a pressure must be specified for Plane\n");
+          }
+        }else if(mf.fluidModel2.fluid == FluidModelData::LIQUID){
+          if(mf.initialConditions.p1.pressure < 0 && mf.initialConditions.p1.density < 0 ){
+            error++;
+            com->fprintf(stdout, "*** Error : either pressure or density must be specified for Plane\n");
+          }else if(mf.initialConditions.p1.pressure < 0){ //pressure computed from density
+            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
+            mf.initialConditions.p1.pressure = -k1ok2 +
+                                 (mf.fluidModel2.liquidModel.Prefwater+k1ok2)*
+                         pow(mf.initialConditions.p1.density/mf.fluidModel2.liquidModel.RHOrefwater, mf.fluidModel2.liquidModel.k2water);
+          }else{  //pressure is given, whatever the density, it is recomputed given pressure.
+            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
+            mf.initialConditions.p1.density = mf.fluidModel2.liquidModel.RHOrefwater*pow((mf.initialConditions.p1.pressure+k1ok2)/(mf.fluidModel2.liquidModel.Prefwater+k1ok2),1.0/mf.fluidModel2.liquidModel.k2water);
+          }
+          if(mf.initialConditions.p1.temperature < 0){
+            error++;
+            com->fprintf(stdout, "*** Error : a temperature must be specified for Plane\n");
+          }
+       }
+
+    }
   }
 
   return error;
@@ -3495,6 +3615,15 @@ int IoData::printMultiEOS(){
         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
         error++;
       }
+    else if (eqs.fluidModel.fluid == FluidModelData::JWL)
+      if(eqs.fluidModel.jwlModel.type == JWLModelData::IDEAL)
+        com->fprintf(stderr, " ----- PERFECT GAS SIMULATION (using JWL)-----\n");
+      else if(eqs.fluidModel.jwlModel.type == JWLModelData::JWL)
+        com->fprintf(stderr, " ----- JWL SIMULATION -----\n");
+      else{
+        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
+        error++;
+      }
     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID)
       com->fprintf(stderr, " ----- BAROTROPIC LIQUID SIMULATION -----\n");
     else {
@@ -3503,6 +3632,7 @@ int IoData::printMultiEOS(){
     }
   }
   else if (eqs.numPhase == 2) {
+
      if (eqs.fluidModel.fluid == FluidModelData::GAS &&
          eqs.fluidModel2.fluid == FluidModelData::GAS)
        if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
@@ -3521,6 +3651,19 @@ int IoData::printMultiEOS(){
          com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
          error++;
        }
+     else if (eqs.fluidModel.fluid == FluidModelData::GAS &&
+              eqs.fluidModel2.fluid == FluidModelData::JWL)
+       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
+         com->fprintf(stderr, " ---- PERFECT GAS-JWL SIMULATION -----\n");
+       else if (eqs.fluidModel.gasModel.type == GasModelData::STIFFENED)
+         com->fprintf(stderr, " ---- STIFFENED GAS-JWL SIMULATION -----\n");
+       else{
+         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
+         error++;
+       }
+     else if (eqs.fluidModel.fluid == FluidModelData::JWL &&
+              eqs.fluidModel2.fluid == FluidModelData::JWL)
+       com->fprintf(stderr, " ---- JWL-JWL SIMULATION -----\n");
      else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
               eqs.fluidModel2.fluid == FluidModelData::GAS)
        if (eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
@@ -3534,8 +3677,13 @@ int IoData::printMultiEOS(){
      else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
               eqs.fluidModel2.fluid == FluidModelData::LIQUID)
        com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
-     else
+     else if (eqs.fluidModel.fluid == FluidModelData::GAS &&
+              eqs.fluidModel2.fluid == FluidModelData::LIQUID)
        com->fprintf(stderr, " ----- GAS-LIQUID SIMULATION -----\n");
+     else {
+       com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n");
+       error++;
+     }
      
   }
   else{
@@ -3569,6 +3717,12 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fm){
 
   if(fm.fluid == FluidModelData::GAS)
     fm.gasModel.pressureConstant /= ref.rv.pressure;
+
+  else if(fm.fluid == FluidModelData::JWL){
+    fm.jwlModel.A1     /= ref.rv.pressure;
+    fm.jwlModel.A2     /= ref.rv.pressure;
+    fm.jwlModel.rhoref /= ref.rv.density;
+  }
 
   else if(fm.fluid == FluidModelData::LIQUID){
     double Pref = -fm.liquidModel.k1water/fm.liquidModel.k2water;
@@ -3634,6 +3788,13 @@ int IoData::checkInputValuesNonDimensional()
 
     double gamma = eqs.fluidModel.gasModel.specificHeatRatio;
 
+    double omega = eqs.fluidModel.jwlModel.omega;
+    double A1    = eqs.fluidModel.jwlModel.A1;
+    double A2    = eqs.fluidModel.jwlModel.A2;
+    double R1    = eqs.fluidModel.jwlModel.R1;
+    double R2    = eqs.fluidModel.jwlModel.R2;
+    double rhoref= eqs.fluidModel.jwlModel.rhoref;
+
     double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
     double k1water = eqs.fluidModel.liquidModel.k1water;
     double k2water = eqs.fluidModel.liquidModel.k2water;
@@ -3651,6 +3812,18 @@ int IoData::checkInputValuesNonDimensional()
       if (eqs.fluidModel.fluid == FluidModelData::GAS)
         if(ref.mach>0.0)
           bc.inlet.pressure = bc.inlet.pressure / (gamma * ref.mach * ref.mach * (bc.inlet.pressure + eqs.fluidModel.gasModel.pressureConstant));
+        else
+          com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
+      else if (eqs.fluidModel.fluid == FluidModelData::JWL)
+        if(ref.mach>0.0){
+          double frho  = A1*(1-omega*bc.inlet.density/(R1*rhoref))*exp(-R1*rhoref/bc.inlet.density) +
+                         A2*(1-omega*bc.inlet.density/(R2*rhoref))*exp(-R2*rhoref/bc.inlet.density);
+          double frhop = A1*(-omega/(R1*rhoref) + (1-omega*bc.inlet.density/(R1*rhoref))*R1*rhoref/(bc.inlet.density*bc.inlet.density))
+                           *exp(-R1*rhoref/bc.inlet.density)
+                       + A2*(-omega/(R2*rhoref) + (1-omega*bc.inlet.density/(R2*rhoref))*R2*rhoref/(bc.inlet.density*bc.inlet.density))
+                           *exp(-R2*rhoref/bc.inlet.density);
+          bc.inlet.pressure = bc.inlet.pressure / (ref.mach*ref.mach * ((omega+1.0)*bc.inlet.pressure -frho+bc.inlet.density*frhop));
+        }
         else
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
@@ -3694,6 +3867,14 @@ int IoData::checkInputValuesDimensional()
   double gamma = eqs.fluidModel.gasModel.specificHeatRatio;
   double Pstiff = eqs.fluidModel.gasModel.pressureConstant;
 
+  double Rjwl   = eqs.fluidModel.jwlModel.idealGasConstant;
+  double omegajwl  = eqs.fluidModel.jwlModel.omega;
+  double A1jwl     = eqs.fluidModel.jwlModel.A1;
+  double A2jwl     = eqs.fluidModel.jwlModel.A2;
+  double R1jwl     = eqs.fluidModel.jwlModel.R1;
+  double R2jwl     = eqs.fluidModel.jwlModel.R2;
+  double rhorefjwl = eqs.fluidModel.jwlModel.rhoref;
+
   double Cv = eqs.fluidModel.liquidModel.Cv;
   double k1water = eqs.fluidModel.liquidModel.k1water;
   double k2water = eqs.fluidModel.liquidModel.k2water;
@@ -3707,6 +3888,7 @@ int IoData::checkInputValuesDimensional()
   }
                                                                                                         
   double R2, gamma2;
+  double Rjwl2,omegajwl2,A1jwl2,A2jwl2,R1jwl2,R2jwl2,rhorefjwl2;
   double Cv2, k1water2, k2water2, Prefwater2, RHOrefwater2;
   double Pref2, awater2, bwater2;
                                                                                                         
@@ -3714,6 +3896,14 @@ int IoData::checkInputValuesDimensional()
     R2 = eqs.fluidModel2.gasModel.idealGasConstant;
     gamma2 = eqs.fluidModel2.gasModel.specificHeatRatio;
                                                                                                       
+    Rjwl2   = eqs.fluidModel2.jwlModel.idealGasConstant;
+    omegajwl2  = eqs.fluidModel2.jwlModel.omega;
+    A1jwl2     = eqs.fluidModel2.jwlModel.A1;
+    A2jwl2     = eqs.fluidModel2.jwlModel.A2;
+    R1jwl2     = eqs.fluidModel2.jwlModel.R1;
+    R2jwl2     = eqs.fluidModel2.jwlModel.R2;
+    rhorefjwl2 = eqs.fluidModel2.jwlModel.rhoref;
+
     Cv2 = eqs.fluidModel2.liquidModel.Cv;
     k1water2 = eqs.fluidModel2.liquidModel.k1water;
     k2water2 = eqs.fluidModel2.liquidModel.k2water;
@@ -3727,7 +3917,8 @@ int IoData::checkInputValuesDimensional()
   }
   if (problem.mode == ProblemData::DIMENSIONAL) {
     if (bc.inlet.pressure < 0.0)  {
-      if(eqs.fluidModel.fluid == FluidModelData::GAS){
+      if(eqs.fluidModel.fluid == FluidModelData::GAS || 
+         eqs.fluidModel.fluid == FluidModelData::JWL ){
         com->fprintf(stderr, "*** Error: no valid inlet pressure (%f) given\n", bc.inlet.pressure);
         ++error;
       }else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -3736,7 +3927,8 @@ int IoData::checkInputValuesDimensional()
       }
     }
     if (bc.inlet.density < 0.0)
-      if(eqs.fluidModel.fluid == FluidModelData::GAS){
+      if(eqs.fluidModel.fluid == FluidModelData::GAS ||
+         eqs.fluidModel.fluid == FluidModelData::JWL ){
         com->fprintf(stderr, "*** Error: no valid inlet density (%f) given\n", bc.inlet.density);
         ++error;
       }
@@ -3749,6 +3941,11 @@ int IoData::checkInputValuesDimensional()
     if(bc.inlet.temperature < 0.0) {
       if(eqs.fluidModel.fluid == FluidModelData::GAS)
         bc.inlet.temperature = (bc.inlet.pressure + gamma*Pstiff)/(R*bc.inlet.density);
+      else if(eqs.fluidModel.fluid == FluidModelData::JWL){
+        double frhoref = A1jwl*(1-omegajwl*bc.inlet.density/(R1jwl*rhorefjwl))*exp(-R1jwl*rhorefjwl/bc.inlet.density) +
+                         A2jwl*(1-omegajwl*bc.inlet.density/(R2jwl*rhorefjwl))*exp(-R2jwl*rhorefjwl/bc.inlet.density);
+        bc.inlet.temperature = (bc.inlet.pressure - frhoref)/(bc.inlet.density * Rjwl);
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
         com->fprintf(stderr, "*** Error: no valid inlet temperature (%f) given\n", bc.inlet.temperature);
         ++error;
@@ -3803,6 +4000,50 @@ int IoData::checkInputValuesDimensional()
 
 
       eqs.fluidModel.gasModel.pressureConstant /= ref.rv.pressure;
+
+    }
+    else if(eqs.fluidModel.fluid == FluidModelData::JWL){
+      if (ref.density < 0.0)
+        ref.density = bc.inlet.density;
+      double frhoref = A1jwl*(1-omegajwl*ref.density/(R1jwl*rhorefjwl))*exp(-R1jwl*rhorefjwl/ref.density) +
+                       A2jwl*(1-omegajwl*ref.density/(R2jwl*rhorefjwl))*exp(-R2jwl*rhorefjwl/ref.density);
+      double frhorefp = A1jwl*(-omegajwl/(R1jwl*rhorefjwl) + (1.0-omegajwl*ref.density/(R1jwl*rhorefjwl))*R1jwl*rhorefjwl/(ref.density*ref.density))
+                          *exp(-R1jwl*rhorefjwl/ref.density)
+                      + A2jwl*(-omegajwl/(R2jwl*rhorefjwl) + (1.0-omegajwl*ref.density/(R2jwl*rhorefjwl))*R2jwl*rhorefjwl/(ref.density*ref.density))
+                          *exp(-R2jwl*rhorefjwl/ref.density);
+      if (ref.pressure < 0.0)
+        ref.pressure = bc.inlet.pressure;
+      if (ref.mach <= 0.0)
+        ref.mach = ref.velocity /sqrt(((omegajwl+1.0)*ref.pressure - frhoref + ref.density*frhorefp)/ref.density);
+      double velocity = ref.mach * sqrt(((omegajwl+1.0)*ref.pressure - frhoref + ref.density*frhorefp)/ref.density);
+      ref.temperature = (ref.pressure - frhoref)/(ref.density * Rjwl);
+      double viscosity = 0.0000000001;
+      ref.reynolds_mu = velocity * ref.length * ref.density / viscosity;
+      ref.reynolds_lambda = -3.0 * ref.reynolds_mu/2.0;
+
+      ref.rv.mode = RefVal::DIMENSIONAL;
+      ref.rv.density = ref.density;
+      ref.rv.velocity = velocity;
+      ref.rv.pressure = ref.density * velocity*velocity;
+      ref.rv.temperature = omegajwl*(omegajwl + 1.0) * ref.mach*ref.mach * ((omegajwl+1.0)*ref.pressure - frhoref + ref.density*frhorefp);
+      ref.rv.viscosity_mu = viscosity;
+      ref.rv.viscosity_lambda = -2.0/3.0 * viscosity;
+      ref.rv.nutilde = viscosity / ref.density;
+      ref.rv.kenergy = velocity*velocity;
+      ref.rv.epsilon = velocity*velocity*velocity / ref.length;
+      ref.rv.time = ref.length / velocity;
+      ref.rv.force = ref.density * velocity*velocity * ref.length*ref.length;
+      ref.rv.energy = ref.density * velocity*velocity * ref.length*ref.length*ref.length;
+      ref.rv.power = ref.density * velocity*velocity*velocity * ref.length*ref.length;
+      ref.rv.tvelocity = velocity / aero.displacementScaling;
+      ref.rv.tforce = ref.rv.force / aero.forceScaling;
+      ref.rv.tpower = ref.rv.power / aero.powerScaling;
+
+
+      eqs.fluidModel.jwlModel.A1     /= ref.rv.pressure;
+      eqs.fluidModel.jwlModel.A2     /= ref.rv.pressure;
+      eqs.fluidModel.jwlModel.rhoref /= ref.rv.density;
+      com->fprintf(stderr, "non-dimensionalization values are: %e %e %e\n", ref.rv.density, ref.rv.velocity, ref.rv.pressure);
     }
     else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ref.density < 0.0)
@@ -3846,13 +4087,19 @@ int IoData::checkInputValuesDimensional()
       eqs.fluidModel.liquidModel.beta  = bwater;
 
     }
+
+    if (eqs.fluidModel2.fluid == FluidModelData::GAS) 
+      eqs.fluidModel2.gasModel.pressureConstant /= ref.rv.pressure;
+    if (eqs.fluidModel2.fluid == FluidModelData::JWL){
+      eqs.fluidModel2.jwlModel.A1     /= ref.rv.pressure;
+      eqs.fluidModel2.jwlModel.A2     /= ref.rv.pressure;
+      eqs.fluidModel2.jwlModel.rhoref /= ref.rv.density;
+    }
     if (eqs.fluidModel2.fluid == FluidModelData::LIQUID) {
       eqs.fluidModel2.liquidModel.Pref = Pref2 / (ref.rv.density * ref.rv.velocity *ref.rv.velocity);
       eqs.fluidModel2.liquidModel.alpha = awater2 * pow(ref.rv.density, bwater2 - 1.0)/(ref.rv.velocity *ref.rv.velocity);
       eqs.fluidModel2.liquidModel.beta  = bwater2;
     }
-    if (eqs.fluidModel2.fluid == FluidModelData::GAS) 
-      eqs.fluidModel2.gasModel.pressureConstant /= ref.rv.pressure;
 
     eqs.fluidModel.pmin /= ref.rv.pressure;
     eqs.fluidModel2.pmin /= ref.rv.pressure;
@@ -4002,6 +4249,11 @@ int IoData::checkInputValuesStateEquation()
   else if(eqs.fluidModel.fluid         == FluidModelData::GAS &&
 	  eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
     eqs.fluidModel.gasModel.pressureConstant = 0.0;
+  else if(eqs.fluidModel.fluid         == FluidModelData::JWL &&
+	  eqs.fluidModel.jwlModel.type == JWLModelData::IDEAL){
+    eqs.fluidModel.jwlModel.A1 = 0.0;
+    eqs.fluidModel.jwlModel.A2 = 0.0;
+  }
                                                                                                   
   if (eqs.numPhase == 2){ 
     if (eqs.fluidModel2.fluid == FluidModelData::LIQUID){
@@ -4020,6 +4272,11 @@ int IoData::checkInputValuesStateEquation()
     }
     else if(eqs.fluidModel2.fluid == FluidModelData::GAS && eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
       eqs.fluidModel2.gasModel.pressureConstant = 0.0;
+    else if(eqs.fluidModel2.fluid         == FluidModelData::JWL &&
+            eqs.fluidModel2.jwlModel.type == JWLModelData::IDEAL){
+      eqs.fluidModel2.jwlModel.A1 = 0.0;
+      eqs.fluidModel2.jwlModel.A2 = 0.0;
+    }
   }
   return error;
 }

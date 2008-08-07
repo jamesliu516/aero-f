@@ -3747,3 +3747,24 @@ void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 
 }
 
+//--------------------------------------------------------------------------
+void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+                                 SVec<double,3> &X, Vec<double> &Phi){
+
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double norm = ip.nx*ip.nx+ip.ny*ip.ny+ip.nz*ip.nz;
+  norm = sqrt(norm);
+  double nx = ip.nx/norm;
+  double ny = ip.ny/norm;
+  double nz = ip.nz/norm;
+
+  for (int i=0; i<Phi.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    Phi[i] *= -scalar;
+  }
+
+}
+

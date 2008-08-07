@@ -570,8 +570,162 @@ void VarFcnWaterCompressibleEuler3D::extrapolateBoundaryCharacteristic(double n[
 					 n,un,c,Vb,dV);
 }
 
+//-------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------
+class VarFcnJWLEuler3D : public VarFcnJWL {
+public:
+  VarFcnJWLEuler3D(IoData &);
+  ~VarFcnJWLEuler3D() {}
+  void conservativeToPrimitive(double *, double *, double = 0.0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
+  void multiplyBydVdU(double *, double *, double *, double = 0.0);
+  void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
+  void multiplyBydVdUT(double *, double *, double *, double = 0.0);
+  void multiplyBydVdUT(double *, bcomp *, bcomp *, double = 0.0);
+                                                                                            
+  void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
+                                                                                            
+  void postMultiplyBydVdU(double *, double *, double *, double = 0.0);
+                                                                                            
+  void postMultiplyBydUdV(double *, double *, double *, double = 0.0);
+  void postMultiplyBydUdV(double *, bcomp *, bcomp *, double = 0.0);
+
+  void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
+  void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
+
+};
+                                                                                            
+//--------------------------------------------------------------------------
+inline
+VarFcnJWLEuler3D::VarFcnJWLEuler3D(IoData &iod) : VarFcnJWL(iod)
+{
+                                                                                            
+  pname = new const char*[5];
+                                                                                            
+  pname[0] = "density";
+  pname[1] = "x-velocity";
+  pname[2] = "y-velocity";
+  pname[3] = "z-velocity";
+  pname[4] = "pressure";
+                                                                                            
+}
+                                                                                            
+//------------------------------------------------------------------------------
+
+inline
+void VarFcnJWLEuler3D::conservativeToPrimitive(double *U, double *V, double phi)
+{
+  conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
+}
+
+//------------------------------------------------------------------------------
+
+inline
+int VarFcnJWLEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
+{
+  conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
+  return VerificationJWLEuler(glob, pmin, invomega, computeFrho(U), U, V);
+}
+
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::primitiveToConservative(double *V, double *U, double phi)
+{
+  primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+}
+                                                                                         
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
+{
+  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::multiplyBydVdU(double *V, bcomp *vec, bcomp *res, double phi)
+{
+  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::multiplyBydVdUT(double *V, double *vec, double *res, double phi)
+{
+  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcomp *res, double phi)
+{
+  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
+{
+  preMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
+{
+  postMultiplyBydVdUJWLEuler(omega, computeFrhop(V), V, mat, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::postMultiplyBydUdV(double *V, double *mat, double *res, double phi)
+{
+  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                            
+inline
+void VarFcnJWLEuler3D::postMultiplyBydUdV(double *V, bcomp *mat, bcomp *res, double phi)
+{
+  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+                                                                                            
+//------------------------------------------------------------------------------
+
+
+inline
+void VarFcnJWLEuler3D::extrapolateBoundaryPrimitive(double un, double c,
+                                                 double *Vb, double *Vinter, double *V,
+                                                 double phi)
+{
+  extrapolatePrimitiveJWLEuler(un, c, Vb, Vinter, V);
+}
+
+//------------------------------------------------------------------------------
+
+inline
+void VarFcnJWLEuler3D::extrapolateBoundaryCharacteristic(double n[3], double un,
+                                double c, double *Vb, double *dV, double phi)
+{
+  extrapolateCharacteristicJWLEuler(un,c,n,Vb,dV);
+}
+
 //----------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------                                                                                           
+//----------------------------------------------------------------------------------
 
 class VarFcnGasInGasEuler3D : public VarFcnGasInGas {
 
@@ -1222,6 +1376,206 @@ void VarFcnGasInLiquidEuler3D::extrapolateBoundaryCharacteristic(double n[3], do
     extrapolateCharacteristicGasEuler(gam,Pstiff,n,un,c,Vb,dV);
 }
 //------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------
+
+class VarFcnJWLInGasEuler3D : public VarFcnJWLInGas {
+
+public:
+
+  VarFcnJWLInGasEuler3D(IoData &);
+  ~VarFcnJWLInGasEuler3D() {}
+  
+  void conservativeToPrimitive(double *, double *, double = 0.0);
+  int conservativeToPrimitiveVerification(int, double *, double *, double = 0.0);
+  void primitiveToConservative(double *, double *, double = 0.0);
+
+  bool updatePhaseChange(double *, double *, double, double, double *, double = 1.0);
+                                                                                            
+  void multiplyBydVdU(double *, double *, double *, double = 0.0);
+  void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0);
+  void multiplyBydVdUT(double *, double *, double *, double = 0.0);
+  void multiplyBydVdUT(double *, bcomp *, bcomp *, double = 0.0);
+                                                                                            
+  void preMultiplyBydUdV(double *, double *, double *, double = 0.0);
+                                                                                            
+  void postMultiplyBydVdU(double *, double *, double *, double = 0.0);
+                                                                                            
+  void postMultiplyBydUdV(double *, double *, double *, double = 0.0);
+  void postMultiplyBydUdV(double *, bcomp *, bcomp *, double = 0.0);
+
+  void extrapolateBoundaryPrimitive(double, double, double*, double*, double*, double = 0.0);
+  void extrapolateBoundaryCharacteristic(double*, double, double, double*, double*, double = 0.0);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivative(double *, double *, double *, double *, double = 0.0) {}
+  void primitiveToConservativeDerivative(double *, double *, double *, double *, double = 0.0) {}
+
+};
+                                                                                            
+//------------------------------------------------------------------------------
+                                                                                           
+inline
+VarFcnJWLInGasEuler3D::VarFcnJWLInGasEuler3D(IoData &iod) : VarFcnJWLInGas(iod)
+{
+                                                                                            
+  pname = new const char*[5];
+                                                                                            
+  pname[0] = "density";
+  pname[1] = "x-velocity";
+  pname[2] = "y-velocity";
+  pname[3] = "z-velocity";
+  pname[4] = "pressure";
+                                                                                            
+}
+                                                                                            
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::conservativeToPrimitive(double *U, double *V, double phi)
+{
+  if (phi>=0.0)
+    conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
+  else  conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
+
+}
+//------------------------------------------------------------------------------
+inline
+int VarFcnJWLInGasEuler3D::conservativeToPrimitiveVerification(int glob, double *U, double *V, double phi)
+{
+  if (phi>=0.0){
+    conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
+    return VerificationGasEuler(glob, pmin, gam, Pstiff, U, V);
+  }else{
+    conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
+    return VerificationJWLEuler(glob, pminp, invomega, computeFrho(U), U, V);
+  }
+
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::primitiveToConservative(double *V, double *U, double phi)
+{
+  if (phi>=0.0)
+    primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+  else  primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+}
+//------------------------------------------------------------------------------    
+inline
+bool VarFcnJWLInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
+                            double phin, double *Riemann, double weight)
+{
+
+  //nature of fluid at this node has not changed over time
+  if(phi*phin > 0.0){
+    if(phi>=0.0)
+      primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+    else primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+
+  //nature of fluid at this node has changed over time
+  }else{
+    if(weight<=0.0){
+      fprintf(stdout, "negative weight in updatePhaseChange\n");
+      exit(1);
+    }
+    for(int k=0; k<5; k++)
+    //for(int k=0; k<1; k++)
+      V[k] = Riemann[k]/weight;
+
+    // from Fluid2 to Fluid1, ie JWL To Gas
+    if(phi>=0.0 && phin<0.0)
+      primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
+
+    // from Fluid1 to Fluid2, ie Gas To JWL
+    else primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+
+  }
+
+}
+//------------------------------------------------------------------------------    
+inline
+void VarFcnJWLInGasEuler3D::multiplyBydVdU(double *V, double *vec, double *res, double phi)
+{
+  if (phi>=0.0)
+    multiplyBydVdUGasEuler(gam1, V, vec, res);
+  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::multiplyBydVdU(double *V, bcomp *vec, bcomp *res, double phi)
+{
+  if (phi>=0.0)
+    multiplyBydVdUGasEuler(gam1, V, vec, res);
+  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::multiplyBydVdUT(double *V, double *vec, double *res, double phi)
+{
+  if (phi>=0.0)
+    multiplyBydVdUTGasEuler(gam1, V, vec, res);
+  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcomp *res, double phi)
+{
+  if (phi>=0.0)
+    multiplyBydVdUTGasEuler(gam1, V, vec, res);
+  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::preMultiplyBydUdV(double *V, double *mat, double *res, double phi)
+{
+  if (phi>=0.0)
+    preMultiplyBydUdVGasEuler(invgam1, V, mat, res);
+  else  preMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::postMultiplyBydVdU(double *V, double *mat, double *res, double phi)
+{
+  if (phi>=0.0)
+    postMultiplyBydVdUGasEuler(gam1, V, mat, res);
+  else  postMultiplyBydVdUJWLEuler(omega, computeFrhop(V), V, mat, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::postMultiplyBydUdV(double *V, double *mat, double *res, double phi)
+{
+  if (phi>=0.0)
+    postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
+  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+//------------------------------------------------------------------------------
+inline
+void VarFcnJWLInGasEuler3D::postMultiplyBydUdV(double *V, bcomp *mat, bcomp *res, double phi)
+{
+  if (phi>=0.0)
+    postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
+  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+}
+
+//----------------------------------------------------------------------------------
+
+inline
+void VarFcnJWLInGasEuler3D::extrapolateBoundaryPrimitive(double un, double c, double *Vb,
+                                                double *Vinter, double *V, double phi)
+{
+  extrapolatePrimitiveGasEuler(un, c, Vb, Vinter, V);
+}
+
+//------------------------------------------------------------------------------
+
+inline
+void VarFcnJWLInGasEuler3D::extrapolateBoundaryCharacteristic(double n[3], double un,
+                                double c, double *Vb, double *dV, double phi)
+{
+  if(phi>=0.0)
+    extrapolateCharacteristicGasEuler(gam,Pstiff,n,un,c,Vb,dV);
+  else
+    extrapolateCharacteristicJWLEuler(un,c,n,Vb,dV);
+}
+//----------------------------------------------------------------------------------
 //------------------------------------------------------------------------------                                                                                     
 #endif
 

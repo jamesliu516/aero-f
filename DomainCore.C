@@ -1333,6 +1333,18 @@ void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 }
 
 //------------------------------------------------------------------------------
+
+void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+               DistSVec<double,3> &X, DistVec<double> &Phi){
+
+  com->fprintf(stdout, "setting up Phi for MultiFluid -- Plane\n");
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsPlane(ip, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
 void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi,
                                int level)
 {

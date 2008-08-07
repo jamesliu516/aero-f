@@ -356,7 +356,7 @@ template<int dim>
 void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
 {
   // These initial conditions are setup using MultiFluid.FluidModel2
-  // which can be a gas or a liquid.
+  // which can be a gas or a liquid or a jwl gas.
   // Note that Un was already initialized either using the far-field
   // or using the definition of volumes. Therefore the only initialization
   // left to do is for the spheres and other geometric shapes.
@@ -364,6 +364,9 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
   if(iod.mf.initialConditions.nspheres>0)
     for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
       domain->setupUMultiFluidInitialConditionsSphere(iod.mf.fluidModel2, *(iod.mf.initialConditions.sphere[i]),X,*Un);
+
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, X, *Un);
 
 }
 //------------------------------------------------------------------------------

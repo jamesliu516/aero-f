@@ -244,12 +244,17 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, Vec<double> &Phi);
+  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+                                 SVec<double,3> &X, Vec<double> &Phi);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, SVec<double,dim> &U);
   template<int dim>
   void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
              SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+             PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
 
   // moving mesh
 
@@ -340,14 +345,15 @@ public:
  
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
-                                       Vec<double> &, Vec<double> &, 
+                                       Vec<double> &, SVec<double,3> &, Vec<double> &, 
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        CommPattern<double> *);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                                        FluxFcn **, BcData<dim> &, GeoState &, 
-                                       NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
+                                       NodalGrad<dim> &, NodalGrad<1> &, 
+                                       SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        Vec<double> &, CommPattern<double> *);
   template<int dim>
