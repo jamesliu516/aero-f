@@ -746,16 +746,17 @@ double PostFcnNS::computeFaceScalarQuantity(ScalarType type, double dp1dxj[4][3]
   if (type == DELTA_PLUS) {
 #if defined(HEAT_FLUX)
     q = computeHeatPower(dp1dxj, n, d2w, Vwall, Vface, Vtet) / sqrt(n*n);
-#elif defined(SKIN_FRICTION)
-    Vec3D t(1.0, 0.0, 0.0);
-    Vec3D F = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
-    q = 2.0 * t * F / sqrt(n*n);
 #else
     if (wallFcn)
       q = wallFcn->computeDeltaPlus(n, d2w, Vwall, Vface);
     else
       fprintf(stderr, "*** Warning: yplus computation not implemented\n");
 #endif
+  }
+  else if (type == SKIN_FRICTION) {
+    Vec3D t(1.0, 0.0, 0.0);
+    Vec3D F = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+    q = 2.0 * t * F / sqrt(n*n);
   }
 
   return q;

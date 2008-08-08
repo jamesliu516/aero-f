@@ -71,9 +71,12 @@ struct TransientData {
   const char *epsturb;
   const char *eddyvis;
   const char *dplus;
+  const char *sfric;
   const char *psensor;
   const char *csdles;
+  const char *tavcsdles;
   const char *csdvms;
+  const char *tavcsdvms;
   const char *mutOmu;
   const char *velocity;
   const char *tavvelocity;

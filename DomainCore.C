@@ -52,6 +52,7 @@ Domain::Domain()
   edgePat = 0;
   momPat = 0;
   csPat = 0;
+  engPat = 0;
   fsPat = 0;
   inletVec3DPat = 0;
   inletCountPat = 0;
@@ -128,6 +129,7 @@ Domain::~Domain()
   if (edgePat) delete edgePat;
   if (momPat) delete momPat;
   if (csPat) delete csPat;
+  if (engPat) delete engPat;
   if (fsPat) delete fsPat;
   if (inletVec3DPat) delete inletVec3DPat;
   if (inletCountPat) delete inletCountPat;
@@ -207,6 +209,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   momPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   csPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+  engPat =  new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   fsPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
 
 // Included (MB)
@@ -243,6 +246,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
     subDomain[iSub]->setComLenNodes(6, *weightPat);
+    subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
   }
 
@@ -253,6 +257,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   volPat->finalize();
   levelPat->finalize();
   csPat->finalize();
+  engPat->finalize();
   fsPat->finalize();
   vec3DPat->finalize();
   weightPat->finalize();
@@ -1228,6 +1233,34 @@ void Domain::applySmoothing(DistVec<double> &ctrlVol, DistVec<double> &Q)
     subDomain[iSub]->applySmoothing(ctrlVol(iSub), Q(iSub));
 
 }
+
+//------------------------------------------------------------------------------
+
+void Domain::applySmoothing(DistVec<double> &ctrlVol, DistSVec<double,2> &Q)
+{
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->sndData(*vecPat, Q.subData(iSub));
+  }
+
+
+  vecPat->exchange();
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*vecPat, Q.subData(iSub));
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->applySmoothing(ctrlVol(iSub), Q(iSub));
+
+
+}
+
 //------------------------------------------------------------------------------
 
 void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctrlVol, int scopeDepth,
@@ -1235,19 +1268,11 @@ void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctr
 {
   macroCells->computeDelRatios(ctrlVol, scopeDepth, rmin, rmax, rsum, rrsum, numNodes);
 }
-//------------------------------------------------------------------------------
-
-void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsDeltaSq,
-                                   DistSVec<double,3> &X, DistVec<double> &Cs, DistVec<double> &VolSum)
-{
-#pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub)
-     subDomain[iSub]->computeDynamicLESTerm(dles, CsDeltaSq(iSub), X(iSub), Cs(iSub), VolSum(iSub));
-}
 
 //------------------------------------------------------------------------------
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
+
 void Domain::setPhiForFluid1(DistVec<double> &Phi)
 {
 
@@ -1396,6 +1421,44 @@ void Domain::printPhi(DistSVec<double,3> &X, DistVec<double> &Phi, int it)
   for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->printPhi(X(iSub), Phi(iSub), numLocSub);
   com->barrier();
+}
+
+// ------------------------------------------------------------------------------------------
+
+void Domain::computeTetsConnectedToNode(DistVec<int> &Ni)
+{
+
+ int iSub;
+
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->computeTetsConnectedToNode(Ni(iSub));
+
+#pragma omp parallel for
+   for(iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Ni.subData(iSub)));
+
+   levelPat->exchange();
+
+#pragma omp parallel for
+   for (iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->addRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Ni.subData(iSub)));
+
+}
+
+// ------------------------------------------------------------------------------------------
+
+void Domain::outputCsDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
+                                DistSVec<double,2> &Cs, DistSVec<double,3> &X,
+                                DistVec<double> &CsVal)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->outputCsDynamicLES(dles, Cs(iSub), X(iSub), CsVal(iSub));
+
+  applySmoothing(ctrlVol, CsVal);
+
 }
 
 // ------------------------------------------------------------------------------------------

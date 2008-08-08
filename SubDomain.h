@@ -224,7 +224,10 @@ public:
 
   void setBCond(BCondSet *subBC) { mmsBCs = subBC; }
   void applySmoothing(Vec<double> &, Vec<double> &);
+  void applySmoothing(Vec<double> &, SVec<double,2> &);
+  void computeTetsConnectedToNode(Vec<int> &Ni);
   void computeLocalAvg(SVec<double,3> &, Vec<double> &, Vec<double> &);
+  void computeLocalAvg(SVec<double,3> &, SVec<double,2> &, SVec<double,2> &);
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
   void setPhiForFluid1(Vec<double> &);
@@ -244,6 +247,8 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, Vec<double> &Phi);
+  void outputCsDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &);
+
   void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi);
   template<int dim>
@@ -255,6 +260,12 @@ public:
   template<int dim>
   void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
              PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
+
+  void computeLij(double [3][3], double [3], double [6], double [5]);              
+  void computeBij(double [3][3], double [6], double, double [3][3], double, double [5]);		
+  void computeZi(double [3], double, double, double [3], double [3], double [5], double);
+  void computeLi(double [3], double, double, double [3], double [5]);
+
 
   // moving mesh
 
@@ -391,18 +402,21 @@ public:
   void computeMutOMuWale(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
-  void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &,
-                  SVec<double,6> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+  void computeMutOMuDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                               SVec<double,dim> &, Vec<double> &);
+
 
   template<int dim>
-  void computeCsValues(SVec<double,dim> &,  SVec<double,16> &,
-                  SVec<double,6> &, SVec<double,2> &, Vec<double> &, SVec<double,3> &, double, double);
+  void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double>&,  SVec<double,3> &, SVec<double,dim> &,
-                  SVec<double,dim> &);
+  void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
+                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double);
 
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &, Vec<double> &);
+  template<int dim>
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, SVec<double,dim> &, 
+                             SVec<double,dim> &);
                                                                                                                           
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
