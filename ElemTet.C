@@ -99,8 +99,9 @@ void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
-			   SVec<double,3> &X, SVec<double,dim> &V, double gam, double R)
+void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+                           Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                           SVec<double,dim> &V, double gam, double R)
 
 {
 
@@ -111,6 +112,10 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
   double vol = computeGradientP1Function(X, dp1dxj);
 
   int i,j,k,l;                        // incrementers for the loops
+  int i_mom = 0;
+  int i_eng = 0;
+  int i_sij = -1;
+
 
   // Multiplication factor for averaging //
 
@@ -128,16 +133,11 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     }
   }
 
-  int i_mom, i_eng;
-  i_mom = 0; i_eng = 0;
-
-
   // incrementing the counter that stores the volume sum //
 
   for (i=0; i<4; ++i)
     Mom_Test[nodeNum(i)][i_mom] += vol;
 
-  i_mom =1;
 
   // adding rho_u computed at the cg to each node //
 
@@ -146,30 +146,26 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     for (j=0; j<4; ++j){
       Int += V[nodeNum(j)][0]*V[nodeNum(j)][i];
     }
+    ++i_mom;
     for (j=0; j<4; ++j){
-      Mom_Test[nodeNum(j)][i_mom+i-1] += (NCG*Int);
+      Mom_Test[nodeNum(j)][i_mom] += (NCG*Int);
     }
   }
 
-  i_mom =3;
-
   // adding rho_u_u computed at the cg to each node //
 
-  l = 0;
   for (i=1; i<4; ++i){
     for (k=i; k<4; ++k){
       Int = 0.0;
       for (j=0; j<4; ++j){
         Int += V[nodeNum(j)][0]*V[nodeNum(j)][i]*V[nodeNum(j)][k];
       }
-      l+=1;
+      ++i_mom;
       for (j=0; j<4; ++j){
-        Mom_Test[nodeNum(j)][i_mom+l] += (NCG*Int);
+        Mom_Test[nodeNum(j)][i_mom] += (NCG*Int);
       }
     }
   }
-
-  i_mom = 10;
 
   // adding rho_s_p computed at the cg to each node //
 
@@ -238,8 +234,8 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     S[2][1] = S[1][2];
 
     double S2 = (S[0][0]*S[0][0] + S[0][1]*S[0][1] + S[0][2]*S[0][2] + S[1][0]*S[1][0] +
-           S[1][1]*S[1][1] + S[1][2]*S[1][2] + S[2][0]*S[2][0] + S[2][1]*S[2][1] +
-           S[2][2]*S[2][2]);
+                 S[1][1]*S[1][1] + S[1][2]*S[1][2] + S[2][0]*S[2][0] + S[2][1]*S[2][1] +
+                 S[2][2]*S[2][2]);
 
     double sqrt2S2 = sqrt(2.0 * S2);
 
@@ -260,12 +256,28 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     for (j=0; j<4; ++j){
       Int += V[nodeNum(j)][0]*sqrt2S2*Pij[i];
     }
+    ++i_mom;
     for (j=0; j<4; ++j){
-      Mom_Test[nodeNum(j)][i_mom+i] += (NCG*Int);
+      Mom_Test[nodeNum(j)][i_mom] += (NCG*Int);
     }
+  }  
+
+  // computing filtered Sij  //
+
+  for (i=0; i<6; ++i) {
+    ++i_sij;
+    for (j=0; j<4; ++j)
+      Sij_Test[nodeNum(j)][i_sij] += vol*Pij[i];
   }
+ 
+  // computing filtered |Sij| //
+
+  for (j=0; j<4; ++j)
+    modS_Test[nodeNum(j)] += vol*sqrt2S2;
+
 
   // adding rho_e computed at the cg to each node //
+
 
   double squ[4];
 
@@ -280,8 +292,8 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
   }
   
-  i_eng = 1;
-
+  ++i_eng;
+  
   // adding rho_e_plus_p computed at the cg to each node //
 
   Int = 0.0;
@@ -292,7 +304,6 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
   }
 
-  i_eng = 2;
 
   // adding rho_s_dtdxj computed at the cg to each node //
 
@@ -316,180 +327,29 @@ void ElemTet::computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SV
     for (j=0; j<4; ++j){
       Int += V[nodeNum(j)][0]*sqrt2S2*dtdxj[i];
     }
+    ++i_eng;
     for (j=0; j<4; ++j){
-      Eng_Test[nodeNum(j)][i_eng+i] += (NCG*Int);
+      Eng_Test[nodeNum(j)][i_eng] += (NCG*Int);
     }
   }
 
-  // incrementing the counter that stores the number of tetrahedrons surrounding a node //
-
-  for (i=0; i<4; ++i)
-    Eng_Test[nodeNum(i)][5] += 1.0;
+  // adding dtdxj computed at the cg to each node //
+  
+  for (i=0; i<3; ++i){
+    Int = 0.0;
+    for (j=0; j<4; ++j){
+      Int += dtdxj[i];
+    }
+    ++i_eng;  
+    for (j=0; j<4; ++j){
+      Eng_Test[nodeNum(j)][i_eng] += vol*Int;
+    }
+  }       
 
 }
+
 
 //------------------------------------------------------------------------------
-
-template<int dim>
-void ElemTet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-			      SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
-			      SVec<double,3> &X, double gam, double R)
-
-{
-
-  double dp1dxj[4][3], dudxj[3][3], u[4][3], ucg[3];
-  double vol = computeGradientP1Function(X, dp1dxj);
-  double *VC[4] = {VCap[nodeNum(0)], VCap[nodeNum(1)], VCap[nodeNum(2)], VCap[nodeNum(3)]};
-  double *mom_test[4] = {Mom_Test[nodeNum(0)], Mom_Test[nodeNum(1)], Mom_Test[nodeNum(2)], Mom_Test[nodeNum(3)]};
-  double *eng_test[4] = {Eng_Test[nodeNum(0)], Eng_Test[nodeNum(1)], Eng_Test[nodeNum(2)], Eng_Test[nodeNum(3)]};
-  double ntet[4] = {Mom_Test[nodeNum(0)][0], Mom_Test[nodeNum(1)][0], Mom_Test[nodeNum(2)][0], Mom_Test[nodeNum(3)][0]};
-
-// steps in dynamic les to compute unknown coefficients //
-
-  double vc[5];
-  double r_u[3];
-  double r_u_u[6];
-  double r_s_p[6];
-  double sq_rat_delta[4] = {pow(eng_test[0][5],(2.0/3.0)), pow(eng_test[1][5],(2.0/3.0)),
-                            pow(eng_test[2][5],(2.0/3.0)), pow(eng_test[3][5],(2.0/3.0))};
-  double ratdelta;
-  double num, denom;
-  double sqrt2S2;
-  double Pij[3][3], Bij[3][3], Lij[3][3];
-  double cs[4], pt[4];
-
-  computeVelocity(VC, u, ucg, ntet);
-  computeVelocityGradient(dp1dxj, u, dudxj);
-  sqrt2S2 = computeNormSij(dudxj);
-  computePij(dudxj, Pij);
-
-// Compute Smagorinsky Coefficient at each node
-// ----------------------------------------------
-// Ref: Large Eddy Simulation of Bluff-Body flow on Unstructured Grids
-// International Journal of Numerical Methods in Fluids 2002
-// Vol : 40, pgs:1431-1460
-// Authors; Camarri, Salvetti, Koobus, Dervieux
-// ---------------------------------------------------------------------
-
-
-// computing smagorinsky coefficient //
-
-   for (int i=0; i<4; ++i){
-     r_u[0] = mom_test[i][1]/mom_test[i][0];
-     r_u[1] = mom_test[i][2]/mom_test[i][0];
-     r_u[2] = mom_test[i][3]/mom_test[i][0];
-
-     r_u_u[0] = mom_test[i][4]/mom_test[i][0];
-     r_u_u[1] = mom_test[i][5]/mom_test[i][0];
-     r_u_u[2] = mom_test[i][6]/mom_test[i][0];
-     r_u_u[3] = mom_test[i][7]/mom_test[i][0];
-     r_u_u[4] = mom_test[i][8]/mom_test[i][0];
-     r_u_u[5] = mom_test[i][9]/mom_test[i][0];
-
-     r_s_p[0] = mom_test[i][10]/mom_test[i][0];
-     r_s_p[1] = mom_test[i][11]/mom_test[i][0];
-     r_s_p[2] = mom_test[i][12]/mom_test[i][0];
-     r_s_p[3] = mom_test[i][13]/mom_test[i][0];
-     r_s_p[4] = mom_test[i][14]/mom_test[i][0];
-     r_s_p[5] = mom_test[i][15]/mom_test[i][0];
-
-     vc[0] = VC[i][0]/mom_test[i][0];
-     vc[1] = VC[i][1]/mom_test[i][0];
-     vc[2] = VC[i][2]/mom_test[i][0];
-     vc[3] = VC[i][3]/mom_test[i][0];
-     vc[4] = VC[i][4]/mom_test[i][0];
-
-     ratdelta = sq_rat_delta[i];
-
-     computeLij(Lij, r_u, r_u_u, vc);
-     computeBij(Bij, r_s_p, sqrt2S2, Pij, ratdelta, vc);
-
-     num = 0.0;
-     denom = 0.0;
-
-     for (int j=0; j<3; ++j){
-       for (int k=0; k<3; ++k){
-          num += Bij[j][k]*Lij[j][k];
-          denom += Bij[j][k]*Bij[j][k];
-        }
-     }
-
-     if(denom < 0.0000001) denom = 0.0000001;
-     cs[i] = (num/denom);
-
-   }
-
-
-// computing the subgrid scale prandtl number //
-
-   double r_e, r_e_plus_p;
-   double r_s_dtdxj[3], dtdxj[3];
-   double Li[3], Zi[3];
-   double t[4];
-
-   computeTemp(VC, t, R);
-   computeTempGradient(dp1dxj, t, dtdxj);
-
-
-   for (int i=0; i<4; ++i){
-     r_u[0] = mom_test[i][1]/mom_test[i][0];
-     r_u[1] = mom_test[i][2]/mom_test[i][0];
-     r_u[2] = mom_test[i][3]/mom_test[i][0];
-
-     vc[0] = VC[i][0]/mom_test[i][0];
-     vc[1] = VC[i][1]/mom_test[i][0];
-     vc[2] = VC[i][2]/mom_test[i][0];
-     vc[3] = VC[i][3]/mom_test[i][0];
-     vc[4] = VC[i][4]/mom_test[i][0];
-
-     r_e = eng_test[i][0]/mom_test[i][0];
-     r_e_plus_p = eng_test[i][1]/mom_test[i][0];
-
-     r_s_dtdxj[0] = eng_test[i][2]/mom_test[i][0];
-     r_s_dtdxj[1] = eng_test[i][3]/mom_test[i][0];
-     r_s_dtdxj[2] = eng_test[i][4]/mom_test[i][0];
-
-     ratdelta = sq_rat_delta[i];
-
-     computeLi(Li, r_e, r_e_plus_p, r_u, vc);
-     computeZi(Zi, ratdelta, sqrt2S2, dtdxj, r_s_dtdxj, vc, gam, R);
-
-     num = 0.0;
-     denom = 0.0;
-
-     for (int j=0; j<3; ++j){
-       num += Li[j]*Zi[j];
-       denom += Li[j]*Li[j];
-     }
-
-     if(denom < 0.0000001) denom = 0.0000001;
-     pt[i] = (num/denom); 
-
-  }
-
-  //----------------------------------------
-  // averaging the value of Cs (smoothing)
-  //----------------------------------------
-
-  double Int1, Int2;
-
-
-  Int1 = 0.25*(cs[0]+cs[1]+cs[2]+cs[3]); // avg in each tetrahedron
-  Int2 = 0.25*(pt[0]+pt[1]+pt[2]+pt[3]); // avg in each tetrahedron
-
-  for(int i=0; i<4; ++i) {
-     Cs[nodeNum(i)][0] += vol*Int1;
-     Cs[nodeNum(i)][1] += vol*Int2;
-  }
-
-  // incrementing the counter that stores the volume sum
-
-  for (int i=0; i<4; ++i)
-    VolSum[nodeNum(i)] += vol;
-
-}
-
-//-----------------------------------------------------------------------
 
 template<int dim>
 void ElemTet::computeMBarAndM(DynamicVMSTerm *dvmst,
@@ -688,17 +548,17 @@ void ElemTet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-				    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
+                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
   double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
-  double cs[4] = {Cs[nodeNum(0)][0]/VolSum[nodeNum(0)], Cs[nodeNum(1)][0]/VolSum[nodeNum(1)],
-                  Cs[nodeNum(2)][0]/VolSum[nodeNum(2)], Cs[nodeNum(3)][0]/VolSum[nodeNum(3)]};
-  double pt[4] = {Cs[nodeNum(0)][1]/VolSum[nodeNum(0)], Cs[nodeNum(1)][1]/VolSum[nodeNum(1)],
-                  Cs[nodeNum(2)][1]/VolSum[nodeNum(2)], Cs[nodeNum(3)][1]/VolSum[nodeNum(3)]};
+  double cs[4] = {Cs[nodeNum(0)][0], Cs[nodeNum(1)][0],
+                  Cs[nodeNum(2)][0], Cs[nodeNum(3)][0]};
+  double pt[4] = {Cs[nodeNum(0)][1], Cs[nodeNum(1)][1],
+                  Cs[nodeNum(2)][1], Cs[nodeNum(3)][1]};
 
   double r[3][dim];
 
