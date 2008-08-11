@@ -468,7 +468,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
   int iSub;
 
-  if (type == PostFcn::DELTA_PLUS) {
+  if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
       tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
     if (!vec2Pat) {
@@ -707,7 +707,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   int iSub;
                                                                                               
                                                                                               
-  if (type == PostFcn::DELTA_PLUS) {
+  if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
       tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
     if (!vec2Pat) {
