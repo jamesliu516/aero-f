@@ -200,6 +200,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::SKIN_FRICTION], "%s%s",
             iod.output.transient.prefix, iod.output.transient.sfric);
   }
+  if (iod.output.transient.tavsfric[0] != 0) {
+    avscalars[PostFcn::SKIN_FRICTIONAVG] = new char[sp + strlen(iod.output.transient.tavsfric)];
+    sprintf(avscalars[PostFcn::SKIN_FRICTIONAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavsfric);
+  }
   if (iod.output.transient.psensor[0] != 0) {
     scalars[PostFcn::PSENSOR] = new char[sp + strlen(iod.output.transient.psensor)];
     sprintf(scalars[PostFcn::PSENSOR], "%s%s", 
