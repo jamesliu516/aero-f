@@ -72,6 +72,7 @@ struct TransientData {
   const char *eddyvis;
   const char *dplus;
   const char *sfric;
+  const char *tavsfric;
   const char *psensor;
   const char *csdles;
   const char *tavcsdles;

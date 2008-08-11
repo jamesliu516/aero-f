@@ -145,6 +145,7 @@ TransientData::TransientData()
   eddyvis = "";
   dplus = "";
   sfric = "";
+  tavsfric = "";
   psensor = "";
   csdles = "";
   tavcsdles = "";
@@ -201,7 +202,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 71, father);
+  ClassAssigner *ca = new ClassAssigner(name, 72, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -232,6 +233,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "EddyViscosity", this, &TransientData::eddyvis);
   new ClassStr<TransientData>(ca, "DeltaPlus", this, &TransientData::dplus);
   new ClassStr<TransientData>(ca, "SkinFriction", this, &TransientData::sfric);
+  new ClassStr<TransientData>(ca, "TavSkinFriction", this, &TransientData::tavsfric);
   new ClassStr<TransientData>(ca, "PressureSensor", this, &TransientData::psensor);
   new ClassStr<TransientData>(ca, "CsDLES", this, &TransientData::csdles);
   new ClassStr<TransientData>(ca, "TavCsDLES", this, &TransientData::tavcsdles);
