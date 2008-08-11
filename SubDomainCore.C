@@ -3882,6 +3882,7 @@ void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
 }
 
 //--------------------------------------------------------------------------
+
 void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi){
 
@@ -3902,3 +3903,4 @@ void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
 
 }
 
+//--------------------------------------------------------------------------
