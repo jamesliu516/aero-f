@@ -1162,6 +1162,9 @@ void ModalSolver<dim>::preProcess()  {
   ksp2->setup(1, ioData->ts.implicit.newton.ksp.ns.maxIts, Uref);
   ksp3->setup(1, ioData->ts.implicit.newton.ksp.ns.maxIts, Uref);
 
+  // for balance POD, setup markers for pc transpose
+  pc->setupTR();
+
   tOutput->openAsciiFiles();
 }
 
