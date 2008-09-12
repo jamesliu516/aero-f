@@ -228,6 +228,16 @@ void IluPrec<Scalar,dim, Scalar2>::setup()  {
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim, class Scalar2>
+void IluPrec<Scalar,dim, Scalar2>::setupTR()  {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    A[iSub]->ILUTR();
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim, class Scalar2>
 void IluPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<Scalar2,dim> &x) 
 {
 
@@ -267,15 +277,28 @@ void IluPrec<Scalar,dim, Scalar2>::applyT(DistSVec<Scalar2,dim> &y, DistSVec<Sca
 
   DistSVec<Scalar2, dim> tmp(y);
 
-  if (type == PcData::RAS) tmp.restrict();
+  // switched RAS to ASH
+
+  if (type == PcData::ASH) tmp.restrict();
   if (type == PcData::AAS) tmp.average();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     A[iSub]->lusolTR(tmp(iSub), x(iSub));
 
-  if (type == PcData::ASH) x.restrict();
+  // switched ASH to RAS
+  if (type == PcData::RAS) x.restrict();
   if (type == PcData::AAS) x.average();
+
+  CommPattern<Scalar2> *vPat = getCommPat(x);
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->sndData(*vPat, x.subData(iSub));
+  vPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
 
 }
 

@@ -758,6 +758,7 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
     delWFull += podVecs[i] * delWRom[i];
   delWFull += Uref;
   tOutput->writeForcesToDisk(0, 0, 0, 0, 0.0, com->cpuNum(), tRestart->energy, deltmp, delWFull);
+  tOutput->writeBinaryVectorsToDisk(false, 0, 0, deltmp, controlVol, delWFull, tState);
 
   for (int cnt = 0; cnt < nSteps; ++cnt) {
 
@@ -887,7 +888,8 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
 
     int ierr = domain.checkSolution(varFcn, delWFull);
 
-      tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, cnt*dt+dt0, com->cpuNum(), tRestart->energy, deltmp, delWFull);
+    tOutput->writeForcesToDisk(cntp1, cntp1, cntp1, cntp1, cnt*dt+dt0, com->cpuNum(), tRestart->energy, deltmp, delWFull);
+    tOutput->writeBinaryVectorsToDisk(false, cntp1, cnt*dt+dt0, deltmp, controlVol, delWFull, tState);
 
     if (ierr)  {
       com->fprintf(stderr, " ... WARNING: %d nodes have neg. rho/P \n", ierr);
@@ -1161,6 +1163,9 @@ void ModalSolver<dim>::preProcess()  {
   ksp->setup(1, ioData->ts.implicit.newton.ksp.ns.maxIts, Uref);
   ksp2->setup(1, ioData->ts.implicit.newton.ksp.ns.maxIts, Uref);
   ksp3->setup(1, ioData->ts.implicit.newton.ksp.ns.maxIts, Uref);
+
+  // for balance POD, setup markers for pc transpose
+  pc->setupTR();
 
   tOutput->openAsciiFiles();
 }
