@@ -53,6 +53,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   dvms = 0;
   spaceOp = 0;
   mutOmu = 0;
+  Cs = 0;
   CsDvms = 0;
   CsDles = 0;
 
@@ -150,6 +151,7 @@ PostOperator<dim>::~PostOperator()
   if (dvms) delete dvms;
   if (spaceOp) delete spaceOp;
   if (mutOmu) delete mutOmu;
+  if (Cs) delete Cs;
   if (CsDvms) delete CsDvms;
   if (CsDles) delete CsDles;
 
@@ -600,7 +602,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     varFcn->conservativeToPrimitive(U, *V);
                                                                                                                           
     if(vms) {
-      fprintf(stderr,"MuTOverMu not yet implemented for VMS-LES..  Aborting ....\n"); exit(1);
+      vms->computeMutOMu(A, X, *V, *mutOmu);
     }
     else if(smag) {
       domain->computeMutOMuSmag(smag, A, X, *V, *mutOmu);
@@ -612,7 +614,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
        domain->computeMutOMuWale(wale, A, X, *V, *mutOmu);
     }
     else if(dvms) {
-       fprintf(stderr,"MuTOverMu not yet implemented for Dynamic VMS-LES..  Aborting ....\n"); exit(1);
+      if(!Cs) Cs = new DistVec<double>(domain->getNodeDistInfo());
+      *Cs = 0.0;
+      spaceOp->computePostOpDVMS(X, A, U, Cs, timeState);
+      dvms->computeMutOMu(A, X, *V, *Cs, *mutOmu);
     }
     else {
        fprintf(stderr,"MuTOverMu option valid only for LES computations..  Aborting ....\n"); exit(1);	

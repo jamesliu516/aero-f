@@ -399,12 +399,18 @@ public:
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
+  void computeMutOMuVMS(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
+
+  template<int dim>
+  void computeMutOMuDynamicVMS(DynamicVMSTerm *, SVec<double,dim> &, SVec<double,3> &,
+                               SVec<double,dim> &, Vec<double> &, Vec<double> &);
+
+  template<int dim>
   void computeMutOMuWale(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
   void computeMutOMuDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
                                SVec<double,dim> &, Vec<double> &);
-
 
   template<int dim>
   void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,

@@ -90,7 +90,7 @@ public:
   ~FluxFcnPerfectGasApprJacHLLEEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}
@@ -364,7 +364,7 @@ public:
   ~FluxFcnPerfectGasApprJacHLLESA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1){}
@@ -606,7 +606,7 @@ public:
   ~FluxFcnPerfectGasApprJacHLLEKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
-  void computeJacobians(double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, int = 1) {}

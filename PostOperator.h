@@ -67,6 +67,7 @@ private:
   CommPattern<double>* vec2Pat;
   PostFcn *postFcn;
   DistVec<double> *mutOmu;
+  DistVec<double> *Cs;
   DistVec<double> *CsDvms;
   DistVec<double> *CsDles;
 

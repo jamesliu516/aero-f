@@ -364,11 +364,9 @@ void DynamicVMSTerm::computeSmallEnergyGradient(double dp1dxj[4][3],
 
 //------------------------------------------------------------------------
 
-
-double DynamicVMSTerm::computeMutOMu(double Cs[4], double Pt[4], double tetVol, 
-                                     double dp1dxj[4][3], double *VBar[4],
-			             double *V[4], SVec<double,3> &X, 
-				     int nodeNum[4], bool clip)
+double DynamicVMSTerm::computeMutOMu(double tetVol, double dp1dxj[4][3], double *VBar[4],
+                                     double *V[4], double Cs[4], SVec<double,3> &X,
+                                     int nodeNum[4])
 
 {
 
@@ -382,25 +380,17 @@ double DynamicVMSTerm::computeMutOMu(double Cs[4], double Pt[4], double tetVol,
   getPrimeValues(V, VBar, uPrime, ePrime);
   computeVelocityGradient(dp1dxj, uPrime, duPrimedxj);
   double rhoBarCG = onefourth * (VBar[0][0] + VBar[1][0] +
-				 VBar[2][0] + VBar[3][0]);
+                                 VBar[2][0] + VBar[3][0]);
 
   csprime = onefourth*(Cs[0]+ Cs[1]+ Cs[2]+ Cs[3]); // averaged cs value in each tetrahedron
-  PrT     = onefourth*(Pt[0]+ Pt[1]+ Pt[2]+ Pt[3]); // averaged pt value in each tetrahedron
 
   // upper clipping is introduced here //
 
-  if (clip) {  
-    double Delta = computeFilterWidth(tetVol, X, nodeNum); // Compute filter width
-    if (csprime > pow(csmax*Delta,2)) csprime = pow(csmax*Delta,2); // the upper clipping for csdeltasq
-    if (mach < 0.3) PrT = Prandtl; // for subsonic flow use constant prandtl number
-    else {
-      if(PrT < ptmin) PrT = ptmin;
-      if(PrT > ptmax) PrT = ptmax;
-    }
-  }
+  double Delta = computeFilterWidth(tetVol, X, nodeNum); // Compute filter width
+  if (csprime > pow(csmax*Delta,2)) csprime = pow(csmax*Delta,2); // the upper clipping for csdeltasq
 
-  double muT; 
-  
+  double muT;
+
   // Applying the laminar-turbulent trip //
 
   if(trip){
@@ -413,18 +403,20 @@ double DynamicVMSTerm::computeMutOMu(double Cs[4], double Pt[4], double tetVol,
           muT = computeEddyViscosity(rhoBarCG, duPrimedxj);
     }
     else{
-       muT = 0.0; 
+       muT = 0.0;
     }
   }
   else{
     muT = computeEddyViscosity(rhoBarCG, duPrimedxj);
   }
 
-
+  // mu + muT check: if mu + muT < 0.0 then muT is set to -mu //
+  // allows backscatter //
 
   double T[4], Tcg;
   computeTemperature(V, T, Tcg);
   double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
+  if((mu + muT) < 0.0) muT = -mu;
 
   return (muT/mu);
 

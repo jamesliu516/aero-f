@@ -105,14 +105,14 @@ void FluxFcnGasInGasApprJacHLLEEuler3D::compute(double length, double irey, doub
 
 //-----------------------------------------------------------------------
 
-void FluxFcnGasInGasApprJacHLLEEuler3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnGasInGasApprJacHLLEEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                                 double *VL, double *VR,
                                                 double *jacL, double *jacR, int flag)
 {
   if ( flag == 1 ) {
-    computeJacobiansPerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
+    computeJacobiansPerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
   }else{
-    computeJacobiansPerfectGas(irey, vf->getGammabis(), vf->getPressureConstantbis(), normal, normalVel, VL, VR, jacL, jacR, flag);
+    computeJacobiansPerfectGas(length, irey, vf->getGammabis(), vf->getPressureConstantbis(), normal, normalVel, VL, VR, jacL, jacR, flag);
   }
 }
 

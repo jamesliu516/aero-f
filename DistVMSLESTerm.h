@@ -42,6 +42,9 @@ class DistVMSLESTerm {
   void compute(int, DistVec<double> &, DistSVec<double,3> &,
 	       DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  void computeMutOMu(DistVec<double> &, DistSVec<double,3> &,
+                     DistSVec<double,dim> &, DistVec<double> &);
+
 // Included (MB)
   void computeDerivative(int, DistVec<double> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 

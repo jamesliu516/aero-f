@@ -861,17 +861,6 @@ void FluxFcnVanLeerEuler3D::computeJacobiansPerfectGas(double vfgam, double vfp,
 } 
 
 //------------------------------------------------------------------------------
-/*
-@ARTICLE{roe-81,
-  author = "Roe, P. L.",
-  title = "Approximate {R}iemann Solvers, Parameter Vectors
-           and Difference Schemes",
-  journal = j. comp. phys.,
-  year = 1981,
-  volume = 43,
-  pages = "357--372",
-} 
-*/
 
 void FluxFcnFDJacHLLEEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				     double *VL, double *VR, double *flux)
@@ -987,7 +976,7 @@ void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doub
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacHLLEEuler3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+void FluxFcnApprJacHLLEEuler3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
                                                            double *VL, double *VR, double *jacL, double *jacR, int flag)
 {
 
@@ -1007,17 +996,6 @@ void FluxFcnApprJacHLLEEuler3D::computePerfectGas(double length, double irey, do
 
 
 //------------------------------------------------------------------------------
-/*
-@ARTICLE{roe-81,
-  author = "Roe, P. L.",
-  title = "Approximate {R}iemann Solvers, Parameter Vectors
-           and Difference Schemes",
-  journal = j. comp. phys.,
-  year = 1981,
-  volume = 43,
-  pages = "357--372",
-}
-*/
 
 void FluxFcnFDJacHLLCEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
                                      double *VL, double *VR, double *flux)
@@ -1678,7 +1656,7 @@ void FluxFcnApprJacHLLESA3D::computePerfectGas(double length, double irey, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacHLLESA3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+void FluxFcnApprJacHLLESA3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
                                              double *VL, double *VR, double *jacL, double *jacR, int flag)
 {
 
@@ -2039,7 +2017,7 @@ void FluxFcnApprJacHLLEKE3D::computePerfectGas(double length, double irey, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacHLLEKE3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel,
+void FluxFcnApprJacHLLEKE3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
                                              double *VL, double *VR, double *jacL, double *jacR, int flag)
 {
 

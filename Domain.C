@@ -1820,6 +1820,42 @@ void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVo
 //------------------------------------------------------------------------------
 
 template<int dim>
+void Domain::computeMutOMuVMS(VMSLESTerm *vms, DistMacroCellSet *macroCells, DistVec<double> &ctrlVol,
+                              bool doInitialTasks, DistSVec<double,dim> &VBar, DistSVec<double,1> &volRatio,
+                              DistSVec<double,3> &X, DistSVec<double,dim> &V, int scopeDepth,
+                              DistVec<double> &mutOmu)
+{
+
+  macroCells->computeVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth);
+  assemble(vecPat, VBar);
+
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuVMS(vms, VBar(iSub),X(iSub), V(iSub), mutOmu(iSub));
+
+  applySmoothing(ctrlVol, mutOmu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvms, DistVec<double> &ctrlVol,
+                                     DistSVec<double,dim> &VBar, DistSVec<double,3> &X, 
+                                     DistSVec<double,dim> &V, DistVec<double> &Cs, DistVec<double> &mutOmu)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuDynamicVMS(dvms, VBar(iSub),X(iSub), V(iSub), Cs(iSub), mutOmu(iSub));
+
+  applySmoothing(ctrlVol, mutOmu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol, 
                                DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                                DistVec<double> &mutOmu)

@@ -1566,6 +1566,54 @@ void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
 //--------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::computeMutOMuVMS(VMSLESTerm *vmst, SVec<double,dim> &VBar, SVec<double,3> &X,
+                                 SVec<double,dim> &V, Vec<double> &mutOmu)
+{
+
+   for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+     double dp1dxj[4][3];
+     double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+     double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+     double *vbar[4] = {VBar[elems[tetNum][0]], VBar[elems[tetNum][1]],
+                        VBar[elems[tetNum][2]], VBar[elems[tetNum][3]]};
+
+     double mut = vmst->computeMutOMu(vol, dp1dxj, vbar, v, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvmst, SVec<double,dim> &VBar, SVec<double,3> &X,
+                                        SVec<double,dim> &V, Vec<double> &Cs, Vec<double> &mutOmu)
+{
+
+   for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+     double dp1dxj[4][3];
+     double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+     double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+     double *vbar[4] = {VBar[elems[tetNum][0]], VBar[elems[tetNum][1]],
+                        VBar[elems[tetNum][2]], VBar[elems[tetNum][3]]};
+     double cs[4] = {Cs[elems[tetNum][0]], Cs[elems[tetNum][1]],
+                     Cs[elems[tetNum][2]], Cs[elems[tetNum][3]]};
+
+     double mut = dvmst->computeMutOMu(vol, dp1dxj, vbar, v, cs, X, elems[tetNum]);
+     for (int i=0; i<4; ++i)
+       mutOmu[elems[tetNum][i]] += mut * vol;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
                                   SVec<double,dim> &V, Vec<double> &mutOmu)
 {

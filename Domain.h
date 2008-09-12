@@ -420,15 +420,22 @@ public:
                                DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
+  void computeMutOMuVMS(VMSLESTerm *, DistMacroCellSet *, DistVec<double> &, bool, 
+                        DistSVec<double,dim> &, DistSVec<double,1> &, DistSVec<double,3> &, 
+                        DistSVec<double,dim> &, int, DistVec<double> &);
+
+  template<int dim>
+  void computeMutOMuDynamicVMS(DynamicVMSTerm *, DistVec<double> &, DistSVec<double,dim> &, 
+                               DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
+
+  template<int dim>
   void computeMutOMuWale(WaleLESTerm *, DistVec<double> &, DistSVec<double,3> &,
                          DistSVec<double,dim> &, DistVec<double> &);
-
 
   template<int dim>
   void computeMutOMuDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &, 
                                DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &);
-
-
+                                  
   //---complete computaton of MutOMu terms
 
 
