@@ -138,7 +138,7 @@ public:
 
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, 
                                      double *, double *, double *, double, double *, double *) {}
@@ -466,7 +466,7 @@ public:
 
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *){}
@@ -753,7 +753,7 @@ public:
 
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double

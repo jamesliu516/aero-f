@@ -81,6 +81,7 @@ class Domain {
   CommPattern<double> *edgePat;
   CommPattern<double> *momPat;
   CommPattern<double> *csPat;
+  CommPattern<double> *engPat;
   CommPattern<int> *fsPat;
 
   CommPattern<double> *inletVec3DPat;
@@ -133,6 +134,7 @@ public:
   CommPattern<double> *getWeightPat() const { return weightPat; }
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
+  CommPattern<double> *getEngPat() const { return engPat; }
  
 
   template<int dim>
@@ -195,6 +197,10 @@ public:
 
   void computeDelRatios(DistMacroCellSet *, DistVec<double> &, int, double *, double *, double *, double *, int *);
   void applySmoothing(DistVec<double> &, DistVec<double> &);
+  void applySmoothing(DistVec<double> &, DistSVec<double,2> &);
+  void computeTetsConnectedToNode(DistVec<int> &);
+  void outputCsDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &, 
+                          DistSVec<double,3> &, DistVec<double> &);
                                                                                                                           
   template<class MatScalar, class PrecScalar>
   void computeStiffAndForce(DefoMeshMotionData::Element, DistSVec<double,3>&, 
@@ -406,13 +412,32 @@ public:
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  
+  //---start computation of MutOMu terms
+
   template<int dim>
   void computeMutOMuSmag(SmagorinskyLESTerm *, DistVec<double> &, DistSVec<double,3> &,
                                DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
+  void computeMutOMuVMS(VMSLESTerm *, DistMacroCellSet *, DistVec<double> &, bool, 
+                        DistSVec<double,dim> &, DistSVec<double,1> &, DistSVec<double,3> &, 
+                        DistSVec<double,dim> &, int, DistVec<double> &);
+
+  template<int dim>
+  void computeMutOMuDynamicVMS(DynamicVMSTerm *, DistVec<double> &, DistSVec<double,dim> &, 
+                               DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
+
+  template<int dim>
   void computeMutOMuWale(WaleLESTerm *, DistVec<double> &, DistSVec<double,3> &,
                          DistSVec<double,dim> &, DistVec<double> &);
+
+  template<int dim>
+  void computeMutOMuDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &, 
+                               DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &);
+                                  
+  //---complete computaton of MutOMu terms
+
 
   template<int dim>
   void computeGalerkinBarTerm(bool, FemEquationTerm *, DistBcData<dim> &, DistGeoState &, DistSVec<double,3> &,
@@ -441,17 +466,20 @@ public:
                            DistSVec<double,1> &, DistSVec<double,3> &,
                            DistSVec<double,dim> &, DistSVec<double,dim> &, int);
 
-  template<int dim>
-  void computeTestFilterValues(DistSVec<double,dim> &,
-                  DistSVec<double,16> &, DistSVec<double,6> &,
-                  DistSVec<double,2> &, DistVec<double> &, DistSVec<double,3> &, DistSVec<double,dim> &, double, double);
+
+
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &, DistVec<double> &,
+  void computeTestFilterValues(DistVec<double> &, DistSVec<double,dim> &,
+                               DistSVec<double,16> &, DistSVec<double,6> &, 
+                               DistVec<double> &, DistSVec<double,8> &,
+                               DistSVec<double,2> &, DistVec<int> &, DistBcData<dim> &, 
+                               DistSVec<double,3> &, DistSVec<double,dim> &, double, double);
+
+  template<int dim>
+  void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &, 
                              DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &,
-                             DistSVec<double,3> &, DistVec<double> &, DistVec<double> &); // Note Function Overloading
 
   template<int dim>
   void assemble_dWdt(DistSVec<double, dim> &, DistSVec<double, dim> &);

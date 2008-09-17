@@ -58,6 +58,10 @@ public:
 
   void computeEnergyGradient(double [4][3], double [4], double [3]);
 
+  double computeMutOMu(double, double [4][3], double *[4], double [4], double [4], SVec<double,3> &, int [4]);
+
+  double outputCsValues(double, double [4], SVec<double,3> &, int [4]);
+
 };
 
 //-------------------------------------------------------------------------

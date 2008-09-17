@@ -62,11 +62,14 @@ private:
   WaleLESTerm *wale;  
   DistVMSLESTerm<dim> *vms;
   DistDynamicLESTerm<dim> *dles;
-  DynamicLESTerm *dlest;
   DistDynamicVMSTerm<dim> *dvms;
   SpaceOperator<dim> *spaceOp;
   CommPattern<double>* vec2Pat;
   PostFcn *postFcn;
+  DistVec<double> *mutOmu;
+  DistVec<double> *Cs;
+  DistVec<double> *CsDvms;
+  DistVec<double> *CsDles;
 
 public:
 

@@ -72,6 +72,10 @@ class DistDynamicVMSTerm {
                  DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
                  DistSVec<double,dim> &, DistVec<double> *, int, int);
 
+  void computeMutOMu(DistVec<double> &ctrlVol, DistSVec<double,3> &X,
+                     DistSVec<double,dim> &V, DistVec<double> &Cs, DistVec<double> &mutOmu);
+
+
   void printDelRatios(DistVec<double> &);
 
 // Included (MB)

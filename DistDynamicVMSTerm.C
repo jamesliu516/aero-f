@@ -305,6 +305,24 @@ void DistDynamicVMSTerm<dim>::computeCs(FluxFcn** fluxFcn,
 
 //------------------------------------------------------------------------------------------------------------
 
+template<int dim>
+void DistDynamicVMSTerm<dim>::computeMutOMu(DistVec<double> &ctrlVol,
+                                            DistSVec<double,3> &X,
+                                            DistSVec<double,dim> &V,
+                                            DistVec<double> &Cs,
+                                            DistVec<double> &mutOmu)
+{
+
+  bool doInitialTasks = true;
+
+  domain->computeBarTerm(macroCells, doInitialTasks, ctrlVol, VBar, volRatio, X, V, scopeDepth1, scopeDepth2);
+
+  domain->computeMutOMuDynamicVMS(dvmst, ctrlVol, *(VBar[0]), X, V,  Cs, mutOmu);
+
+}
+
+//------------------------------------------------------------------------
+
 // This routine prints out the ratios of volumes between different levels of agglomeration //
 
 template<int dim>

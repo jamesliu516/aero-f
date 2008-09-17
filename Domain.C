@@ -1367,6 +1367,82 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
 }
 
 //------------------------------------------------------------------------------
+//----------------- All LES Models start  here 
+
+template<int dim>
+void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
+				       DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs, 
+                                   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+				   DistSVec<double,dim> &R)
+{
+
+#pragma omp parallel for
+   for (int iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), X(iSub), V(iSub), R(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeVMSLESTerm(VMSLESTerm *vmst, DistMacroCellSet *macroCells,
+                               bool doInitialTasks, DistVec<double> &ctrlVol,
+                               DistSVec<double,dim> &VBar, DistSVec<double,1> &volRatio,
+                               DistSVec<double,3> &X, DistSVec<double,dim> &V,
+                               DistSVec<double,dim> &R, int scopeDepth)
+{
+                                                                                                                          
+  double t0 = timer->getTime();
+                                                                                                                          
+  DistSVec<double,dim>* Sigma = new DistSVec<double,dim>(getNodeDistInfo());
+  *Sigma = 0.0;
+                                                                                                                          
+  // Compute the large-scale component of V (VBar) and //
+  // the volume ratios (Vi/VIi) with the macro-cells   //
+                                                                                                                          
+  macroCells->computeVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth);
+                                                                                                                          
+  // Exchange VBar and volRatio values //
+                                                                                                                          
+  assemble(vecPat, VBar);
+  assemble(vecPat, volRatio);
+
+  // Compute the contribution to R from the tetrahedra contained within each subdomain //
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeVMSLES_Step1(vmst, VBar(iSub),X(iSub), V(iSub), (*Sigma)(iSub));
+                                                                                                                          
+  assemble(vecPat,*Sigma);
+                                                                                                                          
+  // Add the subgrid scale viscosity to the residual vector R //
+                                                                                                                          
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub) {
+    MacroCellSet* macCells;
+    macCells = macroCells->obtainMacroCell(iSub, scopeDepth-1);
+    subDomain[iSub]->computeVMSLES_Step2(volRatio(iSub),macCells,(*Sigma)(iSub), R(iSub), scopeDepth);
+  }
+                                                                                                                          
+  delete (Sigma);
+                                                                                                                          
+  double t = timer->addVMSLESTime(t0);
+                                                                                                                          
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macroCells,
@@ -1531,48 +1607,15 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeVMSLESTerm(VMSLESTerm *vmst, DistMacroCellSet *macroCells,
-                               bool doInitialTasks, DistVec<double> &ctrlVol,
-                               DistSVec<double,dim> &VBar, DistSVec<double,1> &volRatio,
-                               DistSVec<double,3> &X, DistSVec<double,dim> &V,
-                               DistSVec<double,dim> &R, int scopeDepth)
-{
-                                                                                                                          
-  double t0 = timer->getTime();
-                                                                                                                          
-  DistSVec<double,dim>* Sigma = new DistSVec<double,dim>(getNodeDistInfo());
-  *Sigma = 0.0;
-                                                                                                                          
-  // Compute the large-scale component of V (VBar) and //
-  // the volume ratios (Vi/VIi) with the macro-cells   //
-                                                                                                                          
-  macroCells->computeVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth);
-                                                                                                                          
-  // Exchange VBar and volRatio values //
-                                                                                                                          
-  assemble(vecPat, VBar);
-  assemble(vecPat, volRatio);
+void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
+				DistSVec<double,dim> &V, DistSVec<double,dim> &R)
 
-  // Compute the contribution to R from the tetrahedra contained within each subdomain //
+{
+
 #pragma omp parallel for
-  for (int iSub=0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeVMSLES_Step1(vmst, VBar(iSub),X(iSub), V(iSub), (*Sigma)(iSub));
-                                                                                                                          
-  assemble(vecPat,*Sigma);
-                                                                                                                          
-  // Add the subgrid scale viscosity to the residual vector R //
-                                                                                                                          
-#pragma omp parallel for
-  for (int iSub=0; iSub < numLocSub; ++iSub) {
-    MacroCellSet* macCells;
-    macCells = macroCells->obtainMacroCell(iSub, scopeDepth-1);
-    subDomain[iSub]->computeVMSLES_Step2(volRatio(iSub),macCells,(*Sigma)(iSub), R(iSub), scopeDepth);
-  }
-                                                                                                                          
-  delete (Sigma);
-                                                                                                                          
-  double t = timer->addVMSLESTime(t0);
-                                                                                                                          
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
+
 }
 
 //------------------------------------------------------------------------------
@@ -1649,19 +1692,98 @@ void Domain::computeBarTerm(DistMacroCellSet *macroCells, bool doInitialTasks, D
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
-				       DistSVec<double,dim> &V, DistSVec<double,dim> &R)
-
+void Domain::computeTestFilterValues(DistVec<double> &ctrlVol, 
+                                     DistSVec<double,dim> &VCap, 
+                                     DistSVec<double,16> &Mom_Test,
+                                     DistSVec<double,6> &Sij_Test,
+                                     DistVec<double> &modS_Test,
+                                     DistSVec<double,8> &Eng_Test, 
+                                     DistSVec<double,2> &Cs,
+				     DistVec<int> &Ni,
+                                     DistBcData<dim> &bcData,
+				     DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+				     double gam, double R)
 {
 
+// computing test filtered values for all the required flow variables //
+
+#pragma omp parallel for
+   for (int iSub = 0; iSub < numLocSub; ++iSub){
+     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),  
+                                            Eng_Test(iSub), X(iSub), V(iSub), gam, R);
+     subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
+   }
+
+   // START OF ALL EXCHANGES
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*vecPat, VCap.subData(iSub));
+    subDomain[iSub]->sndData(*momPat, Mom_Test.subData(iSub));
+  }
+
+  momPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*momPat, Mom_Test.subData(iSub));
+    subDomain[iSub]->sndData(*engPat, Eng_Test.subData(iSub));
+  }
+
+  engPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*engPat, Eng_Test.subData(iSub));
+    subDomain[iSub]->sndData(*weightPat, Sij_Test.subData(iSub));
+  }
+
+  weightPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->addRcvData(*weightPat, Sij_Test.subData(iSub));
+    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(modS_Test.subData(iSub)));
+  }
+
+  volPat->exchange();
+                                                                                                                     
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeSmagorinskyLESTerm(smag, X(iSub), V(iSub), R(iSub));
+    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(modS_Test.subData(iSub)));
+
+   // END OF ALL EXCHANGES
+
+
+// computing unsmoothed Cs and Pt values //
+
+#pragma omp parallel for
+   for(int iSub = 0; iSub < numLocSub; ++iSub) {
+     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), 
+                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub), 
+				      Ni(iSub), X(iSub), gam, R);
+   }
+
+
+// smoothing Cs and Pt values //
+
+   DistSVec<double,2>* W = new DistSVec<double,2>(getNodeDistInfo());
+   *W = 0.0;
+
+#pragma omp parallel for
+   for (int iSub=0; iSub < numLocSub; ++iSub) 
+      subDomain[iSub]->computeLocalAvg(X(iSub), Cs(iSub), (*W)(iSub));
+
+   applySmoothing(ctrlVol, *W);
+   Cs = *W;
+
+   delete (W);
 
 }
 
 //------------------------------------------------------------------------------
-
 // Included (MB)
 template<int dim>
 void Domain::computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
@@ -1674,22 +1796,12 @@ void Domain::computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *smag, Dis
 
 }
 
+//----------------------- All LES Models End Here
 //------------------------------------------------------------------------------
 
 
-template<int dim>
-void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
-				DistSVec<double,dim> &V, DistSVec<double,dim> &R)
-
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeWaleLESTerm(wale, X(iSub), V(iSub), R(iSub));
-
-}
-
 //------------------------------------------------------------------------------
+//--------Start of routines that compute MutOMu values
 
 template<int dim>
 void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVol, 
@@ -1701,6 +1813,42 @@ void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVo
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeMutOMuSmag(smag, X(iSub), V(iSub), mutOmu(iSub));
                                                                                                                                        
+  applySmoothing(ctrlVol, mutOmu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeMutOMuVMS(VMSLESTerm *vms, DistMacroCellSet *macroCells, DistVec<double> &ctrlVol,
+                              bool doInitialTasks, DistSVec<double,dim> &VBar, DistSVec<double,1> &volRatio,
+                              DistSVec<double,3> &X, DistSVec<double,dim> &V, int scopeDepth,
+                              DistVec<double> &mutOmu)
+{
+
+  macroCells->computeVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth);
+  assemble(vecPat, VBar);
+
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuVMS(vms, VBar(iSub),X(iSub), V(iSub), mutOmu(iSub));
+
+  applySmoothing(ctrlVol, mutOmu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvms, DistVec<double> &ctrlVol,
+                                     DistSVec<double,dim> &VBar, DistSVec<double,3> &X, 
+                                     DistSVec<double,dim> &V, DistVec<double> &Cs, DistVec<double> &mutOmu)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuDynamicVMS(dvms, VBar(iSub),X(iSub), V(iSub), Cs(iSub), mutOmu(iSub));
+
   applySmoothing(ctrlVol, mutOmu);
 
 }
@@ -1724,81 +1872,21 @@ void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTestFilterValues(DistSVec<double,dim> &VCap, DistSVec<double,16> &Mom_Test,
-                                     DistSVec<double,6> &Eng_Test, DistSVec<double,2> &Cs, DistVec<double> &VolSum,
-                                     DistSVec<double,3> &X, DistSVec<double,dim> &V, double gam, double R)
-{
-
-// computing test filtered values for all the required flow variables //
-
-#pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub){
-     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Eng_Test(iSub), X(iSub), V(iSub), gam, R);
-     subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
-   }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->addRcvData(*vecPat, VCap.subData(iSub));
-    subDomain[iSub]->sndData(*momPat, Mom_Test.subData(iSub));
-  }
-
-  momPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->addRcvData(*momPat, Mom_Test.subData(iSub));
-    subDomain[iSub]->sndData(*weightPat, Eng_Test.subData(iSub));
-  }
-
-  weightPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->addRcvData(*weightPat, Eng_Test.subData(iSub));
-  }
-
-// computing unsmoothed Cs and Pt values //
-
-#pragma omp parallel for
-   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Eng_Test(iSub), 
-                                      Cs(iSub), VolSum(iSub), X(iSub), gam, R);
-     subDomain[iSub]->sndData(*csPat, Cs.subData(iSub));
-   }
-
-  csPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->addRcvData(*csPat, Cs.subData(iSub));
-    subDomain[iSub]->sndData(*volPat,  reinterpret_cast<double (*)[1]>(VolSum.subData(iSub)));
-  }
-
-  volPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(VolSum.subData(iSub)));
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs, DistVec<double> &VolSum,
-                                   DistSVec<double,3> &X, DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
+                                     DistSVec<double,2> &Cs, DistSVec<double,3> &X, 
+                                     DistSVec<double,dim> &V, DistVec<double> &mutOmu)
 {
 
 #pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub)
-     subDomain[iSub]->computeDynamicLESTerm(dles, Cs(iSub), VolSum(iSub), X(iSub), V(iSub), R(iSub));
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeMutOMuDynamicLES(dles, Cs(iSub), X(iSub), V(iSub), mutOmu(iSub));
+
+  applySmoothing(ctrlVol, mutOmu);
 
 }
 
+
+//--------End of routines that compute MutOMu values
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>

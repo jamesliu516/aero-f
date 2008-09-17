@@ -144,9 +144,13 @@ TransientData::TransientData()
   epsturb = "";
   eddyvis = "";
   dplus = "";
+  sfric = "";
+  tavsfric = "";
   psensor = "";
   csdles = "";
+  tavcsdles = "";
   csdvms = "";
+  tavcsdvms = "";
   mutOmu = "";
   velocity = "";
   tavvelocity = "";
@@ -198,7 +202,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 68, father);
+  ClassAssigner *ca = new ClassAssigner(name, 72, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -228,9 +232,13 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Eps", this, &TransientData::epsturb);
   new ClassStr<TransientData>(ca, "EddyViscosity", this, &TransientData::eddyvis);
   new ClassStr<TransientData>(ca, "DeltaPlus", this, &TransientData::dplus);
+  new ClassStr<TransientData>(ca, "SkinFriction", this, &TransientData::sfric);
+  new ClassStr<TransientData>(ca, "TavSkinFriction", this, &TransientData::tavsfric);
   new ClassStr<TransientData>(ca, "PressureSensor", this, &TransientData::psensor);
   new ClassStr<TransientData>(ca, "CsDLES", this, &TransientData::csdles);
+  new ClassStr<TransientData>(ca, "TavCsDLES", this, &TransientData::tavcsdles);
   new ClassStr<TransientData>(ca, "CsDVMS", this, &TransientData::csdvms);
+  new ClassStr<TransientData>(ca, "TavCsDVMS", this, &TransientData::tavcsdvms);
   new ClassStr<TransientData>(ca, "MutOverMu", this, &TransientData::mutOmu);
 
   new ClassStr<TransientData>(ca, "Velocity", this, &TransientData::velocity);

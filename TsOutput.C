@@ -195,6 +195,16 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dplus);
   }
+  if (iod.output.transient.sfric[0] != 0) {
+    scalars[PostFcn::SKIN_FRICTION] = new char[sp + strlen(iod.output.transient.sfric)];
+    sprintf(scalars[PostFcn::SKIN_FRICTION], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.sfric);
+  }
+  if (iod.output.transient.tavsfric[0] != 0) {
+    avscalars[PostFcn::SKIN_FRICTIONAVG] = new char[sp + strlen(iod.output.transient.tavsfric)];
+    sprintf(avscalars[PostFcn::SKIN_FRICTIONAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavsfric);
+  }
   if (iod.output.transient.psensor[0] != 0) {
     scalars[PostFcn::PSENSOR] = new char[sp + strlen(iod.output.transient.psensor)];
     sprintf(scalars[PostFcn::PSENSOR], "%s%s", 
@@ -205,10 +215,20 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::CSDLES], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.csdles);
   }
+  if (iod.output.transient.tavcsdles[0] != 0) {
+    avscalars[PostFcn::CSDLESAVG] = new char[sp + strlen(iod.output.transient.tavcsdles)];
+    sprintf(avscalars[PostFcn::CSDLESAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavcsdles);
+  }
   if (iod.output.transient.csdvms[0] != 0) {
     scalars[PostFcn::CSDVMS] = new char[sp + strlen(iod.output.transient.csdvms)];
     sprintf(scalars[PostFcn::CSDVMS], "%s%s",
             iod.output.transient.prefix, iod.output.transient.csdvms);
+  }
+  if (iod.output.transient.tavcsdvms[0] != 0) {
+    avscalars[PostFcn::CSDVMSAVG] = new char[sp + strlen(iod.output.transient.tavcsdvms)];
+    sprintf(avscalars[PostFcn::CSDVMSAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavcsdvms);
   }
   if (iod.output.transient.mutOmu[0] != 0) {
     scalars[PostFcn::MUT_OVER_MU] = new char[sp + strlen(iod.output.transient.mutOmu)];

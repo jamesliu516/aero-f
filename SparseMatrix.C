@@ -535,7 +535,7 @@ void SparseMat<Scalar,dim>::lusolTR(SVec<Scalar2,dim> &y, SVec<Scalar2,dim> &x)
 
 #pragma ivdep
     for (k=k1; k<k2; ++k)
-      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndSubToVector(a.v, kk[k], x.v, ja[k], x.v, i);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyTransAndSubToVector(a.v, kk[k], x.v, kr[k], x.v, i);
       //subDenseMatrixTransTimesVector(a.v, kk[k], x.v, ja[k], x.v, i);
 
     //denseMatrixTransTimesVector(a.v, ju[i], x.v, i, tmp, 0);

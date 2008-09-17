@@ -197,14 +197,3 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
 }
 
 //------------------------------------------------------------------------------
-
-void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq, SVec<double,3> &X,
-				    Vec<double> &Cs, Vec<double> &VolSum)
-{
-
- for (int i=0; i<numElems; ++i)
-    elems[i]->computeDynamicLESTerm(dles, CsDeltaSq, X, Cs, VolSum);
-
-}
-
-//------------------------------------------------------------------------------

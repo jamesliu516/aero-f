@@ -95,7 +95,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   smag = 0;
   wale = 0;
   dles = 0;
-  dlest = 0;
   vms = 0;
   dvms = 0;
 
@@ -106,8 +105,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     else if (ioData.eqs.tc.les.type == LESModelData::WALE)
        wale = new WaleLESTerm(ioData, varFcn);   
     else if (ioData.eqs.tc.les.type == LESModelData::DYNAMIC){
-      dles = new DistDynamicLESTerm<dim>(ioData, domain);
-      dlest = new DynamicLESTerm(ioData, varFcn);
+      dles = new DistDynamicLESTerm<dim>(varFcn, ioData, domain);
     }
     else if (ioData.eqs.tc.les.type == LESModelData::VMS)
       vms = new DistVMSLESTerm<dim>(varFcn, ioData, domain);
@@ -172,7 +170,6 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   smag = spo.smag;
   wale = spo.wale;
   dles = spo.dles;
-  dlest = spo.dlest;
   dvms = spo.dvms;
   fet = spo.fet;
   volForce = spo.volForce;
@@ -216,7 +213,6 @@ SpaceOperator<dim>::~SpaceOperator()
     if (smag) delete smag;
     if (wale) delete wale;
     if (dles) delete dles;
-    if (dlest) delete dlest;
     if (dvms) delete dvms;
     if (fet) delete fet;
     if (volForce) delete volForce;
@@ -560,6 +556,28 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInGasExactJacRoeEuler3D(gamma, ioData);
+          }
+        }
+        else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacHLLEEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacHLLEEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
+            exit(1);
+          }
+        }
+        else if (ioData.schemes.ns.flux == SchemeData::HLLC) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacHLLCEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacHLLCEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLC with Exact Jacobian not Implemented.. Aborting !!");
+            exit(1);
           }
         }
       }
@@ -1016,20 +1034,10 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   if (wale)
      domain->computeWaleLESTerm(wale, X, *V, R);
+
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
      
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
-
   DistVec<double> *irey;
   if(timeState)
     irey = timeState->getInvReynolds();
@@ -1127,22 +1135,8 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
   }
 
   if (dles){
-
     com->fprintf(stderr, "***** The equivalent derivatives of the functions dles->computeTestFilterValues and dles->computeTestFilterValues are not implemented!\n");
     exit(1);
-
-/*
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-*/
   }
 
   DistVec<double> *irey;
@@ -1234,18 +1228,8 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
   if (smag)
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
 
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
 
   DistVec<double> *irey;
   if(timeState)
@@ -1317,18 +1301,8 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
   if (smag)
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
 
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
 
   if (fet) {
     domain->computeOnlyGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
