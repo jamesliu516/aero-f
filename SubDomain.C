@@ -3402,7 +3402,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 //------------------------------------------------------------------------------
                                                                                                                                                            
 template<int dim>
-int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U, Vec<double> &Phi)
+int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U, 
+                             Vec<double> &Phi, Vec<double> &Phin)
 {
   int ierr = 0;
   int numclipping= 0;
@@ -3420,16 +3421,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-              U[i][0], locToGlobNodeMap[i] + 1);
+        fprintf(stderr, "*** Error: negative density (%e) for node %d (%e - %e)\n",
+              U[i][0], locToGlobNodeMap[i] + 1, Phi[i], Phin[i]);
         ++ierr;
       }
 
       varFcn->conservativeToPrimitive(U[i], V, Phi[i]);
       p = varFcn->checkPressure(V, Phi[i]);
       if (p < 0.0) {
-        fprintf(stderr, "*** Error: negative pressure (%e) for node %d(%e)\n",
-              p, locToGlobNodeMap[i] + 1,Phi[i]);
+        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (%e - %e)\n",
+              p, locToGlobNodeMap[i] + 1,Phi[i], Phin[i]);
        ++ierr;
       }
     }
@@ -3438,8 +3439,8 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%e\n",
-              U[i][0], locToGlobNodeMap[i] + 1, Phi[i]);
+        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%e (previously %e)\n",
+              U[i][0], locToGlobNodeMap[i] + 1, Phi[i], Phin[i]);
         ++ierr;
       }
 

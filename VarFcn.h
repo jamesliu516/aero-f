@@ -1276,16 +1276,16 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
     double *phin = Phin.subData(iSub);
     double (*r)[dim] = (*Riemann).subData(iSub);
     double *w = 0;
+    bool change = false;
     if(weight){
       w = (*weight).subData(iSub);
-      bool change = false;
       for ( int i=0; i<U.subSize(iSub); ++i){
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i],w[i]);
       }
     }else{
-      bool change = false;
-      for ( int i=0; i<U.subSize(iSub); ++i)
+      for ( int i=0; i<U.subSize(iSub); ++i){
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
+      }
     }
   }
 

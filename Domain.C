@@ -2431,14 +2431,15 @@ void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<doubl
 
 template<int dim>
 int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
-                          DistSVec<double,dim> &U, DistVec<double> &Phi)
+                          DistSVec<double,dim> &U, DistVec<double> &Phi,
+                          DistVec<double> &Phin)
 {
                                                                                                                                                            
   int ierr = 0;
 
 #pragma omp parallel for reduction(+: ierr)
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    ierr += subDomain[iSub]->checkSolution(varFcn, ctrlVol(iSub), U(iSub), Phi(iSub));
+    ierr += subDomain[iSub]->checkSolution(varFcn, ctrlVol(iSub), U(iSub), Phi(iSub), Phin(iSub));
   com->globalSum(1, &ierr);
   return ierr;
 

@@ -693,7 +693,7 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &);
+  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &, Vec<double> &);
 
   template<int dim>
   void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<double> * = 0);
