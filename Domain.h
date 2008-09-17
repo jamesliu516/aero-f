@@ -598,7 +598,7 @@ public:
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&, DistVec<double> * = 0);

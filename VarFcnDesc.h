@@ -818,6 +818,7 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
     if(phi>=0.0)
       primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
     else primitiveToConservativeGasEuler(gamp, invgamp1, Pstiffp, V, U);
+    return false;
 
   //nature of fluid at this node has changed over time
   }else{
@@ -836,6 +837,7 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
     // from Fluid1 to Fluid2, ie Gas To Gas
     else primitiveToConservativeGasEuler(gamp, invgamp1, Pstiffp, V, U);
 
+    return true;
   }
 
 }
