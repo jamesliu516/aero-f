@@ -12,12 +12,12 @@ struct DistInfo;
 class GeoSource;
 class LevelSet; 
 template<class Scalar, int dim> class DistSVec;
-template<int dim, int neq> class MatVecProd;
+//template<int dim, int neq> class MatVecProd;
 
-#ifndef _KSPSLVR_TMPL_
-#define _KSPSLVR_TMPL_
-template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = double> class KspSolver;
-#endif
+//#ifndef _KSPSLVR_TMPL_
+//#define _KSPSLVR_TMPL_
+//template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = double> class KspSolver;
+//#endif
 
 //------------------------------------------------------------------------
 
@@ -25,7 +25,8 @@ template<int dim>
 class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
  private:
-  bool RK4;
+  //bool RK4;
+  ExplicitData::Type timeIntegrationType;
 
   DistSVec<double,dim> U0;
   DistSVec<double,dim> k1;
