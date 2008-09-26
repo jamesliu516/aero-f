@@ -50,6 +50,7 @@ class BCData;
 class MatchNodeSet; // HB
 class LevelSet;
 class VolumicForceTerm;
+class TimeLowMachPrec;
 
 struct V6NodeData;
 struct Vec3D;
@@ -279,12 +280,12 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       double, double, double);
+                       TimeLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       double, double, double, Vec<double> &);
+                       TimeLowMachPrec &, Vec<double> &);
 
 
   template<int dim, class Scalar>
@@ -939,7 +940,7 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                                 SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
-                                Vec<double> &, Vec<double> &, double, double, double, double);
+                                Vec<double> &, Vec<double> &, double, TimeLowMachPrec &);
 
   void checkVec(SVec<double,3> &);
 

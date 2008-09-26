@@ -13,6 +13,7 @@
 #include <Vector3D.h>
 #include <Vector.h>
 #include <GenMatrix.h>
+#include <LowMachPrec.h>
 
 #include <math.h>
 
@@ -169,8 +170,8 @@ void Face::computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNormSA, 
 
 template<int dim>
 void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &normalVel,
-			   SVec<double,dim> &V, Vec<double> &dt, double beta,
-			   double k1, double cmach, Vec<double> &Phi)
+			   SVec<double,dim> &V, Vec<double> &dt, 
+			   TimeLowMachPrec &tprec, Vec<double> &Phi)
 {
   Vec3D normal = getNormal(normals);
   double S = sqrt(normal * normal);
@@ -186,11 +187,11 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ], Phi[nodeNum(l)]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ], Phi[nodeNum(l)]);
-    beta = fmin(fmax(k1*locMach, beta), cmach);
+    double locbeta = tprec.getBeta(locMach);
     
-    double beta2 = beta * beta;
+    double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
-    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
     dt[ nodeNum(l) ] += min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
   }   
@@ -201,8 +202,8 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
 template<int dim>
 void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &normals, 
 			   Vec<double> &normalVel, SVec<double,3> &X, SVec<double,dim> &V, 
-			   Vec<double> &idti, Vec<double> &idtv, double beta,
-			   double k1, double cmach)
+			   Vec<double> &idti, Vec<double> &idtv,
+			   TimeLowMachPrec &tprec)
 {
   Vec3D normal = getNormal(normals);
   double S = sqrt(normal * normal);
@@ -218,11 +219,11 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ]);
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
-    beta = fmin(fmax(k1*locMach, beta), cmach);
+    double locbeta = tprec.getBeta(locMach);
     
-    double beta2 = beta * beta;
+    double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
-    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
     idti[ nodeNum(l) ] += min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
 
@@ -239,7 +240,8 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
 template<int dim>
 void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach,
+                           TimeLowMachPrec &tprec)
 {
 
   Vec3D normal = getNormal(normals);
@@ -263,24 +265,16 @@ void Face::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    beta = fmin(fmax(k1*locMach, beta), cmach);
-    double dbeta = 0.0;
-    if (fmin(fmax(k1*locMach, beta), cmach) == cmach)
-      dbeta = 0.0;
-    else{
-      if (fmax(k1*locMach, beta) != beta) {
-        double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
-        dbeta = k1*dLocMach;
-      }
-      else dbeta = 0.0;
-    }
-    
-    double beta2 = beta * beta;
-    double dbeta2 = 2.0 * beta * dbeta;
+    double locbeta = tprec.getBeta(locMach);
+    double dLocMach = varFcn->computeDerivativeOfMachNumber(V[ nodeNum(l) ], dV[ nodeNum(l) ], dMach);
+    double dbeta = tprec.getdBeta(locMach,dLocMach);
+
+    double beta2 = locbeta * locbeta;
+    double dbeta2 = 2.0 * locbeta * dbeta;
     double coeff1 = (1.0+beta2)*un;
     double dCoeff1 = dbeta2*un + (1.0+beta2)*dun;
-    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
-    double dCoeff2 = (((1.0-beta2)*un)*((-dbeta2*un) + ((1.0-beta2)*dun)) + (2.0*beta*a)*(2.0*dbeta*a+2.0*beta*da)) / pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+    double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+    double dCoeff2 = (((1.0-beta2)*un)*((-dbeta2*un) + ((1.0-beta2)*dun)) + (2.0*locbeta*a)*(2.0*dbeta*a+2.0*locbeta*da)) / pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
     if (min(0.5*(coeff1-coeff2), 0.0) != 0.0)
       dIdti[ nodeNum(l) ] += 0.5*(dCoeff1-dCoeff2)* S/numNodes() + 0.5*(coeff1-coeff2)* dS/numNodes();
@@ -523,7 +517,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 template<int dim>
 void FaceSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState, 
 			      SVec<double,dim> &V, Vec<double> &dt,
-			      double beta, double k1, double cmach, 
+			      TimeLowMachPrec &tprec,
                               Vec<double> &Phi)
 {
 
@@ -531,7 +525,7 @@ void FaceSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
   Vec<double> &ndot = geoState.getFaceNormalVel();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i]->computeTimeStep(varFcn, n, ndot, V, dt, beta, k1, cmach, Phi);
+    faces[i]->computeTimeStep(varFcn, n, ndot, V, dt, tprec, Phi);
 
 }
 
@@ -540,14 +534,14 @@ void FaceSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 template<int dim>
 void FaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState, 
 			      SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti,
-			      Vec<double> &idtv, double beta, double k1, double cmach)
+			      Vec<double> &idtv, TimeLowMachPrec &tprec)
 {
   
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i]->computeTimeStep(fet, varFcn, n, ndot, X, V, idti, idtv, beta, k1, cmach);
+    faces[i]->computeTimeStep(fet, varFcn, n, ndot, X, V, idti, idtv, tprec);
 
 }
 
@@ -557,7 +551,8 @@ void FaceSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 template<int dim>
 void FaceSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState, 
 			      SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			      Vec<double> &dIdti,Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+			      Vec<double> &dIdti,Vec<double> &dIdtv, double dMach, 
+                              TimeLowMachPrec &tprec)
 {
 
   Vec<Vec3D> &n = geoState.getFaceNormal();
@@ -566,7 +561,7 @@ void FaceSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
   Vec<double> &dndot = geoState.getdFaceNormalVel();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i]->computeDerivativeOfTimeStep(fet, varFcn, n, dn, ndot, dndot, X, dX, V, dV, dIdti, dIdtv, dMach, beta, k1, cmach);
+    faces[i]->computeDerivativeOfTimeStep(fet, varFcn, n, dn, ndot, dndot, X, dX, V, dV, dIdti, dIdtv, dMach, tprec);
 
 }
 
