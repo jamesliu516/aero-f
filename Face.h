@@ -54,6 +54,7 @@ class EdgeSet;
 class ElemSet;
 class GeoState;
 class BinFileHandler;
+class TimeLowMachPrec;
 
 struct Vec3D;
 
@@ -495,14 +496,14 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normal, Vec<double> &normalVel,
-		       SVec<double,dim> &V, Vec<double> &dt, double beta,
-		       double k1, double cmach, Vec<double> &Phi);
+		       SVec<double,dim> &V, Vec<double> &dt, 
+		       TimeLowMachPrec &tprec, Vec<double> &Phi);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 		       Vec<Vec3D> &normal, Vec<double> &normalVel,
 		       SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, 
-		       Vec<double> &idtv, double beta, double k1, double cmach);
+		       Vec<double> &idtv, TimeLowMachPrec &tprec);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -636,7 +637,8 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach);
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                           TimeLowMachPrec &tprec);
 
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
@@ -856,11 +858,11 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       double, double, double, Vec<double> &);
+                       TimeLowMachPrec &, Vec<double> &);
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-                       Vec<double> &, double, double, double);
+                       Vec<double> &, TimeLowMachPrec &);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
@@ -926,7 +928,8 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 			      SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, 
-			      Vec<double> &, Vec<double> &, double, double, double, double);
+			      Vec<double> &, Vec<double> &, double, 
+                              TimeLowMachPrec &);
 
 };
 

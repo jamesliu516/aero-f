@@ -3,6 +3,7 @@
 
 class TimeData;
 class GeoState;
+class TimeLowMachPrec;
 
 template<class Scalar> class Vec;
 template<class Scalar, int dim> class SVec;
@@ -43,16 +44,16 @@ public:
 
   template<class Scalar, int neq>
   void addToJacobianGasPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
-                     VarFcn *, double, double, double, double, double, Vec<double> &, int*);
+                     VarFcn *, double, double, TimeLowMachPrec &, Vec<double> &, int*);
   template<class Scalar, int neq>
-  void addToJacobianGasPrecLocal(int, double, double, double, double, double, double, double,
+  void addToJacobianGasPrecLocal(int, double, double, double, TimeLowMachPrec &, double,
 				 SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<class Scalar, int neq>
   void addToJacobianLiquidPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
-                     VarFcn *, double, double, double, Vec<double> &, int*);
+                     VarFcn *, TimeLowMachPrec &, Vec<double> &, int*);
   template<class Scalar, int neq>
-  void addToJacobianLiquidPrecLocal(int, double, VarFcn *, double, double, double, double,
+  void addToJacobianLiquidPrecLocal(int, double, VarFcn *, TimeLowMachPrec &, double,
 				    SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<class Scalar, int neq>
