@@ -3,6 +3,8 @@
 
 #include <FluxFcn.h>
 #include <VarFcnDesc.h>
+#include <IoData.h>
+#include <LowMachPrec.h>
 
 //------------------------------------------------------------------------------
 
@@ -10,16 +12,12 @@ class FluxFcnFDJacRoeEuler3D : public FluxFcnFD<5> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
  public:
 
-  FluxFcnFDJacRoeEuler3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) : 
-    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacRoeEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) : 
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; } 
 
   ~FluxFcnFDJacRoeEuler3D() {}
 
@@ -39,16 +37,12 @@ class FluxFcnApprJacRoeEuler3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnApprJacRoeEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
-    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnApprJacRoeEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
 
   ~FluxFcnApprJacRoeEuler3D() {}
   
@@ -95,16 +89,12 @@ class FluxFcnFDJacHLLEEuler3D : public FluxFcnFD<5> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
  public:
 
-  FluxFcnFDJacHLLEEuler3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
-    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacHLLEEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; }
 
   ~FluxFcnFDJacHLLEEuler3D() {}
 
@@ -123,16 +113,12 @@ class FluxFcnApprJacHLLEEuler3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnApprJacHLLEEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
-    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnApprJacHLLEEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
 
   ~FluxFcnApprJacHLLEEuler3D() {}
 
@@ -151,16 +137,12 @@ class FluxFcnFDJacHLLCEuler3D : public FluxFcnFD<5> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
  public:
 
-  FluxFcnFDJacHLLCEuler3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
-    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacHLLCEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; }
 
   ~FluxFcnFDJacHLLCEuler3D() {}
 
@@ -179,16 +161,12 @@ class FluxFcnApprJacHLLCEuler3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnApprJacHLLCEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp) :
-    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnApprJacHLLCEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
 
   ~FluxFcnApprJacHLLCEuler3D() {}
 
@@ -348,16 +326,12 @@ class FluxFcnFDJacRoeSA3D : public FluxFcnFD<6> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
   
  public:
   
-  FluxFcnFDJacRoeSA3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<6>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacRoeSA3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacRoeSA3D() {}
   
 protected:
@@ -375,16 +349,12 @@ class FluxFcnApprJacRoeSA3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
   
 public:
 
-  FluxFcnApprJacRoeSA3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn* vf, Type tp = CONSERVATIVE) : 
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnApprJacRoeSA3D(IoData &ioData, int rs, double gg, VarFcn* vf, Type tp = CONSERVATIVE) : 
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacRoeSA3D() {}
   
 protected:
@@ -424,16 +394,12 @@ class FluxFcnFDJacHLLESA3D : public FluxFcnFD<6> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
  public:
 
-  FluxFcnFDJacHLLESA3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<6>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacHLLESA3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacHLLESA3D() {}
 
 protected:
@@ -452,16 +418,12 @@ class FluxFcnApprJacHLLESA3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnApprJacHLLESA3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn* vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnApprJacHLLESA3D(IoData &ioData, int rs, double gg, VarFcn* vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacHLLESA3D() {}
 
 protected:
@@ -554,16 +516,12 @@ class FluxFcnRoeSAturb3D : public FluxFcn {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnRoeSAturb3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnRoeSAturb3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnRoeSAturb3D() {}
   
 protected:
@@ -637,16 +595,12 @@ class FluxFcnFDJacRoeKE3D : public FluxFcnFD<7> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnFDJacRoeKE3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<7>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacRoeKE3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacRoeKE3D() {}
 
 protected:
@@ -664,15 +618,11 @@ class FluxFcnApprJacRoeKE3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnApprJacRoeKE3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr; }
+  FluxFcnApprJacRoeKE3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacRoeKE3D() {}
 
 protected:
@@ -712,16 +662,12 @@ class FluxFcnFDJacHLLEKE3D : public FluxFcnFD<7> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnFDJacHLLEKE3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<7>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnFDJacHLLEKE3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacHLLEKE3D() {}
 
 protected:
@@ -740,15 +686,11 @@ class FluxFcnApprJacHLLEKE3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnApprJacHLLEKE3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr; }
+  FluxFcnApprJacHLLEKE3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacHLLEKE3D() {}
 
 protected:
@@ -804,15 +746,11 @@ class FluxFcnRoeKEturb3D : public FluxFcn {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
-  double shockreducer;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnRoeKEturb3D(double gg, double br, double K1, double cm, double sr, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; shockreducer = sr; prec = pr;}
+  FluxFcnRoeKEturb3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), gamma = gg; }
 
   ~FluxFcnRoeKEturb3D() {}
 
