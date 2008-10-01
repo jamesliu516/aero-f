@@ -84,7 +84,7 @@ private:
   }
     
   virtual void setupConstants(IoData &iod){
-    if(prec==0) setupDefaultConstants();
+    if(prec==0 || prec==1) setupDefaultConstants();
     else{
       minMach      = iod.prec.mach;
       maxMach      = iod.prec.cmach;
