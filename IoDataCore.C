@@ -4374,7 +4374,8 @@ int IoData::checkSolverValues()
   }
 
 // for Multiphase flow using levelset
-  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT){
+  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT
+                       && mf.interfaceType != MultiFluidData::FSF){
     com->fprintf(stderr, "*** Error: Linear reconstruction of the levelset is needed!\n");
     ++error;
   }

@@ -107,6 +107,7 @@ double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                       dt*this->refVal->time, numSubCycles);
 
   this->timer->addFluidSolutionTime(t0);
+  this->timer->addTimeStepTime(t0);
 
   return dt;
 
