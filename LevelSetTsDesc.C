@@ -73,11 +73,8 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 
   // initalize solution
-  fprintf(stdout, "init0\n");
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
-  fprintf(stdout, "init1\n");
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
-  fprintf(stdout, "init2\n");
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)

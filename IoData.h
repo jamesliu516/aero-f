@@ -1022,7 +1022,7 @@ struct SchemesData {
 struct ExplicitData {
 
 //time-integration scheme used
-  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1} type;
+  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1, FORWARD_EULER = 2, ONE_BLOCK_RK2 = 3} type;
 
   ExplicitData();
   ~ExplicitData() {}
