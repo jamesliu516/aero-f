@@ -279,6 +279,8 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 
   }
 
+  com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
+                  //if waiting for another cpu.
   com->globalSum(2, norms);
 
   com->printf(7, "Received total disp=%e and vel=%e from the structure\n", norms[0], norms[1]);
@@ -309,6 +311,8 @@ void StructExc::getTemperature(DistVec<double>& Temp)
     }
   }
 
+  com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
+                  //if waiting for another cpu.
   com->globalSum(1, &norm);
 
   com->printf(7, "Received temp=%e from the structure\n", norm);
