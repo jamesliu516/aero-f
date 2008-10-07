@@ -333,6 +333,7 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
 
   timer->addFluidSolutionTime(t0);
+  timer->addTimeStepTime(t0);
 
   return dt;
 
