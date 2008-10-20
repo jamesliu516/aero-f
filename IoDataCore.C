@@ -2296,7 +2296,7 @@ AeroelasticData::AeroelasticData()
 {
 
   force = LAST;
-  pressure = -1.0;
+  pressure = 0.0;
   displacementScaling = 1.0;
   forceScaling = 1.0;
   powerScaling = 1.0;
@@ -2315,7 +2315,7 @@ void AeroelasticData::setup(const char *name, ClassAssigner *father)
      reinterpret_cast<int AeroelasticData::*>(&AeroelasticData::force), 3,
      "Last", 0, "Averaged", 1, "LastKris", 2);
 
-  new ClassDouble<AeroelasticData>(ca, "InsidePressure", this, &AeroelasticData::pressure);
+  new ClassDouble<AeroelasticData>(ca, "InternalPressure", this, &AeroelasticData::pressure);
   new ClassDouble<AeroelasticData>(ca, "DisplacementScaling", this, &AeroelasticData::displacementScaling);
   new ClassDouble<AeroelasticData>(ca, "ForceScaling", this, &AeroelasticData::forceScaling);
   new ClassDouble<AeroelasticData>(ca, "PowerScaling", this, &AeroelasticData::powerScaling);
