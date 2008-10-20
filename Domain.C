@@ -35,7 +35,7 @@ template<int dim>
 void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState, 
 			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V, 
 			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, 
-			     DistVec<double> &irey, TimeLowMachPrec &tprec)
+			     DistVec<double> &irey, TimeLowMachPrec &tprec, SpatialLowMachPrec &sprec)
 {
 
   int iSub;
@@ -73,7 +73,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
       idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
-      ireynolds[i] = -tprec.getViscousRatio()*idtimev[i] / idtimei[i];
+      ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }
   }
 
@@ -87,7 +87,7 @@ void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn
 			     DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
 			     DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
 			     DistVec<double> &idti, DistVec<double> &dIdti, DistVec<double> &idtv, DistVec<double> &dIdtv, 
-			     DistVec<double> &dIrey, double dMach, TimeLowMachPrec&tprec)
+			     DistVec<double> &dIrey, double dMach, TimeLowMachPrec&tprec, SpatialLowMachPrec &sprec)
 {
 
   int iSub;
@@ -125,7 +125,7 @@ void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn
     double (*dVolume) = dCtrlVol.subData(iSub);
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
       dIdtimev[i] = (dIdtimev[i]*volume[i] - (idtimev[i]*volume[i])*dVolume[i]) / (volume[i]*volume[i]);
-      dIreynolds[i] = -tprec.getViscousRatio()*(dIdtimev[i]*idtimei[i] - idtimev[i]*dIdtimei[i]) / (idtimei[i]*idtimei[i]);
+      dIreynolds[i] = -sprec.getViscousRatio()*(dIdtimev[i]*idtimei[i] - idtimev[i]*dIdtimei[i]) / (idtimei[i]*idtimei[i]);
     }
   }
 

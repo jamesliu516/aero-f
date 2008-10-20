@@ -76,6 +76,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 
   //preconditioner setup
   tprec.setup(ioData);
+  sprec.setup(ioData);
 
   subTimeState = new TimeState<dim>*[numLocSub];
 #pragma omp parallel for
@@ -112,6 +113,7 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
 
   //preconditioner setup
   tprec.setup(ioData);
+  sprec.setup(ioData);
 
   varFcn = ts.varFcn;
   fet = ts.fet;
@@ -367,7 +369,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);
 
   double dt_glob;
   if (data->dt_imposed > 0.0) 
@@ -1058,7 +1060,7 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
   }
 
   //domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, dbeta, k1, cmach);
-  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, tprec);
+  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, tprec, sprec);
 
   return dIrey;
 

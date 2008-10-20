@@ -31,6 +31,7 @@ class ViscoFcn;
 class PostFcn;
 class LevelSet;
 class TimeLowMachPrec;
+class SpatialLowMachPrec;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -212,7 +213,8 @@ public:
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, 
 		       DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, 
-		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &);
+		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
+                       SpatialLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
@@ -722,8 +724,11 @@ public:
 
   template<int dim>  
   void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &, 
-			     DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
-			     DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, double, TimeLowMachPrec &);
+			     DistSVec<double,3> &, DistSVec<double,3> &, 
+                             DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &,
+                             DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
+                             DistVec<double> &, DistVec<double> &, DistVec<double> &, 
+                             double, TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);
