@@ -428,7 +428,7 @@ void DistBcDataEuler<dim>::updateFarFieldGas(DistSVec<double,3> &X)
   double gam = this->vf->getGamma();
   double Pstiff = this->vf->getPressureConstant();
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -466,7 +466,7 @@ void DistBcDataEuler<dim>::updateFarFieldGasSA(DistSVec<double,3> &X, DistSVec<d
 //  assert(this->Vin[0]>0.0);
 //  assert(this->Vout[0]>0.0);
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]       = X.subData(iSub);
     double (*dx)[3]      = dX.subData(iSub);
@@ -508,7 +508,7 @@ void DistBcDataEuler<dim>::updateFarFieldLiquid(DistSVec<double,3> &X)
   double c = this->vf->getCv();
   double coeff = (b-1.0)*this->gravity/(a*b);
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -548,7 +548,7 @@ void DistBcDataEuler<dim>::updateFarFieldJWL(DistSVec<double,3> &X)
   // flow properties
   double omega  = this->vf->getOmega();
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -630,7 +630,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -737,7 +737,7 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]       = X.subData(iSub);
     double (*dx)[3]      = dX.subData(iSub);
@@ -817,7 +817,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod, VarFcn *vf,
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -927,7 +927,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWL(IoData &iod, VarFcn *vf,
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1003,7 +1003,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
   this->Uout[3] = this->Uout[0]*velout*sin(iod.bc.outlet.alpha);
   this->Uout[4] = (pressureout+gam*Pstiff)/(gam-1.0) + 0.5 * this->Uout[0] * velout2;
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1080,7 +1080,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
     this->Uin[3] = this->Ub[3];
     this->Uin[4] = this->Ub[4];
   
-#pragma parallel omp for
+#pragma omp parallel for
     for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
       double (*uin)[dim]  = this->Ufarin.subData(iSub);
   
@@ -1146,7 +1146,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1220,7 +1220,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
     this->Uin[3] = this->Ub[3];
     this->Uin[4] = this->Ub[4];
   
-#pragma parallel omp for
+#pragma omp parallel for
     for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
       double (*uin)[dim]  = this->Ufarin.subData(iSub);
   
@@ -1286,7 +1286,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
 
 // computation for each node according to its depth
 // this will be passed in DistTimeState to initialize simulation
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1366,7 +1366,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
     this->Uin[3] = this->Ub[3];
     this->Uin[4] = this->Ub[4];
   
-#pragma parallel omp for
+#pragma omp parallel for
     for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
       double (*uin)[dim]  = this->Ufarin.subData(iSub);
   
@@ -1431,7 +1431,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod, VarFcn *v
   this->Uout[2] = this->Uout[0]*velout*cos(iod.bc.outlet.alpha)*sin(iod.bc.outlet.beta);
   this->Uout[3] = this->Uout[0]*velout*sin(iod.bc.outlet.alpha);
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1531,7 +1531,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
   this->Uout[3] = this->Uout[0]*velout*sin(iod.bc.outlet.alpha);
   this->Uout[4] = (pressureout+gam*Pstiff)/(gam-1.0) + 0.5 * this->Uout[0] * velout2;
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*x)[3]      = X.subData(iSub);
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
@@ -1729,7 +1729,7 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   this->Uin[5] = this->Uin[0] * iod.bc.inlet.nutilde;
   this->Uout[5] = this->Uout[0] * iod.bc.outlet.nutilde;
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
     double (*uout)[dim] = this->Ufarout.subData(iSub);
@@ -1921,7 +1921,7 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
   this->Uout[5] = this->Uout[0] * iod.bc.outlet.kenergy;
   this->Uout[6] = this->Uout[0] * iod.bc.outlet.eps;
 
-#pragma parallel omp for
+#pragma omp parallel for
   for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
     double (*uin)[dim]  = this->Ufarin.subData(iSub);
     double (*uout)[dim] = this->Ufarout.subData(iSub);
