@@ -525,11 +525,7 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
 BcsHydroData::BcsHydroData()
 {
 
-  type = NONE;
-  gravity = 0.0;
   depth   = 0.0;
-  alpha   = 0.0;
-  beta    = 0.0;
 
 }
 
@@ -538,15 +534,9 @@ BcsHydroData::BcsHydroData()
 void BcsHydroData::setup(const char *name, ClassAssigner *father)
 {
  
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 1, father);
 
-  new ClassToken<BcsHydroData>(ca, "Type", this, 
-                               reinterpret_cast<int BcsHydroData::*>(&BcsHydroData::type),
-                               2, "None", 0, "Gravity", 1);
-  new ClassDouble<BcsHydroData>(ca, "Gravity", this, &BcsHydroData::gravity);
   new ClassDouble<BcsHydroData>(ca, "Depth", this, &BcsHydroData::depth);
-  new ClassDouble<BcsHydroData>(ca, "Alpha", this, &BcsHydroData::alpha);
-  new ClassDouble<BcsHydroData>(ca, "Beta", this, &BcsHydroData::beta);
 
 }
 
@@ -1193,6 +1183,9 @@ EquationsData::EquationsData()
   dimension = 3;
   type = EULER;
   numPhase = 1;
+  gravity_x = 0.0;
+  gravity_y = 0.0;
+  gravity_z = 0.0;
                                                                                                   
 }
 
@@ -1201,7 +1194,7 @@ EquationsData::EquationsData()
 void EquationsData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                   
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 11, father);
                                                                                                   
   new ClassInt<EquationsData>(ca, "Dimension", this, &EquationsData::dimension);
                                                                                                   
@@ -1211,6 +1204,10 @@ void EquationsData::setup(const char *name, ClassAssigner *father)
                                                                                                   
   new ClassInt<EquationsData>(ca, "NumPhases", this,
                                 &EquationsData::numPhase);
+
+  new ClassDouble<EquationsData>(ca, "GravityX", this, &EquationsData::gravity_x);
+  new ClassDouble<EquationsData>(ca, "GravityY", this, &EquationsData::gravity_y);
+  new ClassDouble<EquationsData>(ca, "GravityZ", this, &EquationsData::gravity_z);
                                                                                                   
   fluidModel.setup("FluidModel", ca);
   viscosityModel.setup("ViscosityModel", ca);
@@ -4154,10 +4151,13 @@ int IoData::checkInputValuesDimensional()
     forced.timestep /= ref.rv.time;
     forced.frequency *= ref.rv.time;
 
-    bc.hydro.gravity /= ref.rv.velocity / ref.rv.time;
+    //bc.hydro.gravity /= ref.rv.velocity / ref.rv.time;
+    //bc.hydro.alpha *= acos(-1.0) / 180.0;
+    //bc.hydro.beta *= acos(-1.0) / 180.0;
     bc.hydro.depth /= ref.length;
-    bc.hydro.alpha *= acos(-1.0) / 180.0;
-    bc.hydro.beta *= acos(-1.0) / 180.0;
+    eqs.gravity_x /= ref.rv.velocity / ref.rv.time;
+    eqs.gravity_y /= ref.rv.velocity / ref.rv.time;
+    eqs.gravity_z /= ref.rv.velocity / ref.rv.time;
   }
                                                                                                         
   ref.rv.length = ref.length;

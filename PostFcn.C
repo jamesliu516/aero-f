@@ -93,13 +93,6 @@ PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
     double b = vf->getBetaWater();
     pinfty = (P+a*pow(iod.bc.inlet.density, b));
   }
-  depth = iod.bc.hydro.depth;
-  gravity = iod.bc.hydro.gravity;
-  alpha = iod.bc.hydro.alpha;
-  beta  = iod.bc.hydro.beta;
-  nGravity[0] = cos(alpha)*cos(beta);
-  nGravity[1] = cos(alpha)*sin(beta);
-  nGravity[2] = sin(alpha);
 
 }
 
@@ -166,9 +159,9 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if (type == EPS_TURB)
     q = varFcn->getTurbulentDissipationRate(V);
   else if(type == HYDROSTATICPRESSURE)
-    q = V[0]*gravity*(depth + nGravity[0]*X[0] + nGravity[1]*X[1] + nGravity[2]*X[2]);
+    q = varFcn->hydrostaticPressure(V[0],X);
   else if(type == HYDRODYNAMICPRESSURE)
-    q = varFcn->getPressure(V, phi) - V[0]*gravity*(depth + nGravity[0]*X[0] + nGravity[1]*X[1] + nGravity[2]*X[2]);
+    q = varFcn->hydrodynamicPressure(V,X,phi);
   else if(type == PHILEVEL)
     q = phi/varFcn->getDensity(V);
 
@@ -224,13 +217,10 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
   } 
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++)
-	pcg[i] = Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
+        pcg[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
   }else if (hydro == 2){ // hydrodynamic pressure
     for (i=0; i<3; i++) 
-    {
-      pcg[i] = varFcn->getPressure(Vface[i]);
-      pcg[i] = pcg[i] - Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-    }
+      pcg[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
 
   }
 
@@ -303,16 +293,15 @@ void PostFcnEuler::computeDerivativeOfForce(double dp1dxj[4][3], double ddp1dxj[
   } 
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++) {
-	pcg[i] = Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-	dPcg[i] = dVface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth) + Vface[i][0]*gravity * (nGravity[0]*dXface[i][0]+nGravity[1]*dXface[i][1]+nGravity[2]*dXface[i][2]);
+        pcg[i]  = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
+	dPcg[i] = varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
      }
   }else if (hydro == 2){ // hydrodynamic pressure
     for (i=0; i<3; i++) 
     {
-      pcg[i] = varFcn->getPressure(Vface[i]);
-      pcg[i] = pcg[i] - Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-      dPcg[i] = varFcn->getPressure(dVface[i]);
-      dPcg[i] = dPcg[i] - dVface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth) - Vface[i][0]*gravity * (nGravity[0]*dXface[i][0]+nGravity[1]*dXface[i][1]+nGravity[2]*dXface[i][2]);
+      pcg[i]  = varFcn->hydrodynamicPressure(Vface[i], Xface[i]);
+      dPcg[i] = varFcn->getPressure(dVface[i]) 
+              - varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
     }
 
   }
@@ -404,13 +393,10 @@ void PostFcnEuler::computeForceTransmitted(double dp1dxj[4][3], double *Xface[3]
   }
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++)
-        pcg[i] = Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
+        pcg[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
   }else if (hydro == 2){ // hydrodynamic pressure
     for (i=0; i<3; i++)
-    {
-      pcg[i] = varFcn->getPressure(Vface[i]);
-      pcg[i] = pcg[i] - Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-    }
+      pcg[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
 
   }
 
@@ -518,16 +504,15 @@ void PostFcnEuler::computeDerivativeOfForceTransmitted(double dp1dxj[4][3], doub
   } 
   else if (hydro == 1){ // hydrostatic pressure
      for(i=0;i<3;i++) {
-	pcg[i] = Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-	dPcg[i] = dVface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth) + Vface[i][0]*gravity * (nGravity[0]*dXface[i][0]+nGravity[1]*dXface[i][1]+nGravity[2]*dXface[i][2]);
+        pcg[i]  = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
+	dPcg[i] = varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
      }
   }else if (hydro == 2){ // hydrodynamic pressure
     for (i=0; i<3; i++) 
     {
-      pcg[i] = varFcn->getPressure(Vface[i]);
-      pcg[i] = pcg[i] - Vface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth);
-      dPcg[i] = varFcn->getPressure(dVface[i]);
-      dPcg[i] = dPcg[i] - dVface[i][0]*gravity * (nGravity[0]*Xface[i][0]+nGravity[1]*Xface[i][1]+nGravity[2]*Xface[i][2] + depth) - Vface[i][0]*gravity * (nGravity[0]*dXface[i][0]+nGravity[1]*dXface[i][1]+nGravity[2]*dXface[i][2]);
+      pcg[i]  = varFcn->hydrodynamicPressure(Vface[i], Xface[i]);
+      dPcg[i] = varFcn->getPressure(dVface[i]) 
+              - varFcn->DerivativeHydrostaticPressure(dVface[i][0], Vface[i][0], Xface[i], dXface[i]);
     }
 
   }

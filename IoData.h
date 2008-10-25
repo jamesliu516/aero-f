@@ -297,9 +297,7 @@ struct BcsWallData {
 
 struct BcsHydroData {
 
-  enum TypeVolumicForce {NONE = 0, GRAVITY = 1} type;
-  double gravity, depth;
-  double alpha, beta;
+  double depth;
 
   BcsHydroData();
   ~BcsHydroData() {}
@@ -834,6 +832,8 @@ struct EquationsData {
 // uniform boundary conditions and the uniform initial conditions are computed
 // with the values given to characterize the first fluid!
                                                                                               
+  double gravity_x, gravity_y, gravity_z;
+
   FluidModelData fluidModel;
   FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;

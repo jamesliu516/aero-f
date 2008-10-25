@@ -910,7 +910,7 @@ VolumicForceTerm *SpaceOperator<dim>::createVolumicForceTerm(IoData &ioData)
   
   VolumicForceTerm *vft = 0;
 
-  if(ioData.bc.hydro.type  == BcsHydroData::GRAVITY)
+  if(varFcn->gravity_value()>0.0)
     vft = new VolumicForceTerm(ioData);
 
   return vft;
