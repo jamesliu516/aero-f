@@ -997,22 +997,22 @@ class VarFcnJWLInGas : public VarFcn {
   double getPressure(double *V, double phi = 0.0) { return V[4]; }
   double checkPressure(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4]+Pstiff;
-    else          return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1; }
+    else          return V[4] - (computeFrho(V,phi) - computeFrhop(V,phi)*V[0])*invomegap1; }
   void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
   void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
   
   double computeTemperature(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
-    else         return invomega*(V[4]-computeFrho(V))/V[0]; }
+    else         return invomega*(V[4]-computeFrho(V,phi))/V[0]; }
     
   double computeRhoEnergy(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
-    else         return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    else         return invomega * (V[4]-computeFrho(V,phi)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
     
   double computeRhoEpsilon(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
-    else         return invomega * (V[4]-computeFrho(V)); }
+    else         return invomega * (V[4]-computeFrho(V,phi)); }
      
   double computeSoundSpeed(double *V, double phi = 0.0) { 
     if (phi>=0.0){
@@ -1021,13 +1021,15 @@ class VarFcnJWLInGas : public VarFcn {
       return sqrt(gam * (V[4]+Pstiff) / V[0]); 
     }
     else{
-      return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]);
+      //fprintf(stderr, "computeSoundSpeed = %e\n", sqrt((omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]));
+      return sqrt((omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
     }
   }
     
   double computeMachNumber(double *V, double phi = 0.0) { 
     if (phi>=0.0) return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)));
-    else         return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V); }
+    else {/*fprintf(stderr, "computeMachNumber = %e\n", computeSoundSpeed(V,phi));*/        return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V,phi); }
+  }
     
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
     fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
