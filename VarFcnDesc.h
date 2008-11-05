@@ -1436,7 +1436,7 @@ void VarFcnJWLInGasEuler3D::conservativeToPrimitive(double *U, double *V, double
 {
   if (phi>=0.0)
     conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
-  else  conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
+  else  conservativeToPrimitiveJWLEuler(omega, computeFrho(U,phi), U, V);
 
 }
 //------------------------------------------------------------------------------
@@ -1447,8 +1447,8 @@ int VarFcnJWLInGasEuler3D::conservativeToPrimitiveVerification(int glob, double 
     conservativeToPrimitiveGasEuler(gam, Pstiff, U, V);
     return VerificationGasEuler(glob, pmin, gam, Pstiff, U, V);
   }else{
-    conservativeToPrimitiveJWLEuler(omega, computeFrho(U), U, V);
-    return VerificationJWLEuler(glob, pminp, invomega, computeFrho(U), U, V);
+    conservativeToPrimitiveJWLEuler(omega, computeFrho(U,phi), U, V);
+    return VerificationJWLEuler(glob, pminp, invomega, computeFrho(U,phi), U, V);
   }
 
 }
@@ -1458,7 +1458,7 @@ void VarFcnJWLInGasEuler3D::primitiveToConservative(double *V, double *U, double
 {
   if (phi>=0.0)
     primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
-  else  primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+  else  primitiveToConservativeJWLEuler(invomega, computeFrho(V,phi), V, U);
 }
 //------------------------------------------------------------------------------    
 inline
@@ -1470,7 +1470,7 @@ bool VarFcnJWLInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
   if(phi*phin > 0.0){
     if(phi>=0.0)
       primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
-    else primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+    else primitiveToConservativeJWLEuler(invomega, computeFrho(V,phi), V, U);
 
   //nature of fluid at this node has changed over time
   }else{
@@ -1487,7 +1487,7 @@ bool VarFcnJWLInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
       primitiveToConservativeGasEuler(gam, invgam1, Pstiff, V, U);
 
     // from Fluid1 to Fluid2, ie Gas To JWL
-    else primitiveToConservativeJWLEuler(invomega, computeFrho(V), V, U);
+    else primitiveToConservativeJWLEuler(invomega, computeFrho(V,phi), V, U);
 
   }
 
@@ -1498,7 +1498,7 @@ void VarFcnJWLInGasEuler3D::multiplyBydVdU(double *V, double *vec, double *res, 
 {
   if (phi>=0.0)
     multiplyBydVdUGasEuler(gam1, V, vec, res);
-  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V,phi), V, vec, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1506,7 +1506,7 @@ void VarFcnJWLInGasEuler3D::multiplyBydVdU(double *V, bcomp *vec, bcomp *res, do
 {
   if (phi>=0.0)
     multiplyBydVdUGasEuler(gam1, V, vec, res);
-  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V), V, vec, res);
+  else  multiplyBydVdUJWLEuler(omega, computeFrhop(V,phi), V, vec, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1514,7 +1514,7 @@ void VarFcnJWLInGasEuler3D::multiplyBydVdUT(double *V, double *vec, double *res,
 {
   if (phi>=0.0)
     multiplyBydVdUTGasEuler(gam1, V, vec, res);
-  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V,phi), V, vec, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1522,7 +1522,7 @@ void VarFcnJWLInGasEuler3D::multiplyBydVdUT(double *V, bcomp *vec, bcomp *res, d
 {
   if (phi>=0.0)
     multiplyBydVdUTGasEuler(gam1, V, vec, res);
-  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V), V, vec, res);
+  else  multiplyBydVdUTJWLEuler(omega, computeFrhop(V,phi), V, vec, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1530,7 +1530,7 @@ void VarFcnJWLInGasEuler3D::preMultiplyBydUdV(double *V, double *mat, double *re
 {
   if (phi>=0.0)
     preMultiplyBydUdVGasEuler(invgam1, V, mat, res);
-  else  preMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+  else  preMultiplyBydUdVJWLEuler(invomega, computeFrhop(V,phi), V, mat, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1538,7 +1538,7 @@ void VarFcnJWLInGasEuler3D::postMultiplyBydVdU(double *V, double *mat, double *r
 {
   if (phi>=0.0)
     postMultiplyBydVdUGasEuler(gam1, V, mat, res);
-  else  postMultiplyBydVdUJWLEuler(omega, computeFrhop(V), V, mat, res);
+  else  postMultiplyBydVdUJWLEuler(omega, computeFrhop(V,phi), V, mat, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1546,7 +1546,7 @@ void VarFcnJWLInGasEuler3D::postMultiplyBydUdV(double *V, double *mat, double *r
 {
   if (phi>=0.0)
     postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
-  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V,phi), V, mat, res);
 }
 //------------------------------------------------------------------------------
 inline
@@ -1554,7 +1554,7 @@ void VarFcnJWLInGasEuler3D::postMultiplyBydUdV(double *V, bcomp *mat, bcomp *res
 {
   if (phi>=0.0)
     postMultiplyBydUdVGasEuler(invgam1, V, mat, res);
-  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V), V, mat, res);
+  else  postMultiplyBydUdVJWLEuler(invomega, computeFrhop(V,phi), V, mat, res);
 }
 
 //----------------------------------------------------------------------------------

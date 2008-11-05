@@ -221,9 +221,9 @@ void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   }
 
   //Fedkiw's GFM -- extrapolation of density in the ghost cell
-  fprintf(stderr, "using density to extrapolate in ghost cell\n");
-  Wi[0] = Vi[0]; Wi[5] = Vi[5];
-  Wj[0] = Vj[0]; Wj[5] = Vj[5];
+  //fprintf(stderr, "using density to extrapolate in ghost cell\n");
+  //Wi[0] = Vi[0]; Wi[5] = Vi[5];
+  //Wj[0] = Vj[0]; Wj[5] = Vj[5];
 
 }
 //------------------------------------------------------------------------------
