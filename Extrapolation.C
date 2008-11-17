@@ -22,12 +22,6 @@ Extrapolation<dim>::Extrapolation(IoData& iod, VarFcn *varFcn) : vf(varFcn)
   fluid = iod.eqs.fluidModel.fluid;
   
   rho = iod.bc.inlet.density;
-  gravity = 0.0;
-  ngravity[0] = cos(iod.bc.hydro.alpha)*cos(iod.bc.hydro.beta);
-  ngravity[1] = cos(iod.bc.hydro.alpha)*sin(iod.bc.hydro.beta);
-  ngravity[2] = sin(iod.bc.hydro.alpha);
-  if(iod.bc.hydro.type == BcsHydroData::GRAVITY)
-    gravity = iod.bc.hydro.gravity;
 
   extrapolationdata = 0;
 
@@ -66,13 +60,14 @@ void Extrapolation<dim>::removeHydroStaticContribution(int i, int n[3],SVec<doub
 
   if(fluid==FluidModelData::GAS){
      /* perfect gas - stiffened gas EOS
-      * Here, ptotal(V[4]) = phydrodynamic(p) + phydrostatic(rho*g*x*ngravity) */
-    p[0] = V[n[0]][4]-rho*gravity*(ngravity[0]*X[n[0]][0]+ngravity[1]*X[n[0]][1]+ngravity[2]*X[n[0]][2]);
-    p[1] = V[n[1]][4]-rho*gravity*(ngravity[0]*X[n[1]][0]+ngravity[1]*X[n[1]][1]+ngravity[2]*X[n[1]][2]);
-    p[2] = V[n[2]][4]-rho*gravity*(ngravity[0]*X[n[2]][0]+ngravity[1]*X[n[2]][1]+ngravity[2]*X[n[2]][2]);
+      * Here, ptotal(V[4]) = phydrodynamic(p) + 
+      *                      phydrostatic(rho*x*vec_gravity) */
+    p[0] = V[n[0]][4] - vf->hydrostaticPressure(rho,X[n[0]]);
+    p[1] = V[n[1]][4] - vf->hydrostaticPressure(rho,X[n[1]]);
+    p[2] = V[n[2]][4] - vf->hydrostaticPressure(rho,X[n[2]]);
     Vinter[4] = p[2] + extrapolationdata[i][0].r * ( p[0] - p[2] ) +
         extrapolationdata[i][0].t * ( p[1] - p[2] );
-    Vinter[4] += rho*gravity*(ngravity[0]*X[node][0]+ngravity[1]*X[node][1]+ngravity[2]*X[node][2]);
+    Vinter[4] += vf->hydrostaticPressure(rho,X[node]);
 
   }else if(fluid==FluidModelData::LIQUID){
 
@@ -95,6 +90,7 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
 			double* Vinter2, int* LinTet, 
 			int* locToGlobNodeMap, SVec<double,3>& X)
 {
+
   LinTet[0] = -1;
   LinTet[1] = -1;
   LinTet[2] = -1;
@@ -120,7 +116,7 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
       Vinter1[k] = V[n[2]][k] + extrapolationdata[i][0].r * ( V[n[0]][k] - V[n[2]][k] ) +
 	extrapolationdata[i][0].t * ( V[n[1]][k] - V[n[2]][k] );
 
-    if(gravity>0.0)
+    if(vf->gravity_value()>0.0)
       removeHydroStaticContribution(i,n,Ufar,V,X,Vinter1,node);
 
     if (tet1 != -1){ // linear extrapolation
@@ -137,7 +133,7 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
 	V2[kk] = V[m[2]][kk] + extrapolationdata[i][1].r * ( V[m[0]][kk] - V[m[2]][kk] ) +
                   extrapolationdata[i][1].t * ( V[m[1]][kk] - V[m[2]][kk] );
 
-      if(gravity>0.0)
+      if(vf->gravity_value()>0.0)
         removeHydroStaticContribution(i,m,Ufar,V,X,V2,node);
 
       Vec3D X0 = X[node];

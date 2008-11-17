@@ -108,27 +108,6 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
 
   double gamma = ioData.schemes.ns.gamma;
 
-  int prec;
-  double betaRef = ioData.prec.mach;
-  double K1 = ioData.prec.k;
-  //double cmach = 1.0;
-  double cmach = ioData.prec.cmach;
-  double shockreducer = ioData.prec.shockreducer;
-
-  if (ioData.problem.prec == ProblemData::PRECONDITIONED){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_) prec = 1;
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_) prec = 2;
-  }
-  else prec = 0;
-
-
   FluxFcn **ff1 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   ff1 -= BC_MIN_CODE;
 
@@ -169,7 +148,7 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
       ff1[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData);
       ff1[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData);
 
-      ff1[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(0, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+      ff1[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(0, gamma, ioData);
 
   }//for compressible water
   else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -199,7 +178,7 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
       ff1[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData);
       ff1[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData);
     }
-    ff1[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(0, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+    ff1[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(0, gamma, ioData);
 
     ff1[BC_ADIABATIC_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
     ff1[BC_ADIABATIC_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
@@ -214,7 +193,7 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
     ff1[BC_INLET_MOVING]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
     ff1[BC_INLET_FIXED]   = new FluxFcnJWLGhidagliaEuler3D(ioData);
 
-    ff1[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(0, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+    ff1[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(0, gamma, ioData);
 
     ff1[BC_ADIABATIC_WALL_MOVING]  = new FluxFcnJWLWallEuler3D(ioData);
     ff1[BC_ADIABATIC_WALL_FIXED]   = new FluxFcnJWLWallEuler3D(ioData);
@@ -255,27 +234,6 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
 
   double gamma = ioData.schemes.ns.gamma;
 
-  int prec;
-  double betaRef = ioData.prec.mach;
-  double K1 = ioData.prec.k;
-  //double cmach = 1.0;
-  double cmach = ioData.prec.cmach;
-  double shockreducer = ioData.prec.shockreducer;
-
-  if (ioData.problem.prec == ProblemData::PRECONDITIONED){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_) prec = 1;
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_) prec = 2;
-  }
-  else prec = 0;
-
-
   FluxFcn** ff2 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff2 -= BC_MIN_CODE;
   BcFcn* bf2 = 0;
@@ -306,7 +264,7 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
       ff2[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, ioData);
       ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       bf2 = new BcFcnSAturb;
       fet2 = new FemEquationTermSAturb(ioData, this->varFcn);
@@ -334,7 +292,7 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
       ff2[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, ioData);
       ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallSAturb3D(ioData);
       bf2 = new BcFcnSAturb;
       fet2 = new FemEquationTermDESturb(ioData, this->varFcn);
@@ -351,7 +309,7 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
       ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKEturb3D(ioData);
       ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKEturb3D(ioData);
       ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeKEturb3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeKEturb3D(gamma, ioData);
       bf2 = new BcFcnKEturb;
       fet2 = new FemEquationTermKEturb(ioData, this->varFcn);
     }

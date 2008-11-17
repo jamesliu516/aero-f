@@ -23,13 +23,14 @@ using std::min;
 #include <Vector3D.h>
 #include <Vector.h>
 #include <GenMatrix.h>
+#include <LowMachPrec.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, Vec<double> &idtv,
-                              double beta, double k1, double cmach)
+                              TimeLowMachPrec &tprec)
 {
 
   double Vmid[dim];
@@ -62,7 +63,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = fmin(fmax(k1*locMach, beta),cmach);
+    locbeta = tprec.getBeta(locMach);
     
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -84,7 +85,8 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 template<int dim>
 void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                              TimeLowMachPrec &tprec)
 {
 
   double Vmid[dim], dVmid[dim];
@@ -132,18 +134,10 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
     double un = u * n - ndot;
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    locbeta = fmin(fmax(k1*locMach, beta),cmach);
-    if (fmin(fmax(k1*locMach, beta),cmach) == cmach)
-      dLocbeta = 0.0;
-    else
-      if (fmax(k1*locMach, beta) == beta)
-        dLocbeta = 0.0;
-      else {
-        double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
-        dLocbeta = k1*dLocMach;
-      }
-    
+    locbeta = tprec.getBeta(locMach);
+    double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
+    dLocbeta = tprec.getdBeta(locMach,dLocMach);
+
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0*locbeta * dLocbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -171,12 +165,12 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 template<int dim>
 void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
                               SVec<double,dim> &V, Vec<double> &dt,
-                              double beta, double k1, double cmach, Vec<double> &Phi, int subnum)
+                              TimeLowMachPrec &tprec, Vec<double> &Phi, int subnum)
 {
   double Phimid, Vmid[dim];
   double S, invS, ndot;
   double a, un, mach;
-  double beta2, coeff1, coeff2;
+  double locbeta, beta2, coeff1, coeff2;
   int i,j;
   Vec3D n, u;
 
@@ -206,9 +200,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(Vmid,Phimid);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta*locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
@@ -218,9 +213,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[i],Phi[i]);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
 
@@ -229,9 +225,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[j],Phi[j]);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }

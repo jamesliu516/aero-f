@@ -75,42 +75,8 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   fet = spo->getFemEquationTerm();
 
   //preconditioner setup
-  mach = ioData.bc.inlet.mach;
-  cmach = 1.0;
-  k1 = ioData.prec.k;
-  betav = ioData.prec.betav;
-  beta = 1.0;
-
-  if (ioData.ts.prec == TsData::PREC){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_)
-      {
-        if (ioData.ts.type == TsData::IMPLICIT && 
-	    ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
-	{
-          fprintf(stdout, "*** Error: temporal lowmach preconditioner implemented only for backward euler \n");
-          exit(1);
-        }
-        else{
-          prec = true;
-          beta = ioData.prec.mach;
-          cmach = ioData.prec.cmach;
-        }
-        
-      }
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_)
-        prec = false;
-        
-  }
-  else prec = false;
-  //end of preconditioner setup
-
+  tprec.setup(ioData);
+  sprec.setup(ioData);
 
   subTimeState = new TimeState<dim>*[numLocSub];
 #pragma omp parallel for
@@ -146,39 +112,8 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
   //preconditioner setup
-  mach = ioData.bc.inlet.mach;
-  cmach = 1.0;
-  k1 = ioData.prec.k;
-  betav = ioData.prec.betav;
-  beta = 1.0;
-
-  if (ioData.ts.prec == TsData::PREC){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_)
-      {
-        if (ioData.ts.type == TsData::IMPLICIT &&
-            ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
-        {
-          fprintf(stdout, "*** Error: temporal lowmach preconditioner implemented only for backward euler \n");
-          exit(1);
-        }
-        else{
-          prec = true;
-          beta = ioData.prec.mach;
-          cmach = ioData.prec.cmach;
-        }
-      }
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_)
-        prec = false;
-  }
-  else prec = false;
-  //end preconditioner setup
+  tprec.setup(ioData);
+  sprec.setup(ioData);
 
   varFcn = ts.varFcn;
   fet = ts.fet;
@@ -420,7 +355,7 @@ template<int dim>
 void DistTimeState<dim>::rstVar(IoData & ioData) 
 {
 
-  mach = ioData.bc.inlet.mach;
+  //mach = ioData.bc.inlet.mach;
 
 }
 
@@ -434,7 +369,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, betav, beta, k1, cmach);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);
 
   double dt_glob;
   if (data->dt_imposed > 0.0) 
@@ -472,7 +407,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 {
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, beta, k1, cmach, Phi);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, Phi);
                                                                                                          
   double dt_glob;
   if (data->dt_imposed > 0.0)
@@ -556,13 +491,13 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
-  if(prec){
+  if(tprec.timePreconditioner()){
     if(varFcn->getType() == VarFcn::GAS)
       addToJacobianGasPrec(ctrlVol, A, U);
     else if(varFcn->getType() == VarFcn::LIQUID)
       addToJacobianLiquidPrec(ctrlVol, A, U);
     else{
-      fprintf(stdout, "*** Error: no preconditioner for multiphase flows\nEXITING\n");
+      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }else{
@@ -603,13 +538,13 @@ void DistTimeState<dim>::addToJacobianGasPrec(DistVec<double> &ctrlVol, DistMat<
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianGasPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, gam, pstiff, beta, k1, cmach, (*irey)(iSub), nodeType[iSub]);
+                                varFcn, gam, pstiff, tprec, (*irey)(iSub), nodeType[iSub]);
   }else{
     int* empty = 0;
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianGasPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, gam, pstiff, beta, k1, cmach, (*irey)(iSub), empty);
+                                varFcn, gam, pstiff, tprec, (*irey)(iSub), empty);
   }
 }
 
@@ -624,13 +559,13 @@ void DistTimeState<dim>::addToJacobianLiquidPrec(DistVec<double> &ctrlVol, DistM
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianLiquidPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, beta, k1, cmach, (*irey)(iSub), nodeType[iSub]);
+                                varFcn, tprec, (*irey)(iSub), nodeType[iSub]);
   }else{
     int* empty = 0;
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianLiquidPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, beta, k1, cmach, (*irey)(iSub), empty);
+                                varFcn, tprec, (*irey)(iSub), empty);
   }
 }
 
@@ -817,13 +752,13 @@ void DistTimeState<dim>::multiplyByTimeStep(DistVec<double>& dPhi)
 template<int dim>
 void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, DistSVec<double,dim>& dU)
 {
-  if (prec){
+  if (tprec.timePreconditioner()){
     if (varFcn->getType() == VarFcn::GAS )
       multiplyByPreconditionerPerfectGas(U0,dU);
     else if (varFcn->getType() == VarFcn::LIQUID)
       multiplyByPreconditionerLiquid(U0,dU);
     else{
-      fprintf(stdout, "*** Error: no preconditioner for multiphase flows \nEXITING\n");
+      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }
@@ -853,8 +788,9 @@ void DistTimeState<dim>::multiplyByPreconditionerPerfectGas(DistSVec<double,dim>
         double c2 = gam*(p+pstiff)/ro;
 
         double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
-        double locbeta = fmax(k1*locMach, beta);
-        locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta,cmach);
+        double locbeta = tprec.getBeta(locMach,_irey[i]);
+        //double locbeta = fmax(k1*locMach, beta);
+        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta,cmach);
 
         double beta2 =  locbeta * locbeta;
         double qhat2 = (q2 * gam1)/2.0;
@@ -925,8 +861,9 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         double pressure = varFcn->getPressure(V);
         double e = varFcn->computeRhoEnergy(V)/V[0];
         double locMach = varFcn->computeMachNumber(V); //local Preconditioning (ARL)
-        double locbeta = fmax(k1*locMach, beta);
-        locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
+        double locbeta = tprec.getBeta(locMach,_irey[i]);
+        //double locbeta = fmax(k1*locMach, beta);
+        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
         double beta2 = (locbeta*locbeta);
         double beta2m1 = beta2 - 1.0;
         
@@ -1123,7 +1060,7 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
   }
 
   //domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, dbeta, k1, cmach);
-  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, k1, cmach);
+  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, tprec, sprec);
 
   return dIrey;
 

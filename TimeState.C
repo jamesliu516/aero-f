@@ -5,6 +5,7 @@
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <BcDef.h>
+#include <LowMachPrec.h>
 
 //------------------------------------------------------------------------------
 
@@ -150,7 +151,7 @@ template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianGasPrec(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
                                    SVec<double,dim> &U, VarFcn *vf, double gam, 
-				   double pstiff, double beta, double k1, double cmach,
+				   double pstiff, TimeLowMachPrec &tprec,
 				   Vec<double> &irey, int* nodeType)
 {
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
@@ -159,13 +160,13 @@ void TimeState<dim>::addToJacobianGasPrec(bool *nodeFlag, Vec<double> &ctrlVol, 
   double c_np1;
   if(!nodeType){
     for (int i=0; i<dt.size(); ++i) 
-      addToJacobianGasPrecLocal(i,ctrlVol[i],gam,pstiff,beta,k1,cmach,irey[i],U,A);
+      addToJacobianGasPrecLocal(i,ctrlVol[i],gam,pstiff,tprec,irey[i],U,A);
 
   }else{
     for (int i=0; i<dt.size(); ++i) 
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED) )
-        addToJacobianGasPrecLocal(i,ctrlVol[i],gam,pstiff,beta,k1,cmach,irey[i],U,A);
+        addToJacobianGasPrecLocal(i,ctrlVol[i],gam,pstiff,tprec,irey[i],U,A);
 
   }
 }
@@ -173,7 +174,7 @@ void TimeState<dim>::addToJacobianGasPrec(bool *nodeFlag, Vec<double> &ctrlVol, 
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam, 
-				double pstiff, double beta, double k1, double cmach,
+				double pstiff, TimeLowMachPrec &tprec,
 				double irey, SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   double c_np1;
@@ -202,8 +203,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
     double p  = gam1 * (Un[i][4] - 0.5 * ro * q2) - gam*pstiff;
     double c2 = gam*(p+pstiff)/ro;
     double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
-    beta = fmax(k1*locMach, beta);
-    beta = fmin((1.0+sqrt(irey))*beta,cmach);
+    double beta = tprec.getBeta(locMach, irey);
 
     double beta2 =   beta * beta;
     double qhat2 = (q2 * gam1)/2.0;
@@ -249,7 +249,7 @@ void TimeState<dim>::addToJacobianGasPrecLocal(int i, double vol, double gam,
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianLiquidPrec(bool *nodeFlag, Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
-                                   SVec<double,dim> &U, VarFcn *vf, double beta, double k1, double cmach, 
+                                   SVec<double,dim> &U, VarFcn *vf, TimeLowMachPrec &tprec,
 				   Vec<double> &irey, int* nodeType)
 {
   if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
@@ -257,20 +257,20 @@ void TimeState<dim>::addToJacobianLiquidPrec(bool *nodeFlag, Vec<double> &ctrlVo
                                                                                                                            
   if(!nodeType){
     for (int i=0; i<dt.size(); ++i) 
-      addToJacobianLiquidPrecLocal(i,ctrlVol[i],vf,beta,k1,cmach,irey[i],U,A);
+      addToJacobianLiquidPrecLocal(i,ctrlVol[i],vf,tprec,irey[i],U,A);
 
   }else{
     for (int i=0; i<dt.size(); ++i) 
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED) )
-        addToJacobianLiquidPrecLocal(i,ctrlVol[i],vf,beta,k1,cmach,irey[i],U,A);
+        addToJacobianLiquidPrecLocal(i,ctrlVol[i],vf,tprec,irey[i],U,A);
   }
 }
 //------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
 void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
-				double beta, double k1, double cmach, double irey,
+				TimeLowMachPrec &tprec, double irey,
 				SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
 // ARL : turbulence preconditioning never tested ...
@@ -289,8 +289,7 @@ void TimeState<dim>::addToJacobianLiquidPrecLocal(int i, double vol, VarFcn *vf,
     vf->conservativeToPrimitive(Un[i],V); // assumption : no steady two-phase flow, hence no phi
     double e = vf->computeRhoEnergy(V)/V[0];
     double locMach = vf->computeMachNumber(V); //local Preconditioning (ARL)
-    beta = fmax(k1*locMach, beta);
-    beta = fmin((1.0+sqrt(irey))*beta, cmach);
+    double beta = tprec.getBeta(locMach,irey);
     double oobeta2 = 1.0/(beta*beta);
     double oobeta2m1 = oobeta2 - 1.0;
 
