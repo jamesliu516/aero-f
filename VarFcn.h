@@ -27,9 +27,10 @@ public:
   bool verif_clipping;
   bool node_change;
 
-  double gravity;
-  double ngravity[3];
-  
+  double gravity[3];
+  double gravity_norm;
+  double depth;
+
   VarFcn(IoData &iod); 
   VarFcn() { meshVel = 0.0; fprintf(stderr, "MeshVel initialized: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);}
   ~VarFcn() {}
@@ -380,6 +381,24 @@ public:
   virtual void rstVar(IoData &iod) {}
   virtual void rV(IoData &iod) {  pmin  = iod.eqs.fluidModel.pmin;
                                   pminp = iod.eqs.fluidModel2.pmin; }
+
+  virtual double gravity_value() const { return gravity_norm; }
+  virtual double hydrostaticPressure(double rho, double *X) { 
+    return rho*(gravity_norm*depth + 
+                gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2]); }
+  virtual double hydrodynamicPressure(double *V, double *X, double phi = 0.0)
+  { //check that getPressure does not call the virtual fcn of the present
+    //class which always returns 0.0!!!!
+    double localP = getPressure(V,phi);
+    double localStaticP = hydrostaticPressure(V[0],X);
+    return localP - localStaticP; }
+  virtual double DerivativeHydrostaticPressure(double rho, double drho,
+                                               double *X, double *dX)
+  {
+    return drho*(gravity_norm*depth +
+                 gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2])
+         + rho*(gravity[0]*dX[0]+gravity[1]*dX[1]+gravity[2]*dX[2]);
+  }
                                                                     
 };
 //------------------------------------------------------------------------------

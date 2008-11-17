@@ -36,11 +36,10 @@ public:
         if(it->second->type == VolumeData::POROUS){
           //...check if it already exists...
           map<int, PorousMedia *>::iterator pmit = volInfo.find(it->first);
-          //...if it does not exist yet, add it...
+          //...otherwise add it...
           if(pmit == volInfo.end()) 
             volInfo[it->first] = &(it->second->porousMedia);
         }
-      
       }
     }
   }

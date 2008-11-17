@@ -18,12 +18,10 @@ VarFcn::VarFcn(IoData &iod)
   verif_clipping = false;
   node_change = true;
 
-  gravity = 0.0;
-  ngravity[0] = cos(iod.bc.hydro.alpha)*cos(iod.bc.hydro.beta);
-  ngravity[1] = cos(iod.bc.hydro.alpha)*sin(iod.bc.hydro.beta);
-  ngravity[2] = sin(iod.bc.hydro.alpha);
-  if (iod.bc.hydro.type == BcsHydroData::GRAVITY)
-    gravity = iod.bc.hydro.gravity;
+  gravity[0] = iod.eqs.gravity_x;
+  gravity[1] = iod.eqs.gravity_y;
+  gravity[2] = iod.eqs.gravity_z;
+  gravity_norm = sqrt(gravity[0]*gravity[0]+gravity[1]*gravity[1]+gravity[2]*gravity[2]);
 
   meshVel = 0.0;
 }

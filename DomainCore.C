@@ -1338,7 +1338,6 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &
   // the boundary of two fluids. A fluid node then gets its
   // id from the element id and there cannot be any problem
   // for parallelization.
-  com->fprintf(stdout, "setting up Phi for volume %d\n", volid);
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
@@ -1350,7 +1349,6 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &
 void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
                DistSVec<double,3> &X, DistVec<double> &Phi){
 
-  com->fprintf(stdout, "setting up Phi for MultiFluid\n");
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->setupPhiMultiFluidInitialConditionsSphere(ic, X(iSub), Phi(iSub));
@@ -1362,7 +1360,6 @@ void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
                DistSVec<double,3> &X, DistVec<double> &Phi){
 
-  com->fprintf(stdout, "setting up Phi for MultiFluid -- Plane\n");
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->setupPhiMultiFluidInitialConditionsPlane(ip, X(iSub), Phi(iSub));

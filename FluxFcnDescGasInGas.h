@@ -11,8 +11,8 @@ class FluxFcnGasInGasFDJacRoeEuler3D : public FluxFcnFDJacRoeEuler3D {
 
 public:
 
-  FluxFcnGasInGasFDJacRoeEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeEuler3D(gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasFDJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacRoeEuler3D(ioData, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasFDJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -29,8 +29,8 @@ class FluxFcnGasInGasApprJacRoeEuler3D : public FluxFcnApprJacRoeEuler3D {
 
 public:
 
-  FluxFcnGasInGasApprJacRoeEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasApprJacRoeEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
+    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -67,8 +67,8 @@ class FluxFcnGasInGasFDJacHLLEEuler3D : public FluxFcnFDJacHLLEEuler3D {
 
 public:
 
-  FluxFcnGasInGasFDJacHLLEEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacHLLEEuler3D(gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasFDJacHLLEEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacHLLEEuler3D(ioData, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasFDJacHLLEEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -85,8 +85,8 @@ class FluxFcnGasInGasApprJacHLLEEuler3D : public FluxFcnApprJacHLLEEuler3D {
 
 public:
 
-  FluxFcnGasInGasApprJacHLLEEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacHLLEEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasApprJacHLLEEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLEEuler3D(ioData, rs, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasApprJacHLLEEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -104,8 +104,8 @@ class FluxFcnGasInGasFDJacHLLCEuler3D : public FluxFcnFDJacHLLCEuler3D {
 
 public:
 
-  FluxFcnGasInGasFDJacHLLCEuler3D(double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacHLLCEuler3D(gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasFDJacHLLCEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnFDJacHLLCEuler3D(ioData, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasFDJacHLLCEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -122,8 +122,8 @@ class FluxFcnGasInGasApprJacHLLCEuler3D : public FluxFcnApprJacHLLCEuler3D {
 
 public:
 
-  FluxFcnGasInGasApprJacHLLCEuler3D(int rs, double gg, double br, double K1, double cm, double sr, int pr, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacHLLCEuler3D(rs, gg, br, K1, cm, sr, pr, new VarFcnGasInGasEuler3D(ioData), tp) {}
+  FluxFcnGasInGasApprJacHLLCEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLCEuler3D(ioData, rs, gg, new VarFcnGasInGasEuler3D(ioData), tp) {}
   ~FluxFcnGasInGasApprJacHLLCEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);

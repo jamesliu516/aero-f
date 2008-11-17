@@ -44,6 +44,7 @@ using std::max;
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 #include <LinkF77.h>
+#include <LowMachPrec.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
@@ -58,13 +59,13 @@ template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &dt,
                                 Vec<double> &idti, Vec<double> &idtv,
-                                double beta, double k1, double cmach)
+                                TimeLowMachPrec &tprec)
 {
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
-  edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
-  faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
+  edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
+  faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
 
 }
 
@@ -74,14 +75,15 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 template<int dim>
 void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                                TimeLowMachPrec &tprec)
 {
 
   dIdti = 0.0;
   dIdtv = 0.0;
 
-  edges.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, k1, cmach);
-  faces.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, k1, cmach);
+  edges.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, tprec);
+  faces.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, tprec);
 
 }
 
@@ -91,14 +93,14 @@ template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
 				Vec<double> &idti, Vec<double> &idtv, 
-                                double beta, double k1, double cmach,
+                                TimeLowMachPrec &tprec,
 				Vec<double> &Phi)
 {
 
   dt = 0.0;
 
-  edges.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi, globSubNum);
-  faces.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi);
+  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi, globSubNum);
+  faces.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi);
 
 }
 
