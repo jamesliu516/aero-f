@@ -4162,6 +4162,7 @@ int IoData::checkInputValuesDimensional()
                                                                                                         
   ref.rv.length = ref.length;
   ref.rv.tlength = ref.length / aero.displacementScaling;
+      com->fprintf(stderr, "non-dimensionalization values are: %e %e %e\n", ref.rv.density, ref.rv.velocity, ref.rv.pressure);
                                                                                                         
   bc.wall.delta /= ref.rv.tlength;
   schemes.fixes.dihedralAngle *= acos(-1.0) / 180.0;

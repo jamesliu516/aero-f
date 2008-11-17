@@ -788,7 +788,6 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
-                                                                                                  
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn, 
                                            recFcn, elems, geoState, X, V, Phi,
                                            ngrad, egrad, ngradLS, fluxes, it,
