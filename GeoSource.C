@@ -153,7 +153,7 @@ void GeoSource::readCpuToSub()
   sscanf(line, "%d", &nCPU);
 
   if (nCPU != numCPU) {
-    fprintf(stderr, "*** Error: incorrect number of CPUs (%d) in the map file\n", nCPU);
+    fprintf(stderr, "*** Error: incorrect number of CPUs (%d) in the map file (It should be %d)\n", nCPU, numCPU);
     exit(1);
   }
 

@@ -360,6 +360,10 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
+  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);
+
+
+  template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
 			   DistGeoState &, DistSVec<double,3> &, 
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -667,7 +671,17 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
+  
+  int numElems();
 
+  int numNodes();
+
+  void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
+
+
+  //void getTriangulatedSurfaceFromFace(DistSVec<double,3> &);
+
+  //void printTriangulatedSurface();
  };
 
 //------------------------------------------------------------------------------

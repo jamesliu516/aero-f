@@ -13,6 +13,31 @@ class Communicator;
 
 //------------------------------------------------------------------------------
 
+struct BoundingBoxData {
+  enum ProvideBoundingBox {NO = 0, YES = 1} provide;
+  double xmin, xmax, ymin, ymax, zmin, zmax;
+
+  BoundingBoxData();
+  ~BoundingBoxData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
+struct GhostSolidData  {
+  enum YesNo {NO = 0, YES = 1} runit, solidSurfaceFile;
+  BoundingBoxData boundingBox;
+
+  GhostSolidData();
+  ~GhostSolidData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//--------------------------------------------------------------------------------
+
 struct InputData {
 
   const char *prefix;
@@ -30,9 +55,12 @@ struct InputData {
   const char *podFile;
   const char *podFile2;
   const char *strModesFile;
+  const char *solidsurface;
 
 // Included (MB)  
   const char *shapederivatives;
+
+  GhostSolidData ghostsolid;
 
   InputData();
   ~InputData() {}
@@ -94,7 +122,7 @@ struct TransientData {
   const char *podFile;
   const char *romFile;
   const char *philevel;
-
+  const char *philevel_structure;
 // Included (MB)  
   const char *velocitynorm;
   const char *dSolutions;
@@ -1518,7 +1546,7 @@ struct RotationData  {
 
 };
 
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 struct Velocity  {
 

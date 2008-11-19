@@ -11,6 +11,7 @@
 #include <DiagMatrix.h>
 #include <DistInfo.h>
 #include <BCond.h>
+#include <TriangulatedSurface.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -49,6 +50,7 @@ class BCData;
 class MatchNodeSet; // HB
 class LevelSet;
 class VolumicForceTerm;
+class TriangulatedSurface;
 
 struct V6NodeData;
 struct Vec3D;
@@ -133,6 +135,8 @@ class SubDomain {
 
   int **nodeFlag;
   Connectivity *NodeToNode;
+  Connectivity *NodeToElem;
+  Connectivity *ElemToElem;
 
   int **totalNeiData;
   double *gradP[3];
@@ -140,6 +144,8 @@ class SubDomain {
 // Included (MB*)
   int numOffDiagEntries;
   double *dGradP[3];
+
+//  TriangulatedSurface *triaSurf;
 
 public:
 
@@ -154,6 +160,8 @@ public:
   int numberEdges();
 
   Connectivity *createElemBasedConnectivity();
+  Connectivity *createNodeToElementConnectivity();
+  Connectivity *createElementToElementConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
@@ -164,6 +172,10 @@ public:
   int numNodes() { return(nodes.size()); }
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
+  int numEdges() { return(edges.size()); }
+  
+  int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
+
 
   // geometry
 
@@ -195,6 +207,7 @@ public:
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, Vec<double> &, SVec<double,9> &);
+#define EDGE_LENGTH
 #ifdef EDGE_LENGTH
   bool findTetrahedron(int, int, Vec<int>&, int**, SVec<double,3>&, V6NodeData&, bool=true, double* refLength=0);
 #else
@@ -336,7 +349,11 @@ public:
                                                                                                   
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                  
+                     
+  template<int dim>
+  void computeRealFluidResidual(SVec<double, dim> &, SVec<double,dim> &, Vec<double> &);
+
+                                                                             
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -898,8 +915,31 @@ public:
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
 
-};
+//  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
 
+  void getTriangulatedSurfaceFromFace( TriangulatedSurface* );
+
+  void getTriangulatedSurfaceFromFace( SVec<double,3> &,  TriangulatedSurface* );
+
+//  void printTriangulatedSurface();
+
+  void getGhostNodes(double*, int*, int&);
+
+  bool isINodeinITet(Vec3D, int, SVec<double,3>&);
+
+  void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
+
+  int* getNeiElemOfNode(int, int, int&);
+
+  void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
+
+  void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
+
+  double specifyBandwidth(Vec<double> &);
+
+  double scalarNormalExtrap(double*, Vec3D, Vec3D, int, SVec<double,3> &, bool);
+
+};
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

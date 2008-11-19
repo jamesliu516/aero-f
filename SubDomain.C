@@ -934,6 +934,19 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
   inletNodes.recomputeResidual(F,Finlet);
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> &Freal, Vec<double> &philevel)
+{
+  Freal = 0.0;
+  for (int iNode=0; iNode<numNodes(); iNode++)
+    if (philevel[iNode]>0.0)  
+      for (int j=0; j<dim; j++)  Freal[iNode][j] = F[iNode][j];
+}
+
+
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -3447,7 +3460,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
-
+  
   return ierr;
 
 }

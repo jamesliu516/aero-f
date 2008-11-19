@@ -34,6 +34,7 @@ InputData::InputData()
   podFile = "";
   podFile2 = "";
   strModesFile = "";
+  solidsurface = "";
 
 // Included (MB)  
   shapederivatives = "";
@@ -46,7 +47,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 16, father);
+  ClassAssigner *ca = new ClassAssigner(name, 18, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -66,6 +67,9 @@ void InputData::setup(const char *name, ClassAssigner *father)
 // Included (MB)  
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
+
+  new ClassStr<InputData>(ca, "SolidSurface", this, &InputData::solidsurface);
+  ghostsolid.setup("GhostSolid",ca);  
 
 }
 
@@ -165,6 +169,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   philevel = "";
+  philevel_structure = "";
 
 // Included (MB)  
   velocitynorm = "";
@@ -196,7 +201,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 68, father);
+  ClassAssigner *ca = new ClassAssigner(name, 69, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "Solution", this, &TransientData::solutions);
@@ -258,7 +263,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
-
+  new ClassStr<TransientData>(ca, "Philevel_structure", this, &TransientData::philevel_structure);
 // Included (MB)  
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
@@ -2154,7 +2159,6 @@ void VelocityPoints::setup(const char *name, ClassAssigner *father)
   new ClassDouble<VelocityPoints>(ca, "VelocityX", this, &VelocityPoints::velocityX);
   new ClassDouble<VelocityPoints>(ca, "VelocityY", this, &VelocityPoints::velocityY);
   new ClassDouble<VelocityPoints>(ca, "VelocityZ", this, &VelocityPoints::velocityZ);
-
 }
 
 //------------------------------------------------------------------------------
@@ -2626,7 +2630,51 @@ Assigner *RotationData::getAssigner()  {
 
   return ca;
 }
+
 //------------------------------------------------------------------------------
+
+GhostSolidData::GhostSolidData() {
+
+  runit = NO;
+}
+
+//-----------------------------------------------------------------------------
+
+void GhostSolidData::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+
+  new ClassToken<GhostSolidData> (ca, "RunGhostSolid", this, reinterpret_cast<int GhostSolidData::*>(&GhostSolidData::runit), 2, "NO", 0, "YES", 1);
+  boundingBox.setup("BoundingBox",ca);
+
+}
+
+//-----------------------------------------------------------------------------
+
+BoundingBoxData::BoundingBoxData() {
+  provide = NO;
+  xmin = xmax = ymin = ymax = zmin = zmax = 0.0;
+}
+
+//-----------------------------------------------------------------------------
+
+void BoundingBoxData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+
+  new ClassToken<BoundingBoxData>(ca, "ProvideBoundingBox", this, reinterpret_cast<int BoundingBoxData::*>(&BoundingBoxData::provide), 2, "NO", 0, "YES", 1);
+  new ClassDouble<BoundingBoxData>(ca, "Xmin", this, &BoundingBoxData::xmin);
+  new ClassDouble<BoundingBoxData>(ca, "Xmax", this, &BoundingBoxData::xmax);
+  new ClassDouble<BoundingBoxData>(ca, "Ymin", this, &BoundingBoxData::ymin);
+  new ClassDouble<BoundingBoxData>(ca, "Ymax", this, &BoundingBoxData::ymax);
+  new ClassDouble<BoundingBoxData>(ca, "Zmin", this, &BoundingBoxData::zmin);
+  new ClassDouble<BoundingBoxData>(ca, "Zmax", this, &BoundingBoxData::zmax);
+
+}
+
+
+//-----------------------------------------------------------------------------
 
 VolumeData::VolumeData()  {
 
@@ -3549,6 +3597,7 @@ int IoData::checkInputValuesDimensional()
     rmesh.timestep /= ref.rv.time;
     
     for (int j=0; j<rmesh.num; j++){
+//      fprintf(stderr,"old time: %f, new time: %f.\n", rmesh.vpts[j]->time, rmesh.vpts[j]->time/ref.rv.time);
       rmesh.vpts[j]->time     /= ref.rv.time;
       rmesh.vpts[j]->velocityX /= ref.rv.velocity;
       rmesh.vpts[j]->velocityY /= ref.rv.velocity;

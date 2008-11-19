@@ -1426,6 +1426,13 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal, 
+                                                    DistVec<double> &philevel)
+{ return domain->computeRealFluidResidual(F, Freal, philevel); }
+
 //------------------------------------------------------------------------------
 
 template<int dim>

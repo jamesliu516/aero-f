@@ -236,6 +236,7 @@ public:
   virtual double checkPressure(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeTemperature(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeRhoEnergy(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeEnergy(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeRhoEpsilon(double *V, double phi = 0.0) {return 0.0;} //this function computes the internal energy (=rho*e-0.5*rho*u^2)
   virtual double computeU2(double *V) { return V[1]*V[1]+V[2]*V[2]+V[3]*V[3]; }
   virtual double computeWtU2(double *V) { 
@@ -316,6 +317,9 @@ public:
   }
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+  double computeEnergy(double *V, double phi = 0.0) {
+    return computeRhoEnergy(V) / V[0];
   }
   double computeRhoEpsilon(double *V, double phi = 0.0) { return invgam1 * (V[4]+gam*Pstiff); }
 
@@ -427,6 +431,9 @@ public:
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
+  double computeEnergy(double *V, double phi = 0.0) {
+    return computeRhoEnergy(V) / V[0];
+  }
   double computeRhoEpsilon(double *V, double phi = 0.0) { return V[0] * Cv * V[4]; }
   double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt(alpha_water * beta_water * pow(V[0], beta_water - 1.0)); }
   double computeMachNumber(double *V, double phi = 0.0) {
@@ -498,6 +505,10 @@ class VarFcnGasInGas : public VarFcn {
     if (phi>=0.0) return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
     else         return invgamp1 * (V[4]+gamp*Pstiffp) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);}
     
+  double computeEnergy(double *V, double phi = 0.0) {
+    return computeRhoEnergy(V,phi) / V[0];
+  }
+
   double computeRhoEpsilon(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
     else         return invgamp1*(V[4]+gamp*Pstiffp); }
@@ -603,7 +614,11 @@ public:
       return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
     return V[0] * Cvbis * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
-  
+ 
+  double computeEnergy(double *V, double phi = 0.0) {
+    return computeRhoEnergy(V, phi) / V[0];
+  }
+ 
   double computeRhoEpsilon(double *V, double phi = 0.0) { 
     if (phi>=0.0) return V[0] * Cv * V[4];
     return  V[0] * Cvbis * V[4];}
@@ -699,7 +714,11 @@ public:
   double computeRhoEnergy(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);}
-    
+   
+  double computeEnergy(double *V, double phi = 0.0) {
+    return computeRhoEnergy(V,phi) / V[0];
+  }
+  
   double computeRhoEpsilon(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[0] * Cv * V[4];
     return invgam1*(V[4]+gam*Pstiff);}

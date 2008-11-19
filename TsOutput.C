@@ -215,6 +215,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
   }
+  if (iod.output.transient.philevel_structure[0] != 0) {
+    sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;
+    scalars[PostFcn::PHILEVEL_STRUCTURE] = new char[sp + strlen(iod.output.transient.philevel_structure)];
+    sprintf(scalars[PostFcn::PHILEVEL_STRUCTURE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.philevel_structure);
+  }
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
@@ -1481,6 +1487,71 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+                                             DistVec<double> &A, DistSVec<double,dim> &U, 
+                                             DistTimeState<dim> *timeState, DistVec<double> &Phi)
+{
+
+  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+    int step = 0;
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+        ++step;
+    }
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+
+    if (solutions)
+      domain->writeVectorToFile(solutions, step, tag, U);
+
+    int i;
+    for (i=0; i<PostFcn::SSIZE; ++i) {
+      if (scalars[i]) {
+        if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, Phi);
+        DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
+        domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
+      }
+    }
+    for (i=0; i<PostFcn::VSIZE; ++i) {
+      if (vectors[i]) {
+        if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+
+        if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
+
+          if (rmmh) {
+            DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
+            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+          }
+          else
+            com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
+        }
+        else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
+          if (rmmh) {
+            DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
+            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+          }
+          else
+            com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
+
+        }
+        else
+          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
+        domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
+      }
+    }
+  }
+
+}
+
+//----------------------------------------------------------------------------------------
+
+
 // Included (MB)
 template<int dim>
 void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
@@ -1809,6 +1880,12 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
+  }
+  if (iod.output.transient.philevel_structure[0] != 0) {
+    sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;
+    scalars[PostFcn::PHILEVEL_STRUCTURE] = new char[sp + strlen(iod.output.transient.philevel_structure)];
+    sprintf(scalars[PostFcn::PHILEVEL_STRUCTURE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.philevel_structure);
   }
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;

@@ -47,7 +47,8 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
-
+  double residual0 = probDesc->computeResidualNorm(U);
+  fprintf(stderr, "right after 'setupTimeStepping', data->residual = %lf.\n", residual0);
   int status = resolve(U, ioData);
 
   return status;
@@ -85,6 +86,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   bool lastIt = false;
 
+  FILE *forceFile = fopen("/home/icmewang/Simulations/Prolate3D_force/ghost/results/ghostforce","w");
   // dts is structural time step
   double dt, dts;
 
@@ -114,27 +116,28 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     it++;
 
     do {
-
       itSc++;
-
+//      if (ioData.input.ghostsolid.runit == 1)  
+//        probDesc->updateGhostFluid(U);
       // compute fluid subcyling time step
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
-
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
-
       // Fluid Solution
       itNl += probDesc->solveNonLinearSystem(U);
-
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);
-
       probDesc->updateStateVectors(U, it);
-
+      if (ioData.input.ghostsolid.runit == 1) {
+        Vec3D totalForce;
+        probDesc->updateGhostFluid(U,totalForce,dt);
+        fprintf(stderr,"%f, %f, %f.\n", totalForce[0],totalForce[1],totalForce[2]);
+        fprintf(forceFile, "%d  %f  %f  %f  %f\n", it, t, totalForce[0], totalForce[1], totalForce[2]);
+      }
     } while (dtLeft != 0.0);
 
 // Modified (MB)
@@ -143,10 +146,13 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t);
 
+//    if (ioData.input.ghostsolid.runit == 1)
+//      probDesc->updateGhostFluid(U);
+ 
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
 
   }
-
+  fclose(forceFile);
   return 0;
 
 }
