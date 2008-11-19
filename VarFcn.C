@@ -14,16 +14,14 @@ typedef complex<double> bcomp;
 VarFcn::VarFcn(IoData &iod)
 {
   pmin  = iod.eqs.fluidModel.pmin;
-  pminp = iod.eqs.volumes.fluidModel2.pmin;
+  pminp = iod.eqs.fluidModel2.pmin;
   verif_clipping = false;
   node_change = true;
 
-  gravity = 0.0;
-  ngravity[0] = cos(iod.bc.hydro.alpha)*cos(iod.bc.hydro.beta);
-  ngravity[1] = cos(iod.bc.hydro.alpha)*sin(iod.bc.hydro.beta);
-  ngravity[2] = sin(iod.bc.hydro.alpha);
-  if (iod.bc.hydro.type == BcsHydroData::GRAVITY)
-    gravity = iod.bc.hydro.gravity;
+  gravity[0] = iod.eqs.gravity_x;
+  gravity[1] = iod.eqs.gravity_y;
+  gravity[2] = iod.eqs.gravity_z;
+  gravity_norm = sqrt(gravity[0]*gravity[0]+gravity[1]*gravity[1]+gravity[2]*gravity[2]);
 
   meshVel = 0.0;
 }
@@ -50,10 +48,6 @@ void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, dou
 {
                          
   V[0] = U[0];
-  if (U[0]<1.0e-16){
-    fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
-    exit(1);
-  }
            
   double invRho = 1.0 / U[0];
                                                                      
@@ -151,8 +145,8 @@ void VarFcn::characteristicToPrimitiveVariationsGasEuler(double n[3],
 
   dV[0] = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2] + 0.5*V[0]*sum/c;
   dV[1] = n[1]*dV[2]-n[2]*dV[1] + 0.5*n[0]*diff;
-  dV[1] = n[2]*dV[0]-n[0]*dV[2] + 0.5*n[1]*diff;
-  dV[1] = n[0]*dV[1]-n[1]*dV[0] + 0.5*n[2]*diff;
+  dV[2] = n[2]*dV[0]-n[0]*dV[2] + 0.5*n[1]*diff;
+  dV[3] = n[0]*dV[1]-n[1]*dV[0] + 0.5*n[2]*diff;
   dV[4] = 0.5*V[0]*c*sum;
                                                                                                     
 }
@@ -1175,11 +1169,7 @@ int VarFcn::VerificationGasKE(int glob, double pmin, double gam1, double *U, dou
 void VarFcn::conservativeToPrimitiveLiquidEuler(double invCv, double *U, double *V)
 {
   V[0] = U[0];
-  if (U[0]<1.0e-16){
-    fprintf(stderr, "ERROR*** conservativeToPrimitive invRho = 1 / %f\n", U[0]);
-    exit(1);
-  }
-                                       
+
   double invRho = 1.0 / U[0];
    
   V[1] = U[1] * invRho;
@@ -1236,8 +1226,8 @@ void VarFcn::characteristicToPrimitiveVariationsLiquidEuler(double n[3],
 
   dV[0] = rho*(dW[3]+dW[4]);
   dV[1] = n[2]*dV[1]-n[1]*dV[2] + n[0]*(dW[3]-dW[4]);
-  dV[1] = n[0]*dV[2]-n[2]*dV[0] + n[1]*(dW[3]-dW[4]);
-  dV[1] = n[1]*dV[0]-n[0]*dV[1] + n[2]*(dW[3]-dW[4]);
+  dV[2] = n[0]*dV[2]-n[2]*dV[0] + n[1]*(dW[3]-dW[4]);
+  dV[3] = n[1]*dV[0]-n[0]*dV[1] + n[2]*(dW[3]-dW[4]);
   dV[4] = ooCv*(n[0]*dW[0]+n[1]*dW[1]+n[2]*dW[2]) + Ptemp*(dW[3]+dW[4]);
 
 }
@@ -1602,4 +1592,424 @@ int VarFcn::VerificationLiquidEuler(int glob, double pmin, double a, double b, d
 
 }
 
+//----------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
+//                                                                            //
+//                              J W L                                         //
+//                                                                            //
+//----------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
+
+void VarFcn::conservativeToPrimitiveJWLEuler(double omega, double frho, 
+                                             double *U, double *V)
+{
+  V[0] = U[0];
+
+  double invRho = 1.0 / U[0];
+   
+  V[1] = U[1] * invRho;
+  V[2] = U[2] * invRho;
+  V[3] = U[3] * invRho;
+      
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+    
+  V[4] = omega*(U[4] - 0.5 * U[0] * vel2) + frho;
+}
+      
 //------------------------------------------------------------------------------
+
+void VarFcn::primitiveToConservativeJWLEuler(double invomega, double frho,
+                                             double *V, double *U)
+{
+  double vel2 = V[1] * V[1] + V[2] * V[2] + V[3] * V[3];
+                                            
+  U[0] = V[0];
+  U[1] = V[0] * V[1];
+  U[2] = V[0] * V[2];
+  U[3] = V[0] * V[3];
+  U[4] = invomega*(V[4] - frho) + 0.5 * V[0] * vel2;
+}
+
+//-----------------------------------------------------------------------------
+
+void VarFcn::primitiveToCharacteristicVariationsJWLEuler(double c, double n[3],
+                                 double *V, double *dV, double *dW)
+{
+  double dVn = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2];
+  double ooc2 = 1.0/(c*c);
+  double oorhoc = sqrt(ooc2)/V[0];
+  double coeff1 = dV[0] - ooc2*dV[4];
+
+  dW[0] = n[0]*coeff1 + n[2]*dV[2] - n[1]*dV[3];
+  dW[1] = n[1]*coeff1 + n[0]*dV[3] - n[2]*dV[1];
+  dW[2] = n[2]*coeff1 + n[1]*dV[1] - n[0]*dV[2];
+  dW[3] = dVn + oorhoc*dV[4];
+  dW[4] =-dVn + oorhoc*dV[4];
+}
+
+//-----------------------------------------------------------------------------
+
+void VarFcn::characteristicToPrimitiveVariationsJWLEuler(double c, double n[3],
+                                 double *V, double *dW, double *dV)
+{
+  double sum = dW[3]+dW[4]; 
+  double diff = dW[3]-dW[4];
+
+  dV[0] = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2] + 0.5*V[0]*sum/c;
+  dV[1] = n[1]*dV[2]-n[2]*dV[1] + 0.5*n[0]*diff;
+  dV[2] = n[2]*dV[0]-n[0]*dV[2] + 0.5*n[1]*diff;
+  dV[3] = n[0]*dV[1]-n[1]*dV[0] + 0.5*n[2]*diff;
+  dV[4] = 0.5*V[0]*c*sum;
+}
+
+//-----------------------------------------------------------------------------
+
+void VarFcn::computedVdUJWLEuler(double omega, double frhop, double *V, double *dVdU)
+{
+  double invrho = 1.0 / V[0];
+  dVdU[0]  = 1.0;
+  dVdU[5]  = -invrho * V[1];
+  dVdU[6]  = invrho;
+  dVdU[10] = -invrho * V[2];
+  dVdU[12] = invrho;
+  dVdU[15] = -invrho * V[3];
+  dVdU[18] = invrho;
+  dVdU[20] = omega * 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) + frhop;
+  dVdU[21] = -omega * V[1];
+  dVdU[22] = -omega * V[2];
+  dVdU[23] = -omega * V[3];
+  dVdU[24] = omega;
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::computedUdVJWLEuler(double invomega, double frhop, double *V, double *dUdV)
+{
+
+  dUdV[0]  = 1.0;
+  dUdV[5]  = V[1];
+  dUdV[6]  = V[0];
+  dUdV[10] = V[2];
+  dUdV[12] = V[0];
+  dUdV[15] = V[3];
+  dUdV[18] = V[0];
+  dUdV[20] = 0.5 * (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) - invomega*frhop;
+  dUdV[21] = V[0] * V[1];
+  dUdV[22] = V[0] * V[2];
+  dUdV[23] = V[0] * V[3];
+  dUdV[24] = invomega;
+
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::multiplyBydVdUJWLEuler(double omega, double frhop, double *V, double *vec, double *res)
+{
+  double dVdU[25];
+  computedVdUJWLEuler(omega, frhop, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0];
+  res[1] = dVdU[5]*vec[0]+dVdU[6]*vec[1];
+  res[2] = dVdU[10]*vec[0]+dVdU[12]*vec[2];
+  res[3] = dVdU[15]*vec[0]+dVdU[18]*vec[3];
+  res[4] = dVdU[20]*vec[0]+dVdU[21]*vec[1]+dVdU[22]*vec[2]+dVdU[23]*vec[3]+dVdU[24]*vec[4];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::multiplyBydVdUJWLEuler(double omega, double frhop, double *V, bcomp *vec, bcomp *res)
+{
+  double dVdU[25];
+  computedVdUJWLEuler(omega, frhop, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0];
+  res[1] = dVdU[5]*vec[0]+dVdU[6]*vec[1];
+  res[2] = dVdU[10]*vec[0]+dVdU[12]*vec[2];
+  res[3] = dVdU[15]*vec[0]+dVdU[18]*vec[3];
+  res[4] = dVdU[20]*vec[0]+dVdU[21]*vec[1]+dVdU[22]*vec[2]+dVdU[23]*vec[3]+dVdU[24]*vec[4];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::multiplyBydVdUTJWLEuler(double omega, double frhop, double *V, double *vec, double *res)
+{
+  double dVdU[25];
+  computedVdUJWLEuler(omega, frhop, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0] + dVdU[5]*vec[1] + dVdU[10]*vec[2] + dVdU[15]*vec[3] + dVdU[20]*vec[4];
+  res[1] = dVdU[6]*vec[1] + dVdU[21]*vec[4];
+  res[2] = dVdU[12]*vec[2] + dVdU[22]*vec[4];
+  res[3] = dVdU[18]*vec[3] + dVdU[23]*vec[4];
+  res[4] = dVdU[24]*vec[4];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::multiplyBydVdUTJWLEuler(double omega, double frhop, double *V, bcomp *vec, bcomp *res)
+{
+  double dVdU[25];
+  computedVdUJWLEuler(omega, frhop, V, dVdU);
+
+  res[0] = dVdU[0]*vec[0] + dVdU[5]*vec[1] + dVdU[10]*vec[2] + dVdU[15]*vec[3] + dVdU[20]*vec[4];
+  res[1] = dVdU[6]*vec[1] + dVdU[21]*vec[4];
+  res[2] = dVdU[12]*vec[2] + dVdU[22]*vec[4];
+  res[3] = dVdU[18]*vec[3] + dVdU[23]*vec[4];
+  res[4] = dVdU[24]*vec[4];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::preMultiplyBydUdVJWLEuler(double invomega, double frhop, double *V, double *mat, double *res)
+{
+  double dUdV[25];
+  computedUdVJWLEuler(invomega, frhop, V, dUdV);
+
+  res[0] = dUdV[0]*mat[0];
+  res[1] = dUdV[0]*mat[1];
+  res[2] = dUdV[0]*mat[2];
+  res[3] = dUdV[0]*mat[3];
+  res[4] = dUdV[0]*mat[4];
+  res[5] = dUdV[5]*mat[0]+dUdV[6]*mat[5];
+  res[6] = dUdV[5]*mat[1]+dUdV[6]*mat[6];
+  res[7] = dUdV[5]*mat[2]+dUdV[6]*mat[7];
+  res[8] = dUdV[5]*mat[3]+dUdV[6]*mat[8];
+  res[9] = dUdV[5]*mat[4]+dUdV[6]*mat[9];
+  res[10] = dUdV[10]*mat[0]+dUdV[12]*mat[10];
+  res[11] = dUdV[10]*mat[1]+dUdV[12]*mat[11];
+  res[12] = dUdV[10]*mat[2]+dUdV[12]*mat[12];
+  res[13] = dUdV[10]*mat[3]+dUdV[12]*mat[13];
+  res[14] = dUdV[10]*mat[4]+dUdV[12]*mat[14];
+  res[15] = dUdV[15]*mat[0]+dUdV[18]*mat[15];
+  res[16] = dUdV[15]*mat[1]+dUdV[18]*mat[16];
+  res[17] = dUdV[15]*mat[2]+dUdV[18]*mat[17];
+  res[18] = dUdV[15]*mat[3]+dUdV[18]*mat[18];
+  res[19] = dUdV[15]*mat[4]+dUdV[18]*mat[19];
+  res[20] = dUdV[20]*mat[0]+dUdV[21]*mat[5]+dUdV[22]*mat[10]+dUdV[23]*mat[15]+dUdV[24]*mat[20];
+  res[21] = dUdV[20]*mat[1]+dUdV[21]*mat[6]+dUdV[22]*mat[11]+dUdV[23]*mat[16]+dUdV[24]*mat[21];
+  res[22] = dUdV[20]*mat[2]+dUdV[21]*mat[7]+dUdV[22]*mat[12]+dUdV[23]*mat[17]+dUdV[24]*mat[22];
+  res[23] = dUdV[20]*mat[3]+dUdV[21]*mat[8]+dUdV[22]*mat[13]+dUdV[23]*mat[18]+dUdV[24]*mat[23];
+  res[24] = dUdV[20]*mat[4]+dUdV[21]*mat[9]+dUdV[22]*mat[14]+dUdV[23]*mat[19]+dUdV[24]*mat[24];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::postMultiplyBydVdUJWLEuler(double omega, double frhop, double *V, double *mat, double *res)
+{
+  double dVdU[25];
+  computedVdUJWLEuler(omega, frhop, V, dVdU);
+
+  res[0] = mat[0]*dVdU[0]+mat[1]*dVdU[5]+mat[2]*dVdU[10]+mat[3]*dVdU[15]+mat[4]*dVdU[20];
+  res[1] = mat[1]*dVdU[6]+mat[4]*dVdU[21];
+  res[2] = mat[2]*dVdU[12]+mat[4]*dVdU[22];
+  res[3] = mat[3]*dVdU[18]+mat[4]*dVdU[23];
+  res[4] = mat[4]*dVdU[24];
+  res[5] = mat[5]*dVdU[0]+mat[6]*dVdU[5]+mat[7]*dVdU[10]+mat[8]*dVdU[15]+mat[9]*dVdU[20];
+  res[6] = mat[6]*dVdU[6]+mat[9]*dVdU[21];
+  res[7] = mat[7]*dVdU[12]+mat[9]*dVdU[22];
+  res[8] = mat[8]*dVdU[18]+mat[9]*dVdU[23];
+  res[9] = mat[9]*dVdU[24];
+  res[10] = mat[10]*dVdU[0]+mat[11]*dVdU[5]+mat[12]*dVdU[10]+mat[13]*dVdU[15]+mat[14]*dVdU[20];  res[11] = mat[11]*dVdU[6]+mat[14]*dVdU[21];
+  res[12] = mat[12]*dVdU[12]+mat[14]*dVdU[22];
+  res[13] = mat[13]*dVdU[18]+mat[14]*dVdU[23];
+  res[14] = mat[14]*dVdU[24];
+  res[15] = mat[15]*dVdU[0]+mat[16]*dVdU[5]+mat[17]*dVdU[10]+mat[18]*dVdU[15]+mat[19]*dVdU[20];  res[16] = mat[16]*dVdU[6]+mat[19]*dVdU[21];
+  res[17] = mat[17]*dVdU[12]+mat[19]*dVdU[22];
+  res[18] = mat[18]*dVdU[18]+mat[19]*dVdU[23];
+  res[19] = mat[19]*dVdU[24];
+  res[20] = mat[20]*dVdU[0]+mat[21]*dVdU[5]+mat[22]*dVdU[10]+mat[23]*dVdU[15]+mat[24]*dVdU[20];  res[21] = mat[21]*dVdU[6]+mat[24]*dVdU[21];
+  res[22] = mat[22]*dVdU[12]+mat[24]*dVdU[22];
+  res[23] = mat[23]*dVdU[18]+mat[24]*dVdU[23];
+  res[24] = mat[24]*dVdU[24];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::postMultiplyBydUdVJWLEuler(double invomega, double frhop, double *V, double *mat, double *res)
+{
+  double dUdV[25];
+  computedUdVJWLEuler(invomega, frhop, V, dUdV);
+
+  res[0] = mat[0]*dUdV[0]+mat[1]*dUdV[5]+mat[2]*dUdV[10]+mat[3]*dUdV[15]+mat[4]*dUdV[20];
+  res[1] = mat[1]*dUdV[6]+mat[4]*dUdV[21];
+  res[2] = mat[2]*dUdV[12]+mat[4]*dUdV[22];
+  res[3] = mat[3]*dUdV[18]+mat[4]*dUdV[23];
+  res[4] = mat[4]*dUdV[24];
+  res[5] = mat[5]*dUdV[0]+mat[6]*dUdV[5]+mat[7]*dUdV[10]+mat[8]*dUdV[15]+mat[9]*dUdV[20];
+  res[6] = mat[6]*dUdV[6]+mat[9]*dUdV[21];
+  res[7] = mat[7]*dUdV[12]+mat[9]*dUdV[22];
+  res[8] = mat[8]*dUdV[18]+mat[9]*dUdV[23];
+  res[9] = mat[9]*dUdV[24];
+  res[10] = mat[10]*dUdV[0]+mat[11]*dUdV[5]+mat[12]*dUdV[10]+mat[13]*dUdV[15]+mat[14]*dUdV[20];  res[11] = mat[11]*dUdV[6]+mat[14]*dUdV[21];
+  res[12] = mat[12]*dUdV[12]+mat[14]*dUdV[22];
+  res[13] = mat[13]*dUdV[18]+mat[14]*dUdV[23];
+  res[14] = mat[14]*dUdV[24];
+  res[15] = mat[15]*dUdV[0]+mat[16]*dUdV[5]+mat[17]*dUdV[10]+mat[18]*dUdV[15]+mat[19]*dUdV[20];  res[16] = mat[16]*dUdV[6]+mat[19]*dUdV[21];
+  res[17] = mat[17]*dUdV[12]+mat[19]*dUdV[22];
+  res[18] = mat[18]*dUdV[18]+mat[19]*dUdV[23];
+  res[19] = mat[19]*dUdV[24];
+  res[20] = mat[20]*dUdV[0]+mat[21]*dUdV[5]+mat[22]*dUdV[10]+mat[23]*dUdV[15]+mat[24]*dUdV[20];  res[21] = mat[21]*dUdV[6]+mat[24]*dUdV[21];
+  res[22] = mat[22]*dUdV[12]+mat[24]*dUdV[22];
+  res[23] = mat[23]*dUdV[18]+mat[24]*dUdV[23];
+  res[24] = mat[24]*dUdV[24];
+}
+
+//------------------------------------------------------------------------------
+
+void VarFcn::postMultiplyBydUdVJWLEuler(double invomega, double frhop, double *V, bcomp *mat, bcomp *res)
+{
+  double dUdV[25];
+  computedUdVJWLEuler(invomega, frhop, V, dUdV);
+
+  res[0] = mat[0]*dUdV[0]+mat[1]*dUdV[5]+mat[2]*dUdV[10]+mat[3]*dUdV[15]+mat[4]*dUdV[20];
+  res[1] = mat[1]*dUdV[6]+mat[4]*dUdV[21];
+  res[2] = mat[2]*dUdV[12]+mat[4]*dUdV[22];
+  res[3] = mat[3]*dUdV[18]+mat[4]*dUdV[23];
+  res[4] = mat[4]*dUdV[24];
+  res[5] = mat[5]*dUdV[0]+mat[6]*dUdV[5]+mat[7]*dUdV[10]+mat[8]*dUdV[15]+mat[9]*dUdV[20];
+  res[6] = mat[6]*dUdV[6]+mat[9]*dUdV[21];
+  res[7] = mat[7]*dUdV[12]+mat[9]*dUdV[22];
+  res[8] = mat[8]*dUdV[18]+mat[9]*dUdV[23];
+  res[9] = mat[9]*dUdV[24];
+  res[10] = mat[10]*dUdV[0]+mat[11]*dUdV[5]+mat[12]*dUdV[10]+mat[13]*dUdV[15]+mat[14]*dUdV[20];  res[11] = mat[11]*dUdV[6]+mat[14]*dUdV[21];
+  res[12] = mat[12]*dUdV[12]+mat[14]*dUdV[22];
+  res[13] = mat[13]*dUdV[18]+mat[14]*dUdV[23];
+  res[14] = mat[14]*dUdV[24];
+  res[15] = mat[15]*dUdV[0]+mat[16]*dUdV[5]+mat[17]*dUdV[10]+mat[18]*dUdV[15]+mat[19]*dUdV[20];  res[16] = mat[16]*dUdV[6]+mat[19]*dUdV[21];
+  res[17] = mat[17]*dUdV[12]+mat[19]*dUdV[22];
+  res[18] = mat[18]*dUdV[18]+mat[19]*dUdV[23];
+  res[19] = mat[19]*dUdV[24];
+  res[20] = mat[20]*dUdV[0]+mat[21]*dUdV[5]+mat[22]*dUdV[10]+mat[23]*dUdV[15]+mat[24]*dUdV[20];  res[21] = mat[21]*dUdV[6]+mat[24]*dUdV[21];
+  res[22] = mat[22]*dUdV[12]+mat[24]*dUdV[22];
+  res[23] = mat[23]*dUdV[18]+mat[24]*dUdV[23];
+  res[24] = mat[24]*dUdV[24];
+}
+   
+//------------------------------------------------------------------------------
+void VarFcn::extrapolatePrimitiveJWLEuler(double un, double c, double *Vb,
+                                            double *Vinter, double *V)
+{
+  if (un == 0.0){
+    V[0] = Vinter[0];
+    V[1] = Vb[1];
+    V[2] = Vb[2];
+    V[3] = Vb[3];
+    V[4] = Vb[4];
+  }else{
+    if (un<0.0){             // INLET
+      if (-un-c > 0.0){      //    SUPERSONIC
+        V[0] = Vb[0];
+        V[1] = Vb[1];
+        V[2] = Vb[2];
+        V[3] = Vb[3];
+        V[4] = Vb[4];
+      }else{                 //    SUBSONIC
+        V[0] = Vinter[0];
+        V[1] = Vb[1];
+        V[2] = Vb[2];
+        V[3] = Vb[3];
+        V[4] = Vb[4];
+      }
+    }else{                   // OUTLET
+      if (un-c > 0.0){       //    SUPERSONIC
+        V[0] = Vinter[0];
+        V[1] = Vinter[1];
+        V[2] = Vinter[2];
+        V[3] = Vinter[3];
+        V[4] = Vinter[4];
+      }else{                //     SUBSONIC
+        V[0] = Vb[0];
+        V[1] = Vinter[1];
+        V[2] = Vinter[2];
+        V[3] = Vinter[3];
+        V[4] = Vinter[4];
+      }
+    }
+  }
+}
+
+//---------------------------------------------------------------------------
+
+void VarFcn::extrapolateCharacteristicJWLEuler(double un, double c, double n[3], 
+                                               double *Vb, double *dV)
+{
+//cf Research/latex/notes/matrices, and look at L and L^{-1}
+/* routine computes boundary conditions using characteristic methods
+ * and assuming that values are small perturbations of values at infinity
+ * initially dV contains perturbations of primitive variables to be extrapolated
+ * at return, dV contains perturbations of primitive variables at the boundary
+ */
+
+  double dVn = dV[1]*n[0]+dV[2]*n[1]+dV[3]*n[2];
+  double ooc2 = 1.0/(c*c);
+  double oorhoc = sqrt(ooc2)/Vb[0];
+  double coeff1 = dV[0] - ooc2*dV[4];
+
+// step 1: primitive to characteristic variations
+  double dW[5];
+  dW[0] = n[0]*coeff1 + n[2]*dV[2] - n[1]*dV[3];
+  dW[1] = n[1]*coeff1 + n[0]*dV[3] - n[2]*dV[1];
+  dW[2] = n[2]*coeff1 + n[1]*dV[1] - n[0]*dV[2];
+  dW[3] = dVn + oorhoc*dV[4];
+  dW[4] =-dVn + oorhoc*dV[4];
+
+// step 2: choose variations to be extrapolated
+//         if incoming characteristic, then the
+//         characteristic is set to 0.0
+//         else, there is nothing to do
+  if (un == 0.0){
+    dW[0] = 0.0;
+    dW[1] = 0.0;
+    dW[2] = 0.0;
+    dW[3] = 0.0;
+  }else{
+    if (un<0.0){             // INLET
+      if (-un-c > 0.0){      //    SUPERSONIC
+        dW[0] = 0.0;
+        dW[1] = 0.0;
+        dW[2] = 0.0;
+        dW[3] = 0.0;
+        dW[4] = 0.0;
+      }else{                 //    SUBSONIC
+        dW[0] = 0.0;
+        dW[1] = 0.0;
+        dW[2] = 0.0;
+        dW[3] = 0.0;
+      }
+    }else{                   // OUTLET
+      if (un-c > 0.0){       //    SUPERSONIC
+      }else{                //     SUBSONIC
+        dW[4] = 0.0;
+      }
+    }
+  }
+
+// step 3: characteristic to primitive variations
+  double sum = dW[3]+dW[4];
+  double diff = dW[3]-dW[4];
+
+  dV[0] = dW[0]*n[0]+dW[1]*n[1]+dW[2]*n[2] + 0.5*Vb[0]*sum/c;
+  dV[1] = n[1]*dW[2]-n[2]*dW[1] + 0.5*n[0]*diff;
+  dV[2] = n[2]*dW[0]-n[0]*dW[2] + 0.5*n[1]*diff;
+  dV[3] = n[0]*dW[1]-n[1]*dW[0] + 0.5*n[2]*diff;
+  dV[4] = 0.5*Vb[0]*c*sum;
+
+}
+//---------------------------------------------------------------------------
+int VarFcn::VerificationJWLEuler(int glob, double pmin, double invomega, 
+             double frho, double *U, double *V)
+{
+//verification of pressure value
+//if pressure < pmin, set pressure to pmin
+//and rewrite V and U!!
+  if(V[4]<pmin){
+    if(verif_clipping)
+      fprintf(stdout, "clip pressure[%d] in jwl gas from %e to %e\n", glob, V[4], pmin);
+    V[4] = pmin;
+    U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
+          +(pmin-frho)*invomega;
+    return 1;
+  }
+  return 0;
+
+}
+

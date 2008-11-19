@@ -48,7 +48,7 @@ public:
 
   void negotiate();
   void negotiateStopping(bool*);
-  void getInfo();
+  double getInfo();
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
 		       DistSVec<double,3> &, DistSVec<double,3> &);
   void getTemperature(DistVec<double>&);

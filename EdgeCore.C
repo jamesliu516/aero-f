@@ -105,14 +105,31 @@ void EdgeSet::updateLength(SVec<double,3>& X)
 //------------------------------------------------------------------------------
 int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf, 
 				int *locToGlobNodeMap, int failsafe, SVec<int,2>& tag,
+                                double *originalVi, double *originalVj,
                                 double phii, double phij)
 {
+
+  double rho = 0.0;
+  double p   = 0.0;
+
+// at interface of two-phase flow simulations, reverts to original value of pressure/density if
+// the reconstructed ones are negative. 
+// checkPressure does not check that pressure > 0, it checks that c^2>0, ie 
+//     for stiffened gas, check that P+P_\infty>0
+//     for Tait         , check not really needed but checks that P>0
+/*  if(phii*phij<0){
+    if (vf->getDensity(Vi)          <=0.0) vf->setDensity(Vi,originalVi);
+    if (vf->checkPressure(Vi,phii) <= 0.0) vf->setPressure(Vi,originalVi,phii);
+
+    if (vf->getDensity(Vj)          <=0.0) vf->setDensity(Vj,originalVj);
+    if (vf->checkPressure(Vj,phij) <= 0.0) vf->setPressure(Vj,originalVj,phij);
+  }
+*/
+//proceed to checking positivity of pressure and density for both nodes of an edge.
   int ierr = 0;
 
-  double rho = vf->getDensity(Vi);
-  double p   = vf->checkPressure(Vi,phii);
-  // not useful anymore since taken care of in LocalRiemannSolver (f77src/eriemann.f)
-  //double pp  = vf->checkPressure(Vi,phij);
+  rho = vf->getDensity(Vi);
+  p   = vf->checkPressure(Vi,phii);
 
   if (rho <= 0.0) {
     if(!failsafe){
@@ -140,14 +157,11 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
       ++ierr;
     }
   }
-  /*if(phii!=phij && pp <= 0.0){
-    fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-              pp, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
-  }
-  */
+
+
+
   rho = vf->getDensity(Vj);
   p   = vf->checkPressure(Vj,phij);
-  //pp  = vf->checkPressure(Vj,phii);
 
   if (rho <= 0.0) {
     if(!failsafe){
@@ -175,11 +189,6 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
       ++ierr;
     }
   }
-  /*if(phii!=phij && pp <= 0.0){
-    fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-              pp, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
-  }
-  */
 
   return ierr;
 
@@ -202,72 +211,6 @@ void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
 }
 //------------------------------------------------------------------------------
 
-int EdgeSet::checkReconstruction(double rho[2], double p[2], int i, int j, 
-                                 int* locToGlobNodeMap, int failsafe, SVec<int,2>& tag)
-{
-
-  int ierr = 0;
-
-  if (rho[0] <= 0.0) {
-    if(!failsafe){
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d -> %d\n",
-          rho[0], locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d -> %d\n",
-           rho[0], locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-      tag[i][0] = 1;
-      ++ierr;
-    }
-  }
-
-  if (p[0] <= 0.0) {
-    if(!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d -> %d\n",
-             p[0], locToGlobNodeMap[i]+1 , rho[0], locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-      ++ierr;
-    }
-    else {
-     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d -> %d\n",
-             p[0], locToGlobNodeMap[i]+1 , rho[0], locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-     tag[i][0] = 1;
-      ++ierr;
-    }
-  }
-
-  if (rho[1] <= 0.0) {
-    if(!failsafe) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d -> %d\n",
-             rho[1], locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1);
-      ++ierr;
-    }
-    else {
-     fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d -> %d\n",
-             rho[1], locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1);
-     tag[j][0] = 1;
-      ++ierr;
-    }
-  }
-  if (p[1] <= 0.0) {
-    if (!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d -> %d\n",
-              p[1], locToGlobNodeMap[j]+1 , rho[1], locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1);
-      ++ierr;
-    }
-    else {
-      fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d -> %d\n",
-              p[1], locToGlobNodeMap[j]+1 , rho[1], locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1);
-      tag[j][0] = 1;
-      ++ierr;
-    }
-  }
-
-  return ierr;
-
-}
-
-//------------------------------------------------------------------------------
 #ifdef EDGE_LENGTH
 void EdgeSet::computeCharacteristicEdgeLength(SVec<double,3> &X, double &minLength, double &aveLength, double &maxLength, int &numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
 {
@@ -296,17 +239,3 @@ void EdgeSet::computeCharacteristicEdgeLength(SVec<double,3> &X, double &minLeng
 }
 #endif
 //---------------------------------------------------------------------------------
-  
-    
-
-
-
-
-
-
-
-
-
-
-
-

@@ -23,13 +23,14 @@ using std::min;
 #include <Vector3D.h>
 #include <Vector.h>
 #include <GenMatrix.h>
+#include <LowMachPrec.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, Vec<double> &idtv,
-                              double beta, double k1, double cmach)
+                              TimeLowMachPrec &tprec)
 {
 
   double Vmid[dim];
@@ -62,7 +63,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    locbeta = fmin(fmax(k1*locMach, beta),cmach);
+    locbeta = tprec.getBeta(locMach);
     
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -84,7 +85,8 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 template<int dim>
 void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                               SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                              TimeLowMachPrec &tprec)
 {
 
   double Vmid[dim], dVmid[dim];
@@ -132,18 +134,10 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
     double un = u * n - ndot;
     double dun = du * n + u * dn - dndot;
     double locMach = varFcn->computeMachNumber(Vmid);
-    //double locMach = fabs(un/a); //local Preconditioning (ARL)
-    locbeta = fmin(fmax(k1*locMach, beta),cmach);
-    if (fmin(fmax(k1*locMach, beta),cmach) == cmach)
-      dLocbeta = 0.0;
-    else
-      if (fmax(k1*locMach, beta) == beta)
-        dLocbeta = 0.0;
-      else {
-        double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
-        dLocbeta = k1*dLocMach;
-      }
-    
+    locbeta = tprec.getBeta(locMach);
+    double dLocMach = varFcn->computeDerivativeOfMachNumber(Vmid, dVmid, dMach);
+    dLocbeta = tprec.getdBeta(locMach,dLocMach);
+
     double beta2 = locbeta * locbeta;
     double dbeta2 = 2.0*locbeta * dLocbeta;
     double coeff1 = (1.0+beta2)*un;
@@ -171,12 +165,12 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 template<int dim>
 void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
                               SVec<double,dim> &V, Vec<double> &dt,
-                              double beta, double k1, double cmach, Vec<double> &Phi, int subnum)
+                              TimeLowMachPrec &tprec, Vec<double> &Phi, int subnum)
 {
   double Phimid, Vmid[dim];
   double S, invS, ndot;
   double a, un, mach;
-  double beta2, coeff1, coeff2;
+  double locbeta, beta2, coeff1, coeff2;
   int i,j;
   Vec3D n, u;
 
@@ -206,9 +200,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(Vmid,Phimid);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta*locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
@@ -218,9 +213,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[i],Phi[i]);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
 
@@ -229,9 +225,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       un = u * n - ndot;
       mach = varFcn->computeMachNumber(V[j],Phi[j]);
 
-      beta2 = beta * beta;
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
       coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*beta*a,2.0),0.5);
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }
@@ -432,10 +429,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
 
+    //if(Phi[i]*Phi[j] > 0.0) recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+    //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);
+
     // check for negative pressure or density //
     if (!rshift)
       ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
-                                       failsafe, tag, Phi[i], Phi[j]);
+                                       failsafe, tag, V[i], V[j], Phi[i], Phi[j]);
 
     if (ierr) continue;
 
@@ -551,7 +551,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 
 template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoState, 
-                                              Vec<double> &irey, 
+                                              Vec<double> &irey, SVec<double,3> &X, 
                                               Vec<double> &ctrlVol, SVec<double,dim> &V, 
                                               GenMat<Scalar,neq> &A)
 {
@@ -563,15 +563,18 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
 
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
+  double length;
 
   for (int l=0; l<numEdges; ++l) {
 
     int i = ptr[l][0];
     int j = ptr[l][1];
     edgeirey = 0.5*(irey[i]+irey[j]);
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if(fluxFcn){
-      fluxFcn[BC_INTERNAL]->computeJacobians(edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
 
       if (masterFlag[l]) {
         Scalar *Aii = A.getElem_ii(i);
@@ -604,7 +607,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
 
 template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoState,
-                                              Vec<double> &irey, 
+                                              Vec<double> &irey, SVec<double,3> &X, 
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A,
                                               int *nodeType)
@@ -619,7 +622,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
   Scalar *Ajj;
   Scalar *Aij;
   Scalar *Aji;
-  double edgeirey;
+  double edgeirey, length;
 
   double dfdUi[neq*neq], dfdUj[neq*neq];
   bool atInleti, atInletj;
@@ -631,6 +634,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
     int i = ptr[l][0];
     int j = ptr[l][1];
     edgeirey = 0.5*(irey[i]+irey[j]);
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if(nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED ||
        nodeType[i] == BC_INLET_MOVING ||nodeType[i] == BC_OUTLET_MOVING)
@@ -644,7 +649,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
     else
       atInletj = false;
 
-    fluxFcn[BC_INTERNAL]->computeJacobians(edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
+    fluxFcn[BC_INTERNAL]->computeJacobians(length, edgeirey, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj);
 
 /* first case: the two nodes are interior nodes
  * then the routine remains the same as usual
@@ -770,6 +775,7 @@ template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
                                               NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                              SVec<double,3> &X, 
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<double> &Phi)
 {
@@ -779,6 +785,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   double gradphi[3];
   double gphii[3];
   double gphij[3];
+  double length;
 
   double dfdUi[neq*neq], dfdUj[neq*neq];
   double dfdUk[neq*neq], dfdUl[neq*neq];
@@ -801,14 +808,15 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
     int j = ptr[l][1];
-
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if (Phi[i]*Phi[j] > 0.0) { 
        if (Phi[i] > 0.0  && Phi[j] > 0.0){
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
        }
        if (Phi[i] < 0.0  && Phi[j] < 0.0){
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
        }
     } else {
       //ngradLS returns nodal gradients of phi
@@ -835,8 +843,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       int epsj = 0;
       riemann.computeRiemannSolution(Vi,Vj,Phi[i],Phi[j],gradphi,varFcn,
                                      epsi,epsj,Wi,Wj,i,j);
-      fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, epsi);
-			fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, epsj);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, epsi);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, epsj);
 
     }
 
@@ -868,6 +876,7 @@ template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
                                               NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                              SVec<double,3> &X, 
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<double> &Phi,
                                               int *nodeType)
@@ -886,6 +895,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   double dfdUi[neq*neq], dfdUj[neq*neq];
   bool atInleti, atInletj;
+  double length;
 
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
@@ -909,6 +919,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
     int j = ptr[l][1];
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
   
     double gradphi[3];
     double gphii[3];
@@ -941,9 +953,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
     if (Phi[i]*Phi[j] >   0.0) {
        if (Phi[i] >  0.0  && Phi[j] >  0.0)
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
        if (Phi[i] <  0.0  && Phi[j] <  0.0)
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
     } else {
        varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
        if (varFcn->getType() == VarFcn::GASINLIQUID) {
@@ -952,14 +964,14 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
        }
        else{
         if (Phi[i] >= 0.0)  
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
         else
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
 
         if (Phi[j] >= 0.0) 
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
         else  
-         fluxFcn[BC_INTERNAL]->computeJacobians(0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
 
        }
     }                                                                                                       

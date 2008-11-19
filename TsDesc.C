@@ -96,6 +96,7 @@ TsDesc<dim>::~TsDesc()
   if (A) delete A;
   if (V) delete V;
   if (R) delete R;
+  if (Rinlet) delete Rinlet;
   if (data) delete data;
   if (input) delete input;
   if (output) delete output;
@@ -109,6 +110,7 @@ TsDesc<dim>::~TsDesc()
   if (postOp) delete postOp;
   if (mmh) delete mmh;
   if (hth) delete hth;
+  if (forceNorms) delete forceNorms;
 
 }
 
@@ -152,18 +154,24 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     else if(ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       vf = new VarFcnWaterCompressibleEuler3D(ioData);
     }
+    else if(ioData.eqs.fluidModel.fluid == FluidModelData::JWL)
+      vf = new VarFcnJWLEuler3D(ioData);
   }else if (ioData.eqs.numPhase == 2 ){
     if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
-      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
+      if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInGasEuler3D(ioData);
-      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::JWL)
+        vf = new VarFcnJWLInGasEuler3D(ioData);
     }else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS)
+      if (ioData.eqs.fluidModel2.fluid == FluidModelData::GAS)
         vf = new VarFcnGasInLiquidEuler3D(ioData);
-      else if (ioData.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID)
+      else if (ioData.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
         vf = new VarFcnLiquidInLiquidEuler3D(ioData);
-    }
+    }//else if (ioData.eqs.fluidModel.fluid == FluidModelData::JWL)
+     // if (ioData.eqs.fluidModel2.fluid == FluidModelData::JWL)
+     //   vf = new VarFcnJWLInJWLEuler3D(ioData);
   }
 
   if (!vf) {
@@ -219,6 +227,20 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     else
       _mmh = new AeroMeshMotionHandler(ioData, varFcn, bcData->getInletPrimitiveState(),
 				       geoSource.getMatchNodes(), domain, mp);
+    //check that algorithm number is consistent with simulation in special case RK2-CD
+    // if C0 and RK2 then RK2DGCL is needed!
+    if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
+      if(ioData.ts.type == TsData::EXPLICIT &&
+           ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
+        if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
+             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL &&
+             ioData.dgcl.volumes    == DGCLData::EXPLICIT_RK2_VOL)){
+          com->fprintf(stderr, "***Error: Computation of the normals, velocities or volumes (%d,%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities, ioData.dgcl.volumes);
+          com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
+          exit(1);
+        }
+      }
+    }
   }
   else if (ioData.problem.type[ProblemData::FORCED]) {
     if (ioData.problem.type[ProblemData::ACCELERATED])
@@ -312,6 +334,8 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
   timer->addFluidSolutionTime(t0);
+  timer->addTimeStepTime(t0);
+
   return dt;
 }
 
@@ -475,7 +499,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   else
     monitorInitialState(it, U);
   
-  output->setMeshMotionHandler(dynamic_cast<RigidMeshMotionHandler *>(mmh));
+  output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
 
   timer->setSetupTime();
@@ -553,8 +577,10 @@ void TsDesc<dim>::outputPositionVectorToDisk()
 
   *X = *Xs;
 
-  int algNum = mmh->getAlgNum();
-  if (algNum == 8)  return;
+  if (mmh)  {
+    int algNum = mmh->getAlgNum();
+    if (algNum == 8)  return;
+  }
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
 
@@ -726,7 +752,7 @@ bool TsDesc<dim>::monitorForceConvergence(IoData &ioData, int it, DistSVec<doubl
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
-  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+  postOp->computeForceAndMoment(x0, *this->X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;
@@ -776,7 +802,7 @@ bool TsDesc<dim>::monitorAvgForceConvergence(IoData &ioData, int it, DistSVec<do
   x0[1] = ioData.output.transient.y0;
   x0[2] = ioData.output.transient.z0;
 
-  postOp->computeForceAndMoment(x0, *this->X, U, Fi, Mi, Fv, Mv);
+  postOp->computeForceAndMoment(x0, *this->X, U, 0, Fi, Mi, Fv, Mv);
 
   F = 0.0;
   M = 0.0;

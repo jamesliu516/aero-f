@@ -70,46 +70,13 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     Rn = Un->alias();
 
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
-  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
   fet = spo->getFemEquationTerm();
 
   //preconditioner setup
-  mach = ioData.bc.inlet.mach;
-  cmach = ioData.prec.cmach;
-  k1 = ioData.prec.k;
-  betav = ioData.prec.betav;
-  beta = 1.0;
-
-  if (ioData.ts.prec == TsData::PREC){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_)
-      {
-        if (ioData.ts.type == TsData::IMPLICIT && 
-	    ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
-	{
-          fprintf(stdout, "*** Error: temporal lowmach preconditioner implemented only for backward euler \n");
-          exit(1);
-        }
-        else{
-          prec = true;
-          beta = ioData.prec.mach;
-        }
-        
-      }
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_)
-        prec = false;
-        
-  }
-  else prec = false;
-  //end of preconditioner setup
-
+  tprec.setup(ioData);
+  sprec.setup(ioData);
 
   subTimeState = new TimeState<dim>*[numLocSub];
 #pragma omp parallel for
@@ -142,41 +109,11 @@ DistTimeState<dim>::DistTimeState(const DistTimeState<dim> &ts, bool typeAlloc, 
   locAlloc = typeAlloc;
 
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
-  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
   //preconditioner setup
-  mach = ioData.bc.inlet.mach;
-  cmach = ioData.prec.cmach;
-  k1 = ioData.prec.k;
-  betav = ioData.prec.betav;
-  beta = 1.0;
-
-  if (ioData.ts.prec == TsData::PREC){
-   if(ioData.problem.alltype == ProblemData::_STEADY_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_STEADY_AEROTHERMOELASTIC_)
-      {
-        if (ioData.ts.type == TsData::IMPLICIT &&
-            ioData.ts.implicit.type != ImplicitData::BACKWARD_EULER)
-        {
-          fprintf(stdout, "*** Error: temporal lowmach preconditioner implemented only for backward euler \n");
-          exit(1);
-        }
-        else{
-          prec = true;
-          beta = ioData.prec.mach;
-        }
-      }
-   if(ioData.problem.alltype == ProblemData::_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_THERMO_ ||
-      ioData.problem.alltype == ProblemData::_UNSTEADY_AEROTHERMOELASTIC_)
-        prec = false;
-  }
-  else prec = false;
-  //end preconditioner setup
+  tprec.setup(ioData);
+  sprec.setup(ioData);
 
   varFcn = ts.varFcn;
   fet = ts.fet;
@@ -301,19 +238,80 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
 
 //------------------------------------------------------------------------------
 template<int dim>
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
+                               DistSVec<double,dim> &Ufar,
+                               DistSVec<double,dim> &U, IoData &iod)
+{
+
+  *Un = Ufar;
+
+  setupUVolumesInitialConditions(iod);
+  setupUMultiFluidInitialConditions(iod,X);
+
+  if (name[0] != 0) {
+    domain->readVectorFromFile(name, 0, 0, *Un);
+    if (data->use_nm1)
+      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
+    if (data->use_nm2)
+      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
+  }
+
+  U  = *Un;
+  if (data->use_nm1 && !data->exist_nm1)
+    *Unm1 = *Un;
+  if (data->use_nm2 && !data->exist_nm2)
+    *Unm2 = *Unm1;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    if (!subTimeState[iSub])
+      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
+                                              (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
+{
+
+  // loop on all Volumes to setup U0
+  if(!iod.volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
+        //                                 and equation of state 'fluidModel'
+        domain->setupUVolumesInitialConditions(it->first, it->second->fluidModel, it->second->volumeInitialConditions, *Un);
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
+{
+  // These initial conditions are setup using MultiFluid.FluidModel2
+  // which can be a gas or a liquid or a jwl gas.
+  // Note that Un was already initialized either using the far-field
+  // or using the definition of volumes. Therefore the only initialization
+  // left to do is for the spheres and other geometric shapes.
+
+  if(iod.mf.initialConditions.nspheres>0)
+    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
+      domain->setupUMultiFluidInitialConditionsSphere(iod.mf.fluidModel2, *(iod.mf.initialConditions.sphere[i]),X,*Un);
+
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, X, *Un);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
                                DistVec<double> &Phi,
                                DistSVec<double,dim> &U, IoData &iod)
 {
   *Un = Ufar;
-
-  double dist, r, xb, yb, zb;
-  xb   = iod.mf.icd.s1.cen_x;
-  yb   = iod.mf.icd.s1.cen_y;
-  zb   = iod.mf.icd.s1.cen_z;
-  r    = iod.mf.icd.s1.r;
-  int glob;
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
@@ -357,7 +355,7 @@ template<int dim>
 void DistTimeState<dim>::rstVar(IoData & ioData) 
 {
 
-  mach = ioData.bc.inlet.mach;
+  //mach = ioData.bc.inlet.mach;
 
 }
 
@@ -371,7 +369,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 
   varFcn->conservativeToPrimitive(U, *V);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, betav, beta, k1, cmach);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);
 
   double dt_glob;
   if (data->dt_imposed > 0.0) 
@@ -409,7 +407,7 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 {
   varFcn->conservativeToPrimitive(U, *V, &Phi);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, beta, k1, cmach, Phi);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, Phi);
                                                                                                          
   double dt_glob;
   if (data->dt_imposed > 0.0)
@@ -493,13 +491,13 @@ template<class Scalar, int neq>
 void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
                                        DistSVec<double,dim> &U)
 {
-  if(prec){
+  if(tprec.timePreconditioner()){
     if(varFcn->getType() == VarFcn::GAS)
       addToJacobianGasPrec(ctrlVol, A, U);
     else if(varFcn->getType() == VarFcn::LIQUID)
       addToJacobianLiquidPrec(ctrlVol, A, U);
     else{
-      fprintf(stdout, "*** Error: no preconditioner for multiphase flows\nEXITING\n");
+      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }else{
@@ -540,13 +538,13 @@ void DistTimeState<dim>::addToJacobianGasPrec(DistVec<double> &ctrlVol, DistMat<
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianGasPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, gam, pstiff, beta, k1, cmach, (*irey)(iSub), nodeType[iSub]);
+                                varFcn, gam, pstiff, tprec, (*irey)(iSub), nodeType[iSub]);
   }else{
     int* empty = 0;
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianGasPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, gam, pstiff, beta, k1, cmach, (*irey)(iSub), empty);
+                                varFcn, gam, pstiff, tprec, (*irey)(iSub), empty);
   }
 }
 
@@ -561,13 +559,13 @@ void DistTimeState<dim>::addToJacobianLiquidPrec(DistVec<double> &ctrlVol, DistM
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianLiquidPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, beta, k1, cmach, (*irey)(iSub), nodeType[iSub]);
+                                varFcn, tprec, (*irey)(iSub), nodeType[iSub]);
   }else{
     int* empty = 0;
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianLiquidPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, beta, k1, cmach, (*irey)(iSub), empty);
+                                varFcn, tprec, (*irey)(iSub), empty);
   }
 }
 
@@ -754,13 +752,13 @@ void DistTimeState<dim>::multiplyByTimeStep(DistVec<double>& dPhi)
 template<int dim>
 void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, DistSVec<double,dim>& dU)
 {
-  if (prec){
+  if (tprec.timePreconditioner()){
     if (varFcn->getType() == VarFcn::GAS )
       multiplyByPreconditionerPerfectGas(U0,dU);
     else if (varFcn->getType() == VarFcn::LIQUID)
       multiplyByPreconditionerLiquid(U0,dU);
     else{
-      fprintf(stdout, "*** Error: no preconditioner for multiphase flows \nEXITING\n");
+      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }
@@ -790,8 +788,9 @@ void DistTimeState<dim>::multiplyByPreconditionerPerfectGas(DistSVec<double,dim>
         double c2 = gam*(p+pstiff)/ro;
 
         double locMach = sqrt(q2/c2); //local Preconditioning (ARL)
-        double locbeta = fmax(k1*locMach, beta);
-        locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta,cmach);
+        double locbeta = tprec.getBeta(locMach,_irey[i]);
+        //double locbeta = fmax(k1*locMach, beta);
+        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta,cmach);
 
         double beta2 =  locbeta * locbeta;
         double qhat2 = (q2 * gam1)/2.0;
@@ -862,8 +861,9 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
         double pressure = varFcn->getPressure(V);
         double e = varFcn->computeRhoEnergy(V)/V[0];
         double locMach = varFcn->computeMachNumber(V); //local Preconditioning (ARL)
-        double locbeta = fmax(k1*locMach, beta);
-        locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
+        double locbeta = tprec.getBeta(locMach,_irey[i]);
+        //double locbeta = fmax(k1*locMach, beta);
+        //locbeta = fmin((1.0+sqrt(_irey[i]))*locbeta, cmach);
         double beta2 = (locbeta*locbeta);
         double beta2m1 = beta2 - 1.0;
         
@@ -943,7 +943,6 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
   }
   if (data->use_nm1) {
     varFcn->conservativeToPrimitive(*Un, *V, &Phi1);
-    fprintf(stdout, "finish changes and check if it works first\n");
     varFcn->updatePhaseChange(*V, *Unm1, Phi, Phi1, Vgf, Vgfweight, riemann);
     data->exist_nm1 = true;
   }
@@ -1061,7 +1060,7 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
   }
 
   //domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, dbeta, k1, cmach);
-  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, betav, beta, k1, cmach);
+  domain->computeDerivativeOfInvReynolds(fet, varFcn, geoState, X, dX, ctrlVol, dCtrlVol, V, dV, *idti, *dIdti, *idtv, *dIdtv, *dIrey, dMach, tprec, sprec);
 
   return dIrey;
 

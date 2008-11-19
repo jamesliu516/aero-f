@@ -31,6 +31,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   // frequency for reinitialization of level set
   int frequencyLS;
+
+  MultiFluidData::InterfaceType interfaceType; //to advance levelset or not
   
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -48,6 +50,10 @@ class LevelSetTsDesc : public TsDesc<dim> {
                         DistSVec<double,dim> &);
   void outputToDisk(IoData &, bool*, int, int, int, double, double, 
 		    	DistSVec<double,dim> &);
+  void outputForces(IoData &, bool*, int, int, int, double, double,
+                    DistSVec<double,dim> &);
+  void resetOutputToStructure(DistSVec<double,dim> &);
+  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;

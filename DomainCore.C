@@ -52,6 +52,7 @@ Domain::Domain()
   edgePat = 0;
   momPat = 0;
   csPat = 0;
+  engPat = 0;
   fsPat = 0;
   inletVec3DPat = 0;
   inletCountPat = 0;
@@ -128,6 +129,7 @@ Domain::~Domain()
   if (edgePat) delete edgePat;
   if (momPat) delete momPat;
   if (csPat) delete csPat;
+  if (engPat) delete engPat;
   if (fsPat) delete fsPat;
   if (inletVec3DPat) delete inletVec3DPat;
   if (inletCountPat) delete inletCountPat;
@@ -207,6 +209,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   momPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   csPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+  engPat =  new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   fsPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend);
 
 // Included (MB)
@@ -243,6 +246,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
     subDomain[iSub]->setComLenNodes(6, *weightPat);
+    subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
   }
 
@@ -253,6 +257,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   volPat->finalize();
   levelPat->finalize();
   csPat->finalize();
+  engPat->finalize();
   fsPat->finalize();
   vec3DPat->finalize();
   weightPat->finalize();
@@ -1228,6 +1233,34 @@ void Domain::applySmoothing(DistVec<double> &ctrlVol, DistVec<double> &Q)
     subDomain[iSub]->applySmoothing(ctrlVol(iSub), Q(iSub));
 
 }
+
+//------------------------------------------------------------------------------
+
+void Domain::applySmoothing(DistVec<double> &ctrlVol, DistSVec<double,2> &Q)
+{
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->sndData(*vecPat, Q.subData(iSub));
+  }
+
+
+  vecPat->exchange();
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*vecPat, Q.subData(iSub));
+
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->applySmoothing(ctrlVol(iSub), Q(iSub));
+
+
+}
+
 //------------------------------------------------------------------------------
 
 void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctrlVol, int scopeDepth,
@@ -1235,30 +1268,107 @@ void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctr
 {
   macroCells->computeDelRatios(ctrlVol, scopeDepth, rmin, rmax, rsum, rrsum, numNodes);
 }
-//------------------------------------------------------------------------------
-
-void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &CsDeltaSq,
-                                   DistSVec<double,3> &X, DistVec<double> &Cs, DistVec<double> &VolSum)
-{
-#pragma omp parallel for
-   for (int iSub = 0; iSub < numLocSub; ++iSub)
-     subDomain[iSub]->computeDynamicLESTerm(dles, CsDeltaSq(iSub), X(iSub), Cs(iSub), VolSum(iSub));
-}
 
 //------------------------------------------------------------------------------
-//         FLUID LEVEL SET SOLUTION AND REINITIALIZATION                      --
+//         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
-void Domain::setPhi(DistVec<double> &Phi)
+
+void Domain::setPhiForFluid1(DistVec<double> &Phi)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhi(Phi(iSub));
+    subDomain[iSub]->setPhiForFluid1(Phi(iSub));
 
 }
 
 //------------------------------------------------------------------------------
-void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi, int level)
+void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb, 
+                                          double zb, double r, double invertGasLiquid,
+                                          DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiWithDistanceToGeometry(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb, 
+                                          double zb, double r, double invertGasLiquid,
+                                          DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiByGeometricOverwriting(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
+                                DistVec<double> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForShockTube(X(iSub), radius, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
+                             double z, double radius,
+                             double invertGasLiquid, DistVec<double> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForBubble(X(iSub),
+                                     x, y, z, radius, invertGasLiquid,
+                                     Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+
+void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi){
+
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
+               DistSVec<double,3> &X, DistVec<double> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsSphere(ic, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+               DistSVec<double,3> &X, DistVec<double> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsPlane(ip, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi,
+                               int level)
 {
 
   int iSub;
@@ -1392,8 +1502,42 @@ void Domain::computeCharacteristicEdgeLength(DistSVec<double,3> &X, double& minL
 //    subDomain[iSub]->printTriangulatedSurface();
 //}
 
+//--------------------------------------------------------------------------------
 
+void Domain::computeTetsConnectedToNode(DistVec<int> &Ni)
+{
 
+ int iSub;
 
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->computeTetsConnectedToNode(Ni(iSub));
 
+#pragma omp parallel for
+   for(iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Ni.subData(iSub)));
 
+   levelPat->exchange();
+
+#pragma omp parallel for
+   for (iSub = 0; iSub < numLocSub; ++iSub)
+     subDomain[iSub]->addRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Ni.subData(iSub)));
+
+}
+
+// ------------------------------------------------------------------------------------------
+
+void Domain::outputCsDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
+                                DistSVec<double,2> &Cs, DistSVec<double,3> &X,
+                                DistVec<double> &CsVal)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->outputCsDynamicLES(dles, Cs(iSub), X(iSub), CsVal(iSub));
+
+  applySmoothing(ctrlVol, CsVal);
+
+}
+
+// ------------------------------------------------------------------------------------------

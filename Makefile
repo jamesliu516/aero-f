@@ -42,7 +42,9 @@ CXXOBJS    = BcFcnCore.o \
              FluxFcnDesc.o \
              FluxFcnDescPerfectGas.o \
              FluxFcnDescWaterCompressible.o \
+             FluxFcnDescJWL.o \
              FluxFcnDescGasInGas.o \
+             FluxFcnDescJWLInGas.o \
              FluxFcnDescLiquidInLiquid.o \
              FluxFcnDescGasInLiquid.o \
              GeoData.o \
@@ -75,7 +77,6 @@ CXXOBJS    = BcFcnCore.o \
              TsRestartCore.o \
              VarFcn.o \
              VMSLESTerm.o \
-             VolumicForceTerm.o \
              DynamicVMSTerm.o \
              WallFcnCore.o \
              BCApplierCore.o \
@@ -106,8 +107,22 @@ CXX       = g++
 #include default.defs
 #include nivation.defs
 
+#usescalapack = false
+usescalapack = true
+ifeq ($(usescalapack),true)
+  SFLAGS       = -DDO_SCALAPACK
+else
+  SFLAGS       =
+endif
+
+
 host := $(shell hostname -s)
 ifeq ($(host), frontend-0)
+  host = nivation
+  CXX = g++
+endif
+
+ifeq ($(host), nivation)
   host = nivation
   CXX = g++
 endif
@@ -125,16 +140,6 @@ endif
 ifeq ($(findstring compute-2-, $(host)), compute-2-)
   host = 64bit
   CXX = g++
-endif
-
-ifeq ($(findstring node, $(host)), node)
-  host = lancer
-  CXX = g++
-endif
-
-ifeq ($(findstring falcon, $(host)), falcon)
-  host = falcon
-  CXX = CC
 endif
 
 ifeq ($(host), thunderbird)
@@ -164,7 +169,7 @@ findarpack = $(shell ls $(ARPACKLIB))
 ifeq ($(findstring $(ARPACKLIB), $(findarpack)), $(ARPACKLIB))
   DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float -DDO_MODAL
 else
-#  ARPACKLIB = 
+  ARPACKLIB = 
   DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
 endif
 
@@ -186,10 +191,10 @@ default: $(CXXOBJS) f77src parser utils
 fluid.so: $(CXXOBJS) f77src parser utils
 	mkdir -p bin
 	$(CXX) $(CXXFLAGS) -DCREATE_DSO -c Main.C
-	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(FORTLIBS)
+	$(LD) $(CXXFLAGS) $(SOFLAGS) -o $(DSOEXE) Main.o $(CXXOBJS) -Lf77src -Lparser -lf77src -lparser -Lutils -lutils $(LIBS) $(MPLIBS) $(FORTLIBS)
 
 f77src::
-	(cd f77src; $(MAKE) "FC=$(F77)" "F77=$(F77)" "FFLAGS=$(OFLAGS)")
+	(cd f77src; $(MAKE) "FC=$(F77)" "F77=$(F77)" "FFLAGS=$(OFLAGS)" "usescalapack=$(usescalapack)")
 
 parser::
 	(cd parser; $(MAKE) "CXX=$(CXX)" "CXXFLAGS=$(CXXFLAGS)" "SAR=$(SAR)")

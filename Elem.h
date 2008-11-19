@@ -111,7 +111,7 @@ public:
   virtual
   void computeMBarAndM(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,1> **, 
 		       SVec<double,3> &, SVec<double,dim> &,
-		       SVec<double,dim> &, SVec<double,dim> &) = 0;
+		       SVec<double,dim> &, SVec<double,dim> &) = 0;  
   
   virtual
   void computeDynamicVMSTerm(DynamicVMSTerm *, SVec<double,dim> **, SVec<double,3> &,
@@ -126,25 +126,20 @@ public:
   void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V, 
                           SVec<double,dim> &R) = 0;
   
-  virtual 
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 
-			     SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &) = 0;
-    
+  virtual
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                             SVec<double,dim> &, SVec<double,dim> &) = 0;    
+
   virtual
   void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
 			       SVec<double,3> &, Vec<double> &, double *, 
 			       SVec<double,dim> &, SVec<double,dim> &) = 0;
   
-  
   virtual
-  void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, 
-		    SVec<double,3> &, SVec<double,dim> &, double, double) = 0;
+  void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, Vec<double> &, 
+                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double) = 0;
   
-  virtual
-  void computeCsValues(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, 
-		       SVec<double,2> &, Vec<double> &,
-		       SVec<double,3> &, double, double) = 0;
-  
+
 // Included (MB)
   virtual
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *, SVec<double,3> &, SVec<double,3> &, Vec<double> &,
@@ -240,29 +235,27 @@ public:
   void computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 		          SVec<double,dim> &V, SVec<double,dim> &R) {
     t->computeWaleLESTerm(wale, X, V, R);
+  }  
+
+  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+                   SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
+    t->computeDynamicLESTerm(dles, Cs, X, V, R);
   }
-  
-  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
-    t->computeDynamicLESTerm(dles, Cs, VolSum, X, V, R);
-  }
+
   
   void computeFaceGalerkinTerm(FemEquationTerm *fet, int face[3], int code, Vec3D &n, 
 			       SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
 			       SVec<double,dim> &V, SVec<double,dim> &R) {
     t->computeFaceGalerkinTerm(fet, face, code, n, X, d2wall, Vwall, V, R);
   }
-  
-  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
-		    SVec<double,3> &X, SVec<double,dim> &V, double gam, double R) {
-    t->computeP1Avg(VCap, Mom_Test, Eng_Test, X, V, gam, R);
+
+
+  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+                    Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                    SVec<double,dim> &V, double gam, double R) {
+    t->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
   }
   
-  void computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-		       SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
-		       SVec<double,3> &X, double gam, double R) {
-    t->computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
-  }
 
 // Included (MB)
   void computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
@@ -456,31 +449,7 @@ public:
 
   virtual void computeStiffBallVertex(double *, SVec<double,3> &) = 0;
   virtual void computeStiffTorsionSpring(double *, SVec<double,3> &) = 0;
-
-  virtual void computeLij(double [3][3], double [3], 
-			  double [6], double [5]) = 0;
-  virtual void computeBij(double [3][3], double [6], double , 
-			  double [3][3], double , double [5]) = 0;
-  virtual void computeLi(double [3], double , double , 
-			 double [3], double [5]) = 0;
-  virtual void computeZi(double [3], double , double , double [3], 
-			 double [3], double [5], double , double) = 0; 
-  virtual void computePij(double [3][3], double [3][3]) = 0;
-
-  virtual void computeTemp(double *[4], double [4], double) = 0;
-
-  virtual void computeTempGradient(double [4][3], double [4], double [3]) = 0;
-
-  virtual double computeNormSij(double [3][3]) = 0;
-
-  virtual void computeVelocity(double *[4], double [4][3],
-			       double [3], double [4]) = 0;
-  virtual void computeVelocityGradient(double [4][3], double [4][3], 
-				       double [3][3]) = 0;
   
-  virtual void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
-				     Vec<double> &, Vec<double> &) = 0;
-
 // Included (MB)
   virtual double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &) = 0;
 
@@ -562,15 +531,15 @@ public:
     wrapper->computeWaleLESTerm(wale, X, V, R);
   }
  
-  
+
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
+  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+                             SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {  
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeDynamicLESTerm(dles, Cs, VolSum, X, V, R);
+    wrapper->computeDynamicLESTerm(dles, Cs, X, V, R);
   }
   
   template<int dim>
@@ -583,28 +552,18 @@ public:
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeFaceGalerkinTerm(fet, face, code, n, X, d2wall, Vwall, V, R);
   }
-  
-  template<int dim>
-  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
-		    SVec<double,3> &X, SVec<double,dim> &V, double gam, double R) {
-    ElemHelper_dim<dim> h;
-    char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeP1Avg(VCap, Mom_Test, Eng_Test, X, V, gam, R);
-  }
-  
-  template<int dim>
-  void computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-		       SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
-		       SVec<double,3> &X, double gam, double R) {
-    ElemHelper_dim<dim> h;
-    char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
-  }
 
+
+  template<int dim>
+  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+                       Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                       SVec<double,dim> &V, double gam, double R) {
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+  }  
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
@@ -754,9 +713,9 @@ public:
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
-  
+
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
+  void computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
 			     SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
@@ -768,16 +727,11 @@ public:
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
+
   template<int dim>
-  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Eng_Test, 
-		    SVec<double,3> &X, SVec<double,dim> &V, double gam, double R) {
-    fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
-  }
-  
-  template<int dim>
-  void computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-		       SVec<double,6> &Eng_Test, SVec<double,2> &Cs, Vec<double> &VolSum,
-		       SVec<double,3> &X, double gam, double R) {
+  void computeP1Avg(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test, SVec<double,6> &Sij_Test, 
+                    Vec<double> &modS_Test, SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                    SVec<double,dim> &V, double gam, double R) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
@@ -866,7 +820,7 @@ public:
 
   int size() const { return numElems; }
 
-  int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &, map<int, PorousMedia *> &);
+  int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 
@@ -894,20 +848,13 @@ public:
 		          SVec<double,dim> &);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 
-			     SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
-  
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
-			     Vec<double> &, Vec<double> &);
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &,
+                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
-  void computeTestFilterAvgs(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &,
-			     SVec<double,3> &, SVec<double,dim> &, double, double);
-  
-  template<int dim>
-  void computeCsValues(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &,
-		       SVec<double,2> &, Vec<double> &, SVec<double,3> &, double, double);
-  
+  void computeTestFilterAvgs(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &,Vec<double> &,
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
 				   Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);

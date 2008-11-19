@@ -862,6 +862,22 @@ public:
   }
 */
 
+  Scalar min() const {
+    Scalar vmin = v[0][0];
+    for (int i=0; i<len; ++i)
+      for (int j=0; j<dim; ++j)
+        vmin = v[i][j] < vmin ? v[i][j] : vmin;
+    return vmin;
+  }
+
+  Scalar max() const {
+    Scalar vmax = v[0][0];
+    for (int i=0; i<len; ++i)
+      for (int j=0; j<dim; ++j)
+        vmax = v[i][j] > vmax ? v[i][j] : vmax;
+    return vmax;
+  }
+
 #ifdef USE_IOSTREAM
   void print(char *msg = "") { 
     if (msg) cerr << msg << endl;
@@ -875,24 +891,20 @@ public:
   }
 #endif
 
-  Scalar * min() const {
-    Scalar * vmin= new Scalar[dim];
+  void min(Scalar vmin[dim]) const {
     for (int idim=0; idim<dim; idim++)
       vmin[idim] = v[0][idim];
     for (int i=1; i<len; ++i)
       for (int idim=0; idim<dim; idim++)
         vmin[idim] = v[i][idim] < vmin[idim] ? v[i][idim] : vmin[idim];
-    return vmin;
   }
 
-  Scalar * max() const {
-    Scalar * vmax= new Scalar[dim];
+  void max(Scalar vmax[dim]) const {
     for (int idim=0; idim<dim; idim++)
       vmax[idim] = v[0][idim];
     for (int i=1; i<len; ++i)
       for (int idim=0; idim<dim; idim++)
         vmax[idim] = v[i][idim] > vmax[idim] ? v[i][idim] : vmax[idim];
-    return vmax;
   }
 
 };

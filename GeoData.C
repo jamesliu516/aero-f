@@ -61,7 +61,7 @@ GeoData::GeoData(IoData &ioData)
 	typeVelocities = ioData.dgcl.velocities;
     }
     else if (ioData.ts.type == TsData::EXPLICIT) {
-      use_n = true;
+      /*use_n = true;
       use_save = true;
       if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
         typeNormals = DGCLData::EXPLICIT_RK2;
@@ -80,6 +80,25 @@ GeoData::GeoData(IoData &ioData)
           typeVelocities = ioData.dgcl.velocities;  // CBM
 
         typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
+      }*/
+      use_n = true;
+      if (ioData.dgcl.normals == DGCLData::AUTO) typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
+      else                                       typeNormals = ioData.dgcl.normals;  // CBM
+
+      if (ioData.dgcl.velocities == DGCLData::AUTO_VEL) typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+      else                                              typeVelocities = ioData.dgcl.velocities;  // CBM
+
+      //check ERK2 
+      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
+        if ( typeNormals == DGCLData::EXPLICIT_RK2 
+          && typeVelocities == DGCLData::EXPLICIT_RK2_VEL){
+          use_save = true;
+          typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
+        }else if ((typeNormals == DGCLData::EXPLICIT_RK2 && typeVelocities != DGCLData::EXPLICIT_RK2_VEL) ||
+                  (typeNormals != DGCLData::EXPLICIT_RK2 && typeVelocities == DGCLData::EXPLICIT_RK2_VEL)){
+          fprintf(stderr, "***Error: ERK2 algorithm not specified correctly\n");
+          exit(1);
+        }
       }
     }
   }

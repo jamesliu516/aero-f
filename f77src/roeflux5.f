@@ -1,5 +1,6 @@
       SUBROUTINE ROEFLUX5(type,gamma,gam,pstiff,enormal,evitno,
-     &     Ugr,Ug,Udr,Ud,phi,mach,k1,cmach,irey,length,prec)
+     &     Ugr,Ug,Udr,Ud,phi,mach,k1,cmach,shockreducer,
+     &     irey,length,prec)
 c-----------------------------------------------------------------------
 c This routine computes the Flux of Roe taken at the vectors Ug, Ud
 c normal is the normal of the boundary concerned by the flux.
@@ -25,6 +26,7 @@ c-----------------------------------------------------------------------
       REAL*8 r,s,t,A,B,H1,beta, mach00,beta2
       REAL*8 maxu2,maxrho,minpres,mach,k1,shock
       REAL*8 locMach, cmach, irey, length
+      REAL*8 shockreducer
       INTEGER type, prec
 
 c
@@ -100,7 +102,7 @@ c
 
 c
 c Computation of the dissipation term 
-c if prec = 1  then the dissipation is preconditioned
+c if prec = 1 or 2  then the dissipation is preconditioned
 c else if prec = 0 then it is not preconditioned
 c
 c Reference: Implicit Upwind Schemes for Lowmach number Compressible Flows
@@ -129,15 +131,15 @@ c       local Preconditioning (ARL)
         shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
         locMach = DSQRT(2.0d0*qir*cr2)
         beta = MAX(k1*locMach, mach)
-        beta = (1.0d0+DSQRT(irey))*beta+shock
+        beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
         beta = MIN(beta, cmach)
       end if
       
       beta2 = beta * beta 
 
-      energ = Ugr(5)/gam1 + 
+      energ = (Ugr(5)+gam*Pstiff)/gam1 + 
      &     0.5d0*Ugr(1)*(Ugr(2)*Ugr(2) + Ugr(3)*Ugr(3) + Ugr(4)*Ugr(4))
-      enerd = Udr(5)/gam1 + 
+      enerd = (Udr(5)+gam*Pstiff)/gam1 + 
      &     0.5d0*Udr(1)*(Udr(2)*Udr(2) + Udr(3)*Udr(3) + Udr(4)*Udr(4))
 
 

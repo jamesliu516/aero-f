@@ -4,6 +4,9 @@
 #include <DistVector.h>
 #include <Domain.h>
 #include <IoData.h>
+#include <DynamicLESTerm.h>
+
+class VarFcn;
 
 //------------------------------------------------------------------------
 
@@ -12,21 +15,33 @@ class DistDynamicLESTerm {
 
  private:
 
+  VarFcn *varFcn;
+
   int               numLocSub;
   Domain            *domain;
-  double            gam, R;
+  double            gam, Rideal;
 
   DistSVec<double,dim> *VCap;
   DistSVec<double,16> *Mom_Test;
-  DistSVec<double,6> *Eng_Test;
+  DistSVec<double,6> *Sij_Test;
+  DistVec<double> *modS_Test;
+  DistSVec<double,8> *Eng_Test;
+  DistSVec<double,2> *Cs;
+  DistVec<int> *Ni;
+
+  DynamicLESTerm *dlest;
 
  public:
 
-  DistDynamicLESTerm(IoData &, Domain *);
+  DistDynamicLESTerm(VarFcn *, IoData &, Domain *);
   ~DistDynamicLESTerm();
 
-  void computeTestFilterValues(DistSVec<double,2> &, DistVec<double> &, DistSVec<double,3> &, 
-                               DistSVec<double,dim> &);
+  void compute(DistVec<double> &, DistBcData<dim> &bcData, DistSVec<double,3> &, 
+               DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void computeMutOMu(DistVec<double> &, DistBcData<dim> &bcData, DistSVec<double,3> &, 
+                     DistSVec<double,dim> &, DistVec<double> &);
+  void computeCsValue(DistVec<double> &, DistBcData<dim> &, DistSVec<double,3> &,
+                      DistSVec<double,dim> &, DistVec<double> &);
 
 };
 

@@ -99,9 +99,13 @@ struct TransientData {
   const char *epsturb;
   const char *eddyvis;
   const char *dplus;
+  const char *sfric;
+  const char *tavsfric;
   const char *psensor;
   const char *csdles;
+  const char *tavcsdles;
   const char *csdvms;
+  const char *tavcsdvms;
   const char *mutOmu;
   const char *velocity;
   const char *tavvelocity;
@@ -241,6 +245,7 @@ struct PreconditionData {
   double cmach;
   double k;
   double betav;
+  double shockreducer;
 
   PreconditionData();
   ~PreconditionData() {}
@@ -320,9 +325,7 @@ struct BcsWallData {
 
 struct BcsHydroData {
 
-  enum TypeVolumicForce {NONE = 0, GRAVITY = 1} type;
-  double gravity, depth;
-  double alpha, beta;
+  double depth;
 
   BcsHydroData();
   ~BcsHydroData() {}
@@ -365,6 +368,23 @@ struct GasModelData {
 };
 
 //------------------------------------------------------------------------------
+
+struct JWLModelData {
+
+  enum Type {IDEAL = 0, JWL = 1} type;
+
+  double omega; // = specificHeatRatio-1.0
+  double idealGasConstant;
+  double A1,R1,rhoref,A2,R2;
+
+  JWLModelData();
+  ~JWLModelData() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
                                                                                               
 struct LiquidModelData {
                                                                                               
@@ -398,10 +418,11 @@ struct LiquidModelData {
                                                                                               
 struct FluidModelData {
                                                                                               
-  enum Fluid { GAS = 0, LIQUID = 1 } fluid;
+  enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
   double pmin;
                                                                                               
   GasModelData gasModel;
+  JWLModelData jwlModel;
   LiquidModelData liquidModel;
                                                                                               
   FluidModelData();
@@ -443,10 +464,48 @@ struct ThermalCondModelData {
 };
 
 //------------------------------------------------------------------------------
+
+struct PorousMedia  {
+
+  double iprimex, iprimey, iprimez;
+  double jprimex, jprimey, jprimez;
+  double kprimex, kprimey, kprimez;
+  double alphax,alphay,alphaz;
+  double betax,betay,betaz;
+  double idr,ldr;
+
+  PorousMedia();
+  //Assigner *getAssigner();
+  void setup(const char*, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
+struct VolumeInitialConditions {
+
+  double mach;
+  double velocity;
+  double alpha, beta;
+  double pressure;
+  double density;
+  double temperature;
+
+  VolumeInitialConditions();
+  //Assigner *getAssigner();
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct VolumeData  {
 
-  enum Type {FLUID1 = 0, FLUID2 = 1, POROUS = 2} type;
-  int porousID;
+  enum Type {FLUID = 0, POROUS = 1} type;
+
+  PorousMedia   porousMedia;
+  FluidModelData fluidModel;
+  VolumeInitialConditions volumeInitialConditions;
 
   VolumeData();
   Assigner *getAssigner();
@@ -704,20 +763,23 @@ struct TurbulenceClosureData {
 struct SphereData {
    
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
-  double cen_x, cen_y, cen_z, r;
-  double p, rho, t, mach, vel;  
+  double cen_x, cen_y, cen_z, radius;
+  double pressure, density, temperature, mach, velocity;
+  double alpha, beta;
 
   SphereData();
   ~SphereData() {}
   void setup(const char *, ClassAssigner * = 0);
+
 };
 
 //------------------------------------------------------------------------------
                                                                                               
 struct PlaneData {
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
-  double cen_x, cen_y, cen_z, normal_x, normal_y, normal_z;
-  double p, rho, t, mach;
+  double cen_x, cen_y, cen_z, nx, ny, nz;
+  double pressure, density, temperature, velocity;
+  double alpha, beta;
 
   PlaneData();
   ~PlaneData() {}
@@ -726,39 +788,21 @@ struct PlaneData {
 
 //------------------------------------------------------------------------------
                                                                                               
-struct ICData {
+struct InitialConditionsData {
                                                                                               
-  static const int nsphere = 10;
+  static const int nsphere = 2;
   int nspheres;
   SphereData* sphere[nsphere];
-  static const int nplane = 10;
-  int nplanes;
-  PlaneData* plane[nplane];
 
   SphereData s1;
   SphereData s2;
-  SphereData s3;
-  SphereData s4;
-  SphereData s5;
-  SphereData s6;
-  SphereData s7;
-  SphereData s8;
-  SphereData s9;
-  SphereData s10;
-                                                                                        
-  PlaneData p1;
-  PlaneData p2;
-  PlaneData p3;
-  PlaneData p4;
-  PlaneData p5;
-  PlaneData p6;
-  PlaneData p7;
-  PlaneData p8;
-  PlaneData p9;
-  PlaneData p10;
 
-  ICData();
-  ~ICData() {}
+  int nplanes;
+
+  PlaneData p1;
+
+  InitialConditionsData();
+  ~InitialConditionsData() {}
   void setup(const char *, ClassAssigner * = 0);
 };
 
@@ -777,7 +821,13 @@ struct MultiFluidData {
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
-  ICData icd;
+  enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
+  enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
+
+  FluidModelData fluidModel;
+  FluidModelData fluidModel2;
+  InitialConditionsData initialConditions;
+
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -787,27 +837,9 @@ struct MultiFluidData {
 
 //------------------------------------------------------------------------------
 
-struct PorousMedia  {
-
-  double iprimex, iprimey, iprimez;
-  double jprimex, jprimey, jprimez;
-  double kprimex, kprimey, kprimez;
-  double alphax,alphay,alphaz;
-  double betax,betay,betaz;
-  double idr,ldr;
-
-  PorousMedia();
-  Assigner *getAssigner();
-
-};
-
-//------------------------------------------------------------------------------
-
 struct Volumes  {
 
   ObjectMap<VolumeData> volumeMap;
-  ObjectMap<PorousMedia> porousMap;
-  FluidModelData fluidModel2;
 
   void setup(const char *, ClassAssigner * = 0);
 
@@ -828,11 +860,13 @@ struct EquationsData {
 // uniform boundary conditions and the uniform initial conditions are computed
 // with the values given to characterize the first fluid!
                                                                                               
+  double gravity_x, gravity_y, gravity_z;
+
   FluidModelData fluidModel;
+  FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;
   ThermalCondModelData thermalCondModel;
   TurbulenceClosureData tc;
-  Volumes volumes;
 
   EquationsData();
   ~EquationsData() {}
@@ -846,7 +880,7 @@ struct EquationsData {
 struct SchemeData {
 
   enum AdvectiveOperator {FINITE_VOLUME = 0, FE_GALERKIN = 1} advectiveOperator;
-  enum Flux {ROE = 0, VANLEER = 1} flux;
+  enum Flux {ROE = 0, VANLEER = 1, HLLE = 2, HLLC = 3} flux;
 
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruction;
 
@@ -1016,7 +1050,7 @@ struct SchemesData {
 struct ExplicitData {
 
 //time-integration scheme used
-  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1} type;
+  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1, FORWARD_EULER = 2, ONE_BLOCK_RK2 = 3} type;
 
   ExplicitData();
   ~ExplicitData() {}
@@ -1555,6 +1589,8 @@ struct Velocity  {
   void setup(const char *);
 };
 
+//------------------------------------------------------------------------------
+
 class IoData {
 
   char *cmdFileName;
@@ -1587,7 +1623,7 @@ public:
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
-  //PorousMedia porousmedia;
+  Volumes volumes;
 
 public:
 
@@ -1607,6 +1643,16 @@ public:
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
   int checkSolverValues();
+  int checkInputValuesMulti_step1();
+  void checkInputValuesMulti_step2();
+  int checkInputValuesMultiEOS();
+  int checkInputValuesVolumesInitialization();
+  int checkVolumeInitialization(FluidModelData &fm, 
+                                VolumeInitialConditions &ic, int volid);
+  int checkInputValuesMultiFluidInitialization();
+  int printMultiEOS();
+  void nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic);
+  void nonDimensionalizeFluidModel(FluidModelData &fm);
   int checkInputValuesInitializeMulti();
 
 };   

@@ -46,7 +46,8 @@ public:
   template<int dim>
   void computeInterfaceWork(double, PostOperator<dim>*, DistSVec<double,3>&, 
 			    DistSVec<double,dim>&, DistSVec<double,3>&,
-			    DistSVec<double,dim>&, double*);
+			    DistSVec<double,dim>&, double*,
+			    DistVec<double> * = 0, DistVec<double> * = 0);
 
   virtual int getAlgNum()  { return 0; }
 
@@ -120,6 +121,7 @@ protected:
   enum TimeIntegrator {IMPLICIT_FIRST_ORDER, IMPLICIT_SECOND_ORDER} timeIntegrator;
   bool steady;
   int it0;
+  double mppFactor;
 
   DistSVec<double,3>* Fn;
   DistSVec<double,3>* Fnp1;
@@ -137,14 +139,17 @@ public:
   ~AeroMeshMotionHandler();
 
   template<int dim>
-  void setup(int *, double *, PostOperator<dim>*, DistSVec<double,3>&, DistSVec<double,dim>&);
+  void setup(int *, double *, PostOperator<dim>*, DistSVec<double,3>&, 
+             DistSVec<double,dim>&, DistVec<double> * = 0);
 
   template<int dim>
-  void resetOutputToStructure(PostOperator<dim>*, DistSVec<double,3>&, DistSVec<double,dim>&);
+  void resetOutputToStructure(PostOperator<dim>*, DistSVec<double,3>&,
+                              DistSVec<double,dim>&, DistVec<double> * = 0);
 
   template<int dim>
-  void updateOutputToStructure(double, double, PostOperator<dim>*, 
-			       DistSVec<double,3>&, DistSVec<double,dim>&);
+  void updateOutputToStructure(double, double, PostOperator<dim>*,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistVec<double> * = 0);
 
   int getModalMotion(DistSVec<double,3> &);
 
@@ -192,6 +197,8 @@ public:
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
+  DistSVec<double,3> getModes();
+
   void setup(DistSVec<double, 3> &X);
 
 };
@@ -223,6 +230,8 @@ public:
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
+  DistSVec<double,3> getModes();
+
   void setup(DistSVec<double, 3> &X);
 
 };
@@ -246,6 +255,8 @@ public:
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+  DistSVec<double,3> getModes();
 
   void setup(DistSVec<double, 3> &X);
 

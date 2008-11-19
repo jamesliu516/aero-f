@@ -1183,6 +1183,52 @@ void SubDomain::applySmoothing(Vec<double> &ctrlVol, Vec<double> &Q)
 
 //------------------------------------------------------------------------------
 
+void SubDomain::computeLocalAvg(SVec<double,3> &X, SVec<double,2> &Q, SVec<double,2> &W)
+{
+
+  double fourth = 1.0/4.0;
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double vol = elems[tetNum].computeVolume(X);
+    int idx[4] = {elems[tetNum][0], elems[tetNum][1],
+                  elems[tetNum][2], elems[tetNum][3]};
+    double Qcg[2];
+    Qcg[0] = fourth * (Q[idx[0]][0] + Q[idx[1]][0] + Q[idx[2]][0] + Q[idx[3]][0]);
+    Qcg[1] = fourth * (Q[idx[0]][1] + Q[idx[1]][1] + Q[idx[2]][1] + Q[idx[3]][1]);
+
+    for (int i=0; i<4; ++i) {
+//      if (nodeType[idx[i]] == BC_ADIABATIC_WALL_MOVING  || nodeType[idx[i]] == BC_ADIABATIC_WALL_FIXED  ||
+//          nodeType[idx[i]] == BC_ISOTHERMAL_WALL_MOVING || nodeType[idx[i]] == BC_ISOTHERMAL_WALL_FIXED) {
+//            W[idx[i]][0] += Q[idx[i]][0] * vol;
+//            W[idx[i]][1] += Q[idx[i]][1] * vol;   // essentially no smoothing on the boundary
+//      }
+//      else  {
+        W[idx[i]][0] += Qcg[0] * vol;
+        W[idx[i]][1] += Qcg[1] * vol;
+//      }
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::applySmoothing(Vec<double> &ctrlVol, SVec<double,2> &Q)
+{
+
+
+ for (int i=0; i<nodes.size(); ++i) {
+    double coef = 1.0 / (4.0*ctrlVol[i]);
+    Q[i][0] = coef * Q[i][0];
+    Q[i][1] = coef * Q[i][1];
+ }
+
+
+}
+
+//------------------------------------------------------------------------------
+
 /*
 
 //---------------------------------------//
@@ -1295,7 +1341,6 @@ MacroCellSet* SubDomain::findAgglomerateMesh(int scopeWidth,
 
 }
 */
-
 
 //------------------------------------------------------------------------------
   
@@ -3108,15 +3153,6 @@ void SubDomain::printInfo(FILE *fp)
 #endif
 //------------------------------------------------------------------------------
 
-void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq,
-                          SVec<double,3> &X, Vec<double> &Cs, Vec<double> &VolSum)
-{
-                                                                                                                                                       
-  elems.computeDynamicLESTerm(dles, CsDeltaSq, X, Cs, VolSum);
-                                                                                                                                                       
-}
-
-//------------------------------------------------------------------------------
 //HB: create & fill the sliding surface node ownership array which gives for each 
 //node the sliding surfaces to which this node belongs (using bit)
 //For instance, surfOwn[i] = [0 0 1 0 0 1] -> node i belongs to sliding surface 2 & 5
@@ -3652,17 +3688,247 @@ void SubDomain::checkVec(SVec<double,3> &V)
 }
 
 //--------------------------------------------------------------------------
-
-void SubDomain::setPhi(Vec<double> &phi)  {
+void SubDomain::setPhiForFluid1(Vec<double> &phi)  {
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
-    if (elems[iElem].getVolumeID() == -1)  {
+    if (elems[iElem].getVolumeID() != -1)  {
       int *nodeNums = elems[iElem].nodeNum();
       for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        phi[nodeNums[iNode]] = -1.0;
+        phi[nodeNums[iNode]] = 1.0;
       
     }
   }
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x, 
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             Vec<double> &Phi)  {
+
+// assume it is a sphere!
+  double dist; //dist to center of sphere
+  for (int i=0; i<nodes.size(); i++){
+    dist = (X[i][0]-x)*(X[i][0]-x) + (X[i][1]-y)*(X[i][1]-y) + (X[i][2]-z)*(X[i][2]-z);
+    dist = sqrt(dist);
+    Phi[i] *= std::abs(dist - r);
+  }
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x, 
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             Vec<double> &Phi)  {
+
+//WARNING: routine cannot do like in setPhiWithDistanceToGeometry
+//         where phi was computed by : Phi[i] *= std::abs(dist - r);
+//         because in that routine Phi[i] had value 1 or -1
+//         Here this is not possible because we do not loop on nodes,
+//         we loop on elements, and thus we pass several times on each
+//         node, and we cannot say that Phi[i] is 1 or -1.
+
+
+  // assume it is a sphere!
+  double dist; //dist to center of sphere
+  int node;
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() != -1)  {
+    // nodes in element with volumeID != -1 --> Phi>0 except where we specify otherwise
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        Phi[node] = dist - r;
+
+      }
+    }else{
+    // nodes in element with volumeID = -1 --> Phi<0
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        //Phi[node] *= std::abs(dist-r); // does not work (cf WARNING)
+        Phi[node] = -std::abs(dist-r);
+      }
+
+    }
+  }
+
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiForShockTube(SVec<double,3> &X,
+                                   double radius, Vec<double> &Phi)
+{
+
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i] = X[i][0] - radius;
+
+}
+//--------------------------------------------------------------------------
+void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
+                             double z, double radius, double invertGasLiquid,
+                             Vec<double> &Phi)
+{
+
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
+                                    (X[i][1] -y)*(X[i][1] -y)  +
+                                    (X[i][2] -z)*(X[i][2] -z))
+                                  - radius);
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi){
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        Phi[nodeNums[iNode]] = (volid==0) ? 1.0 : -1.0;
+    }
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
+                                 SVec<double,3> &X, Vec<double> &Phi){
+
+  double dist = 0.0;
+  double x = ic.cen_x;
+  double y = ic.cen_y;
+  double z = ic.cen_z;
+  double r = ic.radius;
+
+  for (int i=0; i<Phi.size(); i++){
+    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
+    Phi[i] *= sqrt(dist) - r;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeTetsConnectedToNode(Vec<int> &Ni)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum)
+      for (int i=0; i<4; ++i)
+        ++Ni[elems[tetNum][i]];
+
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeLij(double Lij[3][3], double r_u[3], double r_u_u[6], double vc[5])
+{
+
+  if (vc[0] < 1.0e-7) vc[0] = 1.0e-7;
+                                                                                                                     
+  Lij[0][0] = r_u_u[0] - (1.0/vc[0])*(r_u[0]*r_u[0]);
+  Lij[0][1] = r_u_u[1] - (1.0/vc[0])*(r_u[0]*r_u[1]);
+  Lij[0][2] = r_u_u[2] - (1.0/vc[0])*(r_u[0]*r_u[2]);
+  Lij[1][1] = r_u_u[3] - (1.0/vc[0])*(r_u[1]*r_u[1]);
+  Lij[1][2] = r_u_u[4] - (1.0/vc[0])*(r_u[1]*r_u[2]);
+  Lij[2][2] = r_u_u[5] - (1.0/vc[0])*(r_u[2]*r_u[2]);
+  Lij[2][0] = Lij[0][2];
+  Lij[2][1] = Lij[1][2];
+  Lij[1][0] = Lij[0][1];
+  Lij[0][0] = Lij[0][0] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+  Lij[1][1] = Lij[1][1] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+  Lij[2][2] = Lij[2][2] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+
+}
+                                                                                                                                                                                                                                          
+//-----------------------------------------------------------------------
+                                                                                                                                                                                                                                          
+void SubDomain::computeBij(double Bij[3][3], double r_s_p[6], double sqrt2S2,
+                           double Pij[3][3], double sq_rat_delta, double vc[5])
+                                                                                                                     
+                                                                                                                     
+{
+                                                                                                                                                                                                                                          
+   Bij[0][0] = r_s_p[0] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][0];
+   Bij[0][1] = r_s_p[3] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][1];
+   Bij[0][2] = r_s_p[4] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][2];
+   Bij[1][1] = r_s_p[1] - sq_rat_delta*vc[0]*sqrt2S2*Pij[1][1];
+   Bij[1][2] = r_s_p[5] - sq_rat_delta*vc[0]*sqrt2S2*Pij[1][2];
+   Bij[2][2] = r_s_p[2] - sq_rat_delta*vc[0]*sqrt2S2*Pij[2][2];
+   Bij[1][0] = Bij[0][1];
+   Bij[2][0] = Bij[0][2];
+   Bij[2][1] = Bij[1][2];
+                                                                                                                     
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeZi(double Zi[3], double sq_rat_delta, double sqrt2S2, double dtdxj[3],
+			  double r_s_dtdxj[3], double vc[5], double Cp)
+{
+  
+  Zi[0] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[0] - r_s_dtdxj[0]);
+  Zi[1] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[1] - r_s_dtdxj[1]);
+  Zi[2] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[2] - r_s_dtdxj[2]);
+  
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeLi(double Li[3], double r_e, double r_e_plus_p, double r_u[3], double vc[5])
+{
+  
+  if (vc[0] < 0.0000001) vc[0] = 0.0000001;
+  Li[0] = (r_e+vc[4])*(r_u[0]/vc[0]) - (r_e_plus_p)*vc[1];
+  Li[1] = (r_e+vc[4])*(r_u[1]/vc[0]) - (r_e_plus_p)*vc[2];
+  Li[2] = (r_e+vc[4])*(r_u[2]/vc[0]) - (r_e_plus_p)*vc[3];
+  
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
+                                   SVec<double,3> &X, Vec<double> &CsVal)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double cs[4] = {Cs[elems[tetNum][0]][0], Cs[elems[tetNum][1]][0],
+                    Cs[elems[tetNum][2]][0], Cs[elems[tetNum][3]][0]};
+
+    double csval = dles->outputCsValues(vol, cs, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      CsVal[elems[tetNum][i]] += csval * vol;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+                                 SVec<double,3> &X, Vec<double> &Phi){
+
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double norm = ip.nx*ip.nx+ip.ny*ip.ny+ip.nz*ip.nz;
+  norm = sqrt(norm);
+  double nx = ip.nx/norm;
+  double ny = ip.ny/norm;
+  double nz = ip.nz/norm;
+
+  for (int i=0; i<Phi.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    Phi[i] *= -scalar;
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -3996,37 +4262,4 @@ double SubDomain::specifyBandwidth(Vec<double> &philevel)
   
   return bandwidth;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-
-
-
-
-
-
-
 

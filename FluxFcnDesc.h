@@ -3,6 +3,8 @@
 
 #include <FluxFcn.h>
 #include <VarFcnDesc.h>
+#include <IoData.h>
+#include <LowMachPrec.h>
 
 //------------------------------------------------------------------------------
 
@@ -10,15 +12,12 @@ class FluxFcnFDJacRoeEuler3D : public FluxFcnFD<5> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
  public:
 
-  FluxFcnFDJacRoeEuler3D(double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp) : 
-    FluxFcnFD<5> (vf,tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnFDJacRoeEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) : 
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; } 
 
   ~FluxFcnFDJacRoeEuler3D() {}
 
@@ -38,23 +37,23 @@ class FluxFcnApprJacRoeEuler3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnApprJacRoeEuler3D(int rs, double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp) :
-    FluxFcn(vf,tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnApprJacRoeEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
 
   ~FluxFcnApprJacRoeEuler3D() {}
   
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
-  void computeJacobiansBarotropicLiquid(double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJWL(double, double, double, double, double, double, double, double *, double, double *, double *, double *);
+
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansBarotropicLiquid(double, double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansJWL(double, double, double, double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -85,6 +84,103 @@ protected:
 };
 
 //------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLEEuler3D : public FluxFcnFD<5> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+ public:
+
+  FluxFcnFDJacHLLEEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; }
+
+  ~FluxFcnFDJacHLLEEuler3D() {}
+
+ protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLEEuler3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnApprJacHLLEEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+
+  ~FluxFcnApprJacHLLEEuler3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, 
+                                     double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLCEuler3D : public FluxFcnFD<5> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+ public:
+
+  FluxFcnFDJacHLLCEuler3D(IoData &ioData, double gg, VarFcn *vf, Type tp) :
+    FluxFcnFD<5> (vf,tp) { sprec.setup(ioData), gamma = gg; }
+
+  ~FluxFcnFDJacHLLCEuler3D() {}
+
+ protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLCEuler3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnApprJacHLLCEuler3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp) :
+    FluxFcn(vf,tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+
+  ~FluxFcnApprJacHLLCEuler3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, 
+double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnVanLeerEuler3D : public FluxFcn {
 
 public:
@@ -119,6 +215,7 @@ public:
 protected:
   void computePerfectGas(double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double *, double, double *, double *, double *);
+  void computeJWL(double *, double, double *, double *, double *);
 
 // Included (MB*)
   void computeDerivativeOfPerfectGas(double *, double *, double, double, double *, double *, double *, double *, double *);
@@ -139,6 +236,7 @@ public:
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
   void computeBarotropicLiquid(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJWL(double, double, double, double, double, double *, double, double *, double *, double *);
 };
 
 //------------------------------------------------------------------------------
@@ -224,24 +322,16 @@ protected:
 //------------------------------------------------------------------------------
 //turbulence
 
-
-
-
-
-
 class FluxFcnFDJacRoeSA3D : public FluxFcnFD<6> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
   
  public:
   
-  FluxFcnFDJacRoeSA3D(double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<6>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnFDJacRoeSA3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacRoeSA3D() {}
   
 protected:
@@ -259,20 +349,17 @@ class FluxFcnApprJacRoeSA3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
   
 public:
 
-  FluxFcnApprJacRoeSA3D(int rs, double gg, double br, double K1, double cm, int pr, VarFcn* vf, Type tp = CONSERVATIVE) : 
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnApprJacRoeSA3D(IoData &ioData, int rs, double gg, VarFcn* vf, Type tp = CONSERVATIVE) : 
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacRoeSA3D() {}
   
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -298,6 +385,53 @@ protected:
 
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLESA3D : public FluxFcnFD<6> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+ public:
+
+  FluxFcnFDJacHLLESA3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { sprec.setup(ioData), gamma = gg; }
+  ~FluxFcnFDJacHLLESA3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double,
+ double *, double *){}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLESA3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnApprJacHLLESA3D(IoData &ioData, int rs, double gg, VarFcn* vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+  ~FluxFcnApprJacHLLESA3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *){}
 
 };
 
@@ -382,20 +516,17 @@ class FluxFcnRoeSAturb3D : public FluxFcn {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnRoeSAturb3D(double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnRoeSAturb3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnRoeSAturb3D() {}
   
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *);
 
 };
 
@@ -464,15 +595,12 @@ class FluxFcnFDJacRoeKE3D : public FluxFcnFD<7> {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
 public:
 
-  FluxFcnFDJacRoeKE3D(double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcnFD<7>(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnFDJacRoeKE3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { sprec.setup(ioData), gamma = gg; }
   ~FluxFcnFDJacRoeKE3D() {}
 
 protected:
@@ -490,19 +618,16 @@ class FluxFcnApprJacRoeKE3D : public FluxFcn {
  protected:
   int rshift;
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnApprJacRoeKE3D(int rs, double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { rshift = rs; gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr; }
+  FluxFcnApprJacRoeKE3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacRoeKE3D() {}
 
 protected:
   void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *, int);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
   
 // Included (MB)
   void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
@@ -529,6 +654,53 @@ protected:
   void computeDerivativeOfPerfectGas(double, double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
 
   
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLEKE3D : public FluxFcnFD<7> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnFDJacHLLEKE3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { sprec.setup(ioData), gamma = gg; }
+  ~FluxFcnFDJacHLLEKE3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double
+*, double, double *, double *) {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLEKE3D : public FluxFcn {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+  FluxFcnApprJacHLLEKE3D(IoData &ioData, int rs, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+  ~FluxFcnApprJacHLLEKE3D() {}
+
+protected:
+  void computePerfectGas(double, double, double, double, double *, double, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *, int);
+
+// Included (MB)
+  void computeDerivativeOfPerfectGas(double, double, double, double, double, double *, double *, double, double, double *, double *, double *, double
+*, double, double *, double *) {}
+
 };
 
 //------------------------------------------------------------------------------
@@ -574,20 +746,17 @@ class FluxFcnRoeKEturb3D : public FluxFcn {
 
  protected:
   double gamma;
-  int prec;
-  double betaRef;
-  double k1;
-  double cmach;
+  SpatialLowMachPrec sprec;
 
 public:
-  FluxFcnRoeKEturb3D(double gg, double br, double K1, double cm, int pr, VarFcn *vf, Type tp = CONSERVATIVE) :
-    FluxFcn(vf, tp) { gamma = gg; betaRef = br; k1 = K1; cmach=cm; prec = pr;}
+  FluxFcnRoeKEturb3D(IoData &ioData, double gg, VarFcn *vf, Type tp = CONSERVATIVE) :
+    FluxFcn(vf, tp) { sprec.setup(ioData), gamma = gg; }
 
   ~FluxFcnRoeKEturb3D() {}
 
 protected:
   void computePerfectGas(double, double, double *, double, double *, double *, double *);
-  void computeJacobiansPerfectGas(double, double, double, double *, double, double *, double *, double *, double *);
+  void computeJacobiansPerfectGas(double, double, double, double, double *, double, double *, double *, double *, double *);
   
 };
 

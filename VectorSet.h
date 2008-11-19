@@ -30,13 +30,13 @@ class VecSet {
 public:
 
   VecSet(int, const typename VecType::InfoType &);
-  VecSet(const VecSet<VecType> &);
+  VecSet(VecSet<VecType> &);
   ~VecSet();
 
   VecType &operator[] (int i) const { return vecSet[i]; }
   
   int numVectors() const { return numVec; }
-  typename VecType::InfoType &size() const { return len; }
+  const typename VecType::InfoType &size() const { return len; }
 
   void resize(int);
 
@@ -121,11 +121,11 @@ void VecSet<VecType>::resize(int n)
 //------------------------------------------------------------------------------
 
 template<class VecType>
-VecSet<VecType>::VecSet(const VecSet<VecType> &vectorSet)
+VecSet<VecType>::VecSet(VecSet<VecType> &vectorSet)  : len(vectorSet.size())
 {
  
   numVec = vectorSet.numVectors();
-  len = vectorSet.size();
+  //len = vectorSet.size();
 
   vecSet = static_cast<VecType*>(alloc.allocate(numVec));
 

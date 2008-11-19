@@ -156,7 +156,7 @@ void StructExc::negotiate()
 
 //------------------------------------------------------------------------------
 
-void StructExc::getInfo() 
+double StructExc::getInfo() 
 {
 
   double info[5];
@@ -173,6 +173,14 @@ void StructExc::getInfo()
   smode = int(info[4]);
 
   if (algNum == 6) tmax -= 0.5 * dt;
+  if (algNum == 20) tmax -= 0.5 * dt;
+  if (algNum == 21) tmax += 1.5 * dt;
+
+  double mppFactor = 1.0;
+  if (algNum == 8)
+    mppFactor = 1.0/info[2];
+
+  return mppFactor;
 
 }
 
@@ -271,6 +279,8 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 
   }
 
+  com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
+                  //if waiting for another cpu.
   com->globalSum(2, norms);
 
   com->printf(7, "Received total disp=%e and vel=%e from the structure\n", norms[0], norms[1]);
@@ -301,6 +311,8 @@ void StructExc::getTemperature(DistVec<double>& Temp)
     }
   }
 
+  com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
+                  //if waiting for another cpu.
   com->globalSum(1, &norm);
 
   com->printf(7, "Received temp=%e from the structure\n", norm);

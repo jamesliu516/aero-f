@@ -39,6 +39,44 @@ LevelSet::~LevelSet()
 }
 
 //---------------------------------------------------------------------------------------------------------
+
+void LevelSet::setupPhiVolumesInitialConditions(IoData &iod, DistVec<double> &Phi){
+
+  // loop on all Volumes to setup Phi_0 
+  if(!iod.volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
+        //                                 and equation of state 'fluidModel'
+        domain->setupPhiVolumesInitialConditions(it->first, Phi);
+  }
+
+}
+
+//---------------------------------------------------------------------------------------------------------
+
+void LevelSet::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<double> &Phi){
+
+  // Note that Phi was already initialized either to 1.0 everywhere
+  // (if there were no volumes specified in the input file)
+  // or to +1.0 where a volid was specified equal to 0 
+  //    and to -1.0 where a volid was specified different from 0.
+  // Therefore the only initialization
+  // left to do is for the spheres and other geometric shapes.
+  // For that, Phi must be multiplied by the signed distance
+  // to that geometric shape.
+
+  if(iod.mf.initialConditions.nspheres>0)
+    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
+      domain->setupPhiMultiFluidInitialConditionsSphere(*(iod.mf.initialConditions.sphere[i]),X,Phi);
+
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupPhiMultiFluidInitialConditionsPlane(iod.mf.initialConditions.p1,X,Phi);
+
+}
+
+//---------------------------------------------------------------------------------------------------------
 void LevelSet::update(DistVec<double> &Phi)
 {
 

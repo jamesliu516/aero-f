@@ -75,7 +75,6 @@ private:
   DistExtrapolation<dim> *xpol;
   DistVMSLESTerm<dim> *vms;
   DistDynamicLESTerm<dim> *dles;
-  DynamicLESTerm *dlest;
   DistDynamicVMSTerm<dim> *dvms;
   FemEquationTerm *fet;
   SmagorinskyLESTerm *smag;

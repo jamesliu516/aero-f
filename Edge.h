@@ -24,6 +24,7 @@ class FluxFcn;
 class ElemSet;
 class GeoState;
 class FemEquationTerm;
+class TimeLowMachPrec;
 
 struct Vec3D;
 
@@ -77,10 +78,10 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-                       Vec<double> &, double, double, double);
+                       Vec<double> &, TimeLowMachPrec &);
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       double, double, double, Vec<double> &, int);
+                       TimeLowMachPrec &, Vec<double> &, int);
 
   template<int dim>
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, 
@@ -103,23 +104,25 @@ public:
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, 
-                                       Vec<double> &, Vec<double> &,
+                                       Vec<double> &, SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
-                               Vec<double> &, Vec<double> &,
+                               Vec<double> &, SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                int * );
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &, 
-                                       NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
+                                       NodalGrad<dim> &, NodalGrad<1> &,
+                                       SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
                                        Vec<double> &);
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &, 
-                               NodalGrad<dim> &, NodalGrad<1> &, Vec<double> &,
+                               NodalGrad<dim> &, NodalGrad<1> &,
+                               SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
                                Vec<double> &, int * );
 
@@ -155,12 +158,11 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                               SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
-			      Vec<double> &, Vec<double> &, double, double, double, double);
+			      Vec<double> &, Vec<double> &, double, TimeLowMachPrec &);
   int checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf,
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
+                               double *originalVi = 0, double *originalVj = 0,
                                double phii = 1.0, double phij = 1.0);
-  int checkReconstruction(double rho[2], double p[2], int i, int j, 
-                          int* locToGlobNodeMap, int failsafe, SVec<int,2>& tag);
 #ifdef EDGE_LENGTH
   void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&, 
                                        const double, const double, const double,

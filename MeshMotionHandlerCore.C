@@ -77,7 +77,7 @@ void RigidMeshMotionHandler::setupVelocityPoints(IoData &ioData)
 {
 
   // compute body velocity using Mach number and AoA
-  double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant/ioData.ref.rv.pressure;
+  double Pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
   double velBody2 =  ioData.eqs.fluidModel.gasModel.specificHeatRatio * (ioData.bc.inlet.pressure + Pstiff)
                   * ioData.bc.inlet.mach*ioData.bc.inlet.mach / ioData.bc.inlet.density;
   double velBody = sqrt(velBody2);
@@ -389,7 +389,7 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
 
   strExc = new StructExc(ioData, matchNodes, 6, domain->getStrCommunicator(), domain);
   strExc->negotiate();
-  strExc->getInfo();
+  mppFactor = strExc->getInfo();
 
   //com->fprintf(stderr, " ... Starting Struct Solver\n");
 
@@ -435,6 +435,8 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
     dt = 0.0;
 
   if (algNum == 6 && it == 0) 
+    dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
     dt *= 0.5;
 
   if (algNum == 8) {
@@ -483,6 +485,9 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double t0 = timer->getTime();
 
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
@@ -491,8 +496,15 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0)
     dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
+    dt *= 0.5;
 
-  if (algNum == 8) {
+  if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    else if(it==it0) {/*nothing to do*/}
+    else if(it!=1){;strExc->sendForce(F);}
+  }
+  else if (algNum == 8) {
     getModalMotion(X);
     *lastIt = true;
   }
@@ -505,6 +517,9 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
     strExc->sendForce(F);
   else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
+
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+                                     // structure in the mesh solution
 
   //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
   return dt;
@@ -523,6 +538,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 {
   Timer *timer;
   timer = domain->getTimer();
+  double t0 = timer->getTime();
 
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
@@ -530,8 +546,15 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   if (algNum == 6 && it == 0) 
     dt *= 0.5;
+  if ((algNum == 20 || algNum == 21) && it == 0) 
+    dt *= 0.5;
 
-  if (algNum == 8) {
+  if (algNum == 20 || algNum == 21){
+    if(it==0){ strExc->sendForce(F);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else return 0.0; // last iteration!
+  }
+  else if (algNum == 8) {
     return dt;
   }
 
@@ -541,7 +564,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       return 0.0;
     strExc->sendForce(F);
   }
-  else {
+  else if(!(algNum == 20 || algNum == 21)){
     if (it > it0 && algNum != 10) {
       if (steady) {
         strExc->negotiateStopping(lastIt);
@@ -562,6 +585,8 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //}
   }
 
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+                                     // structure in the mesh solution
 
   if (algNum != 10 || it == it0)  {
     //ARL: bug
@@ -600,7 +625,10 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
   strExc->getMdFreq(nf, f);
   com->fprintf(stderr, " ... Reading %d modal frequencies\n", nf);
   com->fprintf(stderr, " ... Writing Fluid mesh modes to %s\n", posFile);
+  com->fprintf(stderr, " ... Using MppFactor: %f\n", mppFactor);
   domain->writeVectorToFile(posFile, 0, nf, X);
+  DistVec<double> cv(domain->getNodeDistInfo());
+  double lscale = 1.0/oolscale;
 
   for (int im = 0; im < nf; ++im) {
     X = X0;
@@ -610,7 +638,10 @@ int AeroMeshMotionHandler::getModalMotion(DistSVec<double,3> &X)
 
     mms->solve(dX, X);
 
+    // verify mesh integrity
+    domain->computeControlVolumes(lscale, X, cv);
     dX = X - X0;
+    dX *= mppFactor;
     domain->writeVectorToFile(posFile, im+1, f[im], dX);
   }
 
@@ -721,6 +752,15 @@ void DeformingMeshMotionHandler::setup(DistSVec<double,3> &X)
 {
 
   if(mms) mms->setup(X);
+
+}
+
+//------------------------------------------------------------------------------
+
+DistSVec<double,3> DeformingMeshMotionHandler::getModes()
+{
+
+  return(*dXmax);
 
 }
 
@@ -869,6 +909,57 @@ void PitchingMeshMotionHandler::setup(DistSVec<double,3> &X)
 
 //------------------------------------------------------------------------------
 
+DistSVec<double,3> PitchingMeshMotionHandler::getModes()
+{
+
+  int numLocSub = domain->getNumLocSub();
+
+  double theta = alpha_in + alpha_max;
+  double costheta = cos(theta);
+  double sintheta = sin(theta);
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    double (*dx)[3] = dX.subData(iSub);
+    double (*x0)[3] = X0.subData(iSub);
+
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = 0.0; dx[i][1] = 0.0; dx[i][2] = 0.0;
+
+      double p[3];
+      p[0] = x0[i][0] -  x1[0];
+      p[1] = x0[i][1] -  x1[1];
+      p[2] = x0[i][2] -  x1[2];
+
+      dx[i][0] += (costheta + (1 - costheta) * ix * ix) * p[0];
+      dx[i][0] += ((1 - costheta) * ix * iy - iz * sintheta) * p[1];
+      dx[i][0] += ((1 - costheta) * ix * iz + iy * sintheta) * p[2];
+
+      dx[i][1] += ((1 - costheta) * ix * iy + iz * sintheta) * p[0];
+      dx[i][1] += (costheta + (1 - costheta) * iy * iy) * p[1];
+      dx[i][1] += ((1 - costheta) * iy * iz - ix * sintheta) * p[2];
+
+      dx[i][2] += ((1 - costheta) * ix * iz - iy * sintheta) * p[0];
+      dx[i][2] += ((1 - costheta) * iy * iz + ix * sintheta) * p[1];
+      dx[i][2] += (costheta + (1 - costheta) * iz * iz) * p[2];
+
+      dx[i][0] += x1[0];
+      dx[i][1] += x1[1];
+      dx[i][2] += x1[2];
+
+    }
+  }
+
+  dX -= X0;
+
+  return(dX);
+
+}
+
+//------------------------------------------------------------------------------
+
 double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
@@ -1007,6 +1098,30 @@ void HeavingMeshMotionHandler::setup(DistSVec<double,3> &X)
 
 }
 
+
+//------------------------------------------------------------------------------
+
+DistSVec<double,3> HeavingMeshMotionHandler::getModes()
+{
+
+  int numLocSub = domain->getNumLocSub();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*dx)[3] = dX.subData(iSub);
+    for (int i=0; i<dX.subSize(iSub); ++i) {
+
+      dx[i][0] = delta[0];
+      dx[i][1] = delta[1];
+      dx[i][2] = delta[2];
+
+    }
+  }
+
+ return(dX);
+
+}
+
 //------------------------------------------------------------------------------
 
 double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
@@ -1015,7 +1130,7 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
 
   if (*lastIt) return dt;
 
-  double hsintheta = sin(omega * (t + dt));
+  double hsintheta = 1.0 - cos(omega * (t + dt));
 
   int numLocSub = domain->getNumLocSub();
 

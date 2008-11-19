@@ -77,7 +77,6 @@ void startLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
     tsSolver.solve(ioData);
   }
   else{
-  domain.createVecPat(dim, &ioData);
     ExplicitLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
     TsSolver<ExplicitLevelSetTsDesc<dim> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);

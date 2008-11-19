@@ -9,7 +9,11 @@
 class IoData;
 class RefVal;
 class Domain;
+class MeshMotionHandler;
 class RigidMeshMotionHandler;
+class HeavingMeshMotionHandler;
+class PitchingMeshMotionHandler;
+class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 class LevelSet;
@@ -28,6 +32,9 @@ private:
   RefVal *refVal;
   PostOperator<dim> *postOp;
   RigidMeshMotionHandler *rmmh;
+  HeavingMeshMotionHandler *hmmh;
+  PitchingMeshMotionHandler *pmmh;
+  DeformingMeshMotionHandler *dmmh;
   Domain *domain;
   Communicator *com;
 
@@ -102,18 +109,22 @@ public:
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
   ~TsOutput();
 
-  void setMeshMotionHandler(RigidMeshMotionHandler *);
+  void setMeshMotionHandler(IoData&, MeshMotionHandler*);
   FILE *backupAsciiFile(char *);
   void openAsciiFiles();
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
-			 DistSVec<double,3> &, DistSVec<double,dim> &);
+			 DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistVec<double> * = 0);
   void writeHydroForcesToDisk(bool, int, int, int, double, double, double*, 
-			 DistSVec<double,3> &, DistSVec<double,dim> &);
+			 DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistVec<double> * = 0);
   void writeLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
-                         DistSVec<double,3> &, DistSVec<double,dim> &);
+                         DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistVec<double> * = 0);
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
-                         DistSVec<double,3> &, DistSVec<double,dim> &);
+                         DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistVec<double> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
@@ -124,8 +135,6 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
                                 DistVec<double> &);
-//  void writeBinaryVectorsToDiskLS(bool, int, double, DistSVec<double,3> &,
-//                                DistVec<double> &, DistSVec<double,dim> &, LevelSet *);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

@@ -112,10 +112,15 @@ class ModalSolver {
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
     void interpolatePOD();
+    void parallelSVD(VecSet< DistSVec<double, dim> > &, VecSet<DistSVec<double, dim> > &, double *, FullM &, int );
+    void setTransfer(int*,int*,int&,int);
+    void transferData(VecSet< DistSVec<double, dim> > &,double*, int *, int *,int*, int, int, int);
+    void transferDataBack(double *, VecSet< DistSVec<double, dim> > &, int *, int *, int *, int);
     template<class Scalar>
     void readPodVecs(VecSet<DistSVec<Scalar, dim> > &, int &);
 #ifdef DO_MODAL
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
+    void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
 #endif
 
 };

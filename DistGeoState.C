@@ -233,7 +233,7 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
     read_n = domain->readVectorFromFile(name, 0, 0, *Xn, &oolscale);
     if (data.use_nm1)
       read_nm1 = domain->readVectorFromFile(name, 1, 0, *Xnm1, &oolscale);
-    if (data.use_nm2)
+    if (data.use_nm2) 
       read_nm2 = domain->readVectorFromFile(name, 2, 0, *Xnm2, &oolscale);
   }
 
@@ -255,12 +255,15 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
   *X = *Xn;
   *ctrlVol = *ctrlVol_n;
 
-  com->printf(2, "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n", 
-	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum());
-  com->printf(2, "Bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n",
-              (X->min())[0], (X->min())[1], (X->min())[2]);
-  com->printf(2, "              (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
-              (X->max())[0], (X->max())[1], (X->max())[2]);
+  double bbMin[3], bbMax[3];
+  X->min(bbMin); X->max(bbMax);
+
+  com->printf(2, 
+	      "Control volume statistics: min=%.3e, max=%.3e, total=%.3e\n"
+	      "Mesh bounding box: (Xmin,Ymin,Zmin) = (%.3e %.3e %.3e)\n"
+	      "                   (Xmax,Ymax,Zmax) = (%.3e %.3e %.3e)\n",
+	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum(),
+              bbMin[0], bbMin[1], bbMin[2], bbMax[0], bbMax[1], bbMax[2]);
 
 }
 
@@ -538,14 +541,13 @@ void DistGeoState::update(DistSVec<double,3> &X, DistVec<double> &ctrlVol)
 
 //------------------------------------------------------------------------------
 
-void DistGeoState::writeToDisk(char *name)
-{
+void DistGeoState::writeToDisk(char *name)  {
 
   if (data.use_n)
     domain->writeVectorToFile(name, 0, 0.0, *Xn, &lscale);
   if (data.use_nm1)
     domain->writeVectorToFile(name, 1, 0.0, *Xnm1, &lscale);
-  if (data.use_nm2) 
+  if (data.use_nm2)  
     domain->writeVectorToFile(name, 2, 0.0, *Xnm2, &lscale);
 
 }

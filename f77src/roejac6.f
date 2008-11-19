@@ -1,5 +1,6 @@
       SUBROUTINE ROEJAC6(type,gamma,gam,pstiff,enormal,evitno,Ug,Ud,
-     &                    jac,sw,mach,k1,cmach,irey,prec)
+     &                    jac,sw,mach,k1,cmach,shockreducer,
+     &                    irey,length,prec)
 c-----------------------------------------------------------------------
 c This routine computes the jacobian of the flux of Roe (defect correction) 
 c with respect to the conservative variables taken at the vectors Ug, Ud.
@@ -16,26 +17,21 @@ c-----------------------------------------------------------------------
       REAL*8 dif1 , dif2 , dif3 , dif4 ,dif5
       REAL*8 cr , cr2 , qir
       REAL*8 vp1 , vp4 , vp5 , svp1 , svp4 , svp5
-      REAL*8 deltar , switch , deltarinv , g_deltar
       REAL*8 ener1 , ener2
       REAL*8 uar2 , uar3 , uar4 , uar5
       REAL*8 usro , squsr1 , squsr2
       REAL*8 tet1 , tet2 , tet3
-      REAL*8 q1,q2,p1,p2,enth,gc,usc2
+      REAL*8 enth,gc,usc2
       INTEGER k,i,type,dim,j
-      INTEGER ient
-      REAL*8 gam, gam1, gamma, epsiim, pstiff
-      REAL*8 rRT,sRT,tRT,beta, mach00,betaRT2
-      REAL*8 maxu2,maxrho,minpres,mach,k1
-      REAL*8 locMach, cmach, irey
+      REAL*8 gam, gam1, gamma, pstiff
+      REAL*8 rRT,sRT,tRT,beta, betaRT2
+      REAL*8 mach,k1,locMach,cmach,irey,shock,shockreducer,length
       INTEGER prec,sw
 
 c
 c Initialisation
 c
-      ient = 0
       gam1 = gam - 1.d0
-      epsiim = 0.1d0
 
       rnorm = DSQRT(enormal(1)**2 + enormal(2)**2 + enormal(3)**2)
       invnorm = 1.0d0 / rnorm
@@ -52,7 +48,6 @@ c
       qir = 0.5d0*(Ug(2)**2 + Ug(3)**2 + Ug(4)**2)
       enth = gam*(Ug(5)+pstiff)+gam1*Ug(1)*qir
       enth = enth/(gam1*Ug(1))
-c      enth = qir + (gam/gam1)*(Ug(5)/Ug(1))
        
 c
       H(1,1) = - vitno
@@ -111,7 +106,7 @@ c
       squsr1 = 0.5d0*usro/squsr1
 
 c
-         enth    = uar5 
+      enth    = uar5 
 c
 
 c
@@ -140,16 +135,11 @@ c
       if (prec .eq. 0) then
         beta = 1.d0
       else
-c
-c     Better way to compute beta
-c
-c        beta = MIN(MAX(0.000001d0,beta),1.d0)
-      locMach = DSQRT(2.0d0*qir*cr2)
-      beta = MIN((1.0d0+DSQRT(irey))*MAX(k1*locMach, mach),cmach)
-c
-c     Crude way to compute beta
-c
-c        beta = mach 
+        shock = DABS(Ug(5) - Ud(5))/(Ug(5)+Ud(5))/length
+        locMach = DSQRT(2.0d0*qir*cr2)
+        beta = MAX(k1*locMach, mach)
+        beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
+        beta = MIN(beta, cmach)
       end if
   
       betaRT2 = beta * beta

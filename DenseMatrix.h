@@ -41,7 +41,7 @@ class GenFullM {
    GenFullM<Scalar> operator %(GenFullM<Scalar>&); // product A*B^T
 
 //   Vector operator *(const Vector &v);
-
+   void invert();
 //   GenFullM invert();
 //   GenFullM transpose();
 
@@ -88,6 +88,70 @@ StackFullM::StackFullM(int nr, int nc, double *data)
 
 */
 typedef GenFullM<double> FullM;
+
+// SymFullM = Symmetric Full Matrix class
+//         stores the lower part of an nxn matrix
+
+template<class Scalar>
+class SymFullM : public GenFullM<Scalar> {
+
+ protected:
+
+  //v stores the bottom half of the symmetric matrix
+  int n;
+  Scalar *v;
+
+
+ public:
+
+  SymFullM<Scalar>(); // Creates an empty matrix
+  SymFullM(int _nr);
+  SymFullM(const SymFullM &);
+
+  // destructor
+  ~SymFullM();
+
+  void setNewSize(int _nr, double d=0.0);
+
+  // OPERATORS
+  void  operator = (const SymFullM &);
+  void  operator = (const Scalar c);
+  void  operator *= (const Scalar c);
+  SymFullM<Scalar> operator *(SymFullM<Scalar>&);
+  GenFullM<Scalar> operator *(GenFullM<Scalar>&); // product A*B
+  GenFullM<Scalar> operator %(GenFullM<Scalar>&); // product A*B^T
+
+  void invert();
+
+  int dim()    { return n;    }
+
+  // write this operator correctly to access symmetric values
+  Scalar *operator[](int i) const;
+
+
+  Scalar* data() const { return v; }
+
+//double max();
+  void print(char *msg = "");
+
+ // write a cholesky
+ void factor();
+ void reSolve(double *d);
+
+ void zero();
+
+
+};
+
+template<class Scalar>
+inline
+Scalar *
+SymFullM<Scalar>::operator[](int i) const
+ { return v+i*(i+1)/2; }
+
+typedef SymFullM<double> SFullM;
+
+
 #ifdef TEMPLATE_FIX
 #include <DenseMatrix.C>
 #endif

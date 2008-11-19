@@ -45,8 +45,11 @@ class LevelSet {
   ~LevelSet();
 
   template<int dim>
-  void setup(const char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
-             DistSVec<double,dim> &U, IoData &iod);
+  void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+             DistVec<double> &Phi, IoData &iod);
+  void setupPhiVolumesInitialConditions(IoData &iod, DistVec<double> &Phi);
+  void setupPhiMultiFluidInitialConditions(IoData &iod, 
+                              DistSVec<double,3> &X, DistVec<double> &Phi);
   void update(DistVec<double> &Phi);
   void writeToDisk(char *name);
 

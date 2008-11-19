@@ -130,8 +130,8 @@ public:
 		    DistSVec<double,dim> &);
 
   void outputPositionVectorToDisk();
-  void resetOutputToStructure(DistSVec<double,dim> &);
-  void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+  virtual void resetOutputToStructure(DistSVec<double,dim> &);
+  virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &U) { return 0; }
   virtual int checkSolution(DistSVec<double,dim> &);

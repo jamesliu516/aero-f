@@ -18,6 +18,12 @@ template<int dim>
 TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
   refVal(rv), domain(dom), postOp(po), rmmh(0)
 {
+  modeFile = 0;
+  TavF = 0;
+  TavM = 0;
+  TavL = 0;
+  Qs = 0;
+  Qv = 0;
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -189,6 +195,16 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dplus);
   }
+  if (iod.output.transient.sfric[0] != 0) {
+    scalars[PostFcn::SKIN_FRICTION] = new char[sp + strlen(iod.output.transient.sfric)];
+    sprintf(scalars[PostFcn::SKIN_FRICTION], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.sfric);
+  }
+  if (iod.output.transient.tavsfric[0] != 0) {
+    avscalars[PostFcn::SKIN_FRICTIONAVG] = new char[sp + strlen(iod.output.transient.tavsfric)];
+    sprintf(avscalars[PostFcn::SKIN_FRICTIONAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavsfric);
+  }
   if (iod.output.transient.psensor[0] != 0) {
     scalars[PostFcn::PSENSOR] = new char[sp + strlen(iod.output.transient.psensor)];
     sprintf(scalars[PostFcn::PSENSOR], "%s%s", 
@@ -199,10 +215,20 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::CSDLES], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.csdles);
   }
+  if (iod.output.transient.tavcsdles[0] != 0) {
+    avscalars[PostFcn::CSDLESAVG] = new char[sp + strlen(iod.output.transient.tavcsdles)];
+    sprintf(avscalars[PostFcn::CSDLESAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavcsdles);
+  }
   if (iod.output.transient.csdvms[0] != 0) {
     scalars[PostFcn::CSDVMS] = new char[sp + strlen(iod.output.transient.csdvms)];
     sprintf(scalars[PostFcn::CSDVMS], "%s%s",
             iod.output.transient.prefix, iod.output.transient.csdvms);
+  }
+  if (iod.output.transient.tavcsdvms[0] != 0) {
+    avscalars[PostFcn::CSDVMSAVG] = new char[sp + strlen(iod.output.transient.tavcsdvms)];
+    sprintf(avscalars[PostFcn::CSDVMSAVG], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tavcsdvms);
   }
   if (iod.output.transient.mutOmu[0] != 0) {
     scalars[PostFcn::MUT_OVER_MU] = new char[sp + strlen(iod.output.transient.mutOmu)];
@@ -287,9 +313,9 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     hydrodynamicforces = 0;
-
+    
   mX = 0;
-  if (iod.output.transient.generalizedforces[0] != 0) {
+  if (iod.output.transient.generalizedforces[0] != 0 && strcmp(iod.input.strModesFile, "") != 0) {
     generalizedforces = new char[sp + strlen(iod.output.transient.generalizedforces)];
     sprintf(generalizedforces, "%s%s", iod.output.transient.prefix, iod.output.transient.generalizedforces);
     modeFile = new char [MAXLINE];
@@ -314,6 +340,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else 
     generalizedforces = 0;
+  
+  if (iod.output.transient.generalizedforces[0] != 0 && !(iod.problem.type[ProblemData::FORCED]) && strcmp(iod.input.strModesFile, "") == 0)
+    fprintf(stderr, "Error : StrModes file for Generalized Forces not given.. Aborting !! \n");
+    
   
   if (iod.output.transient.lift[0] != 0){
     lift = new char[sp + strlen(iod.output.transient.lift)];
@@ -358,8 +388,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[1] = iod.output.transient.y0;
   x0[2] = iod.output.transient.z0;
 
-  Qs = 0;
-  Qv = 0;
   fpResiduals = 0;
   fpGnForces  = 0;
 
@@ -384,9 +412,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     fpHydroDynamicLift[iSurf]   = 0;
   }
 
-  TavF = 0;
-  TavM = 0;
-  TavL = 0;
 
 // Included (MB)
   if (iod.output.transient.velocitynorm[0] != 0) {
@@ -512,10 +537,37 @@ TsOutput<dim>::~TsOutput()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsOutput<dim>::setMeshMotionHandler(RigidMeshMotionHandler *mmh)
+void TsOutput<dim>::setMeshMotionHandler(IoData &ioData, MeshMotionHandler *mmh)
 {
 
-  rmmh = mmh;
+  rmmh = dynamic_cast<RigidMeshMotionHandler *>(mmh);
+
+  if (ioData.problem.type[ProblemData::FORCED]) {
+     if (ioData.forced.type == ForcedData::HEAVING)
+       hmmh = dynamic_cast<HeavingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::PITCHING)
+       pmmh = dynamic_cast<PitchingMeshMotionHandler *>(mmh);
+     else if (ioData.forced.type  == ForcedData::DEFORMING)
+       dmmh = dynamic_cast<DeformingMeshMotionHandler *>(mmh);
+  }
+
+  if (ioData.output.transient.generalizedforces[0] != 0 && ioData.problem.type[ProblemData::FORCED] && strcmp(ioData.input.strModesFile, "") == 0) {
+    int sp = strlen(ioData.output.transient.prefix) + 1;
+    generalizedforces = new char[sp + strlen(ioData.output.transient.generalizedforces)];
+    sprintf(generalizedforces, "%s%s", ioData.output.transient.prefix, ioData.output.transient.generalizedforces);
+
+    mX = new VecSet<DistSVec<double,3> >(1, domain->getNodeDistInfo());
+
+    if (hmmh)
+       (*mX)[0] = hmmh->getModes(); 
+    else if(pmmh)
+       (*mX)[0] = pmmh->getModes(); 
+    else if(dmmh)
+       (*mX)[0] = dmmh->getModes();
+
+  }
+//  else
+//    generalizedforces = 0;
 
 }
 
@@ -1003,7 +1055,8 @@ void TsOutput<dim>::closeAsciiFiles()
 
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1038,7 +1091,9 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
   if (forces || tavforces)  {
     Vec3D rVec = x0;
-    postOp->computeForceAndMoment(rVec, X, U, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+    // if single-phase flow -- Phi is a null pointer
+    // if multi-phase flow  -- Phi points to a DistVec<double>
+    postOp->computeForceAndMoment(rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
 
     if(mX != 0) 
       com->globalSum(GF.size(), GF.data());
@@ -1146,7 +1201,8 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 
 template<int dim>
 void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1162,10 +1218,12 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
   double time = refVal->time * t;
 
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (hydrostaticforces)
-    postOp->computeForceAndMoment(x0, X, U, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamicforces)
-    postOp->computeForceAndMoment(x0, X, U, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticForces[0]) {
@@ -1230,7 +1288,8 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
 template<int dim>
 void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
-				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
 // This routine outputs both the non-averaged and time-averaged values of the lift and drag 
@@ -1259,8 +1318,10 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
     del_t = 0.0;
   }
 
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (lift || tavlift)
-    postOp->computeForceAndMoment(x0, X, U, Fi, Mi, Fv, Mv);    
+    postOp->computeForceAndMoment(x0, X, U, Phi, Fi, Mi, Fv, Mv);    
 
   double time = refVal->time * t;
 
@@ -1318,7 +1379,8 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
                                                                                                                                                                                                      
 template<int dim>
 void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
-                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U)
+                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1333,11 +1395,13 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
   Vec3D *MvD = new Vec3D[nSurfs];
 
   double time = refVal->time * t;
-                                                                                                                                                                                                     
+
+  // if single-phase flow -- Phi is a null pointer
+  // if multi-phase flow  -- Phi points to a DistVec<double>
   if (hydrostaticlift)
-    postOp->computeForceAndMoment(x0, X, U, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamiclift)
-    postOp->computeForceAndMoment(x0, X, U, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticLift[0]) {
@@ -1442,8 +1506,12 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     else
       tag = t * refVal->time;
 
-    if (solutions)
-      domain->writeVectorToFile(solutions, step, tag, U);
+    if (solutions)  {
+      DistSVec<double,dim> soltn(U);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(solutions, step, tag, soltn);
+    }
 
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {

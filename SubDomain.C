@@ -44,6 +44,7 @@ using std::max;
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 #include <LinkF77.h>
+#include <LowMachPrec.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
@@ -58,13 +59,13 @@ template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &dt,
                                 Vec<double> &idti, Vec<double> &idtv,
-                                double beta, double k1, double cmach)
+                                TimeLowMachPrec &tprec)
 {
   dt = 0.0;
   idti = 0.0;
   idtv = 0.0;
-  edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
-  faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, beta, k1, cmach);
+  edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
+  faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
 
 }
 
@@ -74,14 +75,15 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 template<int dim>
 void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach)
+                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                                TimeLowMachPrec &tprec)
 {
 
   dIdti = 0.0;
   dIdtv = 0.0;
 
-  edges.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, k1, cmach);
-  faces.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, beta, k1, cmach);
+  edges.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, tprec);
+  faces.computeDerivativeOfTimeStep(fet, varFcn, geoState, X,  dX, V, dV, dIdti, dIdtv, dMach, tprec);
 
 }
 
@@ -91,14 +93,14 @@ template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
 				Vec<double> &idti, Vec<double> &idtv, 
-                                double beta, double k1, double cmach,
+                                TimeLowMachPrec &tprec,
 				Vec<double> &Phi)
 {
 
   dt = 0.0;
 
-  edges.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi, globSubNum);
-  faces.computeTimeStep(varFcn, geoState, V, dt, beta, k1, cmach, Phi);
+  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi, globSubNum);
+  faces.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi);
 
 }
 
@@ -882,16 +884,16 @@ void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
                                                 GeoState &geoState, Vec<double> &irey,
-                                                Vec<double> &ctrlVol, 
+                                                SVec<double,3> &X, Vec<double> &ctrlVol, 
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 CommPattern<double>* flag) 
 {
   if (!flag){  
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, ctrlVol, V, A);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A);
 
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, ctrlVol, V, A, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A, nodeType);
 
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
   }
@@ -965,15 +967,15 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                                 FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState, 
                                                 NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
-                                                Vec<double> &ctrlVol,
+                                                SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 Vec<double> &Phi, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, ctrlVol, V, A, Phi, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi, nodeType);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
   }
                                                                                               
@@ -1103,35 +1105,150 @@ void SubDomain::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 
 template<int dim>
 void SubDomain::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                                  SVec<double,6> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V,
-				  double gam, double R)
+                                      SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
+                                      SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+				      SVec<double,dim> &V, double gam, double R)
 {
 
-  elems.computeTestFilterAvgs(VCap, Mom_Test, Eng_Test, X, V, gam, R);
-	
+  elems.computeTestFilterAvgs(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
+
 }
 
-
 //------------------------------------------------------------------------------
-
+// Computes Cs and Pt values in dynamic LES procedure
+//
 template<int dim>
 void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                                SVec<double,6> &Eng_Test, SVec<double,2> &Cs, 
-                                Vec<double> &VolSum, SVec<double,3> &X, double gam, double R)
+                                SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
+                                SVec<double,8> &Eng_Test, SVec<double,2> &Cs, 
+				Vec<int> &Ni, SVec<double,3> &X, double gam, double R)
 {
 
-  elems.computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
+ for (int i=0; i<nodes.size(); ++i) {
+   double vc[5];
+   double r_u[3];
+   double r_u_u[6];
+   double r_s_p[6];
+   double ratdelta = pow(Ni[i],(2.0/3.0)); // should precompute this also
+      
+   double r_e;
+   double r_e_plus_p;
+   double r_s_dtdxj[3];
+   double dtdxj[3];
+   
+   double num, denom;
+   double sqrt2S2;
+   double Pij[3][3], Bij[3][3], Lij[3][3];
+   double Zi[3], Li[3];
+   double oogam1 = 1.0/(gam - 1.0);
+   double Cp = R*gam*oogam1; // specific heat at constant pressure
+
+   // Compute Smagorinsky Coefficient at each node
+   // ----------------------------------------------
+   // Ref: Large Eddy Simulation of Bluff-Body flow on Unstructured Grids
+   // International Journal of Numerical Methods in Fluids 2002
+   // Vol : 40, pgs:1431-1460
+   // Authors; Camarri, Salvetti, Koobus, Dervieux
+   // ---------------------------------------------------------------------
+                                                                                                                     
+    r_u[0] = Mom_Test[i][1]/Mom_Test[i][0];
+    r_u[1] = Mom_Test[i][2]/Mom_Test[i][0];
+    r_u[2] = Mom_Test[i][3]/Mom_Test[i][0];
+                                                                                                                     
+    r_u_u[0] = Mom_Test[i][4]/Mom_Test[i][0];
+    r_u_u[1] = Mom_Test[i][5]/Mom_Test[i][0];
+    r_u_u[2] = Mom_Test[i][6]/Mom_Test[i][0];
+    r_u_u[3] = Mom_Test[i][7]/Mom_Test[i][0];
+    r_u_u[4] = Mom_Test[i][8]/Mom_Test[i][0];
+    r_u_u[5] = Mom_Test[i][9]/Mom_Test[i][0];
+                                                                                                                     
+    r_s_p[0] = Mom_Test[i][10]/Mom_Test[i][0];
+    r_s_p[1] = Mom_Test[i][11]/Mom_Test[i][0];
+    r_s_p[2] = Mom_Test[i][12]/Mom_Test[i][0];
+    r_s_p[3] = Mom_Test[i][13]/Mom_Test[i][0];
+    r_s_p[4] = Mom_Test[i][14]/Mom_Test[i][0];
+    r_s_p[5] = Mom_Test[i][15]/Mom_Test[i][0];
+                                                                                                                     
+    vc[0] = VCap[i][0]/Mom_Test[i][0];
+    vc[1] = VCap[i][1]/Mom_Test[i][0];
+    vc[2] = VCap[i][2]/Mom_Test[i][0];
+    vc[3] = VCap[i][3]/Mom_Test[i][0];
+    vc[4] = VCap[i][4]/Mom_Test[i][0];
+
+    Pij[0][0] = Sij_Test[i][0]/Mom_Test[i][0];
+    Pij[1][1] = Sij_Test[i][1]/Mom_Test[i][0]; 
+    Pij[2][2] = Sij_Test[i][2]/Mom_Test[i][0];
+    Pij[0][1] = Sij_Test[i][3]/Mom_Test[i][0];
+    Pij[0][2] = Sij_Test[i][4]/Mom_Test[i][0];
+    Pij[1][2] = Sij_Test[i][5]/Mom_Test[i][0];
+    Pij[1][0] = Pij[0][1];
+    Pij[2][0] = Pij[0][2];
+    Pij[2][1] = Pij[1][2];
+
+    sqrt2S2 = modS_Test[i]/Mom_Test[i][0];
+    
+    r_e = Eng_Test[i][0]/Mom_Test[i][0];
+    
+    r_e_plus_p = Eng_Test[i][1]/Mom_Test[i][0];
+    
+    r_s_dtdxj[0] = Eng_Test[i][2]/Mom_Test[i][0];
+    r_s_dtdxj[1] = Eng_Test[i][3]/Mom_Test[i][0];
+    r_s_dtdxj[2] = Eng_Test[i][4]/Mom_Test[i][0];
+ 
+    dtdxj[0] = Eng_Test[i][5]/Mom_Test[i][0];
+    dtdxj[1] = Eng_Test[i][6]/Mom_Test[i][0];
+    dtdxj[2] = Eng_Test[i][7]/Mom_Test[i][0];
+    
+    // computing Smagorinsky constant //
+    
+    computeLij(Lij, r_u, r_u_u, vc);
+    computeBij(Bij, r_s_p, sqrt2S2, Pij, ratdelta, vc);
+                                    
+				                                                                                     
+    num = 0.0;
+    denom = 0.0;
+                                                                                                                     
+    // least squares procedure 
+
+    for (int j=0; j<3; ++j){
+      for (int k=0; k<3; ++k){
+         num += Bij[j][k]*Lij[j][k];
+         denom += Bij[j][k]*Bij[j][k];
+       }
+    }
+                                                                                                                     
+    if(denom < 1.0e-7) denom = 1.0e-7;
+    Cs[i][0] = (num/denom);
+
+    // computing turbulent Prandtl number //
+
+    computeZi(Zi, ratdelta, sqrt2S2, dtdxj, r_s_dtdxj, vc, Cp);
+    computeLi(Li, r_e, r_e_plus_p, r_u, vc);
+    
+    num = 0.0;
+    denom = 0.0;
+    
+    // least squares procedure 
+
+    for (int j=0; j<3; ++j){
+       num += Li[j]*Zi[j];
+       denom += Zi[j]*Zi[j];
+    }
+
+    if(denom < 1.0e-7) denom = 1.0e-7;
+    Cs[i][1] = (num/denom);
+  }
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
+void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
                                       SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
-  elems.computeDynamicLESTerm(dles, Cs, VolSum, X, V, R);
+  elems.computeDynamicLESTerm(dles, Cs, X, V, R);
 
 }
 
@@ -1351,6 +1468,210 @@ void SubDomain::computedWBar_dt(MacroCellSet **macroCells,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeCsDeltaSq(SVec<double,dim> &R,
+                                 SVec<double,dim> &RBar,
+                                 SVec<double,dim> &M,
+                                 SVec<double,dim> &MBar,
+                                 SVec<double,dim> &dWdt,
+                                 SVec<double,dim> &dWBardt,
+                                 Vec<double> &CsDeltaSq,
+                                 Vec<double> &PrT,
+                                 int method)
+{
+
+ for (int i=0; i<nodes.size(); ++i) {
+
+    switch (method) {
+
+    case (0):     // Variational Germano Identity
+      {
+      double num = 0.0;
+      double denom = 0.0;
+      for(int j=1; j<4; ++j) {
+        num += (M[i][j] - MBar[i][j])*((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]));
+        denom += (M[i][j] - MBar[i][j])*(M[i][j] - MBar[i][j]);
+      }
+      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
+      else CsDeltaSq[i] = num / denom;
+
+      num = CsDeltaSq[i] * (M[i][4] - MBar[i][4]);
+      denom = (RBar[i][4] + dWBardt[i][4]) - (R[i][4] + dWdt[i][4]);
+      if (fabs(denom) < 0.000001) PrT[i] = 0.9;
+      else PrT[i] = num / denom;
+      }
+      break;
+
+    case(1):     // Full Least Squares
+      {
+      double num = 0.0;
+      double denom = 0.0;
+      for(int j=1; j<4; ++j) {
+        num += -(MBar[i][j] * (RBar[i][j] + dWBardt[i][j]))
+               -(M[i][j] * (R[i][j] + dWdt[i][j]));
+        denom += (MBar[i][j] * MBar[i][j]) + (M[i][j] * M[i][j]);
+      }
+      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
+      else CsDeltaSq[i] = num / denom;
+
+      num = -CsDeltaSq[i] * ((R[i][4] + dWdt[i][4])*M[i][4]
+                           + (RBar[i][4] + dWBardt[i][4])*MBar[i][4]);
+      denom = pow((RBar[i][4] + dWBardt[i][4]),2.0) + pow((R[i][4] + dWdt[i][4]),2.0);
+      if (fabs(denom) < 0.000001) PrT[i] = 0.9;
+      else PrT[i] = num / denom;
+      }
+      break;
+
+    case(2):   // Special Clipping Procedure
+      {
+      double num = 0.0;
+      double denom = 0.0;
+      for(int j=1; j<4; ++j) {
+        num += (M[i][j] - MBar[i][j])*((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]));
+        denom += (M[i][j] - MBar[i][j])*(M[i][j] - MBar[i][j]);
+      }
+      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
+      else CsDeltaSq[i] = num / denom;
+
+      if (CsDeltaSq[i] < 0.0) {
+        num = 0.0;
+        denom = 0.0;
+        for(int j=1; j<4; ++j) {
+          num += pow((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]) , 2.0);
+          denom += pow((M[i][j]) - MBar[i][j], 2.0);
+        }
+        if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
+        else CsDeltaSq[i] = sqrt(num / denom);
+      }
+
+      num = CsDeltaSq[i] * (M[i][4] - MBar[i][4]);
+      denom = (RBar[i][4] + dWBardt[i][4]) - (R[i][4] + dWdt[i][4]);
+      if (denom < 0.000001) PrT[i] = 0.9;
+      else PrT[i] = num / denom;
+      }
+      break;
+
+    default:
+      fprintf(stderr,"Error :: Method to Solve the Residual Equation is Not Correct...Aborting !!\n");
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
+                                  SVec<double,dim> &V, Vec<double> &mutOmu)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+    double mut = smag->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuVMS(VMSLESTerm *vmst, SVec<double,dim> &VBar, SVec<double,3> &X,
+                                 SVec<double,dim> &V, Vec<double> &mutOmu)
+{
+
+   for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+     double dp1dxj[4][3];
+     double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+     double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+     double *vbar[4] = {VBar[elems[tetNum][0]], VBar[elems[tetNum][1]],
+                        VBar[elems[tetNum][2]], VBar[elems[tetNum][3]]};
+
+     double mut = vmst->computeMutOMu(vol, dp1dxj, vbar, v, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvmst, SVec<double,dim> &VBar, SVec<double,3> &X,
+                                        SVec<double,dim> &V, Vec<double> &Cs, Vec<double> &mutOmu)
+{
+
+   for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+     double dp1dxj[4][3];
+     double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+     double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+     double *vbar[4] = {VBar[elems[tetNum][0]], VBar[elems[tetNum][1]],
+                        VBar[elems[tetNum][2]], VBar[elems[tetNum][3]]};
+     double cs[4] = {Cs[elems[tetNum][0]], Cs[elems[tetNum][1]],
+                     Cs[elems[tetNum][2]], Cs[elems[tetNum][3]]};
+
+     double mut = dvmst->computeMutOMu(vol, dp1dxj, vbar, v, cs, X, elems[tetNum]);
+     for (int i=0; i<4; ++i)
+       mutOmu[elems[tetNum][i]] += mut * vol;
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
+                                  SVec<double,dim> &V, Vec<double> &mutOmu)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+    double mut = wale->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+                                  SVec<double,3> &X, SVec<double,dim> &V, 
+				  Vec<double> &mutOmu)
+
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]], 
+                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
+    double cs[4] = {Cs[elems[tetNum][0]][0], Cs[elems[tetNum][1]][0],
+                    Cs[elems[tetNum][2]][0], Cs[elems[tetNum][3]][0]};
+    double pt[4] = {Cs[elems[tetNum][0]][1], Cs[elems[tetNum][1]][1],
+                    Cs[elems[tetNum][2]][1], Cs[elems[tetNum][3]][1]};
+
+    double mut = dles->computeMutOMu(vol, dp1dxj, v, cs, pt, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      mutOmu[elems[tetNum][i]] += mut * vol;
+  }
+
+}
+
+//--------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData, 
@@ -1811,7 +2132,7 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    fluxFcn[0]->computeJacobians(0.0, edgeNorm[l], edgeNormVel[l],
+    fluxFcn[0]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l],
                                  V[i], V[j], dfdUi, dfdUj);
 
     Aii = A.getElem_ii(i);
@@ -1888,7 +2209,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
 
-    fluxFcn[BC_INTERNAL]->computeJacobians(0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
+    fluxFcn[BC_INTERNAL]->computeJacobians(1.0, 0.0, edgeNorm[l], edgeNormVel[l], Vi, Vj, dfdVi, dfdVj);
 
     Aij = A.getElem_ij(l);
     Aji = A.getElem_ji(l);
@@ -3577,16 +3898,24 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U, SVec<bool,2>& tag)
+void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U, 
+                  SVec<bool,2>& tag, Vec<double> *Phi)
 {
 
   for (int i=0; i<U.size(); ++i) {
     tag[i][0] = false;
     tag[i][1] = false;
     double V[dim];
-    varFcn->conservativeToPrimitive(U[i], V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
+    double rho, p;
+    if(!Phi){
+      varFcn->conservativeToPrimitive(U[i], V);
+      rho = varFcn->getDensity(V);
+      p = varFcn->getPressure(V);
+    }else{
+      varFcn->conservativeToPrimitive(U[i], V, (*Phi)[i]);
+      rho = varFcn->getDensity(V);
+      p = varFcn->getPressure(V, (*Phi)[i]);
+    }
     if (rho <= 0.0 || p <= 0.0)
       tag[i][0] = true;
   }
@@ -3652,7 +3981,7 @@ void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
 
   int i, j;
   for (i=0; i<faces.size(); ++i)
-    for (j=0; j<3; ++j) 
+    for (j=0; j<faces[i].numNodes(); ++j) 
       nodeCodes[ faces[i][j] ] += 1;
 
   char fname1[MAXLINE], fname2[MAXLINE];
@@ -3762,90 +4091,88 @@ void SubDomain::zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeCsDeltaSq(SVec<double,dim> &R,
-                                 SVec<double,dim> &RBar,
-                                 SVec<double,dim> &M,
-                                 SVec<double,dim> &MBar,
-                                 SVec<double,dim> &dWdt,
-                                 SVec<double,dim> &dWBardt,
-                                 Vec<double> &CsDeltaSq,
-                                 Vec<double> &PrT,
-                                 int method)
-{
+void SubDomain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
+                                VolumeInitialConditions &ic, SVec<double,dim> &U){
 
- for (int i=0; i<nodes.size(); ++i) {
+  double UU[5];
 
-    switch (method) {
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
 
-    case (0):     // Variational Germano Identity
-      {
-      double num = 0.0;
-      double denom = 0.0;
-      for(int j=1; j<4; ++j) {
-        num += (M[i][j] - MBar[i][j])*((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]));
-        denom += (M[i][j] - MBar[i][j])*(M[i][j] - MBar[i][j]);
-      }
-      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
-      else CsDeltaSq[i] = num / denom;
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
 
-      num = CsDeltaSq[i] * (M[i][4] - MBar[i][4]);
-      denom = (RBar[i][4] + dWBardt[i][4]) - (R[i][4] + dWdt[i][4]);
-      if (fabs(denom) < 0.000001) PrT[i] = 0.9;
-      else PrT[i] = num / denom;
-      }
-      break;
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
 
-    case(1):     // Full Least Squares
-      {
-      double num = 0.0;
-      double denom = 0.0;
-      for(int j=1; j<4; ++j) {
-        num += -(MBar[i][j] * (RBar[i][j] + dWBardt[i][j]))
-               -(M[i][j] * (R[i][j] + dWdt[i][j]));
-        denom += (MBar[i][j] * MBar[i][j]) + (M[i][j] * M[i][j]);
-      }
-      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
-      else CsDeltaSq[i] = num / denom;
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
 
-      num = -CsDeltaSq[i] * ((R[i][4] + dWdt[i][4])*M[i][4]
-                           + (RBar[i][4] + dWBardt[i][4])*MBar[i][4]);
-      denom = pow((RBar[i][4] + dWBardt[i][4]),2.0) + pow((R[i][4] + dWdt[i][4]),2.0);
-      if (fabs(denom) < 0.000001) PrT[i] = 0.9;
-      else PrT[i] = num / denom;
-      }
-      break;
+    double rho = ic.density;
+    double p   = ic.pressure;
 
-    case(2):   // Special Clipping Procedure
-      {
-      double num = 0.0;
-      double denom = 0.0;
-      for(int j=1; j<4; ++j) {
-        num += (M[i][j] - MBar[i][j])*((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]));
-        denom += (M[i][j] - MBar[i][j])*(M[i][j] - MBar[i][j]);
-      }
-      if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
-      else CsDeltaSq[i] = num / denom;
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
+                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
 
-      if (CsDeltaSq[i] < 0.0) {
-        num = 0.0;
-        denom = 0.0;
-        for(int j=1; j<4; ++j) {
-          num += pow((RBar[i][j] + dWBardt[i][j]) - (R[i][j] + dWdt[i][j]) , 2.0);
-          denom += pow((M[i][j]) - MBar[i][j], 2.0);
-        }
-        if (fabs(denom) < 0.000001) CsDeltaSq[i] = 0.0;
-        else CsDeltaSq[i] = sqrt(num / denom);
-      }
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
 
-      num = CsDeltaSq[i] * (M[i][4] - MBar[i][4]);
-      denom = (RBar[i][4] + dWBardt[i][4]) - (R[i][4] + dWdt[i][4]);
-      if (denom < 0.000001) PrT[i] = 0.9;
-      else PrT[i] = num / denom;
-      }
-      break;
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
 
-    default:
-      fprintf(stderr,"Error :: Method to Solve the Residual Equation is Not Correct...Aborting !!\n");
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ic.density;
+    double temperature = ic.temperature;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        for (int idim = 0; idim<dim; idim++)
+          U[nodeNums[iNode]][idim] = UU[idim];
     }
   }
 
@@ -3854,42 +4181,189 @@ void SubDomain::computeCsDeltaSq(SVec<double,dim> &R,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeMutOMuSmag(SmagorinskyLESTerm *smag, SVec<double,3> &X,
-                                  SVec<double,dim> &V, Vec<double> &mutOmu)
-{
+void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+                       SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U){
 
-  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
-    double dp1dxj[4][3];
-    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
-    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
-                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
-    double mut = smag->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
-    for (int i=0; i<4; ++i)
-      mutOmu[elems[tetNum][i]] += mut * vol;
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
+                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
+
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ic.density;
+    double temperature = ic.temperature;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
   }
 
-}
+  double dist = 0.0;
+  double x = ic.cen_x;
+  double y = ic.cen_y;
+  double z = ic.cen_z;
+  double r = ic.radius;
 
-//--------------------------------------------------------------------------
-
-template<int dim>
-void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
-                                  SVec<double,dim> &V, Vec<double> &mutOmu)
-{
-
-  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
-    double dp1dxj[4][3];
-    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
-    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
-                    V[elems[tetNum][2]], V[elems[tetNum][3]]};
-    double mut = wale->computeMutOMu(vol, dp1dxj, v, X, elems[tetNum]);
-    for (int i=0; i<4; ++i)
-      mutOmu[elems[tetNum][i]] += mut * vol;
+  for (int i=0; i<U.size(); i++){
+    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
+    if(sqrt(dist) < r) //it is inside the sphere
+      for (int idim=0; idim<dim; idim++)
+        U[i][idim] = UU[idim];
   }
 
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                       PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U){
+
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ip.density;
+    double temperature = ip.temperature;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double nx = ip.nx;
+  double ny = ip.ny;
+  double nz = ip.nz;
+
+  for (int i=0; i<U.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    if(scalar > 0.0) //node is on the same side indicated by vector
+      for (int idim=0; idim<dim; idim++)
+        U[i][idim] = UU[idim];
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {
@@ -4273,6 +4747,58 @@ void SubDomain::snapshotsConstruction(SVec<double, dim> **data, bcomp* snaps, in
   Z = 0;
                                                         
 }
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::hardyInterpolationLogMap(SVec<double, dim> ***dataCoarse, SVec<double, dim> **dataInterp, int nData, int numPod, int iDataMin, FullM &B, FullM &b)
+{
+
+  double tempMat[dim*nData];
+  double *hardyCoefs = new double[nData];
+  //for each vector
+  for (int iPod = 0; iPod < numPod; ++iPod) {
+    //for each node
+    for (int iNode = 0; iNode < (*(dataInterp[0])).len; ++iNode) {
+      extractElementsRelativeToANodeAndAVector(dataCoarse,tempMat,iNode,nData,iDataMin,iPod);
+      // for each component
+      for (int iDim = 0; iDim < dim; ++iDim) {
+        //hardyCoefs = B*data(component)
+        for (int iData = 0; iData < nData; ++iData) {
+          hardyCoefs[iData] = 0.0;
+          for (int jData = 0; jData < nData; ++jData)
+            hardyCoefs[iData] += B[iData][jData]*tempMat[iDim*nData+jData];
+        }
+        //compute the interpolated analog quantity
+        (*(dataInterp[iPod]))[iNode][iDim] = 0.0;
+        for (int iData = 0; iData < nData; ++iData)
+          (*(dataInterp[iPod]))[iNode][iDim] += b[iData][0]*hardyCoefs[iData];
+      }
+    }
+  }
+  delete [] hardyCoefs;
+
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::extractElementsRelativeToANodeAndAVector(SVec<double, dim> ***dataCoarse, double *tempMat, int iNode, int nData, int jDataMin, int iPod)
+{
+
+
+  for (int jData = 0; jData < nData; ++jData) {
+    if (jData !=jDataMin) {
+      SVec<double, dim> *X = dataCoarse[jData][iPod];
+      for (int iDim = 0; iDim < dim; ++iDim)
+        *(tempMat + iDim*nData + jData)  = (*X)[iNode][iDim];  //tempMat[iDim][jData]
+    }
+    else {
+      for (int iDim = 0; iDim < dim; ++iDim)
+        *(tempMat + iDim*nData + jData)  = 0.0;
+    }
+
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)

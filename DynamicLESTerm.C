@@ -12,7 +12,7 @@ DynamicLESTerm::DynamicLESTerm(IoData& iod, VarFcn *vf): NavierStokesTerm(iod, v
     wallFcn = new WallFcn(iod, varFcn, viscoFcn);
 
   gamma      = iod.eqs.fluidModel.gasModel.specificHeatRatio;
-  R          = iod.eqs.fluidModel.gasModel.idealGasConstant;
+  R          = iod.eqs.fluidModel.gasModel.idealGasConstant; 
   oogamma1   = 1.0/(gamma - 1.0);
   ooR        = 1.0/R;
   
@@ -85,8 +85,9 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
   double rhoCG = onefourth * (V[0][0] + V[1][0] +
 			      V[2][0] + V[3][0]);
 
-  csprime = 0.25*(Cs[0]+Cs[1]+Cs[2]+Cs[3]);
-  Prsgs = 0.25*(Pt[0]+Pt[1]+Pt[2]+Pt[3]);
+  csprime = onefourth*(Cs[0]+Cs[1]+Cs[2]+Cs[3]);
+  Prsgs   = onefourth*(Pt[0]+Pt[1]+Pt[2]+Pt[3]);
+    
 
 // Clipping for (cs*delta)^2 and pt
 
@@ -103,6 +104,7 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
   double muT;
 
 // Applying the laminar-turbulent trip
+
   if(trip){
      if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
         X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
@@ -125,9 +127,8 @@ void DynamicLESTerm::compute(double tetVol, double dp1dxj[4][3], double *V[4],
   computeTemperature(V, T, Tcg);
   double mu = ooreynolds_mu * viscoFcn->compute_mu(Tcg);
 
-  if((mu + muT) < 0.0) {
+  if((mu + muT) < 0.0)
      muT = -mu;
-   }
 
 // trubulence stress and energy gradient calculation
 
@@ -346,3 +347,81 @@ void DynamicLESTerm::computeEnergyGradient(double dp1dxj[4][3],
 
 //-----------------------------------------------------------------------
 
+double DynamicLESTerm::computeMutOMu(double tetVol, double dp1dxj[4][3], double *V[4], 
+                                   double Cs[4], double Pt[4], SVec<double,3> &X, int nodeNum[4])
+
+{
+
+  // Compute filter width
+  
+  double delta = computeFilterWidth(tetVol, X, nodeNum);
+
+  // Compute Reynolds stress tensor and energy gradient
+
+  double u[4][3];
+  double ucg[3];
+  double en[4];
+  double dudxj[3][3];
+  double dedxj[3];
+  double tauij[3][3];
+  double rhoCG = onefourth * (V[0][0] + V[1][0] +
+			      V[2][0] + V[3][0]);
+
+  csprime = onefourth*(Cs[0]+Cs[1]+Cs[2]+Cs[3]);
+  Prsgs = onefourth*(Pt[0]+Pt[1]+Pt[2]+Pt[3]);
+
+// Clipping for (cs*delta)^2 and pt
+
+  if (csprime > pow(csmax*delta,2)) csprime = csmax*delta*delta; 
+  if (mach < 0.3) Prsgs = Prandtl; // for subsonic flow use constant prandtl number
+  else {
+    if(Prsgs < ptmin) Prsgs = ptmin;
+    if(Prsgs > ptmax) Prsgs = ptmax;
+  }
+
+  computeVelocity(V, u, ucg);
+  computeVelocityGradient(dp1dxj, u, dudxj);
+
+  double muT;
+
+// Applying the laminar-turbulent trip
+
+  if(trip){
+     if((X[nodeNum[0]][0]>=x0 && X[nodeNum[0]][0]<=x1 && X[nodeNum[0]][1]>=y0 && X[nodeNum[0]][1]<=y1 &&
+        X[nodeNum[0]][2]>=z0 && X[nodeNum[0]][2]<=z1) || (X[nodeNum[1]][0]>=x0 && X[nodeNum[1]][0]<=x1 &&
+        X[nodeNum[1]][1]>=y0 && X[nodeNum[1]][1]<=y1 && X[nodeNum[1]][2]>=z0 && X[nodeNum[1]][2]<=z1) ||
+        (X[nodeNum[2]][0]>=x0 && X[nodeNum[2]][0]<=x1 && X[nodeNum[2]][1]>=y0 && X[nodeNum[2]][1]<=y1 &&
+        X[nodeNum[2]][2]>=z0 && X[nodeNum[2]][2]<=z1) || (X[nodeNum[3]][0]>=x0 && X[nodeNum[3]][0]<=x1 &&
+        X[nodeNum[3]][1]>=y0 && X[nodeNum[3]][1]<=y1 && X[nodeNum[3]][2]>=z0 && X[nodeNum[3]][2]<=z1)){
+        muT = computeEddyViscosity(rhoCG, delta, dudxj);} 
+     else{
+        muT = 0.0;
+     }
+  }
+  else{
+    muT = computeEddyViscosity(rhoCG, delta, dudxj); 
+  }
+
+  double T[4], Tcg;
+  computeTemperature(V, T, Tcg);
+  double mu = ooreynolds * viscoFcn->compute_mu(Tcg);
+
+
+  return (muT/mu);
+
+}
+
+//-----------------------------------------------------------------------
+
+double DynamicLESTerm::outputCsValues(double tetVol, double Cs[4], SVec<double,3> &X, int nodeNum[4])
+{
+
+  double delta = computeFilterWidth(tetVol, X, nodeNum);
+
+  csprime = onefourth*(Cs[0]+Cs[1]+Cs[2]+Cs[3]);
+
+  return (csprime/(delta*delta));
+
+}
+
+//-----------------------------------------------------------------------

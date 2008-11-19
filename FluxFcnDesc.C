@@ -24,10 +24,14 @@ extern "C" {
 			 const double&, double*, double*, double*,
 			 const double&, const double&, const double&,
                          const double&, const int&);
+  void F77NAME(hlleflux1)(const double&, const double&, const double&, double*, 
+			 const double&, double*, double*, double*,
+			 const double&, const double&, const double&,
+                         const double&, const int&);
   void F77NAME(roeflux5)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
-                         const double&, const int&);
+                         const double&, const double&, const int&);
   void F77NAME(roeflux6)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*);
   void F77NAME(roejac2)(const int&, const double&, const double&, 
@@ -39,6 +43,10 @@ extern "C" {
 			const double&, double*, double*, double*);
   void F77NAME(roejac6)(const int&, const double&, const double&, const double&, double*, 
 			const double&, double*, double*, double*,const int&,
+                        const double&, const double&, const double&, const double&, 
+                        const double&, const double&, const int&);
+  void F77NAME(hllejac)(const int&, const double&, const double&, const double&, double*, 
+			const double&, double*, double*, double*,const int&,
                         const double&, const double&, const double&, const double&, const int&);
   void F77NAME(boundflux5)(const int&, const double&, double*, const double&, 
 			   double*, double*, double*);
@@ -46,6 +54,16 @@ extern "C" {
 			  double*, double*, double*);
   void F77NAME(genbcfluxgas)(const int&, const double &, const double&, double*, 
 			     const double&, double*, double*, double*);
+  void F77NAME(hlleflux)(const int&, const double&, const double&, const double&, double*,
+                         const double&, double*, double*, double*, double*, double*, 
+                         const double&, const double&, const double&, const double&, 
+                         const double&, const double&, const int&);
+
+  void F77NAME(hllcflux)(const int&, const double&, const double&, const double&, double*,
+                         const double&, double*, double*, double*, double*, double*,
+                         const double&, const double&, const double&, const double&,
+                         const double&, const double&, const int&);
+
 
 // BAROTROPIC LIQUID			  
   void F77NAME(roeflux1water)(const double&, const double&, const double&,
@@ -63,6 +81,21 @@ extern "C" {
 			 const double&, const int&);
   void F77NAME(genbcfluxtait)(const int&, const double&, const double&, const double&, 
 			 const double&,  double*, const double&, double*, double*, double*);
+
+// JWL EOS
+  void F77NAME(roeflux5jwl)(const int&, const double&, const double&, const double&, 
+                            const double&, const double&, const double&,
+                            double*, const double&,double*,double*,double*,double*,double*,
+                            const double&, const double&, const double&, const double&, 
+                            const double&, const double&, const int&);
+  void F77NAME(roejac6jwl)(const int&, const double&, const double&, const double&, 
+                           const double&, const double&, const double&, double*, 
+			   const double&, double*, double*, double*,const int&,
+                           const double&, const double&, const double&, const double&, 
+                           const double&, const double&, const int&);
+  void F77NAME(genbcfluxjwl)(const int&, const double&, const double&, 
+                             const double&, const double&, const double&,
+                             double*, const double&,double*,double*,double*);
 
 // Included (MB)
   void F77NAME(gxroeflux5)(const int&, const double&, const double&, const double&, const double&, double*, double*, const double&, const double&, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, const double&, const double&, const double&, const double&, const double&, const double&, const int&);
@@ -87,7 +120,7 @@ void FluxFcnFDJacRoeEuler3D::computePerfectGas(double length, double irey, doubl
 				     double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 
 }
 
@@ -98,7 +131,7 @@ void FluxFcnFDJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double d
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
@@ -107,7 +140,7 @@ void FluxFcnFDJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double d
 void FluxFcnApprJacRoeEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux)
 {
-  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 }
 
 //------------------------------------------------------------------------------
@@ -117,7 +150,7 @@ void FluxFcnApprJacRoeEuler3D::computeDerivativeOfPerfectGas(double irey, double
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(0, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
@@ -241,7 +274,8 @@ inline
 void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, double vfp, 
                   FluxFcn::Type typeJac, double* normal, double normalVel, double* VL, 
 		  double* VR, double* jacL, double* jacR, double irey, double betaRef, 
-		  double k1, double cmach, int prec, int flag)
+		  double k1, double cmach, double shockreducer, double length,
+                  int prec, int flag)
 {
   const int dimm1 = dim-1;
   const int dimm2 = dim-2;
@@ -254,8 +288,8 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
   double n[3] = {normal[0], normal[1], normal[2]};
 
 
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, irey, prec);
-  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, irey, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, shockreducer, irey, length, prec);
+  F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
   if (type == 1 || type == 2) {
     varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
@@ -339,12 +373,12 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeEuler3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeEuler3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, int flag)
 {
 	
-  roejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, sprec.getPrecTag(), flag);
 
 }
 
@@ -827,6 +861,161 @@ void FluxFcnVanLeerEuler3D::computeJacobiansPerfectGas(double vfgam, double vfp,
 } 
 
 //------------------------------------------------------------------------------
+
+void FluxFcnFDJacHLLEEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
+				     double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+inline
+void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, double vfp, 
+                  FluxFcn::Type typeJac, double* normal, double normalVel, double* VL, 
+		  double* VR, double* jacL, double* jacR, double irey, double betaRef, 
+		  double k1, double cmach, int prec, int flag)
+{
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+  double dflag = static_cast<double>(flag);
+
+
+  double dfdVL[dim2], dfdVR[dim2];
+  double dfdUL[dim2], dfdUR[dim2];
+  double n[3] = {normal[0], normal[1], normal[2]};
+
+  F77NAME(hllejac)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL,1, betaRef, k1, cmach, irey, prec);
+  F77NAME(hllejac)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, irey, prec);
+
+  if (type == 1 || type == 2) {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, dflag);
+
+    double f1;
+    F77NAME(hlleflux1)(gamma, vfgam, vfp, n, normalVel, VL, VR, &f1, betaRef,k1,cmach,irey,prec);
+
+
+    if (type == 1) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-6] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-6] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    else if (type == 2) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-14] = dfdVL[0]*VL[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VL[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VL[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VL[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VL[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VL[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VL[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VL[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VL[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VL[dimm2];
+        dfdVL[dim2-9] = f1;                  dfdVR[dim2-9] = 0.0;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-14] = dfdVL[0]*VR[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VR[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VR[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VR[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VR[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VR[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VR[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VR[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VR[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VR[dimm2];
+        dfdVL[dim2-9] = 0.0;                 dfdVR[dim2-9] = f1;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, dflag);
+    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, dflag);
+  }
+
+  int k;
+
+  if (typeJac == FluxFcn::CONSERVATIVE) {
+    for (k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+  }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEEuler3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                                           double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<5>(0, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getPrecTag(), flag);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                       double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+
+//------------------------------------------------------------------------------
+
+void FluxFcnFDJacHLLCEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                     double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hllcflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLCEuler3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                       double *VL, double *VR, double *flux)
+{
+  F77NAME(hllcflux)(0, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+}
+
+//------------------------------------------------------------------------------
+
+// boundary conditions
 
 void FluxFcnWallEuler3D::computePerfectGas(double *normal, double normalVel,
                                  double *V, double *Ub, double *flux)
@@ -1365,7 +1554,7 @@ void FluxFcnFDJacRoeSA3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 
 }
 
@@ -1376,7 +1565,7 @@ void FluxFcnFDJacRoeSA3D::computeDerivativeOfPerfectGas(double irey, double dIre
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
@@ -1386,7 +1575,7 @@ void FluxFcnApprJacRoeSA3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 
 }
 
@@ -1397,18 +1586,18 @@ void FluxFcnApprJacRoeSA3D::computeDerivativeOfPerfectGas(double irey, double dI
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(1, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeSA3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeSA3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					     double *VL, double *VR, 
 					     double *jacL, double *jacR, int flag)
 {
 
-  roejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, sprec.getPrecTag(), flag);
 
 }
 
@@ -1441,6 +1630,37 @@ void FluxFcnExactJacRoeSA3D::computeJacobiansPerfectGas(double vfgam, double vfp
 {
 
   roejacexact3D<6>(1, gamma, vf, type, normal, normalVel, VL, VR, jacL, jacR);
+
+}
+
+//------------------------------------------------------------------------------
+
+
+void FluxFcnFDJacHLLESA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLESA3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(1, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLESA3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                             double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<6>(1, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getPrecTag(), flag);
 
 }
 
@@ -1626,12 +1846,12 @@ void FluxFcnInternalOutflowSA3D::computeJacobianPerfectGas(double vfgam, double 
 //------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
 
-void FluxFcnRoeSAturb3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnRoeSAturb3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					  double *VL, double *VR, 
 					  double *jacL, double *jacR)
 {
 
-  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, betaRef,k1,cmach,irey,prec);
+  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey, sprec.getPrecTag());
 
 }
 
@@ -1695,7 +1915,7 @@ void FluxFcnFDJacRoeKE3D::computePerfectGas(double length, double irey, double v
 				  double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 
 }
 
@@ -1706,7 +1926,7 @@ void FluxFcnFDJacRoeKE3D::computeDerivativeOfPerfectGas(double irey, double dIre
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL, dVL, VR, dVR, VR, dVR, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
@@ -1716,7 +1936,7 @@ void FluxFcnApprJacRoeKE3D::computePerfectGas(double length, double irey, double
 				    double *VL, double *VR, double *flux)
 {
 
-  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, length, prec);
+  F77NAME(roeflux5)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
 
 }
 
@@ -1727,18 +1947,18 @@ void FluxFcnApprJacRoeKE3D::computeDerivativeOfPerfectGas(double irey, double dI
                                           double *VL, double *dVL, double *VR, double *dVR, double dMach, double *flux, double *dFlux)
 {
 
-  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, betaRef, dMach, k1, cmach, irey, dIrey, prec);
+  F77NAME(gxroeflux5)(2, gamma, vfgam, vfp, dvfp, normal, dNormal, normalVel, dNormalVel, VL, dVL, VL+rshift, dVL+rshift, VR, dVR, VR+rshift, dVR+rshift, flux, dFlux, sprec.getMinMach(), dMach, sprec.getSlope(), sprec.getCutOffMach(), irey, dIrey, sprec.getPrecTag());
 
 }
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeKE3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp, double *normal, double normalVel, 
+void FluxFcnApprJacRoeKE3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel, 
 					     double *VL, double *VR, 
 					     double *jacL, double *jacR, int flag)
 {
 
-  roejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, sprec.getPrecTag(), flag);
 
 }
 
@@ -1771,6 +1991,37 @@ void FluxFcnExactJacRoeKE3D::computeJacobiansPerfectGas(double vfgam, double vfp
 {
 
   roejacexact3D<7>(2, gamma, vf, type, normal, normalVel, VL, VR, jacL, jacR);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnFDJacHLLEKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEKE3D::computePerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux)
+{
+
+  F77NAME(hlleflux)(2, gamma, vfgam, vfp, normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag())
+;
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacHLLEKE3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp, double *normal, double normalVel,
+                                             double *VL, double *VR, double *jacL, double *jacR, int flag)
+{
+
+  hllejacappr3Dgas<7>(2, gamma, vf, vfgam, vfp, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getPrecTag(), flag);
 
 }
 
@@ -1911,13 +2162,13 @@ void FluxFcnOutflowKE3D::computeDerivativeOfPerfectGas(double vfgam, double vfp,
 //------------------------------------------------------------------------------
 // note: jacL = dFdUL and jacR = dFdUR
 
-void FluxFcnRoeKEturb3D::computeJacobiansPerfectGas(double irey, double vfgam, double vfp,
+void FluxFcnRoeKEturb3D::computeJacobiansPerfectGas(double length, double irey, double vfgam, double vfp,
 					  double *normal, double normalVel, 
 					  double *VL, double *VR, 
 					  double *jacL, double *jacR)
 {
 
-  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, betaRef,k1,cmach,irey,prec);
+  F77NAME(roejac2)(1, gamma, vfgam, vfp, normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey,sprec.getPrecTag());
 
 }
 
@@ -1981,7 +2232,7 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
                        double vfb, double vfp, FluxFcn::Type typeJac, double* normal, 
                        double normalVel, double* VL, double* VR, double* jacL, 
                        double* jacR, double irey, double betaRef, double k1, 
-                       double cmach, int prec, int flag)
+                       double cmach, double shockreducer, double length, int prec, int flag)
 {
 
   const int dimm1 = dim-1;
@@ -2025,7 +2276,7 @@ void FluxFcnFDJacRoeEuler3D::computeBarotropicLiquid(double irey, double vfCv, d
 {
     
    F77NAME(roeflux5waterdissprec)(0, gamma, vfCv, vfPr, vfa, vfb,
-        normal, normalVel, VL, VL, VR, VR, flux, betaRef, k1, cmach, irey, prec);
+        normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, sprec.getPrecTag());
 
 }
 
@@ -2036,18 +2287,18 @@ void FluxFcnApprJacRoeEuler3D::computeBarotropicLiquid(double irey, double vfCv,
 				     double *VL, double *VR, double *flux)
 {
    F77NAME(roeflux5waterdissprec)(0, gamma, vfCv, vfPr, vfa, vfb,
-        normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, betaRef, k1, cmach, irey, prec);
+        normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, sprec.getPrecTag());
 }
 
 //------------------------------------------------------------------------------
 
-void FluxFcnApprJacRoeEuler3D::computeJacobiansBarotropicLiquid(double irey, double vfCv, double vfPr,
+void FluxFcnApprJacRoeEuler3D::computeJacobiansBarotropicLiquid(double length, double irey, double vfCv, double vfPr,
 						double vfa, double vfb, 
 						double *normal, double normalVel, 
 						double *VL, double *VR, 
 						double *jacL, double *jacR, int flag)
 {
-  roejacappr3Dwater<5>(0, gamma, vf, vfCv, vfa, vfb, vfPr, type, normal, normalVel, VL, VR, jacL, jacR, irey, betaRef, k1, cmach, prec, flag);
+  roejacappr3Dwater<5>(0, gamma, vf, vfCv, vfa, vfb, vfPr, type, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length, sprec.getPrecTag(), flag);
 }
 
 //------------------------------------------------------------------------------
@@ -2371,6 +2622,115 @@ void FluxFcnInternalOutflowEuler3D::computeJacobianBarotropicLiquid(double vfCv,
 				     double *V, double *Ub, double *jacL)
 {
     jacflux3Dwater<5>(0,vf,type,normal,normalVel,V,Ub,jacL);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//----------------------------   JWL   -----------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+
+template<int dim>
+inline
+void roejacappr3Djwl(int type, double gamma, VarFcn* varFcn, double omega,
+                       double A1, double A2, double R1r, double R2r,
+                       FluxFcn::Type typeJac, double* normal, 
+                       double normalVel, double* VL, double* VR, double* jacL, 
+                       double* jacR, double irey, double betaRef, double k1, 
+                       double cmach, double shockreducer, double length,
+                       int prec, int flag)
+{
+
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+  double dflag = static_cast<double>(flag);
+
+
+  double dfdUL[dim2], dfdUR[dim2];
+  for (int kk = 0; kk<dim2; kk++) dfdUR[kk] = 0.0;
+  double n[3] = {normal[0], normal[1], normal[2]};
+
+  F77NAME(roejac6jwl)(type, gamma, omega, A1, A2, R1r, R2r, n, normalVel, 
+                      VL, VR, dfdUL, 1, betaRef, k1, cmach, shockreducer, 
+                      irey, length, prec);
+  F77NAME(roejac6jwl)(type, gamma, omega, A1, A2, R1r, R2r, n, normalVel,
+                      VR, VL, dfdUR, 2, betaRef, k1, cmach, shockreducer, 
+                      irey, length, prec);
+
+  if (typeJac == FluxFcn::CONSERVATIVE) {
+    for (int k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacRoeEuler3D::computeJWL(double length, double irey, double omega, double A1, double A2,
+                                     double R1r, double R2r, double *normal, double normalVel, 
+				     double *VL, double *VR, double *flux)
+{
+   //fprintf(stderr, "                and with %e %e %e %e %e\n", VL[0],VL[1],VL[2],VL[3],VL[4]);
+   //fprintf(stderr, "                and with %e %e %e %e %e\n", VR[0],VR[1],VR[2],VR[3],VR[4]);
+   F77NAME(roeflux5jwl)(0, gamma, omega, A1, A2, R1r, R2r,
+                        normal, normalVel, 
+                        VL, VL+rshift, VR, VR+rshift, flux, 
+                        sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+   //fprintf(stderr, "done with this edge\n\n\n\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnApprJacRoeEuler3D::computeJacobiansJWL(double length, double irey, double omega, double A1,
+						double A2, double R1r, double R2r, 
+						double *normal, double normalVel, 
+						double *VL, double *VR, 
+						double *jacL, double *jacR, int flag)
+{
+  roejacappr3Djwl<5>(0, gamma, vf, omega, A1, A2, R1r, R2r, 
+                     type, normal, normalVel, VL, VR, jacL, jacR, 
+                     irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), length,
+                     sprec.getPrecTag(), flag);
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnWallEuler3D::computeJWL(double *normal, double normalVel,
+            	                    double *V, double *Ub, double *flux)
+{
+  
+  flux[0] = 0.0;
+  flux[1] = V[4] * normal[0];
+  flux[2] = V[4] * normal[1];
+  flux[3] = V[4] * normal[2];
+  flux[4] = V[4] * normalVel;
+
+}
+//------------------------------------------------------------------------------
+
+void FluxFcnGhidagliaEuler3D::computeJWL(double omega, double A1, double A2,
+                                     double R1r, double R2r,
+                                     double *normal, double normalVel, 
+				     double *V, double *Ub, double *flux)
+{
+  F77NAME(genbcfluxjwl)(0, omega, A1, A2, R1r, R2r, normal, normalVel, V, Ub, flux);
 }
 
 //------------------------------------------------------------------------------

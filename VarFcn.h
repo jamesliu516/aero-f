@@ -18,7 +18,7 @@ class VarFcn {
 public:
   
   const char** pname;
-  enum Type{ GAS = 0, LIQUID = 1, GASINGAS = 2, GASINLIQUID = 3, LIQUIDINLIQUID = 4} type;
+  enum Type{ GAS = 0, LIQUID = 1, JWL = 2, GASINGAS = 3, GASINLIQUID = 4, LIQUIDINLIQUID = 5, JWLINGAS = 6} type;
   enum SubType { NONE = 0, IDEAL = 1, STIFFENED = 2} subType;
   Vec3D meshVel;
 
@@ -27,9 +27,10 @@ public:
   bool verif_clipping;
   bool node_change;
 
-  double gravity;
-  double ngravity[3];
-  
+  double gravity[3];
+  double gravity_norm;
+  double depth;
+
   VarFcn(IoData &iod); 
   VarFcn() { meshVel = 0.0; fprintf(stderr, "MeshVel initialized: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);}
   ~VarFcn() {}
@@ -148,6 +149,32 @@ protected:
   void computeNewPrimitiveLiquidEuler(double, double, double, double *, double *);
   void computeOldPrimitiveLiquidEuler(double, double, double, double *, double *);
   int VerificationLiquidEuler(int, double, double, double, double, double, double *, double *);
+
+  //JWL EOS
+  void conservativeToPrimitiveJWLEuler(double, double, double *, double *);
+  void primitiveToConservativeJWLEuler(double, double, double *, double *);
+  void primitiveToCharacteristicVariationsJWLEuler(double, double *, double *,
+                                                   double *, double *);
+  void characteristicToPrimitiveVariationsJWLEuler(double, double *, double *,
+                                                   double *, double *);
+  void computedVdUJWLEuler(double, double, double *, double *);
+  void computedUdVJWLEuler(double, double, double *, double *);
+  void multiplyBydVdUJWLEuler(double, double, double *, double *, double *);
+  void multiplyBydVdUJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void multiplyBydVdUTJWLEuler(double, double, double *, double *, double *) ;
+  void multiplyBydVdUTJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void preMultiplyBydUdVJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydUdVJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydVdUJWLEuler(double, double, double *, double *, double *);
+  void postMultiplyBydUdVJWLEuler(double, double, double *, bcomp *, bcomp *);
+  void extrapolatePrimitiveJWLEuler(double, double, double*, double*, double*);
+  void extrapolateCharacteristicJWLEuler(double ,double , double*,
+                                         double*, double*);
+  int VerificationJWLEuler(int, double, double, double, double*, double*);
+
+// Included (MB)
+  void conservativeToPrimitiveDerivativeJWLEuler(double, double, double, double *, double *, double *, double *);
+  void primitiveToConservativeDerivativeJWLEuler(double, double, double, double, double *, double *, double *, double *);
 public:
 
   template<int dim>
@@ -226,14 +253,53 @@ public:
   virtual double getPrefWaterbis() {
         fprintf(stderr, "*** Warning: getPrefWaterbis Function not defined\n");
         return 0.0;}
-                                                               
+  virtual double getOmega() {
+        fprintf(stderr, "*** Warning: getOmega Function not defined\n");
+        return 0.0;}
+  virtual double getOmegap1() {
+        fprintf(stderr, "*** Warning: getOmegap1 Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmega() {
+        fprintf(stderr, "*** Warning: getInvOmega Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmegap1() {
+        fprintf(stderr, "*** Warning: getInvOmegap1 Function not defined\n");
+        return 0.0;}
+  virtual double getA1() {
+        fprintf(stderr, "*** Warning: getA1 Function not defined\n");
+        return 0.0;}
+  virtual double getA2() {
+        fprintf(stderr, "*** Warning: getA2 Function not defined\n");
+        return 0.0;}
+  virtual double getR1() {
+        fprintf(stderr, "*** Warning: getR1 Function not defined\n");
+        return 0.0;}
+  virtual double getR2() {
+        fprintf(stderr, "*** Warning: getR2 Function not defined\n");
+        return 0.0;}
+  virtual double getRhoref() {
+        fprintf(stderr, "*** Warning: getRhoref Function not defined\n");
+        return 0.0;}
+  virtual double getR1r() {
+        fprintf(stderr, "*** Warning: getR1r Function not defined\n");
+        return 0.0;}
+  virtual double getR2r() {
+        fprintf(stderr, "*** Warning: getR2r Function not defined\n");
+        return 0.0;}
+        
   virtual Vec3D getVelocity(double *V) { return Vec3D(V[1], V[2], V[3]); }
   virtual double getDensity(double *V) { return V[0]; }
   virtual double getVelocityX(double *V) {return V[1];}
   virtual double getVelocityY(double *V) {return V[2];}
   virtual double getVelocityZ(double *V) {return V[3];}
+  virtual double computeFrho(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeFrhop(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeFrho(double rho, double phi = 0.0) {return 0.0;}
+  virtual double computeFrhop(double rho, double phi = 0.0) {return 0.0;}
   virtual double getPressure(double *V, double phi = 0.0) {return 0.0;}
   virtual double checkPressure(double *V, double phi = 0.0) {return 0.0;}
+  virtual void   setDensity(double *V, double *Vorig){}
+  virtual void   setPressure(double *V, double *Vorig, double phi=0.0){}
   virtual double computeTemperature(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeRhoEnergy(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeEnergy(double *V, double phi = 0.0) {return 0.0;}
@@ -282,7 +348,25 @@ public:
   virtual double getDerivativeOfPressureConstant() { return 0.0; }
   virtual void rstVar(IoData &iod) {}
   virtual void rV(IoData &iod) {  pmin  = iod.eqs.fluidModel.pmin;
-                                  pminp = iod.eqs.volumes.fluidModel2.pmin; }
+                                  pminp = iod.eqs.fluidModel2.pmin; }
+
+  virtual double gravity_value() const { return gravity_norm; }
+  virtual double hydrostaticPressure(double rho, double *X) { 
+    return rho*(gravity_norm*depth + 
+                gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2]); }
+  virtual double hydrodynamicPressure(double *V, double *X, double phi = 0.0)
+  { //check that getPressure does not call the virtual fcn of the present
+    //class which always returns 0.0!!!!
+    double localP = getPressure(V,phi);
+    double localStaticP = hydrostaticPressure(V[0],X);
+    return localP - localStaticP; }
+  virtual double DerivativeHydrostaticPressure(double rho, double drho,
+                                               double *X, double *dX)
+  {
+    return drho*(gravity_norm*depth +
+                 gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2])
+         + rho*(gravity[0]*dX[0]+gravity[1]*dX[1]+gravity[2]*dX[2]);
+  }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -308,6 +392,8 @@ public:
 
   double getPressure(double *V, double phi = 0.0) { return V[4]; }
   double checkPressure(double *V, double phi = 0.0) { return V[4]+Pstiff; }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0]; }
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[4] = Vorig[4]; }
   double computeTemperature(double *V, double phi = 0.0 ) {
     if (isnan(1.0/V[0])) {
       fprintf(stderr, "ERROR*** computeTemp\n");
@@ -376,7 +462,7 @@ public:
   double computeDensity(double p, double temp) { return invgam1 * p / temp; }
   double computePressure(double rho, double temp) { return temp * rho * gam1; }
   double getDerivativeOfPressureConstant() {return dPstiff;}
-  void rstVar(IoData &iod) { dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)); rV(iod);}
+  void rstVar(IoData &iod) { dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach)); rV(iod);}
 
 };
 
@@ -397,10 +483,10 @@ VarFcnPerfectGas::VarFcnPerfectGas(IoData &iod) : VarFcn(iod) {
   gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   gam1 = gam -1.0;
   invgam1 = 1.0/gam1;
-  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
+  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
 
 // Included (MB)
-  dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/(iod.bc.inlet.pressure*iod.ref.rv.pressure)*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
+  dPstiff = 0.0;//iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
 
 }
 
@@ -427,6 +513,8 @@ public:
 
   double getPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
   double checkPressure(double *V, double phi = 0.0) { return Pref_water + alpha_water * pow(V[0], beta_water); }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[0] = Vorig[0];}
   double computeTemperature(double *V, double phi = 0.0) { return V[4]; }
   double computeRhoEnergy(double *V, double phi = 0.0) {
     return V[0] * Cv * V[4] + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -468,7 +556,104 @@ VarFcnWaterCompressible::VarFcnWaterCompressible(IoData &iod)
 }
 
 //-----------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------
+
+class VarFcnJWL: public VarFcn {
+
+protected:
+  double omega;
+  double invomega;
+  double omegap1;
+  double invomegap1;
+  double A1, A2, R1, R2, rhoref;
+  double R1r, R2r;
+
+public:
+  VarFcnJWL(IoData &);
+  ~VarFcnJWL() {}
+    
+  double getOmega()       {return omega;}
+  double getOmegap1()     {return omegap1;}
+  double getInvOmega()    {return invomega;}
+  double getInvOmegap1()  {return invomegap1;}
+  double getA1()          {return A1;}
+  double getA2()          {return A2;}
+  double getR1()          {return R1;}
+  double getR2()          {return R2;}
+  double getRhoref()      {return rhoref;}
+  double getR1r()         {return R1r;}
+  double getR2r()         {return R2r;}
+  
+  double computeFrho(double *V, double phi = 0.0) {
+    return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
+         + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
+  }
+  double computeFrhop(double *V, double phi = 0.0) {
+    double rho2 = V[0]*V[0];
+    return A1*(-omega/R1r+(1.0-omega*V[0]/R1r)*R1r/rho2)*exp(-R1r/V[0])
+         + A2*(-omega/R2r+(1.0-omega*V[0]/R2r)*R2r/rho2)*exp(-R2r/V[0]);
+  }
+  double computeFrho(double rho, double phi = 0.0) {
+    return A1*(1.0-omega*rho/R1r)*exp(-R1r/rho)
+         + A2*(1.0-omega*rho/R2r)*exp(-R2r/rho);
+  }
+  double computeFrhop(double rho, double phi = 0.0) {
+    double rho2 = rho*rho;
+    return A1*(-omega/R1r+(1.0-omega*rho/R1r)*R1r/rho2)*exp(-R1r/rho)
+         + A2*(-omega/R2r+(1.0-omega*rho/R2r)*R2r/rho2)*exp(-R2r/rho);
+  }
+  double getPressure(double *V, double phi = 0.0) { return V[4]; }
+  double checkPressure(double *V, double phi = 0.0) { return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1;}
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[4] = Vorig[4];}
+  double computeTemperature(double *V, double phi = 0.0) { return invomega * (V[4]-computeFrho(V)) / V[0]; }
+  double computeRhoEnergy(double *V, double phi = 0.0) {
+    return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+  double computeRhoEpsilon(double *V, double phi = 0.0) { return invomega * (V[4]-computeFrho(V)); }
+  double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]); }
+  double computeMachNumber(double *V, double phi = 0.0) {
+    double c=computeSoundSpeed(V);
+    double u=sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]));
+    return u/c;
+  }
+  double computeTotalPressure(double machr, double *V, double phi = 0.0){
+    fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
+    return 0.0;
+  }
+
+// Included (MB)
+  void rstVar(IoData &iod) { rV(iod);}
+
+};
+
+//--------------------------------------------------------------------------------------
+
+inline
+VarFcnJWL::VarFcnJWL(IoData &iod)
+: VarFcn(iod) {
+
+  type = JWL;
+  subType == NONE;
+
+  omega        = iod.eqs.fluidModel.jwlModel.omega;
+  omegap1      = iod.eqs.fluidModel.jwlModel.omega + 1.0;
+  invomega     = 1.0/iod.eqs.fluidModel.jwlModel.omega;
+  invomegap1   = 1.0/(iod.eqs.fluidModel.jwlModel.omega+1.0);
+
+  A1           = iod.eqs.fluidModel.jwlModel.A1;
+  A2           = iod.eqs.fluidModel.jwlModel.A2;
+  R1           = iod.eqs.fluidModel.jwlModel.R1;
+  R2           = iod.eqs.fluidModel.jwlModel.R2;
+  rhoref       = iod.eqs.fluidModel.jwlModel.rhoref;
+  R1r          = R1*rhoref;
+  R2r          = R2*rhoref;
+
+}
+
 //-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+
 class VarFcnGasInGas : public VarFcn {
 
  protected:
@@ -496,6 +681,8 @@ class VarFcnGasInGas : public VarFcn {
   double checkPressure(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4]+Pstiff;
     else          return V[4]+Pstiffp; }
+  void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
+  void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
   
   double computeTemperature(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
@@ -560,12 +747,12 @@ VarFcnGasInGas::VarFcnGasInGas(IoData &iod)
   gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
   gam1 = gam -1.0;
   invgam1 = 1.0/gam1;
-  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
+  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
 
-  gamp = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
+  gamp = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
   gamp1 = gamp - 1.0;
   invgamp1 = 1.0/gamp1;
-  Pstiffp = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+  Pstiffp = iod.eqs.fluidModel2.gasModel.pressureConstant;
 
 }
 
@@ -607,6 +794,8 @@ public:
     return 1.0;
     if (phi>=0.0) return Pref_water + alpha_water * pow(V[0], beta_water);
     else          return Pref_waterbis + alpha_waterbis * pow(V[0], beta_waterbis); }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) { V[0] = Vorig[0];}
 
   double computeTemperature(double *V, double phi = 0.0) { return V[4]; }
   double computeRhoEnergy(double *V, double phi = 0.0) {
@@ -660,9 +849,9 @@ VarFcnLiquidInLiquid::VarFcnLiquidInLiquid(IoData &iod)
   
   Cvbis=1.0;
   invCvbis=1.0/Cvbis;
-  alpha_waterbis = iod.eqs.volumes.fluidModel2.liquidModel.alpha;
-  beta_waterbis  = iod.eqs.volumes.fluidModel2.liquidModel.beta;
-  Pref_waterbis  = iod.eqs.volumes.fluidModel2.liquidModel.Pref;
+  alpha_waterbis = iod.eqs.fluidModel2.liquidModel.alpha;
+  beta_waterbis  = iod.eqs.fluidModel2.liquidModel.beta;
+  Pref_waterbis  = iod.eqs.fluidModel2.liquidModel.Pref;
 
 }
 
@@ -706,6 +895,10 @@ public:
     else
       return V[4]+Pstiff;
   }
+  void   setDensity(double *V, double *Vorig)  { V[0] = Vorig[0];}
+  void   setPressure(double *V, double *Vorig, double phi=0.0) {
+    if (phi>=0.0) V[0] = Vorig[0];
+    else          V[4] = Vorig[4]; }
     
   double computeTemperature(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4];
@@ -756,11 +949,11 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
   subType = NONE;
 
   if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-     iod.eqs.volumes.fluidModel2.fluid == FluidModelData::GAS){
-    gam = iod.eqs.volumes.fluidModel2.gasModel.specificHeatRatio;
+     iod.eqs.fluidModel2.fluid == FluidModelData::GAS){
+    gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
     gam1 = gam -1.0;
     invgam1 = 1.0/gam1;
-    Pstiff = iod.eqs.volumes.fluidModel2.gasModel.pressureConstant/iod.ref.rv.pressure;
+    Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant;
 
     Cv=1.0;
     invCv=1.0/Cv;
@@ -770,24 +963,149 @@ VarFcnGasInLiquid::VarFcnGasInLiquid(IoData &iod)
     Pref_water  = iod.eqs.fluidModel.liquidModel.Pref;
 
   }else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-           iod.eqs.volumes.fluidModel2.fluid == FluidModelData::LIQUID){
+           iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID){
     gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
     gam1 = gam -1.0;
     invgam1 = 1.0/gam1;
-    Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.ref.rv.pressure;
+    Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
 
     Cv=1.0;
     invCv=1.0/Cv;
 
-    alpha_water = iod.eqs.volumes.fluidModel2.liquidModel.alpha;
-    beta_water  = iod.eqs.volumes.fluidModel2.liquidModel.beta;
-    Pref_water  = iod.eqs.volumes.fluidModel2.liquidModel.Pref;
+    alpha_water = iod.eqs.fluidModel2.liquidModel.alpha;
+    beta_water  = iod.eqs.fluidModel2.liquidModel.beta;
+    Pref_water  = iod.eqs.fluidModel2.liquidModel.Pref;
 
   }
 
 }
 
 //------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+
+class VarFcnJWLInGas : public VarFcn {
+
+ protected:
+  double gam, gam1, invgam1;
+  double Pstiff;
+
+  double omega, invomega, omegap1, invomegap1;
+  double A1,A2,R1,R2,rhoref;
+  double R1r,R2r;
+
+ public:
+  VarFcnJWLInGas(IoData &);
+  ~VarFcnJWLInGas() {}
+
+  double getGamma() {return gam;}
+  double getGamma1() {return gam1;}
+  double getPressureConstant() {return Pstiff;}
+
+  double getOmega()       {return omega;}
+  double getOmegap1()     {return omegap1;}
+  double getInvOmega()    {return invomega;}
+  double getInvOmegap1()  {return invomegap1;}
+  double getA1()          {return A1;}
+  double getA2()          {return A2;}
+  double getR1()          {return R1;}
+  double getR2()          {return R2;}
+  double getRhoref()      {return rhoref;}
+  double getR1r()         {return R1r;}
+  double getR2r()         {return R2r;}
+
+  double computeFrho(double *V, double phi = 0.0) {
+    return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
+         + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
+  }
+  double computeFrhop(double *V, double phi = 0.0) {
+    double rho2 = V[0]*V[0];
+    return A1*(-omega/R1r+(1.0-omega*V[0]/R1r)*R1r/rho2)*exp(-R1r/V[0])
+         + A2*(-omega/R2r+(1.0-omega*V[0]/R2r)*R2r/rho2)*exp(-R2r/V[0]);
+  }
+  double computeFrho(double rho, double phi = 0.0) {
+    return A1*(1.0-omega*rho/R1r)*exp(-R1r/rho)
+         + A2*(1.0-omega*rho/R2r)*exp(-R2r/rho);
+  }
+  double computeFrhop(double rho, double phi = 0.0) {
+    double rho2 = rho*rho;
+    return A1*(-omega/R1r+(1.0-omega*rho/R1r)*R1r/rho2)*exp(-R1r/rho)
+         + A2*(-omega/R2r+(1.0-omega*rho/R2r)*R2r/rho2)*exp(-R2r/rho);
+  }
+
+  double getPressure(double *V, double phi = 0.0) { return V[4]; }
+  double checkPressure(double *V, double phi = 0.0) {
+    if (phi>=0.0) return V[4]+Pstiff;
+    else          return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1; }
+  void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
+  void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
+  
+  double computeTemperature(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
+    else         return invomega*(V[4]-computeFrho(V))/V[0]; }
+    
+  double computeRhoEnergy(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    else         return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+    
+  double computeRhoEpsilon(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
+    else         return invomega * (V[4]-computeFrho(V)); }
+     
+  double computeSoundSpeed(double *V, double phi = 0.0) { 
+    if (phi>=0.0){
+      if(gam * (V[4]+Pstiff) / V[0]<0.0) 
+        fprintf(stdout, "gam = %e, Pres = %e, pstiff = %e, rho = %e\n", gam,V[4],Pstiff,V[0]);
+      return sqrt(gam * (V[4]+Pstiff) / V[0]); 
+    }
+    else{
+      return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]);
+    }
+  }
+    
+  double computeMachNumber(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)));
+    else         return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V); }
+    
+  double computeTotalPressure(double machr, double *V, double phi = 0.0){
+    fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
+    return 0.0;
+  }
+
+};
+//--------------------------------------------------------------------------------------
+
+inline
+VarFcnJWLInGas::VarFcnJWLInGas(IoData &iod)
+: VarFcn(iod) {
+
+// Assumes that fluidModel1 is the PGas
+//          and fluidModel2 is the JWL
+  type = JWLINGAS;
+  subType = NONE;
+
+  gam = iod.eqs.fluidModel.gasModel.specificHeatRatio;
+  gam1 = gam -1.0;
+  invgam1 = 1.0/gam1;
+  Pstiff = iod.eqs.fluidModel.gasModel.pressureConstant;
+
+
+  omega        = iod.eqs.fluidModel2.jwlModel.omega;
+  omegap1      = omega + 1.0;
+  invomega     = 1.0/omega;
+  invomegap1   = 1.0/omegap1;
+
+  A1           = iod.eqs.fluidModel2.jwlModel.A1;
+  A2           = iod.eqs.fluidModel2.jwlModel.A2;
+  R1           = iod.eqs.fluidModel2.jwlModel.R1;
+  R2           = iod.eqs.fluidModel2.jwlModel.R2;
+  rhoref       = iod.eqs.fluidModel2.jwlModel.rhoref;
+  R1r          = R1*rhoref;
+  R2r          = R2*rhoref;
+
+}
+
+//-----------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1008,6 +1326,7 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
     }
   }
+
 
 }
 
