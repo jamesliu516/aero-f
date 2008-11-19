@@ -93,18 +93,27 @@ template<int dim>
 void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
 {
 
-  computeRKUpdate(U, k1);
+/*  computeRKUpdate(U, k1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
 
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  updateGhostFluid(U0);
   computeRKUpdate(U0, k2);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
 
   U -= 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
+*/
 
+  computeRKUpdate(U, k1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U -= k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+  this->spaceOp->applyBCsToSolutionVector(U);
+  
+  
 }
 
 //------------------------------------------------------------------------------

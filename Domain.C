@@ -1108,7 +1108,23 @@ double Domain::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &
     subDomain[iSub]->recomputeResidual(F(iSub), Finlet(iSub));
 
   return Finlet*Finlet;
+
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+double Domain::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal, 
+                                        DistVec<double> &philevel)
+{
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeRealFluidResidual(F(iSub), Freal(iSub), philevel(iSub));
+
+  return Freal*Freal;
+}
+
+
 
 //------------------------------------------------------------------------------
 

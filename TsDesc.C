@@ -1,9 +1,10 @@
 #include <TsDesc.h>
-
+#include <math.h>
 #include <RefVal.h>
 #include <VarFcnDesc.h>
 #include <GeoSource.h>
 #include <DistBcData.h>
+#include <DistEulerStructGhostFluid.h>
 #include <DistTimeState.h>
 #include <DistGeoState.h>
 #include <SpaceOperator.h>
@@ -29,7 +30,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
-
+  Rreal = new DistSVec<double,dim>(getVecInfo());
   timer = domain->getTimer();
   com = domain->getCommunicator();
 
@@ -62,6 +63,9 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
+  if (ioData.input.ghostsolid.runit==1)  
+    eulerFSI = new DistEulerStructGhostFluid(domain, ioData);
+  else eulerFSI = 0;
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
@@ -313,7 +317,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   *Xs = *X;
   //timer->setSetupTime();
-
+  if (eulerFSI) eulerFSI->setupCommunication(domain,X,*U); //for ghost solid simulation, setup the communication between AERO-F and PhysBAM. For more details refer to DistEulerFluidGhostSolid. 
 }
 
 //------------------------------------------------------------------------------
@@ -323,20 +327,16 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 {
 
   double t0 = timer->getTime();
-
+//  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
-
   int numSubCycles = 1;
   double dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
-
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
-
   timer->addFluidSolutionTime(t0);
   timer->addTimeStepTime(t0);
 
   return dt;
-
 }
 
 //------------------------------------------------------------------------------
@@ -513,9 +513,12 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
-    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+    if(eulerFSI)
+      output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState, *(eulerFSI->getPhilevelPointer()));
+    else 
+      output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-
+ 
   }
 
 }
@@ -538,7 +541,10 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
-  output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+  if(eulerFSI)
+    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState, *(eulerFSI->getPhilevelPointer()));
+  else
+    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
 
@@ -627,22 +633,25 @@ void TsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
 template<int dim>
 double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-
+  double tt = timer->getTime();
   spaceOp->computeResidual(*X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
-  double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
-
   double res = 0.0;
-  if (data->resType == -1){
-    res = (*R)*(*R);
-    res -= res2;
-  }else {
-    int iSub;
-    const DistInfo& distInfo = R->info();
+  if (eulerFSI) {
+    DistVec<double>* philevel = eulerFSI->getPhilevelPointer();
+    res = spaceOp->computeRealFluidResidual(*R, *Rreal, *philevel);
+  } else {
+    double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
+    if (data->resType == -1){
+      res = (*R)*(*R);
+      res -= res2;
+    }else {
+      int iSub;
+      const DistInfo& distInfo = R->info();
 #ifndef MPI_OMP_REDUCTION
-    double* allres = reinterpret_cast<double*>(alloca(sizeof(double) * distInfo.numGlobSub));
-    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
-      allres[iSub] = 0.0;
+      double* allres = reinterpret_cast<double*>(alloca(sizeof(double) * distInfo.numGlobSub));
+      for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+        allres[iSub] = 0.0;
 #endif
 
 #ifdef MPI_OMP_REDUCTION
@@ -650,33 +659,33 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 #else
 #pragma omp parallel for
 #endif
-    for (iSub=0; iSub<distInfo.numLocSub; ++iSub) {
-      double (*r)[dim] = R->subData(iSub);
-      bool* flag = R->getMasterFlag(iSub);
-      double locres = 0.0;
-      for (int i=0; i<R->subSize(iSub); ++i) {
-	if (flag[i])
-	  locres += r[i][data->resType]*r[i][data->resType];
-      }
+      for (iSub=0; iSub<distInfo.numLocSub; ++iSub) {
+        double (*r)[dim] = R->subData(iSub);
+        bool* flag = R->getMasterFlag(iSub);
+        double locres = 0.0;
+        for (int i=0; i<R->subSize(iSub); ++i) {
+       	if (flag[i])
+    	  locres += r[i][data->resType]*r[i][data->resType];
+        }
 #ifdef MPI_OMP_REDUCTION
-      res += locres;
+        res += locres;
 #else
-      allres[distInfo.locSubToGlobSub[iSub]] = locres;
+        allres[distInfo.locSubToGlobSub[iSub]] = locres;
+#endif
+      }
+
+#ifdef MPI_OMP_REDUCTION
+      distInfo.com->globalSum(1, &res);
+#else
+      distInfo.com->globalSum(distInfo.numGlobSub, allres);
+      res = 0.0;
+      for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+        res += allres[iSub];
 #endif
     }
-
-#ifdef MPI_OMP_REDUCTION
-    distInfo.com->globalSum(1, &res);
-#else
-    distInfo.com->globalSum(distInfo.numGlobSub, allres);
-    res = 0.0;
-    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
-      res += allres[iSub];
-#endif
   }
-
   return sqrt(res);
-
+  fprintf(stderr,"Timer for computeResidualNorm = %lf.\n", (timer->getTime())-tt);
 }
 
 //------------------------------------------------------------------------------
@@ -709,9 +718,7 @@ void TsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 template<int dim>
 bool TsDesc<dim>::monitorConvergence(int it, DistSVec<double,dim> &U)
 {
-
   data->residual = computeResidualNorm(U);
-
   if ((problemType[ProblemData::AERO] || problemType[ProblemData::THERMO]) && (it == 1 || it == 2))
     restart->residual = data->residual;
 
@@ -840,4 +847,28 @@ bool TsDesc<dim>::monitorAvgForceConvergence(IoData &ioData, int it, DistSVec<do
 
 }
 
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::updateGhostFluid(DistSVec<double,dim> &U, Vec3D& totalForce, double dt)
+{
+
+//  if (eulerFSI) 
+//    if (problemType[ProblemData::STEADY]) eulerFSI->updateGhostFluid(U);
+//    else eulerFSI->updateGhostFluid(X,U);
+
+  if (eulerFSI)
+    eulerFSI->updateGhostFluid(X, U, totalForce, dt);
+
+}
+
+//----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+

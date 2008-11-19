@@ -38,7 +38,7 @@ template<int dim> class ExactRiemannSolver;
 template<class Scalar> class Vec;
 template<class Scalar, int dim> class SVec;
 template<class Scalar, int dim> class GenMat;
-
+#define EDGE_LENGTH
 #ifdef EDGE_LENGTH
 #include <Vector.h>
 #endif
@@ -163,6 +163,11 @@ public:
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
                                double *originalVi = 0, double *originalVj = 0,
                                double phii = 1.0, double phij = 1.0);
+#ifdef EDGE_LENGTH
+  void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&, 
+                                       const double, const double, const double,
+                                       const double, const double, const double);
+#endif
 
 };
 

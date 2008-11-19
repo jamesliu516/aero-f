@@ -26,7 +26,8 @@ public:
                    K_TURB = 10, EPS_TURB = 11, EDDY_VISCOSITY = 12, DELTA_PLUS = 13, 
                    PSENSOR = 14, MUT_OVER_MU = 15, PHILEVEL = 16, DIFFPRESSURE = 17, 
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
-                   WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, SSIZE = 24};
+                   WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, 
+                   PHILEVEL_STRUCTURE = 24, SSIZE = 25};
 
 // Original
 /*

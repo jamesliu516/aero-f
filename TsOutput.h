@@ -128,6 +128,10 @@ public:
   void writeResidualsToDisk(int, double, double, double);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+
+  void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
+                                DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+                                DistVec<double> &);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
                                 DistVec<double> &);

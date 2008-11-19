@@ -8,6 +8,7 @@
 #include <TsParameters.h>
 #include <Domain.h>
 #include <DistVector.h>
+#include <DistEulerStructGhostFluid.h>
 
 class RefVal;
 class VarFcn;
@@ -17,6 +18,7 @@ class MeshMotionHandler;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
+class DistEulerStructGhostFluid;
 
 template<int dim> class DistBcData;
 template<int dim> class DistTimeState;
@@ -34,6 +36,9 @@ public:
   typedef DistSVec<double,3> PosVecType;
   typedef DistVec<double> VolVecType;
 
+  TsParameters *data;
+  double computeResidualNorm(DistSVec<double,dim>&);
+
 protected:
 
   PosVecType *X;
@@ -45,7 +50,7 @@ protected:
   TsData::Clipping clippingType;
   BcsWallData::Integration wallType;
 
-  TsParameters *data;
+//  TsParameters *data;
   TsInput *input;
   TsOutput<dim> *output;
   TsRestart *restart;
@@ -53,10 +58,12 @@ protected:
   DistSVec<double,dim> *V;
   DistSVec<double,dim> *R;
   DistSVec<double,dim> *Rinlet;
+  DistSVec<double,dim> *Rreal;
 
   RefVal *refVal;
   VarFcn *varFcn;
 
+  
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
@@ -65,6 +72,7 @@ protected:
 
   MeshMotionHandler* mmh;
   HeatTransferHandler* hth;
+  DistEulerStructGhostFluid* eulerFSI;
 
   Domain *domain;
 
@@ -81,7 +89,7 @@ protected:
 
 protected:
 
-  double computeResidualNorm(DistSVec<double,dim>&);
+//  double computeResidualNorm(DistSVec<double,dim>&);
   void monitorInitialState(int, DistSVec<double,dim> &);
   bool monitorConvergence(int, DistSVec<double,dim> &);
 
@@ -138,6 +146,8 @@ public:
 
 // Included (MB)  
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
 };
 
