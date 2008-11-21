@@ -788,6 +788,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        NodalGrad<1>& ngradLS, 
                                        SVec<double,dim>& fluxes, int it,
+                                       SVec<double,dim> *bcFlux,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn, 
@@ -795,7 +796,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            tag, failsafe, rshift);
   //double *sumfluxint = fluxes.sum();
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes, bcFlux);
   //double *sumfluxtot = fluxes.sum();
  
   return ierr;
@@ -3773,6 +3774,19 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi,
+                SVec<double,dim> &restriction, int sign){
+
+  int idim;
+  restriction = 0.0;
+  for (int i=0; i<nodes.size(); i++)
+    if((sign > 0 && Phi[i] >= 0.0) || (sign < 0 && Phi[i] < 0.0))
+      for(idim=0; idim<dim; idim++) restriction[i][idim] = initial[i][idim];
+
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)

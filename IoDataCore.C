@@ -168,6 +168,7 @@ TransientData::TransientData()
   hydrostaticlift = "";
   hydrodynamiclift = "";
   residuals = "";
+  conservation = "";
   podFile = "";
   romFile = "";
   philevel = "";
@@ -202,7 +203,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 72, father);
+  ClassAssigner *ca = new ClassAssigner(name, 73, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -268,6 +269,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
+  new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
 
 // Included (MB)  
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);

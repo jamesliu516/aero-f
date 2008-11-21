@@ -688,7 +688,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistVec<double> &Phi,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistNodalGrad<1>& ngradLS,
-                                     DistSVec<double,dim>& R, int it,
+                                     DistSVec<double,dim>& R, int it, 
+                                     DistSVec<double,dim> *bcFlux,
                                      int failsafe, int rshift)
 {
   double t0 = timer->getTime();
@@ -706,11 +707,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+    SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Phi(iSub), ngrad(iSub), 
                                              legrad,  ngradLS(iSub), (*RR)(iSub), it,
-                                             (*tag)(iSub), failsafe, rshift);
+                                             lbcFlux, (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
 
@@ -746,11 +748,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 #pragma omp parallel for reduction(+: ierr)
       for (iSub = 0; iSub < numLocSub; ++iSub) {
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+        SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Phi(iSub), ngrad(iSub),
                                      legrad, ngradLS(iSub), (*RR)(iSub), it,
-                                     (*tag)(iSub), 0, rshift);
+                                     lbcFlux, (*tag)(iSub), 0, rshift);
       }
 
       if (failsafe == 1) *tag = 0;
@@ -2525,6 +2528,19 @@ int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
   return ierr;
 
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Phi,
+             DistSVec<double,dim> &restriction, int sign){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->restrictionOnPhi(initial(iSub),Phi(iSub), 
+                                      restriction(iSub), sign);
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>

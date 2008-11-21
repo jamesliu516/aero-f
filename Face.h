@@ -514,7 +514,7 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
 			       double *Ub, Vec<double> &Phi, 
-			       SVec<double,dim> &fluxes);
+			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -871,7 +871,7 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &, Vec<double> &, 
-                               SVec<double,dim> &);
+                               SVec<double,dim> &, SVec<double,dim> *);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
