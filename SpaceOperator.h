@@ -136,7 +136,8 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
                        DistSVec<double,dim> &, 
-                       DistExactRiemannSolver<dim> *, int it = 0);
+                       DistExactRiemannSolver<dim> *, int it,
+                       DistSVec<double,dim> * = 0);
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 

@@ -107,7 +107,7 @@ class Domain {
 
   DistSVec<int,2> *tag;
   DistSVec<int,2> *tagBar;
-                                                                                                                          
+
   BCApplier* meshMotionBCs; //HB
 
 // Included (MB)
@@ -353,8 +353,8 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistNodalGrad<1>&,
-                               DistSVec<double,dim>&, int, int, int);
+                               DistNodalGrad<1>&, DistSVec<double,dim>&, 
+                               int, DistSVec<double,dim> *, int, int);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
@@ -602,6 +602,10 @@ public:
 
   template<int dim>
   int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
+
+  template<int dim>
+  void restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Phi,
+                        DistSVec<double,dim> &restriction, int sign);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&, DistVec<double> * = 0);

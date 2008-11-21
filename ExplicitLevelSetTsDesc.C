@@ -106,6 +106,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   }else U = U0;
 
   checkSolution(U);
+  this->boundaryFlux = this->tmpDistSVec;
 
 }
 
@@ -143,6 +144,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
                                      this->LS->Phin, this->Vgf,
                                      this->Vgfweight, this->riemann);
   }
+  this->boundaryFlux = this->tmpDistSVec;
 
   t0 = this->timer->getTime();
 
@@ -172,6 +174,10 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
                                      this->Vgfweight, this->riemann);
   }
   checkSolution(U);
+  this->boundaryFlux += this->tmpDistSVec;
+  this->boundaryFlux *= 0.5;
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -179,7 +185,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
 template<int dim>
 void ExplicitLevelSetTsDesc<dim>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
-
+ 
   solveNLEuler(U);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
@@ -224,6 +230,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK2(DistSVec<double,dim> &U)
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
+  this->boundaryFlux = this->tmpDistSVec;
 
 
   computeRKUpdate(U0, k2,2);
@@ -232,6 +239,8 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK2(DistSVec<double,dim> &U)
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
+  this->boundaryFlux += this->tmpDistSVec;
+  this->boundaryFlux *= 0.5;
 
 }
 
@@ -249,6 +258,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK4(DistSVec<double,dim> &U)
   U0 = U - 0.5 * k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(this->U0);
+  this->boundaryFlux = this->tmpDistSVec;
 
 
   computeRKUpdate(U0, k2, 2);
@@ -256,6 +266,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK4(DistSVec<double,dim> &U)
   U0 = U - 0.5 * k2;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
+  this->boundaryFlux += 2.0*this->tmpDistSVec;
 
 
   computeRKUpdate(U0, k3, 3);
@@ -263,6 +274,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK4(DistSVec<double,dim> &U)
   U0 = U - k3;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
+  this->boundaryFlux += 2.0*this->tmpDistSVec;
 
 
   computeRKUpdate(U0, k4, 4);
@@ -271,6 +283,9 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK4(DistSVec<double,dim> &U)
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
+  this->boundaryFlux += this->tmpDistSVec;
+  this->boundaryFlux *= 1.0/6.0;
+
 
 }
 
@@ -323,9 +338,10 @@ template<int dim>
 void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
 {
+  this->tmpDistSVec = 0.0;
   this->spaceOp->applyBCsToSolutionVector(Ulocal);
   this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, 
-                                 dU, this->riemann,it);
+                                 dU, this->riemann,it, &this->tmpDistSVec);
   // for RK2 on moving grids
   this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
   this->timeState->multiplyByTimeStep(dU);

@@ -343,7 +343,7 @@ inline
 void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   Vec<double> &normalVel, SVec<double,dim> &V,
 				   double *Ub, Vec<double> &Phi, 
-				   SVec<double,dim> &fluxes)
+				   SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux)
 {
   Vec3D normal = getNormal(normals);
 
@@ -359,6 +359,9 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 			       V[nodeNum(l)], Ub, flux, -1);
       for (int k=0; k<dim; ++k)
         fluxes[ nodeNum(l) ][k] += flux[k];
+      if(bcFlux)
+        for (int k=0; k<dim; ++k)
+          (*bcFlux)[ nodeNum(l) ][k] += flux[k];
     }
   }
                                                                                                       
@@ -606,14 +609,15 @@ void FaceSet::computeDerivativeOfFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim>
 template<int dim>
 void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 				      GeoState &geoState, SVec<double,dim> &V,
-				      Vec<double> &Phi, SVec<double,dim> &fluxes)
+				      Vec<double> &Phi, SVec<double,dim> &fluxes,
+                                      SVec<double,dim> *bcFlux)
 {
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
                                                                                                        
   for (int i=0; i<numFaces; ++i)  {
-    faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], Phi, fluxes);
+    faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], Phi, fluxes, bcFlux);
   }
 }
 
