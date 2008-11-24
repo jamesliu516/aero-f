@@ -789,15 +789,15 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        NodalGrad<1>& ngradLS, 
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<double,dim> *bcFlux,
+                                       SVec<double,dim> *interfaceFlux,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn, 
                                            recFcn, elems, geoState, X, V, Phi,
                                            ngrad, egrad, ngradLS, fluxes, it,
-                                           tag, failsafe, rshift);
-  //double *sumfluxint = fluxes.sum();
+                                           interfaceFlux, tag, failsafe, rshift);
+
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes, bcFlux);
-  //double *sumfluxtot = fluxes.sum();
  
   return ierr;
 

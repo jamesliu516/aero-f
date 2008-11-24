@@ -1338,7 +1338,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistVec<double> &Phi,
                                          DistSVec<double,dim> &R, 
                                          DistExactRiemannSolver<dim> *riemann, int it,
-                                         DistSVec<double,dim> *bcFlux)
+                                         DistSVec<double,dim> *bcFlux,
+                                         DistSVec<double,dim> *interfaceFlux)
 {
 
   R = 0.0;
@@ -1378,7 +1379,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Phi, *ngrad, egrad,
-                                  *ngradLS, R, it, bcFlux, failsafe,rshift);  
+                                  *ngradLS, R, it, bcFlux, interfaceFlux,
+                                  failsafe,rshift);  
 
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();

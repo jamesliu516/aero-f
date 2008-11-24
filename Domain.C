@@ -690,6 +690,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistNodalGrad<1>& ngradLS,
                                      DistSVec<double,dim>& R, int it, 
                                      DistSVec<double,dim> *bcFlux,
+                                     DistSVec<double,dim> *interfaceFlux,
                                      int failsafe, int rshift)
 {
   double t0 = timer->getTime();
@@ -708,11 +709,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
+    SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Phi(iSub), ngrad(iSub), 
                                              legrad,  ngradLS(iSub), (*RR)(iSub), it,
-                                             lbcFlux, (*tag)(iSub), failsafe, rshift);
+                                             lbcFlux, linterfaceFlux, 
+                                             (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
 
@@ -749,11 +752,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
       for (iSub = 0; iSub < numLocSub; ++iSub) {
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
+    SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Phi(iSub), ngrad(iSub),
                                      legrad, ngradLS(iSub), (*RR)(iSub), it,
-                                     lbcFlux, (*tag)(iSub), 0, rshift);
+                                     lbcFlux, linterfaceFlux,
+                                     (*tag)(iSub), 0, rshift);
       }
 
       if (failsafe == 1) *tag = 0;

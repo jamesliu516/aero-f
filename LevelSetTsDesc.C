@@ -30,8 +30,8 @@ template<int dim>
 LevelSetTsDesc<dim>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), Vg(this->getVecInfo()),
-	PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
-        computedQty(this->getVecInfo()), tmpDistSVec(this->getVecInfo())
+  PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
+  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo())      
 {
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
@@ -50,8 +50,10 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   //multiphase conservation check
   boundaryFlux  = 0.0;
+  interfaceFlux = 0.0;
   computedQty   = 0.0;
-  tmpDistSVec   = 0.0;
+  tmpDistSVec   = 0;
+  tmpDistSVec2  = 0;
   for(int i=0; i<dim; i++){
     expectedTot[i] = 0.0; expectedF1[i] = 0.0; expectedF2[i] = 0.0;
     computedTot[i] = 0.0; computedF1[i] = 0.0; computedF2[i] = 0.0;
@@ -71,6 +73,9 @@ LevelSetTsDesc<dim>::~LevelSetTsDesc()
   if (riemann) delete riemann;
   if (Vgf) delete Vgf;
   if (Vgfweight) delete Vgfweight;
+
+  if(tmpDistSVec)  delete tmpDistSVec;
+  if(tmpDistSVec2) delete tmpDistSVec2;
 
 }
 
@@ -158,6 +163,7 @@ int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 template<int dim>
 void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
 {
+  if(!tmpDistSVec)  tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
 // computes the total mass, momentum and energy
 // 1- in the whole domain regardless of which phase they belong to
 // 2- in the positive phase (phi>=0.0 <=> sign= 1)
@@ -184,11 +190,11 @@ void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
   computedQty *= *this->A;
   computedQty.sum(computedTot);
 
-  this->domain->restrictionOnPhi(computedQty, Phi, tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec.sum(computedF1);
+  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(computedF1);
 
-  this->domain->restrictionOnPhi(computedQty, Phi, tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec.sum(computedF2);
+  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(computedF2);
 
   // expected total mass, mass in fluid1, mass in fluid2
   // an expected mass is computed iteratively, that is
@@ -209,13 +215,13 @@ void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
   for (int i=0; i<dim; i++)
     expectedTot[i] += dt*bcfluxsum[i];
 
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec.sum(bcfluxsum);
+  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(bcfluxsum);
   for (int i=0; i<dim; i++)
     expectedF1[i] += dt*bcfluxsum[i];
 
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec.sum(bcfluxsum);
+  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(bcfluxsum);
   for (int i=0; i<dim; i++)
     expectedF2[i] += dt*bcfluxsum[i];
 

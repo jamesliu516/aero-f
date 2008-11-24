@@ -31,8 +31,10 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   // multiphase conservation check
   DistSVec<double,dim> boundaryFlux;
+  DistSVec<double,dim> interfaceFlux;
   DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> tmpDistSVec;
+  DistSVec<double,dim> *tmpDistSVec;
+  DistSVec<double,dim> *tmpDistSVec2;
   double expectedTot[dim];
   double expectedF1[dim];
   double expectedF2[dim];
