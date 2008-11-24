@@ -336,6 +336,7 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*, 
                               NodalGrad<1>&,
                               SVec<double,dim>&, int, SVec<double,dim> *,
+                              SVec<double,dim> *,
                               SVec<int,2>&, int, int);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,

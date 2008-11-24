@@ -95,6 +95,7 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int,
+                              SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
   template<int dim>

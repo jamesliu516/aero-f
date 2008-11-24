@@ -354,7 +354,8 @@ public:
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistNodalGrad<1>&, DistSVec<double,dim>&, 
-                               int, DistSVec<double,dim> *, int, int);
+                               int, DistSVec<double,dim> *, DistSVec<double,dim> *,
+                               int, int);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,

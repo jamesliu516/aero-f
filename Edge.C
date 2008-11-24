@@ -389,6 +389,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      NodalGrad<1>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
+                                     SVec<double,dim>* interfaceFlux, 
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
@@ -482,6 +483,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
+      // in order to check mass conservation
+      if(interfaceFlux)
+        for (int k=0; k<dim; k++){
+          (*interfaceFlux)[i][k] += fluxi[k];
+          (*interfaceFlux)[j][k] -= fluxj[k];
+        }
+
     }
   }
   return ierr;
