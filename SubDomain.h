@@ -377,7 +377,10 @@ public:
                                                                                                   
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                  
+       
+  template<int dim>  
+  void rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
+                                                                                           
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -750,6 +753,9 @@ public:
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
+
+  void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
+  void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
   
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);

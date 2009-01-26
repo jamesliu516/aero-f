@@ -1511,10 +1511,14 @@ struct SurfaceData  {
 
   double nx, ny, nz;
   int sBit;
-  enum ComputeForces {FALSE = 0, TRUE = 1, UNSPECIFIED = 2} computeForces;
+  static const int UNSPECIFIED = -1;
+  enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   double velocity;
+
+  enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
+  double temp;
 
   SurfaceData();
   Assigner *getAssigner();

@@ -936,6 +936,21 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
   inletNodes.recomputeResidual(F,Finlet);
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
+{
+  Ffar = 0.0;
+  for (int node=0; node < nodes.size(); node++){
+       if(X[node][0] >= Xlim1 && X[node][0] <= Xlim2 && X[node][2] >= Ylim1 && X[node][2] <= Ylim2){
+       for (int j=0; j<dim ;j++){
+           Ffar[node][j]=F[node][j];
+       }
+       } 
+  }
+}
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>

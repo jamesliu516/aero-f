@@ -323,6 +323,8 @@ public:
 
   static const int MaxNumNd = 4;
 
+  virtual int nodeNum(int i) const = 0;
+
 protected:
   virtual void *getWrapper_dim(GenFaceHelper_dim *, 
 			       int size, char *memorySpace) = 0;
@@ -378,6 +380,7 @@ public:
 
   void setup(int, int *, int, int surface_id = 0);
   void setType(int *);
+  void setType(int t) { code = t; }
   void setNodeType(int*, int*);
   void setNodeFaceType(int*);
   void setElementNumber(int elemNum, int rotDir);

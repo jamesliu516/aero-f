@@ -445,7 +445,7 @@ void Domain::setNodeType(IoData &ioData)
   }
 
   if(numSlipSurfs)  
-    com->fprintf(stderr," ... There is %d sliding surfaces.\n",numSlipSurfs); 
+    com->fprintf(stderr," ... There are %d sliding surfaces.\n",numSlipSurfs); 
    
   int **slipSurfOwn = new int*[numLocSub];
 

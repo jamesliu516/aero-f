@@ -2577,11 +2577,14 @@ SurfaceData::SurfaceData()  {
 
   sBit = 0;
 
-  computeForces = UNSPECIFIED;
+  computeForces = (ComputeForces) UNSPECIFIED;
   forceResults = NO;
 
   rotationID = -1;
   velocity = 0.0;
+
+  type = (Type) UNSPECIFIED;
+  temp = -1.0;
 }
 
 //------------------------------------------------------------------------------
@@ -2599,6 +2602,11 @@ Assigner *SurfaceData::getAssigner()  {
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
+
+  new ClassToken<SurfaceData>(ca, "Type", this,
+                              (int SurfaceData::*)(&SurfaceData::type), 2,
+                              "Isothermal", ISOTHERMAL, "Adiabatic", ADIABATIC);
+  new ClassDouble<SurfaceData>(ca, "Temperature", this, &SurfaceData::temp);
 
   return ca;
 }

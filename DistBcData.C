@@ -126,6 +126,29 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
   tref = ioData.ref.rv.time;
   vref = ioData.ref.rv.velocity;
 
+  /** Update the temperature for walls for which a different temperature was specified. */
+  DistVec<int> faceFlag(domain->getNodeDistInfo());
+  faceFlag = 0;
+  CommPattern<int> ndC(domain->getSubTopo(), this->com, CommPattern<int>::CopyOnSend);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->setComLenNodes(1, ndC);
+
+  ndC.finalize();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->markFaceBelongsToSurface(faceFlag(iSub), ndC);
+
+  ndC.exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->completeFaceBelongsToSurface(faceFlag(iSub), Temp(iSub),
+                        ioData.surfaces.surfaceMap.dataMap, ndC);
+
+
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     (*dXdot) = 0.0;
@@ -656,15 +679,24 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGas(IoData &iod,
 
 
 // pressure pulse for channel flow along x
-      /*double amplitude = 0.2;
-      double dx = 0.1*0.1;
-      double radius2 = (x[inode][0]-0.)*(x[inode][0]-0.) +
-                       (x[inode][1]-0.)*(x[inode][1]-0.) +
-                       (x[inode][2]-0.)*(x[inode][2]-0.);
-      ptempin = pressurein*(1.0 + amplitude*exp( -pow((x[inode][0]-0.5),2)/dx));
-      ptempin = pressurein*(1.0 + amplitude*exp(-radius2/dx));
-      uin[inode][4] = 0.5*rhoin*velin2 +(ptempin+gam*Pstiff)/(gam-1.0);
-      */
+      
+//      double amplitude = 5.0;
+//      double dx = 0.075*0.075;
+//     double radius2 = (x[inode][2]-0.125)*(x[inode][2]-0.125);// +
+//                       (x[inode][1]-0.)*(x[inode][1]-0.) +
+//                       (x[inode][2]-0.125)*(x[inode][2]-0.125);
+//      uin[inode][0] = rhoin*(1.0 + amplitude*exp(-radius2/dx));
+//      uin[inode][4] = 0.5*uin[inode][0]*velin2 +(ptempin+gam*Pstiff)/(gam-1.0);
+//      /*double amplitude = 0.2;
+//      double dx = 0.1*0.1;
+//      double radius2 = (x[inode][0]-0.)*(x[inode][0]-0.) +
+//                       (x[inode][1]-0.)*(x[inode][1]-0.) +
+//                       (x[inode][2]-0.)*(x[inode][2]-0.);
+//      ptempin = pressurein*(1.0 + amplitude*exp( -pow((x[inode][0]-0.5),2)/dx));
+//      ptempin = pressurein*(1.0 + amplitude*exp(-radius2/dx));
+//      uin[inode][4] = 0.5*rhoin*velin2 +(ptempin+gam*Pstiff)/(gam-1.0);
+//      */
+
     }
   }
   for (int idim=0; idim<dim; idim++)
