@@ -137,8 +137,17 @@ public:
                        DistSVec<double,dim> &, DistVec<double> &,
                        DistSVec<double,dim> &, 
                        DistExactRiemannSolver<dim> *, int it = 0);
+// Kevin's FSI with half-Riemann problems 
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistEulerStructGhostFluid *,
+                       DistSVec<double,dim> &,
+                       DistExactRiemannSolver<dim> *, int it = 0);
+
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
+
+
+
 
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
                          DistVec<double> &Phi,

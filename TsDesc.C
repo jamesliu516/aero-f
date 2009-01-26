@@ -63,9 +63,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
-  if (ioData.input.ghostsolid.runit==1)  
-    eulerFSI = new DistEulerStructGhostFluid(domain, ioData);
-  else eulerFSI = 0;
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
@@ -317,7 +314,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 
   *Xs = *X;
   //timer->setSetupTime();
-  if (eulerFSI) eulerFSI->setupCommunication(domain,X,*U); //for ghost solid simulation, setup the communication between AERO-F and PhysBAM. For more details refer to DistEulerFluidGhostSolid. 
+//  if (eulerFSI) eulerFSI->setupCommunication(domain,X,*U); //for ghost solid simulation, setup the communication between AERO-F and PhysBAM. For more details refer to DistEulerFluidGhostSolid. 
 }
 
 //------------------------------------------------------------------------------
@@ -325,7 +322,6 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 template<int dim>
 double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim> &U)
 {
-
   double t0 = timer->getTime();
 //  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
@@ -378,7 +374,6 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
 template<int dim>
 void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
-
   if (!mmh) return;
 
   geoState->interpolate(dt, dtLeft, *Xs, *X);
@@ -401,6 +396,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
 
   if (mmh || hth)
     bcData->update(*X);
+
 }
 
 //------------------------------------------------------------------------------
@@ -513,10 +509,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
-    if(eulerFSI)
-      output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState, *(eulerFSI->getPhilevelPointer()));
-    else 
-      output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
  
   }
@@ -541,10 +534,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
-  if(eulerFSI)
-    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState, *(eulerFSI->getPhilevelPointer()));
-  else
-    output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+  output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
 
@@ -637,10 +627,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   spaceOp->computeResidual(*X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
   double res = 0.0;
-  if (eulerFSI) {
-    DistVec<double>* philevel = eulerFSI->getPhilevelPointer();
-    res = spaceOp->computeRealFluidResidual(*R, *Rreal, *philevel);
-  } else {
+  {
     double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
     if (data->resType == -1){
       res = (*R)*(*R);
@@ -852,14 +839,10 @@ bool TsDesc<dim>::monitorAvgForceConvergence(IoData &ioData, int it, DistSVec<do
 template<int dim>
 void TsDesc<dim>::updateGhostFluid(DistSVec<double,dim> &U, Vec3D& totalForce, double dt)
 {
-
-//  if (eulerFSI) 
-//    if (problemType[ProblemData::STEADY]) eulerFSI->updateGhostFluid(U);
-//    else eulerFSI->updateGhostFluid(X,U);
-
+/*
   if (eulerFSI)
     eulerFSI->updateGhostFluid(X, U, totalForce, dt);
-
+*/
 }
 
 //----------------------------------------------------------------------------

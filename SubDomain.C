@@ -45,6 +45,7 @@ using std::max;
 #include <VectorSet.h>
 #include <LinkF77.h>
 #include <LowMachPrec.h>
+//#include <EulerStructGhostFluid.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
@@ -802,7 +803,30 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   return ierr;
 
 }
-                                                                                                  
+
+//------------------------------------------------------------------------------
+template<int dim>
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       EulerStructGhostFluid *eulerFSI,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       SVec<double,dim>& fluxes, int it,
+                                       SVec<int,2>& tag, int failsafe, int rshift)
+{
+
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
+                                           recFcn, elems, geoState, X, V, eulerFSI,
+                                           ngrad, egrad, fluxes, it,
+                                           tag, failsafe, rshift);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes); //TODO: only works for 1-phase flow
+
+  return ierr;
+
+}
+
+                                                                                                 
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -944,7 +968,7 @@ void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> 
   Freal = 0.0;
   for (int iNode=0; iNode<numNodes(); iNode++)
     if (philevel[iNode]>0.0)  
-      for (int j=0; j<dim; j++)  Freal[iNode][j] = F[iNode][j];
+        for (int j=0; j<dim; j++)  Freal[iNode][j] = F[iNode][j];
 }
 
 

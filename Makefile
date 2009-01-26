@@ -107,8 +107,7 @@ CXX       = g++
 #include default.defs
 #include nivation.defs
 
-#usescalapack = false
-usescalapack = true
+usescalapack = false
 ifeq ($(usescalapack),true)
   SFLAGS       = -DDO_SCALAPACK
 else
