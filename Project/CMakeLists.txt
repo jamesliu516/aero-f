@@ -221,13 +221,13 @@ SET_TARGET_PROPERTIES(Parser
 
 	
 IF(MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ../hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ../hgidentity.C
+  add_custom_command(OUTPUT hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > hgidentity.C
                  DEPENDS ../Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ELSE (MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ../hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ../hgidentity.C
+  add_custom_command(OUTPUT hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > hgidentity.C
                  DEPENDS ../Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF (MERCURIAL_EXECUTABLE)
@@ -237,7 +237,7 @@ IF(EXTRALIB)
 ENDIF(EXTRALIB)
 
 
-ADD_EXECUTABLE(fluid ../Main.C ../hgidentity.C)
+ADD_EXECUTABLE(fluid ../Main.C hgidentity.C)
 
 SET(INC_DIR ..)
 
@@ -294,7 +294,7 @@ IF(MPI_FOUND)
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
   IF(!USE_SCALAPACK)
-    ADD_LIBRARY(fluidlib SHARED ../Main.C ../hgidentity.C)
+    ADD_LIBRARY(fluidlib SHARED ../Main.C hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 
