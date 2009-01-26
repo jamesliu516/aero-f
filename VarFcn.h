@@ -5,8 +5,8 @@
 #include <Vector3D.h>
 
 #include <math.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 #include <IoData.h>
 
@@ -189,19 +189,19 @@ public:
   bool doVerification(){ return !(pmin<0 && pminp<0); }
   
   virtual void multiplyBydVdU(double *, double *, double *, double = 0.0) {
-    cout << "ERROR: multiplyBydVdU Function in VarFcn" << endl; }
+    std::cout << "ERROR: multiplyBydVdU Function in VarFcn" << endl; }
   virtual void multiplyBydVdU(double *, bcomp *, bcomp *, double = 0.0)  {
-    cout << "ERROR: multiplyBydVdU Function in VarFcn for bcomp" << endl; }
+    std::cout << "ERROR: multiplyBydVdU Function in VarFcn for bcomp" << endl; }
   virtual void multiplyBydVdUT(double *, double *, double *, double = 0.0) {
-    cout << "ERROR: multiplyBydVdUT in VarFcn for type double" << endl;}
+    std::cout << "ERROR: multiplyBydVdUT in VarFcn for type double" << endl;}
   virtual void multiplyBydVdUT(double *, bcomp *, bcomp *, double = 0.0) {
-    cout << "ERROR: multiplyBydVdUT in VarFcn for type bcomp" << endl;}
+    std::cout << "ERROR: multiplyBydVdUT in VarFcn for type bcomp" << endl;}
   virtual void postMultiplyBydUdV(double *, double *, double *, double = 0.0)  {
-    cout << "ERROR: postMultiplyBydUdV Function in VarFcn" << endl; }
+    std::cout << "ERROR: postMultiplyBydUdV Function in VarFcn" << endl; }
   virtual void postMultiplyBydVdU(double *, double *, double *, double = 0.0)  {
-    cout << "ERROR: postMultiplyBydVdU Function in VarFcn" << endl; }
+    std::cout << "ERROR: postMultiplyBydVdU Function in VarFcn" << endl; }
   virtual void postMultiplyBydUdV(double *, bcomp *, bcomp *, double = 0.0)  {
-    cout << "ERROR: postMultiplyBydVdU Function in VarFcn for becomp" << endl; }
+    std::cout << "ERROR: postMultiplyBydVdU Function in VarFcn for becomp" << endl; }
   virtual void preMultiplyBydUdV(double *, double *, double *, double = 0.0) = 0;
   virtual void extrapolateBoundaryPrimitive(double, double, double *, double *,
                                    double *, double = 0.0) {}

@@ -7,8 +7,8 @@
 #include <DiagMatrix.h>
 #include <SparseMatrix.h>
 
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 class MemoryPool;
 class BCApplier;
 
@@ -25,12 +25,12 @@ public:
   virtual void exportMemory(MemoryPool *mp) {}
 
   virtual void setup() = 0;
-  void setupTR() { cout << "setupTR not implemented for this Preconditioner" << endl; }
+  void setupTR() { std::cout << "setupTR not implemented for this Preconditioner" << endl; }
 
   // all KspPrec derived class must have the following functions
-  virtual void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { cout << "  ERROR: Using default apply function in KspPrec" << endl; }
-  virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { cout << "  ERROR: Using default apply function in KspPrec" << endl; }
-  virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { cout << "  ERROR: Using default applyT function in KspPrec" << endl; }
+  virtual void apply(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl; }
+  virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl; }
+  virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyT function in KspPrec" << endl; }
 
 };
 

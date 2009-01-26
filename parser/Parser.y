@@ -4,9 +4,9 @@
 #include <string.h>
 extern int  yyCmdflex(void);
 extern void yyCmdferror(const char  *);
-#include "Assigner.h"
-#include "Dictionary.h"
-#include "../ResizeArray.h"
+#include "parser/Assigner.h"
+#include "parser/Dictionary.h"
+#include "ResizeArray.h"
 
 ResizeArray<Assigner *> underVar(0);
 int underLevel = 0;

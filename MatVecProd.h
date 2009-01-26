@@ -5,8 +5,8 @@
 #include <MvpMatrix.h>
 #include <DistVector.h>
 #include <DistMatrix.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 class VarFcn;
 class FluxFcn;
@@ -115,12 +115,12 @@ public:
                      DistSVec<double,dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
-    cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
+    std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
 
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
-    cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y)  {
-    cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdFD" << endl; }
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
@@ -167,12 +167,12 @@ public:
 
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
-    cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
+    std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
 
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
-    cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; } 
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; } 
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y) { 
-    cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" <<
+    std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" <<
  endl; }
 
 // Included (MB)

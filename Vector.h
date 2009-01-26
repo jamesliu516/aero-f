@@ -1,19 +1,16 @@
 #ifndef _VECTOR_H_
 #define _VECTOR_H_
 
-#include <iostream.h>
 #include <complex>
 
 using std::complex;
 
-#ifdef USE_IOSTREAM
 #ifdef OLD_STL
 #include <iostream.h>
 #else
 #include <iostream>
 using std::cerr;
 using std::endl;
-#endif
 #endif
 
 //------------------------------------------------------------------------------

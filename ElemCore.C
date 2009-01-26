@@ -10,7 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <map.h>
+#include <map>
+using std::map;
 
 //------------------------------------------------------------------------------
 

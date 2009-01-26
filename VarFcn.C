@@ -5,8 +5,7 @@
 
 
 #include<math.h>
-#include<complex.h>
-typedef complex<double> bcomp;
+
 
 
 //------------------------------------------------------------------------------

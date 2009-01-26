@@ -2,8 +2,8 @@
 #define _SPACE_OPERATOR_H_
 
 #include <IoData.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 class VarFcn;
 class BcFcn;

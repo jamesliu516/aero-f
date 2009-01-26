@@ -6,9 +6,9 @@
 #include <Timer.h>
 #include <VectorSet.h>
 #include <Vector.h>
-#include <complex.h>
+#include <complex>
 #include <DenseMatrix.h>
-typedef complex<double> bcomp;
+typedef std::complex<double> bcomp;
 
 class VarFcn;
 class BcFcn;
@@ -263,7 +263,7 @@ public:
 			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &, 
 			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &, 
 			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &)  {
-       cout << "computeMultiDimLimiter not implemented for complex data" << endl; }
+       std::cout << "computeMultiDimLimiter not implemented for complex data" << endl; }
 
   template<int dim>
   void computePressureSensor(double, DistSVec<double,3>&,
@@ -275,7 +275,7 @@ public:
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
                              DistSVec<bcomp,dim>&, DistSVec<bcomp,dim>&,
                              DistSVec<bcomp,3>&, DistVec<bcomp>&) {
-	 cout << "computePressureSensor not implemented for complex operations" <<endl; }
+	 std::cout << "computePressureSensor not implemented for complex operations" <<endl; }
 
   // ----- BEGIN LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
   void setPhiForFluid1(DistVec<double> &Phi);
