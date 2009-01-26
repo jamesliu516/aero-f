@@ -267,7 +267,6 @@ void DistGeoState::setup1(const char *name, DistSVec<double,3> *X, DistVec<doubl
 	      ctrlVol_n->min(), ctrlVol_n->max(), ctrlVol_n->sum(),
               bbMin[0], bbMin[1], bbMin[2], bbMax[0], bbMax[1], bbMax[2]);
 
-  com->printf(2, "End of 1\n");
 }
 
 //-----------------------------------------------------------------------------

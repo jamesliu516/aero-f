@@ -3947,8 +3947,10 @@ void SubDomain::completeFaceBelongsToSurface(Vec<int> &ndToSurfFlag, Vec<double>
        int count = (ndToSurfFlag[i] & 1) != 0 ? 1 : 0;
        double totTemp =  (ndToSurfFlag[i] & 1) != 0 ? nodeTemp[i] : 0.0;
        for(int j = 1; j < sizeof(int); j++) {
-         if( (ndToSurfFlag[i] & 1 << j) ) {
+         if( ndToSurfFlag[i] & (1 << j) ) {
              map<int,SurfaceData*>::iterator it = surfaceMap.find(j-1);
+             if(it == surfaceMap.end())
+               continue;
              if(it->second->type == SurfaceData::ISOTHERMAL) {
                totTemp += it->second->temp;
                count++;
