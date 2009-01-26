@@ -17,7 +17,7 @@
 #ifndef _EXPLICIT_LEVELSET_TS_DESC_H_
 #define _EXPLICIT_LEVELSET_TS_DESC_H_
 
-#include <ExplicitTsDesc.h>
+#include <LevelSetTsDesc.h>
 
 #include <IoData.h>
 #include <Domain.h>

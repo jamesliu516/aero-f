@@ -1450,13 +1450,6 @@ int Domain::numNodes() //TODO: don't need Edge, Face, Elem...
   com->globalSum(4, totNum);
   return totNum[0];
 
-/* these are not correct!
-  int numOfNodes = 0;
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    {fprintf(stderr,"iSub = %d, numNodes in this subdomain = %d.***** \n", iSub, subDomain[iSub]->numNodes());
-     numOfNodes += subDomain[iSub]->numNodes();}
-  return numOfNodes;
-*/
 }
 
 //-------------------------------------------------------------------------------

@@ -24,6 +24,7 @@
 #include <BinFileHandler.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
+#include <DistEulerStructGhostFluid.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -39,7 +40,6 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 {
 
   int iSub;
-
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), X(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec);
@@ -750,6 +750,114 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Phi(iSub), ngrad(iSub),
                                      legrad, ngradLS(iSub), (*RR)(iSub), it,
+                                     (*tag)(iSub), 0, rshift);
+      }
+
+      if (failsafe == 1) *tag = 0;
+    }
+  }
+
+#pragma omp parallel for reduction(+: ierr)
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->sndData(*vecPat, (*RR).subData(iSub));
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*vecPat, (*RR).subData(iSub));
+
+  R = *RR;
+
+  timer->addFiniteVolumeTermTime(t0);
+
+  if (RR) delete(RR); // delete temp residual
+
+// subdomain communication for riemann update values (cf ExactRiemannSolver.h)
+  if(it == 1){
+    DistSVec<double,dim> *rupdate = riemann.getRiemannUpdate();
+    DistVec<double> *weight= riemann.getRiemannWeight();
+    assemble(vecPat,*rupdate);
+    assemble(volPat,*weight);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+
+template<int dim>
+void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
+                                     DistExactRiemannSolver<dim> &riemann,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn,
+                                     DistBcData<dim>& bcData, DistGeoState& geoState,
+                                     DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                     DistEulerStructGhostFluid *eulerFSI,
+                                     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     DistSVec<double,dim>& R, int it,
+                                     int failsafe, int rshift)
+{
+  double t0 = timer->getTime();
+  int ierr = 0;
+
+  if (!tag) {
+     tag = new DistSVec<int,2>(getNodeDistInfo());
+     *tag = 0;
+  }
+
+  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  *RR = R; // initialize temp residual
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+                                             fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                                             X(iSub), V(iSub), eulerFSI->getSubESGFPointer(iSub),
+                                             ngrad(iSub), 
+                                             legrad, (*RR)(iSub), it,
+                                             (*tag)(iSub), failsafe, rshift);
+  }
+  com->globalSum(1, &ierr);
+
+  if (ierr) {
+    if (!failsafe) {
+      com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      exit(1);
+    }
+    else {   // If failsafe option is Yes or Always
+
+      *RR = R; // reinitialize temp residual
+
+#pragma omp parallel for
+      for(iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->sndData(*fsPat,  (*tag).subData(iSub));
+
+      fsPat->exchange();
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->addRcvData(*fsPat, (*tag).subData(iSub));
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->finalizeTags((*tag)(iSub));
+
+      ngrad.fix(*tag);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.limit(recFcn, X, ctrlVol, V);
+
+      if (egrad) egrad->fix(*tag);
+
+#pragma omp parallel for reduction(+: ierr)
+      for (iSub = 0; iSub < numLocSub; ++iSub) {
+        EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+                                     fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                                     X(iSub), V(iSub), eulerFSI->getSubESGFPointer(iSub), 
+                                     ngrad(iSub),
+                                     legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
 

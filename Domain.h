@@ -8,6 +8,8 @@
 #include <Vector.h>
 #include <complex.h>
 #include <DenseMatrix.h>
+//#include <DistEulerStructGhostFluid.h>
+
 typedef complex<double> bcomp;
 
 class VarFcn;
@@ -32,6 +34,7 @@ class PostFcn;
 class LevelSet;
 class TimeLowMachPrec;
 class SpatialLowMachPrec;
+class DistEulerStructGhostFluid;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -107,7 +110,7 @@ class Domain {
 
   DistSVec<int,2> *tag;
   DistSVec<int,2> *tagBar;
-                                                                                                                          
+
   BCApplier* meshMotionBCs; //HB
 
 // Included (MB)
@@ -346,7 +349,17 @@ public:
 			       DistSVec<double,3>&, DistSVec<double,dim>&, 
 			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*, 
 			       DistSVec<double,dim>&, int, int);
-
+/*
+  template<int dim>
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistVec<double> &,
+                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistNodalGrad<1>&, DistSVec<double,dim>&, 
+                               int, DistSVec<double,dim> *, DistSVec<double,dim> *,
+                               int, int);
+*/
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
@@ -354,6 +367,14 @@ public:
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistNodalGrad<1>&,
+                               DistSVec<double,dim>&, int, int, int);
+
+ template<int dim>
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistEulerStructGhostFluid *eulerFSI,
+                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
@@ -401,7 +422,6 @@ public:
 
   template<int dim>
   double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);
-
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
@@ -603,9 +623,16 @@ public:
 
   template<int dim>
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
-
+/*
+  template<int dim>
+  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
+*/
   template<int dim>
   int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+
+  template<int dim>
+  void restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Phi,
+                        DistSVec<double,dim> &restriction, int sign);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&, DistVec<double> * = 0);
@@ -742,7 +769,7 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
-  
+
   int numElems();
 
   int numNodes();
@@ -753,6 +780,8 @@ public:
   //void getTriangulatedSurfaceFromFace(DistSVec<double,3> &);
 
   //void printTriangulatedSurface();
+
+
  };
 
 //------------------------------------------------------------------------------

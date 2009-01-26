@@ -24,6 +24,7 @@ using std::min;
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
+#include <EulerStructGhostFluid.h>
 
 //------------------------------------------------------------------------------
 
@@ -381,6 +382,7 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
 
 //------------------------------------------------------------------------------
 
+
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -484,6 +486,114 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
   }
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn,
+                                     ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V, EulerStructGhostFluid *eulerFSI,
+                                     NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                     SVec<double,dim>& fluxes, int it,
+                                     SVec<int,2>& tag, int failsafe, int rshift)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+
+  double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double Wstar[2*dim];
+  double fluxi[dim], fluxj[dim];  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+  double gradphi[3];
+  double gphii[3];
+  double gphij[3];
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  double length;
+  Vec<double> Phi = *(eulerFSI->getPhilevelPointer());
+
+  double vStar[3] = {0.0, 0.0, 0.0};  //velocity of the structure. For steady-state case it's 0.
+
+  int ierr=0;
+  riemann.reset(it);
+
+  for (int l=0; l<numEdges; ++l) {
+    if (!masterFlag[l]) continue;
+  
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+    }
+    
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+
+    // check for negative pressure or density //
+    if (!rshift)
+      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+                                       failsafe, tag, V[i], V[j]); //also checking reconstructed values across interface. 
+
+    if (ierr) continue;
+
+    for (int k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+  
+    if (Phi[i]>=0.0 && Phi[j]>=0.0) { 	// same fluid
+      //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
+      for (int k=0; k<dim; ++k) {
+        fluxes[i][k] += flux[k];
+        fluxes[j][k] -= flux[k];
+      }
+    }
+    else{			// interface
+      Vec3D posit(0.5*(X[i][0]+X[j][0]),0.5*(X[i][1]+X[j][1]),0.5*(X[i][2]+X[j][2]));
+      Vec3D temp = eulerFSI->getGradPhiAtPosition(posit);
+      temp /= temp.norm();
+      gradphi[0] = temp[0]; gradphi[1] = temp[1]; gradphi[2] = temp[2];
+
+      if (Phi[i]>=0.0) {
+        riemann.computeFSIRiemannSolution(Vi,vStar,gradphi,varFcn,Wstar,j);
+        double area = normal[l].norm();
+//        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;
+//        eulerFSI->totalForce[1] += Wstar[4]*gradphi[1]*area;
+//        eulerFSI->totalForce[2] += Wstar[4]*gradphi[2]*area;
+
+        eulerFSI->totalForce[0] += Wstar[4]*normal[l][0];
+        eulerFSI->totalForce[1] += Wstar[4]*normal[l][1];
+        eulerFSI->totalForce[2] += Wstar[4]*normal[l][2];
+
+        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
+        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+      }
+      if (Phi[j]>=0.0) {
+        riemann.computeFSIRiemannSolution(Vj,vStar,gradphi,varFcn,Wstar,i);
+        double area = normal[l].norm();
+//        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;
+//        eulerFSI->totalForce[1] += Wstar[4]*gradphi[1]*area;
+//        eulerFSI->totalForce[2] += Wstar[4]*gradphi[2]*area;
+
+        eulerFSI->totalForce[0] += -Wstar[4]*normal[l][0];
+        eulerFSI->totalForce[1] += -Wstar[4]*normal[l][1];
+        eulerFSI->totalForce[2] += -Wstar[4]*normal[l][2];
+
+        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
+        for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+      }
+    }
+  }
+
   return ierr;
 
 }

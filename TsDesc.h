@@ -8,7 +8,7 @@
 #include <TsParameters.h>
 #include <Domain.h>
 #include <DistVector.h>
-#include <DistEulerStructGhostFluid.h>
+//#include <DistEulerStructGhostFluid.h>
 
 class RefVal;
 class VarFcn;
@@ -18,7 +18,7 @@ class MeshMotionHandler;
 class HeatTransferHandler;
 class MemoryPool;
 class Timer;
-class DistEulerStructGhostFluid;
+//class DistEulerStructGhostFluid;
 
 template<int dim> class DistBcData;
 template<int dim> class DistTimeState;
@@ -37,7 +37,8 @@ public:
   typedef DistVec<double> VolVecType;
 
   TsParameters *data;
-  double computeResidualNorm(DistSVec<double,dim>&);
+  virtual double computeResidualNorm(DistSVec<double,dim>&);
+  virtual void monitorInitialState(int, DistSVec<double,dim> &);
 
 protected:
 
@@ -72,7 +73,7 @@ protected:
 
   MeshMotionHandler* mmh;
   HeatTransferHandler* hth;
-  DistEulerStructGhostFluid* eulerFSI;
+//  DistEulerStructGhostFluid* eulerFSI;
 
   Domain *domain;
 
@@ -89,8 +90,7 @@ protected:
 
 protected:
 
-//  double computeResidualNorm(DistSVec<double,dim>&);
-  void monitorInitialState(int, DistSVec<double,dim> &);
+//  void monitorInitialState(int, DistSVec<double,dim> &);
   bool monitorConvergence(int, DistSVec<double,dim> &);
 
 // Included (MB)

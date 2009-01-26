@@ -53,6 +53,7 @@ class LevelSet;
 class VolumicForceTerm;
 class TriangulatedSurface;
 class TimeLowMachPrec;
+class EulerStructGhostFluid;
 
 struct V6NodeData;
 struct Vec3D;
@@ -346,10 +347,17 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
-                              NodalGrad<dim>&, EdgeGrad<dim>*, 
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&, EulerStructGhostFluid *,
+                              NodalGrad<dim>&, EdgeGrad<dim>*, 
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
+ 
+ template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
                                NodalGrad<dim>&, NodalGrad<1>&, EdgeGrad<dim>*, SVec<double,1>&,
@@ -993,6 +1001,15 @@ public:
   double specifyBandwidth(Vec<double> &);
 
   double scalarNormalExtrap(double*, Vec3D, Vec3D, int, SVec<double,3> &, bool);
+
+  bool insideOutside(double*, const double, const double, const double, const double, 
+                     const double, const double);
+
+  double getMeshInBoundingBox(SVec<double,3> &, const double, const double,
+                              const double, const double,
+                              const double, const double,
+                              int*, int&, int*,
+                              int&, int (*)[4]);
 
 };
 //------------------------------------------------------------------------------

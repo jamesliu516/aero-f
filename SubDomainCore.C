@@ -3934,12 +3934,6 @@ void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
 //------------------------------------------------------------------------------
 //             SOLID LEVEL SET SOLUTION                                      ---
 //------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-//void SubDomain::getTriangulatedSurfaceFromFace( SVec<double,3> &X )
-//{
-//   triaSurf->addSurfaceFromFace(X, faces);
-//}
 
 //-----------------------------------------------------------------------------
 
@@ -3955,51 +3949,6 @@ void SubDomain::getTriangulatedSurfaceFromFace( TriangulatedSurface *triaSurf2 )
   triaSurf2->addSurfaceFromFace(faces);
 }
 
-//-----------------------------------------------------------------------------
-
-/*void SubDomain::printTriangulatedSurface()
-{
-  int numTriangle = triaSurf->getNumTriangle();
-  Vec3D (*TriangleList)[3];
-  TriangleList = triaSurf->getTriangleList();
-  for (int i=0; i<numTriangle; i++)
-    for (int j=0; j<3; j++)
-      (TriangleList[i][j]).print();
-}*/
-
-//-------------------------------------------------------------------------------
-/*
-void SubDomain::getGhostNodes(double* phi, int* gnodes, int& numgnodes)
-{
-  if (numgnodes){
-    for (int i=0; i<numgnodes; i++)
-      gnodes[i] = -1;
-    numgnodes = 0;
-  }
-  
-  int (*ptrEdge)[2] = edges.getPtr();
-  const int numEdges = edges.size();
-  int* tag = new int[nodes.size()]; 
-  for (int i=0; i<nodes.size(); i++)
-    tag[i] = 0;
- 
-  for (int l=0; l<numEdges; l++){
-    if ( phi[ptrEdge[l][0]]<0.0 && phi[ptrEdge[l][1]]>=0.0 )
-      tag[ptrEdge[l][0]] = 1;  
-    if ( phi[ptrEdge[l][0]]>=0.0 && phi[ptrEdge[l][1]]<0.0 )
-      tag[ptrEdge[l][1]] = 1;
-  }
-
-  for (int i=0; i<nodes.size(); i++){
-    if (tag[i] == 1){
-      gnodes[numgnodes] = i;
-      numgnodes++;
-    }
-  }
-  
-  delete[] tag;
-}
-*/
 //--------------------------------------------------------------------------   
 
 bool SubDomain::isINodeinITet(Vec3D nodeCoord, int iTet, SVec<double,3> &X)
@@ -4078,13 +4027,6 @@ void SubDomain::localCoord(Vec3D image, int iTet, SVec<double,3> &X, Vec3D& loca
 
   b1 = image[0]-tetCoord[0][0];  b2 = image[1]-tetCoord[0][1];  b3 = image[2]-tetCoord[0][2];
   
-//  fprintf(stderr,"%.4f, %.4f, %.4f, iTet=%d.\n", image[0], image[1], image[2], iTet);
-//  fprintf(stderr,"Node1: %.4f, %.4f, %.4f \n", tetCoord[0][0], tetCoord[0][1], tetCoord[0][2]);
-//  fprintf(stderr,"Node1: %.4f, %.4f, %.4f \n", tetCoord[1][0], tetCoord[1][1], tetCoord[1][2]);
-//  fprintf(stderr,"Node1: %.4f, %.4f, %.4f \n", tetCoord[2][0], tetCoord[2][1], tetCoord[2][2]);
-//  fprintf(stderr,"Node1: %.4f, %.4f, %.4f \n", tetCoord[3][0], tetCoord[3][1], tetCoord[3][2]);
-
- 
   localcoords[0] = c11*b1 + c12*b2 + c13*b3;
   localcoords[1] = c21*b1 + c22*b2 + c23*b3;
   localcoords[2] = c31*b1 + c32*b2 + c33*b3;
@@ -4097,20 +4039,6 @@ void SubDomain::localCoord(Vec3D image, int iTet, SVec<double,3> &X, Vec3D& loca
 int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
 {
   if (!NodeToElem)  NodeToElem = createNodeToElementConnectivity();
-  //debug
-/*  depth = 2;
-  if (!NodeToNode)  NodeToNode = createElemBasedConnectivity();
-  int numNeigh = NodeToNode->num(iNode);
-  int nodedummy = 0;
-  for (int kk =0 ; kk<numNeigh; kk++){
-    fprintf(stderr, "neighbours of node %d is %d\n", iNode, (*NodeToNode)[iNode][kk]);
-    nodedummy = (*NodeToNode)[iNode][kk];
-    int numElem = NodeToElem->num(nodedummy);
-    for (int ss = 0; ss<numElem; ss++)
-      fprintf(stderr, "Elem %d\n", (*NodeToElem)[nodedummy][ss]);
-  }*/
-
-
   size = NodeToElem->num(iNode);
 
   int *list = new int[elems.size()];
@@ -4125,9 +4053,6 @@ int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
     delete[] list;
     return finalList;
   }
-
-  
-
 
   int *list2 = new int[elems.size()];
   int size2 = 0;
@@ -4259,7 +4184,94 @@ double SubDomain::specifyBandwidth(Vec<double> &philevel)
     if (tag[iNode]>0)
       if (first) { bandwidth = -philevel[iNode];  first = false; }
       else if (bandwidth< -philevel[iNode]) bandwidth = -philevel[iNode];
-  
+ 
+  fprintf(stderr,"bandwidth = %lf.\n", bandwidth); 
   return bandwidth;
 }
+
+//-----------------------------------------------------------------------------------------------
+
+bool SubDomain::insideOutside(double *position, const double xmin, const double xmax,
+                     const double ymin, const double ymax, const double zmin, const double zmax)
+{
+  if (position[0] < xmin || position[0] > xmax || position[1] < ymin || position[1] > ymax ||
+      position[2] < zmin || position[2] > zmax )  return false;
+  return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const double xmax,
+                                       const double ymin, const double ymax,
+                                       const double zmin, const double zmax,
+                                       int* nodeTag, int& numChosenNodes, int* tempNodeList,
+                                       int& numChosenElems, int (*tempElemList)[4])
+{
+  //1. build a temporary element list that contains only elem indices.
+  numChosenElems = 0;
+
+  for (int i=0; i<numElems(); i++) {
+    int* elemNodeNum = getElemNodeNum(i);
+    // check if any node is (1)inside bounding box & (2) within the "band".
+    if ((this->insideOutside(X[elemNodeNum[0]], xmin, xmax, ymin, ymax, zmin, zmax) ||
+        this->insideOutside(X[elemNodeNum[1]], xmin, xmax, ymin, ymax, zmin, zmax)  ||
+        this->insideOutside(X[elemNodeNum[2]], xmin, xmax, ymin, ymax, zmin, zmax)  ||
+        this->insideOutside(X[elemNodeNum[3]], xmin, xmax, ymin, ymax, zmin, zmax) ))
+    {
+      tempElemList[numChosenElems][0] = i;
+      numChosenElems++;
+    }
+  }
+ 
+  //2. construct a tag on nodes. build a temporary node list.
+  numChosenNodes = 0;
+  for (int i=0; i<numNodes(); i++) nodeTag[i] = -1;
+
+  for (int iElem=0; iElem<numChosenElems; iElem++) {
+    int* elemNodeNum = getElemNodeNum(tempElemList[iElem][0]);
+    for (int j=0; j<4; j++)
+      if (nodeTag[elemNodeNum[j]] < 0) {
+        nodeTag[elemNodeNum[j]] = numChosenNodes;
+        tempNodeList[numChosenNodes] = elemNodeNum[j];
+        numChosenNodes++;
+      }
+  }
+  
+  //3. fill the element list by the node indices of each element.
+  for (int i=0; i<numChosenElems; i++) {
+    int* elemNodeNum = getElemNodeNum(tempElemList[i][0]);
+    for (int j=0; j<4; j++) tempElemList[i][j] = nodeTag[elemNodeNum[j]];
+  }
+
+  //fprintf(stderr,"numChosenElems = %d, numChosenNodes = %d.\n", numChosenElems, numChosenNodes);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
