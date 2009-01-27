@@ -16,6 +16,13 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 
   iteration = -1;
   lriemann = 0;
+  fsiRiemann = 0;
+
+// FSI Riemann problem
+  if(iod.eqs.numPhase == 1) // FIX
+    fsiRiemann = new LocalRiemannFluidStructure();
+
+// Multiphase Riemann problem
   if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
     if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
@@ -67,6 +74,7 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 {
 
   if(lriemann) delete lriemann;
+  if(fsiRiemann) delete fsiRiemann;
 
 }
 
@@ -79,6 +87,17 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 
   lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,vf,
           epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j], iteration);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
+      double *nphi, VarFcn *vf, double *Wstar, int nodej)
+
+{
+
+  fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
+         Wstar,rupdate[nodej],weight[nodej],iteration);
 
 }
 //------------------------------------------------------------------------------

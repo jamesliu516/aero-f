@@ -25,6 +25,7 @@ class ElemSet;
 class GeoState;
 class FemEquationTerm;
 class TimeLowMachPrec;
+class EulerStructGhostFluid;
 
 struct Vec3D;
 
@@ -38,10 +39,6 @@ template<int dim> class ExactRiemannSolver;
 template<class Scalar> class Vec;
 template<class Scalar, int dim> class SVec;
 template<class Scalar, int dim> class GenMat;
-
-#ifdef EDGE_LENGTH
-#include <Vector.h>
-#endif
 
 //------------------------------------------------------------------------------
 
@@ -62,9 +59,7 @@ class EdgeSet {
   int (*ptr)[2];
   bool *masterFlag;
 
-#ifdef EDGE_LENGTH  //HB: stores the (current) length of the edges
   double* edgeLength;
-#endif
 
 public:
 
@@ -95,7 +90,17 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int,
-                              SVec<double,dim>* interfaceFlux,
+			      SVec<double,dim>* interfaceFlux,
+                              SVec<int,2>&, int, int);
+			      
+  /** compute flux for Riemann based FSI
+   */			      
+			      template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
+                              FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
+                              SVec<double,dim>&, EulerStructGhostFluid *,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
   template<int dim>
@@ -142,14 +147,12 @@ public:
   int (*getPtr() const)[2] { return ptr; }
   int size() const { return numEdges; }
   
-#ifdef EDGE_LENGTH  
   void updateLength(SVec<double,3>& X);
   double length(int iedge) { 
     if(edgeLength && iedge<numEdges) return(edgeLength[iedge]);
     else return(0.0); 
   }
   double* viewEdgeLength() { return(edgeLength); }
-#endif
 
 // Included (MB)
   template<int dim>
@@ -164,6 +167,9 @@ public:
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
                                double *originalVi = 0, double *originalVj = 0,
                                double phii = 1.0, double phij = 1.0);
+  void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&, 
+                                       const double, const double, const double,
+                                       const double, const double, const double);
 
 };
 

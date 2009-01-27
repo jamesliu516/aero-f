@@ -110,17 +110,19 @@ void RigidMeshMotionHandler::setupVelocityPoints(IoData &ioData)
 
   // transform the user-specified ground-relative velocities into mesh velocities
   for (int i=1; i < nvpts; i++){
-    timeVpts[i] = ioData.rmesh.vpts[i]->time;
-    velVpts[i][0] = velBodyX - ioData.rmesh.vpts[i]->velocityX;
-    velVpts[i][1] = velBodyY - ioData.rmesh.vpts[i]->velocityY;
-    velVpts[i][2] = velBodyZ - ioData.rmesh.vpts[i]->velocityZ;
+    timeVpts[i] = ioData.rmesh.vpts[i-1]->time;
+    velVpts[i][0] = velBodyX - ioData.rmesh.vpts[i-1]->velocityX;
+    velVpts[i][1] = velBodyY - ioData.rmesh.vpts[i-1]->velocityY;
+    velVpts[i][2] = velBodyZ - ioData.rmesh.vpts[i-1]->velocityZ;
   }
 
   //we want the points to be ordered with increasing time
   int ierrlocal = 0;
-  for (int i=0; i<nvpts-1; i++)
+  for (int i=0; i<nvpts-1; i++) {
+   // fprintf(stderr,"<Kevin's debugging> timeVpts[i] = %f, timeVpts[i+1] = %f.\n", timeVpts[i], timeVpts[i+1]);
     if(timeVpts[i] >= timeVpts[i+1])
       ierrlocal++;
+  }
   if(ierrlocal){
     fprintf(stderr, "***Error: in under Accelerated, (time-velocity) points are not ordered... Aborting\n");
     exit(1);

@@ -7,7 +7,7 @@
 #include <ImplicitSegTsDesc.h>
 #include <ImplicitLevelSetTsDesc.h>
 #include <ExplicitLevelSetTsDesc.h>
-
+#include <ExplicitStructLevelSetTsDesc.h>
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -84,6 +84,28 @@ void startLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+void startStructLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
+{
+
+  Communicator *com = domain.getCommunicator();
+
+  domain.createVecPat(dim, &ioData);
+  domain.createRhsPat(dim, ioData);
+
+  if (ioData.ts.type == TsData::IMPLICIT) {
+    com->fprintf(stderr, "***Error: wrong time integrator for EulerStructGhostFluid method\n");   
+  }
+  else{
+    ExplicitStructLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ExplicitStructLevelSetTsDesc<dim> > tsSolver(&tsDesc);
+    tsSolver.solve(ioData);
+  }
+
+}
+
 //-----------------------------------------------------------------------------
 
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -92,6 +114,9 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
 
   if (ioData.eqs.numPhase == 1){
+    com->fprintf(stderr, "*** Warning: Running an EulerStructGhostFluid simulation\n");
+    startStructLevelSetSolver<5>(ioData, geoSource, domain);
+  }else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)
       startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {

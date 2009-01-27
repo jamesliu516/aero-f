@@ -207,7 +207,6 @@ void RecFcn::linear(double Vi, double ddVij, double Vj, double ddVji,
 {
  
   double dV = beta1 * (Vj - Vi);
-
   Vij = Vi + dV + beta * ddVij;
   Vji = Vj - dV - beta * ddVji;
 

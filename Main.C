@@ -12,7 +12,7 @@
 #endif
 
 #include <fenv.h>
-
+#include <Timer.h>
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
 int interruptCode = 0;
@@ -51,9 +51,10 @@ int main(int argc, char **argv)
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );
 
   Domain domain;
+  Timer *timer = domain.getTimer();
+  fprintf(stderr,"TIMER::START TIME: %lf\n",timer->getTime());
 
   Communicator *com = domain.getCommunicator();
-
   // iodata obtains all the problem parameters from the cmd line and input file(s)
   IoData ioData(com);
   ioData.readCmdLine(argc, argv);

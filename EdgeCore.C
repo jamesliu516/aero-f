@@ -8,7 +8,7 @@
 #include <algorithm>
 using std::swap;
 #endif
-
+#define EDGE_LENGTH
 #ifdef EDGE_LENGTH
 #include <Vector3D.h>
 #endif
@@ -190,8 +190,6 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
     }
   }
 
-
-
   return ierr;
 
 }
@@ -212,3 +210,32 @@ void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
 
 }
 //------------------------------------------------------------------------------
+
+#ifdef EDGE_LENGTH
+void EdgeSet::computeCharacteristicEdgeLength(SVec<double,3> &X, double &minLength, double &aveLength, double &maxLength, int &numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
+{
+  if (!this->edgeLength) this->updateLength(X);
+  numInsideEdges = 0;
+  bool inside = true, start = true;
+  for (int iEdge=0; iEdge<numEdges; iEdge++) {
+    double* position1 = X[ptr[iEdge][0]];
+    double* position2 = X[ptr[iEdge][1]];
+    if ( (position1[0] < xmin || position1[0] > xmax || position1[1] < ymin || position1[1] > ymax || position1[2] < zmin || position1[2] > zmax ) && (position2[0] < xmin || position2[0] > xmax || position2[1] < ymin || position2[1] > ymax || position2[2] < zmin || position2[2] > zmax ) )
+      inside = false; else inside = true;
+    if (inside == true) {
+      if (start == true) {
+        minLength = length(iEdge);  aveLength = length(iEdge);  maxLength = length(iEdge);
+        numInsideEdges = 1; start = false;
+      }
+      else {
+        aveLength += length(iEdge);  
+        if (length(iEdge)<minLength) minLength = length(iEdge);
+        if (length(iEdge)>maxLength) maxLength = length(iEdge);
+        numInsideEdges++;
+      }
+    } 
+  } 
+  aveLength /= numInsideEdges;
+}
+#endif
+//---------------------------------------------------------------------------------

@@ -1401,6 +1401,57 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 //------------------------------------------------------------------------------
 
 template<int dim>
+// Kevin's FSI with half-Riemann problems.
+void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistEulerStructGhostFluid *eulerFSI,
+                                         DistSVec<double,dim> &R,
+                                         DistExactRiemannSolver<dim> *riemann, int it)
+{
+  R = 0.0;
+  DistVec<double> Phi = *(eulerFSI->getPhilevelPointer());
+  varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+    double t0 = timer->getTime();
+    // compute gradient of V using Phi:
+    // for node with Phi, gradient of V is computed using V-values of neighbours 
+    // that have the same Phi-sign
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, Phi, *V);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+    timer->addNodalGradTime(t0);
+  }
+  if (xpol) //boundary condition using xpol = extrapolation
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+  //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
+  //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
+
+  domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
+                                  *geoState, X, *V, eulerFSI, *ngrad, egrad,
+                                  R, it, failsafe,rshift);
+
+  if (use_modal == false)  {
+    int numLocSub = R.numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double *cv = ctrlVol.subData(iSub);
+      double (*r)[dim] = R.subData(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        double invcv = 1.0 / cv[i];
+        for (int j=0; j<dim; ++j)
+          r[i][j] *= invcv;
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                            DistVec<double> &Phi,  DistSVec<double,dim> &U,
                                            DistVec<double> &PhiF)
@@ -1492,6 +1543,13 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
  return 0.0;
 
 }
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
+double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal, 
+                                                    DistVec<double> &philevel)
+{ return domain->computeRealFluidResidual(F, Freal, philevel); }
 
 //------------------------------------------------------------------------------
 

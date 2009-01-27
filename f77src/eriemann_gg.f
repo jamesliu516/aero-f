@@ -1,7 +1,7 @@
        SUBROUTINE ERIEMANNGG(DL,UL,PL,DR,UR,PR,
      &                      PM,UM,RIL,RIR,
      &                      gamL,PREFL,gamR,PREFR)
-
+C     PREFL  p_c (L)
 *     
 *-----------------------------------------------------------------*
 *                                                                 *
@@ -152,8 +152,10 @@ C     Shock wave
 
       IF (PM .LE. PL) THEN
          RIL  = DL*((PM+PREFL)/PLL)**(1.0/gamL)
+C        by isentropic relationship
       ELSE
          RIL  = DL* ((PM+PREFL)/PLL+G4L)/((PM+PREFL)*G4L/PLL + 1.0)
+C        by rankine hugoniot relationship (24) of reference.
       ENDIF
 
       IF (PM .LE. PR) THEN

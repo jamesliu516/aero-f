@@ -10,6 +10,7 @@
 #include <DenseMatrix.h>
 typedef std::complex<double> bcomp;
 
+
 class VarFcn;
 class BcFcn;
 class RecFcn;
@@ -32,6 +33,7 @@ class PostFcn;
 class LevelSet;
 class TimeLowMachPrec;
 class SpatialLowMachPrec;
+class DistEulerStructGhostFluid;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -357,6 +359,15 @@ public:
                                int, DistSVec<double,dim> *, DistSVec<double,dim> *,
                                int, int);
 
+
+ template<int dim>
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistEulerStructGhostFluid *eulerFSI,
+                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistSVec<double,dim>&, int, int, int);
+
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
@@ -399,6 +410,9 @@ public:
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);
   template<int dim>
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
@@ -604,6 +618,7 @@ public:
   template<int dim>
   int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
 
+
   template<int dim>
   void restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Phi,
                         DistSVec<double,dim> &restriction, int sign);
@@ -743,6 +758,18 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
+
+  int numElems();
+
+  int numNodes();
+
+  void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
+
+
+  //void getTriangulatedSurfaceFromFace(DistSVec<double,3> &);
+
+  //void printTriangulatedSurface();
+
 
  };
 

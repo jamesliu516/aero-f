@@ -46,8 +46,8 @@ void VarFcn::computeOldPrimitiveLiquidEuler(double Pr, double a, double b, doubl
 void VarFcn::conservativeToPrimitiveGasEuler(double g, double Ps, double *U, double *V)
 {
                          
+  if (fabs(U[0])<1e-10) fprintf(stderr,"WARNING: density close to zero. rho = %f.\n", U[0]);         
   V[0] = U[0];
-           
   double invRho = 1.0 / U[0];
                                                                      
   V[1] = U[1] * invRho;

@@ -47,7 +47,6 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
-
   int status = resolve(U, ioData);
 
   return status;
@@ -90,7 +89,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
-
   // setup solution output files
 
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
@@ -114,27 +112,19 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     it++;
 
     do {
-
       itSc++;
-
-      // compute fluid subcyling time step
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
-
+      
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
-
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
-
       // Fluid Solution
       itNl += probDesc->solveNonLinearSystem(U);
-
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);
-
       probDesc->updateStateVectors(U, it);
-
     } while (dtLeft != 0.0);
 
 // Modified (MB)
@@ -144,9 +134,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     dts = probDesc->computePositionVector(&lastIt, it, t);
 
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-
   }
-
   return 0;
 
 }

@@ -30,8 +30,10 @@ CXXOBJS    = BcFcnCore.o \
              CurvatureDetection.o \
              DistGeoState.o \
              DistMacroCellCore.o \
+             DistEulerStructGhostFluidCore.o \
              DomainCore.o \
              EdgeCore.o \
+             EulerStructGhostFluidCore.o \
              FaceCore.o \
              FaceTriaCore.o \
              ElemCore.o \
@@ -79,9 +81,8 @@ CXXOBJS    = BcFcnCore.o \
              WallFcnCore.o \
              BCApplierCore.o \
 	     BCond.o \
-	     BlockAlloc.o
-
-
+	     BlockAlloc.o \
+             TriangulatedSurface.o 
 # INTEL
 # -----
 #CXX = icc -Kc++
@@ -106,8 +107,7 @@ CXX       = g++
 #include default.defs
 #include nivation.defs
 
-#usescalapack = false
-usescalapack = true
+usescalapack = false
 ifeq ($(usescalapack),true)
   SFLAGS       = -DDO_SCALAPACK
 else
