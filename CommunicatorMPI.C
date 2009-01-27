@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <Communicator.h>
+#include <complex>
 
 #ifndef MPI_INTEGER
 #define MPI_INTEGER MPI_INT
@@ -16,9 +17,9 @@ MPI_Datatype CommTrace<float>::MPIType = MPI_FLOAT;
 template<>
 MPI_Datatype CommTrace<double>::MPIType = MPI_DOUBLE;
 //template<>
-//MPI_Datatype CommTrace<complex<double> >::MPIType = MPI_DOUBLE_COMPLEX;
+//MPI_Datatype CommTrace<std::complex<double> >::MPIType = MPI_DOUBLE_COMPLEX;
 template<>
-MPI_Datatype CommTrace<complex<double> >::MPIType = MPI_DOUBLE;
+MPI_Datatype CommTrace<std::complex<double> >::MPIType = MPI_DOUBLE;
 
 template<>
 int CommTrace<int>::multiplicity = 1;
@@ -27,7 +28,7 @@ int CommTrace<float>::multiplicity = 1;
 template<>
 int CommTrace<double>::multiplicity = 1;
 template<>
-int CommTrace<complex<double> >::multiplicity = 2;
+int CommTrace<std::complex<double> >::multiplicity = 2;
 
 static MPI_Request nullReq;
 static MPI_Status nullStat;
