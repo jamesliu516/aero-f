@@ -38,6 +38,7 @@ public:
   LocalRiemann() {}
   ~LocalRiemann() {}
 
+  // multiphase Riemann problem
   virtual void computeRiemannSolution(double *Vi, double *Vj,
                             double Phii, double Phij, double *nphi, VarFcn *vf,
                             int &epsi, int &epsj, double *Wi, double *Wj,
@@ -49,6 +50,11 @@ public:
                         double &pi, double &ui,  
                         double &rhoil, double &rhoir,
                         VarFcn *vf){}
+  // FSI-type Riemann problem
+  virtual void computeRiemannSolution(double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatei, 
+                            double &weighti, int it){}
 
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);

@@ -133,6 +133,10 @@ public:
                                double *toterr, double *f1err, double *f2err);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+
+  void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
+                                DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+                                DistVec<double> &);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
                                 DistVec<double> &);

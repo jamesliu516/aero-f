@@ -164,6 +164,8 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->hydrodynamicPressure(V,X,phi);
   else if(type == PHILEVEL)
     q = phi/varFcn->getDensity(V);
+  else if(type == PHILEVEL_STRUCTURE)
+    q = phi;  //NOTE: In this case phi stores the distance to the structure. 
 
 // Included (MB)
   else if (type == VELOCITY_NORM)

@@ -11,6 +11,7 @@
 #include <DiagMatrix.h>
 #include <DistInfo.h>
 #include <BCond.h>
+#include <TriangulatedSurface.h>
 #include <DenseMatrix.h>
 
 #ifdef OLD_STL
@@ -50,7 +51,9 @@ class BCData;
 class MatchNodeSet; // HB
 class LevelSet;
 class VolumicForceTerm;
+class TriangulatedSurface;
 class TimeLowMachPrec;
+class EulerStructGhostFluid;
 
 struct V6NodeData;
 struct Vec3D;
@@ -135,6 +138,8 @@ class SubDomain {
 
   int **nodeFlag;
   Connectivity *NodeToNode;
+  Connectivity *NodeToElem;
+  Connectivity *ElemToElem;
 
   int **totalNeiData;
   double *gradP[3];
@@ -142,6 +147,8 @@ class SubDomain {
 // Included (MB*)
   int numOffDiagEntries;
   double *dGradP[3];
+
+//  TriangulatedSurface *triaSurf;
 
 public:
 
@@ -156,6 +163,8 @@ public:
   int numberEdges();
 
   Connectivity *createElemBasedConnectivity();
+  Connectivity *createNodeToElementConnectivity();
+  Connectivity *createElementToElementConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
@@ -166,6 +175,10 @@ public:
   int numNodes() { return(nodes.size()); }
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
+  int numEdges() { return(edges.size()); }
+  
+  int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
+
 
   // geometry
 
@@ -197,6 +210,7 @@ public:
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, Vec<double> &, SVec<double,9> &);
+#define EDGE_LENGTH
 #ifdef EDGE_LENGTH
   bool findTetrahedron(int, int, Vec<int>&, int**, SVec<double,3>&, V6NodeData&, bool=true, double* refLength=0);
 #else
@@ -333,12 +347,19 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
-                              NodalGrad<dim>&, EdgeGrad<dim>*, 
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int, SVec<double,dim> *,
                               SVec<double,dim> *,
                               SVec<int,2>&, int, int);
   template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&, EulerStructGhostFluid *,
+                              NodalGrad<dim>&, EdgeGrad<dim>*, 
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
+ 
+ template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
                                NodalGrad<dim>&, NodalGrad<1>&, EdgeGrad<dim>*, SVec<double,1>&,
@@ -379,7 +400,11 @@ public:
                                                                                                   
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                  
+                     
+  template<int dim>
+  void computeRealFluidResidual(SVec<double, dim> &, SVec<double,dim> &, Vec<double> &);
+
+                                                                             
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -959,8 +984,40 @@ public:
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
 
-};
+//  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
 
+  void getTriangulatedSurfaceFromFace( TriangulatedSurface* );
+
+  void getTriangulatedSurfaceFromFace( SVec<double,3> &,  TriangulatedSurface* );
+
+//  void printTriangulatedSurface();
+
+  void getGhostNodes(double*, int*, int&);
+
+  bool isINodeinITet(Vec3D, int, SVec<double,3>&);
+
+  void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
+
+  int* getNeiElemOfNode(int, int, int&);
+
+  void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
+
+  void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
+
+  double specifyBandwidth(Vec<double> &);
+
+  double scalarNormalExtrap(double*, Vec3D, Vec3D, int, SVec<double,3> &, bool);
+
+  bool insideOutside(double*, const double, const double, const double, const double, 
+                     const double, const double);
+
+  double getMeshInBoundingBox(SVec<double,3> &, const double, const double,
+                              const double, const double,
+                              const double, const double,
+                              int*, int&, int*,
+                              int&, int (*)[4]);
+
+};
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

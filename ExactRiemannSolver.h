@@ -13,6 +13,8 @@ template<int dim>
 class ExactRiemannSolver{
 
   LocalRiemann *lriemann;
+
+  LocalRiemann *fsiRiemann;
 	
   int iteration;
   SVec<double,dim>  &rupdate;
@@ -27,10 +29,16 @@ class ExactRiemannSolver{
   SVec<double,dim> &getRiemannUpdate() const { return rupdate; }
   Vec<double> &getRiemannWeight() const { return weight; }
 
+  // for multiphase Riemann problem
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi, VarFcn *vf,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               int i, int j);
+
+  // for structure-fluid "half-Riemann" problem
+  void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
+                                 VarFcn *vf, double *Wstar, int nodej);
+
 
   void reset(int it);
 	

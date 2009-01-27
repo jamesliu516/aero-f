@@ -644,6 +644,198 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
+                                              DistSVec<double,3>& X,
+                                              DistSVec<double,dim>& U,
+                                              DistVec<double>& A,
+                                              DistVec<double>& Q,
+                                              DistTimeState<dim> *timeState,
+                                              DistVec<double>& Phi)
+{
+  int iSub;
+
+  if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
+    if (!tmp2)
+      tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
+    if (!vec2Pat) {
+      vec2Pat = new CommPattern<double>(domain->getSubTopo(), com,
+                                        CommPattern<double>::CopyOnSend);
+#pragma omp parallel for
+      for (iSub = 0; iSub<numLocSub; ++iSub)
+        subDomain[iSub]->setComLenNodes(2, *vec2Pat);
+      vec2Pat->finalize();
+    }
+
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+      subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub),
+                                                 (*geoState)(iSub), X(iSub),
+                                                 (*V)(iSub), (*tmp2)(iSub));
+      subDomain[iSub]->sndData(*vec2Pat, tmp2->subData(iSub));
+    }
+
+    vec2Pat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      subDomain[iSub]->addRcvData(*vec2Pat, tmp2->subData(iSub));
+
+      double (*t)[2] = tmp2->subData(iSub);
+      double* q = Q.subData(iSub);
+
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        if (t[i][0] != 0.0)
+          q[i] = t[i][1] / t[i][0];
+        else
+          q[i] = 0.0;
+      }
+    }
+  }
+
+  else if (type == PostFcn::VORTICITY) {
+    DistSVec<double,6> R(domain->getNodeDistInfo());
+    DistSVec<double,3> ddx(domain->getNodeDistInfo());
+    DistSVec<double,3> ddy(domain->getNodeDistInfo());
+    DistSVec<double,3> ddz(domain->getNodeDistInfo());
+    DistSVec<double,3> tmp3(domain->getNodeDistInfo());
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), R(iSub));
+      subDomain[iSub]->sndData(*(domain->getWeightPat()), R.subData(iSub));
+    }
+    domain->getWeightPat()->exchange();
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      subDomain[iSub]->addRcvData(*(domain->getWeightPat()), R.subData(iSub));
+      subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
+      double (*u)[dim] = U.subData(iSub);
+      double (*t3)[3] = tmp3.subData(iSub);
+      double (*x)[3] = X.subData(iSub);
+      for (int i=0; i<tmp3.subSize(iSub); ++i) {
+        double v[dim];
+        varFcn->conservativeToPrimitive(u[i], v);
+        t3[i][0] = v[1];
+        t3[i][1] = v[2];
+        t3[i][2] = v[3];
+      }
+      subDomain[iSub]->computeGradientsLeastSquares(X(iSub), R(iSub), tmp3(iSub),
+                                                    ddx(iSub), ddy(iSub), ddz(iSub));
+    }
+    domain->assemble(domain->getVec3DPat(), ddx);
+    domain->assemble(domain->getVec3DPat(), ddy);
+    domain->assemble(domain->getVec3DPat(), ddz);
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double (*dudx)[3] = ddx.subData(iSub);
+      double (*dudy)[3] = ddy.subData(iSub);
+      double (*dudz)[3] = ddz.subData(iSub);
+      double* q = Q.subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        double w0 = dudy[i][0] - dudx[i][1];
+        double w1 = dudx[i][2] - dudz[i][0];
+        double w2 = dudz[i][1] - dudy[i][2];
+        q[i] = sqrt(w0*w0 + w1*w1 + w2*w2);
+      }
+    }
+  }
+
+  else if (type == PostFcn::PSENSOR) {
+    DistSVec<double,6> R(domain->getNodeDistInfo());
+    DistSVec<double,dim> ddx(domain->getNodeDistInfo());
+    DistSVec<double,dim> ddy(domain->getNodeDistInfo());
+    DistSVec<double,dim> ddz(domain->getNodeDistInfo());
+    DistSVec<double,3> tmp3(domain->getNodeDistInfo());
+    domain->computeWeightsLeastSquares(X, R);
+    domain->computeGradientsLeastSquares(X, R, *V, ddx, ddy, ddz);
+    domain->computePressureSensor(threshold, X, *V, ddx, ddy, ddz, tmp3, Q);
+  }
+
+  else if (type == PostFcn::CSDLES) {
+     if(!CsDles) CsDles = new DistVec<double>(domain->getNodeDistInfo());
+     *CsDles = 0.0;
+     varFcn->conservativeToPrimitive(U, *V);
+     dles->computeCsValue(A, *bcData, X, *V, *CsDles);
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double* q = Q.subData(iSub);
+      double* cs = (*CsDles).subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        q[i]  = cs[i];
+      }
+   }
+  }
+
+  else if (type == PostFcn::CSDVMS) {
+    if(!CsDvms) CsDvms = new DistVec<double>(domain->getNodeDistInfo());
+    *CsDvms = 0.0;
+    spaceOp->computePostOpDVMS(X, A, U, CsDvms, timeState);
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double* q = Q.subData(iSub);
+      double* cs = (*CsDvms).subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        q[i]  = cs[i];
+      }
+    }
+  }
+
+  else if (type == PostFcn::MUT_OVER_MU) {
+    if(!mutOmu) mutOmu = new DistVec<double>(domain->getNodeDistInfo());
+    *mutOmu = 0.0;
+    varFcn->conservativeToPrimitive(U, *V);
+
+
+    if(vms) {
+      vms->computeMutOMu(A, X, *V, *mutOmu);
+    }
+    else if(smag) {
+      domain->computeMutOMuSmag(smag, A, X, *V, *mutOmu);
+    }
+    else if(dles) {
+      dles->computeMutOMu(A, *bcData, X, *V, *mutOmu);
+    }
+    else if(wale) {
+       domain->computeMutOMuWale(wale, A, X, *V, *mutOmu);
+    }
+    else if(dvms) {
+      if(!Cs) Cs = new DistVec<double>(domain->getNodeDistInfo());
+      *Cs = 0.0;
+      spaceOp->computePostOpDVMS(X, A, U, Cs, timeState);
+      dvms->computeMutOMu(A, X, *V, *Cs, *mutOmu);
+    }
+    else {
+       fprintf(stderr,"MuTOverMu option valid only for LES computations..  Aborting ....\n"); exit(1);
+    }
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      double* q = Q.subData(iSub);
+      double* mtOm = (*mutOmu).subData(iSub);
+      for (int i=0; i<Q.subSize(iSub); ++i) {
+        q[i]  = mtOm[i];
+      }
+    }
+  }
+
+  else if (type == PostFcn::PHILEVEL_STRUCTURE) {
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub));
+    }
+  }
+
+  else {
+#pragma omp parallel for
+    for (iSub=0; iSub<numLocSub; ++iSub) {
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub));
+    }
+  }
+
+}
+
+//---------------------------------------------------------------------------------
 // Included (MB)
 template<int dim>
 void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], DistSVec<double,3>& X, DistSVec<double,3>& dX, DistSVec<double,dim>& U, DistSVec<double,dim>& dU, DistVec<double>& dQ, DistTimeState<dim> *timeState)
