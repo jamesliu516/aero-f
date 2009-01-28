@@ -20,6 +20,7 @@ FIND_PACKAGE(LAPACK)
 FIND_PACKAGE(MPI)
 
 FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../../PhysBam)
+FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp /home/pavery/boost/boost_install/include/boost-1_34_1)
 
 SET(TARGETS_INST fluid)
 
@@ -126,8 +127,11 @@ ADD_LIBRARY(FluidBase
              ../DynamicVMSTerm.C 
              ../WallFcnCore.C 
              ../BCApplierCore.C 
-	         ../BCond.C 
+	     ../BCond.C 
              ../BlockAlloc.C 
+../EulerStructGhostFluidCore.C
+../DistEulerStructGhostFluidCore.C 
+../TriangulatedSurface.C
             )
 
 ADD_LIBRARY(Utils ../utils/Predicate.C ../utils/Laguerre.C)
@@ -137,7 +141,7 @@ SET_TARGET_PROPERTIES(Utils
 
 IF(MPI_FOUND)
   ADD_EXECUTABLE(loader ../tools/loader.C)
-  TARGET_LINK_LIBRARIES(loader ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
+  TARGET_LINK_LIBRARIES(loader ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
   SET_TARGET_PROPERTIES(loader
                       PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR})
 ENDIF(MPI_FOUND)
@@ -245,7 +249,13 @@ SET(INC_DIR ..)
 
 IF(PHYSBAM_INCLUDE_DIR)
   SET(INC_DIR ${INC_DIR} ${PHYSBAM_INCLUDE_DIR} ${PHYSBAM_INCLUDE_DIR}/Public_Library)
+  file(GLOB PHYSBAM_LIBS /home/icmewang/PhysBam/lib*.so)
+  MESSAGE("PhysLibs " ${PHYSBAM_LIBS})
+  SET(EXTRALIBRARIES ${PHYSBAM_LIBS} ${EXTRALIBRARIES})
 ENDIF(PHYSBAM_INCLUDE_DIR)
+IF(BOOST_INCLUDE_DIR)
+  SET(INC_DIR ${INC_DIR} ${BOOST_INCLUDE_DIR})
+ENDIF(BOOST_INCLUDE_DIR)
 
 SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
@@ -330,9 +340,10 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 #add_subdirectory(utils)
 #add_subdirectory(tools)
 
+
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES})
+TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} -lpthread)
 SET_TARGET_PROPERTIES(fluid 
                       PROPERTIES 
 		        RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
