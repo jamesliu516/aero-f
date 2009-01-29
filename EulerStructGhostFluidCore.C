@@ -2,7 +2,7 @@
 #include <stdio.h>
 //---------------------------------------------------------------------
 
-EulerStructGhostFluid::EulerStructGhostFluid(Vec<double> & phi_input, SVec<double,3> &gradphi_input, int numNodes, int numElems): philevel(phi_input), gradPhilevel(gradphi_input)
+EulerStructGhostFluid::EulerStructGhostFluid(Vec<double> & phi_input, SVec<double,3> &gradphi_input, int numNodes, int numElems): x(gradphi_input), philevel(phi_input), gradPhilevel(gradphi_input)
 {
   PhysBAM_Interface = 0;
 
@@ -55,6 +55,7 @@ void EulerStructGhostFluid::initializePhysBAMMPI(int* locToGlob, int numNodes,do
 
 //--------------------------------------------------------------------------------------------
 
+// PhysBAM::TRIANGULATED_SURFACE<double> contains the solid surface triangles
 void EulerStructGhostFluid::computeLevelSet(PhysBAM::TRIANGULATED_SURFACE<double> &physbam_triangulated_surface)
 {
   if (!PhysBAM_Interface) {fprintf(stderr,"ERROR: PhysBAM not initialized. Aborting.\n"); exit(-1);}
@@ -146,14 +147,18 @@ void EulerStructGhostFluid::getTetNearInterface(SVec<double,3> &subX)
 }
 
 //------------------------------------------------------------------------------------
+LevelSetResult
+EulerStructGhostFluid::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
+    Vec3D center(0.5*(x[ni][0]+x[nj][0]), 0.5*(x[ni][1]+x[nj][1]),
+                     0.5*(x[ni][2]+x[nj][2]));
+    Vec3D gp = getGradPhiAtPosition(center);
+    return LevelSetResult(gp[0], gp[1], gp[2], 0, 0, 0);
+}
 
 
-
-
-
-
-
-
+double EulerStructGhostFluid::phiAtNode(double t, int n) {
+   return philevel[n];
+}
 
 
 

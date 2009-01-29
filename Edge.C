@@ -24,7 +24,7 @@ using std::min;
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
-#include <EulerStructGhostFluid.h>
+#include <LevelSetStructure.h>
 
 //------------------------------------------------------------------------------
 
@@ -504,7 +504,7 @@ template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, EulerStructGhostFluid *eulerFSI,
+                                     SVec<double,dim>& V, LevelSetStructure *eulerFSI,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -524,9 +524,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double gphij[3];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
-  Vec<double> Phi = *(eulerFSI->getPhilevelPointer());
-
-  double vStar[3] = {0.0, 0.0, 0.0};  //velocity of the structure. For steady-state case it's 0.
 
   int ierr=0;
   riemann.reset(it);
@@ -556,8 +553,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vi[k+dim] = V[i][k];
       Vj[k+dim] = V[j][k];
     }
+    
+    double phiI = eulerFSI->phiAtNode(0, i);
+    double phiJ = eulerFSI->phiAtNode(0, j);
   
-    if (Phi[i]>=0.0 && Phi[j]>=0.0) { 	// same fluid
+    if (phiI>=0.0 && phiJ>=0.0) { 	// same fluid
       //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
       for (int k=0; k<dim; ++k) {
@@ -566,13 +566,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
-      Vec3D posit(0.5*(X[i][0]+X[j][0]),0.5*(X[i][1]+X[j][1]),0.5*(X[i][2]+X[j][2]));
-      Vec3D temp = eulerFSI->getGradPhiAtPosition(posit);
-      temp /= temp.norm();
-      gradphi[0] = temp[0]; gradphi[1] = temp[1]; gradphi[2] = temp[2];
+      LevelSetResult res = eulerFSI->getLevelSetDataAtEdgeCenter(0.0, i, j);
 
-      if (Phi[i]>=0.0) {
-        riemann.computeFSIRiemannSolution(Vi,vStar,gradphi,varFcn,Wstar,j);
+      if (phiI>=0.0) {
+        riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
         double area = normal[l].norm();
 //        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;
 //        eulerFSI->totalForce[1] += Wstar[4]*gradphi[1]*area;
@@ -585,8 +582,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
-      if (Phi[j]>=0.0) {
-        riemann.computeFSIRiemannSolution(Vj,vStar,gradphi,varFcn,Wstar,i);
+      if (phiJ>=0.0) {
+        riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
         double area = normal[l].norm();
 //        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;
 //        eulerFSI->totalForce[1] += Wstar[4]*gradphi[1]*area;
