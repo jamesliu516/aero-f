@@ -6,16 +6,20 @@
 #include <DistVector.h>
 #include "AERO_INTERFACE_1.h"
 
+#include "LevelSetStructure.h"
 
 template<class Scalar, int dim> class SVec;
-class EulerStructGhostFluid {
+class EulerStructGhostFluid : public LevelSetStructure {
 
   Vec<double> &philevel;
   SVec<double,3> &gradPhilevel;
+  SVec<double, 3> &x;
   PhysBAM::AERO_INTERFACE_1<double> *PhysBAM_Interface;
 
   PhysBAM::TETRAHEDRALIZED_VOLUME<double> *tetrahedralized_volume;
+  /* Coordinates of nodes of the structure */
   PhysBAM::SOLIDS_PARTICLE<PhysBAM::VECTOR<double,3> > *solids_particle;
+  PhysBAM::LIST_ARRAY<PhysBAM::VECTOR<int,3> > *triangle_list;
   PhysBAM::LIST_ARRAY<PhysBAM::VECTOR<int,4> > *elem_list;
   PhysBAM::TETRAHEDRON_MESH *tetrahedron_mesh;
   PhysBAM::COMPRESSIBLE_FLUID_PARTICLE<PhysBAM::VECTOR<double,3> > *compressible_fluid_particle;
@@ -27,7 +31,6 @@ public:
   int numChosenElems;
   int (*tempElemList)[4];  //stores the global index of chosen elems.
 
-  Vec3D totalForce;
 
   EulerStructGhostFluid(Vec<double> &, SVec<double,3> &, int, int);
   ~EulerStructGhostFluid();
@@ -54,6 +57,9 @@ public:
     return 0;
   }
 
+  LevelSetResult
+       getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
+  double phiAtNode(double t, int n);
 };
 
 #ifdef TEMPLATE_FIX
