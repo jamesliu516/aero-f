@@ -351,12 +351,6 @@ public:
   template<int dim>
   void computeFiniteVolumeBar_Step2(MacroCellSet **,SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               SVec<double,dim> &U, SVec<double,dim> &R);
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               Vec<double> &Phi, Vec<double> &dPhi);
- 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
                                        Vec<double> &, SVec<double,3> &, Vec<double> &, 
@@ -958,6 +952,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, GeoState &);
+
+  void computePrdtPhiCtrlVolRatio(Vec<double> &, Vec<double> &, Vec<double> &, GeoState &);
 
 };
 

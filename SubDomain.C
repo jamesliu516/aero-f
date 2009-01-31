@@ -866,21 +866,6 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                                        SVec<double,dim> &U, SVec<double,dim> &R)
-{
-  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
-
-  for (int i=0; i<nodes.size(); ++i) {
-    double ratio = ctrlVol_dot[i]/ctrlVol[i];
-    for (int j=0; j<dim; ++j)
-      R[i][j] += ratio*U[i][j];
-  }
-
-}
-
-//------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
                                                 GeoState &geoState, Vec<double> &irey,
@@ -4836,6 +4821,23 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
     dGradP[1][i] = ddVdy[i][4];
     dGradP[2][i] = ddVdz[i][4];
   }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computePrdtWCtrlVolRatio(SVec<double,dim> &ratioTimesU, SVec<double,dim> &U, Vec<double> &ctrlVol, GeoState &geoState)
+{
+   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+   for (int i=0; i<nodes.size(); ++i) {
+     double ratio = ctrlVol_n[i]/ctrlVol[i];
+     for (int j=0; j<dim; ++j) {
+       ratioTimesU[i][j] = ratio * U[i][j];
+     }
+   }
 
 }
 

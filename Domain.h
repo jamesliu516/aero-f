@@ -370,12 +370,6 @@ public:
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistSVec<double,dim> &U, DistSVec<double,dim> &R);
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistVec<double> &Phi, DistVec<double> &dPhi);
-
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 
 				       DistVec<double> &,
@@ -743,6 +737,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
+
+  void computePrdtPhiCtrlVolRatio(DistVec<double> &, DistVec<double> &, DistVec<double> &, DistGeoState &);
 
  };
 
