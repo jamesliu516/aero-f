@@ -72,6 +72,13 @@ FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
 ADD_LIBRARY(FluidBase
              ../NavierStokesSolver.C 
+             ../Solvers/StructLevelSetSolver5.C
+             ../Solvers/NavierStokesCoupledSolver5.C
+             ../Solvers/NavierStokesCoupledSolver6.C
+             ../Solvers/NavierStokesCoupledSolver7.C
+             ../Solvers/NavierStokesSegSolver651.C
+             ../Solvers/NavierStokesSegSolver752.C
+             ../Solvers/LevelSetSolver5.C
              ../BcFcnCore.C
              ../CommunicatorCore.C 
              ../CommunicatorMPI.C 
@@ -129,8 +136,8 @@ ADD_LIBRARY(FluidBase
              ../BCApplierCore.C 
 	     ../BCond.C 
              ../BlockAlloc.C 
-../EulerStructGhostFluidCore.C
-../DistEulerStructGhostFluidCore.C 
+../Ghost/EulerStructGhostFluidCore.C
+../Ghost/DistEulerStructGhostFluidCore.C 
 ../TriangulatedSurface.C
             )
 

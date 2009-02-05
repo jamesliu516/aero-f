@@ -5,7 +5,7 @@
 
 #include <IoData.h>
 #include <Domain.h>
-#include <DistEulerStructGhostFluid.h>
+#include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
 

@@ -1,6 +1,5 @@
 #include <Domain.h>
-#include <DistEulerStructGhostFluid.h>
-#include <stdio.h>
+#include "Ghost/DistEulerStructGhostFluid.h"
 
 //-----------------------------------------------------------------------------------
 

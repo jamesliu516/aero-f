@@ -1,5 +1,5 @@
-#include <DistEulerStructGhostFluid.h>
 #include <stdio.h>
+#include "Ghost/DistEulerStructGhostFluid.h"
 //------------------------------------------------------------------------------------
 
 DistEulerStructGhostFluid::DistEulerStructGhostFluid(Domain* domain, IoData& iod):numGlobNodes(domain->numNodes())

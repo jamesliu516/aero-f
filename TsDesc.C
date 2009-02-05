@@ -4,7 +4,7 @@
 #include <VarFcnDesc.h>
 #include <GeoSource.h>
 #include <DistBcData.h>
-#include <DistEulerStructGhostFluid.h>
+#include "Ghost/DistEulerStructGhostFluid.h"
 #include <DistTimeState.h>
 #include <DistGeoState.h>
 #include <SpaceOperator.h>
