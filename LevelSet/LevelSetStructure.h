@@ -21,9 +21,15 @@ class LevelSetStructure {
   public:
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
-    virtual double phiAtNode(double t, int n) = 0;
+    virtual bool isActive(double t, int n) = 0; //!< Whether this node is active or ghost.
+    virtual bool edgeIntersectsStructure(double t, int ni, int nj) = 0;
     
     Vec3D totalForce;
+};
+
+class DistLevelSetStructure {
+  public:
+    virtual LevelSetStructure & operator()(int subNum) const = 0;
 };
 
 #endif

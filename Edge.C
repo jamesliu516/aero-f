@@ -24,7 +24,7 @@ using std::min;
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
-#include <LevelSetStructure.h>
+#include "LevelSet/LevelSetStructure.h"
 
 //------------------------------------------------------------------------------
 
@@ -554,10 +554,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vj[k+dim] = V[j][k];
     }
     
-    double phiI = eulerFSI->phiAtNode(0, i);
-    double phiJ = eulerFSI->phiAtNode(0, j);
+    bool iIsActive = eulerFSI->isActive(0, i);
+    bool jIsActive = eulerFSI->isActive(0, j);
+    if( !iIsActive && !jIsActive )
+      continue;
   
-    if (phiI>=0.0 && phiJ>=0.0) { 	// same fluid
+    if (!eulerFSI->edgeIntersectsStructure(0, i, j)) { 	// same fluid
       //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
       for (int k=0; k<dim; ++k) {
@@ -568,7 +570,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{			// interface
       LevelSetResult res = eulerFSI->getLevelSetDataAtEdgeCenter(0.0, i, j);
 
-      if (phiI>=0.0) {
+      if (iIsActive) {
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
         double area = normal[l].norm();
 //        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;
@@ -582,7 +584,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
-      if (phiJ>=0.0) {
+      if (jIsActive) {
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
         double area = normal[l].norm();
 //        eulerFSI->totalForce[0] += Wstar[4]*gradphi[0]*area;

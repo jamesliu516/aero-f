@@ -1,18 +1,20 @@
 #include <IoData.h>
-#include <GeoSource.h>
+//#include <GeoSource.h>
 #include <Domain.h>
-#include <TsSolver.h>
-#include <ExplicitTsDesc.h>
-#include <ImplicitCoupledTsDesc.h>
-#include <ImplicitSegTsDesc.h>
-#include <ImplicitLevelSetTsDesc.h>
-#include <ExplicitLevelSetTsDesc.h>
-#include <ExplicitStructLevelSetTsDesc.h>
+//#include <TsSolver.h>
+//#include <ExplicitTsDesc.h>
+//#include <ImplicitCoupledTsDesc.h>
+//#include <ImplicitSegTsDesc.h>
+//#include <ImplicitLevelSetTsDesc.h>
+//#include <ExplicitLevelSetTsDesc.h>
+//#include <ExplicitStructLevelSetTsDesc.h>
 // Included (MB)
-#include <FluidSensitivityAnalysisHandler.h>
+//#include <FluidSensitivityAnalysisHandler.h>
+
+#include "Solvers/Solvers.h"
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
@@ -105,7 +107,7 @@ void startStructLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &dom
   }
 
 }
-
+*/
 //-----------------------------------------------------------------------------
 
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -115,28 +117,30 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 
   if (ioData.eqs.numPhase == 1){
     com->fprintf(stderr, "*** Warning: Running an EulerStructGhostFluid simulation\n");
-    startStructLevelSetSolver<5>(ioData, geoSource, domain);
+    //startStructLevelSetSolver<5>(ioData, geoSource, domain);
   }else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)
-      startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
+      NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {
       if (ioData.eqs.tc.type == TurbulenceClosureData::NONE ||
 	  ioData.eqs.tc.type == TurbulenceClosureData::LES)
-	startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
+	//startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
+	NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
       else if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
 	if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
 	    ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
 	  if (ioData.ts.type == TsData::IMPLICIT &&
               ioData.ts.implicit.coupling == ImplicitData::WEAK)
-	    startNavierStokesSegSolver<6,5,1>(ioData, geoSource, domain);
+	   // startNavierStokesSegSolver<6,5,1>(ioData, geoSource, domain);
+	    NavierStokesSegSolver<6,5,1>::solve(ioData, geoSource, domain);
 	  else
-	    startNavierStokesCoupledSolver<6>(ioData, geoSource, domain);
+	    NavierStokesCoupledSolver<6>::solve(ioData, geoSource, domain);
 	}
 	else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
 	  if (ioData.ts.implicit.coupling == ImplicitData::WEAK)
-	    startNavierStokesSegSolver<7,5,2>(ioData, geoSource, domain);
+	    NavierStokesSegSolver<7,5,2>::solve(ioData, geoSource, domain);
 	  else
-	    startNavierStokesCoupledSolver<7>(ioData, geoSource, domain);
+	    NavierStokesCoupledSolver<7>::solve(ioData, geoSource, domain);
 	}
 	else {
 	  com->fprintf(stderr, "*** Error: wrong turbulence model type\n");
@@ -154,7 +158,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     }
   }
   else if (ioData.eqs.numPhase == 2)
-    startLevelSetSolver<5>(ioData, geoSource, domain);
+    LevelSetSolver<5>::solve(ioData, geoSource, domain);
   else
     com->fprintf(stderr, "*** Error: wrong number of phases\n");
 

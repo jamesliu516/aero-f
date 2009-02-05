@@ -1,5 +1,5 @@
-#include <EulerStructGhostFluid.h>
 #include <stdio.h>
+#include "Ghost/EulerStructGhostFluid.h"
 //---------------------------------------------------------------------
 
 EulerStructGhostFluid::EulerStructGhostFluid(Vec<double> & phi_input, SVec<double,3> &gradphi_input, int numNodes, int numElems): x(gradphi_input), philevel(phi_input), gradPhilevel(gradphi_input)
@@ -156,14 +156,16 @@ EulerStructGhostFluid::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 }
 
 
-double EulerStructGhostFluid::phiAtNode(double t, int n) {
-   return philevel[n];
+bool EulerStructGhostFluid::isActive(double t, int n) {
+   return philevel[n] >= 0;
 }
 
 
 
 
-
+bool EulerStructGhostFluid::edgeIntersectsStructure(double t, int ni, int nj) {
+   return philevel[ni]*philevel[nj] < 0;
+}
 
 
 

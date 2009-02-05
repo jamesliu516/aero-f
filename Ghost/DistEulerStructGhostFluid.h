@@ -2,11 +2,9 @@
 #define _DIST_EULER_STRUCT_GHOST_FLUID_H_
 
 #include <string.h>
-#include <EulerStructGhostFluid.h>
+#include "Ghost/EulerStructGhostFluid.h"
 #include <DistVector.h>
 #include <VarFcn.h>
-//#include "AERO_INTERFACE_1.h"
-//#include "../PhysBAM/Public_Library/Geometry/TETRAHEDRALIZED_VOLUME.h"
 #include <IoData.h>
 
 class SubDomain;
@@ -112,7 +110,7 @@ public:
 };
 
 #ifdef TEMPLATE_FIX
-#include <DistEulerStructGhostFluid.C>
+#include "Ghost/DistEulerStructGhostFluid.C"
 #endif
 
 #endif

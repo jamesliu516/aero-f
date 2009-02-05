@@ -24,7 +24,7 @@
 #include <BinFileHandler.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-#include <DistEulerStructGhostFluid.h>
+#include "Ghost/DistEulerStructGhostFluid.h"
 
 #include <stdio.h>
 #include <math.h>

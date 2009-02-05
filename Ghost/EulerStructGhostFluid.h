@@ -6,7 +6,7 @@
 #include <DistVector.h>
 #include "AERO_INTERFACE_1.h"
 
-#include "LevelSetStructure.h"
+#include "LevelSet/LevelSetStructure.h"
 
 template<class Scalar, int dim> class SVec;
 class EulerStructGhostFluid : public LevelSetStructure {
@@ -59,11 +59,12 @@ public:
 
   LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-  double phiAtNode(double t, int n);
+  bool isActive(double t, int n);
+  bool edgeIntersectsStructure(double t, int ni, int nj);
 };
 
 #ifdef TEMPLATE_FIX
-#include <EulerStructGhostFluid.C>
+#include "Ghost/EulerStructGhostFluid.C"
 #endif
 
 #endif
