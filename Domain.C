@@ -1,13 +1,6 @@
 #include <BcFcn.h>
 #include <FluxFcn.h>
 #include <RecFcnDesc.h>
-#include <VMSLESTerm.h>
-#include <DynamicVMSTerm.h>
-#include <SmagorinskyLESTerm.h>
-#include <WaleLESTerm.h>
-#include <DynamicLESTerm.h>
-#include <FemEquationTerm.h>
-#include <VolumicForceTerm.h>
 #include <DistNodalGrad.h>
 #include <DistEdgeGrad.h>
 #include <DistExtrapolation.h>
@@ -15,12 +8,10 @@
 #include <DistBcData.h>
 #include <DistExactRiemannSolver.h>
 #include <SubDomain.h>
-#include <GeoSource.h>
 #include <DistGeoState.h>
 #include <DistVector.h>
 #include <DistMatrix.h>
 #include <Communicator.h>
-#include <BinFileHandler.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
 #include "Ghost/DistEulerStructGhostFluid.h"
