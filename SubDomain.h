@@ -60,7 +60,6 @@ struct Vec3D;
 struct compStruct;
 struct ExtrapolationNodeData;
 
-template<int dim> class RecFcnLtdMultiDim;
 template<int dim, class Scalar> class NodalGrad;
 template<int dim> class EdgeGrad;
 template<int dim> class Extrapolation;
@@ -329,7 +328,9 @@ public:
   void computeMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
-  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, Vec<double> &, 
+//  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, Vec<double> &, 
+  void computeMultiDimLimiter(RecLimiter *, SVec<double,3> &, Vec<double> &, 
+  
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, 
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, 
 			      SVec<double,dim> &);
@@ -910,7 +911,7 @@ public:
   void computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
-  void computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, SVec<double,3> &, Vec<double> &, Vec<double> &,
+  void computeDerivativeOfMultiDimLimiter(RecLimiter *, SVec<double,3> &, SVec<double,3> &, Vec<double> &, Vec<double> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,

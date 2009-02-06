@@ -15,7 +15,18 @@ using std::max;
 
 //------------------------------------------------------------------------------
 
-class RecFcn {
+struct RecFcnBase {
+  
+
+  virtual void precompute(double*, double*, double*, double*, 
+			  double*, double*, double*, double*) = 0;
+
+  virtual void compute(double*, double*, double*, double*, double*, double*) = 0;
+  virtual void compute(double*, double*, double*, double*, double*, double*, double, double) = 0;
+  virtual void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*)=0;
+};
+
+class RecFcn : virtual public RecFcnBase {
 
   double beta;
   double beta1;
@@ -70,11 +81,11 @@ public:
 	       double*, double*, double*, double*, Scalar*, Scalar*);
 
 
-  virtual void precompute(double*, double*, double*, double*, 
-			  double*, double*, double*, double*);
+  void precompute(double*, double*, double*, double*, 
+		  double*, double*, double*, double*);
 
-  virtual void compute(double*, double*, double*, double*, double*, double*);
-  virtual void compute(double*, double*, double*, double*, double*, double*, double, double);
+  void compute(double*, double*, double*, double*, double*, double*);
+  void compute(double*, double*, double*, double*, double*, double*, double, double);
 
   template<int dim, class Scalar1, class Scalar2, class Scalar3>
   void compute(double *, SVec<Scalar1,dim> &, SVec<Scalar1,dim> &,
@@ -131,6 +142,19 @@ public:
   virtual void computeDerivative(double*, double*, double*, double*, double*, double*, double*, double*, double*, double*);
 
   void interface(double, double, double, double, double&, double&, double, double);
+};
+
+class RecLimiter : virtual public RecFcnBase {
+  public:
+  
+  virtual void computeLimiter(double *, double *, double *, double *, double,
+			      double *, double *, double *, double *, double,
+			      double *, double *) = 0;
+
+// Included (MB)
+  virtual void computeDerivativeOfLimiter(double *, double *, double *, double *, double *, double *, double *, double *, double, double,
+		      double *, double *, double *, double *, double *, double *, double *, double *, double, double,
+		      double *, double *, double *, double *) = 0;
 };
 
 //------------------------------------------------------------------------------
