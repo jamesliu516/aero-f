@@ -1,113 +1,7 @@
 #include <IoData.h>
-//#include <GeoSource.h>
 #include <Domain.h>
-//#include <TsSolver.h>
-//#include <ExplicitTsDesc.h>
-//#include <ImplicitCoupledTsDesc.h>
-//#include <ImplicitSegTsDesc.h>
-//#include <ImplicitLevelSetTsDesc.h>
-//#include <ExplicitLevelSetTsDesc.h>
-//#include <ExplicitStructLevelSetTsDesc.h>
-// Included (MB)
-//#include <FluidSensitivityAnalysisHandler.h>
-
 #include "Solvers/Solvers.h"
 
-//------------------------------------------------------------------------------
-/*
-template<int dim>
-void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
-{
-  Communicator* com = domain.getCommunicator();
-
-  domain.createVecPat(dim, &ioData);
-  domain.createRhsPat(dim, ioData);
-
-// Modified (MB)
-    if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-      FluidSensitivityAnalysisHandler<dim> fsah(ioData, geoSource, &domain);
-      TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
-      tsSolver.fsaSolve(ioData);
-    }
-    else if (ioData.ts.type == TsData::IMPLICIT) {
-      ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
-      tsSolver.solve(ioData);
-    }
-    else if (ioData.ts.type == TsData::EXPLICIT) {
-      ExplicitTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ExplicitTsDesc<dim> > tsSolver(&tsDesc);
-      tsSolver.solve(ioData);
-    }
-    else
-      com->fprintf(stderr, "*** Error: wrong time-integrator\n");
-      
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, int neq1, int neq2>
-void startNavierStokesSegSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
-{
-
-  domain.createVecPat(dim);
-  domain.createRhsPat(dim, ioData);
-
-
-  ImplicitSegTsDesc<dim,neq1,neq2> tsDesc(ioData, geoSource, &domain);
-
-  TsSolver<ImplicitSegTsDesc<dim,neq1,neq2> > tsSolver(&tsDesc);
-
-  tsSolver.solve(ioData);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void startLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
-{
-
-  Communicator *com = domain.getCommunicator();
-
-  domain.createVecPat(dim, &ioData);
-  domain.createRhsPat(dim, ioData);
-
-  if (ioData.ts.type == TsData::IMPLICIT) {
-    ImplicitLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ImplicitLevelSetTsDesc<dim> > tsSolver(&tsDesc);
-    tsSolver.solve(ioData);
-  }
-  else{
-    ExplicitLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ExplicitLevelSetTsDesc<dim> > tsSolver(&tsDesc);
-    tsSolver.solve(ioData);
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void startStructLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
-{
-
-  Communicator *com = domain.getCommunicator();
-
-  domain.createVecPat(dim, &ioData);
-  domain.createRhsPat(dim, ioData);
-
-  if (ioData.ts.type == TsData::IMPLICIT) {
-    com->fprintf(stderr, "***Error: wrong time integrator for EulerStructGhostFluid method\n");   
-  }
-  else{
-    ExplicitStructLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ExplicitStructLevelSetTsDesc<dim> > tsSolver(&tsDesc);
-    tsSolver.solve(ioData);
-  }
-
-}
-*/
 //-----------------------------------------------------------------------------
 
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
@@ -117,7 +11,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 
   if (ioData.eqs.numPhase == 1){
     com->fprintf(stderr, "*** Warning: Running an EulerStructGhostFluid simulation\n");
-    //startStructLevelSetSolver<5>(ioData, geoSource, domain);
+    StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
   }else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)
       NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
