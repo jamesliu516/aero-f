@@ -1,16 +1,14 @@
 #ifndef _DOMAIN_H_
 #define _DOMAIN_H_
 
-#include <IoData.h>
 #include <DistInfo.h>
 #include <Timer.h>
-#include <VectorSet.h>
 #include <Vector.h>
 #include <complex>
-#include <DenseMatrix.h>
 typedef std::complex<double> bcomp;
 
 
+class IoData;
 class VarFcn;
 class BcFcn;
 class RecFcn;
@@ -39,6 +37,10 @@ class BCApplier; //HB
 class MatchNodeSet;
 
 struct Vec3D;
+
+template<class VecType> class VecSet;
+template<typename Scalar> class GenFullM;
+typedef GenFullM<double> FullM;
 
 template<int dim> class RecFcnLtdMultiDim;
 template<int dim> class DistEdgeGrad;
