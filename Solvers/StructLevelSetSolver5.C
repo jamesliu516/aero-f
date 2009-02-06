@@ -3,7 +3,7 @@
 
 template <>
 void
-LevelSetSolver<5>::
+StructLevelSetSolver<5>::
   solve(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
   startStructLevelSetSolver<5>(ioData, geoSource, domain);
