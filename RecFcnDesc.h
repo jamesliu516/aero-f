@@ -75,21 +75,13 @@ public:
 //------------------------------------------------------------------------------
 
 template<int dim>
-class RecFcnLtdMultiDim : public RecFcnLinear<dim> {
+class RecFcnLtdMultiDim : public RecFcnLinear<dim>, public RecLimiter {
 
 public:
 
   RecFcnLtdMultiDim(double b, double e) : RecFcnLinear<dim>(b, e) {}
   ~RecFcnLtdMultiDim() {}
 
-  virtual void computeLimiter(double *, double *, double *, double *, double,
-			      double *, double *, double *, double *, double,
-			      double *, double *) = 0;
-
-// Included (MB)
-  virtual void computeDerivativeOfLimiter(double *, double *, double *, double *, double *, double *, double *, double *, double, double,
-		      double *, double *, double *, double *, double *, double *, double *, double *, double, double,
-		      double *, double *, double *, double *) = 0;
 
 };
 

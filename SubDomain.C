@@ -9,8 +9,6 @@ using std::min;
 using std::max;
 #endif
 
-#include <SubDomain.h>
-
 #include <FluxFcnDescPerfectGas.h>
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescGasInGas.h>
@@ -587,7 +585,7 @@ void SubDomain::computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &V, SVec
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<double,3> &X, 
+void SubDomain::computeMultiDimLimiter(RecLimiter *recFcn, SVec<double,3> &X, 
 				       Vec<double> &ctrlVol, SVec<double,dim> &V,
 				       SVec<double,dim> &dVdx, SVec<double,dim> &dVdy, 
 				       SVec<double,dim> &dVdz, SVec<double,dim> &Vmin, 
@@ -626,7 +624,7 @@ void SubDomain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<doub
 
 // Included (MB)
 template<int dim>
-void SubDomain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, SVec<double,3> &X, SVec<double,3> &dX,
+void SubDomain::computeDerivativeOfMultiDimLimiter(RecLimiter *recFcn, SVec<double,3> &X, SVec<double,3> &dX,
 				       Vec<double> &ctrlVol, Vec<double> &dCtrlVol, SVec<double,dim> &V, SVec<double,dim> &dV,
 				       SVec<double,dim> &dVdx, SVec<double,dim> &dVdy, SVec<double,dim> &dVdz,
 				       SVec<double,dim> &ddVdx, SVec<double,dim> &ddVdy, SVec<double,dim> &ddVdz,
