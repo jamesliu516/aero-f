@@ -164,7 +164,7 @@ bool EulerStructGhostFluid::isActive(double t, int n) {
 
 
 bool EulerStructGhostFluid::edgeIntersectsStructure(double t, int ni, int nj) {
-   return philevel[ni]*philevel[nj] < 0;
+   return (philevel[ni] >= 0 && philevel[nj] <0) || (philevel[ni] < 0 && philevel[nj] >= 0);//philevel[ni]*philevel[nj] < 0;
 }
 
 

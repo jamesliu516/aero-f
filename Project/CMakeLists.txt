@@ -19,7 +19,8 @@ ENDIF(BLAS_LIBRARIES)
 FIND_PACKAGE(LAPACK)
 FIND_PACKAGE(MPI)
 
-FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../../PhysBam)
+FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../../PhysBam
+../../../PhysBam /home/michel/PhysBam)
 FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp /home/pavery/boost/boost_install/include/boost-1_34_1)
 
 SET(TARGETS_INST fluid)
