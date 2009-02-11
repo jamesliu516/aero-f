@@ -257,7 +257,7 @@ SET(INC_DIR ..)
 
 IF(PHYSBAM_INCLUDE_DIR)
   SET(INC_DIR ${INC_DIR} ${PHYSBAM_INCLUDE_DIR} ${PHYSBAM_INCLUDE_DIR}/Public_Library)
-  file(GLOB PHYSBAM_LIBS /home/icmewang/PhysBam/lib*.so)
+  file(GLOB PHYSBAM_LIBS /home/icmewang/PhysBam/lib*.so /home/michel/Research/Academic/PhysBam/lib/lib*.so)
   SET(EXTRALIBRARIES ${PHYSBAM_LIBS} ${EXTRALIBRARIES})
 ENDIF(PHYSBAM_INCLUDE_DIR)
 IF(BOOST_INCLUDE_DIR)
