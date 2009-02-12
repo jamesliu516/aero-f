@@ -4,6 +4,7 @@
 #include <RefVal.h>
 #include <stdio.h>
 #include <map>
+#include "parser/ParseTree.h"
 
 using std::map;
 
@@ -57,7 +58,7 @@ struct InputData {
   const char *strModesFile;
   const char *solidsurface;
 
-// Included (MB)  
+// Included (MB)
   const char *shapederivatives;
 
   GhostSolidData ghostsolid;
@@ -128,7 +129,7 @@ struct TransientData {
   const char *romFile;
   const char *philevel;
   const char *philevel_structure;
-// Included (MB)  
+// Included (MB)
   const char *velocitynorm;
   const char *dSolutions;
   const char *dDensity;
@@ -214,21 +215,21 @@ struct RestartParametersData {
 
 struct ProblemData {
 
-  enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4, 
+  enum Type {UNSTEADY = 0, ACCELERATED = 1, AERO = 2, THERMO = 3, FORCED = 4,
 	     ROLL = 5, RBM = 6, LINEARIZED = 7, SIZE = 8};
   bool type[SIZE];
 
-  enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3, 
+  enum AllType {_STEADY_ = 0, _UNSTEADY_ = 1, _ACC_UNSTEADY_ = 2, _STEADY_AEROELASTIC_ = 3,
 		_UNSTEADY_AEROELASTIC_ = 4, _ACC_UNSTEADY_AEROELASTIC_ = 5,
-		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8, 
-		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11, 
+		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
+		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
-  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec; 
+  enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
   int verbose;
 
   ProblemData();
@@ -386,11 +387,11 @@ struct JWLModelData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct LiquidModelData {
-                                                                                              
+
   enum Type { COMPRESSIBLE = 0 } type;
-                                                                                              
+
   enum Check {YES = 0, NO = 1 } check;
   // the state equation is derived from a linearization of the bulk modulus wrt
   // pressure: K = k1 + k2 * P
@@ -401,36 +402,36 @@ struct LiquidModelData {
   double k2water;
   double Prefwater;
   double RHOrefwater;
-                                                                                              
+
   //the state equation can be put in the form P=Pref+alpha*rho^beta
   // with Pref, alpha and beta derived from k1, k2 and the 'initial' couple
   double Pref;
   double alpha;
   double beta;
-                                                                                              
+
   LiquidModelData();
   ~LiquidModelData() {}
-                                                                                              
+
   void setup(const char *, ClassAssigner * = 0);
-                                                                                              
+
 };
-                                                                                              
+
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct FluidModelData {
-                                                                                              
+
   enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
   double pmin;
-                                                                                              
+
   GasModelData gasModel;
   JWLModelData jwlModel;
   LiquidModelData liquidModel;
-                                                                                              
+
   FluidModelData();
   ~FluidModelData() {}
-                                                                                              
+
   void setup(const char *, ClassAssigner * = 0);
-                                                                                              
+
 };
 
 //------------------------------------------------------------------------------
@@ -602,9 +603,9 @@ struct TurbulenceModelData {
 //------------------------------------------------------------------------------
 
 struct SmagorinskyLESData {
-  
+
   double c_s;
-  
+
   SmagorinskyLESData();
   ~SmagorinskyLESData() {}
 
@@ -615,9 +616,9 @@ struct SmagorinskyLESData {
 //------------------------------------------------------------------------------
 
 struct WaleLESData {
-  
+
   double c_w;
-  
+
   WaleLESData();
   ~WaleLESData() {}
 
@@ -636,29 +637,29 @@ struct ClippingData {
 
   ClippingData();
   ~ClippingData() {}
-                                                                                                                                                                 
+
   void setup(const char *, ClassAssigner * = 0);
-                                                                                                                                                                 
+
 };
 
 //------------------------------------------------------------------------------
 
 struct DynamicLESData {
-                                                                                                                                       
+
   ClippingData clip;
-                                                                                                                                       
+
   DynamicLESData();
   ~DynamicLESData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
 };
-                                                                                                                                       
+
 //------------------------------------------------------------------------------
 
 
 struct DynamicVMSData {
-  
+
   enum Type {D1VMSLES = 0, D2VMSLES = 1, D3VMSLES = 2} type;
 
   double c_s_prime;
@@ -678,7 +679,7 @@ struct DynamicVMSData {
 //------------------------------------------------------------------------------
 
 struct VMSLESData {
-  
+
   double c_s_prime;
   int agglomeration_width;
   int agglomeration_depth;
@@ -762,7 +763,7 @@ struct TurbulenceClosureData {
 //------------------------------------------------------------------------------
 
 struct SphereData {
-   
+
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
   double cen_x, cen_y, cen_z, radius;
   double pressure, density, temperature, mach, velocity;
@@ -775,7 +776,7 @@ struct SphereData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct PlaneData {
   enum Type {Fluid1 = 0, Fluid2 = 1} type;
   double cen_x, cen_y, cen_z, nx, ny, nz;
@@ -788,9 +789,9 @@ struct PlaneData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct InitialConditionsData {
-                                                                                              
+
   static const int nsphere = 2;
   int nspheres;
   SphereData* sphere[nsphere];
@@ -808,7 +809,7 @@ struct InitialConditionsData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
@@ -847,20 +848,20 @@ struct Volumes  {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
 struct EquationsData {
-                                                                                              
+
   int dimension;
-                                                                                              
+
   enum Type {EULER = 0, NAVIER_STOKES = 1} type;
-                                                                                              
+
   int numPhase;
-                                                                                              
+
 // it is assumed that in a two-phase flow, fluidModel represents the surrounding fluid
 // whereas fluidModel2 represents the fluid in the bubbles. This means that the
 // uniform boundary conditions and the uniform initial conditions are computed
 // with the values given to characterize the first fluid!
-                                                                                              
+
   double gravity_x, gravity_y, gravity_z;
 
   FluidModelData fluidModel;
@@ -871,7 +872,7 @@ struct EquationsData {
 
   EquationsData();
   ~EquationsData() {}
-  
+
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -1014,19 +1015,19 @@ struct SchemeFixData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                        
+
 struct BoundarySchemeData {
-                                                                                        
-  enum Type { STEGER_WARMING = 0, 
-	      CONSTANT_EXTRAPOLATION = 1, 
+
+  enum Type { STEGER_WARMING = 0,
+	      CONSTANT_EXTRAPOLATION = 1,
 	      LINEAR_EXTRAPOLATION = 2,
 	      GHIDAGLIA = 3 } type;
-                                                                                        
+
   BoundarySchemeData();
   ~BoundarySchemeData() {}
-                                                                                        
+
   void setup(const char *, ClassAssigner * = 0);
-                                                                                        
+
 };
 
 //------------------------------------------------------------------------------
@@ -1055,7 +1056,7 @@ struct ExplicitData {
 
   ExplicitData();
   ~ExplicitData() {}
-  
+
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -1063,7 +1064,7 @@ struct ExplicitData {
 //------------------------------------------------------------------------------
 
 struct PcData {
-  
+
   enum Type {IDENTITY = 0, JACOBI = 1, AS = 2, RAS = 3, ASH = 4, AAS = 5} type;
   enum Renumbering {NATURAL = 0, RCM = 1} renumbering;
 
@@ -1246,7 +1247,7 @@ struct SensitivityAnalysis {
   double fres;
 
   KspFluidData ksp;
-  
+
   SensitivityAnalysis();
   ~SensitivityAnalysis() {}
 
@@ -1272,7 +1273,7 @@ struct BLMeshMotionData {
    int numLayers;
    int numIncrements;
    double power;
-   double neiSelectionDistFactor; 
+   double neiSelectionDistFactor;
 
    enum Type {PSEUDOSTRUCTURAL = 0, ALGEBRAIC = 1 } type;
    enum FractionalStrategy {Distance = 1, DotProduct = 2} fractionalStrategy;
@@ -1469,9 +1470,9 @@ struct ForcedData {
 };
 
 //----------------------------------------------------------
-                                                        
+
 struct PadeData {
-                                                                                                                 
+
   static const int num = 11;
 
   double freq[num];
@@ -1486,16 +1487,16 @@ struct PadeData {
   double freq9;
   double freq10;
   double freq11;
- 
+
   int nPoints;
   int degNum;
   int degDen;
-  
+
   PadeData();
   ~PadeData() {}
-    
+
   void setup(const char *, ClassAssigner * = 0);
-  
+
 };
 
 //------------------------------------------------------------------------------
@@ -1526,7 +1527,7 @@ struct LinearizedData {
   const char *romFile;
 
   PadeData pade;
-                                                        
+
   LinearizedData();
   ~LinearizedData() {}
 
@@ -1566,7 +1567,7 @@ struct PadeFreq  {
   ObjectMap<double> freqMap;
   void setup(const char *);
 };
-                                                                                           
+
 //------------------------------------------------------------------------------
 
 struct RotationData  {
@@ -1592,11 +1593,26 @@ struct Velocity  {
 
 //------------------------------------------------------------------------------
 
+struct StructureIntersect {
+  ParseTree tree;
+  const char *intersectorName;
+  const char *libraryName;
+
+  StructureIntersect() : tree("Data") { }
+
+  Assigner *getAssigner();
+  void setup(const char *);
+
+  void activate();
+};
+
+//------------------------------------------------------------------------------
+
 class IoData {
 
   char *cmdFileName;
   FILE *cmdFilePtr;
-   
+
   Communicator *com;
 
 public:
@@ -1625,12 +1641,13 @@ public:
   Surfaces surfaces;
   Velocity rotations;
   Volumes volumes;
+  StructureIntersect strucIntersect;
 
 public:
 
   IoData(Communicator *);
   ~IoData() {}
-  
+
   void readCmdLine(int, char**);
   void setupCmdFileVariables();
   void readCmdFile();
@@ -1648,7 +1665,7 @@ public:
   void checkInputValuesMulti_step2();
   int checkInputValuesMultiEOS();
   int checkInputValuesVolumesInitialization();
-  int checkVolumeInitialization(FluidModelData &fm, 
+  int checkVolumeInitialization(FluidModelData &fm,
                                 VolumeInitialConditions &ic, int volid);
   int checkInputValuesMultiFluidInitialization();
   int printMultiEOS();
@@ -1656,7 +1673,7 @@ public:
   void nonDimensionalizeFluidModel(FluidModelData &fm);
   int checkInputValuesInitializeMulti();
 
-};   
+};
 
 //------------------------------------------------------------------------------
 

@@ -70,6 +70,7 @@ SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
 
 FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
+SET(MAIN_FILES ../Main.C ../LevelSet/IntersectionFactory.C)
 
 ADD_LIBRARY(FluidBase
              ../NavierStokesSolver.C 
@@ -137,9 +138,9 @@ ADD_LIBRARY(FluidBase
              ../BCApplierCore.C 
 	     ../BCond.C 
              ../BlockAlloc.C 
-../Ghost/EulerStructGhostFluidCore.C
-../Ghost/DistEulerStructGhostFluidCore.C 
-../TriangulatedSurface.C
+             ../Ghost/EulerStructGhostFluidCore.C
+             ../Ghost/DistEulerStructGhostFluidCore.C 
+             ../TriangulatedSurface.C
             )
 
 ADD_LIBRARY(Utils ../utils/Predicate.C ../utils/Laguerre.C)
@@ -229,7 +230,7 @@ ENDMACRO(ADD_FLEX_FILES)
 ADD_FLEX_FILES(MyLib ../parser/Lexer.l)
 ADD_BISON_FILES(MyLib ../parser/Parser.y)
 
-ADD_LIBRARY(Parser ../parser/Dictionary.C ../parser/AssignerCore.C ${MyLib})
+ADD_LIBRARY(Parser ../parser/Dictionary.C ../parser/AssignerCore.C ../parser/ParseTree.cpp ${MyLib})
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
@@ -251,7 +252,7 @@ IF(EXTRALIB)
 ENDIF(EXTRALIB)
 
 
-ADD_EXECUTABLE(fluid ../Main.C hgidentity.C)
+ADD_EXECUTABLE(fluid ${MAIN_FILES} hgidentity.C)
 
 SET(INC_DIR ..)
 

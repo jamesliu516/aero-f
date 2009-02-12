@@ -2,12 +2,15 @@
 
 #include <Communicator.h>
 #include <parser/Assigner.h>
+#include "LevelSet/IntersectionFactory.h"
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 #ifdef COUGAR
 extern int optind;
@@ -16,8 +19,8 @@ extern "C" int getopt(int, char **, char *);
 
 //------------------------------------------------------------------------------
 
-InputData::InputData() 
-{ 
+InputData::InputData()
+{
 
   prefix = "";
   connectivity = "";
@@ -36,7 +39,7 @@ InputData::InputData()
   strModesFile = "";
   solidsurface = "";
 
-// Included (MB)  
+// Included (MB)
   shapederivatives = "";
 
 }
@@ -46,7 +49,7 @@ InputData::InputData()
 void InputData::setup(const char *name, ClassAssigner *father)
 {
 
-// Modified (MB)  
+// Modified (MB)
   ClassAssigner *ca = new ClassAssigner(name, 18, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
@@ -64,12 +67,12 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
 
-// Included (MB)  
+// Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
   new ClassStr<InputData>(ca, "SolidSurface", this, &InputData::solidsurface);
-  ghostsolid.setup("GhostSolid",ca);  
+  ghostsolid.setup("GhostSolid",ca);
 
 }
 
@@ -178,7 +181,7 @@ TransientData::TransientData()
   philevel = "";
   philevel_structure = "";
 
-// Included (MB)  
+// Included (MB)
   velocitynorm = "";
   dSolutions = "";
   dDensity = "";
@@ -207,7 +210,7 @@ TransientData::TransientData()
 void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
-// Modified (MB)  
+// Modified (MB)
   ClassAssigner *ca = new ClassAssigner(name, 73, father);
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
@@ -276,7 +279,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "Philevel_structure", this, &TransientData::philevel_structure);
-// Included (MB)  
+// Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
   new ClassStr<TransientData>(ca, "DensitySensitivity", this, &TransientData::dDensity);
@@ -305,7 +308,7 @@ RestartData::RestartData()
   positions = "DEFAULT.POS";
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
-  
+
   frequency = 0;
 
 }
@@ -317,7 +320,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
-  new ClassToken<RestartData>(ca, "Type", this, 
+  new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
 			      "Single", 0, "Double", 1);
 
@@ -336,7 +339,7 @@ RestartParametersData::RestartParametersData()
 {
 
   iteration = 0;
-  
+
   etime = 0.0;
   dt_nm1 = 1.0;
   dt_nm2 = 1.0;
@@ -392,20 +395,20 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-  
+
   new ClassToken<ProblemData>
-    (ca, "Type", this, 
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22, 
-     "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3, 
+    (ca, "Type", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22,
+     "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
-     "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8, 
-     "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11, 
+     "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
+     "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21);
 
   new ClassToken<ProblemData>
-    (ca, "Mode", this, 
+    (ca, "Mode", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::mode), 2,
      "NonDimensional", 0, "Dimensional", 1);
 
@@ -415,7 +418,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "NonPreconditioned", 0, "LowMach", 1);
 
   new ClassToken<ProblemData>
-    (ca, "Test", this, 
+    (ca, "Test", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::test), 1,
      "Regular", 0);
 
@@ -443,7 +446,7 @@ void ReferenceStateData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
-  
+
   new ClassDouble<ReferenceStateData>(ca, "Mach", this, &ReferenceStateData::mach);
   new ClassDouble<ReferenceStateData>(ca, "Velocity", this, &ReferenceStateData::velocity);
   new ClassDouble<ReferenceStateData>(ca, "Density", this, &ReferenceStateData::density);
@@ -452,7 +455,7 @@ void ReferenceStateData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<ReferenceStateData>(ca, "Reynolds", this, &ReferenceStateData::reynolds_mu);
   new ClassDouble<ReferenceStateData>(ca, "ReynoldsL", this, &ReferenceStateData::reynolds_lambda);
   new ClassDouble<ReferenceStateData>(ca, "Length", this, &ReferenceStateData::length);
- 
+
 }
 
 //------------------------------------------------------------------------------
@@ -480,9 +483,9 @@ void BcsFreeStreamData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
-  
+
   new ClassToken<BcsFreeStreamData>
-    (ca, "Type", this, reinterpret_cast<int BcsFreeStreamData::*>(&BcsFreeStreamData::type), 2, 
+    (ca, "Type", this, reinterpret_cast<int BcsFreeStreamData::*>(&BcsFreeStreamData::type), 2,
      "External", 0, "Internal", 1);
   new ClassDouble<BcsFreeStreamData>(ca, "Mach", this, &BcsFreeStreamData::mach);
   new ClassDouble<BcsFreeStreamData>(ca, "Velocity", this, &BcsFreeStreamData::velocity);
@@ -494,7 +497,7 @@ void BcsFreeStreamData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<BcsFreeStreamData>(ca, "NuTilde", this, &BcsFreeStreamData::nutilde);
   new ClassDouble<BcsFreeStreamData>(ca, "K", this, &BcsFreeStreamData::kenergy);
   new ClassDouble<BcsFreeStreamData>(ca, "Eps", this, &BcsFreeStreamData::eps);
- 
+
 }
 
 //------------------------------------------------------------------------------
@@ -515,12 +518,12 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-  
-  new ClassToken<BcsWallData>(ca, "Type", this, 
-			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::type), 2, 
+
+  new ClassToken<BcsWallData>(ca, "Type", this,
+			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::type), 2,
 			      "Isothermal", 0, "Adiabatic", 1);
-  new ClassToken<BcsWallData>(ca, "Integration", this, 
-			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2, 
+  new ClassToken<BcsWallData>(ca, "Integration", this,
+			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
 			      "WallFunction", 1, "Full", 2);
   new ClassDouble<BcsWallData>(ca, "Temperature", this, &BcsWallData::temperature);
   new ClassDouble<BcsWallData>(ca, "Delta", this, &BcsWallData::delta);
@@ -540,7 +543,7 @@ BcsHydroData::BcsHydroData()
 
 void BcsHydroData::setup(const char *name, ClassAssigner *father)
 {
- 
+
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
 
   new ClassDouble<BcsHydroData>(ca, "Depth", this, &BcsHydroData::depth);
@@ -560,7 +563,7 @@ void BcsData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-  
+
   inlet.setup("Inlet", ca);
   outlet.setup("Outlet", ca);
   wall.setup("Wall", ca);
@@ -586,13 +589,13 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-  
-  new ClassToken<GasModelData>(ca, "Type", this, 
+
+  new ClassToken<GasModelData>(ca, "Type", this,
 			       reinterpret_cast<int GasModelData::*>(&GasModelData::type), 2,
 			       "Ideal", 0, "Stiffened", 1);
-  new ClassDouble<GasModelData>(ca, "SpecificHeatRatio", this, 
+  new ClassDouble<GasModelData>(ca, "SpecificHeatRatio", this,
                                 &GasModelData::specificHeatRatio);
-  new ClassDouble<GasModelData>(ca, "IdealGasConstant", this, 
+  new ClassDouble<GasModelData>(ca, "IdealGasConstant", this,
                                 &GasModelData::idealGasConstant);
   new ClassDouble<GasModelData>(ca, "PressureConstant", this,
                                 &GasModelData::pressureConstant);
@@ -600,7 +603,7 @@ void GasModelData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 JWLModelData::JWLModelData()
 {
 
@@ -621,13 +624,13 @@ void JWLModelData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
-  
-  new ClassToken<JWLModelData>(ca, "Type", this, 
+
+  new ClassToken<JWLModelData>(ca, "Type", this,
 			       reinterpret_cast<int JWLModelData::*>(&JWLModelData::type), 2,
 			       "Ideal", 0, "JWL", 1);
-  new ClassDouble<JWLModelData>(ca, "Omega", this, 
+  new ClassDouble<JWLModelData>(ca, "Omega", this,
                                 &JWLModelData::omega);
-  new ClassDouble<JWLModelData>(ca, "IdealGasConstant", this, 
+  new ClassDouble<JWLModelData>(ca, "IdealGasConstant", this,
                                 &JWLModelData::idealGasConstant);
   new ClassDouble<JWLModelData>(ca, "A1", this, &JWLModelData::A1);
   new ClassDouble<JWLModelData>(ca, "A2", this, &JWLModelData::A2);
@@ -650,23 +653,23 @@ LiquidModelData::LiquidModelData()
   k2water     = 7.15;
   Prefwater   = -1.0;
   RHOrefwater = -1.0;
-                                                                                                  
+
   //these parameters are the adimensionalized parameters used by the VarFcn where the
   // liquid state equation is implemented. It it were dimensionalized, that is what their
   //value would be.
 //  Pref  = -k1water/k2water;
 //  alpha = (Prefwater + k1water/k2water)/pow(RHOrefwater, k2water);
 //  beta  = k2water;
-                                                                                                  
+
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void LiquidModelData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                  
+
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
-                                                                                                  
+
   new ClassToken<LiquidModelData>(ca, "Type", this,
             reinterpret_cast<int LiquidModelData::*>(&LiquidModelData::type), 1,
             "Compressible", 0);
@@ -683,7 +686,7 @@ void LiquidModelData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<LiquidModelData>(ca, "Pref", this, &LiquidModelData::Pref);
   new ClassDouble<LiquidModelData>(ca, "alpha", this, &LiquidModelData::alpha);
   new ClassDouble<LiquidModelData>(ca, "beta", this, &LiquidModelData::beta);
-                                                                                                  
+
 }
 
 //------------------------------------------------------------------------------
@@ -693,25 +696,25 @@ FluidModelData::FluidModelData()
 
   fluid = GAS;
   pmin = -1.e6;
-                                                                                                  
+
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                  
+
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-                                                                                                  
+
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
   new ClassDouble<FluidModelData>(ca, "Pmin", this, &FluidModelData::pmin);
-                                                                                                  
+
   gasModel.setup("GasModel", ca);
   jwlModel.setup("JWLModel", ca);
   liquidModel.setup("LiquidModel", ca);
-                                                                                                  
+
 };
 
 //------------------------------------------------------------------------------
@@ -736,18 +739,18 @@ void ViscosityModelData::setup(const char *name, ClassAssigner *father)
     (ca, "Type", this, reinterpret_cast<int ViscosityModelData::*>
                        (&ViscosityModelData::type), 4,
                        "Constant", 0, "Sutherland", 1, "Prandtl", 2, "Water", 3);
-  new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this, 
+  new ClassDouble<ViscosityModelData>(ca, "SutherlandReferenceTemperature", this,
 				      &ViscosityModelData::sutherlandReferenceTemperature);
-  new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this, 
+  new ClassDouble<ViscosityModelData>(ca, "SutherlandConstant", this,
 				      &ViscosityModelData::sutherlandConstant);
-  
+
 }
 
 //------------------------------------------------------------------------------
 
 ThermalCondModelData::ThermalCondModelData()
 {
-  
+
   type = CONSTANT_PRANDTL;
   prandtl = 0.72;
 
@@ -759,7 +762,7 @@ void ThermalCondModelData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 2, father);
- 
+
   new ClassToken<ThermalCondModelData>
      (ca, "Type", this, reinterpret_cast<int ThermalCondModelData::*>
      (&ThermalCondModelData::type), 2,
@@ -883,7 +886,7 @@ void TurbulenceModelData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
-  
+
   new ClassToken<TurbulenceModelData>
     (ca, "Type", this, reinterpret_cast<int TurbulenceModelData::*>
      (&TurbulenceModelData::type), 3,
@@ -908,9 +911,9 @@ SmagorinskyLESData::SmagorinskyLESData()
 
 void SmagorinskyLESData::setup(const char *name, ClassAssigner *father)
 {
-  
+
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
-  
+
   new ClassDouble<SmagorinskyLESData>(ca, "Cs", this, &SmagorinskyLESData::c_s);
 
 }
@@ -928,9 +931,9 @@ WaleLESData::WaleLESData()
 
 void WaleLESData::setup(const char *name, ClassAssigner *father)
 {
-  
+
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
-  
+
   new ClassDouble<WaleLESData>(ca, "Cw", this, &WaleLESData::c_w);
 
 }
@@ -948,13 +951,13 @@ void DynamicLESData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
-                                                                                                                                       
+
   clip.setup("Clipping", ca);
-  
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                                                                 
+
 ClippingData::ClippingData()
 {
 
@@ -963,12 +966,12 @@ ClippingData::ClippingData()
   pt_max = 1.6;
 
 }
-                                                                                                                                                                 
+
 //------------------------------------------------------------------------------
-                                                                                                                                                                 
+
 void ClippingData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                                                                                 
+
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
  new ClassDouble<ClippingData>(ca, "CsMax", this, &ClippingData::cs_max);
@@ -1167,7 +1170,7 @@ void TurbulenceClosureData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
-  
+
   new ClassToken<TurbulenceClosureData>
     (ca, "Type", this, reinterpret_cast<int TurbulenceClosureData::*>
      (&TurbulenceClosureData::type), 3,
@@ -1183,51 +1186,51 @@ void TurbulenceClosureData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
 EquationsData::EquationsData()
 {
- 
+
   dimension = 3;
   type = EULER;
   numPhase = 1;
   gravity_x = 0.0;
   gravity_y = 0.0;
   gravity_z = 0.0;
-                                                                                                  
+
 }
 
 //------------------------------------------------------------------------------
 
 void EquationsData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                  
+
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
-                                                                                                  
+
   new ClassInt<EquationsData>(ca, "Dimension", this, &EquationsData::dimension);
-                                                                                                  
+
   new ClassToken<EquationsData>(ca, "Type", this,
                                 reinterpret_cast<int EquationsData::*>(&EquationsData::type), 2,
                                 "Euler", 0, "NavierStokes", 1);
-                                                                                                  
+
   new ClassInt<EquationsData>(ca, "NumPhases", this,
                                 &EquationsData::numPhase);
 
   new ClassDouble<EquationsData>(ca, "GravityX", this, &EquationsData::gravity_x);
   new ClassDouble<EquationsData>(ca, "GravityY", this, &EquationsData::gravity_y);
   new ClassDouble<EquationsData>(ca, "GravityZ", this, &EquationsData::gravity_z);
-                                                                                                  
+
   fluidModel.setup("FluidModel", ca);
   viscosityModel.setup("ViscosityModel", ca);
   thermalCondModel.setup("ThermalConductivityModel", ca);
   tc.setup("TurbulenceClosure", ca);
- 
+
 }
 
 //------------------------------------------------------------------------------
 
 SphereData::SphereData()
 {
-                                                                                                        
+
   type = Fluid1;
 
   cen_x  = 0.0;
@@ -1238,26 +1241,26 @@ SphereData::SphereData()
   mach        = -1.0;
   velocity    = -1.0;
   pressure    = -1.0;
-  density     = -1.0;          
+  density     = -1.0;
   temperature = -1.0;
 
   alpha = 400.0;
   beta  = 400.0;
 
 }
-                                                                                                        
+
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void SphereData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                        
+
   ClassAssigner *ca = new ClassAssigner(name, 12, father);
-                                                                                                        
+
   new ClassToken<SphereData>
     (ca, "Type", this, reinterpret_cast<int SphereData::*>
      (&SphereData::type), 2,
      "Fluid1", 0, "Fluid2", 1);
-                                                                                                        
+
   new ClassDouble<SphereData>
     (ca, "Center_x", this, &SphereData::cen_x);
   new ClassDouble<SphereData>
@@ -1280,22 +1283,22 @@ void SphereData::setup(const char *name, ClassAssigner *father)
     (ca, "Alpha", this, &SphereData::alpha);
   new ClassDouble<SphereData>
     (ca, "Beta", this, &SphereData::beta);
-  
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
 PlaneData::PlaneData()
 {
-                                                                                                        
+
   type = Fluid1;
   cen_x  = 0.0;
   cen_y  = 0.0;
-  cen_z  = 0.0;   
+  cen_z  = 0.0;
   nx     = 0.0;
   ny     = 0.0;
-  nz     = 0.0;   
-  pressure    = 0.0;   
+  nz     = 0.0;
+  pressure    = 0.0;
   density     = 0.0;
   temperature = 0.0;
   velocity    = 0.0;
@@ -1303,19 +1306,19 @@ PlaneData::PlaneData()
   alpha = 400.0;
   beta  = 400.0;
 }
-                                                                                                        
+
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void PlaneData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                        
+
   ClassAssigner *ca = new ClassAssigner(name, 13, father);
-                                                                                                        
+
   new ClassToken<PlaneData>
     (ca, "Type", this, reinterpret_cast<int PlaneData::*>
      (&PlaneData::type), 2,
      "Fluid1", 0, "Fluid2", 1);
-                                                                                                        
+
   new ClassDouble<PlaneData>
     (ca, "Center_x", this, &PlaneData::cen_x);
   new ClassDouble<PlaneData>
@@ -1342,7 +1345,7 @@ void PlaneData::setup(const char *name, ClassAssigner *father)
     (ca, "Beta", this, &PlaneData::beta);
 }
 //------------------------------------------------------------------------------
-                                                                                                        
+
 InitialConditionsData::InitialConditionsData()
 {
 
@@ -1353,12 +1356,12 @@ InitialConditionsData::InitialConditionsData()
 
   nplanes   = 0;
 }
-                                                                                                        
+
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                        
+
   ClassAssigner *ca = new ClassAssigner(name, 2, father);
 
   s1.setup("Sphere1", ca);
@@ -1368,7 +1371,7 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
 MultiFluidData::MultiFluidData()
 {
 
@@ -1389,9 +1392,9 @@ MultiFluidData::MultiFluidData()
   interfaceType = FSF; //hidden
 
 }
-                                                                                                        
+
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
@@ -1438,7 +1441,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   fluidModel.setup("FluidModel", ca);
   fluidModel2.setup("FluidModel2", ca);
   initialConditions.setup("InitialConditions", ca);
-                                                                                                        
+
 }
 
 //------------------------------------------------------------------------------
@@ -1467,34 +1470,34 @@ void SchemeData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 11, father);
-  
+
   new ClassToken<SchemeData>
-    (ca, "AdvectiveOperator", this, 
+    (ca, "AdvectiveOperator", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::advectiveOperator), 2,
      "FiniteVolume", 0, "Galerkin", 1);
 
   new ClassToken<SchemeData>
-    (ca, "Flux", this, 
+    (ca, "Flux", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::flux), 4,
      "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
 
   new ClassToken<SchemeData>
-    (ca, "Reconstruction", this,  
+    (ca, "Reconstruction", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::reconstruction), 2,
      "Constant", 0, "Linear", 1);
 
   new ClassToken<SchemeData>
-    (ca, "Limiter", this, 
+    (ca, "Limiter", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::limiter), 5,
      "None", 0, "VanAlbada", 1, "Barth", 2, "Venkatakrishnan", 3, "PressureSensor", 4);
 
   new ClassToken<SchemeData>
-    (ca, "Gradient", this, 
+    (ca, "Gradient", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::gradient), 3,
      "LeastSquares", 0, "Galerkin", 1, "NonNodal", 2);
 
   new ClassToken<SchemeData>
-    (ca, "Dissipation", this, 
+    (ca, "Dissipation", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::dissipation), 2,
      "SecondOrder", 0, "SixthOrder", 1);
 
@@ -1614,8 +1617,8 @@ void SchemeFixData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 32, father);
 
   new ClassToken<SchemeFixData>
-    (ca, "Symmetry", this, 
-     reinterpret_cast<int SchemeFixData::*>(&SchemeFixData::symmetry), 4, 
+    (ca, "Symmetry", this,
+     reinterpret_cast<int SchemeFixData::*>(&SchemeFixData::symmetry), 4,
      "None", 0, "X", 1, "Y", 2, "Z", 3);
   new ClassDouble<SchemeFixData>(ca, "DihedralAngle", this, &SchemeFixData::dihedralAngle);
 
@@ -1654,26 +1657,26 @@ void SchemeFixData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 BoundarySchemeData::BoundarySchemeData()
 {
-                                                                                                  
+
   type = STEGER_WARMING;
-                                                                                                  
+
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void BoundarySchemeData::setup(const char *name, ClassAssigner *father)
 {
-                                                                                                  
+
   ClassAssigner *ca = new ClassAssigner(name, 1, father);
-                                                                                                  
+
   new ClassToken<BoundarySchemeData>(ca, "Type", this,
          reinterpret_cast<int BoundarySchemeData::*>(&BoundarySchemeData::type), 4,
-         "StegerWarming", 0, "ConstantExtrapolation", 1, "LinearExtrapolation", 2, 
+         "StegerWarming", 0, "ConstantExtrapolation", 1, "LinearExtrapolation", 2,
 	 "Ghidaglia", 3);
-                                                                                                  
+
 }
 
 //------------------------------------------------------------------------------
@@ -1705,13 +1708,13 @@ ExplicitData::ExplicitData()
 {
 
   type = RUNGE_KUTTA_4;
-  
-} 
-  
+
+}
+
 //------------------------------------------------------------------------------
-  
+
 void ExplicitData::setup(const char *name, ClassAssigner *father)
-{ 
+{
 
  ClassAssigner *ca = new ClassAssigner(name, 1, father);
 
@@ -1740,13 +1743,13 @@ void PcData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
-  
-  new ClassToken<PcData>(ca, "Type", this, 
-			 reinterpret_cast<int PcData::*>(&PcData::type), 6, 
+
+  new ClassToken<PcData>(ca, "Type", this,
+			 reinterpret_cast<int PcData::*>(&PcData::type), 6,
 			 "Identity", 0, "Jacobi", 1, "As", 2, "Ras", 3, "Has", 4, "Aas", 5);
 
-  new ClassToken<PcData>(ca, "Renumbering", this, 
-			 reinterpret_cast<int PcData::*>(&PcData::renumbering), 2, 
+  new ClassToken<PcData>(ca, "Renumbering", this,
+			 reinterpret_cast<int PcData::*>(&PcData::renumbering), 2,
 			 "Natural", 0, "Rcm", 1);
 
   new ClassInt<PcData>(ca, "Fill", this, &PcData::fill);
@@ -1777,15 +1780,15 @@ void KspData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
-  new ClassToken<KspData>(ca, "Type", this, 
+  new ClassToken<KspData>(ca, "Type", this,
 			   reinterpret_cast<int KspData::*>(&KspData::type), 4,
 			   "Richardson", 0, "Cg", 1, "Gmres", 2, "Gcr", 3);
 
-  new ClassToken<KspData>(ca, "EpsFormula", this, 
+  new ClassToken<KspData>(ca, "EpsFormula", this,
 			   reinterpret_cast<int KspData::*>(&KspData::epsFormula), 2,
 			   "Constant", 0, "Eisenstadt", 1);
 
-  new ClassToken<KspData>(ca, "CheckFinalRes", this, 
+  new ClassToken<KspData>(ca, "CheckFinalRes", this,
 			   reinterpret_cast<int KspData::*>(&KspData::checkFinalRes), 2,
 			   "No", 0, "Yes", 1);
 
@@ -1842,43 +1845,43 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 6, father);
-  
+
   new ClassToken<ImplicitData>
-    (ca, "Type", this, 
+    (ca, "Type", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::type), 4,
-     "BackwardEuler", 0, "CrankNicolson", 1, "ThreePointBackwardDifference", 2, 
+     "BackwardEuler", 0, "CrankNicolson", 1, "ThreePointBackwardDifference", 2,
      "FourPointBackwardDifference", 3);
 
   new ClassToken<ImplicitData>
-    (ca, "Startup", this, 
+    (ca, "Startup", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::startup), 2,
      "Regular", 0, "Modified", 1);
 
   new ClassToken<ImplicitData>
-    (ca, "Coupling", this, 
+    (ca, "Coupling", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::coupling), 2,
      "Weak", 0, "Strong", 1);
 
   new ClassToken<ImplicitData>
     (ca, "MatrixVectorProduct", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::mvp), 4,
-     "FiniteDifference", 0, "Approximate", 1, "Exact", 2, 
+     "FiniteDifference", 0, "Approximate", 1, "Exact", 2,
      "ApproximateFiniteDifference", 3);
 
   new ClassToken<ImplicitData>
-    (ca, "FluxJacobian", this, 
+    (ca, "FluxJacobian", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
 
   /*new ClassToken<ImplicitData>
-    (ca, "Normals", this, 
+    (ca, "Normals", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::normals), 7,
-     "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3, 
-     "SecondOrderEZGcl", 4, "ThirdOrderEZGcl", 5, "CurrentConfiguration", 6, 
+     "FirstOrderGcl", 1, "SecondOrderGcl", 2, "FirstOrderEZGcl", 3,
+     "SecondOrderEZGcl", 4, "ThirdOrderEZGcl", 5, "CurrentConfiguration", 6,
      "LatestConfiguration", 7);
-  
+
   new ClassToken<ImplicitData>
-    (ca, "Velocities", this, 
+    (ca, "Velocities", this,
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::velocities), 5,
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5);
@@ -1922,14 +1925,14 @@ void TsData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 19, father);
-  
-  new ClassToken<TsData>(ca, "Type", this, 
+
+  new ClassToken<TsData>(ca, "Type", this,
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
 			 "Explicit", 0, "Implicit", 1);
-  new ClassToken<TsData>(ca, "TypeTimeStep", this, 
+  new ClassToken<TsData>(ca, "TypeTimeStep", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeTimeStep), 2,
 			 "Local", 1, "Global", 2);
-  new ClassToken<TsData>(ca, "Clipping", this, 
+  new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
   new ClassToken<TsData>(ca, "Prec", this,
@@ -1948,7 +1951,7 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
   new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
-  new ClassStr<TsData>(ca, "Output", this, &TsData::output);  
+  new ClassStr<TsData>(ca, "Output", this, &TsData::output);
 
   expl.setup("Explicit", ca);
   implicit.setup("Implicit", ca);
@@ -2061,7 +2064,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
   new ClassStr<SensitivityAnalysis>(ca, "SensitivityOutput", this, &SensitivityAnalysis::sensoutput);
   new ClassDouble<SensitivityAnalysis>(ca, "ForceResidual", this, &SensitivityAnalysis::fres);
-  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1); 
+  new ClassToken<SensitivityAnalysis>(ca, "FixSolution", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::fixsol), 2, "None", 0, "PreviousValues", 1);
   new ClassInt<SensitivityAnalysis>(ca, "AverageStateIterations", this, &SensitivityAnalysis::avgsIt);
 
   ksp.setup("LinearSolver", ca);
@@ -2090,15 +2093,15 @@ void SymmetryData::setup(const char *name, ClassAssigner *father)
 
   //HB: ToDo: check if it is a cannonical plane ...
   //double nrm = sqrt(nx*nx+ny*ny+nz*nz);
-  //if(nrm==0.0) 
-  //if( ((nx==1.0) & (ny!=0.0) & (nz!=0.0)) || ((nx!=0.0) & (ny==1.0) & (nz!=0.0)) || ((nx!=0.0) & (ny!=0.0) & (nz==1.0)) ) 
+  //if(nrm==0.0)
+  //if( ((nx==1.0) & (ny!=0.0) & (nz!=0.0)) || ((nx!=0.0) & (ny==1.0) & (nz!=0.0)) || ((nx!=0.0) & (ny!=0.0) & (nz==1.0)) )
 }
 
 //------------------------------------------------------------------------------
 
 DefoMeshMotionData::DefoMeshMotionData()
 {
-  
+
   type = BASIC;
   element = BALL_VERTEX;
   volStiff = 0.0;
@@ -2121,14 +2124,14 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 8, father);
-  
+
   new ClassToken<DefoMeshMotionData>
-    (ca, "Type", this, 
+    (ca, "Type", this,
      reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::type), 2,
      "Basic", 0, "Corotational", 1);
 
   new ClassToken<DefoMeshMotionData>
-    (ca, "Element", this, 
+    (ca, "Element", this,
      reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 4,
      "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3);
 
@@ -2149,7 +2152,7 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 
 BLMeshMotionData::BLMeshMotionData()
 {
- 
+
   type = PSEUDOSTRUCTURAL;
   numLayers = 0;
   power = 4.0;
@@ -2172,7 +2175,7 @@ void BLMeshMotionData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<BLMeshMotionData>(ca, "FractionalStrategy", this,reinterpret_cast<int BLMeshMotionData::*>(&BLMeshMotionData::fractionalStrategy), 2 ,"Distance", 1, "DotProduct", 2);
   new ClassToken<BLMeshMotionData>(ca, "ClosestNeighbor", this,reinterpret_cast<int BLMeshMotionData::*>(&BLMeshMotionData::bestNeiStrategy), 2 ,"Fixed", 1, "Variable", 0 );
-  new ClassInt<BLMeshMotionData>(ca, "FeedBack", this,&BLMeshMotionData::feedbackFrequency); 
+  new ClassInt<BLMeshMotionData>(ca, "FeedBack", this,&BLMeshMotionData::feedbackFrequency);
   new ClassInt<BLMeshMotionData>(ca, "NumIncrements", this, &BLMeshMotionData::numIncrements);
 
 }
@@ -2227,7 +2230,7 @@ void ForcePoints::setup(const char *name, ClassAssigner *father)
 
 RigidMeshMotionData::RigidMeshMotionData()
 {
-  
+
   tag = MACH;
   lawtype = CONSTANTACCELERATION;
 
@@ -2242,7 +2245,7 @@ RigidMeshMotionData::RigidMeshMotionData()
   vpts[0] = &vpts1;
   vpts[1] = &vpts2;
   vpts[2] = &vpts3;
-  vpts[3] = &vpts4; 
+  vpts[3] = &vpts4;
   vpts[4] = &vpts5;
   vpts[5] = &vpts6;
   vpts[6] = &vpts7;
@@ -2260,13 +2263,13 @@ void RigidMeshMotionData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 19, father);
-  
+
   new ClassToken<RigidMeshMotionData>
-    (ca, "Tag", this, 
+    (ca, "Tag", this,
      reinterpret_cast<int RigidMeshMotionData::*>(&RigidMeshMotionData::tag), 3,
      "Mach", 0, "Time", 1, "Velocity", 2);
   new ClassToken<RigidMeshMotionData>
-    (ca, "LawType", this, 
+    (ca, "LawType", this,
      reinterpret_cast<int RigidMeshMotionData::*>(&RigidMeshMotionData::lawtype), 2,
      "VelocityLaw", 0, "ConstantAcceleration", 1);
 
@@ -2312,9 +2315,9 @@ void AeroelasticData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 5, father);
-  
+
   new ClassToken<AeroelasticData>
-    (ca, "Force", this, 
+    (ca, "Force", this,
      reinterpret_cast<int AeroelasticData::*>(&AeroelasticData::force), 3,
      "Last", 0, "Averaged", 1, "LastKris", 2);
 
@@ -2503,14 +2506,14 @@ void LinearizedData::setup(const char *name, ClassAssigner *father)
   new ClassInt<LinearizedData>(ca, "NumSteps", this, &LinearizedData::numSteps);
   new ClassInt<LinearizedData>(ca, "NumPOD", this, &LinearizedData::numPOD);
   new ClassInt<LinearizedData>(ca, "NumStrModes", this, &LinearizedData::numStrModes);
-                                                        
+
   pade.setup("Pade", ca);
 
 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                 
+
 PadeData::PadeData()
 {
 
@@ -2540,18 +2543,18 @@ PadeData::PadeData()
   nPoints = 0;
   degNum = 3;
   degDen = 4;
-                                                        
-                                                        
+
+
 }
-                                                        
-                                                        
+
+
 //------------------------------------------------------------------------------
-                                                        
+
 void PadeData::setup(const char *name, ClassAssigner *father)
 {
-                                                        
-                                                        
- ClassAssigner *ca = new ClassAssigner(name, 14, father);                                                        
+
+
+ ClassAssigner *ca = new ClassAssigner(name, 14, father);
   new ClassDouble<PadeData>(ca, "Freq1", this, &PadeData::freq1);
   new ClassDouble<PadeData>(ca, "Freq2", this, &PadeData::freq2);
   new ClassDouble<PadeData>(ca, "Freq3", this, &PadeData::freq3);
@@ -2567,7 +2570,7 @@ void PadeData::setup(const char *name, ClassAssigner *father)
   new ClassInt<PadeData>(ca, "L", this, &PadeData::degNum);
   new ClassInt<PadeData>(ca, "M", this, &PadeData::degDen);
 
- 
+
 }
 
 //------------------------------------------------------------------------------
@@ -2607,9 +2610,9 @@ Assigner *SurfaceData::getAssigner()  {
 }
 
 //------------------------------------------------------------------------------
-                                                                                           
+
 void Surfaces::setup(const char *name)  {
-                                                                                           
+
   ClassAssigner *ca = new ClassAssigner(name, 0, 0);
   surfaceMap.setup("SurfaceData", 0);
 }
@@ -2725,7 +2728,7 @@ Assigner *VolumeData::getAssigner()  {
 
   ClassAssigner *ca = new ClassAssigner("normal", 4, &nullAssigner);
 
-  new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2, 
+  new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
 
   porousMedia.setup("PorousMedium", ca);
@@ -2834,18 +2837,50 @@ void VolumeInitialConditions::setup(const char *name, ClassAssigner *father) {
 
 }
 
+void StructureIntersect::setup(const char *name) {
+  ClassAssigner *ca = new ClassAssigner(name, 3, 0);
+  libraryName = 0;
+  intersectorName = 0;
+  new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
+  new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
+  new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
+}
+
+void StructureIntersect::activate() {
+  if(libraryName != 0) {
+    void* handle = dlopen(libraryName, RTLD_NOW);
+    if (!handle) {
+            std::cerr << "Cannot open library: " << dlerror() << '\n';
+            return;
+        }
+    dlerror();
+   /* void(*registerFcn)() =  (void (*)()) dlsym(handle,"registerWithFactory");
+      if (registerFcn == 0) {
+            std::cerr << "Library does not contain a registry function\n";
+            exit(-1);
+      }
+
+    (*registerFcn)();*/
+
+   // dlclose(handle);
+  }
+  if(intersectorName != 0) {
+    IntersectionFactory::getIntersectionObject(intersectorName, tree);
+  }
+}
+
 //------------------------------------------------------------------------------
 
-IoData::IoData(Communicator *communicator) 
-{ 
+IoData::IoData(Communicator *communicator)
+{
 
-  com = communicator; 
+  com = communicator;
 
 }
 
 //------------------------------------------------------------------------------
 
-void IoData::readCmdLine(int argc, char** argv) 
+void IoData::readCmdLine(int argc, char** argv)
 {
 
   int c;
@@ -2865,7 +2900,7 @@ void IoData::readCmdLine(int argc, char** argv)
   if (optind == argc-1 && argc > 1)
     cmdFileName = argv[argc-1];
   else {
-    com->fprintf(stderr, "*** Error: no command input file given\n");  
+    com->fprintf(stderr, "*** Error: no command input file given\n");
     exit(-1);
   }
 
@@ -2873,7 +2908,7 @@ void IoData::readCmdLine(int argc, char** argv)
 
 //------------------------------------------------------------------------------
 
-void IoData::setupCmdFileVariables() 
+void IoData::setupCmdFileVariables()
 {
 
   input.setup("Input");
@@ -2900,12 +2935,13 @@ void IoData::setupCmdFileVariables()
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
   volumes.setup("Volumes");
+  strucIntersect.setup("Intersect");
 
 }
 
 //------------------------------------------------------------------------------
 
-void IoData::readCmdFile() 
+void IoData::readCmdFile()
 {
 
   extern FILE *yyCmdfin;
@@ -2915,7 +2951,7 @@ void IoData::readCmdFile()
 
 //  cmdFilePtr = freopen(cmdFileName, "r", stdin);
   yyCmdfin = cmdFilePtr = fopen(cmdFileName, "r");
- 
+
   if (!cmdFilePtr) {
     com->fprintf(stderr,"*** Error: could not open \'%s\'\n", cmdFileName);
     exit(-1);
@@ -2935,7 +2971,7 @@ void IoData::readCmdFile()
     else
       sprintf(name, "%s%s", input.prefix, input.rstdata);
 //    FILE *fp = freopen(name, "r", stdin);
-    FILE *fp = yyCmdfin = fopen(name, "r"); 
+    FILE *fp = yyCmdfin = fopen(name, "r");
     if (!fp) {
       com->fprintf(stderr, "*** Error: could not open \'%s\'\n", name);
       exit(-1);
@@ -2953,7 +2989,7 @@ void IoData::readCmdFile()
   error += checkInputValues();
   error += checkSolverValues();
   if (error) {
-    com->fprintf(stderr, "*** Error: command file contained %d error%s\n", 
+    com->fprintf(stderr, "*** Error: command file contained %d error%s\n",
 		 error, error>1? "s":"");
     exit(-1);
   }
@@ -3051,14 +3087,14 @@ void IoData::resetInputValues()
     if (dmesh.type != DefoMeshMotionData::BASIC) {
       com->fprintf(stderr, " ----- MeshMotion.Type has to be set to Basic -----\n");
       exit(1);
-    }    
+    }
 
     if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) {
       com->fprintf(stderr, " ----- Boundaries.Type has to be set to StegerWarming -----\n");
       exit(1);
     }
 
-    if (eqs.fluidModel.fluid != FluidModelData::GAS) { 
+    if (eqs.fluidModel.fluid != FluidModelData::GAS) {
       com->fprintf(stderr, " ----- Equations.FluidModel.Type has to be set to Gas -----\n");
       exit(1);
     }
@@ -3067,26 +3103,26 @@ void IoData::resetInputValues()
       com->fprintf(stderr, " ----- Problem.Mode has to be set to Dimensional -----\n");
       exit(1);
     }
-    
+
     int trip;
-    if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 || 
-	 eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 || 
+    if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 ||
+	 eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 ||
 	 eqs.tc.tr.bfix.z0 > eqs.tc.tr.bfix.z1 )
       trip = 0;
-    else 
+    else
       trip = 1;
-    
+
     if (sa.mvp == SensitivityAnalysis::H2 && trip) {
-      com->fprintf(stderr, 
+      com->fprintf(stderr,
 		   " ----- SensitivityAnalysis.MatrixVectorProduct set to"
 		   " FiniteDifference to account for tripping -----\n");
       sa.mvp = SensitivityAnalysis::FD;
     }
-    
+
   }
 
-  if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] || 
-      problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ || 
+  if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
+      problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
     problem.mode = ProblemData::DIMENSIONAL;
 
@@ -3110,7 +3146,7 @@ void IoData::resetInputValues()
   }
 
   if (bc.wall.integration == BcsWallData::AUTO) {
-    if (eqs.type == EquationsData::NAVIER_STOKES && 
+    if (eqs.type == EquationsData::NAVIER_STOKES &&
 	eqs.tc.type == TurbulenceClosureData::NONE)
       bc.wall.integration = BcsWallData::FULL;
     else
@@ -3145,11 +3181,11 @@ void IoData::resetInputValues()
     linearizedData.pade.freq[8] = linearizedData.pade.freq9;
     linearizedData.pade.freq[9] = linearizedData.pade.freq10;
     linearizedData.pade.freq[10] = linearizedData.pade.freq11;
-                                                                                                     
+
     for (int i=0; i<linearizedData.pade.num; i++) {
       if (linearizedData.pade.freq[i] >= 0)
         nCoarseFreq++;
-      
+
     }
     if (nCoarseFreq > 0)
       linearizedData.padeReconst = LinearizedData::TRUE;
@@ -3157,26 +3193,26 @@ void IoData::resetInputValues()
   }
 
   if (linearizedData.padeReconst == LinearizedData::TRUE) {
-    if (ts.implicit.newton.ksp.ns.type != KspData::GCR) {  
-      com->fprintf(stderr, "*** Error: for a Pade Reconstruction, a GCR solver needs to be used \n");  
-      exit(1); 
+    if (ts.implicit.newton.ksp.ns.type != KspData::GCR) {
+      com->fprintf(stderr, "*** Error: for a Pade Reconstruction, a GCR solver needs to be used \n");
+      exit(1);
     }
 
     if (nCoarseFreq < linearizedData.pade.nPoints) {
-       
+
       com->fprintf(stderr, "*** Error: the number of specified coarse-grid frequencies is lower than the number of points needed for each Pade Reconstruction\n");
       exit(1);
     }
-      
+
     if ((linearizedData.pade.degNum + linearizedData.pade.degDen + 1)%linearizedData.pade.nPoints != 0 ) {
       com->fprintf(stderr, "*** Error: In the Pade reconstruction, L+M+1 has to be a multiple of the number of points used \n");
       exit(1);
     }
-                                                        
+
     for (int i=0; i < nCoarseFreq-1; i++) {
-     
-      if (linearizedData.pade.freq[i] >= linearizedData.pade.freq[i+1]) { 
-                                                        
+
+      if (linearizedData.pade.freq[i] >= linearizedData.pade.freq[i+1]) {
+
 
         com->fprintf(stderr, "*** Error: the coarse frequencies specified for the Pade Reconstruction are not sorted in an ascending order\n");
         exit(1);
@@ -3188,6 +3224,8 @@ void IoData::resetInputValues()
       exit(1);
     }
   }
+
+  strucIntersect.activate();
 }
 
 //------------------------------------------------------------------------------
@@ -3196,7 +3234,7 @@ int IoData::checkFileNames()
 {
 
   int error = 0;
-  
+
   if (strcmp(input.connectivity, "") == 0) {
     com->fprintf(stderr, "*** Error: no global file given\n");
     ++error;
@@ -3213,12 +3251,12 @@ int IoData::checkFileNames()
     com->fprintf(stderr, "*** Error: no CPU map file given\n");
     ++error;
   }
-  if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) && 
+  if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) &&
        strcmp(input.match, "") == 0) {
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
-  if (eqs.type == EquationsData::NAVIER_STOKES && 
+  if (eqs.type == EquationsData::NAVIER_STOKES &&
       eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
     if (eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
       bc.wall.integration = BcsWallData::WALL_FUNCTION;
@@ -3250,7 +3288,7 @@ int IoData::checkFileNames()
 
   return error;
 
-}  
+}
 
 //------------------------------------------------------------------------------
 // alpha_bar * ref.rv.alpha = alpha_SI
@@ -3266,15 +3304,15 @@ int IoData::checkInputValues()
   error += checkInputValuesEssentialBC();
   error += checkInputValuesStateEquation();
 
-  error += checkInputValuesNonDimensional(); 
-  error += checkInputValuesDimensional(); 
+  error += checkInputValuesNonDimensional();
+  error += checkInputValuesDimensional();
 
   checkInputValuesTurbulence();
-                                                                                                  
+
   checkInputValuesDefaultOutlet();
 
   checkInputValuesMulti_step2();
-                                                                                                  
+
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
   bc.outlet.alpha *= acos(-1.0) / 180.0;
@@ -3332,7 +3370,7 @@ int IoData::checkInputValuesMulti_step1(){
     }
   }
 
-  
+
 
   if(eqs.numPhase == 2){
     error += checkInputValuesMultiEOS();
@@ -3384,7 +3422,7 @@ void IoData::checkInputValuesMulti_step2(){
 
     }
 
-  }    
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3425,7 +3463,7 @@ int IoData::checkInputValuesMultiEOS(){
               eqs.fluidModel.gasModel.pressureConstant  != mf.fluidModel.gasModel.pressureConstant)){
         error++;
         com->fprintf(stdout, "*** Warning : FluidModel(GAS) in MultiFluid and in Volumes have different constants\n");
-      }        
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::JWL && (
               eqs.fluidModel.jwlModel.omega   != mf.fluidModel.jwlModel.omega   ||
               eqs.fluidModel.jwlModel.A1      != mf.fluidModel.jwlModel.A1      ||
@@ -3435,7 +3473,7 @@ int IoData::checkInputValuesMultiEOS(){
               eqs.fluidModel.jwlModel.rhoref  != mf.fluidModel.jwlModel.rhoref  )){
         error++;
         com->fprintf(stdout, "*** Warning : FluidModel(JWL) in MultiFluid and in Volumes have different constants\n");
-      }        
+      }
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID && (
               eqs.fluidModel.liquidModel.Cv          != mf.fluidModel.liquidModel.Cv ||
               eqs.fluidModel.liquidModel.k1water     != mf.fluidModel.liquidModel.k1water ||
@@ -3468,7 +3506,7 @@ int IoData::checkInputValuesMultiEOS(){
               eqs.fluidModel2.jwlModel.rhoref  != mf.fluidModel2.jwlModel.rhoref  )){
         error++;
         com->fprintf(stdout, "*** Warning : FluidModel2(JWL) in MultiFluid and in Volumes have different constants\n");
-      }        
+      }
       else if(eqs.fluidModel2.fluid == FluidModelData::LIQUID && (
               eqs.fluidModel2.liquidModel.Cv          != mf.fluidModel2.liquidModel.Cv ||
               eqs.fluidModel2.liquidModel.k1water     != mf.fluidModel2.liquidModel.k1water ||
@@ -3494,7 +3532,7 @@ int IoData::checkInputValuesMultiEOS(){
     error++;
   }
 
-  return error; 
+  return error;
 }
 
 //------------------------------------------------------------------------------
@@ -3505,7 +3543,7 @@ int IoData::checkInputValuesVolumesInitialization(){
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID) 
+      if(it->second->type==VolumeData::FLUID)
         error += checkVolumeInitialization(it->second->fluidModel, it->second->volumeInitialConditions, it->first);
   }
 
@@ -3557,7 +3595,7 @@ int IoData::checkVolumeInitialization(FluidModelData &fm, VolumeInitialCondition
 //------------------------------------------------------------------------------
 
 int IoData::checkInputValuesMultiFluidInitialization(){
-//Initial conditions specified in MultiFluid object are associated 
+//Initial conditions specified in MultiFluid object are associated
 //to MultiFluid.FluidModel2
 
   int error = 0;
@@ -3591,7 +3629,7 @@ int IoData::checkInputValuesMultiFluidInitialization(){
             com->fprintf(stdout, "*** Error : either pressure or density must be specified for Sphere %d\n", i);
           }else if(mf.initialConditions.sphere[i]->pressure < 0){ //pressure computed from density
             double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
-            mf.initialConditions.sphere[i]->pressure = -k1ok2 + 
+            mf.initialConditions.sphere[i]->pressure = -k1ok2 +
                                  (mf.fluidModel2.liquidModel.Prefwater+k1ok2)*
                          pow(mf.initialConditions.sphere[i]->density/mf.fluidModel2.liquidModel.RHOrefwater, mf.fluidModel2.liquidModel.k2water);
           }else{  //pressure is given, whatever the density, it is recomputed given pressure.
@@ -3690,13 +3728,13 @@ int IoData::printMultiEOS(){
 
      if (eqs.fluidModel.fluid == FluidModelData::GAS &&
          eqs.fluidModel2.fluid == FluidModelData::GAS)
-       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL &&
            eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
          com->fprintf(stderr, " ----- PERFECT GAS-PERFECT GAS SIMULATION -----\n");
        else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
                eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ----- STIFFENED GAS-STIFFENED GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL && 
+       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL &&
                eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
          com->fprintf(stderr, " ----- PERFECT GAS-STIFFENED GAS SIMULATION -----\n");
        else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
@@ -3739,7 +3777,7 @@ int IoData::printMultiEOS(){
        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n");
        error++;
      }
-     
+
   }
   else{
     com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
@@ -3793,7 +3831,7 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fm){
     fm.liquidModel.alpha = awater * pow(ref.rv.density, bwater - 1.0)/(ref.rv.velocity *ref.rv.velocity);
     fm.liquidModel.beta  = bwater;
   }
- 
+
 
 }
 
@@ -3803,21 +3841,21 @@ int IoData::checkInputValuesNonDimensional()
 {
   int error = 0;
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
-                                                                                                  
+
     if (eqs.type != EquationsData::EULER) {
       if (ref.reynolds_mu < 0.0) {
         com->fprintf(stderr, "*** Error: no valid Reynolds number (%d) given\n", ref.reynolds_mu);
         ++error;
       }
-                                                                                                  
+
       if (ref.reynolds_lambda < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
         com->fprintf(stderr, "*** Error: no valid Reynolds number (%d) given for lambda\n", ref.reynolds_lambda);
         ++error;
       }
       else if (eqs.fluidModel.fluid == FluidModelData::GAS && eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
         ref.reynolds_lambda = -3.0/2.0 * ref.reynolds_mu;
-                                                                                                  
-                                                                                                  
+
+
       if (eqs.viscosityModel.type == ViscosityModelData::SUTHERLAND && ref.temperature < 0.0) {
         com->fprintf(stderr, "*** Error: no valid reference temperature (%d) given\n", ref.temperature);
         ++error;
@@ -3854,7 +3892,7 @@ int IoData::checkInputValuesNonDimensional()
     double k1water = eqs.fluidModel.liquidModel.k1water;
     double k2water = eqs.fluidModel.liquidModel.k2water;
     double RHOrefwater = eqs.fluidModel.liquidModel.RHOrefwater;
-    double Pref, awater, bwater; 
+    double Pref, awater, bwater;
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
       Pref = -k1water/k2water;
       awater = (Prefwater + k1water/k2water)/pow(RHOrefwater, k2water);
@@ -3905,12 +3943,12 @@ int IoData::checkInputValuesDimensional()
  * or are both barotropic liquids.
  * For instance, the perfect gas laws (P = \rho R T) in the non dimensionalized
  * form does not write the same for both gases. One could think that
- * the first law being written with \gamma1, the second should write 
- * exactly the same way with \gamma2 instead of \gamma1. What actually 
+ * the first law being written with \gamma1, the second should write
+ * exactly the same way with \gamma2 instead of \gamma1. What actually
  * must be done is replace \gamma1 by R2*(\gamma1-1)/R1 = Cv2*(\gamma2-1)/Cv1
  * in order to get the correct non dimensional perfect gas law for
  * the second gas!
- * However note that you don t need the perfect gas law written in 
+ * However note that you don t need the perfect gas law written in
  * this form to do the computation. Using just P = (\gamma - 1.0) rho e
  * you recover the right physics, except everything where the temperature
  * is involved. (Watch out for Navier-Stokes equations, but Euler are fine)
@@ -3935,22 +3973,22 @@ int IoData::checkInputValuesDimensional()
   double k2water = eqs.fluidModel.liquidModel.k2water;
   double Prefwater = eqs.fluidModel.liquidModel.Prefwater;
   double RHOrefwater = eqs.fluidModel.liquidModel.RHOrefwater;
-  double Pref, awater, bwater; 
+  double Pref, awater, bwater;
   if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
     Pref = -k1water/k2water;
     awater = (Prefwater + k1water/k2water)/pow(RHOrefwater, k2water);
     bwater = k2water;
   }
-                                                                                                        
+
   double R2, gamma2;
   double Rjwl2,omegajwl2,A1jwl2,A2jwl2,R1jwl2,R2jwl2,rhorefjwl2;
   double Cv2, k1water2, k2water2, Prefwater2, RHOrefwater2;
   double Pref2, awater2, bwater2;
-                                                                                                        
+
   if(eqs.numPhase == 2){
     R2 = eqs.fluidModel2.gasModel.idealGasConstant;
     gamma2 = eqs.fluidModel2.gasModel.specificHeatRatio;
-                                                                                                      
+
     Rjwl2   = eqs.fluidModel2.jwlModel.idealGasConstant;
     omegajwl2  = eqs.fluidModel2.jwlModel.omega;
     A1jwl2     = eqs.fluidModel2.jwlModel.A1;
@@ -3972,7 +4010,7 @@ int IoData::checkInputValuesDimensional()
   }
   if (problem.mode == ProblemData::DIMENSIONAL) {
     if (bc.inlet.pressure < 0.0)  {
-      if(eqs.fluidModel.fluid == FluidModelData::GAS || 
+      if(eqs.fluidModel.fluid == FluidModelData::GAS ||
          eqs.fluidModel.fluid == FluidModelData::JWL ){
         com->fprintf(stderr, "*** Error: no valid inlet pressure (%f) given\n", bc.inlet.pressure);
         ++error;
@@ -3987,7 +4025,7 @@ int IoData::checkInputValuesDimensional()
         com->fprintf(stderr, "*** Error: no valid inlet density (%f) given\n", bc.inlet.density);
         ++error;
       }
-                                                                                                        
+
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (mf.problem == MultiFluidData::BUBBLE)
         bc.inlet.density = pow( (bc.inlet.pressure - Pref)/awater, 1.0/bwater);
@@ -4121,8 +4159,8 @@ int IoData::checkInputValuesDimensional()
       ref.rv.velocity = velocity;
       ref.rv.pressure = ref.density * velocity*velocity;
       ref.rv.temperature = velocity * velocity / Cv;
-                                                                                                        
-                                                                                                        
+
+
       ref.rv.viscosity_mu = viscosity_mu;
       ref.rv.viscosity_lambda = viscosity_lambda;
       ref.rv.nutilde = viscosity_mu / ref.density;
@@ -4133,17 +4171,17 @@ int IoData::checkInputValuesDimensional()
       ref.rv.energy = ref.density * velocity*velocity * ref.length*ref.length*ref.length;
       ref.rv.power = ref.density * velocity*velocity*velocity * ref.length*ref.length;
       ref.rv.tvelocity = velocity / aero.displacementScaling;
-                                                                                                        
+
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
-                                                                                                        
+
       eqs.fluidModel.liquidModel.Pref = Pref / (ref.rv.density * ref.rv.velocity *ref.rv.velocity);
       eqs.fluidModel.liquidModel.alpha = awater * pow(ref.rv.density, bwater - 1.0)/(ref.rv.velocity *ref.rv.velocity);
       eqs.fluidModel.liquidModel.beta  = bwater;
 
     }
 
-    if (eqs.fluidModel2.fluid == FluidModelData::GAS) 
+    if (eqs.fluidModel2.fluid == FluidModelData::GAS)
       eqs.fluidModel2.gasModel.pressureConstant /= ref.rv.pressure;
     if (eqs.fluidModel2.fluid == FluidModelData::JWL){
       eqs.fluidModel2.jwlModel.A1     /= ref.rv.pressure;
@@ -4190,7 +4228,7 @@ int IoData::checkInputValuesDimensional()
     rmesh.ay /= ref.rv.velocity / ref.rv.time;
     rmesh.az /= ref.rv.velocity / ref.rv.time;
     rmesh.timestep /= ref.rv.time;
-    
+
     for (int j=0; j<rmesh.num; j++){
 //      fprintf(stderr,"old time: %f, new time: %f.\n", rmesh.vpts[j]->time, rmesh.vpts[j]->time/ref.rv.time);
       rmesh.vpts[j]->time     /= ref.rv.time;
@@ -4210,7 +4248,7 @@ int IoData::checkInputValuesDimensional()
     eqs.gravity_y /= ref.rv.velocity / ref.rv.time;
     eqs.gravity_z /= ref.rv.velocity / ref.rv.time;
   }
-                                                                                                        
+
   ref.rv.length = ref.length;
   ref.rv.tlength = ref.length / aero.displacementScaling;
 
@@ -4243,7 +4281,7 @@ int IoData::checkInputValuesDimensional()
 int IoData::checkInputValuesEssentialBC()
 {
   int error = 0;
-  
+
   if (ref.mach < 0.0)
     ref.mach = bc.inlet.mach;
 
@@ -4281,7 +4319,7 @@ int IoData::checkInputValuesEssentialBC()
   if (!sa.angleRad) {
     sa.alpharef *= acos(-1.0) / 180.0;
     sa.betaref *= acos(-1.0) / 180.0;
-  }  
+  }
 
   return error;
 
@@ -4313,8 +4351,8 @@ int IoData::checkInputValuesStateEquation()
     eqs.fluidModel.jwlModel.A1 = 0.0;
     eqs.fluidModel.jwlModel.A2 = 0.0;
   }
-                                                                                                  
-  if (eqs.numPhase == 2){ 
+
+  if (eqs.numPhase == 2){
     if (eqs.fluidModel2.fluid == FluidModelData::LIQUID){
       if (eqs.fluidModel2.liquidModel.Prefwater < 0.0){
         com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for 2nd Tait's EOS\n", eqs.fluidModel2.liquidModel.Prefwater);
@@ -4351,7 +4389,7 @@ void IoData::checkInputValuesTurbulence()
   if (bc.inlet.eps < 0.0)
     bc.inlet.eps = eqs.tc.tm.ke.c_mu * bc.inlet.kenergy * theta_w;
 
-} 
+}
 
 //------------------------------------------------------------------------------
 void IoData::checkInputValuesDefaultOutlet()
@@ -4379,7 +4417,7 @@ void IoData::checkInputValuesDefaultOutlet()
 
 /*
 // TDL: This is a bug... already done in :checkInputValues()
-// Modified (MB) 
+// Modified (MB)
   if (!sa.angleRad) {
     bc.inlet.alpha *= acos(-1.0) / 180.0;
     bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -4387,7 +4425,7 @@ void IoData::checkInputValuesDefaultOutlet()
     bc.outlet.beta *= acos(-1.0) / 180.0;
   }
 */
-  
+
 // Included (MB)
   if (aero.pressure < 0.0)
     sa.apressFlag = false;
@@ -4402,7 +4440,7 @@ int IoData::checkSolverValues()
 {
 
   int error = 0;
-  
+
   if (problem.type[ProblemData::ACCELERATED] && !problem.type[ProblemData::AERO] &&
       rmesh.timestep < 0.0) {
     com->fprintf(stderr, "*** Error: no valid timestep (%d) given\n", rmesh.timestep);
@@ -4418,7 +4456,7 @@ int IoData::checkSolverValues()
       ++error;
     }
   }
-  if (eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ISOTHERMAL && 
+  if (eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ISOTHERMAL &&
       !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
     com->fprintf(stderr, "*** Error: no valid wall temperature (%d) given\n", bc.wall.temperature);
     ++error;
@@ -4433,5 +4471,5 @@ int IoData::checkSolverValues()
 
   return error;
 
-}  
+}
 

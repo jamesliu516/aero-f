@@ -524,6 +524,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double gphij[3];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
+  
+  FILE *outFile = fopen("theEdges","w");
 
   int ierr=0;
   riemann.reset(it);
@@ -584,6 +586,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else{			// interface
       LevelSetResult res = eulerFSI->getLevelSetDataAtEdgeCenter(0.0, i, j);
+      fprintf(outFile,"%d->%d.\n", i,j);
 
       if (iIsActive) {
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
@@ -687,6 +690,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
   }
+  fflush(outFile);
+  fclose(outFile);
   return ierr;
 
 }
