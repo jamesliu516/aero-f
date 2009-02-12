@@ -67,7 +67,7 @@ class SysMapObj : public Assigner  {
     map<int, Target *> *mapObj;
 
   public:
-    SysMapObj(const char *n, map<int, Target *> *); 
+    SysMapObj(const char *n, map<int, Target *> *);
     Assigner *findIndexObject(int);
 };
 
@@ -82,7 +82,7 @@ class ClassAssigner : public Assigner {
     vector<int> subTokenMap;
     int cnMap;
   public:
-  //ClassAssigner(char *n, int ns);             
+  //ClassAssigner(char *n, int ns);
     ClassAssigner(const char *n, int ns, ClassAssigner * = 0);
     virtual void addSmb(const char *, Assigner *);
     Assigner *findSubToken(int);
