@@ -6,6 +6,7 @@
 
 class DistLevelSetStructure;
 class ParseTree;
+class Communicator;
 
 class IntersectorConstructor {
   public:
@@ -21,11 +22,14 @@ class IntersectorConstructor {
  *  It also constructs Intersection objects on demand. */
 class IntersectionFactory {
     static std::map<std::string, IntersectorConstructor*> allIntersectors;
+    static Communicator *com;
   public:
 
     static IntersectorConstructor *
         registerClass(std::string name, IntersectorConstructor *);
     static DistLevelSetStructure *getIntersectionObject(std::string name, ParseTree &data);
+    static Communicator *getCommunicator() { return com; }
+    static void setCommunicator(Communicator *c) { com = c; }
 };
 
 #endif

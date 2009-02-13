@@ -18,9 +18,11 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     }
 
     DistLevelSetStructure *getIntersector() {
-     // PhysBAMIntersector *inter = new PhysBAMIntersector();
-     // return inter;
-      return 0;
+      DistPhysBAMIntersector *inter = new DistPhysBAMIntersector();
+      std::string solidSurface = structureFile;
+      inter->init(solidSurface);
+      return inter;
+     // return 0;
     }
 
     int print();
@@ -37,7 +39,6 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
 IntersectorConstructor *myIntersect =
   IntersectionFactory::registerClass("PhysBAM", new PhysBAMIntersectorConstructor());
 
-int xx = ((PhysBAMIntersectorConstructor *) myIntersect)->print();
 
 int PhysBAMIntersectorConstructor::print() {
   std::cout << "inside the print function for " << this << std::endl;
@@ -48,8 +49,16 @@ int PhysBAMIntersectorConstructor::print() {
 PhysBAMIntersector::PhysBAMIntersector() {
 
 }
+DistPhysBAMIntersector::DistPhysBAMIntersector() {
+  com = IntersectionFactory::getCommunicator();
+}
 
-void PhysBAMIntersector::init(std::string solidSurface) {
+LevelSetStructure &
+DistPhysBAMIntersector::operator()(int subNum) const {
+  return *intersector[subNum];
+}
+
+void DistPhysBAMIntersector::init(std::string solidSurface) {
   //2.read data from "prolateSurface.top".
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
@@ -82,7 +91,7 @@ void PhysBAMIntersector::init(std::string solidSurface) {
   else exit(-1);
 }
 
-bool PhysBAMIntersector::checkTriangulatedSurface() {
+bool DistPhysBAMIntersector::checkTriangulatedSurface() {
   if ((length_triangle_list==0) || (length_solids_particle_list==0))
     {fprintf(stderr,"Solid surface not loaded.\n"); return false;}
   int numOfEdges = length_triangle_list*3/2,iEdge=0;
@@ -135,7 +144,7 @@ bool PhysBAMIntersector::checkTriangulatedSurface() {
 #include "Geometry/TRIANGULATED_SURFACE.h"
 
 void
-PhysBAMIntersector::initializePhysBAM() {
+DistPhysBAMIntersector::initializePhysBAM() {
 // Initialize the Particles list
   PhysBAM::SOLIDS_PARTICLE<PhysBAM::VECTOR<double,3> >& physbam_solids_particle=*new PhysBAM::SOLIDS_PARTICLE<PhysBAM::VECTOR<double,3> >();
   physbam_solids_particle.Add_Particles(length_solids_particle_list);
