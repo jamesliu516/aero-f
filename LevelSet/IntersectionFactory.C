@@ -10,6 +10,7 @@
 
 std::map<std::string, IntersectorConstructor *>
 IntersectionFactory::allIntersectors = std::map<std::string, IntersectorConstructor *> ();
+Communicator *IntersectionFactory::com = 0;
 
 typedef std::map<std::string, IntersectorConstructor *> IntersectorMap;
 

@@ -8,12 +8,26 @@
 
 class Vec3D;
 class Communicator;
+class PhysBAMIntersector;
+
+class DistPhysBAMIntersector : public DistLevelSetStructure {
+  protected:
+    int length_solids_particle_list, length_triangle_list;
+    int (*triangle_list)[3];
+    Vec3D *solids_particle_list;
+    Communicator *com;
+    PhysBAMIntersector **intersector;
+  public:
+    DistPhysBAMIntersector();
+    void init(std::string structureFileName);
+    bool checkTriangulatedSurface();
+    void initializePhysBAM();
+
+    LevelSetStructure & operator()(int subNum) const;
+};
 
 class PhysBAMIntersector : public LevelSetStructure {
-     int length_solids_particle_list, length_triangle_list;
-     int (*triangle_list)[3];
-     Vec3D *solids_particle_list;
-     Communicator *com;
+
 
    public:
      PhysBAMIntersector();
@@ -23,9 +37,7 @@ class PhysBAMIntersector : public LevelSetStructure {
      bool edgeIntersectsStructure(double t, int ni, int nj);
 
 
-     void init(std::string structureFileName);
-     bool checkTriangulatedSurface();
-     void initializePhysBAM();
+
 };
 
 #endif
