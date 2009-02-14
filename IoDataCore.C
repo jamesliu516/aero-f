@@ -2865,7 +2865,7 @@ void StructureIntersect::activate() {
    // dlclose(handle);
   }
   if(intersectorName != 0) {
-    IntersectionFactory::getIntersectionObject(intersectorName, tree);
+    IntersectionFactory::parseIntersectionObject(intersectorName, tree);
   }
 }
 

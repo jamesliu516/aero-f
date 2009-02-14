@@ -12,7 +12,7 @@ class Domain;
 class VarFcn;
 class Timer;
 
-class DistEulerStructGhostFluid {
+class DistEulerStructGhostFluid : public DistLevelSetStructure {
 
   EulerStructGhostFluid **subESGF;
   SubDomain** subDomain;
@@ -21,7 +21,7 @@ class DistEulerStructGhostFluid {
   int numLocSub;
   char* solidsurface; //solid surface file.
   double Xmin, Xmax, Ymin, Ymax, Zmin, Zmax; //coord. of bounding box.
-  double bandwidth; 
+  double bandwidth;
 
   const int numGlobNodes;
 
@@ -37,7 +37,7 @@ class DistEulerStructGhostFluid {
   Timer* timer;
   Communicator *com;
 
-  FILE* forceFile;  
+  FILE* forceFile;
 protected:
   void specifyBoundingBox(DistSVec<double,3>*);
   double specifydx(Domain*, DistSVec<double,3>*);
@@ -58,11 +58,11 @@ protected:
 public:
   double totalForce[3];
   double pref;
-  
+
   DistEulerStructGhostFluid(Domain*, IoData&);
   ~DistEulerStructGhostFluid();
 
-  EulerStructGhostFluid &operator() (int i) const {return *subESGF[i];}
+  LevelSetStructure &operator() (int i) const {return *subESGF[i];}
   EulerStructGhostFluid* getSubESGFPointer(int i) {return subESGF[i];}
 
   DistVec<double>* getPhilevelPointer() {return philevel;}
@@ -74,15 +74,15 @@ public:
   void clearTotalForce();
   Vec3D getTotalForce();
 
-/*  void clearTotalForce() 
+/*  void clearTotalForce()
   {
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; iSub++) 
+    for (int iSub=0; iSub<numLocSub; iSub++)
       subESGF[iSub]->totalForce[0] =  subESGF[iSub]->totalForce[1] = subESGF[iSub]->totalForce[2] = 0.0;
     totalForce[0] = totalForce[1] = totalForce[2] = 0.0;
   }
 
-  Vec3D getTotalForce()  
+  Vec3D getTotalForce()
   {
     double subDomainTotalForce[numLocSub][3];
 #pragma omp parallel for
@@ -105,7 +105,7 @@ public:
   template<int dim>
   void setupCommunication(Domain*, DistSVec<double,3>*, DistSVec<double,dim> &);
 
-  
+
 
 };
 

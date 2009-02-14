@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include "IntersectionFactory.h"
+#include "Domain.h"
 
 std::map<std::string, IntersectorConstructor *>
 IntersectionFactory::allIntersectors = std::map<std::string, IntersectorConstructor *> ();
@@ -25,16 +26,28 @@ IntersectionFactory::registerClass(std::string name, IntersectorConstructor *o) 
   return o;
 }
 
+void
+IntersectionFactory::parseIntersectionObject(std::string name, ParseTree &data) {
+  IntersectorMap::iterator it = allIntersectors.find(name);
+  if(it == allIntersectors.end())
+    return;
+  //return (it == allIntersectors.end()) ? 0 : it->second;
+  IntersectorConstructor *ctr = it->second;
+  ctr->init(data);
+}
+
 DistLevelSetStructure *
-IntersectionFactory::getIntersectionObject(std::string name, ParseTree &data) {
+IntersectionFactory::getIntersectionObject(std::string name, Domain &domain) {
   IntersectorMap::iterator it = allIntersectors.find(name);
   if(it == allIntersectors.end())
     return 0;
   //return (it == allIntersectors.end()) ? 0 : it->second;
   IntersectorConstructor *ctr = it->second;
-  std::cout << "Got the intersector at " << ctr << std::endl;
-  lastI->print();
-  ctr->print();
-  ctr->init(data);
-  return ctr->getIntersector();
+  return ctr->getIntersector(*new IntersectProblemData(domain));
+}
+
+IntersectProblemData::IntersectProblemData(Domain &d) : domain(d) {}
+
+int IntersectProblemData::getLocalNumSub() {
+  return domain.getNumLocSub();
 }

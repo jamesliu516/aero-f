@@ -72,7 +72,7 @@ public:
   void createPointers(Vec<int> &);
 
   template<int dim>
-  void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
+  void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
                        Vec<double> &, TimeLowMachPrec &);
   template<int dim>
@@ -80,26 +80,26 @@ public:
                        TimeLowMachPrec &, Vec<double> &, int);
 
   template<int dim>
-  int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&, 
+  int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
 
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, Vec<double> &, 
+                              SVec<double,dim>&, Vec<double> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int,
 			      SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
-			      
+
   /** compute flux for Riemann based FSI
-   */			      
+   */
 			      template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, LevelSetStructure *,
+                              SVec<double,dim>&, LevelSetStructure &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
@@ -110,24 +110,24 @@ public:
                                SVec<double,1>&, Vec<double>&);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &, 
+  void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
                                        Vec<double> &, SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
                                Vec<double> &, SVec<double,3> &, Vec<double> &,
-                               SVec<double,dim> &, GenMat<Scalar,neq> &, 
+                               SVec<double,dim> &, GenMat<Scalar,neq> &,
                                int * );
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &, 
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &,
                                        NodalGrad<dim> &, NodalGrad<1> &,
                                        SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
                                        Vec<double> &);
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &, 
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &,
                                NodalGrad<dim> &, NodalGrad<1> &,
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
@@ -136,7 +136,7 @@ public:
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
                               SVec<double,dim> &V, double Phii, double Phij,
-		              double *nphi, 
+		              double *nphi,
                               double *normal, double normalVel, VarFcn *varFcn,
                               FluxFcn** fluxFcn, double *dfdUi, double *dfdUj);
 */
@@ -147,11 +147,11 @@ public:
   bool *getMasterFlag() const { return masterFlag; }
   int (*getPtr() const)[2] { return ptr; }
   int size() const { return numEdges; }
-  
+
   void updateLength(SVec<double,3>& X);
-  double length(int iedge) { 
+  double length(int iedge) {
     if(edgeLength && iedge<numEdges) return(edgeLength[iedge]);
-    else return(0.0); 
+    else return(0.0);
   }
   double* viewEdgeLength() { return(edgeLength); }
 
@@ -168,7 +168,7 @@ public:
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
                                double *originalVi = 0, double *originalVj = 0,
                                double phii = 1.0, double phij = 1.0);
-  void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&, 
+  void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&,
                                        const double, const double, const double,
                                        const double, const double, const double);
 
