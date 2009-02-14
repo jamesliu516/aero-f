@@ -65,7 +65,7 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
     double un = u * n - ndot;
     double locMach = varFcn->computeMachNumber(Vmid);
     locbeta = tprec.getBeta(locMach);
-    
+
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
@@ -85,8 +85,8 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
 // Included (MB)
 template<int dim>
 void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
-                              SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                              SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
+			      Vec<double> &dIdti, Vec<double> &dIdtv, double dMach,
                               TimeLowMachPrec &tprec)
 {
 
@@ -178,7 +178,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
 
-    
+
   for (int l=0; l<numEdges; ++l) {
 
     if (!masterFlag[l]) continue;
@@ -331,7 +331,7 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
   double ddVij[dim], dddVij[dim], ddVji[dim], dddVji[dim], Vi[2*dim], dVi[2*dim], Vj[2*dim], dVj[2*dim], flux[dim], dFlux[dim];
 
 //  double ddVijp[dim], ddVjip[dim], ddVijm[dim], ddVjim[dim], Vip[2*dim], Vim[2*dim], Vjp[2*dim], Vjm[2*dim];
-  
+
   double edgeirey, dedgeirey;
 
   for (int l=0; l<numEdges; ++l) {
@@ -392,7 +392,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      NodalGrad<1>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
-                                     SVec<double,dim>* interfaceFlux, 
+                                     SVec<double,dim>* interfaceFlux,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
@@ -505,7 +505,7 @@ template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, LevelSetStructure *eulerFSI,
+                                     SVec<double,dim>& V, LevelSetStructure &eulerFSI,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -524,7 +524,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double gphij[3];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
-  
+
   FILE *outFile = fopen("theEdges","w");
 
   int ierr=0;
@@ -532,7 +532,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
   for (int l=0; l<numEdges; ++l) {
     if (!masterFlag[l]) continue;
-  
+
     int i = ptr[l][0];
     int j = ptr[l][1];
 
@@ -542,13 +542,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
-    
+
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
-    
+
     // check for negative pressure or density //
     if (!rshift)
       ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
-                                       failsafe, tag, V[i], V[j]); //also checking reconstructed values across interface. 
+                                       failsafe, tag, V[i], V[j]); //also checking reconstructed values across interface.
 
     if (ierr) continue;
 
@@ -556,27 +556,27 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vi[k+dim] = V[i][k];
       Vj[k+dim] = V[j][k];
     }
-   
-//------- Kevin's debug. Part 1 of 2. 
+
+//------- Kevin's debug. Part 1 of 2.
 /*    int trigger = 0;
     int globI = locToGlobNodeMap[i]+1, globJ = locToGlobNodeMap[j]+1;
     if ((globI==26290&&globJ==26371) || (globI==153983&&globJ==329526) ||
         (globI==151822&&globJ==230068) || (globJ==109128&&globI==109137)) {
       trigger = 1;
       fprintf(stderr,"Now debug %d->%d\n", globI, globJ);
-      fprintf(stderr, "Node i = %d: (%e, %e, %e);  Phi[i] = %e.\n", globI, X[i][0],X[i][1],X[i][2], phiI); 
-      fprintf(stderr, "Node j = %d: (%e, %e, %e);  Phi[j] = %e.\n", globJ, X[j][0],X[j][1],X[j][2], phiJ); 
-      fprintf(stderr, "flux from i to j calculated at (%e, %e, %e).\n", 
+      fprintf(stderr, "Node i = %d: (%e, %e, %e);  Phi[i] = %e.\n", globI, X[i][0],X[i][1],X[i][2], phiI);
+      fprintf(stderr, "Node j = %d: (%e, %e, %e);  Phi[j] = %e.\n", globJ, X[j][0],X[j][1],X[j][2], phiJ);
+      fprintf(stderr, "flux from i to j calculated at (%e, %e, %e).\n",
                        (X[i][0]+X[j][0])/2.0, (X[i][1]+X[j][1])/2.0, (X[i][2]+X[j][2])/2.0);
     }
 */
 //-------------------------
-    bool iIsActive = eulerFSI->isActive(0, i);
-    bool jIsActive = eulerFSI->isActive(0, j);
+    bool iIsActive = eulerFSI.isActive(0, i);
+    bool jIsActive = eulerFSI.isActive(0, j);
     if( !iIsActive && !jIsActive )
       continue;
- 
-    if (!eulerFSI->edgeIntersectsStructure(0, i, j)) {  // same fluid
+
+    if (!eulerFSI.edgeIntersectsStructure(0, i, j)) {  // same fluid
       //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
       for (int k=0; k<dim; ++k) {
@@ -585,7 +585,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
-      LevelSetResult res = eulerFSI->getLevelSetDataAtEdgeCenter(0.0, i, j);
+      LevelSetResult res = eulerFSI.getLevelSetDataAtEdgeCenter(0.0, i, j);
       fprintf(outFile,"%d->%d.\n", i,j);
 
       if (iIsActive) {
@@ -597,9 +597,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         eulerFSI->totalForce[1] += -1.0*res.gradPhi[1]*area;
         eulerFSI->totalForce[2] += -1.0*res.gradPhi[2]*area;
 */
-        eulerFSI->totalForce[0] += Wstar[4]*normal[l][0];
-        eulerFSI->totalForce[1] += Wstar[4]*normal[l][1];
-        eulerFSI->totalForce[2] += Wstar[4]*normal[l][2];
+        eulerFSI.totalForce[0] += Wstar[4]*normal[l][0];
+        eulerFSI.totalForce[1] += Wstar[4]*normal[l][1];
+        eulerFSI.totalForce[2] += Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
 /*        double fluxitemp[dim];
@@ -612,15 +612,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           fprintf(stderr,"normals: n_f = (%e, %e, %e);  n_s (gradPhi) = (%e, %e, %e);\n",
                   normal[l][0]/normal[l].norm(), normal[l][1]/normal[l].norm(), normal[l][2]/normal[l].norm(),
                   -res.gradPhi[0], -res.gradPhi[1], -res.gradPhi[2]);
-          fprintf(stderr,"Solution of 1D FS Riemann problem: (rho*, ux*, uy*, uz*, p*) = (%e, %e, %e, %e, %e)\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);       
-          fprintf(stderr,"check: <u*, n_s> = %e;  <u*, n_f> = %e;\n", 
+          fprintf(stderr,"Solution of 1D FS Riemann problem: (rho*, ux*, uy*, uz*, p*) = (%e, %e, %e, %e, %e)\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
+          fprintf(stderr,"check: <u*, n_s> = %e;  <u*, n_f> = %e;\n",
                           -(Wstar[1]*res.gradPhi[0] + Wstar[2]*res.gradPhi[1] + Wstar[3]*res.gradPhi[2]),
                           Wstar[1]*normal[l][0]/normal[l].norm() + Wstar[2]*normal[l][1]/normal[l].norm() +
                           Wstar[3]*normal[l][2]/normal[l].norm());
           fprintf(stderr,"area of c.v. surface = %e.\n", normal[l].norm());
           fprintf(stderr,"Godunov flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                          fluxitemp[0]/normal[l].norm(), fluxitemp[1]/normal[l].norm(), 
-                          fluxitemp[2]/normal[l].norm(), fluxitemp[3]/normal[l].norm(), 
+                          fluxitemp[0]/normal[l].norm(), fluxitemp[1]/normal[l].norm(),
+                          fluxitemp[2]/normal[l].norm(), fluxitemp[3]/normal[l].norm(),
                           fluxitemp[4]/normal[l].norm());
           double uDotNf = (Wstar[1]*normal[l][0]+Wstar[2]*normal[l][1]+Wstar[3]*normal[l][2])/normal[l].norm();
           double God1 = Wstar[0]*uDotNf;
@@ -631,9 +631,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                           + Wstar[3]*Wstar[3]);
           double God5 = (Wstar[0]*energy+Wstar[4])*uDotNf;
           fprintf(stderr,"Godunov flux (manually) = (%e, %e, %e, %e, %e)\n", God1, God2, God3, God4, God5);
-          fprintf(stderr,"Roe flux (automatically) = (%e, %e, %e, %e, %e)\n", 
-                           fluxi[0]/normal[l].norm(), fluxi[1]/normal[l].norm(), 
-                           fluxi[2]/normal[l].norm(), fluxi[3]/normal[l].norm(), 
+          fprintf(stderr,"Roe flux (automatically) = (%e, %e, %e, %e, %e)\n",
+                           fluxi[0]/normal[l].norm(), fluxi[1]/normal[l].norm(),
+                           fluxi[2]/normal[l].norm(), fluxi[3]/normal[l].norm(),
                            fluxi[4]/normal[l].norm());
         }
 */
@@ -647,9 +647,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         eulerFSI->totalForce[1] += -1.0*res.gradPhi[1]*area;
         eulerFSI->totalForce[2] += -1.0*res.gradPhi[2]*area;
 */
-        eulerFSI->totalForce[0] += -Wstar[4]*normal[l][0];
-        eulerFSI->totalForce[1] += -Wstar[4]*normal[l][1];
-        eulerFSI->totalForce[2] += -Wstar[4]*normal[l][2];
+        eulerFSI.totalForce[0] += -Wstar[4]*normal[l][0];
+        eulerFSI.totalForce[1] += -Wstar[4]*normal[l][1];
+        eulerFSI.totalForce[2] += -Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
 /*        double fluxjtemp[dim];
@@ -669,8 +669,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                           Wstar[3]*normal[l][2]/normal[l].norm());
           fprintf(stderr,"area of c.v. surface = %e.\n", normal[l].norm());
           fprintf(stderr,"Godunov flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                          fluxjtemp[0]/normal[l].norm(), fluxjtemp[1]/normal[l].norm(), 
-                          fluxjtemp[2]/normal[l].norm(), fluxjtemp[3]/normal[l].norm(), 
+                          fluxjtemp[0]/normal[l].norm(), fluxjtemp[1]/normal[l].norm(),
+                          fluxjtemp[2]/normal[l].norm(), fluxjtemp[3]/normal[l].norm(),
                           fluxjtemp[4]/normal[l].norm());
           double uDotNf = (Wstar[1]*normal[l][0]+Wstar[2]*normal[l][1]+Wstar[3]*normal[l][2])/normal[l].norm();
           double God1 = Wstar[0]*uDotNf;
@@ -682,8 +682,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           double God5 = (Wstar[0]*energy+Wstar[4])*uDotNf;
           fprintf(stderr,"Godunov flux (manually) = (%e, %e, %e, %e, %e)\n", God1, God2, God3, God4, God5);
           fprintf(stderr,"Roe flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                           fluxj[0]/normal[l].norm(), fluxj[1]/normal[l].norm(), 
-                           fluxj[2]/normal[l].norm(), fluxj[3]/normal[l].norm(), 
+                           fluxj[0]/normal[l].norm(), fluxj[1]/normal[l].norm(),
+                           fluxj[2]/normal[l].norm(), fluxj[3]/normal[l].norm(),
                            fluxj[4]/normal[l].norm());
         }
 */
@@ -758,9 +758,9 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoState, 
-                                              Vec<double> &irey, SVec<double,3> &X, 
-                                              Vec<double> &ctrlVol, SVec<double,dim> &V, 
+void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoState,
+                                              Vec<double> &irey, SVec<double,3> &X,
+                                              Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A)
 {
 
@@ -788,22 +788,22 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
         Scalar *Aii = A.getElem_ii(i);
         Scalar *Ajj = A.getElem_ii(j);
 
-        for (k=0; k<neq*neq; ++k) { 
-          Aii[k] += dfdUi[k]; 
-          Ajj[k] -= dfdUj[k]; 
+        for (k=0; k<neq*neq; ++k) {
+          Aii[k] += dfdUi[k];
+          Ajj[k] -= dfdUj[k];
         }
       }
 
       Scalar *Aij = A.getElem_ij(l);
       Scalar *Aji = A.getElem_ji(l);
-    
+
       if (Aij && Aij) {
 
         double voli = 1.0 / ctrlVol[i];
         double volj = 1.0 / ctrlVol[j];
-        for (k=0; k<neq*neq; ++k) { 
-          Aij[k] += dfdUj[k] * voli; 
-          Aji[k] -= dfdUi[k] * volj; 
+        for (k=0; k<neq*neq; ++k) {
+          Aij[k] += dfdUj[k] * voli;
+          Aji[k] -= dfdUi[k] * volj;
         }
       }
 
@@ -815,7 +815,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
 
 template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoState,
-                                              Vec<double> &irey, SVec<double,3> &X, 
+                                              Vec<double> &irey, SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A,
                                               int *nodeType)
@@ -983,7 +983,7 @@ template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
                                               NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
-                                              SVec<double,3> &X, 
+                                              SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<double> &Phi)
 {
@@ -1019,7 +1019,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
-    if (Phi[i]*Phi[j] > 0.0) { 
+    if (Phi[i]*Phi[j] > 0.0) {
        if (Phi[i] > 0.0  && Phi[j] > 0.0){
          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
        }
@@ -1084,7 +1084,7 @@ template<int dim, class Scalar, int neq>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
                                               NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
-                                              SVec<double,3> &X, 
+                                              SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<double> &Phi,
                                               int *nodeType)
@@ -1129,7 +1129,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     int j = ptr[l][1];
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-  
+
     double gradphi[3];
     double gphii[3];
     double gphij[3];
@@ -1171,18 +1171,18 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
          //RiemannJacobianGasTait(i,j,V,Phi[i],Phi[j],gradphi,normal[l],normalVel[l],varFcn,fluxFcn,dfdUi,dfdUj);
        }
        else{
-        if (Phi[i] >= 0.0)  
+        if (Phi[i] >= 0.0)
          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
         else
          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
 
-        if (Phi[j] >= 0.0) 
+        if (Phi[j] >= 0.0)
          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
-        else  
+        else
          fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
 
        }
-    }                                                                                                       
+    }
 
 /* first case: the two nodes are interior nodes
  * then the routine remains the same as usual

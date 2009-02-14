@@ -17,7 +17,7 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
       structureFile = 0;
     }
 
-    DistLevelSetStructure *getIntersector() {
+    DistLevelSetStructure *getIntersector(IntersectProblemData&) {
       DistPhysBAMIntersector *inter = new DistPhysBAMIntersector();
       std::string solidSurface = structureFile;
       inter->init(solidSurface);
@@ -41,7 +41,6 @@ IntersectorConstructor *myIntersect =
 
 
 int PhysBAMIntersectorConstructor::print() {
-  std::cout << "inside the print function for " << this << std::endl;
   return 0;
 }
 
@@ -89,6 +88,8 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   com->fprintf(stderr,"Checking the solid surface...\n");
   if (checkTriangulatedSurface()) com->fprintf(stderr,"OK.\n");
   else exit(-1);
+
+  initializePhysBAM();
 }
 
 bool DistPhysBAMIntersector::checkTriangulatedSurface() {
@@ -169,6 +170,9 @@ DistPhysBAMIntersector::initializePhysBAM() {
   // Construct TRIANGULATED_SURFACE.
   PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
   physbam_triangulated_surface.Update_Triangle_List();
+  std::cout <<"Going to make PhysBAMInterface" << std::endl;
+  physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
+  std::cout <<"Done making PhysBAMInterface" << std::endl;
 }
 
 LevelSetResult

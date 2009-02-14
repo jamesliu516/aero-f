@@ -23,9 +23,9 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState, 
-			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V, 
-			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv, 
+void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
+			     DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+			     DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
 			     DistVec<double> &irey, TimeLowMachPrec &tprec, SpatialLowMachPrec &sprec)
 {
 
@@ -73,10 +73,10 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
 
 // Included (MB)
 template<int dim>
-void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState, 
+void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
 			     DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
-			     DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, 
-			     DistVec<double> &idti, DistVec<double> &dIdti, DistVec<double> &idtv, DistVec<double> &dIdtv, 
+			     DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV,
+			     DistVec<double> &idti, DistVec<double> &dIdti, DistVec<double> &idtv, DistVec<double> &dIdtv,
 			     DistVec<double> &dIrey, double dMach, TimeLowMachPrec&tprec, SpatialLowMachPrec &sprec)
 {
 
@@ -122,40 +122,40 @@ void Domain::computeDerivativeOfInvReynolds(FemEquationTerm *fet, VarFcn *varFcn
 }
 
 //------------------------------------------------------------------------------
-                                                                                                         
+
 template<int dim>
 void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
                              DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
                              DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
 			     TimeLowMachPrec &tprec, DistVec<double> &Phi)
 {
-                                                                                                         
+
   int iSub;
-                                                                                                         
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, Phi(iSub));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
   }
-                                                                                                         
+
   volPat->exchange();
-                                                                                                         
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
-                                                                                                         
+
   dt = -cfl * ctrlVol / dt;
-                                                                                                         
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X, 
-					  DistSVec<double,6> &R, 
-					  DistSVec<Scalar,dim> &var, 
-					  DistSVec<Scalar,dim> &ddx, 
-					  DistSVec<Scalar,dim> &ddy, 
+void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
+					  DistSVec<double,6> &R,
+					  DistSVec<Scalar,dim> &var,
+					  DistSVec<Scalar,dim> &ddx,
+					  DistSVec<Scalar,dim> &ddy,
 					  DistSVec<Scalar,dim> &ddz)
 {
 
@@ -224,8 +224,8 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void Domain::computeGradientsGalerkin(DistVec<double> &ctrlVol, DistSVec<double,3> &wii, 
-				      DistSVec<double,3> &wij, DistSVec<double,3> &wji, 
+void Domain::computeGradientsGalerkin(DistVec<double> &ctrlVol, DistSVec<double,3> &wii,
+				      DistSVec<double,3> &wij, DistSVec<double,3> &wji,
 				      DistSVec<Scalar,dim> &var, DistSVec<Scalar,dim> &ddx,
 				      DistSVec<Scalar,dim> &ddy, DistSVec<Scalar,dim> &ddz)
 {
@@ -302,10 +302,10 @@ void Domain::computeGradientsGalerkinT(DistVec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<double,3> &X, 
+void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<double,3> &X,
 				    DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-				    DistSVec<double,dim> &dVdx, DistSVec<double,dim> &dVdy, 
-				    DistSVec<double,dim> &dVdz, DistSVec<double,dim> &Vmin, 
+				    DistSVec<double,dim> &dVdx, DistSVec<double,dim> &dVdy,
+				    DistSVec<double,dim> &dVdz, DistSVec<double,dim> &Vmin,
 				    DistSVec<double,dim> &Vmax, DistSVec<double,dim> &phi)
 {
 
@@ -330,8 +330,8 @@ void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<dou
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->maxRcvData(*vecPat, Vmax.subData(iSub));
-    subDomain[iSub]->computeMultiDimLimiter(recFcn, X(iSub), ctrlVol(iSub), 
-					    V(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub), 
+    subDomain[iSub]->computeMultiDimLimiter(recFcn, X(iSub), ctrlVol(iSub),
+					    V(iSub), dVdx(iSub), dVdy(iSub), dVdz(iSub),
 					    Vmin(iSub), Vmax(iSub), phi(iSub));
     subDomain[iSub]->sndData(*vecPat, phi.subData(iSub));
   }
@@ -356,7 +356,7 @@ void Domain::computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, DistSVec<dou
     }
   }
 
-}	
+}
 
 //------------------------------------------------------------------------------
 
@@ -471,9 +471,9 @@ void Domain::computeDerivativeOfMultiDimLimiter(RecFcnLtdMultiDim<dim> *recFcn, 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X, 
-				   DistSVec<double,dim>& V, DistSVec<double,dim>& dVdx, 
-				   DistSVec<double,dim>& dVdy, DistSVec<double,dim>& dVdz, 
+void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
+				   DistSVec<double,dim>& V, DistSVec<double,dim>& dVdx,
+				   DistSVec<double,dim>& dVdy, DistSVec<double,dim>& dVdz,
 				   DistSVec<double,3>& sensor, DistVec<double>& sigma)
 {
 
@@ -486,7 +486,7 @@ void Domain::computePressureSensor(double threshold, DistSVec<double,3>& X,
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computePressureSensor(X(iSub), V(iSub), dVdx(iSub), dVdy(iSub), 
+    subDomain[iSub]->computePressureSensor(X(iSub), V(iSub), dVdx(iSub), dVdy(iSub),
 					   dVdz(iSub), sensor(iSub));
     subDomain[iSub]->sndData(*vec3DPat, sensor.subData(iSub));
   }
@@ -566,12 +566,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
 #pragma omp parallel for reduction(+: ierr)
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
-    ierr += subDomain[iSub]->computeFiniteVolumeTerm(irey(iSub), fluxFcn, recFcn, bcData(iSub), 
-                                                     geoState(iSub), X(iSub), V(iSub), ngrad(iSub), 
+    ierr += subDomain[iSub]->computeFiniteVolumeTerm(irey(iSub), fluxFcn, recFcn, bcData(iSub),
+                                                     geoState(iSub), X(iSub), V(iSub), ngrad(iSub),
                                                      legrad, (*RR)(iSub), (*tag)(iSub), failsafe, rshift);
   }
 
-  com->globalSum(1, &ierr);  
+  com->globalSum(1, &ierr);
 
   if (ierr) {
     if (!failsafe) {
@@ -636,7 +636,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
 
 // Included (MB)
 template<int dim>
-void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, 
+void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
 				     DistVec<double>& irey, DistVec<double>& dIrey,
 				     FluxFcn** fluxFcn, RecFcn* recFcn,
 				     DistBcData<dim>& bcData, DistGeoState& geoState,
@@ -670,7 +670,7 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistV
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
+void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
@@ -678,7 +678,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistVec<double> &Phi,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistNodalGrad<1>& ngradLS,
-                                     DistSVec<double,dim>& R, int it, 
+                                     DistSVec<double,dim>& R, int it,
                                      DistSVec<double,dim> *bcFlux,
                                      DistSVec<double,dim> *interfaceFlux,
                                      int failsafe, int rshift)
@@ -700,11 +700,11 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
     SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
-    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                             X(iSub), V(iSub), Phi(iSub), ngrad(iSub), 
+                                             X(iSub), V(iSub), Phi(iSub), ngrad(iSub),
                                              legrad,  ngradLS(iSub), (*RR)(iSub), it,
-                                             lbcFlux, linterfaceFlux, 
+                                             lbcFlux, linterfaceFlux,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
@@ -743,7 +743,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
     SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
-        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Phi(iSub), ngrad(iSub),
                                      legrad, ngradLS(iSub), (*RR)(iSub), it,
@@ -785,12 +785,12 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
 
 template<int dim>
-void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, 
+void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
-                                     DistEulerStructGhostFluid *eulerFSI,
+                                     DistLevelSetStructure *eulerFSI,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -810,10 +810,10 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
-    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                             X(iSub), V(iSub), eulerFSI->getSubESGFPointer(iSub),
-                                             ngrad(iSub), 
+                                             X(iSub), V(iSub), (*eulerFSI)(iSub),
+                                             ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -851,9 +851,9 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 #pragma omp parallel for reduction(+: ierr)
       for (iSub = 0; iSub < numLocSub; ++iSub) {
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
-        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), 
+        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                     X(iSub), V(iSub), eulerFSI->getSubESGFPointer(iSub), 
+                                     X(iSub), V(iSub), (*eulerFSI)(iSub),
                                      ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
@@ -1035,7 +1035,7 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
+void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
                                      DistSVec<double,dim> &U,
                                      DistSVec<double,dim> &R)
 {
@@ -1101,7 +1101,7 @@ void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> 
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &riemann,
                                              FluxFcn **fluxFcn, DistBcData<dim> &bcData,
-                                             DistGeoState &geoState, 
+                                             DistGeoState &geoState,
                                              DistNodalGrad<dim> &ngrad, DistNodalGrad<1> &ngradLS,
                                              DistSVec<double,3> &X,
                                              DistVec<double> &ctrlVol,
@@ -1117,7 +1117,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
     fprintf(stdout, "with inletRhsPat\n");
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, 
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
                                                      bcData(iSub), geoState(iSub),
                                                      ngrad(iSub), ngradLS(iSub),
                                                      X(iSub),
@@ -1136,7 +1136,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
   }else{
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn, 
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
                                                      bcData(iSub), geoState(iSub),
                                                      ngrad(iSub), ngradLS(iSub),
                                                      X(iSub),
@@ -1172,7 +1172,7 @@ void Domain::recomputeRHS(VarFcn* vf, DistSVec<double,dim> &V, DistSVec<double,d
   }
 
   inletRhsPat->exchange();
- 
+
 #pragma omp parallel for
   for ( iSub = 0; iSub < numLocSub; iSub++)
     subDomain[iSub]->addRcvInletRhsData(*inletRhsPat, rhs.subData(iSub));
@@ -1188,7 +1188,7 @@ void Domain::recomputeRHS(VarFcn* vf, DistSVec<double,dim> &V, DistVec<double> &
 {
   int iSub;
 #pragma omp parallel for
-  for ( iSub = 0; iSub < numLocSub; iSub++){     
+  for ( iSub = 0; iSub < numLocSub; iSub++){
     Extrapolation<dim>* lxpol = (xpol) ? &((*xpol)(iSub)) : 0;
     subDomain[iSub]->recomputeRHS(vf, V(iSub), Phi(iSub), rhs(iSub), lxpol,
                                   bcData(iSub), geoState(iSub), X(iSub));
@@ -1220,7 +1220,7 @@ double Domain::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &
 //------------------------------------------------------------------------------
 
 template<int dim>
-double Domain::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal, 
+double Domain::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal,
                                         DistVec<double> &philevel)
 {
 #pragma omp parallel for
@@ -1264,8 +1264,8 @@ void Domain::finishJacobianGalerkinTerm(DistVec<double> &ctrlVol, DistMat<Scalar
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData, 
-				 DistGeoState &geoState, DistSVec<double,3> &X, 
+void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
+				 DistGeoState &geoState, DistSVec<double,3> &X,
 				 DistSVec<double,dim> &V, DistSVec<double,dim> &R)
 {
 
@@ -1273,7 +1273,7 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub), 
+    subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
 					 X(iSub), V(iSub), R(iSub));
 
   timer->addFiniteElementTermTime(t0);
@@ -1304,8 +1304,8 @@ void Domain::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, DistBcData<di
 
 // Included (MB)
 template<int dim>
-void Domain::computeOnlyGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData, 
-				 DistGeoState &geoState, DistSVec<double,3> &X, 
+void Domain::computeOnlyGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
+				 DistGeoState &geoState, DistSVec<double,3> &X,
 				 DistSVec<double,dim> &V, DistSVec<double,dim> &R)
 {
 
@@ -1314,7 +1314,7 @@ void Domain::computeOnlyGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcDa
   int iSub;
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub), 
+    subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
 					 X(iSub), V(iSub), R(iSub));
 
     subDomain[iSub]->sndData(*vecPat, R.subData(iSub));
@@ -1369,48 +1369,48 @@ void Domain::computeGalerkinBarTerm(bool doInitialTasks,
                                     DistSVec<double,dim> &RBar,
                                     int scopeDepth1, int scopeDepth2)
 {
-                                                                                                                   
+
   double t0 = timer->getTime();
-                                                                                                                   
+
   DistSVec<double,dim>* Sigma = new DistSVec<double,dim>(getNodeDistInfo());
   *Sigma = 0.0;
-                                                                                                                   
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeGalerkinBar_Step1(fet, bcData(iSub), geoState(iSub), X(iSub), VBar(iSub), (*Sigma)(iSub));
     subDomain[iSub]->sndData(*vecPat, (*Sigma).subData(iSub));
   }
-                                                                                                                   
+
   vecPat->exchange();
-                                                                                                                   
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*vecPat, (*Sigma).subData(iSub));
-                                                                                                                   
-                                                                                                                   
+
+
 #pragma omp parallel for
   for (int iSub=0; iSub < numLocSub; ++iSub) {
     MacroCellSet** macCells = new MacroCellSet*[scopeDepth2];
     for (int i = 0; i<scopeDepth2; ++i)
         macCells[i] =   macroCells->obtainMacroCell(iSub, i);
-                                                                                                                   
+
     subDomain[iSub]->computeGalerkinBar_Step2(macCells, volRatio(iSub), (*Sigma)(iSub), RBar(iSub), scopeDepth1);
     delete [] macCells;
   }
-                                                                                                                   
+
   delete (Sigma);
-                                                                                                                   
+
   timer->addFiniteElementTermTime(t0);
-                                                                                                                   
+
 }
-                                                                                                                   
+
 //------------------------------------------------------------------------------
 
 #include <GeoState.h>
 #include <NodalGrad.h>
 template<int dim>
-void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol, 
-					DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV, 
+void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol,
+					DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV,
 					DistSVec<double,dim> &RR)
 {
 
@@ -1482,7 +1482,7 @@ void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> 
 }
 
 //------------------------------------------------------------------------------
-//----------------- All LES Models start  here 
+//----------------- All LES Models start  here
 
 template<int dim>
 void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double,3> &X,
@@ -1499,8 +1499,8 @@ void Domain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, DistSVec<double
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs, 
-                                   DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+void Domain::computeDynamicLESTerm(DynamicLESTerm *dles, DistSVec<double,2> &Cs,
+                                   DistSVec<double,3> &X, DistSVec<double,dim> &V,
 				   DistSVec<double,dim> &R)
 {
 
@@ -1519,19 +1519,19 @@ void Domain::computeVMSLESTerm(VMSLESTerm *vmst, DistMacroCellSet *macroCells,
                                DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                DistSVec<double,dim> &R, int scopeDepth)
 {
-                                                                                                                          
+
   double t0 = timer->getTime();
-                                                                                                                          
+
   DistSVec<double,dim>* Sigma = new DistSVec<double,dim>(getNodeDistInfo());
   *Sigma = 0.0;
-                                                                                                                          
+
   // Compute the large-scale component of V (VBar) and //
   // the volume ratios (Vi/VIi) with the macro-cells   //
-                                                                                                                          
+
   macroCells->computeVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth);
-                                                                                                                          
+
   // Exchange VBar and volRatio values //
-                                                                                                                          
+
   assemble(vecPat, VBar);
   assemble(vecPat, volRatio);
 
@@ -1539,22 +1539,22 @@ void Domain::computeVMSLESTerm(VMSLESTerm *vmst, DistMacroCellSet *macroCells,
 #pragma omp parallel for
   for (int iSub=0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeVMSLES_Step1(vmst, VBar(iSub),X(iSub), V(iSub), (*Sigma)(iSub));
-                                                                                                                          
+
   assemble(vecPat,*Sigma);
-                                                                                                                          
+
   // Add the subgrid scale viscosity to the residual vector R //
-                                                                                                                          
+
 #pragma omp parallel for
   for (int iSub=0; iSub < numLocSub; ++iSub) {
     MacroCellSet* macCells;
     macCells = macroCells->obtainMacroCell(iSub, scopeDepth-1);
     subDomain[iSub]->computeVMSLES_Step2(volRatio(iSub),macCells,(*Sigma)(iSub), R(iSub), scopeDepth);
   }
-                                                                                                                          
+
   delete (Sigma);
-                                                                                                                          
+
   double t = timer->addVMSLESTime(t0);
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
@@ -1568,56 +1568,56 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
                                    DistSVec<double,dim> &M, DistSVec<double,dim> &MBar,
                                    int scopeDepth1, int scopeDepth2, int method, DistVec<double> *Cs)
 {
-                                                                                                                          
+
   double t0 = timer->getTime();
-                                                                                                                          
+
   DistSVec<double,dim>* Sigma = new DistSVec<double,dim>(getNodeDistInfo());
   DistSVec<double,dim>* SigmaBar = new DistSVec<double,dim>(getNodeDistInfo());
-                                                                                                                          
+
   *Sigma = 0.0;
   *SigmaBar = 0.0;
-                                                                                                                          
+
   // compute volume averaged filter width for each node (used in post processing) //
-                                                                                                                          
+
   if (doInitialTasks) {
     Delta = new DistVec<double>(getNodeDistInfo());
     CsDelSq = new DistVec<double>(getNodeDistInfo());
     PrT = new DistVec<double>(getNodeDistInfo());
     WCsDelSq = new DistVec<double>(getNodeDistInfo());
     WPrT = new DistVec<double>(getNodeDistInfo());
-                                                                                                                          
+
    *Delta = 0.0;
-                                                                                                                          
+
     #pragma omp parallel for
       for (int iSub=0; iSub < numLocSub; ++iSub)
         subDomain[iSub]->computeFilterWidth(X(iSub),(*Delta)(iSub));
-                                                                                                                          
+
     applySmoothing(ctrlVol, *Delta);
   }
-                                                                                                                          
-                                                                                                                          
+
+
   *WCsDelSq = 0.0; *WPrT = 0.0;  // variables that store the smoothed CsDelSq and PrT values
-                                                                                                                          
-                                                                                                                          
+
+
   // compute MBar and M //
-                                                                                                                          
+
 #pragma omp parallel for
     for (int iSub=0; iSub < numLocSub; ++iSub) {
       SVec<double,dim> **vBar = new SVec<double,dim>*[2];
       SVec<double,1> **volR = new SVec<double,1>*[2];
-                                                                                                                          
+
       for (int i = 0; i<2; ++i) {
         vBar[i]  =  &(*VBar[i])(iSub);
         volR[i]  =  &(*volRatio[i])(iSub);
       }
-                                                                                                                          
+
       subDomain[iSub]->computeMBarAndM_Step1(dvmst, vBar, volR, X(iSub), V(iSub), (*SigmaBar)(iSub), (*Sigma)(iSub));
-                                                                                                                          
+
       delete [] vBar;
       delete [] volR;
     }
-                                                                                                                          
-                                                                                                                          
+
+
     assemble(vecPat, (*SigmaBar));
     assemble(vecPat, (*Sigma));
 
@@ -1625,25 +1625,25 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
     for (int iSub=0; iSub < numLocSub; ++iSub) {
       SVec<double,1> **volR = new SVec<double,1>*[2];
       MacroCellSet** macCells = new MacroCellSet*[scopeDepth2];
-                                                                                                                          
+
       for (int i = 0; i<2; ++i) {
         volR[i]  =  &(*volRatio[i])(iSub);
       }
-                                                                                                                          
+
       for (int i = 0; i<scopeDepth2; ++i)
         macCells[i] =   macroCells->obtainMacroCell(iSub, i);
-                                                                                                                          
+
       subDomain[iSub]->computeMBarAndM_Step2(macCells, volR, MBar(iSub), M(iSub), (*SigmaBar)(iSub),
                                              (*Sigma)(iSub), scopeDepth1, scopeDepth2);
-                                                                                                                          
+
       delete [] volR;
       delete [] macCells;
     }
-                                                                                                                          
-                                                                                                                          
+
+
     assemble(vecPat, MBar);
     assemble(vecPat, M);
-                                                                                                                          
+
   // compute (Cs*Delta)^2 and PrT //
 
 #pragma omp parallel for
@@ -1654,36 +1654,36 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
    }
 
   // local smoothing of (Cs*Delta)^2 and PrT //
-                                                                                                                          
+
 #pragma omp parallel for
    for (int iSub=0; iSub < numLocSub; ++iSub) {
        subDomain[iSub]->computeLocalAvg(X(iSub), (*CsDelSq)(iSub), (*WCsDelSq)(iSub));
        subDomain[iSub]->computeLocalAvg(X(iSub), (*PrT)(iSub), (*WPrT)(iSub));
    }
-                                                                                                                          
+
   applySmoothing(ctrlVol, *WCsDelSq);
   applySmoothing(ctrlVol, *WPrT);
-                                                                                                                          
-                                                                                                                          
+
+
   *Sigma = 0.0;
 
   // computing the reynold stress flux "S" //
-                                                                                                                          
+
 #pragma omp parallel for
     for (int iSub=0; iSub < numLocSub; ++iSub) {
       SVec<double,dim> **vBar = new SVec<double,dim>*[2];
       Vec<double>* cs;
-                                                                                                                          
+
       for (int i = 0; i<2; ++i) {
         vBar[i]  =  &(*VBar[i])(iSub);
       }
-                                                                                                                          
+
       if (Cs) cs = &(*Cs)(iSub);
       else cs = 0;
-                                                                                                                          
+
       subDomain[iSub]->computeDynamicVMSTerm_Step1(dvmst, vBar, X(iSub), V(iSub), (*Sigma)(iSub),
                                                    (*WCsDelSq)(iSub), (*WPrT)(iSub), cs, (*Delta)(iSub));
-                                                                                                                          
+
       delete [] vBar;
     }
     assemble(vecPat, *Sigma);
@@ -1693,32 +1693,32 @@ void Domain::computeDynamicVMSTerm(DynamicVMSTerm *dvmst, DistMacroCellSet *macr
       SVec<double,1> **volR = new SVec<double,1>*[2];
       MacroCellSet** macCells = new MacroCellSet*[scopeDepth2];
       Vec<double>* cs;
-                                                                                                                          
+
       for (int i = 0; i<2; ++i) {
         volR[i]  =  &(*volRatio[i])(iSub);
       }
-                                                                                                                          
+
       for (int i = 0; i<scopeDepth2; ++i)
         macCells[i] =   macroCells->obtainMacroCell(iSub, i);
-                                                                                                                          
+
       if (Cs) cs = &(*Cs)(iSub);
       else cs = 0;
-                                                                                                                          
+
       subDomain[iSub]->computeDynamicVMSTerm_Step2(macCells, volR, (*Sigma)(iSub), S(iSub), scopeDepth1);
-                                                                                                                          
+
       delete [] volR;
       delete [] macCells;
     }
-                                                                                                                          
+
     assemble(vecPat, S);
 
   delete (Sigma);
   delete (SigmaBar);
-                                                                                                                          
+
   double t = timer->addDynamicVMSLESTime(t0);
-                                                                                                                          
+
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1738,85 +1738,85 @@ void Domain::computeWaleLESTerm(WaleLESTerm *wale, DistSVec<double,3> &X,
 template<int dim>
 void Domain::computeVBar(DistMacroCellSet *macroCells, bool doInitialTasks, DistGeoState &geoState,
                          DistSVec<double,dim> &VBar, DistSVec<double,dim> &V, int scopeDepth, int n)
-                                                                                                                          
+
 {
-                                                                                                                          
+
   double t0 = timer->getTime();
-                                                                                                                          
+
   macroCells->computeVBar(doInitialTasks, geoState, V, VBar, scopeDepth, n);
-                                                                                                                          
+
   #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->sndData(*vecPat, VBar.subData(iSub));
-                                                                                                                          
+
     vecPat->exchange();
-                                                                                                                          
+
   #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->addRcvData(*vecPat, VBar.subData(iSub));
-                                                                                                                          
+
   double t = timer->addDynamicVMSLESTime(t0);
-                                                                                                                          
+
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::computeBarTerm(DistMacroCellSet *macroCells, bool doInitialTasks, DistVec<double> &ctrlVol,
                             DistSVec<double,dim> **VBar, DistSVec<double,1> **volRatio,
                             DistSVec<double,3> &X, DistSVec<double,dim> &V, int scopeDepth1, int scopeDepth2)
-                                                                                                                          
+
 {
-                                                                                                                          
+
   double t0 = timer->getTime();
-                                                                                                                          
+
   // Computing the large-scale components VBar and volRatio //
-                                                                                                                          
+
   macroCells->computeDVMS(doInitialTasks, ctrlVol, X, V, VBar, volRatio, scopeDepth1, scopeDepth2);
-                                                                                                                          
+
    // Exchange of information between subdomains for VBar and volRatio //
-                                                                                                                          
+
    for (int i =0; i < 2; ++i) {
-                                                                                                                          
+
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->sndData(*vecPat, (*VBar[i]).subData(iSub));
-                                                                                                                          
+
     vecPat->exchange();
-                                                                                                                          
+
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->addRcvData(*vecPat, (*VBar[i]).subData(iSub));
-                                                                                                                          
+
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
      subDomain[iSub]->sndData(*vecPat, (*volRatio[i]).subData(iSub));
-                                                                                                                          
+
     vecPat->exchange();
-                                                                                                                          
+
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
      subDomain[iSub]->addRcvData(*vecPat, (*volRatio[i]).subData(iSub));
-                                                                                                                          
+
    }
-                                                                                                                          
+
   double t = timer->addDynamicVMSLESTime(t0);
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeTestFilterValues(DistVec<double> &ctrlVol, 
-                                     DistSVec<double,dim> &VCap, 
+void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
+                                     DistSVec<double,dim> &VCap,
                                      DistSVec<double,16> &Mom_Test,
                                      DistSVec<double,6> &Sij_Test,
                                      DistVec<double> &modS_Test,
-                                     DistSVec<double,8> &Eng_Test, 
+                                     DistSVec<double,8> &Eng_Test,
                                      DistSVec<double,2> &Cs,
 				     DistVec<int> &Ni,
                                      DistBcData<dim> &bcData,
-				     DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+				     DistSVec<double,3> &X, DistSVec<double,dim> &V,
 				     double gam, double R)
 {
 
@@ -1824,7 +1824,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 
 #pragma omp parallel for
    for (int iSub = 0; iSub < numLocSub; ++iSub){
-     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),  
+     subDomain[iSub]->computeTestFilterAvgs(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), modS_Test(iSub),
                                             Eng_Test(iSub), X(iSub), V(iSub), gam, R);
      subDomain[iSub]->sndData(*vecPat, VCap.subData(iSub));
    }
@@ -1864,7 +1864,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
   }
 
   volPat->exchange();
-                                                                                                                     
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(modS_Test.subData(iSub)));
@@ -1876,8 +1876,8 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
 
 #pragma omp parallel for
    for(int iSub = 0; iSub < numLocSub; ++iSub) {
-     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub), 
-                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub), 
+     subDomain[iSub]->computeCsValues(VCap(iSub), Mom_Test(iSub), Sij_Test(iSub),
+                                      modS_Test(iSub), Eng_Test(iSub), Cs(iSub),
 				      Ni(iSub), X(iSub), gam, R);
    }
 
@@ -1888,7 +1888,7 @@ void Domain::computeTestFilterValues(DistVec<double> &ctrlVol,
    *W = 0.0;
 
 #pragma omp parallel for
-   for (int iSub=0; iSub < numLocSub; ++iSub) 
+   for (int iSub=0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->computeLocalAvg(X(iSub), Cs(iSub), (*W)(iSub));
 
    applySmoothing(ctrlVol, *W);
@@ -1919,15 +1919,15 @@ void Domain::computeDerivativeOfSmagorinskyLESTerm(SmagorinskyLESTerm *smag, Dis
 //--------Start of routines that compute MutOMu values
 
 template<int dim>
-void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVol, 
-                               DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+void Domain::computeMutOMuSmag(SmagorinskyLESTerm *smag, DistVec<double> &ctrlVol,
+                               DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                DistVec<double> &mutOmu)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeMutOMuSmag(smag, X(iSub), V(iSub), mutOmu(iSub));
-                                                                                                                                       
+
   applySmoothing(ctrlVol, mutOmu);
 
 }
@@ -1956,7 +1956,7 @@ void Domain::computeMutOMuVMS(VMSLESTerm *vms, DistMacroCellSet *macroCells, Dis
 
 template<int dim>
 void Domain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvms, DistVec<double> &ctrlVol,
-                                     DistSVec<double,dim> &VBar, DistSVec<double,3> &X, 
+                                     DistSVec<double,dim> &VBar, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &V, DistVec<double> &Cs, DistVec<double> &mutOmu)
 {
 
@@ -1971,15 +1971,15 @@ void Domain::computeMutOMuDynamicVMS(DynamicVMSTerm *dvms, DistVec<double> &ctrl
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol, 
-                               DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol,
+                               DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                DistVec<double> &mutOmu)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeMutOMuWale(wale, X(iSub), V(iSub), mutOmu(iSub));
-                                                                                                                                       
+
   applySmoothing(ctrlVol, mutOmu);
 
 }
@@ -1988,7 +1988,7 @@ void Domain::computeMutOMuWale(WaleLESTerm *wale, DistVec<double> &ctrlVol,
 
 template<int dim>
 void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
-                                     DistSVec<double,2> &Cs, DistSVec<double,3> &X, 
+                                     DistSVec<double,2> &Cs, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &V, DistVec<double> &mutOmu)
 {
 
@@ -2005,9 +2005,9 @@ void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrl
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData, 
-					 DistGeoState &geoState, DistSVec<double,3> &X, 
-					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V, 
+void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
+					 DistGeoState &geoState, DistSVec<double,3> &X,
+					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
 					 DistMat<Scalar,neq> &A)
 {
 
@@ -2019,7 +2019,7 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub), 
+    subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
 						 ctrlVol(iSub), V(iSub), A(iSub));
     subDomain[iSub]->sndOffDiagBlocks(*matPat, A(iSub));
   }
@@ -2040,8 +2040,8 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 
 // Included (MB)
 template<int dim>
-void Domain::computeBCsJacobianWallValues(FemEquationTerm *fet, DistBcData<dim> &bcData, 
-					  DistGeoState &geoState, DistSVec<double,3> &X, 
+void Domain::computeBCsJacobianWallValues(FemEquationTerm *fet, DistBcData<dim> &bcData,
+					  DistGeoState &geoState, DistSVec<double,3> &X,
 					  DistSVec<double,dim> &V)
 {
 
@@ -2061,7 +2061,7 @@ void Domain::computeBCsJacobianWallValues(FemEquationTerm *fet, DistBcData<dim> 
 }
 
 //------------------------------------------------------------------------------
-                                                                                           
+
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianVolumicForceTerm(VolumicForceTerm *volForce,
                                DistVec<double> &ctrlVol,
@@ -2070,13 +2070,13 @@ void Domain::computeJacobianVolumicForceTerm(VolumicForceTerm *volForce,
 
 #pragma omp parallel for
   for (int iSub = 0; iSub <numLocSub; iSub++)
-    subDomain[iSub]->computeJacobianVolumicForceTerm(volForce, 
+    subDomain[iSub]->computeJacobianVolumicForceTerm(volForce,
                                            ctrlVol(iSub), V(iSub), A(iSub));
 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim>
 void Domain::getExtrapolationValue(DistExtrapolation<dim> *xpol, DistSVec<double,dim> &V,
                                       DistSVec<double,dim> &Ubc, VarFcn* vf,
@@ -2090,27 +2090,27 @@ void Domain::getExtrapolationValue(DistExtrapolation<dim> *xpol, DistSVec<double
     subDomain[iSub]->sndInletData(*inletRhsPat, Ubc.subData(iSub));
   }
  inletRhsPat->exchange();
-                                                                                                  
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub){
    subDomain[iSub]->addRcvInletData(*inletRhsPat, Ubc.subData(iSub), true);
   }
-                                                                                                  
-                                                                                                  
+
+
 }
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim>
 void Domain::applyExtrapolationToSolutionVector(DistExtrapolation<dim> *xpol, DistSVec<double,dim> &U,
                                       DistSVec<double,dim> &Ubc)
 {
-                                                                                                  
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub){
     Extrapolation<dim>* lxpol = (xpol) ? &((*xpol)(iSub)) : 0;
     subDomain[iSub]->applyExtrapolationToSolutionVector(lxpol, U(iSub), Ubc(iSub));
   }
-                                                                                                  
+
 }
 //------------------------------------------------------------------------------
 
@@ -2123,12 +2123,12 @@ void Domain::applyBCsToSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->applyBCsToSolutionVector(bcFcn, bcData(iSub), U(iSub));
 
-} 
+}
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData, 
+void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistSVec<double,dim> &F)
 {
 
@@ -2155,7 +2155,7 @@ void Domain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, DistBcData<dim> &bcDat
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData, 
+void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
 {
 
@@ -2168,7 +2168,7 @@ void Domain::applyBCsToJacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData, 
+void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 	                          DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
 {
 
@@ -2182,7 +2182,7 @@ void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 
 // Included (MB)
 template<int dim, class Scalar>
-void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData, 
+void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 	                          DistSVec<double,dim> &U, DistMat<Scalar,dim> &A)
 {
 
@@ -2196,7 +2196,7 @@ void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 
 // Included (MB)
 template<int dim, class Scalar, int neq>
-void Domain::applyBCsToJacobianWallValues(BcFcn *bcFcn, DistBcData<dim> &bcData, 
+void Domain::applyBCsToJacobianWallValues(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
 {
 
@@ -2255,9 +2255,9 @@ void Domain::computeH1(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, 
-		       DistBcData<dim> &bcData, DistGeoState &geoState, 
-		       DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
+		       DistBcData<dim> &bcData, DistGeoState &geoState,
+		       DistSVec<double,3> &X, DistSVec<double,dim> &V,
 		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,dim> &H2,
 		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
@@ -2267,29 +2267,29 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeH2(fluxFcn, recFcn, bcData(iSub), geoState(iSub), 
+    subDomain[iSub]->computeH2(fluxFcn, recFcn, bcData(iSub), geoState(iSub),
 			       X(iSub), V(iSub), ngrad(iSub), H2(iSub));
-    subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub), 
+    subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub),
 				   aij(iSub), aji(iSub), bij(iSub), bji(iSub));
   }
 
-  double t = timer->addH2SetupTime(t0);  
+  double t = timer->addH2SetupTime(t0);
 
   com->printf(6, "H2 matrix computation: %f s\n", t);
 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                      
+
 template<int dim, class Scalar>
 void Domain::computeH2LS(
                        DistGeoState &geoState,
                        DistSVec<double,3> &X, DistSVec<double,dim> &V,
                        DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,1> &H2)
 {
-                                                                                                      
+
   double t0 = timer->getTime();
-                                                                                                      
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeH2LS(geoState(iSub),
@@ -2297,17 +2297,17 @@ void Domain::computeH2LS(
 //    subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub),
 //                                   aij(iSub), aji(iSub), bij(iSub), bji(iSub));
   }
-                                                                                                      
+
   double t = timer->addH2SetupTime(t0);
-                                                                                                      
+
   com->printf(6, "H2 matrix computation: %f s\n", t);
-                                                                                                      
+
 }
 
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
-void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X, 
+void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 	     DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
 	     DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 	     DistSVec<double,dim> &bij, DistSVec<double,dim> &bji,
@@ -2321,7 +2321,7 @@ void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeMatVecProdH2(recFcn, X(iSub), ctrlVol(iSub), H2(iSub),
-		     aij(iSub), aji(iSub), bij(iSub), bji(iSub), 
+		     aij(iSub), aji(iSub), bij(iSub), bji(iSub),
 		     p(iSub), dpdxj(iSub), prod(iSub));
     subDomain[iSub]->sndData(*vPat, prod.subData(iSub));
   }
@@ -2333,7 +2333,7 @@ void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 
 }
 //------------------------------------------------------------------------------
-                                                                                                                     
+
 template<class Scalar1, class Scalar2>
 void Domain::computeMatVecProdH2LS(RecFcn *recFcn, DistSVec<double,3> &X,
              DistVec<double> &ctrlVol, DistMat<Scalar1,1> &H2,
@@ -2342,9 +2342,9 @@ void Domain::computeMatVecProdH2LS(RecFcn *recFcn, DistSVec<double,3> &X,
              DistVec<Scalar2> &p,
              DistVec<Scalar2> &prod)  {
   int iSub;
-                                                                                                                     
+
 //  CommPattern<Scalar2> *vPat = getCommPat(p);
-                                                                                                                     
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computeMatVecProdH2LS(recFcn, X(iSub), ctrlVol(iSub), H2(iSub),
@@ -2352,13 +2352,13 @@ void Domain::computeMatVecProdH2LS(RecFcn *recFcn, DistSVec<double,3> &X,
                      p(iSub), prod(iSub));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(prod.subData(iSub)));
   }
-                                                                                                                     
+
   volPat->exchange();
-                                                                                                                     
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(prod.subData(iSub)));
-                                                                                                                     
+
 }
 
 //------------------------------------------------------------------------------
@@ -2419,7 +2419,7 @@ void Domain::computeMatVecProdH2Tb(RecFcn *recFcn, DistSVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W) 
+void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W)
 {
 
   int iSub;
@@ -2437,30 +2437,30 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                          
+
 template<class Scalar>
 void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<double> &W)
 {
-                                                                                                                          
+
   int iSub;
-                                                                                                                          
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->sndData(*commPat, reinterpret_cast<double (*)[1]>(W.subData(iSub)));
   }
-                                                                                                                          
+
   commPat->exchange();
-                                                                                                                          
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<double (*)[1]>(W.subData(iSub)));
-                                                                                                                          
+
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-bool Domain::readVectorFromFile(const char *prefix, int step, double *tag, 
+bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
 				DistSVec<Scalar,dim> &U, Scalar* scale)
 {
 
@@ -2471,7 +2471,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
   if (neq != dim)
     com->printf(1, "*** Warning: mismatch in dim for \'%s\' (%d vs %d)\n", prefix, neq, dim);
 
-  if (step >= numSteps) 
+  if (step >= numSteps)
     return false;
 
   double t0 = timer->getTime();
@@ -2483,7 +2483,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
   timer->addBinaryReadTime(t0);
 
   com->printf(3, "Read solution %d from \'%s\'\n", step, prefix);
-  
+
   return true;
 
 }
@@ -2561,8 +2561,8 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
 //------------------------------------------------------------------------------
 
 template<class S1, class S2>
-void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<double,3>& X, 
-                                  DistSVec<double,3>& F, DistMat<S1,3>& K, 
+void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<double,3>& X,
+                                  DistSVec<double,3>& F, DistMat<S1,3>& K,
                                   DistMat<S2,3>* P, double volStiff, int** ndType=0)  {
 
   double t0 = timer->getTime();
@@ -2591,7 +2591,7 @@ void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<dou
     if (P) subDomain[iSub]->addRcvDiagBlocks(*matPat, (*P)(iSub));
   }
 
-  F *= -1.0; 
+  F *= -1.0;
 
   com->printf(6, "K matrix computation: %f s\n", t);
 
@@ -2637,7 +2637,7 @@ int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
                           DistSVec<double,dim> &U, DistVec<double> &Phi,
                           DistVec<double> &Phin)
 {
-                                                                                                                                                           
+
   int ierr = 0;
 
 #pragma omp parallel for reduction(+: ierr)
@@ -2655,7 +2655,7 @@ void Domain::restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Ph
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->restrictionOnPhi(initial(iSub),Phi(iSub), 
+    subDomain[iSub]->restrictionOnPhi(initial(iSub),Phi(iSub),
                                       restriction(iSub), sign);
 
 }
@@ -2663,7 +2663,7 @@ void Domain::restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Ph
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
-int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype, 
+int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 			 VarFcn* varFcn, double* Uin, DistSVec<double,dim>& U)
 {
 
@@ -2679,7 +2679,7 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
   int k;
   for (k=0; k<sizeint; ++k)
     allint[k] = 0;
-  for (k=0; k<sizedouble; ++k) 
+  for (k=0; k<sizedouble; ++k)
     alldouble[k] = 0.0;
 
   int (*allcmin)[neq] = reinterpret_cast<int (*)[neq]>(allint);
@@ -2691,7 +2691,7 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 #pragma omp parallel for reduction(+: ierr)
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     int gSub = distInfo.locSubToGlobSub[iSub];
-    ierr += subDomain[iSub]->template 
+    ierr += subDomain[iSub]->template
       clipSolution<dim,neq>(ctype, wtype, varFcn, Uin, U.getMasterFlag(iSub), U(iSub),
 			    allcmin[gSub], allpmin[gSub], allvmin[gSub]);
   }
@@ -2716,7 +2716,7 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
       cmin[k] += allcmin[iSub][k];
       if (allvmin[iSub][k] < vmin[k]) {
 	pmin[k] = allpmin[iSub][k];
-	vmin[k] = allvmin[iSub][k]; 
+	vmin[k] = allvmin[iSub][k];
       }
     }
   }
@@ -2724,17 +2724,17 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
   for (k=0; k<neq; ++k) {
     if (cmin[k] > 0) {
       if (ctype == TsData::NONE)
-	com->printf(1, "*** Warning: %d negative %s value%s (min=%e at %d)\n", 
+	com->printf(1, "*** Warning: %d negative %s value%s (min=%e at %d)\n",
 		    cmin[k], varFcn->pname[dim-neq+k], cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::ABS_VALUE)
-	com->printf(1, "*** Warning: %d %s value%s clipped with abs (min=%e at %d)\n", 
+	com->printf(1, "*** Warning: %d %s value%s clipped with abs (min=%e at %d)\n",
 		    cmin[k], varFcn->pname[dim-neq+k], cmin[k]>1? "s":"", vmin[k], pmin[k]);
       else if (ctype == TsData::FREESTREAM)
-	com->printf(1, "*** Warning: %d %s value%s clipped at freestream (min=%e at %d)\n", 
+	com->printf(1, "*** Warning: %d %s value%s clipped at freestream (min=%e at %d)\n",
 		    cmin[k], varFcn->pname[dim-neq+k], cmin[k]>1? "s":"", vmin[k], pmin[k]);
     }
   }
-  
+
   return ierr;
 
 }
@@ -2742,7 +2742,7 @@ int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::checkFailSafe(VarFcn* varFcn, DistSVec<double,dim>& U, 
+void Domain::checkFailSafe(VarFcn* varFcn, DistSVec<double,dim>& U,
                DistSVec<bool,2>& tag, DistVec<double> *Phi)
 {
 
@@ -2796,8 +2796,8 @@ void Domain::checkMatVecProd(DistSVec<double,dim> &prod, const char *msg)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeForceDerivs(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-                                DistSVec<double,dim> &deltaU, Vec<double> &modalF, 
+void Domain::computeForceDerivs(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<double,dim> &V,
+                                DistSVec<double,dim> &deltaU, Vec<double> &modalF,
                                 VecSet< DistSVec<double,3> > &mX)  {
 
   modalF = 0.0;
@@ -2892,54 +2892,54 @@ void Domain::printAllMatrix(DistMat<Scalar, neq> &A, int it)
 //------------------------------------------------------------------------------
 template<int dim>
 void Domain::assemble_dWdt(DistSVec<double, dim> &dWdt, DistSVec<double, dim> &Sigma)
-                                                                                                                          
+
 {
-                                                                                                                          
+
   assemble(vecPat, dWdt);
   assemble(vecPat, Sigma);
-                                                                                                                          
+
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
-                                                                                                                          
+
 template<int dim>
 void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, dim> &Sigma,
                              DistMacroCellSet *macroCells, DistSVec<double,1> **volRatio,
                              int scopeDepth)
 {
-                                                                                                                          
+
 #pragma omp parallel for
     for (int iSub=0; iSub < numLocSub; ++iSub) {
       SVec<double,1> **volR = new SVec<double,1>*[2];
       MacroCellSet** macCells = new MacroCellSet*[scopeDepth];
-                                                                                                                          
+
       for (int i = 0; i<2; ++i)
         volR[i]  =  &(*volRatio[i])(iSub);
-                                                                                                                          
+
       for (int i = 0; i<scopeDepth; ++i)
         macCells[i] =   macroCells->obtainMacroCell(iSub, i);
-                                                                                                                          
+
       subDomain[iSub]->computedWBar_dt(macCells, volR, Sigma(iSub), dWBardt(iSub), scopeDepth);
-                                                                                                                          
+
       delete [] volR;
       delete [] macCells;
     }
-                                                                                                                          
+
    assemble(vecPat, dWBardt);
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm, 
+void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
                    VolumeInitialConditions &ic, DistSVec<double,dim> &U)
 {
 
   // It is assumed that the initialization using volumes is only
   // called to distinguish nodes that are separated by a material
   // interface (structure). Thus one node cannot be at
-  // the boundary of two fluids. A fluid node then gets its 
+  // the boundary of two fluids. A fluid node then gets its
   // id from the element id and there cannot be any problem
   // for parallelization.
 #pragma omp parallel for
@@ -2951,7 +2951,7 @@ void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
+void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
                    SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
 #pragma omp parallel for
@@ -2963,7 +2963,7 @@ void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm, 
+void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
                    PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U){
 
 #pragma omp parallel for
@@ -3020,7 +3020,7 @@ void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgra
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     subDomain[iSub]->computePsiResidual(X(iSub), lsgrad(iSub), Phi(iSub),
-                                        Psi(iSub), Tag(iSub), w(iSub), 
+                                        Psi(iSub), Tag(iSub), w(iSub),
                                         beta(iSub), PsiRes(iSub),typeTracking);
     subDomain[iSub]->sndData(*vecPat, PsiRes.subData(iSub));
   }
@@ -3145,7 +3145,7 @@ void Domain::getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi)
 }
 //-------------------------------------------------------------------------------
 template<int dim>
-void Domain::checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, 
+void Domain::checkWeights(DistVec<double> &Phi, DistVec<double> &Phin,
                           DistSVec<double,dim> &Update, DistVec<double> &Weight)
 {
 
@@ -3162,30 +3162,30 @@ void Domain::padeReconstruction(VecSet<DistSVec<double, dim> >&snapsCoarse, VecS
   int nSnaps = stepParam[2];
   int nStepsCoarse = stepParam[1];
   int nSnapsCoarse = stepParam[3];
-                                                        
-                                                        
+
+
   int iSub;
-                                                        
+
   for (iSub = 0; iSub < numLocSub; ++iSub)  {
-                                                        
+
      SVec<double, dim> **locVecSetCoarse = new SVec<double, dim> *[nSnapsCoarse];
-     SVec<double, dim> **locVecSet = new SVec<double, dim> *[nSnaps];                                                         
+     SVec<double, dim> **locVecSet = new SVec<double, dim> *[nSnaps];
       for (int iSnapsCoarse = 0; iSnapsCoarse < nSnapsCoarse; iSnapsCoarse++){
         locVecSetCoarse[iSnapsCoarse] = &snapsCoarse[iSnapsCoarse](iSub);
-                                                        
+
       }
       for (int iSnaps = 0; iSnaps < nSnaps; iSnaps++) {
-                                                        
+
         locVecSet[iSnaps] = &snaps[iSnaps](iSub);
-                                                        
-                                                        
+
+
       }
-                                                        
-                                                        
+
+
       subDomain[iSub]->padeReconstruction(locVecSetCoarse, locVecSet, stepParam, freqCoarse, deltaFreq, nStrMode, L, M, nPoints);
-                                                        
+
   }
-                                                        
+
 }
 
 //------------------------------------------------------------------------------

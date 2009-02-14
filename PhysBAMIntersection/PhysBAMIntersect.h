@@ -5,6 +5,9 @@
 
 #include "LevelSet/LevelSetStructure.h"
 #include "LevelSet/IntersectionFactory.h"
+#include "PHYSBAM_INTERFACE.h"
+
+using PhysBAM::PhysBAMInterface;
 
 class Vec3D;
 class Communicator;
@@ -17,6 +20,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec3D *solids_particle_list;
     Communicator *com;
     PhysBAMIntersector **intersector;
+
+    PhysBAMInterface<double> *physInterface;
   public:
     DistPhysBAMIntersector();
     void init(std::string structureFileName);

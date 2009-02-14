@@ -46,7 +46,7 @@ using std::max;
 //#include <EulerStructGhostFluid.h>
 
 extern "C" {
-  void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
+  void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
 		      double (*)[25], double (*)[5], double (*)[5]);
   void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12]);
   void F77NAME(ballvertex)(double (*)[3], int [4], double (*)[12]);
@@ -74,7 +74,7 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 template<int dim>
 void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV,
-                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                                Vec<double> &dIdti, Vec<double> &dIdtv, double dMach,
                                 TimeLowMachPrec &tprec)
 {
 
@@ -87,11 +87,11 @@ void SubDomain::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
 template<int dim>
 void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &geoState,
                                 SVec<double,dim> &V, Vec<double> &dt,
-				Vec<double> &idti, Vec<double> &idtv, 
+				Vec<double> &idti, Vec<double> &idtv,
                                 TimeLowMachPrec &tprec,
 				Vec<double> &Phi)
 {
@@ -105,11 +105,11 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
 
 //------------------------------------------------------------------------------
 
-inline 
+inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n", 
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -123,7 +123,7 @@ void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
   double alpha1 = dx[0] * or11 * or11;
   double alpha2 = (dx[1] - r12or11*dx[0]) * or22 * or22;
   double alpha3 = (dx[2] - r23or22*dx[1] + psi*dx[0]) * or33 * or33;
-    
+
   W[0] = alpha1 - r12or11*alpha2 + psi*alpha3;
   W[1] = alpha2 - r23or22*alpha3;
   W[2] = alpha3;
@@ -137,7 +137,7 @@ inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n", 
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double dor11 = -1.0 / ( R[0]*R[0] )*dR[0];
@@ -173,7 +173,7 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R, 
+void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R,
 	        SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
 	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
 
@@ -192,7 +192,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    double Wi[3], Wj[3]; 
+    double Wi[3], Wj[3];
     Scalar deltaVar;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
@@ -326,8 +326,8 @@ void SubDomain::computeDerivativeOfGradientsLeastSquares(SVec<double,3> &X, SVec
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, SVec<double,3> &wii, 
-		SVec<double,3> &wij, SVec<double,3> &wji, SVec<Scalar,dim> &var, 
+void SubDomain::computeGradientsGalerkin(Vec<double> &ctrlVol, SVec<double,3> &wii,
+		SVec<double,3> &wij, SVec<double,3> &wji, SVec<Scalar,dim> &var,
                 SVec<Scalar,dim> &ddx, SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)
 {
 
@@ -503,7 +503,7 @@ void SubDomain::computeGradientsGalerkinT(Vec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeMinMaxStencilValues(SVec<double,dim> &V, SVec<double,dim> &Vmin, 
+void SubDomain::computeMinMaxStencilValues(SVec<double,dim> &V, SVec<double,dim> &Vmin,
 					   SVec<double,dim> &Vmax)
 {
 
@@ -585,10 +585,10 @@ void SubDomain::computeDerivativeOfMinMaxStencilValues(SVec<double,dim> &V, SVec
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeMultiDimLimiter(RecLimiter *recFcn, SVec<double,3> &X, 
+void SubDomain::computeMultiDimLimiter(RecLimiter *recFcn, SVec<double,3> &X,
 				       Vec<double> &ctrlVol, SVec<double,dim> &V,
-				       SVec<double,dim> &dVdx, SVec<double,dim> &dVdy, 
-				       SVec<double,dim> &dVdz, SVec<double,dim> &Vmin, 
+				       SVec<double,dim> &dVdx, SVec<double,dim> &dVdy,
+				       SVec<double,dim> &dVdz, SVec<double,dim> &Vmin,
 				       SVec<double,dim> &Vmax, SVec<double,dim> &phi)
 {
 
@@ -606,14 +606,14 @@ void SubDomain::computeMultiDimLimiter(RecLimiter *recFcn, SVec<double,3> &X,
     int j = edgePtr[l][1];
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    for (int k=0; k<dim; ++k) { 
+    for (int k=0; k<dim; ++k) {
       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
 
-    recFcn->computeLimiter(Vmax[i], Vmin[i], V[i], Vi, ctrlVol[i], 
+    recFcn->computeLimiter(Vmax[i], Vmin[i], V[i], Vi, ctrlVol[i],
 			   Vmax[j], Vmin[j], V[j], Vj, ctrlVol[j], phi[i], phi[j]);
 
   }
@@ -671,8 +671,8 @@ void SubDomain::computeDerivativeOfMultiDimLimiter(RecLimiter *recFcn, SVec<doub
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V, 
-				      SVec<double,dim>& dVdx, SVec<double,dim>& dVdy, 
+void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
+				      SVec<double,dim>& dVdx, SVec<double,dim>& dVdy,
 				      SVec<double,dim>& dVdz, SVec<double,3>& sensor)
 {
 
@@ -720,7 +720,7 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
   month = mar,
   year = 1985,
   address = "von Karman Institute, Brussels, Belgium",
-} 
+}
 @INBOOK{barth-92,
   author = "Barth, T. J.",
   title = "Aspects of Unstructured Grids and Finite-Volume Solvers
@@ -740,12 +740,12 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
   year = 1979,
   volume = 32,
   pages = "101--136",
-} 
+}
 */
 template<int dim>
-int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, RecFcn* recFcn, 
-                                       BcData<dim>& bcData, GeoState& geoState, 
-				       SVec<double,3>& X, SVec<double,dim>& V, 
+int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+				       SVec<double,3>& X, SVec<double,dim>& V,
 				       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 				       SVec<double,dim>& fluxes, SVec<int,2>& tag,
                                        int failsafe, int rshift)
@@ -753,7 +753,7 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
 
   int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState,
                                            X, V, ngrad, egrad, fluxes, tag, failsafe, rshift);
-  
+
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
 
   return(ierr);
@@ -785,19 +785,19 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        Vec<double> &Phi,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                       NodalGrad<1>& ngradLS, 
+                                       NodalGrad<1>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<double,dim> *bcFlux,
                                        SVec<double,dim> *interfaceFlux,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
-  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn, 
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Phi,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            interfaceFlux, tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes, bcFlux);
- 
+
   return ierr;
 
 }
@@ -808,7 +808,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
-                                       EulerStructGhostFluid *eulerFSI,
+                                       LevelSetStructure &eulerFSI,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
@@ -824,7 +824,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
 }
 
-                                                                                                 
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -837,8 +837,8 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
 {
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
                                   egrad, Phi, PhiF);
-                                                                                                  
-                                                                                                  
+
+
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
 
 }
@@ -854,7 +854,7 @@ int SubDomain::computeFiniteVolumeBar_Step1(Vec<double> &irey, FluxFcn** fluxFcn
                                             int failsafe, int rshift)
 {
 
-  int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState, 
+  int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState,
                                            X, VBar, ngrad, egrad, sigma, tag, failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, VBar, sigma);
@@ -874,7 +874,7 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
 {
 
   Connectivity &nToMN = *nodesToMCNodes[scopeDepth-1];
-  
+
   for (int i=0; i<nToMN.csize(); ++i) {
     if (macroCells[scopeDepth-1]->containing(i) != -1) {
        for (int j=0; j<nToMN.num(i); ++j) {
@@ -904,13 +904,13 @@ void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState
 
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
-void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData, 
+void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState, Vec<double> &irey,
-                                                SVec<double,3> &X, Vec<double> &ctrlVol, 
+                                                SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                                CommPattern<double>* flag) 
+                                                CommPattern<double>* flag)
 {
-  if (!flag){  
+  if (!flag){
     edges.computeJacobianFiniteVolumeTerm(fluxFcn, geoState, irey, X, ctrlVol, V, A);
 
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
@@ -923,7 +923,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &
   for (int i=0; i<ctrlVol.size(); ++i) {
     double voli = 1.0 / ctrlVol[i];
     Scalar *Aii = A.getElem_ii(i);
-    for (int k=0; k<neq*neq; ++k) 
+    for (int k=0; k<neq*neq; ++k)
       Aii[k] *= voli;
   }
 
@@ -938,7 +938,7 @@ void SubDomain::recomputeRHS(VarFcn* vf, SVec<double,dim>& V, SVec<double,dim>& 
 {
   inletNodes.recomputeRHS(vf, xpol, elems, V, bcData, geoState, rhs, X, locToGlobNodeMap);
 }
-                                                                                              
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -965,7 +965,7 @@ void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> 
 {
   Freal = 0.0;
   for (int iNode=0; iNode<numNodes(); iNode++)
-    if (philevel[iNode]>0.0)  
+    if (philevel[iNode]>0.0)
         for (int j=0; j<dim; j++)  Freal[iNode][j] = F[iNode][j];
 }
 
@@ -987,7 +987,7 @@ void SubDomain::checkRHS(Scalar (*rhs)[dim])
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                                 FluxFcn **fluxFcn, BcData<dim> &bcData,
-                                                GeoState &geoState, 
+                                                GeoState &geoState,
                                                 NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
                                                 SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
@@ -1000,7 +1000,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
     edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi, nodeType);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
   }
-                                                                                              
+
   for (int i=0; i<ctrlVol.size(); ++i) {
     double voli = 1.0 / ctrlVol[i];
     Scalar *Aii = A.getElem_ii(i);
@@ -1072,11 +1072,11 @@ void SubDomain::computeDerivativeOfVolumicForceTerm(VolumicForceTerm *volForce, 
   month = jan,
   year = 1991,
   note = "{AIAA} paper 91-0721",
-} 
+}
 */
 template<int dim>
-void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData, 
-				    GeoState &geoState, SVec<double,3> &X, 
+void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+				    GeoState &geoState, SVec<double,3> &X,
 				    SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
@@ -1113,7 +1113,7 @@ void SubDomain::computeSmagorinskyLESTerm(SmagorinskyLESTerm *smag, SVec<double,
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                          
+
 template<int dim>
 void SubDomain::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 			           SVec<double,dim> &V, SVec<double,dim> &R)
@@ -1127,8 +1127,8 @@ void SubDomain::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 
 template<int dim>
 void SubDomain::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-                                      SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
-                                      SVec<double,8> &Eng_Test, SVec<double,3> &X, 
+                                      SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
+                                      SVec<double,8> &Eng_Test, SVec<double,3> &X,
 				      SVec<double,dim> &V, double gam, double R)
 {
 
@@ -1142,7 +1142,7 @@ void SubDomain::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &M
 template<int dim>
 void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
                                 SVec<double,6> &Sij_Test, Vec<double> &modS_Test,
-                                SVec<double,8> &Eng_Test, SVec<double,2> &Cs, 
+                                SVec<double,8> &Eng_Test, SVec<double,2> &Cs,
 				Vec<int> &Ni, SVec<double,3> &X, double gam, double R)
 {
 
@@ -1152,12 +1152,12 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
    double r_u_u[6];
    double r_s_p[6];
    double ratdelta = pow(Ni[i],(2.0/3.0)); // should precompute this also
-      
+
    double r_e;
    double r_e_plus_p;
    double r_s_dtdxj[3];
    double dtdxj[3];
-   
+
    double num, denom;
    double sqrt2S2;
    double Pij[3][3], Bij[3][3], Lij[3][3];
@@ -1172,25 +1172,25 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
    // Vol : 40, pgs:1431-1460
    // Authors; Camarri, Salvetti, Koobus, Dervieux
    // ---------------------------------------------------------------------
-                                                                                                                     
+
     r_u[0] = Mom_Test[i][1]/Mom_Test[i][0];
     r_u[1] = Mom_Test[i][2]/Mom_Test[i][0];
     r_u[2] = Mom_Test[i][3]/Mom_Test[i][0];
-                                                                                                                     
+
     r_u_u[0] = Mom_Test[i][4]/Mom_Test[i][0];
     r_u_u[1] = Mom_Test[i][5]/Mom_Test[i][0];
     r_u_u[2] = Mom_Test[i][6]/Mom_Test[i][0];
     r_u_u[3] = Mom_Test[i][7]/Mom_Test[i][0];
     r_u_u[4] = Mom_Test[i][8]/Mom_Test[i][0];
     r_u_u[5] = Mom_Test[i][9]/Mom_Test[i][0];
-                                                                                                                     
+
     r_s_p[0] = Mom_Test[i][10]/Mom_Test[i][0];
     r_s_p[1] = Mom_Test[i][11]/Mom_Test[i][0];
     r_s_p[2] = Mom_Test[i][12]/Mom_Test[i][0];
     r_s_p[3] = Mom_Test[i][13]/Mom_Test[i][0];
     r_s_p[4] = Mom_Test[i][14]/Mom_Test[i][0];
     r_s_p[5] = Mom_Test[i][15]/Mom_Test[i][0];
-                                                                                                                     
+
     vc[0] = VCap[i][0]/Mom_Test[i][0];
     vc[1] = VCap[i][1]/Mom_Test[i][0];
     vc[2] = VCap[i][2]/Mom_Test[i][0];
@@ -1198,7 +1198,7 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
     vc[4] = VCap[i][4]/Mom_Test[i][0];
 
     Pij[0][0] = Sij_Test[i][0]/Mom_Test[i][0];
-    Pij[1][1] = Sij_Test[i][1]/Mom_Test[i][0]; 
+    Pij[1][1] = Sij_Test[i][1]/Mom_Test[i][0];
     Pij[2][2] = Sij_Test[i][2]/Mom_Test[i][0];
     Pij[0][1] = Sij_Test[i][3]/Mom_Test[i][0];
     Pij[0][2] = Sij_Test[i][4]/Mom_Test[i][0];
@@ -1208,29 +1208,29 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
     Pij[2][1] = Pij[1][2];
 
     sqrt2S2 = modS_Test[i]/Mom_Test[i][0];
-    
+
     r_e = Eng_Test[i][0]/Mom_Test[i][0];
-    
+
     r_e_plus_p = Eng_Test[i][1]/Mom_Test[i][0];
-    
+
     r_s_dtdxj[0] = Eng_Test[i][2]/Mom_Test[i][0];
     r_s_dtdxj[1] = Eng_Test[i][3]/Mom_Test[i][0];
     r_s_dtdxj[2] = Eng_Test[i][4]/Mom_Test[i][0];
- 
+
     dtdxj[0] = Eng_Test[i][5]/Mom_Test[i][0];
     dtdxj[1] = Eng_Test[i][6]/Mom_Test[i][0];
     dtdxj[2] = Eng_Test[i][7]/Mom_Test[i][0];
-    
+
     // computing Smagorinsky constant //
-    
+
     computeLij(Lij, r_u, r_u_u, vc);
     computeBij(Bij, r_s_p, sqrt2S2, Pij, ratdelta, vc);
-                                    
-				                                                                                     
+
+
     num = 0.0;
     denom = 0.0;
-                                                                                                                     
-    // least squares procedure 
+
+    // least squares procedure
 
     for (int j=0; j<3; ++j){
       for (int k=0; k<3; ++k){
@@ -1238,7 +1238,7 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
          denom += Bij[j][k]*Bij[j][k];
        }
     }
-                                                                                                                     
+
     if(denom < 1.0e-7) denom = 1.0e-7;
     Cs[i][0] = (num/denom);
 
@@ -1246,11 +1246,11 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
 
     computeZi(Zi, ratdelta, sqrt2S2, dtdxj, r_s_dtdxj, vc, Cp);
     computeLi(Li, r_e, r_e_plus_p, r_u, vc);
-    
+
     num = 0.0;
     denom = 0.0;
-    
-    // least squares procedure 
+
+    // least squares procedure
 
     for (int j=0; j<3; ++j){
        num += Li[j]*Zi[j];
@@ -1266,7 +1266,7 @@ void SubDomain::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Tes
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
                                       SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
 {
 
@@ -1297,10 +1297,10 @@ void SubDomain::computeVMSLES_Step2(SVec<double,1> &volRatio,
 {
 
   Connectivity &nToMN = *nodesToMCNodes[scopeDepth-1];
-  
+
   for (int i=0; i<nToMN.csize(); ++i) {
-    if (macroCells->containing(i) != -1) {   
-      // excluding nodes on SD boundary 
+    if (macroCells->containing(i) != -1) {
+      // excluding nodes on SD boundary
       // that are assigned to a MC in another SD
       for (int j=0; j<nToMN.num(i); ++j) {
 	int idx = nToMN[i][j];
@@ -1346,7 +1346,7 @@ void SubDomain::computeGalerkinBar_Step2(MacroCellSet **macroCells,
 {
 
   Connectivity &nToMN = *nodesToMCNodes[scopeDepth-1];
-  
+
   for (int i=0; i<nToMN.csize(); ++i) {
     if (macroCells[scopeDepth-1]->containing(i) != -1) {
        for (int j=0; j<nToMN.num(i); ++j) {
@@ -1356,7 +1356,7 @@ void SubDomain::computeGalerkinBar_Step2(MacroCellSet **macroCells,
        }
      }
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -1372,9 +1372,9 @@ void SubDomain::computeMBarAndM_Step1(DynamicVMSTerm *dvmst,
 {
 
   elems.computeMBarAndM(dvmst, VBar, volRatio, X, V, SigmaBar, Sigma);
-  
+
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1390,7 +1390,7 @@ void SubDomain::computeMBarAndM_Step2(MacroCellSet **macroCells,
 
   Connectivity &nToMN1 = *nodesToMCNodes[scopeDepth1-1];
   Connectivity &nToMN2 = *nodesToMCNodes[scopeDepth2-1];
-  
+
   for (int i=0; i<nToMN1.csize(); ++i) {
     if (macroCells[scopeDepth1-1]->containing(i) != -1) {
        for (int j=0; j<nToMN1.num(i); ++j) {
@@ -1418,7 +1418,7 @@ void SubDomain::computeMBarAndM_Step2(MacroCellSet **macroCells,
   }
 
 }
-                                                                                                                          
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1448,7 +1448,7 @@ void SubDomain::computeDynamicVMSTerm_Step2(MacroCellSet **macroCells,
 {
 
   Connectivity &nToMN = *nodesToMCNodes[scopeDepth-1];
-  
+
   for (int i=0; i<nToMN.csize(); ++i) {
     if (macroCells[scopeDepth-1]->containing(i) != -1) {
        for (int j=0; j<nToMN.num(i); ++j) {
@@ -1670,8 +1670,8 @@ void SubDomain::computeMutOMuWale(WaleLESTerm *wale, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs, 
-                                  SVec<double,3> &X, SVec<double,dim> &V, 
+void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
+                                  SVec<double,3> &X, SVec<double,dim> &V,
 				  Vec<double> &mutOmu)
 
 {
@@ -1679,7 +1679,7 @@ void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs
   for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
     double dp1dxj[4][3];
     double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
-    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]], 
+    double *v[4] = {V[elems[tetNum][0]], V[elems[tetNum][1]],
                     V[elems[tetNum][2]], V[elems[tetNum][3]]};
     double cs[4] = {Cs[elems[tetNum][0]][0], Cs[elems[tetNum][1]][0],
                     Cs[elems[tetNum][2]][0], Cs[elems[tetNum][3]][0]};
@@ -1696,8 +1696,8 @@ void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs
 //--------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData, 
-					    GeoState &geoState, SVec<double,3> &X, 
+void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+					    GeoState &geoState, SVec<double,3> &X,
 					    Vec<double> &ctrlVol, SVec<double,dim> &V,
 					    GenMat<Scalar,neq> &A)
 {
@@ -1712,8 +1712,8 @@ void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &b
 
 // Included (MB)
 template<int dim>
-void SubDomain::computeBCsJacobianWallValues(FemEquationTerm *fet, BcData<dim> &bcData, 
-					    GeoState &geoState, SVec<double,3> &X, 
+void SubDomain::computeBCsJacobianWallValues(FemEquationTerm *fet, BcData<dim> &bcData,
+					    GeoState &geoState, SVec<double,3> &X,
 					    SVec<double,dim> &V)
 {
 
@@ -1724,7 +1724,7 @@ void SubDomain::computeBCsJacobianWallValues(FemEquationTerm *fet, BcData<dim> &
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void SubDomain::computeJacobianVolumicForceTerm(VolumicForceTerm *volForce,  
+void SubDomain::computeJacobianVolumicForceTerm(VolumicForceTerm *volForce,
                                            Vec<double> &ctrlVol, SVec<double,dim> &V,
                                            GenMat<Scalar,neq> &A)
 {
@@ -1752,11 +1752,11 @@ void SubDomain::getExtrapolationValue(Extrapolation<dim>* xpol,SVec<double,dim> 
 {
         inletNodes.getExtrapolationValue(xpol, V, Ubc, vf, bcData, geoState, elems, locToGlobNodeMap, X);
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim>
-void SubDomain::applyExtrapolationToSolutionVector(Extrapolation<dim>* xpol,SVec<double,dim> &U, 
+void SubDomain::applyExtrapolationToSolutionVector(Extrapolation<dim>* xpol,SVec<double,dim> &U,
 						   SVec<double,dim> &Ubc)
 {
         inletNodes.applyExtrapolationToSolutionVector(xpol, U, Ubc, locToGlobNodeMap);
@@ -1778,7 +1778,7 @@ void SubDomain::applyBCsToSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData, 
+void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
 				   SVec<double,dim> &U, SVec<double,dim> &F)
 {
   SVec<double,dim> &Vwall = bcData.getNodeStateVector();
@@ -1808,7 +1808,7 @@ void SubDomain::applyBCsToDerivativeOfResidual(BcFcn *bcFcn, BcData<dim> &bcData
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
-void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs, 
+void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 				   SVec<double,dim> &U, GenMat<Scalar,neq> &A)
 {
   SVec<double,dim> &Vwall = bcs.getNodeStateVector();
@@ -1875,7 +1875,7 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 // Included (MB)
 template<int dim, class Scalar>
-void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs, 
+void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 				   SVec<double,dim> &U, GenMat<Scalar,dim> &A)
 {
 
@@ -2062,7 +2062,7 @@ MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
       }
 
      if (nodeType[j] != BC_INTERNAL)  {
-       if (bcMap.find(iEdge) == bcMap.end()) 
+       if (bcMap.find(iEdge) == bcMap.end())
          bcMap[iEdge] = numOffDiagEntries;
        else
          numBcNodes[iEdge] = 1;
@@ -2092,7 +2092,7 @@ MvpMat<Scalar,dim> *SubDomain::createMaskMatVecProd(bool nsFlag)
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-DiagMat<Scalar,dim> *SubDomain::createMaskDiagonal(typename DiagMat<Scalar,dim>::Type type, 
+DiagMat<Scalar,dim> *SubDomain::createMaskDiagonal(typename DiagMat<Scalar,dim>::Type type,
 						   int *ndType)
 {
 
@@ -2122,7 +2122,7 @@ SparseMat<Scalar,dim> *SubDomain::createMaskILU(int fill, int renum, int *ndType
   A->symbolicILU(fill);
 
   A->createPointers(edges);
-  
+
   return A;
 
 }
@@ -2194,8 +2194,8 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 template<int dim, class Scalar>
-void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData, 
-			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V, 
+void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
+			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
 			  NodalGrad<dim> &ngrad, GenMat<Scalar,dim> &A)
 {
 
@@ -2221,7 +2221,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
-    
+
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     int k;
     for (k=0; k<dim; ++k) {
@@ -2237,9 +2237,9 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
     Aji = A.getElem_ji(l);
 
     if (Aij && Aji)  {
-      for (k=0; k<dim*dim; ++k) { 
-        Aij[k] += dfdVj[k]; 
-        Aji[k] += dfdVi[k]; 
+      for (k=0; k<dim*dim; ++k) {
+        Aij[k] += dfdVj[k];
+        Aji[k] += dfdVi[k];
       }
     }
 
@@ -2260,27 +2260,27 @@ void SubDomain::computeH2LS(
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   double ddVij[1], ddVji[1], Vi[1], Vj[1], Ui, Uj, Un;
   Scalar *Aij, *Aji, *Aii, *Ajj;
-  
+
   // contribution of the edges
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  
+
   for (int l=0; l<edges.size(); ++l) {
     if (!edgeFlag[l]) continue;
-    
+
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     int k;
-    
+
     Aij = A.getElem_ij(l);
     Aji = A.getElem_ji(l);
     Aii = A.getElem_ii(i);
     Ajj = A.getElem_ii(j);
-    
+
     for (k=0; k<1; ++k) {
-//      Ui      = V[i][1]*dx[0]  +V[i][2]*dx[1]  +V[i][3]*dx[2]; 
-//      Uj      = V[j][1]*dx[0]  +V[j][2]*dx[1]  +V[j][3]*dx[2]; 
+//      Ui      = V[i][1]*dx[0]  +V[i][2]*dx[1]  +V[i][3]*dx[2];
+//      Uj      = V[j][1]*dx[0]  +V[j][2]*dx[1]  +V[j][3]*dx[2];
       Ui      = V[i][1]*normal[l][0]  + V[i][2]*normal[l][1]  + V[i][2]*normal[l][2];
       Uj      = V[j][1]*normal[l][0]  + V[j][2]*normal[l][1]  + V[j][2]*normal[l][2];
       Un      = 0.5*(Ui  +Uj);
@@ -2303,7 +2303,7 @@ void SubDomain::computeH2LS(
 
     }
   }
-  
+
   // contribution of the boundary faces
   faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
 
@@ -2314,7 +2314,7 @@ void SubDomain::computeH2LS(
 template<class Scalar, int dim>
 void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
 			      SVec<double,dim> &V, NodalGrad<dim> &ngrad,
-			      SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji, 
+			      SVec<Scalar,dim> &aij, SVec<Scalar,dim> &aji,
 			      SVec<Scalar,dim> &bij, SVec<Scalar,dim> &bji)
 {
 
@@ -2337,7 +2337,7 @@ void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    recFcn->precompute(V[i], ddVij, V[j], ddVji, aij[l], aji[l], bij[l], bji[l]); 
+    recFcn->precompute(V[i], ddVij, V[j], ddVji, aij[l], aji[l], bij[l], bji[l]);
   }
 
 }
@@ -2346,7 +2346,7 @@ void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
 
 template<class Scalar, int dim>
 void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
-				    SVec<double,dim> &p, SVec<double,dim> &prod) 
+				    SVec<double,dim> &p, SVec<double,dim> &prod)
 {
 
   int i, j, l;
@@ -2368,7 +2368,7 @@ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
 
 #pragma ivdep
   for (l=0; l<numEdges; ++l) {
-    
+
     if (edgeFlag[l]) {
 
       i = edgePtr[l][0];
@@ -2387,10 +2387,10 @@ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
 
 template<class Scalar1, class Scalar2, int dim>
 void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
-	        Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A, 
-	        SVec<double,dim> &aij, SVec<double,dim> &aji, 
-	        SVec<double,dim> &bij, SVec<double,dim> &bji, 
-	        SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj, 
+	        Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
+	        SVec<double,dim> &aij, SVec<double,dim> &aji,
+	        SVec<double,dim> &bij, SVec<double,dim> &bji,
+	        SVec<Scalar2,dim> &p, NodalGrad<dim, Scalar2> &dpdxj,
 	        SVec<Scalar2,dim> &prod) {
 
   int i, j, l;
@@ -2421,14 +2421,14 @@ void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
       j = edgePtr[l][1];
 
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-      for (int k=0; k<dim; ++k) { 
+      for (int k=0; k<dim; ++k) {
         ddpij[k] = dx[0]*dpdx[i][k] + dx[1]*dpdy[i][k] + dx[2]*dpdz[i][k];
         ddpji[k] = dx[0]*dpdx[j][k] + dx[1]*dpdy[j][k] + dx[2]*dpdz[j][k];
 
       }
 
       // result of the reconstructed-limited states are in pij, pji
-      recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l], 
+      recFcn->template compute<Scalar2, dim>(p[i], ddpij, p[j], ddpji, aij[l], aji[l],
          				     bij[l], bji[l], pij[0], pji[0]);
 
       // A is applied to reconstructed-limited states and stored in tmpi, tmpj
@@ -2443,7 +2443,7 @@ void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
         DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index, pji, 0, prod.v, i);
         DenseMatrixOp<Scalar1,dim,dim*dim>::applyAndAddToVector(a, index+1, pij, 0, prod.v, i);
 
-        if (nodeType[j] != BC_INTERNAL) 
+        if (nodeType[j] != BC_INTERNAL)
           index = numNodes+2*numEdges+2*bcMap[l]+2*numBcNodes[l];
         else
           index = numNodes+2*l;
@@ -2507,7 +2507,7 @@ void SubDomain::computeMatVecProdH2LS(RecFcn *recFcn, SVec<double,3> &X,
                 Vec<double> &ctrlVol, GenMat<Scalar1,1> &A,
                 SVec<double,1> &aij, SVec<double,1> &aji,
                 SVec<double,1> &bij, SVec<double,1> &bji,
-                Vec<Scalar2> &p, 
+                Vec<Scalar2> &p,
                 Vec<Scalar2> &prod) {
   int i, j, l;
   Scalar1 (*a)[1] = A.data();
@@ -2553,7 +2553,7 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
 
   Scalar2 p1[1][dim], p2[1][dim], p3[1][dim], p4[1][dim];
   Scalar2 p5[1][dim], p6[1][dim], p7[1][dim], p8[1][dim];
-  //Scalar2 tmp[1][dim]; 
+  //Scalar2 tmp[1][dim];
   Scalar2 tmpi[1][dim], tmpj[1][dim];
   Scalar2 tmp1[1][dim];
   Scalar1 (*a)[dim*dim] = A.data();
@@ -2620,7 +2620,7 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
 template<class Scalar1, class Scalar2, int dim>
 void SubDomain::computeMatVecProdH2Tb(RecFcn *recFcn, SVec<double,3> &X,
                 Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
-                NodalGrad<dim, Scalar2> &dpdxj, SVec<Scalar2,dim> &p, 
+                NodalGrad<dim, Scalar2> &dpdxj, SVec<Scalar2,dim> &p,
                 SVec<Scalar2,dim> &prod, SVec<Scalar2,dim> &prod2)  {
 
   int i, l;
@@ -2658,14 +2658,14 @@ void SubDomain::setComLenNodes(int dim, CommPattern<Scalar> &cp)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<class Scalar>
 void SubDomain::setComLenInletNodes(int dim, CommPattern<Scalar> &cp)
 {
-                                                                                                  
+
   for (int iSub = 0; iSub < numNeighb; ++iSub)
     cp.setLen(sndChannel[iSub], sharedInletNodes->num(iSub)*dim);
-                                                                                                  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2719,29 +2719,29 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<class Scalar, int dim>
 void SubDomain::sndInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 {
-                                                                                                  
+
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<Scalar> sInfo = sp.getSendBuffer(sndChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-    for (int iNode = 0; iNode < sharedInletNodes->num(iSub); ++iNode) 
+    for (int iNode = 0; iNode < sharedInletNodes->num(iSub); ++iNode)
       for (int j = 0; j < dim; ++j)
         buffer[iNode][j] = w[ (*sharedInletNodes)[iSub][iNode] ][j];
   }
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<class Scalar, int dim>
 void SubDomain::addRcvInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim], bool ForExtrapolation)
 {
   if(!ForExtrapolation){
-    /* the values in w are accessed via the inlet node number 
+    /* the values in w are accessed via the inlet node number
      * in the inletNode number chart.
-     * This communication of values is used for 
+     * This communication of values is used for
      * computation of normals at inlet nodes
      * and computation of number of faces surrounding
      * a given inlet node.
@@ -2750,11 +2750,11 @@ void SubDomain::addRcvInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim], bool 
     for (int iSub = 0; iSub < numNeighb; ++iSub) {
       SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
       Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
-                                                                                                  
+
       for (int iNode = 0; iNode < sharedInletNodes->num(iSub); ++iNode)
-        for (int j = 0; j < dim; ++j)  
+        for (int j = 0; j < dim; ++j)
           w[ (*sharedInletNodes)[iSub][iNode] ][j] += buffer[iNode][j];
-        
+
     }
   }else{
     /* the values in w are accessed via the inlet node number
@@ -2763,7 +2763,7 @@ void SubDomain::addRcvInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim], bool 
      * computation of extrapolation values
      * in the whole domain.
      */
- 
+
     for (int iSub = 0; iSub < numNeighb; ++iSub) {
       SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
       Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
@@ -2771,7 +2771,7 @@ void SubDomain::addRcvInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim], bool 
       for (int iNode = 0; iNode < sharedInletNodes->num(iSub); ++iNode){
         inletnode = (*sharedInletNodes)[iSub][iNode] ;
         if (w[inletnode][0] == 0.0){
-          for (int j = 0; j < dim; ++j) 
+          for (int j = 0; j < dim; ++j)
             w[inletnode][j] += buffer[iNode][j];
         }
         else{
@@ -2780,9 +2780,9 @@ void SubDomain::addRcvInletData(CommPattern<Scalar> &sp, Scalar (*w)[dim], bool 
         }
       }
     }
-  }                                                                                              
+  }
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -2792,7 +2792,7 @@ void SubDomain::sndInletRhsData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     SubRecInfo<Scalar> sInfo = sp.getSendBuffer(sndChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
     int inletnode, node;
-                                                                                                  
+
     for (int iNode = 0; iNode < sharedInletNodes->num(iSub); ++iNode) {
       inletnode = (*sharedInletNodes)[iSub][iNode] ;
       node = inletNodes[inletnode].getNodeNum();
@@ -2802,7 +2802,7 @@ void SubDomain::sndInletRhsData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     }
   }
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -2814,7 +2814,7 @@ void SubDomain::addRcvInletRhsData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
      * the recomputation of the rhs term, which
      * contains the flux (computeFVT = computeResidual)
      */
-        
+
         // we want to pass the data of a shared inlet node from one subdomain to a
         // neighbouring subdomain. Only one of the data has a physical value, while
         // the other ones are set to 0.0, except in one case where the intersection
@@ -2828,7 +2828,7 @@ void SubDomain::addRcvInletRhsData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
       inletnode = (*sharedInletNodes)[iSub][iNode] ;
       node = inletNodes[inletnode].getNodeNum();
       if (w[node][0] == 0.0){
-        for (int j = 0; j < dim; ++j)  
+        for (int j = 0; j < dim; ++j)
           w[node][j] += buffer[iNode][j];
       }
       else{
@@ -2959,35 +2959,35 @@ void SubDomain::sndDiagInletBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &
   int node;
   int type;
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-                                                                                                  
+
     SubRecInfo<Scalar> sInfo = sp.getSendBuffer(sndChannel[iSub]);
     Scalar (*buffer)[dim*dim] = reinterpret_cast<Scalar (*)[dim*dim]>(sInfo.data);
-                                                                                                  
+
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
       node = (*sharedNodes)[iSub][iNode];
       type = nodeType[node];
       if (!(type == BC_INLET_MOVING || type == BC_OUTLET_MOVING ||
             type == BC_INLET_FIXED  || type == BC_OUTLET_FIXED) ){
-                                                                                                  
+
         Scalar *a = A.getElem_ii((*sharedNodes)[iSub][iNode]);
         for (int j=0; j<dim*dim; ++j) buffer[iNode][j] = a[j];
       }
     }
   }
-                                                                                                  
-                                                                                                  
+
+
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<class Scalar, int dim>
 void SubDomain::addRcvDiagInletBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
 {
   int node;
   int type;
-                                                                                                  
+
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-                                                                                                  
+
     SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
     Scalar (*buffer)[dim*dim] = reinterpret_cast<Scalar (*)[dim*dim]>(sInfo.data);
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
@@ -2995,7 +2995,7 @@ void SubDomain::addRcvDiagInletBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim
       type = nodeType[node];
       if (!(type == BC_INLET_MOVING || type == BC_OUTLET_MOVING ||
             type == BC_INLET_FIXED  || type == BC_OUTLET_FIXED) ){
-                                                                                                  
+
         Scalar *a = A.getElem_ii((*sharedNodes)[iSub][iNode]);
         for (int j=0; j<dim*dim; ++j) a[j] += buffer[iNode][j];
       }else{
@@ -3003,11 +3003,11 @@ void SubDomain::addRcvDiagInletBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim
         if (a[0] == 0.0)
           for (int k=0; k<dim*dim; k++) a[k] += buffer[iNode][k];
       }
-                                                                                                  
+
     }
-                                                                                                  
+
   }
-                                                                                                  
+
 }
 //------------------------------------------------------------------------------
 
@@ -3035,7 +3035,7 @@ void SubDomain::addRcvEdgeData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 {
 
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
-    
+
     SubRecInfo<Scalar> sInfo = sp.getSendBuffer(rcvChannel[iSub]);
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
 
@@ -3085,7 +3085,7 @@ void SubDomain::sndOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> &A)
 	  buffer[iEdge][1][k] = 0.0;
 	}
       }
-      
+
     }
 
   }
@@ -3124,7 +3124,7 @@ void SubDomain::addRcvOffDiagBlocks(CommPattern<Scalar> &sp, GenMat<Scalar,dim> 
 	  aji[k] += buffer[iEdge][1][k];
 	}
       }
-      
+
     }
 
   }
@@ -3144,9 +3144,9 @@ double SubDomain::readTagFromFile(const char *prefix, int no, int *neq, int *nso
 
   int info[3];
   file.read(info, 3);
- 
+
   if (info[0] != numClusNodes) {
-    fprintf(stderr, "*** Error: mismatch in size for \'%s\' (%d vs %d)\n", 
+    fprintf(stderr, "*** Error: mismatch in size for \'%s\' (%d vs %d)\n",
 	    name, info[0], numClusNodes);
     exit(1);
   }
@@ -3217,7 +3217,7 @@ void SubDomain::writeTagToFile(const char *prefix, int no, double tag)
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-void SubDomain::readVectorFromFile(const char *prefix, int no, int neq, 
+void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
 				   SVec<Scalar,dim> &U, Scalar* scale)
 {
 
@@ -3264,7 +3264,7 @@ void SubDomain::readVectorFromFile(const char *prefix, int no, int neq,
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
-void SubDomain::writeVectorToFile(const char *prefix, int no, 
+void SubDomain::writeVectorToFile(const char *prefix, int no,
 				  SVec<Scalar,dim> &U, Scalar* scale)
 {
 
@@ -3311,7 +3311,7 @@ template<int dim>
 void SubDomain::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout,
 					SVec<double,dim> &U, SVec<double,dim> &Uinlet)
 {
-  int node;                                                                                                
+  int node;
   for (int j=0; j<inletNodes.size(); j++){
     node = inletNodes[j].getNodeNum();
     inletNodes[j].template assignFreeStreamValues<dim>(nodeType[node],
@@ -3320,21 +3320,21 @@ void SubDomain::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> 
 
   for (int i=0; i<faces.size(); ++i)
     faces[i].template assignFreeStreamValues2<dim>(Uin, Uout, U[i]);
-                        
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim>
 void SubDomain::assignFreeStreamValues(double *Uin, double *Uout, SVec<double,dim> &U, SVec<double,dim> &Uinlet)
 {
-                                                                                                  
+
   for (int j=0; j<inletNodes.size(); j++)
     inletNodes[j].template assignFreeStreamValues<dim>(nodeType[inletNodes[j].getNodeNum()], Uin, Uout, Uinlet[j]);
-                                                                                                  
+
   for (int i=0; i<faces.size(); ++i)
     faces[i].template assignFreeStreamValues<dim>(Uin, Uout, U[i]);
-                        
+
 }
 
 //------------------------------------------------------------------------------
@@ -3369,7 +3369,7 @@ void SubDomain::computeFaceBcValue(SVec<double,dim> &Unode, SVec<double,dim> &Uf
 // compute node values of the last (dim2-1) face values of Uface
 
 template<int dim1, int dim2>
-void SubDomain::computeNodeBcValue(SVec<double,3> &X, SVec<double,dim1> &Uface, 
+void SubDomain::computeNodeBcValue(SVec<double,3> &X, SVec<double,dim1> &Uface,
 				   SVec<double,dim2> &Unode)
 {
 
@@ -3414,9 +3414,9 @@ void SubDomain::computeNodeBCsWallValues(SVec<double,3> &X, SVec<double,1> &dNor
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData, 
-				  GeoState &geoState, SVec<double,3> &X, 
-				  SVec<double,dim> &V, Vec<double> &Pin, 
+void SubDomain::computeNodalForce(PostFcn *postFcn, BcData<dim> &bcData,
+				  GeoState &geoState, SVec<double,3> &X,
+				  SVec<double,dim> &V, Vec<double> &Pin,
 				  SVec<double,3> &F)
 {
 
@@ -3456,8 +3456,8 @@ void SubDomain::computeDerivativeOfNodalForce(PostFcn *postFcn, BcData<dim> &bcD
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData, 
-				      GeoState& geoState, SVec<double,3>& X, 
+void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
+				      GeoState& geoState, SVec<double,3>& X,
 				      SVec<double,dim>& V, Vec<double>& P)
 {
 
@@ -3475,8 +3475,8 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
 
 // Included (MB)
 template<int dim>
-void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData, 
-				      GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX, 
+void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
+				      GeoState& geoState, SVec<double,3>& X, SVec<double,3>& dX,
 				      SVec<double,dim>& V, SVec<double,dim>& dV, double dS[3], Vec<double>& dP)
 {
 
@@ -3494,10 +3494,10 @@ void SubDomain::computeDerivativeOfNodalHeatPower(PostFcn* postFcn, BcData<dim>&
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData, 
-				      GeoState &geoState, SVec<double,3> &X, 
-				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi, 
-				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+				      GeoState &geoState, SVec<double,3> &X,
+				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
                                       SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
 {
 
@@ -3519,7 +3519,7 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     }
 
     if(idx >= 0)  {
-      faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0, 
+      faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0,
                        Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro, mX, genCF);
     }
   }
@@ -3564,8 +3564,8 @@ void SubDomain::computeDerivativeOfForceAndMoment(map<int,int> & surfOutMap, Pos
 //------------------------------------------------------------------------------
 
 template<int dim>
-double SubDomain::computeInterfaceWork(PostFcn* postFcn, BcData<dim>& bcData, 
-				       GeoState& geoState, SVec<double,3>& X, 
+double SubDomain::computeInterfaceWork(PostFcn* postFcn, BcData<dim>& bcData,
+				       GeoState& geoState, SVec<double,3>& X,
 				       SVec<double,dim>& V, Vec<double>& Pin)
 {
 
@@ -3584,9 +3584,9 @@ double SubDomain::computeInterfaceWork(PostFcn* postFcn, BcData<dim>& bcData,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeFaceScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn, 
-					  BcData<dim> &bcData, GeoState &geoState, 
-					  SVec<double,3> &X, SVec<double,dim> &V, 
+void SubDomain::computeFaceScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
+					  BcData<dim> &bcData, GeoState &geoState,
+					  SVec<double,3> &X, SVec<double,dim> &V,
 					  SVec<double,2> &Q)
 {
 
@@ -3603,7 +3603,7 @@ void SubDomain::computeFaceScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn, 
+void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
 					  SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q)
 {
@@ -3643,20 +3643,20 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 
 template<int dim>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
-                                          SVec<double,dim> &V, SVec<double,3> &X, 
+                                          SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q, Vec<double> &Phi)
 {
-                                                                                                                
+
   for (int i=0; i<Q.size(); ++i)
     Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], Phi[i]);
-                                                                                                                
+
 }
-                                                                                                                
+
 //------------------------------------------------------------------------------
 
 template<class S1, class S2>
 void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
-				     SVec<double,3>& X, SVec<double,3>& F, GenMat<S1,3>& K, GenMat<S2,3>* P, 
+				     SVec<double,3>& X, SVec<double,3>& F, GenMat<S1,3>& K, GenMat<S2,3>* P,
                                      double volStiff, int* ndType=0)
 {
   const int MaxSize = (3*Elem::MaxNumNd);
@@ -3669,9 +3669,9 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
 
   int i;
   for (i=0; i<elems.size(); i++)  {
-    int j; 
+    int j;
     double *fEl_loc;
-    
+
     // Compute stiffness depending on type of structural analogy
     switch (typeElement) {
 
@@ -3682,8 +3682,8 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
 
     case DefoMeshMotionData::NON_LINEAR_FE : {
       elems[i].computeStiffAndForce(fEl, kEl, X, nodes, volStiff);
-      for (j=0, fEl_loc = fEl; 
-	   j<elems[i].numNodes(); 
+      for (j=0, fEl_loc = fEl;
+	   j<elems[i].numNodes();
 	   j++, fEl_loc+=3) {
 	F[ elems[i][j] ][0] -= fEl_loc[0];
 	F[ elems[i][j] ][1] -= fEl_loc[1];
@@ -3701,17 +3701,17 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
       elems[i].computeStiffBallVertex(kEl, X);
       break;
     }
-      
+
     }
-    
+
     // Add contribution to global matrix
     K.addContrib(elems[i].numNodes(), elems[i], kEl);
     if (P)
       P->addContrib(elems[i].numNodes(), elems[i], kEl);
-    
+
   }
 
-  if(ndType){ 
+  if(ndType){
     for (i = 0; i < nodes.size(); ++i) {
       if (ndType[i] != BC_INTERNAL ) {
 
@@ -3740,12 +3740,12 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
     double p = varFcn->checkPressure(V);
 
     if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n", 
+      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
 	      rho, locToGlobNodeMap[i] + 1);
       ++ierr;
-    } 
+    }
     if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n", 
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
 	      p, locToGlobNodeMap[i] + 1, rho);
       ++ierr;
     }
@@ -3756,9 +3756,9 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                                                           
+
 template<int dim>
-int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U, 
+int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U,
                              Vec<double> &Phi, Vec<double> &Phin)
 {
   int ierr = 0;
@@ -3804,7 +3804,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
-  
+
   return ierr;
 
 }
@@ -3860,7 +3860,7 @@ int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim>
 
       ++ierr;
     }
- 
+
   }
 
   return ierr;
@@ -3870,8 +3870,8 @@ int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
-int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype, 
-			    VarFcn* varFcn, double* Uin, bool* flag, SVec<double,dim>& U, 
+int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
+			    VarFcn* varFcn, double* Uin, bool* flag, SVec<double,dim>& U,
 			    int* cmin, int* pmin, double* vmin)
 {
 
@@ -3893,19 +3893,19 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
     double p = varFcn->getPressure(V);
 
     if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n", 
+      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
 	      rho, locToGlobNodeMap[i] + 1);
       ++ierr;
     }
     if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n", 
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d\n",
 	      p, locToGlobNodeMap[i] + 1);
       ++ierr;
     }
 
-    if ((wtype == BcsWallData::WALL_FUNCTION) || 
-	(wtype == BcsWallData::FULL && 
-	 nodeType[i] != BC_ISOTHERMAL_WALL_MOVING && 
+    if ((wtype == BcsWallData::WALL_FUNCTION) ||
+	(wtype == BcsWallData::FULL &&
+	 nodeType[i] != BC_ISOTHERMAL_WALL_MOVING &&
 	 nodeType[i] != BC_ISOTHERMAL_WALL_FIXED &&
 	 nodeType[i] != BC_ADIABATIC_WALL_MOVING &&
 	 nodeType[i] != BC_ADIABATIC_WALL_FIXED)) {
@@ -3926,7 +3926,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
       }
     }
   }
-    
+
   return ierr;
 
 }
@@ -3934,7 +3934,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U, 
+void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U,
                   SVec<bool,2>& tag, Vec<double> *Phi)
 {
 
@@ -3975,7 +3975,7 @@ void SubDomain::checkGradientsSetUp(SVec<double,3> &X, SVec<double,dim> &V)
   double a = 3.0, b = -2.0, c = 1.0, d = -10.0;
 
   for (int i=0; i<X.size(); ++i)
-    for (int k=0; k<dim; ++k) 
+    for (int k=0; k<dim; ++k)
       V[i][k] = a*X[i][0] + b*X[i][1] + c*X[i][2] + d;
 
 }
@@ -3998,8 +3998,8 @@ void SubDomain::checkGradientsWrite(SVec<double,3> &X, NodalGrad<dim> &ngrad)
   SVec<double,dim> &dVdz = ngrad.getZ();
 
   int j = 2;
-  for (int i=0; i<dVdx.size(); ++i) 
-    fprintf(fp, "%d %e %e %e\n", locToGlobNodeMap[i]+1, 
+  for (int i=0; i<dVdx.size(); ++i)
+    fprintf(fp, "%d %e %e %e\n", locToGlobNodeMap[i]+1,
 	    dVdx[i][j]-a, dVdy[i][j]-b, dVdz[i][j]-c);
 
   fclose(fp);
@@ -4012,12 +4012,12 @@ template<int dim>
 void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
 {
 
-  Vec<int> nodeCodes(prod.size()); 
+  Vec<int> nodeCodes(prod.size());
   nodeCodes = 0;
 
   int i, j;
   for (i=0; i<faces.size(); ++i)
-    for (j=0; j<faces[i].numNodes(); ++j) 
+    for (j=0; j<faces[i].numNodes(); ++j)
       nodeCodes[ faces[i][j] ] += 1;
 
   char fname1[MAXLINE], fname2[MAXLINE];
@@ -4030,7 +4030,7 @@ void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
  /*
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  
+
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     fprintf(fp1, "neighbor %d:\n", neighb[iSub]);
     for (int iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
@@ -4048,13 +4048,13 @@ void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
 
   for (i=0; i<prod.size(); ++i) {
     FILE* fp;
-    if (nodeCodes[i] == 0) 
+    if (nodeCodes[i] == 0)
       fp = fp1;
-    else 
+    else
       fp = fp2;
-      
+
     fprintf(fp, "%d", locToGlobNodeMap[i]+1);
-    for (j=0; j<dim; ++j) 
+    for (j=0; j<dim; ++j)
       fprintf(fp, " %e", prod[i][j]);
     fprintf(fp, "\n");
   }
@@ -4067,8 +4067,8 @@ void SubDomain::checkMatVecProd(SVec<double,dim> &prod, const char *msg)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeForceDerivs(VarFcn *varFcn, SVec<double,3> &X, 
-                                   SVec<double,dim> &V, SVec<double,dim> &deltaU, 
+void SubDomain::computeForceDerivs(VarFcn *varFcn, SVec<double,3> &X,
+                                   SVec<double,dim> &V, SVec<double,dim> &deltaU,
                                    Vec<double> &modalF, SVec<double, 3> **locMX)  {
 
   modalF = 0.0;
@@ -4081,10 +4081,10 @@ void SubDomain::computeForceDerivs(VarFcn *varFcn, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &geoState, 
-                                         BcData<dim> &bcData, SVec<double,3> &X, SVec<double,dim> &V, 
+void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &geoState,
+                                         BcData<dim> &bcData, SVec<double,3> &X, SVec<double,dim> &V,
 					 double pInfty, Vec3D &CFi, Vec3D &CMi, Vec3D &CFv, Vec3D &CMv,
-                                         VecSet< SVec<double,3> > *mX , Vec<double> *genCF) 
+                                         VecSet< SVec<double,3> > *mX , Vec<double> *genCF)
 {
 
   CFi = 0.0;
@@ -4096,7 +4096,7 @@ void SubDomain::computeForceCoefficients(PostFcn *postFcn, Vec3D &x0, GeoState &
   SVec<double,dim> &Vwall = bcData.getFaceStateVector();
 
   for (int i=0; i<faces.size(); ++i)
-    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty, 
+    faces[i].computeForceCoefficients(postFcn, x0, elems, X, V, d2wall, Vwall, pInfty,
                                       CFi, CMi, CFv, CMv, gradP, mX, genCF);
 
 }
@@ -4433,7 +4433,7 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
         Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
       }
     }
-   
+
   }
 
 }
@@ -4500,7 +4500,7 @@ void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta, 
+void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
 				    SVec<double,dim> &PsiRes)
 {
 
@@ -4513,7 +4513,7 @@ void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &
       w[i] = 0.0;
     }
   }
-   
+
 
   for(int i=0; i<nodes.size(); i++){
     if(Tag[i]>0){
@@ -4618,7 +4618,7 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                              SVec<double,dim> &Update, Vec<double> &Weight)
 {
   // this function checks that a node that changed phases has an update.
-  // if that node does not have an update, then it is assumed that 
+  // if that node does not have an update, then it is assumed that
   //    some complex phenomenon makes the flow cavitates, which we prevent
   //    by enforcing that phi value at that node is unchanged between tn and tn+1
 
@@ -4648,7 +4648,7 @@ void SubDomain::printInletVariable(SVec<double,dim> &V)
 }
 
 //-----------------------------------------------------------------------------
-                                                                                                  
+
 template<int dim>
 void SubDomain::printAllVariable(Vec<int> &X, SVec<double,dim> &U, int numSub, int it)
 {
@@ -4698,66 +4698,66 @@ void SubDomain::printAllMatrix(GenMat<Scalar,neq> &A, int it)
 template<int dim>
 void SubDomain::padeReconstruction(SVec<double, dim> **dataCoarse, SVec<double, dim> **data, int *stepParam, double *freqCoarse, double deltaFreqFine, int nStrMode,int L, int M, int nPoints)
 {
-                                                        
-                                                        
+
+
   int i, j;
   int numFreqCoarse = stepParam[1];
   int nSnapsCoarse = stepParam[3];
   int nSteps = stepParam[0];
-  int numPadeDeriv = int(ceil((L+M+1.0)/((double)nPoints))-1.0); 
+  int numPadeDeriv = int(ceil((L+M+1.0)/((double)nPoints))-1.0);
   int size = L+M+1;
-                                                        
-                                                        
+
+
   bcomp *compMat = new bcomp[numFreqCoarse*(numPadeDeriv+1)];
-                                                        
+
   double tempMat[dim*nSnapsCoarse];
   bcomp *padeMat = new bcomp[size*size];
   bcomp *padeVec = new bcomp[size];
-                                                        
+
   bcomp *snaps = new bcomp[nSteps+1];
   int midFreq[1] ;
   double deltaFreqCoarse[numFreqCoarse];
   buildDeltaFreq(deltaFreqCoarse, numFreqCoarse, freqCoarse, midFreq);
   for (int iNode = 0; iNode < (*(data[0])).len; iNode++) {
-                                                        
-                                                        
+
+
     extractElementsRelativeToANode(dataCoarse, tempMat, iNode, nSnapsCoarse);
     for (int iDim = 0; iDim < dim; iDim++) {
       for (int iStrMode = 0; iStrMode < nStrMode; iStrMode++) {
         extractElementsRelativeToAComponentAndAMode(tempMat,compMat,iDim,iStrMode,numPadeDeriv,numFreqCoarse,nStrMode,nSnapsCoarse, freqCoarse[0]);
         multiPade(compMat, stepParam, deltaFreqCoarse, padeMat, padeVec, L, M, nPoints, deltaFreqFine, freqCoarse[midFreq[0]], snaps, freqCoarse);
         snapshotsConstruction(data,snaps,nSteps,iDim,iStrMode,iNode,nStrMode,freqCoarse[0]);
-                                                        
+
       }
     }
   }
 }
-                                                        
+
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::extractElementsRelativeToANode(SVec<double, dim> **dataCoarse, double *tempMat, int iNode, int nSnapsCoarse)
 {
-                                                        
+
   for (int jSnapsCoarse = 0; jSnapsCoarse < nSnapsCoarse; jSnapsCoarse++) {
-                                                        
+
     SVec<double, dim> *X = dataCoarse[jSnapsCoarse];
     for (int iDim = 0; iDim < dim; iDim++) {
       *(tempMat + iDim*nSnapsCoarse + jSnapsCoarse)  = (*X)[iNode][iDim];  //tempMat[iDim][jSnapsCoarse]
-                                                        
+
     }
-                                                        
+
   }
 }
-                                                        
+
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::snapshotsConstruction(SVec<double, dim> **data, bcomp* snaps, int nSteps, int iDim, int iStrMode, int iNode, int nStrMode, double freq1)
 {
-                                                        
+
   SVec<double,dim> *Y = 0;
   SVec<double,dim> *Z = 0;
   if (freq1 == 0.0) {
-                                                        
+
     for (int jFineFreq=0; jFineFreq<nSteps+1; jFineFreq++) {
       if (jFineFreq==0) {
         Y = data[iStrMode];
@@ -4781,7 +4781,7 @@ void SubDomain::snapshotsConstruction(SVec<double, dim> **data, bcomp* snaps, in
   }
   Y = 0;
   Z = 0;
-                                                        
+
 }
 
 //------------------------------------------------------------------------------

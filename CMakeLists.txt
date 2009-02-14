@@ -19,8 +19,8 @@ ENDIF(BLAS_LIBRARIES)
 FIND_PACKAGE(LAPACK)
 FIND_PACKAGE(MPI)
 
-FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../../PhysBam
-../../../PhysBam /home/michel/PhysBam)
+FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../PhysBam
+../../PhysBam /home/michel/PhysBam)
 FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp /home/pavery/boost/boost_install/include/boost-1_34_1)
 
 SET(TARGETS_INST fluid)
@@ -66,90 +66,90 @@ IF(UNIX)
   ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 ENDIF(UNIX)
 
-SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
+SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
-SET(MAIN_FILES ../Main.C ../LevelSet/IntersectionFactory.C)
+SET(MAIN_FILES Main.C LevelSet/IntersectionFactory.C)
 
 ADD_LIBRARY(FluidBase
-             ../NavierStokesSolver.C 
-             ../Solvers/StructLevelSetSolver5.C
-             ../Solvers/NavierStokesCoupledSolver5.C
-             ../Solvers/NavierStokesCoupledSolver6.C
-             ../Solvers/NavierStokesCoupledSolver7.C
-             ../Solvers/NavierStokesSegSolver651.C
-             ../Solvers/NavierStokesSegSolver752.C
-             ../Solvers/LevelSetSolver5.C
-             ../BcFcnCore.C
-             ../CommunicatorCore.C 
-             ../CommunicatorMPI.C 
-             ../ConnectivityCore.C 
-             ../CorotSolver.C 
-             ../CurvatureDetection.C 
-             ../DistGeoState.C 
-             ../DistMacroCellCore.C 
-             ../DomainCore.C 
-             ../EdgeCore.C 
-             ../FaceCore.C 
-             ../FaceTriaCore.C 
-             ../ElemCore.C 
-             ../ElemTetCore.C 
-             ../FemEquationTermDesc.C 
-             ../FluxFcnDesc.C 
-             ../FluxFcnDescPerfectGas.C 
-             ../FluxFcnDescWaterCompressible.C 
-             ../FluxFcnDescGasInGas.C 
-             ../FluxFcnDescLiquidInLiquid.C 
-             ../FluxFcnDescGasInLiquid.C 
-             ../FluxFcnDescJWLInGas.C
-             ../FluxFcnDescJWL.C
-             ../GeoData.C 
-             ../GeoSource.C 
-             ../GeoState.C 
-             ../HeatTransferHandlerCore.C 
-             ../InletNodeCore.C 
-             ../IoDataCore.C 
-             ../KspConvCriterion.C 
-             ../LevelSetCore.C 
-             ../MacroCellCore.C 
-             ../MatchNodeCore.C 
-             ../MemoryPool.C 
-             ../MeshMotionHandlerCore.C 
-             ../MeshMotionSolver.C 
-             ../ModalSolver.C 
-             ../Node.C 
-             ../PostFcn.C 
-             ../RefVal.C 
-             ../SmagorinskyLESTerm.C 
-             ../WaleLESTerm.C 
-             ../DynamicLESTerm.C 
-             ../StructExc.C 
-             ../SubDomainCore.C 
-             ../TimeData.C 
-             ../Timer.C 
-             ../TsInput.C 
-             ../TsParameters.C 
-             ../TsRestartCore.C 
-             ../VarFcn.C 
-             ../VMSLESTerm.C 
-             ../DynamicVMSTerm.C 
-             ../WallFcnCore.C 
-             ../BCApplierCore.C 
-	     ../BCond.C 
-             ../BlockAlloc.C 
-             ../Ghost/EulerStructGhostFluidCore.C
-             ../Ghost/DistEulerStructGhostFluidCore.C 
-             ../TriangulatedSurface.C
+             NavierStokesSolver.C 
+             Solvers/StructLevelSetSolver5.C
+             Solvers/NavierStokesCoupledSolver5.C
+             Solvers/NavierStokesCoupledSolver6.C
+             Solvers/NavierStokesCoupledSolver7.C
+             Solvers/NavierStokesSegSolver651.C
+             Solvers/NavierStokesSegSolver752.C
+             Solvers/LevelSetSolver5.C
+             BcFcnCore.C
+             CommunicatorCore.C 
+             CommunicatorMPI.C 
+             ConnectivityCore.C 
+             CorotSolver.C 
+             CurvatureDetection.C 
+             DistGeoState.C 
+             DistMacroCellCore.C 
+             DomainCore.C 
+             EdgeCore.C 
+             FaceCore.C 
+             FaceTriaCore.C 
+             ElemCore.C 
+             ElemTetCore.C 
+             FemEquationTermDesc.C 
+             FluxFcnDesc.C 
+             FluxFcnDescPerfectGas.C 
+             FluxFcnDescWaterCompressible.C 
+             FluxFcnDescGasInGas.C 
+             FluxFcnDescLiquidInLiquid.C 
+             FluxFcnDescGasInLiquid.C 
+             FluxFcnDescJWLInGas.C
+             FluxFcnDescJWL.C
+             GeoData.C 
+             GeoSource.C 
+             GeoState.C 
+             HeatTransferHandlerCore.C 
+             InletNodeCore.C 
+             IoDataCore.C 
+             KspConvCriterion.C 
+             LevelSetCore.C 
+             MacroCellCore.C 
+             MatchNodeCore.C 
+             MemoryPool.C 
+             MeshMotionHandlerCore.C 
+             MeshMotionSolver.C 
+             ModalSolver.C 
+             Node.C 
+             PostFcn.C 
+             RefVal.C 
+             SmagorinskyLESTerm.C 
+             WaleLESTerm.C 
+             DynamicLESTerm.C 
+             StructExc.C 
+             SubDomainCore.C 
+             TimeData.C 
+             Timer.C 
+             TsInput.C 
+             TsParameters.C 
+             TsRestartCore.C 
+             VarFcn.C 
+             VMSLESTerm.C 
+             DynamicVMSTerm.C 
+             WallFcnCore.C 
+             BCApplierCore.C 
+	     BCond.C 
+             BlockAlloc.C 
+             Ghost/EulerStructGhostFluidCore.C
+             Ghost/DistEulerStructGhostFluidCore.C 
+             TriangulatedSurface.C
             )
 
-ADD_LIBRARY(Utils ../utils/Predicate.C ../utils/Laguerre.C)
+ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
 
 SET_TARGET_PROPERTIES(Utils
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 IF(MPI_FOUND)
-  ADD_EXECUTABLE(loader ../tools/loader.C)
+  ADD_EXECUTABLE(loader tools/loader.C)
   TARGET_LINK_LIBRARIES(loader ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
   SET_TARGET_PROPERTIES(loader
                       PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR})
@@ -227,23 +227,23 @@ MACRO(ADD_FLEX_FILES _sources )
    ENDFOREACH (_current_FILE)
 ENDMACRO(ADD_FLEX_FILES)
 
-ADD_FLEX_FILES(MyLib ../parser/Lexer.l)
-ADD_BISON_FILES(MyLib ../parser/Parser.y)
+ADD_FLEX_FILES(MyLib parser/Lexer.l)
+ADD_BISON_FILES(MyLib parser/Parser.y)
 
-ADD_LIBRARY(Parser ../parser/Dictionary.C ../parser/AssignerCore.C ../parser/ParseTree.cpp ${MyLib})
+ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 	
 IF(MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > hgidentity.C
-                 DEPENDS ../Main.C FluidBase
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+                 DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ELSE (MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > hgidentity.C
-                 DEPENDS ../Main.C FluidBase
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+                 DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF (MERCURIAL_EXECUTABLE)
 
@@ -252,9 +252,9 @@ IF(EXTRALIB)
 ENDIF(EXTRALIB)
 
 
-ADD_EXECUTABLE(fluid ${MAIN_FILES} hgidentity.C)
+ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
 
-SET(INC_DIR ..)
+SET(INC_DIR .)
 
 IF(PHYSBAM_INCLUDE_DIR)
   SET(INC_DIR ${INC_DIR} ${PHYSBAM_INCLUDE_DIR} ${PHYSBAM_INCLUDE_DIR}/Public_Library)
@@ -269,44 +269,44 @@ SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 ADD_LIBRARY(Fortran 
-../f77src/ballvertex.f
-../f77src/boundflux5.f
-../f77src/boundjac2.f
-../f77src/dsvdc.f
-../f77src/eriemann_gg.f
-../f77src/eriemann_gw.f
-../f77src/eriemann_ww.f
-../f77src/g_boundflux5.f
-../f77src/genbcfluxgas.f
-../f77src/genbcfluxtait.f
-../f77src/genbcfluxjwl.f
-../f77src/g_roeflux5.f
-../f77src/g_roeflux6.f
-../f77src/roeflux5jwl.f
-../f77src/hllcflux.f
-../f77src/hlleflux.f
-../f77src/hlleflux1.f
-../f77src/hllejac.f
-../f77src/printmask.f
-../f77src/roeflux5.f
-../f77src/roeflux5prim.f
-../f77src/roeflux5waterdissprec.f
-../f77src/roeflux6.f
-../f77src/roejac2.f
-../f77src/roejac2water.f
-../f77src/roejac5.f
-../f77src/roejac5waterdissprec.f
-../f77src/roejac6.f
-../f77src/roejac6jwl.f
-../f77src/roejacwaterdissprim.f
-../f77src/torsionspring.f
-../f77src/thinsvd.f
-../f77src/lworksize.f)
+f77src/ballvertex.f
+f77src/boundflux5.f
+f77src/boundjac2.f
+f77src/dsvdc.f
+f77src/eriemann_gg.f
+f77src/eriemann_gw.f
+f77src/eriemann_ww.f
+f77src/g_boundflux5.f
+f77src/genbcfluxgas.f
+f77src/genbcfluxtait.f
+f77src/genbcfluxjwl.f
+f77src/g_roeflux5.f
+f77src/g_roeflux6.f
+f77src/roeflux5jwl.f
+f77src/hllcflux.f
+f77src/hlleflux.f
+f77src/hlleflux1.f
+f77src/hllejac.f
+f77src/printmask.f
+f77src/roeflux5.f
+f77src/roeflux5prim.f
+f77src/roeflux5waterdissprec.f
+f77src/roeflux6.f
+f77src/roejac2.f
+f77src/roejac2water.f
+f77src/roejac5.f
+f77src/roejac5waterdissprec.f
+f77src/roejac6.f
+f77src/roejac6jwl.f
+f77src/roejacwaterdissprim.f
+f77src/torsionspring.f
+f77src/thinsvd.f
+f77src/lworksize.f)
 
 IF (USE_SCALAPACK)
   ADD_DEPENDENCIES(Fortran
-                   ../f77src/thinsvd.f
-                   ../f77src/lworksize.f)
+                   f77src/thinsvd.f
+                   f77src/lworksize.f)
 ENDIF(USE_SCALAPACK)
 
 SET_TARGET_PROPERTIES(Fortran
@@ -318,7 +318,7 @@ IF(MPI_FOUND)
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
   IF(!USE_SCALAPACK)
-    ADD_LIBRARY(fluidlib SHARED ../Main.C hgidentity.C)
+    ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 

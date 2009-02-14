@@ -31,7 +31,7 @@ class PostFcn;
 class LevelSet;
 class TimeLowMachPrec;
 class SpatialLowMachPrec;
-class DistEulerStructGhostFluid;
+class DistLevelSetStructure;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -141,7 +141,7 @@ public:
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
   CommPattern<double> *getEngPat() const { return engPat; }
- 
+
 
   template<int dim>
   CommPattern<double> *getCommPat(DistSVec<double,dim> &vec) { return vecPat; }
@@ -178,25 +178,25 @@ public:
                             DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
                             DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel,
                             bool communicate = true);
-  void computeNormalsGCL1(DistSVec<double,3> &, DistSVec<double,3> &, 
+  void computeNormalsGCL1(DistSVec<double,3> &, DistSVec<double,3> &,
 			  DistSVec<double,3> &, DistVec<Vec3D> &, DistVec<double> &,
 			  DistVec<Vec3D> &, DistVec<double> &);
-  void computeNormalsGCL2(TimeData &, DistVec<Vec3D> &, DistVec<Vec3D> &, 
-			  DistVec<double> &, DistVec<double> &, DistVec<Vec3D> &, 
+  void computeNormalsGCL2(TimeData &, DistVec<Vec3D> &, DistVec<Vec3D> &,
+			  DistVec<double> &, DistVec<double> &, DistVec<Vec3D> &,
 			  DistVec<Vec3D> &, DistVec<double> &, DistVec<double> &);
-  void computeNormalsEZGCL1(double, DistSVec<double,3>&, DistSVec<double,3>&, DistVec<Vec3D>&, 
+  void computeNormalsEZGCL1(double, DistSVec<double,3>&, DistSVec<double,3>&, DistVec<Vec3D>&,
 			    DistVec<double>&, DistVec<Vec3D>&, DistVec<double>&);
-  void computeNormalsEZGCL2(TimeData&, DistVec<double>&, DistVec<double>&, 
+  void computeNormalsEZGCL2(TimeData&, DistVec<double>&, DistVec<double>&,
 			    DistVec<double>&, DistVec<double>&);
-  void computeNormalsEZGCL3(TimeData&, DistVec<double>&, DistVec<double>&, DistVec<double>&, 
+  void computeNormalsEZGCL3(TimeData&, DistVec<double>&, DistVec<double>&, DistVec<double>&,
 			    DistVec<double>&, DistVec<double>&, DistVec<double>&);
   void computeInletNormals(DistVec<Vec3D>&, DistVec<Vec3D>&, DistVec<int> &);
-  void computeVelocities(DGCLData::Velocities, TimeData &, DistSVec<double,3> &, 
-			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &, 
+  void computeVelocities(DGCLData::Velocities, TimeData &, DistSVec<double,3> &,
+			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &,
 			 DistSVec<double,3> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,6> &);
-  void computeWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &, 
+  void computeWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &,
 			      DistSVec<double,3> &, DistSVec<double,3> &);
   void getReferenceMeshPosition(DistSVec<double,3> &);
   void getNdAeroLists(int *&, int **&, int *&, int **&, int *&, int **&, MatchNodeSet** matchNodes=0);
@@ -205,18 +205,18 @@ public:
   void applySmoothing(DistVec<double> &, DistVec<double> &);
   void applySmoothing(DistVec<double> &, DistSVec<double,2> &);
   void computeTetsConnectedToNode(DistVec<int> &);
-  void outputCsDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &, 
+  void outputCsDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &,
                           DistSVec<double,3> &, DistVec<double> &);
-                                                                                                                          
+
   template<class MatScalar, class PrecScalar>
-  void computeStiffAndForce(DefoMeshMotionData::Element, DistSVec<double,3>&, 
-			    DistSVec<double,3>&, DistMat<MatScalar,3>&, 
+  void computeStiffAndForce(DefoMeshMotionData::Element, DistSVec<double,3>&,
+			    DistSVec<double,3>&, DistMat<MatScalar,3>&,
 			    DistMat<PrecScalar,3>*, double volStiff, int** ndType);
 
-  template<int dim>  
-  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, 
+  template<int dim>
+  void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &,
 		       DistSVec<double,3> &, DistVec<double> &,
-		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, 
+		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
 		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
                        SpatialLowMachPrec &);
 
@@ -228,8 +228,8 @@ public:
 
 
   template<int dim, class Scalar>
-  void computeGradientsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &, 
-				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, 
+  void computeGradientsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &,
+				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
 				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
@@ -239,8 +239,8 @@ public:
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
-  void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &, 
-				DistSVec<double,3> &, DistSVec<double,3> &, 
+  void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &,
+				DistSVec<double,3> &, DistSVec<double,3> &,
 				DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
 				DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
@@ -252,20 +252,20 @@ public:
                 DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
   template<int dim>
-  void computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol, 
-				  DistNodalGrad<dim> &dVdxj, DistSVec<double,dim> &VV, 
+  void computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol,
+				  DistNodalGrad<dim> &dVdxj, DistSVec<double,dim> &VV,
 				  DistSVec<double,dim> &RR);
   template<int dim>
-  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, DistSVec<double,3> &, 
+  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, DistSVec<double,3> &,
 			      DistVec<double> &, DistSVec<double,dim> &,
-			      DistSVec<double,dim> &, DistSVec<double,dim> &, 
-			      DistSVec<double,dim> &, DistSVec<double,dim> &, 
+			      DistSVec<double,dim> &, DistSVec<double,dim> &,
+			      DistSVec<double,dim> &, DistSVec<double,dim> &,
 			      DistSVec<double,dim> &, DistSVec<double,dim> &);
   template<int dim>
-  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, DistSVec<double,3> &, 
+  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, DistSVec<double,3> &,
 			      DistVec<double> &, DistSVec<bcomp,dim> &,
-			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &, 
-			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &, 
+			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &,
+			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &,
 			      DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &)  {
        std::cout << "computeMultiDimLimiter not implemented for complex data" << endl; }
 
@@ -298,27 +298,27 @@ public:
   void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi, int level);
 
   void setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi);
-  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
+  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                     DistSVec<double,3> &X, DistVec<double> &Phi);
-  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                     DistSVec<double,3> &X, DistVec<double> &Phi);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, DistSVec<double,dim> &U);
   template<int dim>
-  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm, 
+  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
              SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
   template<int dim>
-  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm, 
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
              PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
-	
-  template<int dim>  
+
+  template<int dim>
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
   void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
                               DistVec<double> &weight, DistVec<double> &Phi);
-	
+
   template<int dim>
   void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
 			  DistVec<double> &Phi, DistSVec<double,dim> &Psi,
@@ -346,9 +346,9 @@ public:
   // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 
   template<int dim>
-  void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&, 
-			       DistSVec<double,3>&, DistSVec<double,dim>&, 
-			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*, 
+  void computeFiniteVolumeTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+			       DistSVec<double,3>&, DistSVec<double,dim>&,
+			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
 			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
@@ -357,7 +357,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistNodalGrad<1>&, DistSVec<double,dim>&, 
+                               DistNodalGrad<1>&, DistSVec<double,dim>&,
                                int, DistSVec<double,dim> *, DistSVec<double,dim> *,
                                int, int);
 
@@ -366,7 +366,7 @@ public:
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistEulerStructGhostFluid *eulerFSI,
+                               DistLevelSetStructure *eulerFSI,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
@@ -377,27 +377,27 @@ public:
                                DistSVec<double,1> &, DistVec<double> &);
 
   template<int dim>
-  void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**, 
+  void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**,
                                   RecFcn*, DistBcData<dim>&, DistGeoState&, DistSVec<double,3>&,
                                   DistMacroCellSet *, DistSVec<double,dim> &, DistSVec<double,1> &,
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
 
   template<int dim>
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
+  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
                                DistSVec<double,dim> &U, DistSVec<double,dim> &R);
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
+  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
                                DistVec<double> &Phi, DistVec<double> &dPhi);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 
+  void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &,
 				       DistVec<double> &,
 				       DistSVec<double,3> &,
-				       DistVec<double> &, DistSVec<double,dim> &, 
+				       DistVec<double> &, DistSVec<double,dim> &,
 				       DistMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &, 
+  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &,
                                        FluxFcn **, DistBcData<dim> &, DistGeoState &,
                                        DistNodalGrad<dim>&, DistNodalGrad<1>&,
 				       DistSVec<double,3> &,
@@ -417,8 +417,8 @@ public:
   double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
-  void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
-			   DistGeoState &, DistSVec<double,3> &, 
+  void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &,
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
@@ -432,7 +432,7 @@ public:
   template<int dim>
   void computeWaleLESTerm(WaleLESTerm *, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  
+
   //---start computation of MutOMu terms
 
   template<int dim>
@@ -440,12 +440,12 @@ public:
                                DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
-  void computeMutOMuVMS(VMSLESTerm *, DistMacroCellSet *, DistVec<double> &, bool, 
-                        DistSVec<double,dim> &, DistSVec<double,1> &, DistSVec<double,3> &, 
+  void computeMutOMuVMS(VMSLESTerm *, DistMacroCellSet *, DistVec<double> &, bool,
+                        DistSVec<double,dim> &, DistSVec<double,1> &, DistSVec<double,3> &,
                         DistSVec<double,dim> &, int, DistVec<double> &);
 
   template<int dim>
-  void computeMutOMuDynamicVMS(DynamicVMSTerm *, DistVec<double> &, DistSVec<double,dim> &, 
+  void computeMutOMuDynamicVMS(DynamicVMSTerm *, DistVec<double> &, DistSVec<double,dim> &,
                                DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
 
   template<int dim>
@@ -453,9 +453,9 @@ public:
                          DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
-  void computeMutOMuDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &, 
+  void computeMutOMuDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &,
                                DistSVec<double,3> &, DistSVec<double,dim> &, DistVec<double> &);
-                                  
+
   //---complete computaton of MutOMu terms
 
 
@@ -463,15 +463,15 @@ public:
   void computeGalerkinBarTerm(bool, FemEquationTerm *, DistBcData<dim> &, DistGeoState &, DistSVec<double,3> &,
                               DistMacroCellSet *, DistSVec<double,dim> &, DistSVec<double,1> &,
                               DistSVec<double,dim> &, int, int);
-                                                                                                                          
+
   template<int dim>
   void computeVBar(DistMacroCellSet *, bool, DistGeoState &, DistSVec<double,dim> &,
                    DistSVec<double,dim> &, int, int);
-                                                                                                                          
+
   template<int dim>
   void computeBarTerm(DistMacroCellSet *, bool, DistVec<double> &, DistSVec<double,dim> **,
                       DistSVec<double,1> **, DistSVec<double,3> &, DistSVec<double,dim> &, int, int);
-                                                                                                                          
+
   template<int dim>
   void computeDynamicVMSTerm(DynamicVMSTerm *, DistMacroCellSet *, bool, DistVec<double> &,
                              DistSVec<double,dim> **, DistSVec<double,1> **, DistSVec<double,3> &,
@@ -479,7 +479,7 @@ public:
                              DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
                              DistSVec<double,dim> &, DistSVec<double,dim> &,
                              int, int, int, DistVec<double> * = 0);
-                                                                                                                          
+
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, DistMacroCellSet *, bool,
                            DistVec<double> &, DistSVec<double,dim> &,
@@ -491,25 +491,25 @@ public:
 
   template<int dim>
   void computeTestFilterValues(DistVec<double> &, DistSVec<double,dim> &,
-                               DistSVec<double,16> &, DistSVec<double,6> &, 
+                               DistSVec<double,16> &, DistSVec<double,6> &,
                                DistVec<double> &, DistSVec<double,8> &,
-                               DistSVec<double,2> &, DistVec<int> &, DistBcData<dim> &, 
+                               DistSVec<double,2> &, DistVec<int> &, DistBcData<dim> &,
                                DistSVec<double,3> &, DistSVec<double,dim> &, double, double);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &, 
+  void computeDynamicLESTerm(DynamicLESTerm *, DistSVec<double,2> &,
                              DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
 
   template<int dim>
   void assemble_dWdt(DistSVec<double, dim> &, DistSVec<double, dim> &);
-                                                                                                                          
+
   template<int dim>
   void computedWBar_dt(DistSVec<double, dim> &, DistSVec<double, dim> &, DistMacroCellSet *, DistSVec<double,1> **, int);
-                                                                                                                          
+
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
-				   DistGeoState &, DistSVec<double,3> &, 
+  void computeJacobianGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+				   DistGeoState &, DistSVec<double,3> &,
 				   DistVec<double> &, DistSVec<double,dim> &,
 				   DistMat<Scalar,neq> &);
 
@@ -532,15 +532,15 @@ public:
   void applyBCsToSolutionVector(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &);
 
   template<int dim>
-  void applyBCsToResidual(BcFcn *, DistBcData<dim> &, 
+  void applyBCsToResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim, class Scalar, int neq>
-  void applyBCsToJacobian(BcFcn *, DistBcData<dim> &, 
+  void applyBCsToJacobian(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
   template<int dim, class Scalar, int neq>
-  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &, 
+  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
   template<class Scalar, int dim>
@@ -548,8 +548,8 @@ public:
                  DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   template<int dim, class Scalar>
-  void computeH2(FluxFcn **, RecFcn *, DistBcData<dim> &, DistGeoState &, 
-		 DistSVec<double,3> &, DistSVec<double,dim> &, DistNodalGrad<dim, double> &, 
+  void computeH2(FluxFcn **, RecFcn *, DistBcData<dim> &, DistGeoState &,
+		 DistSVec<double,3> &, DistSVec<double,dim> &, DistNodalGrad<dim, double> &,
 		 DistMat<Scalar,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
@@ -570,7 +570,7 @@ public:
              DistVec<double> &, DistMat<Scalar1,1> &,
              DistSVec<double,1> &, DistSVec<double,1> &,
              DistSVec<double,1> &, DistSVec<double,1> &,
-             DistVec<Scalar2> &, 
+             DistVec<Scalar2> &,
              DistVec<Scalar2> &);
 
   template<class Scalar1, class Scalar2, int dim>
@@ -590,10 +590,10 @@ public:
 
   template<int dim, class Scalar>
   void assemble(CommPattern<Scalar> *, DistSVec<Scalar,dim> &);
-                                                                                                                          
+
   template<class Scalar>
   void assemble(CommPattern<Scalar> *, DistVec<double> &);
-                                                                                                                          
+
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
@@ -604,11 +604,11 @@ public:
   void scaleSolution(DistSVec<Scalar,dim> &, RefVal*);
 
   template<int dim>
-  void computeForceDerivs(VarFcn *, DistSVec<double,3> &, DistSVec<double,dim> &, 
+  void computeForceDerivs(VarFcn *, DistSVec<double,3> &, DistSVec<double,dim> &,
                           DistSVec<double ,dim> &, Vec<double> &, VecSet< DistSVec<double,3> > &);
 /*
   template<int dim>
-  void computeForceCoefficients(PostFcn *, Vec3D &, DistSVec<double,3> &, 
+  void computeForceCoefficients(PostFcn *, Vec3D &, DistSVec<double,3> &,
                                 DistSVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, Vec3D &);
 */
 
@@ -629,11 +629,11 @@ public:
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&, DistVec<double> * = 0);
 
   template<int dim, int neq>
-  int clipSolution(TsData::Clipping, BcsWallData::Integration, 
+  int clipSolution(TsData::Clipping, BcsWallData::Integration,
 		   VarFcn*, double*, DistSVec<double,dim>&);
 
   template<int dim>
-  void checkGradients(DistSVec<double,3> &, DistVec<double> &, 
+  void checkGradients(DistSVec<double,3> &, DistVec<double> &,
 		      DistSVec<double,dim> &, DistNodalGrad<dim> &);
 
   template<int dim>
@@ -644,7 +644,7 @@ public:
 
   template<int dim>
   void printVariable(DistSVec<double,dim>&, VarFcn *);
-                                                                                             
+
   template<int dim>
   void printInletVariable(DistSVec<double,dim>&);
   template<int dim>
@@ -720,21 +720,21 @@ public:
 				 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
-  void computeOnlyGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
-			   DistGeoState &, DistSVec<double,3> &, 
+  void computeOnlyGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
+			   DistGeoState &, DistSVec<double,3> &,
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim, class Scalar>
-  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &, 
+  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   template<int dim>
-  void computeBCsJacobianWallValues(FemEquationTerm *, DistBcData<dim> &, 
-				   DistGeoState &, DistSVec<double,3> &, 
+  void computeBCsJacobianWallValues(FemEquationTerm *, DistBcData<dim> &,
+				   DistGeoState &, DistSVec<double,3> &,
 				   DistSVec<double,dim> &);
 
   template<int dim, class Scalar, int neq>
-  void applyBCsToJacobianWallValues(BcFcn *, DistBcData<dim> &, 
+  void applyBCsToJacobianWallValues(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
   template<int dim, class Scalar2>
@@ -744,12 +744,12 @@ public:
   void computeDerivativeOfVolumicForceTerm(VolumicForceTerm *, DistVec<double> &, DistVec<double> &,
                                DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  template<int dim>  
-  void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &, 
-			     DistSVec<double,3> &, DistSVec<double,3> &, 
+  template<int dim>
+  void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &,
+			     DistSVec<double,3> &, DistSVec<double,3> &,
                              DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &,
                              DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
-                             DistVec<double> &, DistVec<double> &, DistVec<double> &, 
+                             DistVec<double> &, DistVec<double> &, DistVec<double> &,
                              double, TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>

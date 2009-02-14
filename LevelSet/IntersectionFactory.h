@@ -7,10 +7,18 @@
 class DistLevelSetStructure;
 class ParseTree;
 class Communicator;
+class Domain;
+
+class IntersectProblemData {
+    Domain &domain;
+  public:
+    IntersectProblemData(Domain &);
+    int getLocalNumSub();
+};
 
 class IntersectorConstructor {
   public:
-    virtual DistLevelSetStructure *getIntersector() = 0;
+    virtual DistLevelSetStructure *getIntersector(IntersectProblemData &) = 0;
     virtual void init(ParseTree &dataTree) = 0;
     virtual int print() = 0;
 };
@@ -27,7 +35,8 @@ class IntersectionFactory {
 
     static IntersectorConstructor *
         registerClass(std::string name, IntersectorConstructor *);
-    static DistLevelSetStructure *getIntersectionObject(std::string name, ParseTree &data);
+    static void parseIntersectionObject(std::string name, ParseTree &data);
+    static DistLevelSetStructure *getIntersectionObject(std::string name, Domain &domain);
     static Communicator *getCommunicator() { return com; }
     static void setCommunicator(Communicator *c) { com = c; }
 };
