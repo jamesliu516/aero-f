@@ -43,7 +43,7 @@ using std::max;
 #include <VectorSet.h>
 #include <LinkF77.h>
 #include <LowMachPrec.h>
-//#include <EulerStructGhostFluid.h>
+#include "LevelSet/LevelSetStructure.h"
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -218,7 +218,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 // least square gradient involving only nodes of same fluid (multiphase flow)
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
-                Vec<double> &Phi, SVec<double,6> &R,
+                const FluidTypeCriterion &Phi, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
 
@@ -236,7 +236,8 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    if( !(Phi[i]*Phi[j]>0.0)) continue;
+    //if( !(Phi[i]*Phi[j]>0.0)) continue;
+    if(Phi.isSameFluid(i,j)) continue;
 
     double Wi[3], Wj[3];
     Scalar deltaVar;
@@ -961,11 +962,11 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
 //-----------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> &Freal, Vec<double> &philevel)
+void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> &Freal, LevelSetStructure &lss)
 {
   Freal = 0.0;
   for (int iNode=0; iNode<numNodes(); iNode++)
-    if (philevel[iNode]>0.0)
+    if (lss.isActive(0,iNode))
         for (int j=0; j<dim; j++)  Freal[iNode][j] = F[iNode][j];
 }
 

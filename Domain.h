@@ -36,6 +36,8 @@ class DistLevelSetStructure;
 class BCApplier; //HB
 class MatchNodeSet;
 
+#include "LevelSet/FluidTypeCriterion.h"
+
 struct Vec3D;
 
 template<class VecType> class VecSet;
@@ -195,7 +197,10 @@ public:
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &,
 			 DistSVec<double,3> &);
   void computeWeightsLeastSquares(DistSVec<double,3> &, DistSVec<double,6> &);
-  void computeWeightsLeastSquares(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,6> &);
+  void computeWeightsLeastSquares(DistSVec<double,3> &, const DistFluidTypeCriterion &, DistSVec<double,6> &);
+  void computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<double> &phi, DistSVec<double,6> &R) {
+    computeWeightsLeastSquares(X, DistFluidTypeFromLevelSet(phi), R);
+  }
   void computeWeightsGalerkin(DistSVec<double,3> &, DistSVec<double,3> &,
 			      DistSVec<double,3> &, DistSVec<double,3> &);
   void getReferenceMeshPosition(DistSVec<double,3> &);
@@ -233,7 +238,7 @@ public:
 				    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
-  void computeGradientsLeastSquares(DistSVec<double,3> &, DistVec<double> &,
+  void computeGradientsLeastSquares(DistSVec<double,3> &, DistFluidTypeCriterion &,
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
@@ -414,7 +419,7 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
-  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);
+  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistLevelSetStructure &);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,

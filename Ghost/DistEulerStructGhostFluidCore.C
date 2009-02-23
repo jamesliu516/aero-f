@@ -267,7 +267,7 @@ double DistEulerStructGhostFluid::specifyBandwidth()
 void DistEulerStructGhostFluid::initializePhysBAMMPI()
 {
   com->fprintf(stderr,"DistEulerStructGhostFluid::initializePhysBAMMPI() called.\n");
-  
+
   if (numGlobNodes<=0||bandwidth<=0.0) {fprintf(stderr,"ERROR: negative inputs. Aborting.\n");exit(-1);}
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -343,17 +343,17 @@ void DistEulerStructGhostFluid::getTetNearInterface(DistSVec<double,3> &X,
   com->fprintf(stderr, "DistEulerStructGhostFluid::getTetNearInterface called.\n");
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
-    subDomain[iSub]->getMeshInBoundingBox(X(iSub), xmin, xmax, ymin, ymax, zmin, zmax, 
+    subDomain[iSub]->getMeshInBoundingBox(X(iSub), xmin, xmax, ymin, ymax, zmin, zmax,
                                           subESGF[iSub]->nodeTag, subESGF[iSub]->numChosenNodes,
                                           subESGF[iSub]->tempNodeList, subESGF[iSub]->numChosenElems,
-                                          subESGF[iSub]->tempElemList); 
+                                          subESGF[iSub]->tempElemList);
     subESGF[iSub]->getTetNearInterface(X(iSub));
   }
 }
 
 //-----------------------------------------------------------------------------------
 
-void DistEulerStructGhostFluid::clearTotalForce() 
+void DistEulerStructGhostFluid::clearTotalForce()
 {
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
@@ -383,13 +383,29 @@ Vec3D DistEulerStructGhostFluid::getTotalForce()
   com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
 }
 
+//-----------------------------------------------------------------------------------
 
+void DistEulerStructGhostFluid::setupCommunication(Domain *domain, DistSVec<double,3>*X)
+{  // At this moment doesn't need U, but might need it in future.
+    if (solidsurface)  prepareForCommunication();
+    else {com->fprintf(stderr,"ERROR: Solid surface file not specified. Aborting...\n"); exit(-1);}
+    if (!givenBB) specifyBoundingBox(X);
+    int m, n, mn;
+//    double dx = specifydx(domain,X);
+//    m = static_cast<int>((Xmax - Xmin) / dx);
+//    n = static_cast<int>((Ymax - Ymin) / dx);
+//    mn = static_cast<int>((Zmax - Zmin) / dx);
+    m = 256; n = mn = 86; //for debug only. should be specified by "specifydx(...)"
+    com->fprintf(stderr,"For Cart. Mesh, dx = %lf, dy = %lf, dz = %lf.\n", (Xmax-Xmin)/m, (Ymax-Ymin)/n, (Zmax-Zmin)/mn);
+    //specifyBandwidth();
+    //getTetNearInterface(*X, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax);
+    initializePhysBAM(m,n,mn,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax);
+    //initializePhysBAMMPI();
 
+    computeLevelSet();  //compute level-set on Cart. grid.
 
-
-
-
-
+    getPhiFromModule(*X,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax); //interpolate Phi onto fluid (tet) grid.
+}
 
 
 

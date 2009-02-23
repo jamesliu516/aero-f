@@ -59,7 +59,7 @@ void EulerStructGhostFluid::initializePhysBAMMPI(int* locToGlob, int numNodes,do
 void EulerStructGhostFluid::computeLevelSet(PhysBAM::TRIANGULATED_SURFACE<double> &physbam_triangulated_surface)
 {
   if (!PhysBAM_Interface) {fprintf(stderr,"ERROR: PhysBAM not initialized. Aborting.\n"); exit(-1);}
-//  if (!compressible_fluid_particle) {fprintf(stderr,"Particle list not constructed. Aborting.\n"); exit(-1);} 
+//  if (!compressible_fluid_particle) {fprintf(stderr,"Particle list not constructed. Aborting.\n"); exit(-1);}
 //  PhysBAM_Interface->Compute_Level_Set(physbam_triangulated_surface, *compressible_fluid_particle);
   PhysBAM_Interface->Compute_Level_Set(physbam_triangulated_surface);
 }
@@ -163,7 +163,7 @@ bool EulerStructGhostFluid::isActive(double t, int n) {
 
 
 
-bool EulerStructGhostFluid::edgeIntersectsStructure(double t, int ni, int nj) {
+bool EulerStructGhostFluid::edgeIntersectsStructure(double t, int ni, int nj) const {
    return (philevel[ni] >= 0 && philevel[nj] <0) || (philevel[ni] < 0 && philevel[nj] >= 0);//philevel[ni]*philevel[nj] < 0;
 }
 

@@ -1,10 +1,9 @@
-#include <DistEdgeGrad.h>
-
 #include <IoData.h>
 #include <EdgeGrad.h>
 #include <Domain.h>
 #include <DistVector.h>
 #include <MacroCell.h>
+#include <CurvatureDetection.h>
 
 #include <stdio.h>
 
@@ -223,10 +222,10 @@ DistEdgeGrad<dim>::DistEdgeGrad(IoData& iod, Domain* domain)
 template<int dim>
 DistEdgeGrad<dim>::~DistEdgeGrad()
 {
-  if (subEdgeGrad) { 
+  if (subEdgeGrad) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub) 
-      if (subEdgeGrad[iSub]) 
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      if (subEdgeGrad[iSub])
 	delete subEdgeGrad[iSub];
     delete [] subEdgeGrad;
   }

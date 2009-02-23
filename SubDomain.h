@@ -72,6 +72,7 @@ template<class Scalar, int dim> class MvpMat;
 template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
+#include "LevelSet/FluidTypeCriterion.h"
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
@@ -203,7 +204,7 @@ public:
   void computeSmoothedSensor(SVec<double,3>&, Vec<double>&, SVec<double,3>&);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
-  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, Vec<double> &,
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const FluidTypeCriterion &,
 					  SVec<int,1> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
@@ -307,7 +308,7 @@ public:
 				    SVec<Scalar,dim> &, SVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
-  void computeGradientsLeastSquares(SVec<double,3> &, Vec<double> &,
+  void computeGradientsLeastSquares(SVec<double,3> &, const FluidTypeCriterion &,
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &);
@@ -403,7 +404,7 @@ public:
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
-  void computeRealFluidResidual(SVec<double, dim> &, SVec<double,dim> &, Vec<double> &);
+  void computeRealFluidResidual(SVec<double, dim> &, SVec<double,dim> &, LevelSetStructure &);
 
 
   template<class Scalar,int dim>

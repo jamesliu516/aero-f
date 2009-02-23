@@ -46,7 +46,7 @@ public:
   Vec<double> *getPhilevelPointer() {return &philevel;}
   SVec<double,3>* getGradPhilevelPointer() {return &gradPhilevel;}
   int getClosestStructureFace(Vec3D position, Vec3D& projection, double& distance) {
-/*  //commented because not compatible with current version of PhysBAM  
+/*  //commented because not compatible with current version of PhysBAM
     if (!PhysBAM_Interface) {fprintf(stderr,"ERROR:PhysBAM_Interface not initialized!\n"); return -1;}
     PhysBAM::VECTOR<double,3> physbam_position(position[0],position[1],position[2]);
     PhysBAM::VECTOR<double,3> physbam_projection;
@@ -60,7 +60,7 @@ public:
   LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
   bool isActive(double t, int n);
-  bool edgeIntersectsStructure(double t, int ni, int nj);
+  bool edgeIntersectsStructure(double t, int ni, int nj) const;
 };
 
 #ifdef TEMPLATE_FIX

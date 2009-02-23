@@ -73,14 +73,15 @@ FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 SET(MAIN_FILES Main.C LevelSet/IntersectionFactory.C)
 
 ADD_LIBRARY(FluidBase
+             LevelSet/FluidTypeCriterion.cpp
              NavierStokesSolver.C 
-             Solvers/StructLevelSetSolver5.C
+             Solvers/LevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver5.C
+             Solvers/StructLevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver6.C
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
              Solvers/NavierStokesSegSolver752.C
-             Solvers/LevelSetSolver5.C
              BcFcnCore.C
              CommunicatorCore.C 
              CommunicatorMPI.C 

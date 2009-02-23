@@ -11,7 +11,7 @@
 #include <Communicator.h>
 #include <BinFileHandler.h>
 #include <BCApplier.h>
-#include <MatchNode.h> 
+#include <MatchNode.h>
 #include <LinkF77.h>
 #include <Extrapolation.h>
 
@@ -34,11 +34,11 @@ extern "C" {
 
 //------------------------------------------------------------------------------
 
-SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN, 
-		     NodeSet *locNodes, FaceSet *locFaces, ElemSet *locElems, 
-		     int numLocNeighb, int *locNeighb, Connectivity *locSharedNodes, 
+SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
+		     NodeSet *locNodes, FaceSet *locFaces, ElemSet *locElems,
+		     int numLocNeighb, int *locNeighb, Connectivity *locSharedNodes,
 		     int *locNodeMap, int *locFaceMap, int *locElemMap,
-		     int nNdRng, int (*ndRng)[3]) : 
+		     int nNdRng, int (*ndRng)[3]) :
   nodes(*locNodes), faces(*locFaces), elems(*locElems)
 {
 
@@ -103,10 +103,10 @@ SubDomain::~SubDomain()
   if (sndChannel) delete [] sndChannel;
   if (rcvChannel) delete [] rcvChannel;
   if (numSharedEdges) delete [] numSharedEdges;
-  
+
   if (sharedEdges) {
     for (int iSub = 0; iSub < numNeighb; ++iSub)
-      if (sharedEdges[iSub]) 
+      if (sharedEdges[iSub])
 	delete [] sharedEdges[iSub];
 
     delete [] sharedEdges;
@@ -126,18 +126,18 @@ SubDomain::~SubDomain()
 
 //------------------------------------------------------------------------------
 
-int SubDomain::numberEdges() 	
+int SubDomain::numberEdges()
 {
 
   int i;
-  for (i=0; i<elems.size(); ++i) 
+  for (i=0; i<elems.size(); ++i)
     elems[i].numberEdges(edges);
 
   Vec<int> newNum(edges.size());
 
   edges.createPointers(newNum);
 
-  for (i=0; i<elems.size(); ++i) 
+  for (i=0; i<elems.size(); ++i)
     elems[i].renumberEdges(newNum);
 
   for (i=0; i<faces.size(); ++i)
@@ -148,24 +148,24 @@ int SubDomain::numberEdges()
 
 //------------------------------------------------------------------------------
 
-                                                                                                                          
+
 void printMacroCells(Connectivity &cToN)
-                                                                                                                          
+
 {
-                                                                                                                          
+
   // Get number of cells //
 
   int nCells = cToN.csize();
-                                                                                                                          
+
   // Print out the MacroCells Number and the Cells in it //
-                                                                                                                          
+
   for (int i = 0; i < nCells; ++i) {
     printf("MacroCell No %d \n", i+1);
     for (int j = 0; j < cToN.num(i); ++j) {
       printf("%d\n", cToN[i][j]);
     }
   }
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ Connectivity *SubDomain::createElemBasedConnectivity()
   Connectivity *nToE = eToN.reverse();
   Connectivity *nToN = nToE->transcon(&eToN);
   delete nToE;
-  
+
   return nToN;
 
 }
@@ -260,7 +260,7 @@ Connectivity *SubDomain::createEdgeBasedConnectivity()
     ++numNeigh[i2];
 
   }
-  
+
   for (i=0; i<numNodes; ++i)
 #ifdef OLD_STL
     sort(ja+ia[i], ja+ia[i+1]);
@@ -279,7 +279,7 @@ void SubDomain::createSharedInletNodeConnectivity(int subd)
 {        /* this function creates a connectivity for the shared inlet nodes but in the
          * indexation of the inletnodes in the subdomain we are considering/
          */
- 
+
         int iSub, i, j;
 
 //      count of the # of inlet nodes shared with each of the neighboring subdomains
@@ -294,14 +294,14 @@ void SubDomain::createSharedInletNodeConnectivity(int subd)
                                         count[iSub]++;
                 }
         }
-                                                                                                  
+
         /* As it is not equivalent to loop through the shared nodes and to loop
          * through the inlet nodes (there can be a redundancy of the nodes in the shared nodes
          * where as there can't be in the inlet nodes structure), we need to create two arrays:
          * each of size nodes.size(), one to store the number of subdomains a node is shared with
          * the second to store the number of the neighbouring subdomains it belongs to.
          */
-                                                                                                  
+
         int *shareNum = new int[nodes.size()];
         int **shareSub = new int*[nodes.size()];
         for (i=0; i<nodes.size(); i++){
@@ -362,7 +362,7 @@ void SubDomain::createSharedInletNodeConnectivity(int subd)
         }
 
         sharedInletNodes = new Connectivity(numNeighb, ia, ja);
-                                                                                                  
+
         if (count) delete [] count;
         if (count2) delete [] count2;
         if (count3) delete [] count3;
@@ -396,40 +396,40 @@ Connectivity *SubDomain::createNodeToMacroCellNodeConnectivity(MacroCellSet *mac
   for (i=0; i<numNodes; ++i) ptr[i+1] = ptr[i] + numMacroNodes[i];
 
   // construction of list //
-                                                                                                                          
+
   int nnz = 0;
   for (i=0; i<numNodes; ++i) nnz += numMacroNodes[i];
-                                                                                                                          
+
   int *list = new int[nnz];
-                                                                                                                          
+
   for (i=0; i<numNodes; ++i) numMacroNodes[i] = 0;
-                                                                                                                          
+
   for (i=0; i<nodes.size(); ++i)
     for (j=0; j<nodes.size(); ++j)
       if (macroCells->containing(i) == macroCells->containing(j)) {
         list[ptr[i]+numMacroNodes[i]] = j;
         ++numMacroNodes[i];
       }
-                                                                                                                          
-                                                                                                                          
+
+
   for (i=0; i<numNodes; ++i)
 #ifdef OLD_STL
     sort(list+ptr[i], list+ptr[i+1]);
 #else
     stable_sort(list+ptr[i], list+ptr[i+1]);
 #endif
-                                                                                                                          
+
   Connectivity *nodeToMacroCellNode = new Connectivity(numNodes, ptr, list);
-                                                                                                                          
+
 //  printMacroCells(*nodeToMacroCellNode); exit(1);
-                                                                                                                          
+
   return nodeToMacroCellNode;
-                                                                                                                          
+
 }
 
 //------------------------------------------------------------------------------
 
-compStruct *SubDomain::createRenumbering(Connectivity *nodeToNode, 
+compStruct *SubDomain::createRenumbering(Connectivity *nodeToNode,
 					 int typeRenum, int print)
 {
 
@@ -454,7 +454,7 @@ compStruct *SubDomain::createRenumbering(Connectivity *nodeToNode,
 
   SparseMat<double,1> A(numNodes, ia[numNodes], ia, ja, a, 0, 0);
 
-  if (print == 1) 
+  if (print == 1)
     F77NAME(psplotmask)(numNodes, ia, ja, 0, 10+globSubNum);
 
   A.permute(nodeRenum->renum);
@@ -468,7 +468,7 @@ compStruct *SubDomain::createRenumbering(Connectivity *nodeToNode,
 
 //------------------------------------------------------------------------------
 
-void SubDomain::getElementStatistics(int &numNodes, int &numEdges, 
+void SubDomain::getElementStatistics(int &numNodes, int &numEdges,
 				     int &numFaces, int &numElems)
 {
 
@@ -495,7 +495,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     if (volume <= 0.0) {
       ++ierr;
       if (numInvElem)
-	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap, 
+	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
 				     locToGlobElemMap, nodes, X);
     }
   }
@@ -537,14 +537,14 @@ void SubDomain::computeFaceEdgeNormals(SVec<double,3>& X, SVec<double,6>& normal
 {
 
   normals = 0.0;
-  for (int i=0; i<faces.size(); ++i) 
+  for (int i=0; i<faces.size(); ++i)
     faces[i].computeEdgeNormals(X, locToGlobNodeMap, normals);
 
 }
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& normals, 
+void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& normals,
 					 Vec<double>& tag)
 {
 
@@ -552,7 +552,7 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
 
   Vec<bool> bedges(edges.size());
   bedges = false;
-  for (int i=0; i<faces.size(); ++i) 
+  for (int i=0; i<faces.size(); ++i)
     faces[i].tagEdgesOnBoundaries(bedges);
 
   int (*ptr)[2] = edges.getPtr();
@@ -563,8 +563,8 @@ void SubDomain::computeEdgeDihedralAngle(double threshold, SVec<double,6>& norma
       /*
       if ( (locToGlobNodeMap[ptr[l][0]]+1 == 17 && locToGlobNodeMap[ptr[l][1]]+1 == 157) ||
 	   (locToGlobNodeMap[ptr[l][1]]+1 == 17 && locToGlobNodeMap[ptr[l][0]]+1 == 157) )
-	printf("%d (%d -> %d, %d) (%d -> %d, %d) %e %e %e %e %e %e %e\n", 
-	       l+1, ptr[l][0], locToGlobNodeMap[ptr[l][0]]+1, nodeType[ ptr[l][0] ], 
+	printf("%d (%d -> %d, %d) (%d -> %d, %d) %e %e %e %e %e %e %e\n",
+	       l+1, ptr[l][0], locToGlobNodeMap[ptr[l][0]]+1, nodeType[ ptr[l][0] ],
 	       ptr[l][1], locToGlobNodeMap[ptr[l][1]]+1, nodeType[ ptr[l][1] ],
 	       ni[0], ni[1], ni[2], nj[0], nj[1], nj[2], acos(ni*nj) *180.0/acos(-1.0));
       */
@@ -648,7 +648,7 @@ void SubDomain::computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xd
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1, 
+void SubDomain::computeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
 				   SVec<double,3> &Xdot,
 				   Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
 				   Vec<Vec3D> &faceNorm, Vec<double> &faceNormVel)
@@ -658,10 +658,10 @@ void SubDomain::computeNormalsGCL1(SVec<double,3> &Xn, SVec<double,3> &Xnp1,
   edgeNormVel = 0.0;
 
   int i;
-  for (i=0; i<elems.size(); ++i) 
+  for (i=0; i<elems.size(); ++i)
     elems[i].computeEdgeNormalsGCL1(Xn, Xnp1, Xdot, edgeNorm, edgeNormVel);
-  
-  for (i=0; i<faces.size(); ++i) 
+
+  for (i=0; i<faces.size(); ++i)
     faces[i].computeNormalGCL1(Xn, Xnp1, Xdot, faceNorm, faceNormVel);
 
 }
@@ -677,10 +677,10 @@ void SubDomain::computeNormalsEZGCL1(double oodt, SVec<double,3>& Xn, SVec<doubl
   edgeNormVel = 0.0;
 
   int i;
-  for (i=0; i<elems.size(); ++i) 
+  for (i=0; i<elems.size(); ++i)
     elems[i].computeEdgeNormalsEZGCL1(oodt, Xn, Xnp1, edgeNorm, edgeNormVel);
 
-  for (i=0; i<faces.size(); ++i) 
+  for (i=0; i<faces.size(); ++i)
     faces[i].computeNormalEZGCL1(oodt, Xn, Xnp1, faceNorm, faceNormVel);
 
 }
@@ -695,7 +695,7 @@ void SubDomain::computeSmoothedSensor(SVec<double,3>& X, Vec<double>& sigma,
 
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
-  
+
   for (int l=0; l<edges.size(); ++l) {
     if (!edgeFlag[l]) continue;
 
@@ -728,7 +728,7 @@ void SubDomain::computeSmoothedSensor(SVec<double,3>& X, Vec<double>& sigma,
   number = 11,
   pages = "2094--2102",
   month = nov,
-} 
+}
 */
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<double,6> &R)
 {
@@ -744,12 +744,12 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, SVec<doubl
 
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
-    
+
     double dx[3];
     dx[0] = X[j][0] - X[i][0];
     dx[1] = X[j][1] - X[i][1];
     dx[2] = X[j][2] - X[i][2];
-   
+
     double dxdx = dx[0] * dx[0];
     double dydy = dx[1] * dx[1];
     double dzdz = dx[2] * dx[2];
@@ -864,7 +864,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
-void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, Vec<double> &Phi,
+void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const FluidTypeCriterion &ftc,
                                                    SVec<int,1> &count, SVec<double,6> &R)
 {
 
@@ -881,7 +881,8 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, Vec<double
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    if( !(Phi[i]*Phi[j]>0.0) ) continue;
+  //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
+    if(!ftc.isSameFluid(i,j)) continue;
     count[i][0]++;
     count[j][0]++;
 
@@ -1039,7 +1040,7 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 
 //------------------------------------------------------------------------------
 
-void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii, 
+void SubDomain::computeWeightsGalerkin(SVec<double,3> &X, SVec<double,3> &wii,
 				       SVec<double,3> &wij, SVec<double,3> &wji)
 {
 
@@ -1090,7 +1091,7 @@ void SubDomain::computeEdgeWeightsGalerkin(SVec<double,3> &X, Vec<double> &A, SV
 
     Vec<double> u(nodes.size());
     SVec<double,9> duddxj(nodes.size());
-    
+
     int i, j, k;
     for (i=0; i<nodes.size(); ++i)
       u[i] = 2.0*X[i][0];// *X[i][0];
@@ -1122,7 +1123,7 @@ void SubDomain::computeEdgeWeightsGalerkin(SVec<double,3> &X, Vec<double> &A, SV
       if (!tmp[l])
 	ff = 0;
 
-      fprintf(stderr, "%d %e %e %e %d %d (%d)\n", 
+      fprintf(stderr, "%d %e %e %e %d %d (%d)\n",
 	      l, M[l][1], M[l][6], M[l][8], nodeType[i], nodeType[j], ff);
       */
 
@@ -1136,7 +1137,7 @@ void SubDomain::computeEdgeWeightsGalerkin(SVec<double,3> &X, Vec<double> &A, SV
       fprintf(stderr, "%d %e %d\n", i, duddxj[i][0], nodeType[i]);
 
     }
-	
+
     exit(1);
 
   }
@@ -1343,28 +1344,28 @@ MacroCellSet* SubDomain::findAgglomerateMesh(int scopeWidth,
 */
 
 //------------------------------------------------------------------------------
-  
-// This function assimilates cells into a macro-cell and may be 
+
+// This function assimilates cells into a macro-cell and may be
 // called recursively depending upon the algorithm
 
 void SubDomain::assimilateCells(int baseNode,
                                 int scopeWidth,
                                 int *numNeighbors,
-                                int **neighbors, 
+                                int **neighbors,
                                 bool *masterFlag,
                                 int macroCellID,
                                 int *nodeToMacroCellMap,
                                 bool *consideredNodes)
 {
-  
+
   int n;
-    
+
   // Loop over nodes neighboring baseNode
   for (n=0; n < numNeighbors[baseNode]; ++n) {
 
     // Only consider nodes that are masters of their subdomains
     if (masterFlag[ neighbors[baseNode][n] ]) {
-    
+
       // Test for inclusion of each of baseNode's neighbors in a macro-cell
       // and if not included, add the neighbor to current macro-cell and
       // specify that the node has been considered
@@ -1373,14 +1374,14 @@ void SubDomain::assimilateCells(int baseNode,
         nodeToMacroCellMap[ neighbors[baseNode][n] ] = macroCellID;
       }
     }
-    
+
     // If node isn't a master of its subdomain, specify as considered, but
     // assign -1 as the macro-cell to indicate node will be included via
     // a neighboring subdomain.
     else {
       consideredNodes[ neighbors[baseNode][n] ]    = true;
       nodeToMacroCellMap[ neighbors[baseNode][n] ] = -1;
-    } 
+    }
 
     // If the recursion depth is greater than one, then examine the
     // neighbors of the neighbors
@@ -1395,9 +1396,9 @@ void SubDomain::assimilateCells(int baseNode,
 //------------------------------------------------------------------------------
 
 /*
-Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *masterFlag) 
+Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *masterFlag)
 {
-  // Get the number of "nodes" 
+  // Get the number of "nodes"
   int nNodes = nToN.csize();
   int *list = new int[nNodes];
   // Initially we do not know how many cells we will end up with, but at most
@@ -1405,10 +1406,10 @@ Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *mas
   int *ptr = new int[nNodes];
   int *level = new int[nNodes];
   int i, j, k;
-  
+
   for(i = 0; i < nNodes; ++i)
     level[i] = -1;
-  
+
   int nCells = 0;
   int examine;
   int idx = 0;
@@ -1440,8 +1441,8 @@ Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *mas
      }
      ptr[nCells] = idx;
      nCells++;
-  }  
-  
+  }
+
   // Now create the REAL pointers
   int *rPtr = new int[nCells+1];
   rPtr[0] = 0;
@@ -1470,7 +1471,7 @@ Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *mas
   int *cellNum = new int[nNodes];  // tag that contains the cell to which a node belongs
   int i, j, k;
 
-  for(i = 0; i < nNodes; ++i) 
+  for(i = 0; i < nNodes; ++i)
     level[i] = -1;  // initialize the tag that denotes if the node has been examined  to not examined
 
   int nCells = 0;   // counter that registers the number of macrocells
@@ -1615,11 +1616,11 @@ Connectivity *SubDomain::agglomerate(Connectivity &nToN, int maxLevel, bool *mas
       list[--ptr[cellNum[i]]] = i;
 
   return new Connectivity(nCells, ptr, list);
-                                                                                                 
+
 }
 
 //------------------------------------------------------------------------------
-// This is the new and correct agglomeration routine 
+// This is the new and correct agglomeration routine
 
 MacroCellSet** SubDomain::findAgglomerateMesh(int scopeWidth, int scopeDepth,
                                               bool *masterFlag, double gam)
@@ -1659,7 +1660,7 @@ MacroCellSet** SubDomain::findAgglomerateMesh(int scopeWidth, int scopeDepth,
                                               numNodes,
                                               gam);
       cellToNode = macroCellToNode;
-    } 
+    }
 
 //  printMacroCells(*cellToNode); exit(1);
 
@@ -1763,7 +1764,7 @@ int checkPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e, bool adap
 // this routine computes the barycentric coordinates r and t.
 // however, it should also be able to compute the barycentric coordinates s, r and t
 //   but it seems that s is not properly implemented...?
-                                                                                                  
+
 inline
 void constructPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e,
                           double* s, double* r, double* t, bool test)
@@ -1787,15 +1788,15 @@ void constructPiercePoint(Vec3D& a, Vec3D& b, Vec3D& c, Vec3D& d, Vec3D& e,
     }else{
     double ooden = 1.0 / den;
 
-    if (s) 
+    if (s)
       *s = ooden * (cd[0]*coef0 - cd[1]*coef1 + cd[2]*coef2);
 
-    if (r) 
+    if (r)
       *r = ooden * (ed[0] * (cb[2]*cd[1] - cb[1]*cd[2]) -
                     ed[1] * (cb[2]*cd[0] - cb[0]*cd[2]) +
                     ed[2] * (cb[1]*cd[0] - cb[0]*cd[1]));
 
-    if (t) 
+    if (t)
       *t = ooden * (ed[0] * (ac[2]*cd[1] - ac[1]*cd[2]) -
                     ed[1] * (ac[2]*cd[0] - ac[0]*cd[2]) +
                     ed[2] * (ac[1]*cd[0] - ac[0]*cd[1]));
@@ -1815,7 +1816,7 @@ bool SubDomain::findTetrahedron(int i, int j, Vec<int>& count, int** list,
   Vec3D d(X[i]);
   Vec3D e(X[j]);
 
-/*  
+/*
   double unit = sqrt ((d[0]-e[0])*(d[0]-e[0]) + (d[1]-e[1])*(d[1]-e[1]) + (d[2]-e[2])*(d[2]-e[2]));
   double length;
   if (unit == 0.0){
@@ -1860,7 +1861,7 @@ bool SubDomain::findTetrahedron(int i, int j, Vec<int>& count, int** list,
 	fprintf(stderr, "*** Error: face not found\n");
 	exit(1);
       }
-      
+
       // perform the intersection
       Vec3D a(X[ elem[ elem.faceDef(tf,0) ] ]);
       Vec3D b(X[ elem[ elem.faceDef(tf,1) ] ]);
@@ -1902,7 +1903,7 @@ void SubDomain::findEdgeTetrahedra(SVec<double,3>& X, V6NodeData (*&v6data)[2])
 
   // create nodes -> tetrahedra data structure
   Vec<int> count(numNodes);
-  count = 0; 
+  count = 0;
   for (i=0; i<numElems; ++i)
     for (j=0; j<4; ++j)
       count[ elems[i][j] ]++;
@@ -1931,7 +1932,7 @@ void SubDomain::findEdgeTetrahedra(SVec<double,3>& X, V6NodeData (*&v6data)[2])
     double elength = edges.length(l);
     if(maxEdgeLength[ptrEdge[l][0]]<elength) maxEdgeLength[ptrEdge[l][0]] = elength;
     if(maxEdgeLength[ptrEdge[l][1]]<elength) maxEdgeLength[ptrEdge[l][1]] = elength;
-  } 
+  }
 #endif
   for (l=0; l<numEdges; ++l) {
     for (int dir=0; dir<2; ++dir) {
@@ -1979,33 +1980,33 @@ void SubDomain::findEdgeTetrahedra(SVec<double,3>& X, V6NodeData (*&v6data)[2])
       FILE* fp = fopen(name, "w");
       if (v6data[l][0].tet != -1) {
 	fprintf(fp, "Elements t0.%d using FluidNodes\n", l);
-	fprintf(fp, "1 5 %d %d %d %d\n", 
-		locToGlobNodeMap[elems[v6data[l][0].tet][0]]+1, 
-		locToGlobNodeMap[elems[v6data[l][0].tet][1]]+1, 
-		locToGlobNodeMap[elems[v6data[l][0].tet][2]]+1, 
+	fprintf(fp, "1 5 %d %d %d %d\n",
+		locToGlobNodeMap[elems[v6data[l][0].tet][0]]+1,
+		locToGlobNodeMap[elems[v6data[l][0].tet][1]]+1,
+		locToGlobNodeMap[elems[v6data[l][0].tet][2]]+1,
 		locToGlobNodeMap[elems[v6data[l][0].tet][3]]+1);
       }
       if (v6data[l][1].tet != -1) {
 	fprintf(fp, "Elements t1.%d using FluidNodes\n", l);
-	fprintf(fp, "1 5 %d %d %d %d\n", 
-		locToGlobNodeMap[elems[v6data[l][1].tet][0]]+1, 
-		locToGlobNodeMap[elems[v6data[l][1].tet][1]]+1, 
-		locToGlobNodeMap[elems[v6data[l][1].tet][2]]+1, 
+	fprintf(fp, "1 5 %d %d %d %d\n",
+		locToGlobNodeMap[elems[v6data[l][1].tet][0]]+1,
+		locToGlobNodeMap[elems[v6data[l][1].tet][1]]+1,
+		locToGlobNodeMap[elems[v6data[l][1].tet][2]]+1,
 		locToGlobNodeMap[elems[v6data[l][1].tet][3]]+1);
       }
       fprintf(fp, "Elements t.%d using FluidNodes\n", l);
       int k;
-      for (k=0; k<count[i]; ++k) 
-	fprintf(fp, "%d 5 %d %d %d %d\n", k+1, 
-		locToGlobNodeMap[elems[list[i][k]][0]]+1, 
-		locToGlobNodeMap[elems[list[i][k]][1]]+1, 
-		locToGlobNodeMap[elems[list[i][k]][2]]+1, 
+      for (k=0; k<count[i]; ++k)
+	fprintf(fp, "%d 5 %d %d %d %d\n", k+1,
+		locToGlobNodeMap[elems[list[i][k]][0]]+1,
+		locToGlobNodeMap[elems[list[i][k]][1]]+1,
+		locToGlobNodeMap[elems[list[i][k]][2]]+1,
 		locToGlobNodeMap[elems[list[i][k]][3]]+1);
-      for (k=0; k<count[j]; ++k) 
-	fprintf(fp, "%d 5 %d %d %d %d\n", k+count[i]+1, 
-		locToGlobNodeMap[elems[list[j][k]][0]]+1, 
-		locToGlobNodeMap[elems[list[j][k]][1]]+1, 
-		locToGlobNodeMap[elems[list[j][k]][2]]+1, 
+      for (k=0; k<count[j]; ++k)
+	fprintf(fp, "%d 5 %d %d %d %d\n", k+count[i]+1,
+		locToGlobNodeMap[elems[list[j][k]][0]]+1,
+		locToGlobNodeMap[elems[list[j][k]][1]]+1,
+		locToGlobNodeMap[elems[list[j][k]][2]]+1,
 		locToGlobNodeMap[elems[list[j][k]][3]]+1);
       fprintf(fp, "Elements e.%d using FluidNodes\n", l);
       fprintf(fp, "1 1 %d %d\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
@@ -2014,13 +2015,13 @@ void SubDomain::findEdgeTetrahedra(SVec<double,3>& X, V6NodeData (*&v6data)[2])
   }
   exit(1);
   */
-    
+
   if (list) {
     for (i=0; i<numNodes; i++)
       if (list[i]) delete [] list[i];
     delete [] list;
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2036,17 +2037,17 @@ bool SubDomain::findNormalTet1(Vec3D a, Vec3D b, Vec3D c, Vec3D d, Vec3D e, int 
     data.t = t;
     return true;
   }
-  
+
   return false;
 }
 //------------------------------------------------------------------------------
-                                                                                                  
+
 inline
 bool find1in3(int node, int* itet)
 {
-  
+
   return (node == itet[0] || node == itet[1] || node == itet[2]);
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2054,12 +2055,12 @@ void SubDomain::findNormalTet2( int* itet, Vec3D d, Vec3D e, int tt,
                                 SVec<double,3> X,
                                 ExtrapolationNodeData &data)
 {
-  
+
   int i, j, k, l;
   int nodesFace[3];
-  
+
   data.tet = tt;
-  
+
   for ( i=0; i<4; i++){
     Elem &elem = elems[tt];
     nodesFace[0] = elem[ elem.faceDef(i,0) ];
@@ -2069,11 +2070,11 @@ void SubDomain::findNormalTet2( int* itet, Vec3D d, Vec3D e, int tt,
       Vec3D a(X[nodesFace[0]]);
       Vec3D b(X[nodesFace[1]]);
       Vec3D c(X[nodesFace[2]]);
-      
+
       double s,r,t;
       int pierce = checkPiercePoint(a, b, c, d, e, false);
       if (pierce >= -3 && pierce <= 3) {
-	
+
         constructPiercePoint(a, b, c, d, e, 0, &r, &t, false);
 	data.face = i;
 	data.r = r;
@@ -2105,7 +2106,7 @@ bool SubDomain::findNormalTetrahedron(int node, Vec3D normal,
     fprintf(stderr, "*** Error: normal is equal to null vector\n");
     exit(1);
   }
-  
+
   for (int k=0; k<num; ++k){
     int tt = list[k];
     Elem &elem = elems[tt];
@@ -2128,22 +2129,22 @@ bool SubDomain::findNormalTetrahedron(int node, Vec3D normal,
     itet[0] = elem[ elem.faceDef(tf,0) ];
     itet[1] = elem[ elem.faceDef(tf,1) ];
     itet[2] = elem[ elem.faceDef(tf,2) ];
-    
+
     Vec3D a(X[ itet[0]  ]);
     Vec3D b(X[ itet[1]  ]);
     Vec3D c(X[ itet[2]  ]);
-    
+
     //for Constant EXTRAPOLATION
     ans = findNormalTet1(a, b, c, d, e, tt, tf, xpoldata[0], adaptive);
-    
+
     //for Linear EXTRAPOLATION
-    if (ans && list2){                                                                
+    if (ans && list2){
       int tt2 = list2[k];
       if (tt2 != -1){
 	findNormalTet2(itet, d, e, tt2, X, xpoldata[1]);
-        
+
 	Vec3D h1 = c +xpoldata[0].r*(a-c)+xpoldata[0].t*(b-c);
-        
+
 	elem = elems[xpoldata[1].tet];
 	itemp[0] = elem[ elem.faceDef(xpoldata[1].face,0) ];
 	itemp[1] = elem[ elem.faceDef(xpoldata[1].face,1) ];
@@ -2159,27 +2160,27 @@ bool SubDomain::findNormalTetrahedron(int node, Vec3D normal,
 	tet1[0]=normal[1]*d10[2]-normal[2]*d10[1];
 	tet1[1]=normal[2]*d10[0]-normal[0]*d10[2];
 	tet1[2]=normal[0]*d10[1]-normal[1]*d10[0];
-        
+
 	tet2[0]=normal[1]*d20[2]-normal[2]*d20[1];
 	tet2[1]=normal[2]*d20[0]-normal[0]*d20[2];
 	tet2[2]=normal[0]*d20[1]-normal[1]*d20[0];
-                                                                                                  
+
 	tet3[0]=d10[1]*d20[2]-d10[2]*d20[1];
 	tet3[1]=d10[2]*d20[0]-d10[0]*d20[2];
 	tet3[2]=d10[0]*d20[1]-d10[1]*d20[0];
 	double tot1, tot2, tot3;
 	tot1 = pow(tet1[0]*tet1[0]+tet1[1]*tet1[1]+tet1[2]*tet1[2], 0.5);
 	tot2 = pow(tet2[0]*tet2[0]+tet2[1]*tet2[1]+tet2[2]*tet2[2], 0.5);
-	tot3 = pow(tet3[0]*tet3[0]+tet3[1]*tet3[1]+tet3[2]*tet3[2], 0.5); 
+	tot3 = pow(tet3[0]*tet3[0]+tet3[1]*tet3[1]+tet3[2]*tet3[2], 0.5);
       }
     }
     if (ans) break;
   }
   return ans;
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void SubDomain::findNormalTetrahedra(SVec<double,3>& X, Vec<Vec3D>& normals,
 				     ExtrapolationNodeData (*&xpoldata)[2])
 {
@@ -2192,7 +2193,7 @@ void SubDomain::findNormalTetrahedra(SVec<double,3>& X, Vec<Vec3D>& normals,
   int i;
   int counter = 0;
   int counter2 = 0;
-                                                                                                  
+
   //inode[i] is false if node i is shared.
   Vec<bool> inode(numNodes);
   for ( i=0; i<numNodes; i++)
@@ -2201,7 +2202,7 @@ void SubDomain::findNormalTetrahedra(SVec<double,3>& X, Vec<Vec3D>& normals,
     for (i=0; i<sharedNodes->num(iSub); ++i){
       inode[ (*sharedNodes)[iSub][i] ] = false;
     }
-                                                                                                  
+
   if(!xpoldata)
     xpoldata = new ExtrapolationNodeData[numBcNodes][2];
 
@@ -2211,7 +2212,7 @@ void SubDomain::findNormalTetrahedra(SVec<double,3>& X, Vec<Vec3D>& normals,
     listtets2 = inletNodes[i].getTets2();
     numtets = inletNodes[i].getNumTets();
     bool ans = findNormalTetrahedron(node, normals[i], listtets, listtets2,  numtets, X, xpoldata[i]);
-                                                                                              
+
     if(!ans){
        ans = findNormalTetrahedron(node, normals[i], listtets, listtets2, numtets, X, xpoldata[i], false);
     }
@@ -2220,41 +2221,41 @@ void SubDomain::findNormalTetrahedra(SVec<double,3>& X, Vec<Vec3D>& normals,
       fprintf(stderr, "***Warning: no tetrahedron found for inletNode %d\n", locToGlobNodeMap[node]+1);
     }
   }
-  
+
 }
 
 //------------------------------------------------------------------------------
 
 void SubDomain::checkNormalTetrahedra(ExtrapolationNodeData (*&xpoldata)[2])
 {
-  
+
   int i, counter=0;
   int counter2=0;
-  
+
   for (i=0; i<inletNodes.size(); i++){
     if ( xpoldata[i][0].tet==-1 ){
       counter++;
       //fprintf(stderr, "node %d has no corresponding tet\n", i);
     }
   }
-  
+
   for (int iSub=0; iSub<numNeighb; ++iSub)
     for (i=0; i<sharedNodes->num(iSub); ++i)
       counter2++;
   fprintf(stderr, "# of nodes w/o tets is %d      and # of shared nodes for that subdomain is %d\n", counter, counter2);
-  
+
 }
 
 //------------------------------------------------------------------------------
 
 void SubDomain::setInletNodes(IoData& ioData)
 {
-                                                                                                  
+
   int i, j;
-  
+
   //what we need to pass in the InletNodeSet class to store
   int numInletNodes = 0;
-  
+
   //find numInletNodes and tag the nodes that are at inlet/outlet
   Vec<bool> tagNodes(nodes.size());
   tagNodes = false;
@@ -2265,7 +2266,7 @@ void SubDomain::setInletNodes(IoData& ioData)
       numInletNodes++;
     }
   }
-  
+
   //check that we get the same number of InletNodes counting via nodes, faces, and tets
   //via tets
   Vec<bool> tcounted(nodes.size());
@@ -2279,10 +2280,10 @@ void SubDomain::setInletNodes(IoData& ioData)
 			   nodeType[n] ==BC_OUTLET_FIXED ||nodeType[n] ==BC_INLET_FIXED )){
         tcounted[n] = true;
         tnumInletNodes++;
-      }                                                                                           
+      }
     }
   }
-  
+
   //via faces
   Vec<bool> fcounted(nodes.size());
   fcounted = false;
@@ -2297,33 +2298,33 @@ void SubDomain::setInletNodes(IoData& ioData)
       }
     }
   }
-  
+
   //take care of numTets and tets for each InletNode
   //first numTets of each InletNode
   int *counttets = new int[nodes.size()];
   int **listtets = new int*[nodes.size()];
-  
+
   for ( i=0; i<nodes.size(); i++)
     counttets[i]=0;
-  
+
   for ( i=0; i<elems.size(); i++)
     for ( j=0; j<4; j++)
       counttets[ elems[i][j] ]++;
-  
-  
+
+
   //now the tets connected to each InletNode
   for ( i=0; i<nodes.size(); i++ )
     if ( tagNodes[i]==true ){
       listtets[i] = new int[counttets[i]];
       counttets[i]=0;
     }
-  
+
   for( i=0; i<elems.size(); i++ )
     for( j=0; j<4; j++)
       if( tagNodes[ elems[i][j] ] == true )
         listtets[ elems[i][j] ][ counttets[elems[i][j]]++ ] = i;
-  
-  
+
+
   //take care of numFaces and faces for each InletNode
   //first numFaces of each InletNode
   int *countfaces = new int[nodes.size()];
@@ -2331,7 +2332,7 @@ void SubDomain::setInletNodes(IoData& ioData)
 
   for ( i=0; i<nodes.size(); i++)
     countfaces[i]=0;
-  
+
   for ( i=0; i<faces.size(); i++)
     if (faces[i].getCode() == BC_INLET_FIXED  || faces[i].getCode() == BC_INLET_MOVING ||
         faces[i].getCode() == BC_OUTLET_FIXED || faces[i].getCode() == BC_OUTLET_MOVING )
@@ -2344,49 +2345,49 @@ void SubDomain::setInletNodes(IoData& ioData)
       listfaces[i] = new int[countfaces[i]];
       countfaces[i]=0;
     }
-  
+
   for( i=0; i<faces.size(); i++ )
     for( j=0; j<3; j++)
       if (tagNodes[ faces[i][j] ] == true &&
 	  (faces[i].getCode() == BC_INLET_FIXED  || faces[i].getCode() == BC_INLET_MOVING ||
 	   faces[i].getCode() == BC_OUTLET_FIXED || faces[i].getCode() == BC_OUTLET_MOVING ))
         listfaces[ faces[i][j] ][ countfaces[faces[i][j]]++ ] = i;
-                                
+
   //and create all the InletNode we need
   inletNodes.setup(locSubNum, numInletNodes, ioData);
-                                                                                                  
+
   //finally get only the inlet nodes in the storage facility inletNodes
   int counter = 0;
   for ( i=0; i<nodes.size(); i++){
     if ( tagNodes[i] == true ){
-      inletNodes[counter].setInletNode(i, countfaces[i], counttets[i], listfaces[i], listtets[i]);      
+      inletNodes[counter].setInletNode(i, countfaces[i], counttets[i], listfaces[i], listtets[i]);
       counter++;
     }
   }
-  
+
   //if(countfaces) delete  countfaces;
   //if(counttets) delete  counttets;
   //if(listfaces)
   //      delete [] listfaces;
   //if(listtets)
   //      delete [] listtets;
-  
+
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void SubDomain::setInletNodes2(IoData& ioData)
 {
-                                                                                                  
+
   int i, j, k, l;
   int node, count, tet;
   int inum[3];
   int *list;
   int numInletNodes = inletNodes.size();
-  
-  
+
+
   int** listtets = new int*[numInletNodes];
-  
+
   for ( i=0; i<numInletNodes; i++){
     node  = inletNodes[i].getNodeNum();
     count = inletNodes[i].getNumTets();
@@ -2399,17 +2400,17 @@ void SubDomain::setInletNodes2(IoData& ioData)
         if ( elems[tet][k] != node)
           inum[l++] = elems[tet][k];
       listtets[i][j] = findOppositeTet(inum, node);
-                                                                                                  
+
     }
     inletNodes[i].addSecondTets(listtets[i]);
   }
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 int SubDomain::findOppositeTet(int *itet, int node)
 {
-                                                                                                  
+
   int tet;
   int numTets = elems.size();
   bool match1 = false;
@@ -2418,7 +2419,7 @@ int SubDomain::findOppositeTet(int *itet, int node)
   bool match4 = false;
   bool total  = true;
   tet = 0;
-                                                                                                  
+
   while(total){
     match1 = findNodeInTet(itet[0], tet);
     if (match1){
@@ -2436,12 +2437,12 @@ int SubDomain::findOppositeTet(int *itet, int node)
   }
   return tet-1;
 }
-                                                                                                  
+
 //------------------------------------------------------------------------------
-                                                                                                  
+
 bool SubDomain::findNodeInTet(int node, int tet)
 {
-  return ( (node==elems[tet][0]) || (node==elems[tet][1]) || 
+  return ( (node==elems[tet][0]) || (node==elems[tet][1]) ||
 	   (node==elems[tet][2]) || (node==elems[tet][3]) );
 }
 
@@ -2461,7 +2462,7 @@ void SubDomain::sumInletNormals(Vec<Vec3D>& inletNodeNorm, Vec<Vec3D>& faceNorm,
 
   inletNodeNorm = 0.0;
   numFaceNeighb = 0;
-  
+
   for ( i=0; i<numNodes; i++){
     m = inletNodes[i].getNodeNum();
     numFaceNeighb[i] = inletNodes[i].getNumFaces();
@@ -2472,7 +2473,7 @@ void SubDomain::sumInletNormals(Vec<Vec3D>& inletNodeNorm, Vec<Vec3D>& faceNorm,
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void SubDomain::numDivideNormals(Vec<Vec3D>& inletNodeNorm, Vec<int>& numFaceNeighb)
 {
   for( int i=0; i<inletNodes.size(); i++)
@@ -2487,18 +2488,18 @@ void SubDomain::numDivideNormals(Vec<Vec3D>& inletNodeNorm, Vec<int>& numFaceNei
 
 void SubDomain::getReferenceMeshPosition(SVec<double,3> &X)
 {
-  
+
   X = nodes;
-  
+
 }
 
 //------------------------------------------------------------------------------
 
 void SubDomain::computeDisplacement(SVec<double,3> &X, SVec<double,3> &dX)
 {
-  
+
   dX = X - nodes;
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2506,7 +2507,7 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, SVec<double,3> &dX)
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
 
-  bool *flag    = distInfo.getMasterFlag(locSubNum); 
+  bool *flag    = distInfo.getMasterFlag(locSubNum);
   double *weight= distInfo.getInvWeight(locSubNum);
 
   if (!flag) return;
@@ -2514,11 +2515,11 @@ void SubDomain::makeMasterFlag(DistInfo &distInfo)
   int numNodes = nodes.size();
 
   int i;
-  for (i = 0; i < numNodes; ++i) 
+  for (i = 0; i < numNodes; ++i)
     flag[i] = true;
 
   if (weight)
-    for (i = 0; i < numNodes; ++i) 
+    for (i = 0; i < numNodes; ++i)
       weight[i] = 1.0;
 
   int iSub;
@@ -2532,13 +2533,13 @@ void SubDomain::makeMasterFlag(DistInfo &distInfo)
 
     for (i = 0; i < sharedNodes->num(iSub); ++i)
       flag[ (*sharedNodes)[iSub][i] ] = false;
-    
+
   }
-  
+
   if (weight)
-    for (i = 0; i < numNodes; ++i) 
+    for (i = 0; i < numNodes; ++i)
       weight[i] = sqrt(1.0 / weight[i]);
-  
+
 }
 
 //------------------------------------------------------------------------------
@@ -2558,7 +2559,7 @@ void SubDomain::setChannelNums(SubDTopo &subTopo)
 
 //------------------------------------------------------------------------------
 
-void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat) 
+void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat)
 {
 
   int iSub, jSub;
@@ -2577,9 +2578,9 @@ void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat)
     int leftNode = edgePtr[l][0];
     int rightNode = edgePtr[l][1];
 
-    if (nodeToNeighb->num(leftNode) == 0 || 
+    if (nodeToNeighb->num(leftNode) == 0 ||
 	nodeToNeighb->num(rightNode) == 0) continue;
-    
+
     for (iSub = 0; iSub < nodeToNeighb->num(leftNode); ++iSub) {
 
       int subI = (*nodeToNeighb)[leftNode][iSub];
@@ -2602,8 +2603,8 @@ void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat)
 
     int leftNode = edgePtr[l][0];
     int rightNode = edgePtr[l][1];
-  
-    if (nodeToNeighb->num(leftNode) == 0 || 
+
+    if (nodeToNeighb->num(leftNode) == 0 ||
        nodeToNeighb->num(rightNode) == 0) continue;
 
     for (iSub = 0; iSub < nodeToNeighb->num(leftNode); ++iSub) {
@@ -2618,7 +2619,7 @@ void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat)
 	  sharedEdges[subI][ numSharedEdges[subI] ].glLeft = locToGlobNodeMap[leftNode];
 	  sharedEdges[subI][ numSharedEdges[subI] ].glRight = locToGlobNodeMap[rightNode];
 	  sharedEdges[subI][ numSharedEdges[subI] ].order();
-	  			     
+
 	  numSharedEdges[subI] += 1;
 
 	}
@@ -2643,7 +2644,7 @@ void SubDomain::identifyEdges(CommPattern<int> &edgeNumPat)
 
 //------------------------------------------------------------------------------
 
-void SubDomain::sndEdgeInfo(CommPattern<int> &edgeNumPat) 
+void SubDomain::sndEdgeInfo(CommPattern<int> &edgeNumPat)
 {
 
   int iSub, iEdge;
@@ -2663,7 +2664,7 @@ void SubDomain::sndEdgeInfo(CommPattern<int> &edgeNumPat)
 
 //------------------------------------------------------------------------------
 
-void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat) 
+void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
 {
 
   int iSub, iEdge;
@@ -2686,7 +2687,7 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
       int glLeft  = sharedEdges[iSub][iEdge].glLeft;
       int glRight = sharedEdges[iSub][iEdge].glRight;
 
-      while (2*nIndex < sInfo.len && 
+      while (2*nIndex < sInfo.len &&
 	     (sInfo.data[2*nIndex] < glLeft ||
 	      (sInfo.data[2*nIndex] == glLeft && sInfo.data[2*nIndex+1] < glRight)))
 	nIndex++;
@@ -2704,7 +2705,7 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
     if (neighb[iSub] < globSubNum) // I cannot be the master of these edges
       for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge)
 	edgeMasterFlag[ sharedEdges[iSub][iEdge].edgeNum ] = false;
-	 	  
+
   }
 
   edges.setMasterFlag(edgeMasterFlag);
@@ -2712,7 +2713,7 @@ void SubDomain::rcvEdgeInfo(CommPattern<int> &edgeNumPat)
 
 //------------------------------------------------------------------------------
 
-void SubDomain::sndNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm, 
+void SubDomain::sndNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 			   double *edgeNormVel)
 {
 
@@ -2729,7 +2730,7 @@ void SubDomain::sndNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 	sInfo.data[4*iEdge+1] = edgeNorm[edgeNum][1];
 	sInfo.data[4*iEdge+2] = edgeNorm[edgeNum][2];
 	sInfo.data[4*iEdge+3] = edgeNormVel[edgeNum];
-      } 
+      }
       else {
 	sInfo.data[4*iEdge]   = -edgeNorm[edgeNum][0];
 	sInfo.data[4*iEdge+1] = -edgeNorm[edgeNum][1];
@@ -2744,7 +2745,7 @@ void SubDomain::sndNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 //------------------------------------------------------------------------------
 
 void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
-			   double *edgeNormVel) 
+			   double *edgeNormVel)
 {
 
   int iSub, iEdge;
@@ -2762,7 +2763,7 @@ void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 	edgeNorm[edgeNum][1] += sInfo.data[4*iEdge+1];
 	edgeNorm[edgeNum][2] += sInfo.data[4*iEdge+2];
 	edgeNormVel[edgeNum] += sInfo.data[4*iEdge+3];
-      } 
+      }
       else {
 	edgeNorm[edgeNum][0] -= sInfo.data[4*iEdge];
 	edgeNorm[edgeNum][1] -= sInfo.data[4*iEdge+1];
@@ -2771,7 +2772,7 @@ void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
       }
 
     }
-  
+
   }
 
 }
@@ -2812,7 +2813,7 @@ void SubDomain::setNodeType(int* priority, CommPattern<int> &ntP)
 
 void SubDomain::setNodeFaceType(CommPattern<int> &ntP)
 {
-/* ARL: creates a new array telling if a node is 
+/* ARL: creates a new array telling if a node is
  *      connected to faces that are
  *      inlet only (1)
  *      inlet and wall (2)
@@ -2871,34 +2872,34 @@ int* SubDomain::completeNodeFaceType(CommPattern<int> &ntP)
         if (nInfo.data[i] == 1 || nInfo.data[i] == 2)
           nodeFaceType[ (*sharedNodes)[iSub][i] ] = 2;
     }
-  } 
+  }
 
   return nodeFaceType;
 
 }
 // -----------------------------------------------------------
 // HB: create the dofType array using the matchNodeSet, the sliding faces & the nodeType array
-// Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all 
+// Note that the order in which the dofType is filled is crucial: its is fisrt to BC_FREE (i.e. all
 // the dofs are assumed to be free to move), and then they are (potentially) constrained if necessary.
 
-int* 
+int*
 SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes)  {
 
   int* DofType = new int[3*nodes.size()];
   int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
 
-  // Step 1. Set all the dofs as BC_FREE 
-  int nMoving = 0;   
+  // Step 1. Set all the dofs as BC_FREE
+  int nMoving = 0;
   for (int i=0;i<nodes.size(); i++) {
-    if(nodeType[i] < BC_INTERNAL) 
+    if(nodeType[i] < BC_INTERNAL)
       nMoving++; // this node is labelled as moving
-    for(int l = 0; l < 3; l++) 
+    for(int l = 0; l < 3; l++)
       dofType[i][l] = BC_FREE;
   }
 
-  // Step 3. Take into account the sliding plane constraints      
+  // Step 3. Take into account the sliding plane constraints
   for (int i=0;i<faces.size(); i++) { // Loop over faces
-    bool isSliding = false; 
+    bool isSliding = false;
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
     if(it!=surfaceMap.end()) // surface has attribut is the input file
       if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
@@ -2911,7 +2912,7 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
         case(BC_OUTLET_FIXED):
         case(BC_INLET_FIXED):
         case(BC_SLIP_WALL_FIXED):
-        for(int j=0; j<faces[i].numNodes();j++) 
+        for(int j=0; j<faces[i].numNodes();j++)
           for(int l=0; l<3; l++) dofType[faces[i][j]][l] = BC_FIXED;
         break;
       }
@@ -2940,9 +2941,9 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
       isMatched[inode] = true;
       for(int l=0; l<3; l++) dofType[inode][l] = BC_MATCHED;
     }
-  } else { // Only for ForcedMeshMotion (see ForcedMeshMotionHandler) where matchNodes is not  
+  } else { // Only for ForcedMeshMotion (see ForcedMeshMotionHandler) where matchNodes is not
            // explicitly created -> consider all the node labelled as moving as "matched" nodes
-    for(int i=0;i<nodes.size(); i++) 
+    for(int i=0;i<nodes.size(); i++)
       if(nodeType[i]<BC_INTERNAL) {  // this node is labelled as moving
         isMatched[i] = true;
         for(int l=0; l<3; l++) dofType[i][l] = BC_MATCHED;
@@ -2951,7 +2952,7 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
 
 #ifdef HB_MESHMOTION_DEBUG
   // for debugging: count number of nodes that were labeled as moving
-  for(int i=0;i<nodes.size(); i++) 
+  for(int i=0;i<nodes.size(); i++)
     if(nodeType[i]<BC_INTERNAL) { // this node is labelled as moving
       if(!isMatched[i] & (dofType[i][0]!=BC_FREE) & (dofType[i][1]!=BC_FREE) & (dofType[i][2]!=BC_FREE)) {
          fprintf(stderr," ... PROBLEM in SubDomain::getMeshMotionDofType: sub %d, non-matched moving node %d (%d) is not free ...\n",globSubNum,i,locToGlobNodeMap[i]); fflush(stderr);
@@ -2962,12 +2963,12 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
   // Step 5. Take into account the mesh motion Dirichlet BCs from the input file (if any)
   if(mmsBCs)
     for(int i=0;i<mmsBCs->size(); i++)
-      dofType[(*mmsBCs)[i].nnum][(*mmsBCs)[i].dofnum] = BC_CONSTRAINED; 
+      dofType[(*mmsBCs)[i].nnum][(*mmsBCs)[i].dofnum] = BC_CONSTRAINED;
 
   // Step 6. Fill communication buffer (to ensure same contraint on the shared nodes/dofs)
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.getSendBuffer(sndChannel[iSub]);
-    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data); 
+    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
     for (int i = 0; i < sharedNodes->num(iSub); ++i)
       for(int l=0; l<3; l++)
         buffer[i][l] = dofType[(*sharedNodes)[iSub][i]][l];
@@ -2978,18 +2979,18 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
 
 //------------------------------------------------------------------------------
 //HB: to ensure same constraint on the shared nodes/dofs (for the mesh motion)
-void 
+void
 SubDomain::completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP)
 {
   int (*dofType)[3] = reinterpret_cast<int (*)[3]>(DofType);
 
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = ntP.recData(rcvChannel[iSub]);
-    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data); 
+    int (*buffer)[3] = reinterpret_cast<int (*)[3]>(nInfo.data);
     for (int i = 0; i < sharedNodes->num(iSub); ++i)
       for(int l=0; l<3; l++)
-        if(buffer[i][l]!=BC_FREE) 
-          dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];    
+        if(buffer[i][l]!=BC_FREE)
+          dofType[(*sharedNodes)[iSub][i]][l] = buffer[i][l];
   }
 }
 
@@ -3017,7 +3018,7 @@ int SubDomain::setFaceToElementConnectivity()
     mf[f] = i;
     fm[i][0] = -1;
   }
-  
+
   int nswap = 0;
   for (i=0; i<elems.size(); ++i)
     if (elems[i].countNodesOnBoundaries(tagNodes) > 2)
@@ -3038,7 +3039,7 @@ int SubDomain::setFaceToElementConnectivity()
 
 //------------------------------------------------------------------------------
 
-void SubDomain::getNdAeroLists(int &nInterfNd, int *&interfNd, int &nInfNd, 
+void SubDomain::getNdAeroLists(int &nInterfNd, int *&interfNd, int &nInfNd,
 			       int *&infNd, int &nInternalNd, int *&internalNd, MatchNodeSet* matchNodes)
 {
   nInterfNd  = 0;
@@ -3118,7 +3119,7 @@ void SubDomain::testNormals(Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
     nnrm += edgeNorm[l]*edgeNorm[l];
     vnrm += edgeNormVel[l]*edgeNormVel[l];
 
-    printf("%d %d: %e %e %e %e\n", i+1, j+1, 
+    printf("%d %d: %e %e %e %e\n", i+1, j+1,
 	   edgeNorm[l][0], edgeNorm[l][1], edgeNorm[l][2], edgeNormVel[l]);
 
   }
@@ -3132,8 +3133,8 @@ void SubDomain::testNormals(Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
     int n2   = locToGlobNodeMap[ faces[i][2] ];
     Vec3D  ni    = faces[i].getNormal(faceNorm);
     double nveli = faces[i].getNormalVel(faceNormVel);
-    
-    printf("%d %d %d: %e %e %e %e\n", n0+1, n1+1, n2+1, 
+
+    printf("%d %d %d: %e %e %e %e\n", n0+1, n1+1, n2+1,
 	   ni[0], ni[1], ni[2], nveli);
   }
 
@@ -3153,10 +3154,10 @@ void SubDomain::printInfo(FILE *fp)
 #endif
 //------------------------------------------------------------------------------
 
-//HB: create & fill the sliding surface node ownership array which gives for each 
+//HB: create & fill the sliding surface node ownership array which gives for each
 //node the sliding surfaces to which this node belongs (using bit)
 //For instance, surfOwn[i] = [0 0 1 0 0 1] -> node i belongs to sliding surface 2 & 5
-int* 
+int*
 SubDomain::getSlipSurfOwnership(CommPattern<int> &cpat,
                                      map<int,SurfaceData *> &surfaceMap)
 {
@@ -3175,7 +3176,7 @@ SubDomain::getSlipSurfOwnership(CommPattern<int> &cpat,
         surfOwn[faces[i][2]] |= ownFlag;                                            //all the surface
 #ifdef HB_MESHMOTION_DEBUG
         nSlidingFaces++;
-#endif 
+#endif
       }
   }
 #ifdef HB_MESHMOTION_DEBUG
@@ -3196,19 +3197,19 @@ SubDomain::getSlipSurfOwnership(CommPattern<int> &cpat,
 //For each "sliding node"i, we perform an orthogonalization (on the fly) of the normal directions
 //of the sliding plane this node belongs to in order to ensure orthogonal projections (and so commutattive)
 void
-SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat, 
+SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
                                     BCApplier* bcApplier, SurfaceData** surfData)
 {
   for (int iSub = 0; iSub < numNeighb; ++iSub) {
     SubRecInfo<int> nInfo = cpat.recData(rcvChannel[iSub]);
     for (int i = 0; i < sharedNodes->num(iSub); ++i)
-      surfOwn[(*sharedNodes)[iSub][i]] |= nInfo.data[i]; 
+      surfOwn[(*sharedNodes)[iSub][i]] |= nInfo.data[i];
   }
-  double normals[3][3]; // no more than 3 independant projection directions at a node 
+  double normals[3][3]; // no more than 3 independant projection directions at a node
   for(int i = 0; i < nodes.size(); ++i) { // loop over subdomain's nodes
     int surfNum = 0;
     int locOwn = surfOwn[i];
-    int numActDir = 0; // count the number of "active" projection directions at this node 
+    int numActDir = 0; // count the number of "active" projection directions at this node
     while(locOwn != 0) { // loop over the sliding surfaces
       if(locOwn & 1 != 0) { // this node belong to sliding surface "surfNum"
         double nx = surfData[surfNum]->nx;
@@ -3217,7 +3218,7 @@ SubDomain::createSlipSurfProjection(int*surfOwn, CommPattern<int>&cpat,
 	double invlen = 1.0/sqrt(nx*nx+ny*ny+nz*nz);
 	nx *= invlen; ny *= invlen; nz *= invlen;
         // orthogonalyze with respect to the previous projection directions found at this node
-	for(int j = 0; j < numActDir; ++j) { 
+	for(int j = 0; j < numActDir; ++j) {
 	  double dot = nx*normals[j][0]+ny*normals[j][1]+nz*normals[j][2];
 	  nx -= dot*normals[j][0];
 	  ny -= dot*normals[j][1];
@@ -3281,7 +3282,7 @@ void SubDomain::completeRotateSurfaceOwnership(CommPattern<int>&cpat)  {
       if (rotOwn[(*sharedNodes)[iSub][i]] != -1 && nInfo.data[i] != -1 && rotOwn[(*sharedNodes)[iSub][i]] != nInfo.data[i])  {
         fprintf(stderr, " ... WARNING: Node %d in GlSub %d associated with more than 1 rotation\n", (*sharedNodes)[iSub][i], globSubNum);
       }
-      rotOwn[(*sharedNodes)[iSub][i]] = std::max(rotOwn[(*sharedNodes)[iSub][i]], nInfo.data[i]); 
+      rotOwn[(*sharedNodes)[iSub][i]] = std::max(rotOwn[(*sharedNodes)[iSub][i]], nInfo.data[i]);
     }
   }
   //int count = 0;
@@ -3353,7 +3354,7 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int l
 //------------------------------------------------------------------------------
 void SubDomain::printPhi(SVec<double, 3> &X, Vec<double> &Phi, int it)
 {
-                                                                                                  
+
   fprintf(stderr, "\nPhi - subDomain %d: \n", locSubNum);
   int glob, sh;
   /*for (int iSub = 0; iSub < numNeighb; ++iSub) {
@@ -3365,24 +3366,24 @@ void SubDomain::printPhi(SVec<double, 3> &X, Vec<double> &Phi, int it)
                                                                   V[ sh ][2],
                                                                   V[ sh ][3],
                                                                   V[ sh ][4]);
-    }                                                                                                                                                                                                      
+    }
   }*/
-                                                                                                  
+
   for (int i=0; i<nodes.size(); i++){
     glob = locToGlobNodeMap[i]+1;
     fprintf(stderr, " Phi : %d %d   %.14e \n", i,glob,Phi[i]);
   }
-                                                                                                  
+
 }
 //-----------------------------------------------------------------------------
 
-void SubDomain::multiPade(bcomp *compMat, int *stepParam, double *deltaFreqCoarse, bcomp *padeMat, bcomp *padeVec, int L, int M, int nPoints, double deltaFreqFine, double freqMidFreq, bcomp *snaps, double *freqCoarse)  
+void SubDomain::multiPade(bcomp *compMat, int *stepParam, double *deltaFreqCoarse, bcomp *padeMat, bcomp *padeVec, int L, int M, int nPoints, double deltaFreqFine, double freqMidFreq, bcomp *snaps, double *freqCoarse)
 
 {
   int size = L+M+1;
   int mFreqStart;
   double mDeltaFreq[nPoints];
-  int midFreq[1];  
+  int midFreq[1];
   int nSteps = stepParam[0];
   int numFreqCoarse = stepParam[1];
   int nWrittenSnaps[1];
@@ -3409,7 +3410,7 @@ void SubDomain::multiPade(bcomp *compMat, int *stepParam, double *deltaFreqCoars
     if ((numFreqCoarse-1) % (nPoints-1) != 0) {
       mFreqStart = multiPointsFreq(nInterval, nPoints, freqCoarse, numFreqCoarse,0);
       multiPointsDeltaFreq(mFreqStart, freqCoarse, nPoints, mDeltaFreq,midFreq);
-      buildPadeMatrix(compMat, stepParam, nPoints, mDeltaFreq, padeMat, L, M, 0);  
+      buildPadeMatrix(compMat, stepParam, nPoints, mDeltaFreq, padeMat, L, M, 0);
       buildPadeRhs(compMat, stepParam, nPoints, padeVec, L, M, 0);
       solveLinearSystem(padeMat, padeVec, size);
       padeSolution(padeVec, stepParam, freqCoarse[mFreqStart+(*midFreq)], nPoints, L, M, deltaFreqFine, nSteps, snaps, nWrittenSnaps, nInterval, freqCoarse[mFreqStart], freqCoarse[mFreqStart+nPoints-1]);
@@ -3421,16 +3422,16 @@ void SubDomain::multiPade(bcomp *compMat, int *stepParam, double *deltaFreqCoars
 //-----------------------------------------------------------------------------
 int SubDomain::multiPointsFreq(int nInterval, int nPoints, double *freqCoarse, int numFreqCoarse, int flag)
 {
-  
+
   if (flag == 1) {
     return (nInterval-1)*(nPoints-1);
   }
   else if (flag == 0)
-    return ((numFreqCoarse -1) - (nPoints-1)); 
+    return ((numFreqCoarse -1) - (nPoints-1));
   else {
    fprintf(stderr, " Warning : flag different than 0 or 1 in multiPointsFreq\n");
    return(0);
-  } 
+  }
 }
 //------------------------------------------------------------------------------
 void SubDomain::multiPointsDeltaFreq(int mFreqStart, double *freqCoarse, int nPoints, double* mDeltaFreq, int *midFreq)
@@ -3451,8 +3452,8 @@ void SubDomain::buildPadeMatrix(bcomp *data, int *stepParam, int nPoints, double
   bcomp oneReal(1.0, 0.0);
   bcomp oneImag(0.0, 1.0);
   bcomp zero(0.0,0.0);
-        
-  int nFreqCoarse;                                                
+
+  int nFreqCoarse;
   if (flag < 0)
     nFreqCoarse = stepParam[1];
   else
@@ -3461,24 +3462,24 @@ void SubDomain::buildPadeMatrix(bcomp *data, int *stepParam, int nPoints, double
   double deltaF;
   int size = L+M+1;
   int l,r,k,i;
-  bcomp *ddata; 
- 
-  if (flag > 0) 
-    ddata = data + ((flag-1)*(nPoints-1))*(numPadeDeriv+1);  
+  bcomp *ddata;
+
+  if (flag > 0)
+    ddata = data + ((flag-1)*(nPoints-1))*(numPadeDeriv+1);
   else if (flag < 0)
     ddata = data;
   else if (flag == 0)
     ddata = data + ((stepParam[1]-1) - (nPoints-1))*(numPadeDeriv+1);
-  
+
   for (i=0; i<size; i++) {
     for (k=0; k<size; k++)
       *(padeMat + size*i + k) = zero;
   }
-                                                        
+
   for (i=0; i< nFreqCoarse; i++) {
     deltaF = *(deltaFreq+i);
     for (k=0; k < numPadeDeriv+1; k++) {
-      if (k*(nFreqCoarse) + i < size) {                                                         
+      if (k*(nFreqCoarse) + i < size) {
         //Construction of the coefficients for the numerator
         for (l=k; l < L+1; l++) {
           *(padeMat + i*(numPadeDeriv+1)*size+ size*k+l) = (-exp(lgamma(l+1))) / (exp(lgamma(l-k+1))) * pow(deltaF,l-k)*oneReal;
@@ -3492,7 +3493,7 @@ void SubDomain::buildPadeMatrix(bcomp *data, int *stepParam, int nPoints, double
         }
       }
     }
-  }                                                         
+  }
 }
 //--------------------------------------------------------------------------
 void SubDomain::buildPadeRhs(bcomp *data, int *stepParam, int nPoints, bcomp *padeVec, int L, int M, int flag)
@@ -3500,7 +3501,7 @@ void SubDomain::buildPadeRhs(bcomp *data, int *stepParam, int nPoints, bcomp *pa
   bcomp oneReal(1.0, 0.0);
   bcomp oneImag(0.0, 1.0);
   bcomp zero(0.0,0.0);
-                                                        
+
   int nFreqCoarse;
   if (flag < 0)
     nFreqCoarse = stepParam[1];
@@ -3509,21 +3510,21 @@ void SubDomain::buildPadeRhs(bcomp *data, int *stepParam, int nPoints, bcomp *pa
   int numPadeDeriv = int(ceil((L+M+1.0)/((double)nFreqCoarse))-1.0);
   int i,j;
   bcomp *ddata;
-                                                                                
+
   if (flag > 0)
     ddata = data + (flag-1)*(nPoints-1)*(numPadeDeriv+1);
   else if (flag < 0)
-    ddata = data;                                                              
+    ddata = data;
   else if (flag == 0)
     ddata = data + ((stepParam[1]-1) - (nPoints-1))*(numPadeDeriv+1);
   for (i=0; i < nFreqCoarse; i++) {
-                                                        
+
     for (j=0; j < numPadeDeriv+1; j++) {
-      if (j*nFreqCoarse + i < L+M+1)                                                         
+      if (j*nFreqCoarse + i < L+M+1)
         *(padeVec + i*(numPadeDeriv+1) + j) = -(*(ddata + (numPadeDeriv+1)*i + j));
     }
-                                                                                                                 
-  }                                                                                                                  
+
+  }
 }
 //--------------------------------------------------------------------------
 void SubDomain::padeSolution(bcomp *padeVec, int *stepParam, double midFreq, int nPoints, int L, int M, double deltaFreq, int nSteps, bcomp *snaps, int* nWrittenSnaps, int flag, double freqMin, double freqMax)
@@ -3538,13 +3539,13 @@ void SubDomain::padeSolution(bcomp *padeVec, int *stepParam, double midFreq, int
   int nFreqCoarse = stepParam[1];
   int startSnaps = nWrittenSnaps[0];
   if (flag < 0) {
-                                                      
+
     for (iSteps=0; iSteps<nSteps+1; iSteps++) {
       freq = iSteps * deltaFreq;
       for (k=0; k<L+1; k++)
         numPade = numPade + (*(padeVec + k)) * pow(freq - midFreq,k);
       for (l=1; l<M+1; l++)
-        denPade = denPade + (*(padeVec + L + l)) * pow(freq - midFreq,l);                                                                                                 
+        denPade = denPade + (*(padeVec + L + l)) * pow(freq - midFreq,l);
       *(snaps + iSteps) = numPade / denPade;
       numPade = zero;
       denPade = oneReal;
@@ -3554,13 +3555,13 @@ void SubDomain::padeSolution(bcomp *padeVec, int *stepParam, double midFreq, int
   else {
     for (iSteps=startSnaps; iSteps<nSteps+1; iSteps++) {
       freq = iSteps * deltaFreq;
-      if ((freq >= freqMin || flag==1)  && (freq < freqMax || flag==int(ceil((nFreqCoarse-1.0)/(nPoints-1.0)))) ) { 
+      if ((freq >= freqMin || flag==1)  && (freq < freqMax || flag==int(ceil((nFreqCoarse-1.0)/(nPoints-1.0)))) ) {
         for (k=0; k<L+1; k++)
           numPade = numPade + (*(padeVec + k)) * pow(freq - midFreq,k);
         for (l=1; l<M+1; l++)
           denPade = denPade + (*(padeVec + L + l)) * pow(freq - midFreq,l);
-                                                                                
-                                                                                
+
+
         *(snaps + iSteps) = numPade / denPade;
         nWrittenSnaps[0]++;
         numPade = zero;
@@ -3568,19 +3569,19 @@ void SubDomain::padeSolution(bcomp *padeVec, int *stepParam, double midFreq, int
       }
     }
   }
-}                                                     
+}
 //------------------------------------------------------------------------
 void SubDomain::solveLinearSystem(bcomp *a, bcomp *b, int n) {
-                                                        
-                                                        
+
+
   DenseMatrixOp<bcomp, 5, 5>::lu(a,b,n);
-                                                        
-                                                        
+
+
 }
 //--------------------------------------------------------------------------
 void SubDomain::buildDeltaFreq(double *deltaFreqCoarse,int numFreqCoarse, double *freqCoarse, int *midFreq){
-                                                        
-                                                        
+
+
   int i;
   if (numFreqCoarse % 2 == 1)
     midFreq[0] = int(floor(numFreqCoarse/2)+1)-1;
@@ -3588,8 +3589,8 @@ void SubDomain::buildDeltaFreq(double *deltaFreqCoarse,int numFreqCoarse, double
     midFreq[0] = numFreqCoarse/2-1;
   for (i=0; i<numFreqCoarse; i++)
     deltaFreqCoarse[i] = freqCoarse[i] - freqCoarse[midFreq[0]];
-                                                        
-                                                        
+
+
 }
 //--------------------------------------------------------------------------
 void SubDomain::extractElementsRelativeToAComponentAndAMode(double* tempMat, bcomp* compMat, int iDim, int iStrMode,int numPadeDeriv, int numFreqCoarse, int nStrMode, int nSnapsCoarse, double freq1)
@@ -3604,28 +3605,28 @@ void SubDomain::extractElementsRelativeToAComponentAndAMode(double* tempMat, bco
   else {
     start1 = iStrMode*2*(numPadeDeriv+1);
     start2 = nStrMode*2*(numPadeDeriv+1);
-  }                                                                                                                  
+  }
   // for each freq of the coarse grid
   for (i = 0; i<numFreqCoarse; i++) {
-                                                        
-                                                        
-                                                        
+
+
+
     if ( i == 0 ) {
       *(compMat) = oneReal*(*(tempMat +iDim*nSnapsCoarse + start1));
       if (freq1 != 0.0)
        *(compMat) = *(compMat) + oneImag*(*(tempMat + iDim*nSnapsCoarse +start1+1));
-                                                        
-                                                        
-                                                        
+
+
+
       if (numPadeDeriv > 0) {
-        for (j = 1; j<numPadeDeriv+1; j++) {                                                                                                                  
+        for (j = 1; j<numPadeDeriv+1; j++) {
           if (freq1 == 0.0)
             *(compMat+j) = oneReal*(*(tempMat +iDim*nSnapsCoarse + start1+(2*j-1))) + oneImag*(*(tempMat+iDim*nSnapsCoarse + start1+2*j));
           else
             *(compMat+j) = oneReal*(*(tempMat+iDim*nSnapsCoarse + start1+2*j)) + oneImag*(*(tempMat+ iDim*nSnapsCoarse + start1+2*j+1));
-                                                        
-                                                        
-                                                        
+
+
+
         }
       }
     }
@@ -3633,11 +3634,11 @@ void SubDomain::extractElementsRelativeToAComponentAndAMode(double* tempMat, bco
       startF = nStrMode*2*(numPadeDeriv+1);
       start = iStrMode*2*(numPadeDeriv+1);
       *(compMat+ i*(numPadeDeriv+1)) = oneReal*(*(tempMat+iDim*nSnapsCoarse + start2+(i-1)*startF+start)) + oneImag*(*(tempMat+iDim*nSnapsCoarse +start2+(i-1)*startF+start+1));
-                                                                                                                                                                          
+
      if (numPadeDeriv > 0) {
        for (j = 1; j<numPadeDeriv+1; j++)
-                                                        
-                                                        
+
+
           *(compMat+i*(numPadeDeriv+1)+j) = oneReal*(*(tempMat+iDim*nSnapsCoarse +start2+(i-1)*startF+start+2*j)) + oneImag*(*(tempMat+iDim*nSnapsCoarse +start2+(i-1)*startF+start+2*j+1));
      }
     }
@@ -3669,7 +3670,7 @@ void SubDomain::checkVec(SVec<double,3> &V)
 //      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) {
 //        fprintf(stderr,"*** Error: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
 //        exit(1);
-//      } 
+//      }
       if (V[i][0] != 0.0) {
 //        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
         V[i][0] = 0.0;
@@ -3695,12 +3696,12 @@ void SubDomain::setPhiForFluid1(Vec<double> &phi)  {
       int *nodeNums = elems[iElem].nodeNum();
       for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
         phi[nodeNums[iNode]] = 1.0;
-      
+
     }
   }
 }
 //--------------------------------------------------------------------------
-void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x, 
+void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
                                              double y, double z, double r,
                                              double invertGasLiquid,
                                              Vec<double> &Phi)  {
@@ -3714,7 +3715,7 @@ void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
   }
 }
 //--------------------------------------------------------------------------
-void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x, 
+void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
                                              double y, double z, double r,
                                              double invertGasLiquid,
                                              Vec<double> &Phi)  {
@@ -3830,7 +3831,7 @@ void SubDomain::computeLij(double Lij[3][3], double r_u[3], double r_u_u[6], dou
 {
 
   if (vc[0] < 1.0e-7) vc[0] = 1.0e-7;
-                                                                                                                     
+
   Lij[0][0] = r_u_u[0] - (1.0/vc[0])*(r_u[0]*r_u[0]);
   Lij[0][1] = r_u_u[1] - (1.0/vc[0])*(r_u[0]*r_u[1]);
   Lij[0][2] = r_u_u[2] - (1.0/vc[0])*(r_u[0]*r_u[2]);
@@ -3845,15 +3846,15 @@ void SubDomain::computeLij(double Lij[3][3], double r_u[3], double r_u_u[6], dou
   Lij[2][2] = Lij[2][2] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
 
 }
-                                                                                                                                                                                                                                          
+
 //-----------------------------------------------------------------------
-                                                                                                                                                                                                                                          
+
 void SubDomain::computeBij(double Bij[3][3], double r_s_p[6], double sqrt2S2,
                            double Pij[3][3], double sq_rat_delta, double vc[5])
-                                                                                                                     
-                                                                                                                     
+
+
 {
-                                                                                                                                                                                                                                          
+
    Bij[0][0] = r_s_p[0] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][0];
    Bij[0][1] = r_s_p[3] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][1];
    Bij[0][2] = r_s_p[4] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][2];
@@ -3863,7 +3864,7 @@ void SubDomain::computeBij(double Bij[3][3], double r_s_p[6], double sqrt2S2,
    Bij[1][0] = Bij[0][1];
    Bij[2][0] = Bij[0][2];
    Bij[2][1] = Bij[1][2];
-                                                                                                                     
+
 }
 
 //--------------------------------------------------------------------------
@@ -3871,23 +3872,23 @@ void SubDomain::computeBij(double Bij[3][3], double r_s_p[6], double sqrt2S2,
 void SubDomain::computeZi(double Zi[3], double sq_rat_delta, double sqrt2S2, double dtdxj[3],
 			  double r_s_dtdxj[3], double vc[5], double Cp)
 {
-  
+
   Zi[0] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[0] - r_s_dtdxj[0]);
   Zi[1] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[1] - r_s_dtdxj[1]);
   Zi[2] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[2] - r_s_dtdxj[2]);
-  
+
 }
 
 //--------------------------------------------------------------------------
 
 void SubDomain::computeLi(double Li[3], double r_e, double r_e_plus_p, double r_u[3], double vc[5])
 {
-  
+
   if (vc[0] < 0.0000001) vc[0] = 0.0000001;
   Li[0] = (r_e+vc[4])*(r_u[0]/vc[0]) - (r_e_plus_p)*vc[1];
   Li[1] = (r_e+vc[4])*(r_u[1]/vc[0]) - (r_e_plus_p)*vc[2];
   Li[2] = (r_e+vc[4])*(r_u[2]/vc[0]) - (r_e_plus_p)*vc[3];
-  
+
 }
 
 //--------------------------------------------------------------------------
@@ -3949,7 +3950,7 @@ void SubDomain::getTriangulatedSurfaceFromFace( TriangulatedSurface *triaSurf2 )
   triaSurf2->addSurfaceFromFace(faces);
 }
 
-//--------------------------------------------------------------------------   
+//--------------------------------------------------------------------------
 
 bool SubDomain::isINodeinITet(Vec3D nodeCoord, int iTet, SVec<double,3> &X)
 {
@@ -3976,7 +3977,7 @@ bool SubDomain::isINodeinITet(Vec3D nodeCoord, int iTet, SVec<double,3> &X)
   double vol1, vol2;
   vol1 = orient3dslow(tetCoord[0], tetCoord[1], tetCoord[2], tetCoord[3]);
   vol2 = orient3dslow(tetCoord[0], tetCoord[1], tetCoord[2], nodeCoord);
-  if (vol1*vol2<0.0) return false;  
+  if (vol1*vol2<0.0) return false;
   vol1 = orient3dslow(tetCoord[1], tetCoord[2], tetCoord[3], tetCoord[0]);
   vol2 = orient3dslow(tetCoord[1], tetCoord[2], tetCoord[3], nodeCoord);
   if (vol1*vol2<0.0) return false;
@@ -4007,12 +4008,12 @@ void SubDomain::localCoord(Vec3D image, int iTet, SVec<double,3> &X, Vec3D& loca
   Vec3D coord1 = tetCoord[1] - tetCoord[0];
   Vec3D coord2 = tetCoord[2] - tetCoord[0];
   Vec3D coord3 = tetCoord[3] - tetCoord[0];
-  
+
   double a11, a12, a13, a21, a22, a23, a31, a32, a33;
   double b1, b2, b3;
   double c11, c12, c13, c21, c22, c23, c31, c32, c33;
   double detA;      //info. for solving a 3 by 3 linear system.
-  
+
   a11 = coord1[0];  a21 = coord1[1];  a31 = coord1[2];
   a12 = coord2[0];  a22 = coord2[1];  a32 = coord2[2];
   a13 = coord3[0];  a23 = coord3[1];  a33 = coord3[2];
@@ -4026,7 +4027,7 @@ void SubDomain::localCoord(Vec3D image, int iTet, SVec<double,3> &X, Vec3D& loca
   c13 = 1.0/detA*(a12*a23-a22*a13);  c23 = 1.0/detA*(a13*a21-a23*a11);  c33 = 1.0/detA*(a11*a22-a12*a21);
 
   b1 = image[0]-tetCoord[0][0];  b2 = image[1]-tetCoord[0][1];  b3 = image[2]-tetCoord[0][2];
-  
+
   localcoords[0] = c11*b1 + c12*b2 + c13*b3;
   localcoords[1] = c21*b1 + c22*b2 + c23*b3;
   localcoords[2] = c31*b1 + c32*b2 + c33*b3;
@@ -4042,7 +4043,7 @@ int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
   size = NodeToElem->num(iNode);
 
   int *list = new int[elems.size()];
-  
+
   for (int i=0; i<size; i++){
     list[i] = (*NodeToElem)[iNode][i];
   }
@@ -4057,7 +4058,7 @@ int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
   int *list2 = new int[elems.size()];
   int size2 = 0;
   if (!ElemToElem) ElemToElem = createElementToElementConnectivity();
-  
+
   for (int count=0; count<depth-1; count++){
     size2 = 0;
     for (int i=0; i<size; i++){
@@ -4084,8 +4085,8 @@ int* SubDomain::getNeiElemOfNode(int iNode, int depth, int& size )
   delete[] list;
   return finalList;
 }
-     
-//--------------------------------------------------------------------------------    
+
+//--------------------------------------------------------------------------------
 
 void SubDomain::getNodeCoords(int iNode, SVec<double,3> &X, double& x, double& y, double& z)
 {
@@ -4166,26 +4167,26 @@ double SubDomain::specifyBandwidth(Vec<double> &philevel)
   int tag[numNodes()];
   for (int i=0; i<numNodes(); i++) tag[i] = 0;
 
-  for (int iEdge=0; iEdge<numEdges(); iEdge++) 
+  for (int iEdge=0; iEdge<numEdges(); iEdge++)
     if (philevel[edgePtr[iEdge][0]]>0 && philevel[edgePtr[iEdge][1]]<0)
       tag[edgePtr[iEdge][1]] = 1;
     else if (philevel[edgePtr[iEdge][0]]<0 && philevel[edgePtr[iEdge][1]]>0)
       tag[edgePtr[iEdge][0]] = 1;
-  
-  for (int iNode = 0; iNode<numNodes(); iNode++) 
-    if (tag[iNode]==1) 
-      for (int iNeighb=0; iNeighb<NodeToNode->num(iNode); iNeighb++) 
+
+  for (int iNode = 0; iNode<numNodes(); iNode++)
+    if (tag[iNode]==1)
+      for (int iNeighb=0; iNeighb<NodeToNode->num(iNode); iNeighb++)
         if ((philevel[(*NodeToNode)[iNode][iNeighb]]<0) && (tag[(*NodeToNode)[iNode][iNeighb]]==0))
           tag[(*NodeToNode)[iNode][iNeighb]] = 2;
 
   bool first = true;
   double bandwidth;
-  for (int iNode=0; iNode<numNodes(); iNode++) 
+  for (int iNode=0; iNode<numNodes(); iNode++)
     if (tag[iNode]>0)
       if (first) { bandwidth = -philevel[iNode];  first = false; }
       else if (bandwidth< -philevel[iNode]) bandwidth = -philevel[iNode];
- 
-  fprintf(stderr,"bandwidth = %lf.\n", bandwidth); 
+
+  fprintf(stderr,"bandwidth = %lf.\n", bandwidth);
   return bandwidth;
 }
 
@@ -4222,7 +4223,7 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
       numChosenElems++;
     }
   }
- 
+
   //2. construct a tag on nodes. build a temporary node list.
   numChosenNodes = 0;
   for (int i=0; i<numNodes(); i++) nodeTag[i] = -1;
@@ -4236,7 +4237,7 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
         numChosenNodes++;
       }
   }
-  
+
   //3. fill the element list by the node indices of each element.
   for (int i=0; i<numChosenElems; i++) {
     int* elemNodeNum = getElemNodeNum(tempElemList[i][0]);
