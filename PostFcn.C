@@ -673,6 +673,7 @@ double PostFcnEuler::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[
 
 }
 
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -946,13 +947,14 @@ double PostFcnNS::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3],
     computeTemperatureGradient(dp1dxj, T, dTdxj);
     double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
     double qj[3];
-    computeHeatFluxVector(kappa, dTdxj, qj);
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
     hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2]; 
   }
 
   return hp;
 
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -978,7 +980,7 @@ double PostFcnNS::computeDerivativeOfHeatPower(double dp1dxj[4][3], double ddp1d
     double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dS[0];
     double dkappa = dooreynolds_mu * thermalCondFcn->compute(Tcg) + ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcg, dS[0]);
     double qj[3];
-    computeHeatFluxVector(kappa, dTdxj, qj);
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
     double dqj[3];
     computeDerivativeOfHeatFluxVector(kappa, dkappa, dTdxj, ddTdxj, dqj);
     dhp = dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2]; 
@@ -1077,21 +1079,7 @@ double PostFcnSA::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType typ
     double dmul = viscoFcn->compute_muDerivative(T, dT, dS[0]);
     dq = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul);
   }
-  else
-    dq = PostFcnEuler::computeDerivativeOfNodeScalarQuantity(type, dS, V, dV, X, dX);
-
-  return dq;
-
 }
-
-//------------------------------------------------------------------------------
-
-PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(iod)
-{
-
-}
-
-//------------------------------------------------------------------------------
 
 // Included (MB)
 void PostFcnDES::rstVar(IoData &iod, Communicator *com)
@@ -1104,6 +1092,13 @@ void PostFcnDES::rstVar(IoData &iod, Communicator *com)
 }
 
 //------------------------------------------------------------------------------
+PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(iod)
+{
+
+}
+
+//------------------------------------------------------------------------------
+
                                                                                                 
 double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
 {

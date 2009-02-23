@@ -149,6 +149,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
                         ioData.surfaces.surfaceMap.dataMap, ndC);
 
 
+ this->com->sync();
+
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     (*dXdot) = 0.0;
@@ -309,7 +311,6 @@ void DistBcData<dim>::update(DistSVec<double,3> &X)  {
 #endif
     this->subDomain[iSub]->computeFaceBcValue(this->Unode(iSub), this->Uface(iSub));
   }
-
   if ( this->gravity > 0.0 )
     updateFarField(X);
 }

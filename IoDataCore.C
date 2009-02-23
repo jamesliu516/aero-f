@@ -287,6 +287,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
 }
 
+
 //------------------------------------------------------------------------------
 
 RestartData::RestartData()
@@ -2912,7 +2913,7 @@ void IoData::readCmdFile()
   resetInputValues();
   error = checkFileNames();
   error += checkInputValues();
-  error += checkSolverValues();
+  error += checkSolverValues(surfaces.surfaceMap.dataMap);
   if (error) {
     com->fprintf(stderr, "*** Error: command file contained %d error%s\n", 
 		 error, error>1? "s":"");
@@ -3228,8 +3229,10 @@ int IoData::checkInputValues()
   error += checkInputValuesStateEquation();
 
   error += checkInputValuesNonDimensional(); 
-  error += checkInputValuesDimensional(); 
 
+
+  error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap); 
+//NICOLE
   checkInputValuesTurbulence();
                                                                                                   
   checkInputValuesDefaultOutlet();
@@ -3845,7 +3848,8 @@ int IoData::checkInputValuesNonDimensional()
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%d) given\n", bc.inlet.temperature);
+//NICOLE
+      com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%f) given\n", bc.inlet.temperature);
       error ++;
     }
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -3857,7 +3861,8 @@ int IoData::checkInputValuesNonDimensional()
   return error;
 }
 //------------------------------------------------------------------------------------
-int IoData::checkInputValuesDimensional()
+//NICOLE
+int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 {
 
 /* Non dimensionalization of two phase flows is somewhat tricky,
@@ -4140,6 +4145,18 @@ int IoData::checkInputValuesDimensional()
     restart.dt_nm2 /= ref.rv.time;
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
+
+//NICOLE    
+       for(int j = 1; j < 8*sizeof(int); j++) {
+            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL) {
+               it->second->temp /= ref.rv.temperature;
+            }
+       }
+//END NICOLE
+
     linearizedData.stepsize = ts.timestep;
     linearizedData.stepsizeinitial = ts.timestepinitial;
     ts.timestep /= ref.rv.time;
@@ -4355,7 +4372,7 @@ void IoData::checkInputValuesDefaultOutlet()
 
 //------------------------------------------------------------------------------
 
-int IoData::checkSolverValues()
+int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
 {
 
   int error = 0;
@@ -4375,11 +4392,25 @@ int IoData::checkSolverValues()
       ++error;
     }
   }
+
   if (eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ISOTHERMAL && 
       !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
-    com->fprintf(stderr, "*** Error: no valid wall temperature (%d) given\n", bc.wall.temperature);
+    com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given\n", bc.wall.temperature);
     ++error;
   }
+
+
+for(int j = 1; j < 8*sizeof(int); j++) {
+            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL && it->second->temp < 0 && eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ADIABATIC &&
+                 !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
+               com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, j);
+               error++;
+            }
+       }
+
 
 // for Multiphase flow using levelset
   if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT

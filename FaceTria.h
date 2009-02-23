@@ -85,6 +85,7 @@ public:
   void computeNodalHeatPower(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&, 
 			     double*, SVec<double,dim>&, Vec<double>&);
 
+
   template<int dim>
   void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 			     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 

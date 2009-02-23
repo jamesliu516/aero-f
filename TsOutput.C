@@ -124,6 +124,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+//    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.temperature);
@@ -510,7 +511,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
- 
 }
 
 //------------------------------------------------------------------------------
@@ -686,7 +686,6 @@ void TsOutput<dim>::openAsciiFiles()
       fflush(fpdForces);
     }
   }
-
   if (hydrostaticforces) {
     if (it0 != 0){
       fpHydroStaticForces[0] = backupAsciiFile(hydrostaticforces);
@@ -1190,6 +1189,7 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
   }
 
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -1922,37 +1922,13 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
     sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
-  }
-
-  int dsp = strlen(iod.output.transient.prefix) + 1;
-
-  if (iod.output.transient.dDensity[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_DENSITY] = iod.ref.rv.density;
-    dScalars[PostFcn::DERIVATIVE_DENSITY] = new char[dsp + strlen(iod.output.transient.dDensity)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dDensity);
-  }
-
-  if (iod.output.transient.dPressure[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_PRESSURE] = iod.ref.rv.pressure;
-    dScalars[PostFcn::DERIVATIVE_PRESSURE] = new char[dsp + strlen(iod.output.transient.dPressure)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dPressure);
-  }
-
-  if (iod.output.transient.dTemperature[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_TEMPERATURE] = iod.ref.rv.temperature;
-    dScalars[PostFcn::DERIVATIVE_TEMPERATURE] = new char[dsp + strlen(iod.output.transient.dTemperature)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dTemperature);
-  }
-
-  if (iod.output.transient.dTotalpressure[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_TOTPRESSURE] = iod.ref.rv.pressure;
-    dScalars[PostFcn::DERIVATIVE_TOTPRESSURE] = new char[dsp + strlen(iod.output.transient.dTotalpressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
     sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
   }
+
+  int dsp = strlen(iod.output.transient.prefix) + 1;
 
   if (iod.output.transient.dNutturb[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;

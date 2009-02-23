@@ -101,6 +101,7 @@ public:
 				 double *, SVec<double,dim> &, double, SVec<double,3> &, double* gradP[3]) = 0;
   virtual void computeNodalHeatPower(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
+
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 				     Vec3D &, Vec3D &,  double* gradP[3], int, 
@@ -182,6 +183,10 @@ public:
     t->computeNodalHeatPower(elems, postFcn, X, 
 			     d2wall, Vwall, V, P);
   }
+
+
+
+
 
   void computeForceAndMoment(ElemSet &elems,
 			     PostFcn *postFcn, SVec<double,3> &X, 
@@ -461,6 +466,7 @@ public:
 			     d2wall, Vwall, V, P);
   }
 
+
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
@@ -728,6 +734,7 @@ public:
 			     SVec<double,dim>& V, Vec<double>& P) {
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
+
 
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
