@@ -68,6 +68,7 @@ private:
   char *hydrodynamiclift;
   char *generalizedforces;
   char *residuals;
+  char *conservation;
   char *modeFile;
   Vec3D *TavF, *TavM; 
   Vec3D *TavL;
@@ -85,6 +86,7 @@ private:
   FILE **fpHydroStaticLift;
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
+  FILE *fpConservationErr;
   FILE *fpGnForces;
 
 
@@ -126,6 +128,9 @@ public:
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<double> * = 0);
   void writeResidualsToDisk(int, double, double, double);
+  void writeConservationErrors(IoData &iod, int it, double t, 
+                               double *totqty, double *f1qty, double *f2qty,
+                               double *toterr, double *f1err, double *f2err);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,

@@ -335,7 +335,9 @@ public:
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*, 
                               NodalGrad<1>&,
-                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
+                              SVec<double,dim>&, int, SVec<double,dim> *,
+                              SVec<double,dim> *,
+                              SVec<int,2>&, int, int);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
@@ -717,7 +719,11 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &);
+  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &, Vec<double> &);
+
+  template<int dim>
+  void restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi, 
+                        SVec<double,dim> &restriction, int sign);
 
   template<int dim>
   void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<double> * = 0);

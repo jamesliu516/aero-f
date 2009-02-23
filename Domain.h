@@ -31,6 +31,7 @@ class ViscoFcn;
 class PostFcn;
 class LevelSet;
 class TimeLowMachPrec;
+class SpatialLowMachPrec;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -106,7 +107,7 @@ class Domain {
 
   DistSVec<int,2> *tag;
   DistSVec<int,2> *tagBar;
-                                                                                                                          
+
   BCApplier* meshMotionBCs; //HB
 
 // Included (MB)
@@ -212,7 +213,8 @@ public:
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, 
 		       DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &, 
-		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &);
+		       DistVec<double> &, DistVec<double> &, TimeLowMachPrec &,
+                       SpatialLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
@@ -351,8 +353,9 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistNodalGrad<1>&,
-                               DistSVec<double,dim>&, int, int, int);
+                               DistNodalGrad<1>&, DistSVec<double,dim>&, 
+                               int, DistSVec<double,dim> *, DistSVec<double,dim> *,
+                               int, int);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
@@ -602,7 +605,11 @@ public:
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+  int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
+
+  template<int dim>
+  void restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<double> &Phi,
+                        DistSVec<double,dim> &restriction, int sign);
 
   template<int dim>
   void checkFailSafe(VarFcn*, DistSVec<double,dim>&, DistSVec<bool,2>&, DistVec<double> * = 0);
@@ -725,8 +732,11 @@ public:
 
   template<int dim>  
   void computeDerivativeOfInvReynolds(FemEquationTerm *, VarFcn *, DistGeoState &, 
-			     DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
-			     DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, DistVec<double> &, double, TimeLowMachPrec &);
+			     DistSVec<double,3> &, DistSVec<double,3> &, 
+                             DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &,
+                             DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
+                             DistVec<double> &, DistVec<double> &, DistVec<double> &, 
+                             double, TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
   void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);

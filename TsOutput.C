@@ -375,6 +375,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
+  if (iod.output.transient.conservation[0] != 0) {
+    conservation = new char[sp + strlen(iod.output.transient.conservation)];
+    sprintf(conservation, "%s%s", iod.output.transient.prefix, iod.output.transient.conservation);
+  }
+  else
+    conservation = 0;
+
   it0 = iod.restart.iteration;
   frequency = iod.output.transient.frequency;
   length = iod.output.transient.length;
@@ -384,6 +391,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[2] = iod.output.transient.z0;
 
   fpResiduals = 0;
+  fpConservationErr = 0;
   fpGnForces  = 0;
 
   int nSurf = postOp->getNumSurf();
@@ -1022,6 +1030,26 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
 
+  if (conservation) {
+    if (it0 != 0) 
+      fpConservationErr = backupAsciiFile(conservation);
+    if (it0 == 0 || fpConservationErr == 0) {
+      fpConservationErr = fopen(conservation, "w");
+      if (!fpConservationErr) {
+	fprintf(stderr, "*** Error: could not open \'%s\'\n", conservation);
+	exit(1);
+      }
+      fprintf(fpConservationErr, "# 1TimeIteration 2Time ");
+      fprintf(fpConservationErr, "3TotalExpectedMass 4TotalExpectedMomentumx 5TotalExpectedMomentumy 6TotalExpectedMomentumz 7TotalExpectedEnergy ");
+      fprintf(fpConservationErr, "8Fluid1ExpectedMass 9Fluid1ExpectedMomentumx 10Fluid1ExpectedMomentumx 11Fluid1ExpectedMomentumz 12Fluid1ExpectedEnergy ");
+      fprintf(fpConservationErr, "13Fluid2ExpectedMass 14Fluid2ExpectedMomentumx 15Fluid2ExpectedMomentumx 16Fluid2ExpectedMomentumz 17Fluid2ExpectedEnergy ");
+      fprintf(fpConservationErr, "18TotalComputedMass 19TotalComputedMomentumx 20TotalComputedMomentumy 21TotalComputedMomentumz 22TotalComputedEnergy ");
+      fprintf(fpConservationErr, "23Fluid1ComputedMass 24Fluid1ComputedMomentumx 25Fluid1ComputedMomentumx 26Fluid1ComputedMomentumz 27Fluid1ComputedEnergy ");
+      fprintf(fpConservationErr, "28Fluid2ComputedMass 29Fluid2ComputedMomentumx 30Fluid2ComputedMomentumx 31Fluid2ComputedMomentumz 32Fluid2ComputedEnergy\n");
+    }
+    fflush(fpConservationErr);
+ }
+
  delete [] surfNums;
 }
 
@@ -1041,6 +1069,7 @@ void TsOutput<dim>::closeAsciiFiles()
   }
   if (fpResiduals) fclose(fpResiduals);
   if (fpGnForces) fclose(fpGnForces);
+  if (fpConservationErr) fclose(fpConservationErr);
 
 }
 
@@ -1477,6 +1506,38 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
 
   if (steady)
     com->printf(0, "It %5d: Res = %e, Cfl = %e, Elapsed Time = %.2e s\n", it, res, cfl, cpu);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
+                    double *qtytot, double *qty1, double *qty2,
+                    double *computedtot, double *computed1, double *computed2)
+{
+
+  if (com->cpuNum() != 0) return;
+
+  if (!steady)
+    if (fpConservationErr) {
+      fprintf(fpConservationErr, "%d %e ", it, t);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", qtytot[i]);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", qty1[i]);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", qty2[i]);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", computedtot[i]);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", computed1[i]);
+      for(int i=0; i<dim; i++) 
+        fprintf(fpConservationErr, "%e ", computed2[i]);
+      fprintf(fpConservationErr, "\n");
+      fflush(fpConservationErr);
+    }
+
 
 }
 
