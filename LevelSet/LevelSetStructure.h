@@ -7,7 +7,7 @@
 struct LevelSetResult {
    Vec3D gradPhi;
    Vec3D normVel;
-   
+
    LevelSetResult(double gpx, double gpy, double gpz,
                   double nvx, double nvy, double nvz) :
 		  gradPhi(gpx, gpy, gpz), normVel(nvx, nvy, nvz) {
@@ -22,8 +22,8 @@ class LevelSetStructure {
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
     virtual bool isActive(double t, int n) = 0; //!< Whether this node is active or ghost.
-    virtual bool edgeIntersectsStructure(double t, int ni, int nj) = 0;
-    
+    virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0;
+
     Vec3D totalForce;
 };
 

@@ -5,6 +5,7 @@
 
 class RecFcn;
 class Domain;
+class DistFluidTypeCriterion;
 
 #ifndef _NDGRAD_TMPL_
 #define _NDGRAD_TMPL_
@@ -42,7 +43,7 @@ class DistNodalGrad {
   DistVec<Scalar>* sigma;
 
   DistSVec<double,6> *R;
-  
+
   DistSVec<double,3> *wii;
   DistSVec<double,3> *wij;
   DistSVec<double,3> *wji;
@@ -83,12 +84,12 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
-               DistVec<double> &, DistSVec<Scalar2,dim> &);
+               DistFluidTypeCriterion &, DistSVec<Scalar2,dim> &);
 
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 
-  template<class Scalar2> 
-  void computeT(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &, 
+  template<class Scalar2>
+  void computeT(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<Scalar2,dim> &,
        DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
 
   template<class Scalar2>

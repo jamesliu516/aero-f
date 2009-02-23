@@ -36,6 +36,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   eulerFSI = new DistEulerStructGhostFluid(this->domain, ioData);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  distLSS = eulerFSI;
 }
 
 //------------------------------------------------------------------------------
@@ -56,7 +57,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   this->geoState->setup2(this->timeState->getData());
   //TODO: timeState->setup different as in LevelSetTsDesc.
   this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-  this->eulerFSI->setupCommunication(this->domain,this->X,*U);
+  this->eulerFSI->setupCommunication(this->domain,this->X);
 }
 
 //------------------------------------------------------------------------------
@@ -99,7 +100,7 @@ void StructLevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int 
 
 //------------------------------------------------------------------------------
 
-template<int dim> 
+template<int dim>
 int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 // same as in LevelSetTsDesc::checkSolution. TODO: no phi. how to check?
 {
@@ -136,7 +137,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
-//  this->com->barrier(); this->com->fprintf(stderr,"DONE.\n");  
+//  this->com->barrier(); this->com->fprintf(stderr,"DONE.\n");
 }
 
 //------------------------------------------------------------------------------
@@ -156,7 +157,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, 
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,
                                    *(eulerFSI->getPhilevelPointer()));
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
@@ -173,7 +174,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
 
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
-                               double t, double dt, DistSVec<double,dim> &U)  
+                               double t, double dt, DistSVec<double,dim> &U)
 { //TODO:simply copied from TsDesc::outputForces. need to be modified to work.
   // add a new writeForcesToDisk in TsOutput. then go into PostOperator and add a new computeForceAndMoment.
   double cpu = this->timer->getRunTime();
@@ -225,11 +226,10 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 { //from TsDesc::computeResidualNorm. only compute residual for Phi>0 TODO: shouldn't do this for shell.
-  this->spaceOp->computeResidual(*this->X, *this->A, U, eulerFSI, *this->R, this->riemann, 0);
+  this->spaceOp->computeResidual(*this->X, *this->A, U, distLSS, *this->R, this->riemann, 0);
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;
-  DistVec<double>* philevel = eulerFSI->getPhilevelPointer();
-  res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *philevel);
+  res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
   return sqrt(res);
 }
 

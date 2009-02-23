@@ -105,7 +105,7 @@ Domain::~Domain()
 
   if (subDomain) {
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) 
+    for (int iSub=0; iSub<numLocSub; ++iSub)
       if (subDomain[iSub]) delete subDomain[iSub];
     delete [] subDomain;
   }
@@ -147,7 +147,7 @@ Domain::~Domain()
   if (weightDerivativePat) delete weightDerivativePat;
 
   //if (com) delete com;
-  if(meshMotionBCs) delete meshMotionBCs; 
+  if(meshMotionBCs) delete meshMotionBCs;
 }
 
 //------------------------------------------------------------------------------
@@ -173,12 +173,12 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
 #endif
 
   //set IoData in the Timer
-  timer->setIoData(ioData); 
+  timer->setIoData(ioData);
   if (strCom)
     strTimer->setIoData(ioData);
 
   if (com->getMaxVerbose() >= 8)
-    fprintf(stdout, "CPU %d uses %d thread%s for %d subdomain%s\n", com->cpuNum(), 
+    fprintf(stdout, "CPU %d uses %d thread%s for %d subdomain%s\n", com->cpuNum(),
 	    numLocThreads, numLocThreads>1? "s":"", numLocSub, numLocSub>1? "s":"");
   else if (com->getMaxVerbose() >= 2 && com->cpuNum() == 0)
     fprintf(stdout, "%d MPI CPU for %d subdomain%s\n", com->size(),
@@ -191,7 +191,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub) {
     subDomain[iSub] = geoSource.getSubDomain(iSub);
-    
+
 #ifdef CXFS
     subDomain[iSub]->printInfo(fp);
 #endif
@@ -230,7 +230,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     for (iSub = 0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->markLenNull(*inletNodeDistInfo);
     }
-                                                                                                  
+
     inletNodeDistInfo->finalize(true);
   }
 
@@ -267,7 +267,7 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   weightDerivativePat->finalize();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub<numLocSub; ++iSub) 
+  for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->makeMasterFlag(*nodeDistInfo);
 
 }
@@ -299,7 +299,7 @@ void Domain::createVecPat(int dim, IoData *ioData)
 
 void Domain::createRhsPat(int dim, IoData &ioData)
 {
-                                                                                                  
+
   if (ioData.schemes.bc.type == BoundarySchemeData::CONSTANT_EXTRAPOLATION ||
       ioData.schemes.bc.type == BoundarySchemeData::LINEAR_EXTRAPOLATION  ){
 
@@ -318,22 +318,22 @@ void Domain::numberEdges()
 {
   int iSub;
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
+  for (iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->numberEdges();
 
-  CommPattern<int> edgeNumPat(subTopo, com, CommPattern<int>::CopyOnSend, 
+  CommPattern<int> edgeNumPat(subTopo, com, CommPattern<int>::CopyOnSend,
 			      CommPattern<int>::NonSym);
 
   edgePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
+  for (iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->identifyEdges(edgeNumPat);
 
   edgeNumPat.finalize();
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
+  for (iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->sndEdgeInfo(edgeNumPat);
 
   edgeNumPat.exchange();
@@ -347,7 +347,7 @@ void Domain::numberEdges()
   edgePat->finalize();
 
 #pragma omp parallel for
-  for (iSub = 0; iSub<numLocSub; ++iSub) 
+  for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->markLenEdges(*edgeDistInfo);
 
   edgeDistInfo->finalize(false);
@@ -444,9 +444,9 @@ void Domain::setNodeType(IoData &ioData)
      it++;
   }
 
-  if(numSlipSurfs)  
-    com->fprintf(stderr," ... There is %d sliding surfaces.\n",numSlipSurfs); 
-   
+  if(numSlipSurfs)
+    com->fprintf(stderr," ... There is %d sliding surfaces.\n",numSlipSurfs);
+
   int **slipSurfOwn = new int*[numLocSub];
 
 #pragma omp parallel for
@@ -466,8 +466,8 @@ void Domain::setNodeType(IoData &ioData)
       if(slipSurfOwn[iSub]) { delete [] slipSurfOwn[iSub]; slipSurfOwn[iSub] = 0; }
     delete [] slipSurfOwn; slipSurfOwn = 0;
   }
-  
-/* ARL: creation of nodeFaceType which 
+
+/* ARL: creation of nodeFaceType which
  *      tells which kind of faces a node
  *      is connected to.
  */
@@ -512,7 +512,7 @@ void Domain::setInletNodes(IoData &ioData)
 
     if (ioData.schemes.bc.type == BoundarySchemeData::LINEAR_EXTRAPOLATION){
 #pragma omp parallel for
-      for (iSub = 0; iSub<numLocSub; ++iSub) 
+      for (iSub = 0; iSub<numLocSub; ++iSub)
         subDomain[iSub]->setInletNodes2(ioData);
     }
 
@@ -547,9 +547,9 @@ void Domain::makeRotationOwnership(IoData &ioData)  {
   map<int,SurfaceData *>::iterator it = surfaceMap.begin();
   int numRotSurfs  = 0;
   int numTransWalls= 0;
- 
+
   while(it != surfaceMap.end()) {
-    map<int,RotationData*>::iterator it1 = rotationMap.find(it->second->rotationID); 
+    map<int,RotationData*>::iterator it1 = rotationMap.find(it->second->rotationID);
     if(it1!=rotationMap.end()) {
       if(it1->second->infRadius) {
         numTransWalls++;
@@ -562,13 +562,13 @@ void Domain::makeRotationOwnership(IoData &ioData)  {
         com->fprintf(stderr,"     -> omega = %3.2e, rotation axis = %3.2e %3.2e %3.2e\n",
                      it1->second->omega, it1->second->nx,it1->second->ny,it1->second->nz);
       }
-    } 
+    }
     it++;
   }
-  if(numRotSurfs)  
-    com->fprintf(stderr," ... There is %d ``rotating'' surfaces.\n",numRotSurfs); 
-  if(numTransWalls)  
-    com->fprintf(stderr," ... There is %d ``translating'' surfaces.\n",numTransWalls); 
+  if(numRotSurfs)
+    com->fprintf(stderr," ... There is %d ``rotating'' surfaces.\n",numRotSurfs);
+  if(numTransWalls)
+    com->fprintf(stderr," ... There is %d ``translating'' surfaces.\n",numTransWalls);
 
   CommPattern<int> ndC(subTopo, com, CommPattern<int>::CopyOnSend);
 
@@ -601,7 +601,7 @@ void Domain::setFaceToElementConnectivity()
 
   com->globalSum(1, &nswap);
   if (nswap > 0)
-    com->printf(1, "*** Warning: changed the orientation of %d boundary face%s\n", 
+    com->printf(1, "*** Warning: changed the orientation of %d boundary face%s\n",
 		nswap, nswap>1 ? "s":"");
 }
 
@@ -613,7 +613,7 @@ void Domain::printElementStatistics()
   int (*num)[4] = reinterpret_cast<int (*)[4]>(alloca(sizeof(int) * numLocSub * 4));
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
+  for (iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->getElementStatistics(num[iSub][0], num[iSub][1], num[iSub][2], num[iSub][3]);
 
   int minNum[4], maxNum[4], totNum[4];
@@ -624,7 +624,7 @@ void Domain::printElementStatistics()
     maxNum[k] = num[0][k];
     totNum[k] = num[0][k];
   }
-    
+
   for (iSub=1; iSub<numLocSub; ++iSub) {
     for (k=0; k<4; ++k) {
       minNum[k] = min(minNum[k], num[iSub][k]);
@@ -632,18 +632,18 @@ void Domain::printElementStatistics()
       totNum[k] += num[iSub][k];
     }
   }
-    
+
   com->globalMin(4, minNum);
   com->globalMax(4, maxNum);
   com->globalSum(4, totNum);
 
-  com->printf(2, "Node statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Node statistics: min=%d, max=%d, total=%d\n",
 	      minNum[0], maxNum[0], totNum[0]);
-  com->printf(2, "Edge statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Edge statistics: min=%d, max=%d, total=%d\n",
 	      minNum[1], maxNum[1], totNum[1]);
-  com->printf(2, "Face statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Face statistics: min=%d, max=%d, total=%d\n",
 	      minNum[2], maxNum[2], totNum[2]);
-  com->printf(2, "Elem statistics: min=%d, max=%d, total=%d\n", 
+  com->printf(2, "Elem statistics: min=%d, max=%d, total=%d\n",
 	      minNum[3], maxNum[3], totNum[3]);
 }
 
@@ -764,7 +764,7 @@ void Domain::computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3
 
 //------------------------------------------------------------------------------
 
-void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1, 
+void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1,
 				DistSVec<double,3> &Xdot,
 				DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
 				DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel)
@@ -772,18 +772,18 @@ void Domain::computeNormalsGCL1(DistSVec<double,3> &Xn, DistSVec<double,3> &Xnp1
   int iSub;
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeNormalsGCL1(Xn(iSub), Xnp1(iSub), Xdot(iSub), 
-					edgeNorm(iSub), edgeNormVel(iSub), 
+    subDomain[iSub]->computeNormalsGCL1(Xn(iSub), Xnp1(iSub), Xdot(iSub),
+					edgeNorm(iSub), edgeNormVel(iSub),
 					faceNorm(iSub), faceNormVel(iSub));
-    subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub), 
+    subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub),
 				edgeNormVel.subData(iSub));
   }
 
   edgePat->exchange();
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
-    subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), 
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub),
 				edgeNormVel.subData(iSub));
 }
 
@@ -812,10 +812,10 @@ void Domain::computeDerivativeOfNormals(DistSVec<double,3> &X, DistSVec<double,3
 
 //------------------------------------------------------------------------------
 
-void Domain::computeNormalsGCL2(TimeData &data, DistVec<Vec3D> &edgeNorm, 
-				DistVec<Vec3D> &edgeNorm_old, DistVec<double> &edgeNormVel, 
-				DistVec<double> &edgeNormVel_old, DistVec<Vec3D> &faceNorm, 
-				DistVec<Vec3D> &faceNorm_old, DistVec<double> &faceNormVel, 
+void Domain::computeNormalsGCL2(TimeData &data, DistVec<Vec3D> &edgeNorm,
+				DistVec<Vec3D> &edgeNorm_old, DistVec<double> &edgeNormVel,
+				DistVec<double> &edgeNormVel_old, DistVec<Vec3D> &faceNorm,
+				DistVec<Vec3D> &faceNorm_old, DistVec<double> &faceNormVel,
 				DistVec<double> &faceNormVel_old)
 {
   if (data.exist_nm1) {
@@ -856,7 +856,7 @@ void Domain::computeNormalsGCL2(TimeData &data, DistVec<Vec3D> &edgeNorm,
 	facenormvel_old[i] = tmpvel;
       }
     }
-  } 
+  }
   else {
     edgeNorm_old = edgeNorm;
     edgeNormVel_old = edgeNormVel;
@@ -867,7 +867,7 @@ void Domain::computeNormalsGCL2(TimeData &data, DistVec<Vec3D> &edgeNorm,
 
 //------------------------------------------------------------------------------
 
-void Domain::computeNormalsEZGCL1(double oodt, DistSVec<double,3>& Xn, DistSVec<double,3>& Xnp1, 
+void Domain::computeNormalsEZGCL1(double oodt, DistSVec<double,3>& Xn, DistSVec<double,3>& Xnp1,
 				  DistVec<Vec3D>& edgeNorm, DistVec<double>& edgeNormVel,
 				  DistVec<Vec3D>& faceNorm, DistVec<double>& faceNormVel)
 {
@@ -875,25 +875,25 @@ void Domain::computeNormalsEZGCL1(double oodt, DistSVec<double,3>& Xn, DistSVec<
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeNormalsEZGCL1(oodt, Xn(iSub), Xnp1(iSub),
-					  edgeNorm(iSub), edgeNormVel(iSub), 
+					  edgeNorm(iSub), edgeNormVel(iSub),
 					  faceNorm(iSub), faceNormVel(iSub));
-    subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub), 
+    subDomain[iSub]->sndNormals(*edgePat, edgeNorm.subData(iSub),
 				edgeNormVel.subData(iSub));
   }
 
   edgePat->exchange();
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) 
-    subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), 
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub),
 				edgeNormVel.subData(iSub));
 }
 
 //------------------------------------------------------------------------------
 
-void Domain::computeNormalsEZGCL2(TimeData& data, DistVec<double>& edgeNormVel, 
-				  DistVec<double>& edgeNormVel_old, 
-				  DistVec<double>& faceNormVel, 
+void Domain::computeNormalsEZGCL2(TimeData& data, DistVec<double>& edgeNormVel,
+				  DistVec<double>& edgeNormVel_old,
+				  DistVec<double>& faceNormVel,
 				  DistVec<double>& faceNormVel_old)
 {
   if (data.exist_nm1) {
@@ -919,7 +919,7 @@ void Domain::computeNormalsEZGCL2(TimeData& data, DistVec<double>& edgeNormVel,
 	facenormvel_old[i] = tmpvel;
       }
     }
-  } 
+  }
   else {
     edgeNormVel_old = edgeNormVel;
     faceNormVel_old = faceNormVel;
@@ -928,10 +928,10 @@ void Domain::computeNormalsEZGCL2(TimeData& data, DistVec<double>& edgeNormVel,
 
 //------------------------------------------------------------------------------
 
-void Domain::computeNormalsEZGCL3(TimeData& data, DistVec<double>& edgeNormVel, 
-				  DistVec<double>& edgeNormVel_nm1, 
+void Domain::computeNormalsEZGCL3(TimeData& data, DistVec<double>& edgeNormVel,
+				  DistVec<double>& edgeNormVel_nm1,
 				  DistVec<double>& edgeNormVel_nm2,
-				  DistVec<double>& faceNormVel, 
+				  DistVec<double>& faceNormVel,
 				  DistVec<double>& faceNormVel_nm1,
 				  DistVec<double>& faceNormVel_nm2)
 {
@@ -963,7 +963,7 @@ void Domain::computeNormalsEZGCL3(TimeData& data, DistVec<double>& edgeNormVel,
 	fvel_nm1[i] = tmpvel;
       }
     }
-  } 
+  }
   else {
     if (data.exist_nm1) {
       edgeNormVel_nm2 = edgeNormVel_nm1;
@@ -979,8 +979,8 @@ void Domain::testNormals(DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
 			 DistVec<Vec3D> &faceNorm, DistVec<double> &faceNormVel)
 {
   int iSub = 0;
-  for (iSub=0; iSub<numLocSub; ++iSub) 
-    subDomain[iSub]->testNormals(edgeNorm(iSub), edgeNormVel(iSub), 
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->testNormals(edgeNorm(iSub), edgeNormVel(iSub),
 				 faceNorm(iSub), faceNormVel(iSub));
 
   com->barrier();
@@ -990,12 +990,12 @@ void Domain::testNormals(DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
 }
 
 //------------------------------------------------------------------------------
-                                                                                                  
+
 void Domain::computeInletNormals(DistVec<Vec3D>& inletNodeNorm, DistVec<Vec3D>& faceNorm, DistVec<int>& numFaceNeighb)
 {
-                                                                                                  
+
   if (inletRhsPat){     //better to put inletVec3DPat????
-                                                                                                  
+
         //first we sum up the normals
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; ++iSub){
@@ -1005,11 +1005,11 @@ void Domain::computeInletNormals(DistVec<Vec3D>& inletNodeNorm, DistVec<Vec3D>& 
       subDomain[iSub]->sndInletData(*inletCountPat,
                 reinterpret_cast<int(*)[1]>(numFaceNeighb.subData(iSub)));
     }
-                                                                                                  
+
     inletVec3DPat->exchange();
     inletCountPat->exchange();
-                                                                                                  
-                                                                                                  
+
+
 #pragma omp parallel for
     for ( int iSub = 0; iSub<numLocSub; ++iSub){
       subDomain[iSub]->addRcvInletData(*inletVec3DPat,
@@ -1027,9 +1027,9 @@ void Domain::computeInletNormals(DistVec<Vec3D>& inletNodeNorm, DistVec<Vec3D>& 
 
 //------------------------------------------------------------------------------
 
-void Domain::computeVelocities(DGCLData::Velocities typeVel, TimeData &timeData, 
-			       DistSVec<double,3> &Xsdot, DistSVec<double,3> &Xnm1, 
-			       DistSVec<double,3> &Xn, DistSVec<double,3> &X, 
+void Domain::computeVelocities(DGCLData::Velocities typeVel, TimeData &timeData,
+			       DistSVec<double,3> &Xsdot, DistSVec<double,3> &Xnm1,
+			       DistSVec<double,3> &Xn, DistSVec<double,3> &X,
 			       DistSVec<double,3> &Xdot)
 {
 
@@ -1085,7 +1085,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
-void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &Phi,
+void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistFluidTypeCriterion &ft,
                                         DistSVec<double,6> &R)
 {
 
@@ -1095,7 +1095,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistVec<double> &
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), Phi(iSub), (*count)(iSub), R(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), ft(iSub), (*count)(iSub), R(iSub));
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
@@ -1154,7 +1154,7 @@ void Domain::computeDerivativeOfWeightsLeastSquares(DistSVec<double,3> &X, DistS
 
 //------------------------------------------------------------------------------
 
-void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &wii, 
+void Domain::computeWeightsGalerkin(DistSVec<double,3> &X, DistSVec<double,3> &wii,
 				    DistSVec<double,3> &wij, DistSVec<double,3> &wji)
 {
 
@@ -1194,7 +1194,7 @@ void Domain::getReferenceMeshPosition(DistSVec<double,3> &x)
 
 //------------------------------------------------------------------------------
 //HB: modified to return only the matched nodes as interface nodes
-void Domain::getNdAeroLists(int *&nInterfNd, int **&interfNd, int *&nInfNd, 
+void Domain::getNdAeroLists(int *&nInterfNd, int **&interfNd, int *&nInfNd,
 			    int **&infNd, int *&nInternalNd, int **&internalNd, MatchNodeSet** matchNodes)
 {
 
@@ -1208,7 +1208,7 @@ void Domain::getNdAeroLists(int *&nInterfNd, int **&interfNd, int *&nInfNd,
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     MatchNodeSet* subMatchNodes = (matchNodes) ? matchNodes[iSub] : 0;
-    subDomain[iSub]->getNdAeroLists(nInterfNd[iSub], interfNd[iSub], nInfNd[iSub], 
+    subDomain[iSub]->getNdAeroLists(nInterfNd[iSub], interfNd[iSub], nInfNd[iSub],
 				    infNd[iSub], nInternalNd[iSub], internalNd[iSub], subMatchNodes);
   }
 }
@@ -1219,7 +1219,7 @@ void Domain::applySmoothing(DistVec<double> &ctrlVol, DistVec<double> &Q)
 {
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) 
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(Q.subData(iSub)));
 
   volPat->exchange();
@@ -1283,7 +1283,7 @@ void Domain::setPhiForFluid1(DistVec<double> &Phi)
 }
 
 //------------------------------------------------------------------------------
-void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb, 
+void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
                                           double zb, double r, double invertGasLiquid,
                                           DistVec<double> &Phi)
 {
@@ -1295,7 +1295,7 @@ void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, doub
 
 }
 //------------------------------------------------------------------------------
-void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb, 
+void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
                                           double zb, double r, double invertGasLiquid,
                                           DistVec<double> &Phi)
 {
@@ -1346,7 +1346,7 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &
 
 //------------------------------------------------------------------------------
 
-void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic, 
+void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                DistSVec<double,3> &X, DistVec<double> &Phi){
 
 #pragma omp parallel for
@@ -1357,7 +1357,7 @@ void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 
 //------------------------------------------------------------------------------
 
-void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip, 
+void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                DistSVec<double,3> &X, DistVec<double> &Phi){
 
 #pragma omp parallel for
@@ -1444,8 +1444,8 @@ int Domain::numNodes() //TODO: don't need Edge, Face, Elem...
     subDomain[iSub]->getElementStatistics(num[iSub][0], num[iSub][1], num[iSub][2], num[iSub][3]);
 
   for (k=0; k<4; ++k) totNum[k] = num[0][k];
-  for (iSub=1; iSub<numLocSub; ++iSub) 
-    for (k=0; k<4; ++k) 
+  for (iSub=1; iSub<numLocSub; ++iSub)
+    for (k=0; k<4; ++k)
       totNum[k] += num[iSub][k];
   com->globalSum(4, totNum);
   return totNum[0];
@@ -1459,8 +1459,8 @@ void Domain::computeCharacteristicEdgeLength(DistSVec<double,3> &X, double& minL
   double subDminLength[numLocSub], subDaveLength[numLocSub], subDmaxLength[numLocSub];
   int  subDnumInsideEdges[numLocSub];
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) 
-    subDomain[iSub]->computeCharacteristicEdgeLength(X(iSub), subDminLength[iSub], subDaveLength[iSub], 
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computeCharacteristicEdgeLength(X(iSub), subDminLength[iSub], subDaveLength[iSub],
                                                      subDmaxLength[iSub], subDnumInsideEdges[iSub],
                                                      xmin, xmax, ymin, ymax, zmin, zmax);
   numInsideEdges = 0;

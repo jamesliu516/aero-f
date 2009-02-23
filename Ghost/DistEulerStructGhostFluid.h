@@ -102,8 +102,7 @@ public:
     com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
   }
 */
-  template<int dim>
-  void setupCommunication(Domain*, DistSVec<double,3>*, DistSVec<double,dim> &);
+  void setupCommunication(Domain*, DistSVec<double,3>*);
 
 
 

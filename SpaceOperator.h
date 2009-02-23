@@ -17,6 +17,7 @@ class Domain;
 class DistGeoState;
 class Communicator;
 class Timer;
+class DistStructureLevelSet;
 
 template<int dim> class DistVMSLESTerm;
 template<int dim> class DistDynamicVMSTerm;
@@ -88,7 +89,7 @@ private:
 
   bool use_modal;
   bool use_complex;
-  int order; 
+  int order;
   int failsafe;
   int rshift;
 
@@ -97,7 +98,7 @@ private:
 
 public:
 
-  SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *, 
+  SpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
 		Domain *, DistSVec<double,dim> * = 0);
   SpaceOperator(const SpaceOperator<dim> &, bool);
   ~SpaceOperator();
@@ -129,19 +130,19 @@ public:
                        DistSVec<double,dim> &, DistVec<double> &);
 
 // Included (MB)
-  void computeResidual(DistSVec<double,3> &, DistVec<double> &, 
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &, 
+                       DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it,
-                       DistSVec<double,dim> * = 0, 
+                       DistSVec<double,dim> * = 0,
                        DistSVec<double,dim> * = 0);
-// Kevin's FSI with half-Riemann problems 
+// Kevin's FSI with half-Riemann problems
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistEulerStructGhostFluid *,
+                       DistSVec<double,dim> &, DistLevelSetStructure *,
                        DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it = 0);
 
@@ -161,7 +162,7 @@ public:
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistVec<double> &);  
+  double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistLevelSetStructure &);
 
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
                                      DistSVec<double,dim> &);
@@ -177,7 +178,7 @@ public:
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
 		       DistTimeState<dim> *);
-  
+
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistMat<Scalar,neq> &,
@@ -204,13 +205,13 @@ public:
                  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
   template<class Scalar>
   void computeH2(DistSVec<double,3> &, DistVec<double> &,
-		 DistSVec<double,dim> &, DistMat<Scalar,dim> &, 
+		 DistSVec<double,dim> &, DistMat<Scalar,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<class Scalar>
   void computeH2LS(DistSVec<double,3> &, DistVec<double> &,
-                   DistVec<double> &, DistSVec<double,dim> &, 
+                   DistVec<double> &, DistSVec<double,dim> &,
                    DistMat<Scalar,1> &);
 
   template<class Scalar1, class Scalar2>
@@ -250,10 +251,10 @@ public:
 
   bool useModal() {return use_modal;}
 
-  void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &, 
+  void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
 
-  void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &, 
+  void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
 
   void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &,

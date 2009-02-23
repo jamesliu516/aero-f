@@ -1,5 +1,3 @@
-#include <DistNodalGrad.h>
-
 #include <RecFcnDesc.h>
 #include <NodalGrad.h>
 #include <CurvatureDetection.h>
@@ -22,7 +20,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 
   typeGradient = ioData.schemes.ns.gradient;
   failSafeNewton = ioData.ts.implicit.newton.failsafe;
-  
+
   numLocSub = domain->getNumLocSub();
 
   tag = 0;
@@ -264,7 +262,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 		  spheres[j][0], spheres[j][1], spheres[j][2], spheres[j][3]);
     for (j=0; j<nboxes; ++j)
       com->printf(1, "*** Warning: set the gradients to zero in [(%g, %g, %g), (%g, %g, %g)]\n",
-		  boxes[j][0][0], boxes[j][0][1], boxes[j][0][2], 
+		  boxes[j][0][0], boxes[j][0][1], boxes[j][0][2],
 		  boxes[j][1][0], boxes[j][1][1], boxes[j][1][2]);
 
     for (j=0; j<ncones; ++j)
@@ -287,7 +285,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 	  double r = sqrt( (x0[i][0] - spheres[j][0])*(x0[i][0] - spheres[j][0]) +
 			   (x0[i][1] - spheres[j][1])*(x0[i][1] - spheres[j][1]) +
 			   (x0[i][2] - spheres[j][2])*(x0[i][2] - spheres[j][2]) );
-	  if (r <= spheres[j][3]) 
+	  if (r <= spheres[j][3])
 	    loctag[i] = true;
 	}
 	for (j=0; j<nboxes; ++j) {
@@ -298,7 +296,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 	}
         for (j=0; j<ncones; ++j)  {
           Vec3D dr(cones[j][1][0]-cones[j][0][0], cones[j][1][1]-cones[j][0][1], cones[j][1][2]-cones[j][0][2]);
-          double height = dr.norm(); 
+          double height = dr.norm();
           dr /= height;
           Vec3D xp;
           Vec3D pr0(x0[i][0]-cones[j][0][0], x0[i][1]-cones[j][0][1], x0[i][2]-cones[j][0][2]);
@@ -330,7 +328,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
     *backuptag = *tag;
   }
 
-/* 
+/*
   if (tag) {
     DistSVec<double,1> nt(domain->getNodeDistInfo());
 #pragma omp parallel for
@@ -355,15 +353,15 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom) : domain(
 template<int dim, class Scalar>
 DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int whichone) : domain(dom)
 {
-                                                                                                      
+
   int iSub;
-                                                                                                      
+
   typeGradient = ioData.schemes.ls.gradient;
-                                                                                                      
+
   numLocSub = domain->getNumLocSub();
-                                                                                                      
+
   tag = 0;
-                                                                                                      
+
   if (ioData.schemes.ls.limiter == SchemeData::BARTH ||
       ioData.schemes.ls.limiter == SchemeData::VENKAT) {
     Vmin = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
@@ -375,7 +373,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
     Vmax = 0;
     phi = 0;
   }
-                                                                                                      
+
   if (ioData.schemes.ls.limiter == SchemeData::P_SENSOR) {
     sensor = new DistSVec<Scalar,3>(domain->getNodeDistInfo());
     sigma = new DistVec<Scalar>(domain->getNodeDistInfo());
@@ -384,11 +382,11 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
     sensor = 0;
     sigma = 0;
   }
-                                                                                                      
+
   ddx = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddy = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
   ddz = new DistSVec<Scalar,dim>(domain->getNodeDistInfo());
-                                                                                                      
+
   *ddx = 0.0;
   *ddy = 0.0;
   *ddz = 0.0;
@@ -420,7 +418,7 @@ DistNodalGrad<dim, Scalar>::DistNodalGrad(IoData &ioData, Domain *dom, int which
 
   subNodalGrad = new NodalGrad<dim, Scalar>*[numLocSub];
   lastConfig = -1;
-                                                                                                      
+
   lastConfigSA = -1;
   dVmin = 0;
   dVmax = 0;
@@ -462,9 +460,9 @@ DistNodalGrad<dim, Scalar>::~DistNodalGrad()
   if (ddy) delete ddy;
   if (ddz) delete ddz;
 
-  if (subNodalGrad) { 
+  if (subNodalGrad) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub) 
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
       if (subNodalGrad[iSub]) delete subNodalGrad[iSub];
 
     delete [] subNodalGrad;
@@ -536,7 +534,7 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOfWeights(DistSVec<double,3> &
 
 template<int dim, class Scalar>
 template<class Scalar2>
-void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X, 
+void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 				 DistVec<double> &ctrlVol, DistSVec<Scalar2, dim> &V)
 {
 
@@ -593,13 +591,13 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
-                                 DistVec<double> &ctrlVol, DistVec<double> &Phi,
+                                 DistVec<double> &ctrlVol, DistFluidTypeCriterion &crit,
                                  DistSVec<Scalar2, dim> &V)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  domain->computeWeightsLeastSquares(X, Phi, *R);
-  domain->computeGradientsLeastSquares(X, Phi, *R, V, *ddx, *ddy, *ddz);
+  domain->computeWeightsLeastSquares(X, crit, *R);
+  domain->computeGradientsLeastSquares(X, crit, *R, V, *ddx, *ddy, *ddz);
 
 }
 
@@ -661,7 +659,7 @@ void DistNodalGrad<dim, Scalar>::computeT(int config, DistSVec<double,3> &X,
 
 template<int dim, class Scalar>
 template<class Scalar2>
-void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X, 
+void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
 			       DistVec<double> &ctrlVol, DistSVec<Scalar2,dim> &V)
 {
 
@@ -689,7 +687,7 @@ void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
 	  }
 	}
       }
-    }  
+    }
   }
 }
 

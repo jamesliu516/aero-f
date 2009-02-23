@@ -15,6 +15,7 @@
 #include <PostFcn.h>
 #include <LowMachPrec.h>
 #include "Ghost/DistEulerStructGhostFluid.h"
+#include <LevelSet/FluidTypeCriterion.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -201,7 +202,7 @@ void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, Dis
 // least square gradient involving only nodes of same fluid (multiphase flow)
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
-                                          DistVec<double> &Phi,
+                                          DistFluidTypeCriterion &Phi,
                                           DistSVec<double,6> &R,
                                           DistSVec<Scalar,dim> &var,
                                           DistSVec<Scalar,dim> &ddx,
@@ -1221,11 +1222,11 @@ double Domain::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &
 
 template<int dim>
 double Domain::computeRealFluidResidual(DistSVec<double, dim> &F, DistSVec<double,dim> &Freal,
-                                        DistVec<double> &philevel)
+                                        DistLevelSetStructure &dlss)
 {
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->computeRealFluidResidual(F(iSub), Freal(iSub), philevel(iSub));
+    subDomain[iSub]->computeRealFluidResidual(F(iSub), Freal(iSub), dlss(iSub));
 
   return Freal*Freal;
 }
