@@ -3231,7 +3231,6 @@ int IoData::checkInputValues()
 
 
   error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap); 
-//NICOLE
   checkInputValuesTurbulence();
                                                                                                   
   checkInputValuesDefaultOutlet();
@@ -3847,7 +3846,6 @@ int IoData::checkInputValuesNonDimensional()
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
-//NICOLE
       com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%f) given\n", bc.inlet.temperature);
       error ++;
     }
@@ -3860,7 +3858,6 @@ int IoData::checkInputValuesNonDimensional()
   return error;
 }
 //------------------------------------------------------------------------------------
-//NICOLE
 int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 {
 
