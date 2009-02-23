@@ -36,7 +36,7 @@ C     Declaration of variables:
 
 *********************************************************************
       
-      TOLPRE  = 1.E-6
+      TOLPRE  = 1.E-3
       NRITER  = 100
 
       IF (PL.LT.0.0 .OR. PR.LT.0.0) WRITE(*,*) 'NEGATIVE PRESSURES',

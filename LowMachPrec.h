@@ -60,7 +60,7 @@ protected:
   double shockreducer;  
 
 //methods
-private:
+protected:
   virtual void defineLowMachPrecType(IoData &iod){
     prec = 0;
     if(iod.problem.prec == ProblemData::PRECONDITIONED){
@@ -83,15 +83,12 @@ private:
     betaviscous = 0.0; shockreducer = 0.0;
   }
     
-  virtual void setupConstants(IoData &iod){
-    if(prec==0 || prec==1) setupDefaultConstants();
-    else{
-      minMach      = iod.prec.mach;
-      maxMach      = iod.prec.cmach;
-      slope        = iod.prec.k;
-      betaviscous  = iod.prec.betav;
-      shockreducer = iod.prec.shockreducer;
-    }
+  virtual void setupIodConstants(IoData &iod){
+    minMach      = iod.prec.mach;
+    maxMach      = iod.prec.cmach;
+    slope        = iod.prec.k;
+    betaviscous  = iod.prec.betav;
+    shockreducer = iod.prec.shockreducer;
   }
 
 public:
@@ -102,14 +99,13 @@ public:
   }
   LowMachPrec(IoData &iod){
     defineLowMachPrecType(iod);
-    setupConstants(iod);
-
+    setupDefaultConstants();
   }
   virtual ~LowMachPrec() {}; //destructor of base class should always be virtual
 
   virtual void setup(IoData &iod) {
     defineLowMachPrecType(iod);
-    setupConstants(iod);
+    setupDefaultConstants();
   }
 
   virtual int    getPrecTag() const        { return prec;         }
@@ -131,8 +127,14 @@ class SpatialLowMachPrec : public LowMachPrec {
 
 public:
   SpatialLowMachPrec() : LowMachPrec() {};
-  SpatialLowMachPrec(IoData &iod) : LowMachPrec(iod) {};
+  SpatialLowMachPrec(IoData &iod) : LowMachPrec(iod) {if (prec>0) setupIodConstants(iod); };
   ~SpatialLowMachPrec() {};
+
+  void setup(IoData &iod) {
+    defineLowMachPrecType(iod);
+    if(prec==0) setupDefaultConstants();
+    else        setupIodConstants(iod);
+  }
 
   double getBeta(double locMach) const 
     {return fmin(fmax(slope*locMach, minMach),maxMach);}
@@ -146,10 +148,16 @@ class TimeLowMachPrec : public LowMachPrec {
 
 public:
   TimeLowMachPrec() : LowMachPrec() {};
-  TimeLowMachPrec(IoData &iod) : LowMachPrec(iod) {};
+  TimeLowMachPrec(IoData &iod) : LowMachPrec(iod) {if (prec==2) setupIodConstants(iod); };
   ~TimeLowMachPrec() {};
 
-  bool timePreconditioner() const { return prec==2 ; }
+  void setup(IoData &iod) {
+    defineLowMachPrecType(iod);
+    if(prec < 2) setupDefaultConstants();
+    else         setupIodConstants(iod);
+  }
+
+  bool timePreconditioner() const { return prec==2; }
 
   double getBeta(double locMach) const
     {return fmin(fmax(slope*locMach, minMach),maxMach);}

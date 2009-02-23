@@ -806,7 +806,7 @@ public:
 
   double* sum()  {
     double *res = new double[dim];
-		for (int k=0; k<dim; k++) res[k]=0.0;
+    for (int k=0; k<dim; k++) res[k]=0.0;
     for (int i = 0; i < len; i++)
       for (int k = 0; k < dim; k++)
         res[k] += v[i][k];

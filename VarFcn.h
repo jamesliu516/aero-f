@@ -18,7 +18,7 @@ class VarFcn {
 public:
   
   const char** pname;
-  enum Type{ GAS = 0, LIQUID = 1, JWL = 2, GASINGAS = 3, GASINLIQUID = 4, LIQUIDINLIQUID = 5, JWLINGAS = 6} type;
+  enum Type{ GAS = 0, LIQUID = 1, JWL = 2, GASINGAS = 3, GASINLIQUID = 4, LIQUIDINLIQUID = 5, JWLINGAS = 6, JWLINJWL = 7} type;
   enum SubType { NONE = 0, IDEAL = 1, STIFFENED = 2} subType;
   Vec3D meshVel;
 
@@ -27,9 +27,10 @@ public:
   bool verif_clipping;
   bool node_change;
 
-  double gravity;
-  double ngravity[3];
-  
+  double gravity[3];
+  double gravity_norm;
+  double depth;
+
   VarFcn(IoData &iod); 
   VarFcn() { meshVel = 0.0; fprintf(stderr, "MeshVel initialized: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);}
   ~VarFcn() {}
@@ -285,6 +286,39 @@ public:
   virtual double getR2r() {
         fprintf(stderr, "*** Warning: getR2r Function not defined\n");
         return 0.0;}
+  virtual double getOmegabis() {
+        fprintf(stderr, "*** Warning: getOmegabis Function not defined\n");
+        return 0.0;}
+  virtual double getOmegap1bis() {
+        fprintf(stderr, "*** Warning: getOmegap1bis Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmegabis() {
+        fprintf(stderr, "*** Warning: getInvOmegabis Function not defined\n");
+        return 0.0;}
+  virtual double getInvOmegap1bis() {
+        fprintf(stderr, "*** Warning: getInvOmegap1bis Function not defined\n");
+        return 0.0;}
+  virtual double getA1bis() {
+        fprintf(stderr, "*** Warning: getA1bis Function not defined\n");
+        return 0.0;}
+  virtual double getA2bis() {
+        fprintf(stderr, "*** Warning: getA2bis Function not defined\n");
+        return 0.0;}
+  virtual double getR1bis() {
+        fprintf(stderr, "*** Warning: getR1bis Function not defined\n");
+        return 0.0;}
+  virtual double getR2bis() {
+        fprintf(stderr, "*** Warning: getR2bis Function not defined\n");
+        return 0.0;}
+  virtual double getRhorefbis() {
+        fprintf(stderr, "*** Warning: getRhorefbis Function not defined\n");
+        return 0.0;}
+  virtual double getR1rbis() {
+        fprintf(stderr, "*** Warning: getR1rbis Function not defined\n");
+        return 0.0;}
+  virtual double getR2rbis() {
+        fprintf(stderr, "*** Warning: getR2rbis Function not defined\n");
+        return 0.0;}
         
   virtual Vec3D getVelocity(double *V) { return Vec3D(V[1], V[2], V[3]); }
   virtual double getDensity(double *V) { return V[0]; }
@@ -347,6 +381,24 @@ public:
   virtual void rstVar(IoData &iod) {}
   virtual void rV(IoData &iod) {  pmin  = iod.eqs.fluidModel.pmin;
                                   pminp = iod.eqs.fluidModel2.pmin; }
+
+  virtual double gravity_value() const { return gravity_norm; }
+  virtual double hydrostaticPressure(double rho, double *X) { 
+    return rho*(gravity_norm*depth + 
+                gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2]); }
+  virtual double hydrodynamicPressure(double *V, double *X, double phi = 0.0)
+  { //check that getPressure does not call the virtual fcn of the present
+    //class which always returns 0.0!!!!
+    double localP = getPressure(V,phi);
+    double localStaticP = hydrostaticPressure(V[0],X);
+    return localP - localStaticP; }
+  virtual double DerivativeHydrostaticPressure(double rho, double drho,
+                                               double *X, double *dX)
+  {
+    return drho*(gravity_norm*depth +
+                 gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2])
+         + rho*(gravity[0]*dX[0]+gravity[1]*dX[1]+gravity[2]*dX[2]);
+  }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -997,22 +1049,22 @@ class VarFcnJWLInGas : public VarFcn {
   double getPressure(double *V, double phi = 0.0) { return V[4]; }
   double checkPressure(double *V, double phi = 0.0) {
     if (phi>=0.0) return V[4]+Pstiff;
-    else          return V[4] - (computeFrho(V) - computeFrhop(V)*V[0])*invomegap1; }
+    else          return V[4] - (computeFrho(V,phi) - computeFrhop(V,phi)*V[0])*invomegap1; }
   void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
   void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
   
   double computeTemperature(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff)/V[0];
-    else         return invomega*(V[4]-computeFrho(V))/V[0]; }
+    else         return invomega*(V[4]-computeFrho(V,phi))/V[0]; }
     
   double computeRhoEnergy(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
-    else         return invomega * (V[4]-computeFrho(V)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    else         return invomega * (V[4]-computeFrho(V,phi)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
     
   double computeRhoEpsilon(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
-    else         return invomega * (V[4]-computeFrho(V)); }
+    else         return invomega * (V[4]-computeFrho(V,phi)); }
      
   double computeSoundSpeed(double *V, double phi = 0.0) { 
     if (phi>=0.0){
@@ -1021,13 +1073,20 @@ class VarFcnJWLInGas : public VarFcn {
       return sqrt(gam * (V[4]+Pstiff) / V[0]); 
     }
     else{
-      return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]);
+      if ((omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0] < 0.0){
+      fprintf(stdout, "computeSoundSpeed^2 = %e\n", (omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
+      fprintf(stdout, "computeFrho = %e abd compureFrhop = %e\n", computeFrho(V,phi), computeFrhop(V,phi));
+      fprintf(stdout, "V = %e %e %e\n", V[0],V[1],V[4]);
+      //return 0.0;
+      }
+      return sqrt((omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
     }
   }
     
   double computeMachNumber(double *V, double phi = 0.0) { 
     if (phi>=0.0) return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)));
-    else         return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V); }
+    else {/*fprintf(stderr, "computeMachNumber = %e\n", computeSoundSpeed(V,phi));*/        return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V,phi); }
+  }
     
   double computeTotalPressure(double machr, double *V, double phi = 0.0){
     fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWL\n");
@@ -1064,6 +1123,164 @@ VarFcnJWLInGas::VarFcnJWLInGas(IoData &iod)
   rhoref       = iod.eqs.fluidModel2.jwlModel.rhoref;
   R1r          = R1*rhoref;
   R2r          = R2*rhoref;
+
+}
+
+//-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------
+
+class VarFcnJWLInJWL : public VarFcn {
+
+ protected:
+  double omega, invomega, omegap1, invomegap1;
+  double A1,A2,R1,R2,rhoref;
+  double R1r,R2r;
+
+  double omegap, invomegap, omegap1p, invomegap1p;
+  double A1p,A2p,R1p,R2p,rhorefp;
+  double R1rp,R2rp;
+
+ public:
+  VarFcnJWLInJWL(IoData &);
+  ~VarFcnJWLInJWL() {}
+
+  double getOmega(double phi)   {
+    if(phi>=0.0) return omega;
+    else         return omegap; }
+  double getOmegap1(double phi) {
+    if(phi>-0.0) return omegap1;
+    else         return omegap1p; }
+
+  double getOmega()       {return omega;}
+  double getOmegap1()     {return omegap1;}
+  double getInvOmega()    {return invomega;}
+  double getInvOmegap1()  {return invomegap1;}
+  double getA1()          {return A1;}
+  double getA2()          {return A2;}
+  double getR1()          {return R1;}
+  double getR2()          {return R2;}
+  double getRhoref()      {return rhoref;}
+  double getR1r()         {return R1r;}
+  double getR2r()         {return R2r;}
+
+  double getOmegabis()       {return omegap;}
+  double getOmegap1bis()     {return omegap1p;}
+  double getInvOmegabis()    {return invomegap;}
+  double getInvOmegap1bis()  {return invomegap1p;}
+  double getA1bis()          {return A1p;}
+  double getA2bis()          {return A2p;}
+  double getR1bis()          {return R1p;}
+  double getR2bis()          {return R2p;}
+  double getRhorefbis()      {return rhorefp;}
+  double getR1rbis()         {return R1rp;}
+  double getR2rbis()         {return R2rp;}
+
+  double computeFrho(double *V, double phi = 0.0) {
+    if(phi>=0.0)
+      return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
+           + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
+    else
+      return A1p*(1.0-omegap*V[0]/R1rp)*exp(-R1rp/V[0])
+           + A2p*(1.0-omegap*V[0]/R2rp)*exp(-R2rp/V[0]);
+  }
+  double computeFrhop(double *V, double phi = 0.0) {
+    double rho2 = V[0]*V[0];
+    if(phi>=0.0)
+      return A1*(-omega/R1r+(1.0-omega*V[0]/R1r)*R1r/rho2)*exp(-R1r/V[0])
+           + A2*(-omega/R2r+(1.0-omega*V[0]/R2r)*R2r/rho2)*exp(-R2r/V[0]);
+    else
+      return A1p*(-omegap/R1rp+(1.0-omegap*V[0]/R1rp)*R1rp/rho2)*exp(-R1rp/V[0])
+           + A2p*(-omegap/R2rp+(1.0-omegap*V[0]/R2rp)*R2rp/rho2)*exp(-R2rp/V[0]);
+  }
+  double computeFrho(double rho, double phi = 0.0) {
+    if(phi>=0.0)
+      return A1*(1.0-omega*rho/R1r)*exp(-R1r/rho)
+           + A2*(1.0-omega*rho/R2r)*exp(-R2r/rho);
+    else
+      return A1p*(1.0-omegap*rho/R1rp)*exp(-R1rp/rho)
+           + A2p*(1.0-omegap*rho/R2rp)*exp(-R2rp/rho);
+  }
+  double computeFrhop(double rho, double phi = 0.0) {
+    double rho2 = rho*rho;
+    if(phi>=0.0)
+      return A1*(-omega/R1r+(1.0-omega*rho/R1r)*R1r/rho2)*exp(-R1r/rho)
+           + A2*(-omega/R2r+(1.0-omega*rho/R2r)*R2r/rho2)*exp(-R2r/rho);
+    else
+      return A1p*(-omegap/R1rp+(1.0-omegap*rho/R1rp)*R1rp/rho2)*exp(-R1rp/rho)
+           + A2p*(-omegap/R2rp+(1.0-omegap*rho/R2rp)*R2rp/rho2)*exp(-R2rp/rho);
+  }
+
+  double getPressure(double *V, double phi = 0.0) { return V[4]; }
+  double checkPressure(double *V, double phi = 0.0) {
+    if (phi>=0.0) return V[4] - (computeFrho(V,phi) - computeFrhop(V,phi)*V[0])*invomegap1;
+    else          return V[4] - (computeFrho(V,phi) - computeFrhop(V,phi)*V[0])*invomegap1p; }
+  void setDensity(double *V, double *Vorig){ V[0] = Vorig[0];}
+  void setPressure(double *V, double *Vorig, double phi=0.0){ V[4] = Vorig[4];}
+  
+  double computeTemperature(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invomega *(V[4]-computeFrho(V,phi))/V[0]; 
+    else          return invomegap*(V[4]-computeFrho(V,phi))/V[0]; }
+    
+  double computeRhoEnergy(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invomega  * (V[4]-computeFrho(V,phi)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    else          return invomegap * (V[4]-computeFrho(V,phi)) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+  }
+    
+  double computeRhoEpsilon(double *V, double phi = 0.0) { 
+    if (phi>=0.0) return invomega * (V[4]-computeFrho(V,phi));
+    else          return invomegap* (V[4]-computeFrho(V,phi)); }
+     
+  double computeSoundSpeed(double *V, double phi = 0.0) { 
+    if (phi>=0.0)
+      return sqrt((omegap1 *V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
+    else
+      return sqrt((omegap1p*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
+  }
+    
+  double computeMachNumber(double *V, double phi = 0.0) { 
+    return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]))/computeSoundSpeed(V,phi);
+  }
+    
+  double computeTotalPressure(double machr, double *V, double phi = 0.0){
+    fprintf(stderr, "*** Error: computeTotalPressure not yet implemented for VarFcnJWLInJWL\n");
+    return 0.0;
+  }
+
+};
+//--------------------------------------------------------------------------------------
+
+inline
+VarFcnJWLInJWL::VarFcnJWLInJWL(IoData &iod)
+: VarFcn(iod) {
+
+  type = JWLINJWL;
+  subType = NONE;
+
+  omega        = iod.eqs.fluidModel.jwlModel.omega;
+  omegap1      = omega + 1.0;
+  invomega     = 1.0/omega;
+  invomegap1   = 1.0/omegap1;
+
+  A1           = iod.eqs.fluidModel.jwlModel.A1;
+  A2           = iod.eqs.fluidModel.jwlModel.A2;
+  R1           = iod.eqs.fluidModel.jwlModel.R1;
+  R2           = iod.eqs.fluidModel.jwlModel.R2;
+  rhoref       = iod.eqs.fluidModel.jwlModel.rhoref;
+  R1r          = R1*rhoref;
+  R2r          = R2*rhoref;
+
+  omegap       = iod.eqs.fluidModel2.jwlModel.omega;
+  omegap1p     = omegap + 1.0;
+  invomegap    = 1.0/omegap;
+  invomegap1p  = 1.0/omegap1p;
+
+  A1p          = iod.eqs.fluidModel2.jwlModel.A1;
+  A2p          = iod.eqs.fluidModel2.jwlModel.A2;
+  R1p          = iod.eqs.fluidModel2.jwlModel.R1;
+  R2p          = iod.eqs.fluidModel2.jwlModel.R2;
+  rhorefp      = iod.eqs.fluidModel2.jwlModel.rhoref;
+  R1rp         = R1p*rhorefp;
+  R2rp         = R2p*rhorefp;
 
 }
 
@@ -1276,16 +1493,16 @@ void VarFcn::updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U,
     double *phin = Phin.subData(iSub);
     double (*r)[dim] = (*Riemann).subData(iSub);
     double *w = 0;
+    bool change = false;
     if(weight){
       w = (*weight).subData(iSub);
-      bool change = false;
       for ( int i=0; i<U.subSize(iSub); ++i){
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i],w[i]);
       }
     }else{
-      bool change = false;
-      for ( int i=0; i<U.subSize(iSub); ++i)
+      for ( int i=0; i<U.subSize(iSub); ++i){
         change = updatePhaseChange(v[i],u[i],phi[i],phin[i],r[i]);
+      }
     }
   }
 

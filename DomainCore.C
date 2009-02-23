@@ -65,7 +65,7 @@ Domain::Domain()
   WPrT = 0;
   tag = 0;
   tagBar = 0;
-                                                                                                                      
+
 // Included (MB)
   weightDerivativePat = 0;
 

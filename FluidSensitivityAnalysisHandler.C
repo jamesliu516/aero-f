@@ -237,7 +237,9 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.forced.timestep *= ioData.ref.rv.time;
     ioData.forced.frequency /= ioData.ref.rv.time;
 
-    ioData.bc.hydro.gravity *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_x *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_y *= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_z *= ioData.ref.rv.velocity / ioData.ref.rv.time;
     ioData.bc.hydro.depth *= ioData.ref.length;
 
     ioData.ref.mach = ioData.bc.inlet.mach;
@@ -321,7 +323,9 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.forced.timestep /= ioData.ref.rv.time;         // Problem in ForcedMeshMotionHandler
     ioData.forced.frequency *= ioData.ref.rv.time;        // Problem in ForcedMeshMotionHandler
 
-    ioData.bc.hydro.gravity /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_x /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_y /= ioData.ref.rv.velocity / ioData.ref.rv.time;
+    ioData.eqs.gravity_z /= ioData.ref.rv.velocity / ioData.ref.rv.time;
     ioData.bc.hydro.depth /= ioData.ref.length;
 
     double theta_k = 1.0;

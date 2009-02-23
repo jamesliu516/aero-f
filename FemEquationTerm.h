@@ -32,7 +32,7 @@ public:
     map<int, VolumeData *>::iterator it;
     if(!volData.empty()){
       for(it=volData.begin(); it!=volData.end(); it++){
-        //...if it a PorousMedia, add it to volInfo
+        //...if it is a PorousMedia, add it to volInfo
         if(it->second->type == VolumeData::POROUS){
           //...check if it already exists...
           map<int, PorousMedia *>::iterator pmit = volInfo.find(it->first);
@@ -44,7 +44,6 @@ public:
     }
   }
 
-  //FemEquationTerm(map<int, PorousMedia *> &pm) : volInfo(pm) { wallFcn = 0; }
   ~FemEquationTerm() { if (wallFcn) delete wallFcn; }
 
   virtual double computeViscousTimeStep(double *, double *) = 0;

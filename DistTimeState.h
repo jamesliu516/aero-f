@@ -36,7 +36,8 @@ private:
   double gam;
   double pstiff;
 
-  TimeLowMachPrec tprec;
+  TimeLowMachPrec    tprec;
+  SpatialLowMachPrec sprec; //only for computation of irey
   /*bool prec;
   double beta;
   double mach;

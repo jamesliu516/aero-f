@@ -783,6 +783,7 @@ public:
 
   double norm();
 
+  void sum(Scalar sumres[dim]) const;
 };
 
 //------------------------------------------------------------------------------
@@ -1776,6 +1777,96 @@ DistSVec<Scalar,dim>::pad(DistSVec<Scalar,dim1> &y)
     }
 
   }
+}
+
+//------------------------------------------------------------------------------
+    
+template<class Scalar, int dim>
+inline
+void DistSVec<Scalar,dim>::sum(Scalar sumres[dim]) const
+{
+  
+  int iSub, idim;
+
+  Scalar sum = 0;
+
+  for(idim=0; idim<dim; idim++){
+
+    sum = 0;
+
+#ifndef MPI_OMP_REDUCTION
+    Scalar *allsum = reinterpret_cast<Scalar *>(alloca(sizeof(Scalar) * distInfo.numGlobSub));
+
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) allsum[iSub] = 0;
+#endif
+
+    if (distInfo.masterFlag) {
+
+#ifdef MPI_OMP_REDUCTION
+#pragma omp parallel for reduction(+: sum)
+#else
+#pragma omp parallel for
+#endif
+      for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+
+        int locOffset = distInfo.subOffset[iSub];
+        int locLen = distInfo.subLen[iSub];
+
+        Scalar locsum = 0;
+
+        for (int i = 0; i < locLen; ++i)
+	  if (distInfo.masterFlag[locOffset+i])
+	    locsum += this->v[locOffset+i][idim];
+
+#ifdef MPI_OMP_REDUCTION
+        sum += locsum;
+#else
+        allsum[distInfo.locSubToGlobSub[iSub]] = locsum;
+#endif
+
+      }
+
+    } 
+    else {
+
+#ifdef MPI_OMP_REDUCTION
+#pragma omp parallel for reduction(+: sum)
+#else
+#pragma omp parallel for
+#endif
+      for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+
+        int locOffset = distInfo.subOffset[iSub];
+        int locLen = distInfo.subLen[iSub];
+
+        Scalar locsum = 0;
+
+        for (int i = 0; i < locLen; ++i)
+	  locsum += this->v[locOffset+i][idim];
+
+#ifdef MPI_OMP_REDUCTION
+        sum += locsum;
+#else
+        allsum[distInfo.locSubToGlobSub[iSub]] = locsum;
+#endif
+
+      }
+
+    }
+
+#ifdef MPI_OMP_REDUCTION
+    distInfo.com->globalSum(1, &sum);
+#else
+    distInfo.com->globalSum(distInfo.numGlobSub, allsum);
+
+    sum = 0;
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) sum += allsum[iSub];
+#endif
+
+    sumres[idim] = sum;
+
+  }
+
 }
 
 //------------------------------------------------------------------------------
