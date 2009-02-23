@@ -217,8 +217,9 @@ void PostOperator<dim>::computeNodalHeatPower(DistSVec<double,3>& X, DistSVec<do
 					   X(iSub), (*V)(iSub), P(iSub));
   }
 
-}
+fprintf(stderr, "in PostOperator<dim>::computeNodalHeatPower \n");
 
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -469,7 +470,6 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 {
 
   int iSub;
-
   if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
       tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
@@ -710,7 +710,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 {
 
   int iSub;
-                                                                                              
+
                                                                                               
   if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
@@ -852,7 +852,6 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -925,7 +924,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
   }
-                                                                                              
+                                                                                             
 }
 
 //------------------------------------------------------------------------------

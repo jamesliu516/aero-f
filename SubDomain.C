@@ -3450,8 +3450,9 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
 
 }
+ 
 
-//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>

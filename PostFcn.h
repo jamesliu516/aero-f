@@ -28,6 +28,7 @@ public:
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
                    WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, SSIZE = 24};
 
+
 // Original
 /*
   enum ScalarType {DENSITY = 0, MACH = 1, PRESSURE = 2, TEMPERATURE = 3, TOTPRESSURE = 4,
@@ -36,7 +37,6 @@ public:
                    PHILEVEL = 15, DIFFPRESSURE = 16, SPEED = 17, HYDROSTATICPRESSURE = 18,
                    HYDRODYNAMICPRESSURE = 19, WTMACH = 20, WTSPEED = 21, SSIZE = 22};
 */
-
   enum VectorType {VELOCITY = 0, DISPLACEMENT = 1, FLIGHTDISPLACEMENT = 2, LOCALFLIGHTDISPLACEMENT = 3, VSIZE = 4};
   enum ScalarAvgType {DENSITYAVG = 0, MACHAVG = 1, PRESSUREAVG = 2, TEMPERATUREAVG = 3,
                       TOTPRESSUREAVG = 4, VORTICITYAVG = 5, CSDLESAVG = 6, CSDVMSAVG = 7, 
@@ -68,6 +68,7 @@ public:
 
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]) = 0;
+
   virtual double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
 				      double* [3], double* [4], double) = 0;
   virtual bool doesFaceNeedGradientP1Function() { return false; }
@@ -165,6 +166,7 @@ public:
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
 			  double*, double* [3], double* [4]);
+
   double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
 			      double* [3], double* [4], double);
   bool doesFaceNeedGradientP1Function() { return ((wallFcn) ? false : true); }

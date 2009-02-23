@@ -754,9 +754,10 @@ public:
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
+  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);
   void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
   void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
-  
+ 
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
   

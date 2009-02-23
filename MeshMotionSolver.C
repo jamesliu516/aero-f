@@ -53,6 +53,7 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   int **ndType = 0;
 
   meshMotionBCs = domain->getMeshMotionBCs(); //HB
+
   if (meshMotionBCs)   {
     meshMotionBCs->setDofType(matchNodes);
 

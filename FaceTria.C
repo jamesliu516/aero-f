@@ -281,7 +281,6 @@ void FaceTria::computeNodalHeatPower(ElemSet& elems,
       P[ nodeNum(j) ] += hp;
   }
 }
-
 //------------------------------------------------------------------------------
 
 // Included (MB)

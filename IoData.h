@@ -1615,10 +1615,12 @@ public:
   int checkInputValuesEssentialBC();
   int checkInputValuesStateEquation();
   int checkInputValuesNonDimensional();
-  int checkInputValuesDimensional();
+//  int checkInputValuesDimensional();
+  int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
-  int checkSolverValues();
+  int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
+//  int checkSolverValues();
   int checkInputValuesMulti_step1();
   void checkInputValuesMulti_step2();
   int checkInputValuesMultiEOS();
