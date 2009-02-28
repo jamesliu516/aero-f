@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <Domain.h>
 #include "Ghost/DistEulerStructGhostFluid.h"
 //------------------------------------------------------------------------------------
 
@@ -190,12 +191,12 @@ void DistEulerStructGhostFluid::getMinAndMax(Vec3D* list, int &size, double *out
 
 //-------------------------------------------------------------------------------------
 
-void DistEulerStructGhostFluid::specifyBoundingBox(DistSVec<double,3> *X)
+void DistEulerStructGhostFluid::specifyBoundingBox(const DistSVec<double,3> &Xr)
 {
   if ((Xmax-Xmin)>1e-12 && (Ymax-Ymin)>1e-12 && (Zmax-Zmin)>1e-12)
     fprintf(stderr,"WARNING:replacing existed bounding box.\n");
   double mins[3], maxes[3];
-  X->min(mins); X->max(maxes);
+  Xr.min(mins); Xr.max(maxes);
   double percentX = (maxes[0] - mins[0])/100.0, percentY = (maxes[1] - mins[1])/100.0, percentZ = (maxes[2] - mins[2])/100.0;
   if (!solids_particle_list) {fprintf(stderr,"Can't find Solid Surface."); return;}
   double minAndmax[6];
@@ -381,15 +382,16 @@ Vec3D DistEulerStructGhostFluid::getTotalForce()
 
   com->fprintf(stderr,"Total Force on Structure Surface = [%f, %f, %f]\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
   com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
+  return totalForce;
 }
 
 //-----------------------------------------------------------------------------------
 
-void DistEulerStructGhostFluid::setupCommunication(Domain *domain, DistSVec<double,3>*X)
+void DistEulerStructGhostFluid::initialize(Domain *domain, DistSVec<double,3>&Xr)
 {  // At this moment doesn't need U, but might need it in future.
     if (solidsurface)  prepareForCommunication();
     else {com->fprintf(stderr,"ERROR: Solid surface file not specified. Aborting...\n"); exit(-1);}
-    if (!givenBB) specifyBoundingBox(X);
+    if (!givenBB) specifyBoundingBox(Xr);
     int m, n, mn;
 //    double dx = specifydx(domain,X);
 //    m = static_cast<int>((Xmax - Xmin) / dx);
@@ -404,7 +406,7 @@ void DistEulerStructGhostFluid::setupCommunication(Domain *domain, DistSVec<doub
 
     computeLevelSet();  //compute level-set on Cart. grid.
 
-    getPhiFromModule(*X,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax); //interpolate Phi onto fluid (tet) grid.
+    getPhiFromModule(Xr,Xmin,Xmax,Ymin,Ymax,Zmin,Zmax); //interpolate Phi onto fluid (tet) grid.
 }
 
 

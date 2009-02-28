@@ -505,7 +505,7 @@ template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, LevelSetStructure &eulerFSI,
+                                     SVec<double,dim>& V, LevelSetStructure &LSS,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -571,12 +571,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
 */
 //-------------------------
-    bool iIsActive = eulerFSI.isActive(0, i);
-    bool jIsActive = eulerFSI.isActive(0, j);
+    bool iIsActive = LSS.isActive(0, i);
+    bool jIsActive = LSS.isActive(0, j);
     if( !iIsActive && !jIsActive )
       continue;
 
-    if (!eulerFSI.edgeIntersectsStructure(0, i, j)) {  // same fluid
+    if (!LSS.edgeIntersectsStructure(0, i, j)) {  // same fluid
       //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
       for (int k=0; k<dim; ++k) {
@@ -585,7 +585,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
-      LevelSetResult res = eulerFSI.getLevelSetDataAtEdgeCenter(0.0, i, j);
+      LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
       fprintf(outFile,"%d->%d.\n", i,j);
 
       if (iIsActive) {
@@ -593,13 +593,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 /*        double area = normal[l].norm(); //area of c.v. surface
         area *= fabs(normal[l]*res.gradPhi/normal[l].norm()); //projected to structure surface
-        eulerFSI->totalForce[0] += -1.0*res.gradPhi[0]*area;
-        eulerFSI->totalForce[1] += -1.0*res.gradPhi[1]*area;
-        eulerFSI->totalForce[2] += -1.0*res.gradPhi[2]*area;
+        LSS->totalForce[0] += -1.0*res.gradPhi[0]*area;
+        LSS->totalForce[1] += -1.0*res.gradPhi[1]*area;
+        LSS->totalForce[2] += -1.0*res.gradPhi[2]*area;
 */
-        eulerFSI.totalForce[0] += Wstar[4]*normal[l][0];
-        eulerFSI.totalForce[1] += Wstar[4]*normal[l][1];
-        eulerFSI.totalForce[2] += Wstar[4]*normal[l][2];
+        LSS.totalForce[0] += Wstar[4]*normal[l][0];
+        LSS.totalForce[1] += Wstar[4]*normal[l][1];
+        LSS.totalForce[2] += Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
 /*        double fluxitemp[dim];
@@ -643,13 +643,13 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 /*        double area = normal[l].norm(); //area of c.v. surface
         area *= fabs(normal[l]*res.gradPhi); //projected to structure surface
-        eulerFSI->totalForce[0] += -1.0*res.gradPhi[0]*area;
-        eulerFSI->totalForce[1] += -1.0*res.gradPhi[1]*area;
-        eulerFSI->totalForce[2] += -1.0*res.gradPhi[2]*area;
+        LSS->totalForce[0] += -1.0*res.gradPhi[0]*area;
+        LSS->totalForce[1] += -1.0*res.gradPhi[1]*area;
+        LSS->totalForce[2] += -1.0*res.gradPhi[2]*area;
 */
-        eulerFSI.totalForce[0] += -Wstar[4]*normal[l][0];
-        eulerFSI.totalForce[1] += -Wstar[4]*normal[l][1];
-        eulerFSI.totalForce[2] += -Wstar[4]*normal[l][2];
+        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
+        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
+        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
 /*        double fluxjtemp[dim];

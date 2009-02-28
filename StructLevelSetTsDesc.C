@@ -1,6 +1,6 @@
 #include <StructLevelSetTsDesc.h>
 #include <DistExactRiemannSolver.h>
-
+#include <LevelSet/IntersectionFactory.h>
 
 #include <math.h>
 
@@ -37,6 +37,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   eulerFSI = new DistEulerStructGhostFluid(this->domain, ioData);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
   distLSS = eulerFSI;
+
+  const char *intersectorName = ioData.strucIntersect.intersectorName;
+  if(intersectorName != 0)
+    this->tmpLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
 }
 
 //------------------------------------------------------------------------------
@@ -57,7 +61,8 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   this->geoState->setup2(this->timeState->getData());
   //TODO: timeState->setup different as in LevelSetTsDesc.
   this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-  this->eulerFSI->setupCommunication(this->domain,this->X);
+  this->tmpLSS->initialize(this->domain,*this->X);
+  this->distLSS->initialize(this->domain,*this->X);
 }
 
 //------------------------------------------------------------------------------
@@ -133,7 +138,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *(eulerFSI->getPhilevelPointer()));
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi());
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 

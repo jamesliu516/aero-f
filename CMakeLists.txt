@@ -141,6 +141,7 @@ ADD_LIBRARY(FluidBase
              BlockAlloc.C 
              Ghost/EulerStructGhostFluidCore.C
              Ghost/DistEulerStructGhostFluidCore.C 
+             LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
             )
 

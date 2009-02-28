@@ -24,7 +24,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
  protected:
   DistEulerStructGhostFluid *eulerFSI;
   DistExactRiemannSolver<dim> *riemann;
-  DistLevelSetStructure *distLSS;
+  DistLevelSetStructure *distLSS, *tmpLSS;
 
  public:
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);

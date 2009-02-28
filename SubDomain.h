@@ -1019,6 +1019,8 @@ public:
                               int*, int&, int*,
                               int&, int (*)[4]);
 
+  EdgeSet &getEdges() { return edges; }
+  Connectivity *getNodeToNode() { return NodeToNode; }
 };
 //------------------------------------------------------------------------------
 
