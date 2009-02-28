@@ -163,7 +163,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,
-                                   *(eulerFSI->getPhilevelPointer()));
+                                   distLSS->getPhi());
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
 
