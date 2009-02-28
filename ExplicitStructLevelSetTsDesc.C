@@ -1,4 +1,3 @@
-#include <ExplicitStructLevelSetTsDesc.h>
 
 #include <GeoSource.h>
 #include <DistTimeState.h>
@@ -28,7 +27,7 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 //  p1(this->getVecInfo()), p2(this->getVecInfo()),
 //  p3(this->getVecInfo()), p4(this->getVecInfo()),
   U0(this->getVecInfo())//, Phi0(this->getVecInfo())
-{ 
+{
   timeType = ioData.ts.expl.type;
   this->mmh = 0;
 }
@@ -56,7 +55,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,di
 
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
-{ 
+{
 
   double t0 = this->timer->getTime();
 
@@ -77,11 +76,11 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
                                   DistSVec<double,dim>& dU, int it)
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal);
-  this->eulerFSI->clearTotalForce();
+  this->distLSS->clearTotalForce();
 
-  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->eulerFSI,
+  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, this->distLSS,
                                  dU, this->riemann,it);
-  this->eulerFSI->getTotalForce();
+  this->distLSS->getTotalForce();
   // for RK2 on moving grids
 //  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
   this->timeState->multiplyByTimeStep(dU);

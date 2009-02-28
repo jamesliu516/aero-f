@@ -18,7 +18,6 @@ class DistEulerStructGhostFluid : public DistLevelSetStructure {
   SubDomain** subDomain;
 
   bool givenBB; //given boundingbox or not?
-  int numLocSub;
   char* solidsurface; //solid surface file.
   double Xmin, Xmax, Ymin, Ymax, Zmin, Zmax; //coord. of bounding box.
   double bandwidth;
@@ -39,7 +38,7 @@ class DistEulerStructGhostFluid : public DistLevelSetStructure {
 
   FILE* forceFile;
 protected:
-  void specifyBoundingBox(DistSVec<double,3>*);
+  void specifyBoundingBox(const DistSVec<double,3>&);
   double specifydx(Domain*, DistSVec<double,3>*);
   void prepareForCommunication(); //get triangle list, solids_particle_list directly from file.
   void initializePhysBAM(int, int, int, double, double, double, double, double, double);//PhysBAM_Interf
@@ -62,10 +61,12 @@ public:
   DistEulerStructGhostFluid(Domain*, IoData&);
   ~DistEulerStructGhostFluid();
 
+  void initialize(Domain *, DistSVec<double,3> &X);
   LevelSetStructure &operator() (int i) const {return *subESGF[i];}
   EulerStructGhostFluid* getSubESGFPointer(int i) {return subESGF[i];}
 
   DistVec<double>* getPhilevelPointer() {return philevel;}
+  DistVec<double>& getPhi() {return *philevel;}
   DistSVec<double,3>* getGradPhilevelPointer() {return gradPhilevel;}
 
   int getClosestStructureFace(Vec3D position, Vec3D& projection, double& distance)
@@ -102,7 +103,7 @@ public:
     com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
   }
 */
-  void setupCommunication(Domain*, DistSVec<double,3>*);
+ // void setupCommunication(Domain*, DistSVec<double,3>*);
 
 
 

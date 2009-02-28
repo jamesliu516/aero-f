@@ -29,7 +29,7 @@ struct Vec3D {
   Vec3D operator-(const Vec3D &);
   Vec3D operator^(const Vec3D &);
 
-  double operator*(const Vec3D &);
+  double operator*(const Vec3D &) const;
 
   operator double*() { return v; }
 
@@ -204,7 +204,7 @@ Vec3D Vec3D::operator^(const Vec3D &v2)
 //------------------------------------------------------------------------------
 
 inline 
-double Vec3D::operator*(const Vec3D &v2)
+double Vec3D::operator*(const Vec3D &v2) const
 {
 
   return v[0]*v2.v[0] + v[1]*v2.v[1] + v[2]*v2.v[2];
