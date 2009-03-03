@@ -206,7 +206,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   timer = domain->getTimer();
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
-  pseudoPhi = new DistVec(X.info());
+  pseudoPhi = new DistVec<double>(X.info());
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), *this);
   }
@@ -229,16 +229,18 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
     for(int j = 0; j < 3; ++j)
       xyz(i+1)[j+1] = X[i][j];
   double t0 = timer->getTime();
-  distIntersector.getInterface().Intersect(xyz, edgeRes,0);
+  distIntersector.getInterface().Intersect(xyz, edgeRes,1e-3);
   double t = timer->getTime();
   int nIntersect = 0;
 
   status = UNDECIDED;
 
+  Vec<bool> isVisited(sub.numNodes());
   Vec<double> weightSum(sub.numNodes());
   Vec<Vec3D> normApprox(sub.numNodes());
   phi = 0;
   weightSum = 0;
+  isVisited = false;
 
   for(int i = 0; i < numEdges; ++i)
     if(edgeRes(i+1).y.triangleID >= 0) {
@@ -248,7 +250,7 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
       if(edgeVec.norm() == 0)
         continue;
       Vec3D edgeDir = edgeVec / edgeVec.norm();
-      double weight = std::abs(edgeDir*trNorm);
+      double weight = std::abs(edgeDir*trNorm)+1e-3;
       double dot = trNorm*edgeVec;
       double alpha = edgeRes(i+1).y.alpha;
       double phiq = alpha*dot;
@@ -269,7 +271,7 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
         std::cout << "p Change of heart on " << p << " " << pp << status[p] << std::endl;
       if(pq != UNDECIDED && pq != status[q])
         std::cout << "q Change of heart on " << q << " " << pq << status[q] << std::endl;*/
-
+      isVisited[p] = isVisited[q] = true;
       nIntersect++;
     }
 
@@ -324,6 +326,8 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
         int edgeNum = edges.find(cur, nToN[cur][i]);
         if(edgeRes(edgeNum+1).y.triangleID < 0)
           numWeird++;
+        if(!isVisited[cur] && !isVisited[nToN[cur][i]])
+          std::cout << "Got an edge with no life!" << std::endl;
           //std::cout << "Found conflicting edge " << edgeNum << " between " << cur <<
           //   " and " << nToN[cur][i] << std::endl;
       }
@@ -334,12 +338,19 @@ LevelSetResult
 PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
   int triangleID = edgeRes(edgeNum+1).y.triangleID-1;
+ //  std:cerr << "Going for the norm " << triangleID << endl;
   if(triangleID < 0) {
     Vec3D nrm = (std::abs(phi[ni]) < std::abs(phi[nj])) ? locNorm[ni] : locNorm[nj];
-    return LevelSetResult(0,0,0, nrm[0], nrm[1], nrm[2]);
+    // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+    if(nrm.norm() == 0)
+      std::cerr << "Norm (1) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+    return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
   }
   Vec3D nrm = distIntersector.getSurfaceNorm(triangleID);
-  return LevelSetResult(0,0,0,nrm[0], nrm[1], nrm[2]);
+  // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+  if(nrm.norm() == 0)
+    std::cerr << "Norm (2) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+  return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
 }
 
 bool PhysBAMIntersector::isActive(double t, int n) {
