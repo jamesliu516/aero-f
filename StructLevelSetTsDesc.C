@@ -34,13 +34,14 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
-  eulerFSI = new DistEulerStructGhostFluid(this->domain, ioData);
+  eulerFSI = 0; //new DistEulerStructGhostFluid(this->domain, ioData);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
   distLSS = eulerFSI;
 
   const char *intersectorName = ioData.strucIntersect.intersectorName;
   if(intersectorName != 0)
     this->tmpLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
+  distLSS = tmpLSS;
 }
 
 //------------------------------------------------------------------------------
@@ -248,6 +249,7 @@ void StructLevelSetTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim>
 
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
+    this->com->printf(2, "Getting residual norm\n");
     this->data->residual = computeResidualNorm(U);
     trhs = this->timer->getTimeSyncro() - trhs;
     if (it == 0)

@@ -1412,6 +1412,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   R = 0.0;
   //DistVec<double> Phi = *(eulerFSI->getPhilevelPointer());
   varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
+
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
     double t0 = timer->getTime();
     // compute gradient of V using Phi:
@@ -1433,10 +1434,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     ngrad->limit(recFcn, X, ctrlVol, *V);
   //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
-
+  fprintf(stderr, "Step 1\n");
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, eulerFSI, *ngrad, egrad,
                                   R, it, failsafe,rshift);
+  fprintf(stderr, "Step 2\n");
 
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
