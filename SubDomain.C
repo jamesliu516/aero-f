@@ -237,7 +237,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int j = edgePtr[l][1];
 
     //if( !(Phi[i]*Phi[j]>0.0)) continue;
-    if(Phi.isSameFluid(i,j)) continue;
+    if(!Phi.isSameFluid(i,j)) continue;
 
     double Wi[3], Wj[3];
     Scalar deltaVar;
