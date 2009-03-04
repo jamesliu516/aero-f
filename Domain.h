@@ -371,7 +371,8 @@ public:
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistLevelSetStructure *eulerFSI,
+                               DistSVec<double,dim>&, DistSVec<double,dim>&,
+                               DistLevelSetStructure *,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 

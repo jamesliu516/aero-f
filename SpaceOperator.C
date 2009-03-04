@@ -1405,7 +1405,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 template<int dim>
 // Kevin's FSI with half-Riemann problems.
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U, DistLevelSetStructure *eulerFSI,
+                                         DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
+                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *eulerFSI,
                                          DistSVec<double,dim> &R,
                                          DistExactRiemannSolver<dim> *riemann, int it)
 {
@@ -1422,6 +1423,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     DistFluidTypeCriterion &dftc = dffi;
     ngrad->compute(geoState->getConfig(), X, ctrlVol,
         dftc, *V);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+    fprintf(stderr,"Hello.\n");
     timer->addNodalGradTime(t0);
   }
   if (xpol) //boundary condition using xpol = extrapolation
@@ -1436,7 +1438,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
   fprintf(stderr, "Step 1\n");
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, eulerFSI, *ngrad, egrad,
+                                  *geoState, X, *V, Wstarij, Wstarji, eulerFSI, *ngrad, egrad,
                                   R, it, failsafe,rshift);
   fprintf(stderr, "Step 2\n");
 

@@ -505,7 +505,8 @@ template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, LevelSetStructure &LSS,
+                                     SVec<double,dim>& V, SVec<double,dim>& Wstarij, 
+                                     SVec<double,dim>& Wstarji, LevelSetStructure &LSS,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -535,6 +536,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     int i = ptr[l][0];
     int j = ptr[l][1];
+    bool iIsActive = LSS.isActive(0, i);
+    bool jIsActive = LSS.isActive(0, j);
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
@@ -543,7 +546,24 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+//    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+// Reconstruction without crossing the interface.
+    if (iIsActive && jIsActive)
+      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+    else { // now at interface
+      if (iIsActive)
+        if (Wstarij[l][0]<1e-8 && Wstarij[l][4]<1e-8) {// no riemann sol. (first time-step)
+          for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+                         locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+        } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
+      if (jIsActive)
+        if (Wstarji[l][0]<1e-8 && Wstarji[l][4]<1e-8) {
+          for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+                         locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+        } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
+    }
 
     // check for negative pressure or density //
     if (!rshift)
@@ -557,23 +577,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vj[k+dim] = V[j][k];
     }
 
-//------- Kevin's debug. Part 1 of 2.
-/*    int trigger = 0;
-    int globI = locToGlobNodeMap[i]+1, globJ = locToGlobNodeMap[j]+1;
-    if ((globI==26290&&globJ==26371) || (globI==153983&&globJ==329526) ||
-        (globI==151822&&globJ==230068) || (globJ==109128&&globI==109137)) {
-      trigger = 1;
-      fprintf(stderr,"Now debug %d->%d\n", globI, globJ);
-      fprintf(stderr, "Node i = %d: (%e, %e, %e);  Phi[i] = %e.\n", globI, X[i][0],X[i][1],X[i][2], phiI);
-      fprintf(stderr, "Node j = %d: (%e, %e, %e);  Phi[j] = %e.\n", globJ, X[j][0],X[j][1],X[j][2], phiJ);
-      fprintf(stderr, "flux from i to j calculated at (%e, %e, %e).\n",
-                       (X[i][0]+X[j][0])/2.0, (X[i][1]+X[j][1])/2.0, (X[i][2]+X[j][2])/2.0);
-    }
-*/
-//-------------------------
-    bool iIsActive = LSS.isActive(0, i);
-    bool jIsActive = LSS.isActive(0, j);
-    if( !iIsActive && !jIsActive )
+    if( !iIsActive && !jIsActive ) //why not in the beginning?
       continue;
 
     if (!LSS.edgeIntersectsStructure(0, i, j)) {  // same fluid
@@ -591,12 +595,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       if (iIsActive) {
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
-
+        for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
 /*        double area = normal[l].norm(); //area of c.v. surface
-        area *= fabs(normal[l]*res.gradPhi/normal[l].norm()); //projected to structure surface
-        LSS->totalForce[0] += -1.0*res.gradPhi[0]*area;
-        LSS->totalForce[1] += -1.0*res.gradPhi[1]*area;
-        LSS->totalForce[2] += -1.0*res.gradPhi[2]*area;
+        area *= normal[l]*res.gradPhi/normal[l].norm()*(-1); //projected to structure surface
+        LSS->totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
+        LSS->totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
+        LSS->totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
         LSS.totalForce[0] += Wstar[4]*normal[l][0];
         LSS.totalForce[1] += Wstar[4]*normal[l][1];
@@ -606,88 +610,22 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 /*        double fluxitemp[dim];
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxitemp);
 */        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-
-//--------- Kevin's debug. Part 2 of 2.
-/*        if (trigger==1) {
-          fprintf(stderr,"State at node i (input of Riemann): (rho, ux, uy, uz, p) = (%e, %e, %e, %e, %e(%e))\n",Vi[0], Vi[1], Vi[2], Vi[3], varFcn->getPressure(Vi), Vi[4]);
-          fprintf(stderr,"normals: n_f = (%e, %e, %e);  n_s (gradPhi) = (%e, %e, %e);\n",
-                  normal[l][0]/normal[l].norm(), normal[l][1]/normal[l].norm(), normal[l][2]/normal[l].norm(),
-                  -res.gradPhi[0], -res.gradPhi[1], -res.gradPhi[2]);
-          fprintf(stderr,"Solution of 1D FS Riemann problem: (rho*, ux*, uy*, uz*, p*) = (%e, %e, %e, %e, %e)\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
-          fprintf(stderr,"check: <u*, n_s> = %e;  <u*, n_f> = %e;\n",
-                          -(Wstar[1]*res.gradPhi[0] + Wstar[2]*res.gradPhi[1] + Wstar[3]*res.gradPhi[2]),
-                          Wstar[1]*normal[l][0]/normal[l].norm() + Wstar[2]*normal[l][1]/normal[l].norm() +
-                          Wstar[3]*normal[l][2]/normal[l].norm());
-          fprintf(stderr,"area of c.v. surface = %e.\n", normal[l].norm());
-          fprintf(stderr,"Godunov flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                          fluxitemp[0]/normal[l].norm(), fluxitemp[1]/normal[l].norm(),
-                          fluxitemp[2]/normal[l].norm(), fluxitemp[3]/normal[l].norm(),
-                          fluxitemp[4]/normal[l].norm());
-          double uDotNf = (Wstar[1]*normal[l][0]+Wstar[2]*normal[l][1]+Wstar[3]*normal[l][2])/normal[l].norm();
-          double God1 = Wstar[0]*uDotNf;
-          double God2 = Wstar[0]*uDotNf*Wstar[1] + Wstar[4]*normal[l][0]/normal[l].norm();
-          double God3 = Wstar[0]*uDotNf*Wstar[2] + Wstar[4]*normal[l][1]/normal[l].norm();
-          double God4 = Wstar[0]*uDotNf*Wstar[3] + Wstar[4]*normal[l][2]/normal[l].norm();
-          double energy = Wstar[4]/(0.4*Wstar[0]) + 1.0/2.0*(Wstar[1]*Wstar[1]+Wstar[2]*Wstar[2]
-                          + Wstar[3]*Wstar[3]);
-          double God5 = (Wstar[0]*energy+Wstar[4])*uDotNf;
-          fprintf(stderr,"Godunov flux (manually) = (%e, %e, %e, %e, %e)\n", God1, God2, God3, God4, God5);
-          fprintf(stderr,"Roe flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                           fluxi[0]/normal[l].norm(), fluxi[1]/normal[l].norm(),
-                           fluxi[2]/normal[l].norm(), fluxi[3]/normal[l].norm(),
-                           fluxi[4]/normal[l].norm());
-        }
-*/
       }
       if (jIsActive) {
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
-
+        for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
 /*        double area = normal[l].norm(); //area of c.v. surface
-        area *= fabs(normal[l]*res.gradPhi); //projected to structure surface
-        LSS->totalForce[0] += -1.0*res.gradPhi[0]*area;
-        LSS->totalForce[1] += -1.0*res.gradPhi[1]*area;
-        LSS->totalForce[2] += -1.0*res.gradPhi[2]*area;
+        area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
+        LSS->totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
+        LSS->totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
+        LSS->totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
         LSS.totalForce[0] += -Wstar[4]*normal[l][0];
         LSS.totalForce[1] += -Wstar[4]*normal[l][1];
         LSS.totalForce[2] += -Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
-/*        double fluxjtemp[dim];
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxjtemp);
-*/        for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
-
-//--------- Kevin's debug. Part 2 of 2.
-/*        if (trigger==1) {
-          fprintf(stderr,"State at node j (input of Riemann): (rho, ux, uy, uz, p) = (%e, %e, %e, %e, %e(%e))\n",Vj[0], Vj[1], Vj[2], Vj[3], varFcn->getPressure(Vj), Vj[4]);
-          fprintf(stderr,"normals: n_f = (%e, %e, %e);  n_s (gradPhi) = (%e, %e, %e);\n",
-                  normal[l][0]/normal[l].norm(), normal[l][1]/normal[l].norm(), normal[l][2]/normal[l].norm(),
-                  res.gradPhi[0], res.gradPhi[1], res.gradPhi[2]);
-          fprintf(stderr,"Solution of 1D FS Riemann problem: (rho*, ux*, uy*, uz*, p*) = (%e, %e, %e, %e, %e)\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
-          fprintf(stderr,"check: <u*, n_s> = %e;  <u*, n_f> = %e;\n",
-                          (Wstar[1]*res.gradPhi[0] + Wstar[2]*res.gradPhi[1] + Wstar[3]*res.gradPhi[2]),
-                          Wstar[1]*normal[l][0]/normal[l].norm() + Wstar[2]*normal[l][1]/normal[l].norm() +
-                          Wstar[3]*normal[l][2]/normal[l].norm());
-          fprintf(stderr,"area of c.v. surface = %e.\n", normal[l].norm());
-          fprintf(stderr,"Godunov flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                          fluxjtemp[0]/normal[l].norm(), fluxjtemp[1]/normal[l].norm(),
-                          fluxjtemp[2]/normal[l].norm(), fluxjtemp[3]/normal[l].norm(),
-                          fluxjtemp[4]/normal[l].norm());
-          double uDotNf = (Wstar[1]*normal[l][0]+Wstar[2]*normal[l][1]+Wstar[3]*normal[l][2])/normal[l].norm();
-          double God1 = Wstar[0]*uDotNf;
-          double God2 = Wstar[0]*uDotNf*Wstar[1] + Wstar[4]*normal[l][0]/normal[l].norm();
-          double God3 = Wstar[0]*uDotNf*Wstar[2] + Wstar[4]*normal[l][1]/normal[l].norm();
-          double God4 = Wstar[0]*uDotNf*Wstar[3] + Wstar[4]*normal[l][2]/normal[l].norm();
-          double energy = Wstar[4]/(0.4*Wstar[0]) + 1.0/2.0*(Wstar[1]*Wstar[1]+Wstar[2]*Wstar[2]
-                          + Wstar[3]*Wstar[3]);
-          double God5 = (Wstar[0]*energy+Wstar[4])*uDotNf;
-          fprintf(stderr,"Godunov flux (manually) = (%e, %e, %e, %e, %e)\n", God1, God2, God3, God4, God5);
-          fprintf(stderr,"Roe flux (automatically) = (%e, %e, %e, %e, %e)\n",
-                           fluxj[0]/normal[l].norm(), fluxj[1]/normal[l].norm(),
-                           fluxj[2]/normal[l].norm(), fluxj[3]/normal[l].norm(),
-                           fluxj[4]/normal[l].norm());
-        }
-*/
+        for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
     }
   }

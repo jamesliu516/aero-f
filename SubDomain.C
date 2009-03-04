@@ -809,14 +809,15 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
-                                       LevelSetStructure &eulerFSI,
+                                       SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
+                                       LevelSetStructure &LSS,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, eulerFSI,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
                                            ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes); //TODO: only works for 1-phase flow

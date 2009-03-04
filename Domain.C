@@ -791,7 +791,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
-                                     DistLevelSetStructure *eulerFSI,
+                                     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
+                                     DistLevelSetStructure *LSS,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -813,7 +814,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                             X(iSub), V(iSub), (*eulerFSI)(iSub),
+                                             X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
                                              ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
@@ -854,7 +855,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                     X(iSub), V(iSub), (*eulerFSI)(iSub),
+                                     X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
                                      ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);

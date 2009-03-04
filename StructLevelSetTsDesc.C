@@ -31,17 +31,19 @@ StructLevelSetTsDesc<dim>::
 StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom)
 {
-
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   eulerFSI = 0; //new DistEulerStructGhostFluid(this->domain, ioData);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
-  distLSS = eulerFSI;
+//  distLSS = eulerFSI;
 
   const char *intersectorName = ioData.strucIntersect.intersectorName;
   if(intersectorName != 0)
     this->tmpLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
   distLSS = tmpLSS;
+
+  Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 }
 
 //------------------------------------------------------------------------------
@@ -51,6 +53,8 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 {
   if (eulerFSI) delete eulerFSI;
   if (riemann) delete riemann;
+  if (Wstarij) delete Wstarij;
+  if (Wstarji) delete Wstarji;
 }
 
 //------------------------------------------------------------------------------
@@ -232,7 +236,9 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 { //from TsDesc::computeResidualNorm. only compute residual for Phi>0 TODO: shouldn't do this for shell.
-  this->spaceOp->computeResidual(*this->X, *this->A, U, distLSS, *this->R, this->riemann, 0);
+  this->com->printf(2,"I'm here.\n");
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
+  this->com->printf(2,"I'm here too.\n");
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;
   res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);

@@ -25,6 +25,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   DistEulerStructGhostFluid *eulerFSI;
   DistExactRiemannSolver<dim> *riemann;
   DistLevelSetStructure *distLSS, *tmpLSS;
+  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
+  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
 
  public:
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);

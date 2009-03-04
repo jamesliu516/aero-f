@@ -48,7 +48,7 @@ DistEulerStructGhostFluid::DistEulerStructGhostFluid(Domain* domain, IoData& iod
   timer = domain->getTimer();
   com = domain->getCommunicator();
 
-  forceFile = fopen("/home/icmewang/Simulations/RiemanFSI/CPU16/results/force","w");
+  forceFile = fopen("results/force","w");
   pref = iod.ref.rv.pressure;
 
 }

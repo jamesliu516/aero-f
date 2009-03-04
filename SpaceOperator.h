@@ -142,6 +142,7 @@ public:
                        DistSVec<double,dim> * = 0);
 // Kevin's FSI with half-Riemann problems
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it = 0);
