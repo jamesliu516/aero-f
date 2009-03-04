@@ -43,10 +43,10 @@ class DistFluidTypeFromLevelSet : public DistFluidTypeCriterion {
 class DistLevelSetStructure;
 class DistFluidTypeFromIntersect : public DistFluidTypeCriterion {
     const DistLevelSetStructure &dLS;
-    std::map<int, FluidTypeCriterion &> *ftcMap;
+    std::map<int, FluidTypeCriterion *> *ftcMap;
   public:
     DistFluidTypeFromIntersect(const DistLevelSetStructure &dls) : dLS(dls)
-      { ftcMap =  new std::map<int, FluidTypeCriterion &>(); }
+      { ftcMap =  new std::map<int, FluidTypeCriterion *>(); }
     FluidTypeCriterion &operator()(int i) const;
 };
 
