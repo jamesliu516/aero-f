@@ -37,10 +37,10 @@ DistFluidTypeFromLevelSet::operator ()(int i) const {
 
 FluidTypeCriterion &
 DistFluidTypeFromIntersect::operator()(int i) const {
-  std::map<int, FluidTypeCriterion &>::iterator it = ftcMap->find(i);
+  std::map<int, FluidTypeCriterion *>::iterator it = ftcMap->find(i);
   if(it != ftcMap->end())
-    return it->second;
+    return *it->second;
   FluidTypeFromIntersect *ftfi = new FluidTypeFromIntersect(dLS(i));
-  (*ftcMap)[i] = *ftfi;
+  (*ftcMap)[i] = ftfi;
   return *ftfi;
 }
