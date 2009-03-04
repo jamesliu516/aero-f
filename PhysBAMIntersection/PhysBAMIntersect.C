@@ -16,16 +16,19 @@ const int PhysBAMIntersector::UNDECIDED, PhysBAMIntersector::INSIDE, PhysBAMInte
 
 class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     const char *structureFile;
+    double tolIntersect;
 
   public:
     PhysBAMIntersectorConstructor() {
       structureFile = 0;
+      tolIntersect = 1e-3;
     }
 
     DistLevelSetStructure *getIntersector(IntersectProblemData&) {
-      DistPhysBAMIntersector *inter = new DistPhysBAMIntersector();
+      DistPhysBAMIntersector *inter = new DistPhysBAMIntersector(tolIntersect);
       std::string solidSurface = structureFile;
       inter->init(solidSurface);
+
       return inter;
      // return 0;
     }
@@ -34,10 +37,13 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
 
     void init(ParseTree &dataTree) {
         std::cout << "inside the init function" << std::endl;
-        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 1, 0);
+        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 2, 0);
         new ClassStr<PhysBAMIntersectorConstructor>(ca, "structureFile", this, &PhysBAMIntersectorConstructor::structureFile);
+        new ClassDouble<PhysBAMIntersectorConstructor>(ca, "tolerance", this, &PhysBAMIntersectorConstructor::tolIntersect);
         dataTree.implement(ca);
     }
+
+
 };
 
 
@@ -51,8 +57,9 @@ int PhysBAMIntersectorConstructor::print() {
 
 
 
-DistPhysBAMIntersector::DistPhysBAMIntersector() {
+DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   com = IntersectionFactory::getCommunicator();
+  tolerance = tol;
 }
 
 LevelSetStructure &
@@ -229,7 +236,7 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
     for(int j = 0; j < 3; ++j)
       xyz(i+1)[j+1] = X[i][j];
   double t0 = timer->getTime();
-  distIntersector.getInterface().Intersect(xyz, edgeRes,1e-3);
+  distIntersector.getInterface().Intersect(xyz, edgeRes,distInt.getTolerance());
   double t = timer->getTime();
   int nIntersect = 0;
 
@@ -316,7 +323,6 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X, DistPh
       nUndecided++;
   }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
-  std::cout << "Check: " << lead << " vs "<< sub.numNodes() << std::endl;
   std::cout << "Inside: " << nInside << " outside: " << nOutside << " undecided: " << nUndecided << std::endl;
   // Supplemental check
   int numWeird = 0;

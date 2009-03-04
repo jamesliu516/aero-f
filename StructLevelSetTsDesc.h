@@ -22,15 +22,13 @@ template<int dim>
 class StructLevelSetTsDesc : public TsDesc<dim> {
 
  protected:
-  DistEulerStructGhostFluid *eulerFSI;
   DistExactRiemannSolver<dim> *riemann;
-  DistLevelSetStructure *distLSS, *tmpLSS;
+  DistLevelSetStructure *distLSS;
 
  public:
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~StructLevelSetTsDesc();
 
-  DistLevelSetStructure *getEulerFSI() {return eulerFSI;};
 
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);

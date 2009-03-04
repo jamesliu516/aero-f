@@ -36,11 +36,14 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     PhysBAMInterface<double> *physInterface;
     Domain *domain;
     DistSVec<double,3> *X;
+    double tolerance;
 
     void buildSolidNormals();
   public:
-    DistPhysBAMIntersector();
+    DistPhysBAMIntersector(double tol);
     void init(std::string structureFileName);
+
+    double getTolerance() const { return tolerance; }
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
