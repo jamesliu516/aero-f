@@ -236,6 +236,10 @@ ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cp
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
+# ADD_SUBDIRECTORY(PhysBAMIntersection)
+install(TARGETS FluidBase DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/lib EXPORT fluid-targets)
+install(EXPORT fluid-targets DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/lib/base)
+
 	
 IF(MERCURIAL_EXECUTABLE)
   add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
