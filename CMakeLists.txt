@@ -237,8 +237,9 @@ SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 # ADD_SUBDIRECTORY(PhysBAMIntersection)
-install(TARGETS FluidBase DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/lib EXPORT fluid-targets)
-install(EXPORT fluid-targets DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/lib/base)
+install(TARGETS FluidBase DESTINATION lib EXPORT fluid-targets)
+install(EXPORT fluid-targets DESTINATION lib/base)
+export(TARGETS FluidBase FILE ${CMAKE_CURRENT_SOURCE_DIR}/base-exports.cmake)
 
 	
 IF(MERCURIAL_EXECUTABLE)
