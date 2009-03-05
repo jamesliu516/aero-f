@@ -33,14 +33,12 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 {
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
-  eulerFSI = 0; //new DistEulerStructGhostFluid(this->domain, ioData);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
-//  distLSS = eulerFSI;
+  distLSS = 0;
 
   const char *intersectorName = ioData.strucIntersect.intersectorName;
   if(intersectorName != 0)
-    this->tmpLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
-  distLSS = tmpLSS;
+    distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
 
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
@@ -51,7 +49,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 template<int dim>
 StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 {
-  if (eulerFSI) delete eulerFSI;
+  if (distLSS) delete distLSS;
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
@@ -66,7 +64,6 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   this->geoState->setup2(this->timeState->getData());
   //TODO: timeState->setup different as in LevelSetTsDesc.
   this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-  this->tmpLSS->initialize(this->domain,*this->X);
   this->distLSS->initialize(this->domain,*this->X);
 }
 
