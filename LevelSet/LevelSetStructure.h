@@ -40,6 +40,8 @@ class DistLevelSetStructure {
     int numLocSub;
     DistVec<double> *pseudoPhi;
   public:
+    virtual ~DistLevelSetStructure() {}
+
     virtual void initialize(Domain *, DistSVec<double,3> &X) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
     virtual void clearTotalForce();

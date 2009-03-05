@@ -22,9 +22,8 @@ template<int dim>
 class StructLevelSetTsDesc : public TsDesc<dim> {
 
  protected:
-  DistEulerStructGhostFluid *eulerFSI;
   DistExactRiemannSolver<dim> *riemann;
-  DistLevelSetStructure *distLSS, *tmpLSS;
+  DistLevelSetStructure *distLSS;
   DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
   DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
 
@@ -32,7 +31,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~StructLevelSetTsDesc();
 
-  DistLevelSetStructure *getEulerFSI() {return eulerFSI;};
 
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
