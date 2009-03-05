@@ -1423,7 +1423,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     DistFluidTypeCriterion &dftc = dffi;
     ngrad->compute(geoState->getConfig(), X, ctrlVol,
         dftc, *V);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
-    fprintf(stderr,"Hello.\n");
     timer->addNodalGradTime(t0);
   }
   if (xpol) //boundary condition using xpol = extrapolation
