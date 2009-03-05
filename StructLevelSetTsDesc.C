@@ -233,9 +233,7 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 { //from TsDesc::computeResidualNorm. only compute residual for Phi>0 TODO: shouldn't do this for shell.
-  this->com->printf(2,"I'm here.\n");
   this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
-  this->com->printf(2,"I'm here too.\n");
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;
   res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
