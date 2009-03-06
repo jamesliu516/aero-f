@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
 include(../base-exports.cmake)
-set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
 SET(INC_DIR .. . /home/michel/Research/Academic/PhysBam /home/michel/Research/Academic/PhysBam/Public_Library /home/icmewang/PhysBam /home/icmewang/PhysBam/Public_Library)
 INCLUDE_DIRECTORIES(${INC_DIR})
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
