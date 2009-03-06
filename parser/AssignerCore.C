@@ -76,13 +76,13 @@ SysTokenObj::SysTokenObj(const char *n, int *p, int nt, ...) : tk(nt), val(nt),
   addSysSymbol(n, this);
   va_list vl;
   va_start(vl, nt);
-  
+
   for(int i = 0; i < nt; ++i) {
     const char *tokenString = va_arg(vl, const char *);
     int v = va_arg(vl, int);
     tk[i] = findSysToken(tokenString);
     val[i] = v;
-    
+
   }
   va_end(vl);
 }
@@ -95,7 +95,7 @@ SysTokenObj::assignToken(int t)
       *ptr = val[i];
       return;
     }
-  fprintf(stderr, "ERROR: Token not understood: %s\n", 
+  fprintf(stderr, "ERROR: Token not understood: %s\n",
 		  dictionary->word(t).c_str());
   exit(1);
 }
@@ -107,10 +107,16 @@ ClassAssigner::ClassAssigner(const char *n, int ns)
   cn = 0;
 }
 */
+ClassAssigner::ClassAssigner(const char *n, ClassAssigner *p)
+        : subAsgn(ns), subToken(ns), Assigner(n)
+{
+  if (p) p->addSmb(n, this);
+  else addSysSymbol(n, this);
+}
+
 ClassAssigner::ClassAssigner(const char *n, int ns, ClassAssigner *p)
 		: subAsgn(ns), subToken(ns), Assigner(n)
 {
-  cn = 0;
   if (p) p->addSmb(n, this);
   else addSysSymbol(n, this);
 }
@@ -118,20 +124,15 @@ ClassAssigner::ClassAssigner(const char *n, int ns, ClassAssigner *p)
 Assigner *
 ClassAssigner::findSubToken(int t)
 {
-  for(int i = 0; i < cn; ++i)
-    if(subToken[i] == t)
-      return subAsgn[i];
-/*
-  fprintf(stderr, "ERROR: Structure element not found: %s\n", 
-		  dictionary->word(t).c_str());
-*/
-  return 0;
+  map<int, Assigner *>::iterator it = subAssigner.find(t);
+  if (it == subAssigner.end())
+    return 0;
+  else
+    return it->second;
 }
 
 void
 ClassAssigner::addSmb(const char *smb, Assigner *asgn)
 {
-  subToken[cn] = findSysToken(smb);
-  subAsgn[cn] = asgn;
-  ++cn;
+   subAssigner[findSysToken(smb)] = asgn;
 }
