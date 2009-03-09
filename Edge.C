@@ -598,13 +598,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
 /*        double area = normal[l].norm(); //area of c.v. surface
         area *= normal[l]*res.gradPhi/normal[l].norm()*(-1); //projected to structure surface
-        LSS->totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
-        LSS->totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
-        LSS->totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
+        LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
+        LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
+        LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
         LSS.totalForce[0] += Wstar[4]*normal[l][0];
         LSS.totalForce[1] += Wstar[4]*normal[l][1];
         LSS.totalForce[2] += Wstar[4]*normal[l][2];
+
+//        LSS.addLocalForce(Wstar[4]*normal[l][0], Wstar[4]*normal[l][1], Wstar[4]*normal[l][2]);
+
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
 /*        double fluxitemp[dim];
@@ -616,13 +619,15 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
 /*        double area = normal[l].norm(); //area of c.v. surface
         area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
-        LSS->totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
-        LSS->totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
-        LSS->totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
+        LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
+        LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
+        LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
         LSS.totalForce[0] += -Wstar[4]*normal[l][0];
         LSS.totalForce[1] += -Wstar[4]*normal[l][1];
         LSS.totalForce[2] += -Wstar[4]*normal[l][2];
+
+//        LSS.addLocalForce(i-Wstar[4]*normal[l][0], -Wstar[4]*normal[l][1], -Wstar[4]*normal[l][2]);
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];

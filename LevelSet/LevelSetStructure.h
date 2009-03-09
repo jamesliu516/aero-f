@@ -33,6 +33,9 @@ class LevelSetStructure {
     virtual void computePhi(Vec<double> &phi);
 
     Vec3D totalForce;
+    virtual void addLocalForce(double fx, double fy, double fz) 
+    {totalForce[0]+= fx; totalForce[1]+=fy; totalForce[2]+=fz; 
+     fprintf(stderr,"totalForce=%e,%e,%e.\n", totalForce[0], totalForce[1], totalForce[2]);}
 };
 
 class DistLevelSetStructure {
