@@ -23,7 +23,8 @@ Vec3D DistLevelSetStructure::getTotalForce()
   Communicator *com = IntersectionFactory::getCommunicator();
   com->globalSum(3, totalForce);
 
- // com->fprintf(stderr,"Total Force on Structure Surface = [%f, %f, %f]\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
+  double pref = 1.0;
+  com->fprintf(stderr,"Total Force on Structure Surface = [%e, %e, %e]\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
  // com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
   return totalForce;
 }
