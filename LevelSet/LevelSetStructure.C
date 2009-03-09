@@ -4,10 +4,12 @@
 #include <DistVector.h>
 #include <Vector.h>
 
+
 void DistLevelSetStructure::clearTotalForce()
 {
   for (int iSub=0; iSub<numLocSub; iSub++)
-    (this)[iSub].totalForce[0] = (this)[iSub].totalForce[1] = (this)[iSub].totalForce[2] = 0.0;
+    (*this)(iSub).totalForce[0] = (*this)(iSub).totalForce[1] = (*this)(iSub).totalForce[2] = 0.0;
+
   totalForce[0] = totalForce[1] = totalForce[2] = 0.0;
 }
 
@@ -16,9 +18,9 @@ void DistLevelSetStructure::clearTotalForce()
 Vec3D DistLevelSetStructure::getTotalForce()
 {
   for (int iSub=0; iSub<numLocSub; iSub++) {
-    totalForce[0] += (this)[iSub].totalForce[0];
-    totalForce[1] += (this)[iSub].totalForce[1];
-    totalForce[2] += (this)[iSub].totalForce[2];
+    totalForce[0] += (*this)(iSub).totalForce[0];
+    totalForce[1] += (*this)(iSub).totalForce[1];
+    totalForce[2] += (*this)(iSub).totalForce[2];
   }
   Communicator *com = IntersectionFactory::getCommunicator();
   com->globalSum(3, totalForce);

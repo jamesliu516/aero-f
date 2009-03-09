@@ -448,26 +448,20 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
 
 LevelSetResult
 PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
-  fprintf(stderr, "+");
   int edgeNum = edges.find(ni, nj);
-  fprintf(stderr, "?");
   int triangleID = edgeRes(edgeNum+1).y.triangleID-1;
-  fprintf(stderr, "!");
  //  std:cerr << "Going for the norm " << triangleID << endl;
   if(triangleID < 0) {
-    fprintf(stderr, "-");
     Vec3D nrm = (std::abs(phi[ni]) < std::abs(phi[nj])) ? locNorm[ni] : locNorm[nj];
     // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
     if(nrm.norm() == 0)
       std::cerr << "Norm (1) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
     return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
   }
-  fprintf(stderr, "$");
   Vec3D nrm = distIntersector.getSurfaceNorm(triangleID);
   // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
   if(nrm.norm() == 0)
     std::cerr << "Norm (2) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
-  fprintf(stderr, "*");
   return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
 }
 
