@@ -26,6 +26,7 @@ template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
   protected:
+  public: // For debugging
     int length_solids_particle_list, length_triangle_list;
     int (*triangle_list)[3];
     double xMin, xMax, yMin, yMax, zMin, zMax;
@@ -56,7 +57,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     LevelSetStructure & operator()(int subNum) const;
 
     PhysBAMInterface<double> &getInterface() { return *physInterface; }
-    const Vec3D &getSurfaceNorm(int i) const { fprintf(stderr, "%p",triNorms); return triNorms[i]; }
+    const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
     const Vec3D getInsidePoint() const { return insidePoint; }
 };
 
@@ -65,6 +66,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1;
 
   protected:
+  public: // For debug
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not
     Vec<double> &phi;

@@ -107,15 +107,14 @@ ClassAssigner::ClassAssigner(const char *n, int ns)
   cn = 0;
 }
 */
-ClassAssigner::ClassAssigner(const char *n, ClassAssigner *p)
-        : subAsgn(ns), subToken(ns), Assigner(n)
+ClassAssigner::ClassAssigner(const char *n, ClassAssigner *p) : Assigner(n)
 {
   if (p) p->addSmb(n, this);
   else addSysSymbol(n, this);
 }
 
 ClassAssigner::ClassAssigner(const char *n, int ns, ClassAssigner *p)
-		: subAsgn(ns), subToken(ns), Assigner(n)
+		: Assigner(n)
 {
   if (p) p->addSmb(n, this);
   else addSysSymbol(n, this);
