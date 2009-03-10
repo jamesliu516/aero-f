@@ -71,19 +71,13 @@ class SysMapObj : public Assigner  {
     Assigner *findIndexObject(int);
 };
 
-// template <class T>
-class ClassAssigner : public Assigner {
-    // T *ptr;
-    vector<Assigner *> subAsgn;
-    vector<int> subToken;
-    int cn;
 
-    vector<map<int, Assigner *> > subAsgnMap;
-    vector<int> subTokenMap;
-    int cnMap;
+class ClassAssigner : public Assigner {
+    map<int, Assigner *>subAssigner;
   public:
-  //ClassAssigner(char *n, int ns);
+
     ClassAssigner(const char *n, int ns, ClassAssigner * = 0);
+    ClassAssigner(const char *n, ClassAssigner * = 0);
     virtual void addSmb(const char *, Assigner *);
     Assigner *findSubToken(int);
 };

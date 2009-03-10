@@ -600,6 +600,16 @@ public:
   template<class Scalar>
   void assemble(CommPattern<Scalar> *, DistVec<double> &);
 
+
+  void assemble(DistVec<double> &v) {
+    assemble(getVecPat(), v);
+  }
+
+  void assemble(DistSVec<double,3> &v) {
+    assemble(getVec3DPat(), v);
+  }
+
+
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
