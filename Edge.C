@@ -526,7 +526,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
-  FILE *outFile = 0; //fopen("theEdges","w");
+  FILE *outFile = fopen("theEdges","w");
   //fprintf(stderr, "Working on the edges\n");
   int ierr=0;
   riemann.reset(it);
@@ -554,14 +554,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (iIsActive)
         if (Wstarij[l][0]<1e-8 && Wstarij[l][4]<1e-8) {// no riemann sol. (first time-step)
           for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
-                         locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+//                         locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
         } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
       if (jIsActive)
         if (Wstarji[l][0]<1e-8 && Wstarji[l][4]<1e-8) {
           for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
-                         locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+//                         locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
         } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
     }
 
@@ -589,45 +589,44 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
+      if(outFile) {
+        fprintf(outFile,"%d->%d", i,j);
+        fflush(outFile);
+      }
       LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-      if(outFile)
-        fprintf(outFile,"%d->%d.\n", i,j);
+      if(outFile) {
+        fprintf(outFile,".\n", i,j);
+        fflush(outFile);
+      }
 
       if (iIsActive) {
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
         for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
-/*        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm()*(-1); //projected to structure surface
+        double area = normal[l].norm(); //area of c.v. surface
+        area *= normal[l]*gradPhi/normal[l].norm()*(-1.0); //projected to structure surface
         LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
-*/
-        LSS.totalForce[0] += Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += Wstar[4]*normal[l][2];
 
-//        LSS.addLocalForce(Wstar[4]*normal[l][0], Wstar[4]*normal[l][1], Wstar[4]*normal[l][2]);
-
+//        LSS.totalForce[0] += Wstar[4]*normal[l][0];
+//        LSS.totalForce[1] += Wstar[4]*normal[l][1];
+//        LSS.totalForce[2] += Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
-/*        double fluxitemp[dim];
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Wstar, fluxitemp);
-*/        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
       if (jIsActive) {
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
         for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
-/*        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
+        double area = normal[l].norm(); //area of c.v. surface
+        area *= normal[l]*gradPhi/normal[l].norm(); //projected to structure surface
         LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
-*/
-        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
 
-//        LSS.addLocalForce(i-Wstar[4]*normal[l][0], -Wstar[4]*normal[l][1], -Wstar[4]*normal[l][2]);
+//        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
+//        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
+//        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];

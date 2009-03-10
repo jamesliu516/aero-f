@@ -26,8 +26,10 @@ template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
   protected:
+  public: // For debugging
     int length_solids_particle_list, length_triangle_list;
     int (*triangle_list)[3];
+    double xMin, xMax, yMin, yMax, zMin, zMax;
     Vec3D *solids_particle_list;
     Vec3D *triNorms;
     Communicator *com;
@@ -38,7 +40,11 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     DistSVec<double,3> *X;
     double tolerance;
 
+    // A point known to be inside of the closed structural surface.
+    Vec3D insidePoint;
+
     void buildSolidNormals();
+    void getBoundingBox();
   public:
     DistPhysBAMIntersector(double tol);
     void init(std::string structureFileName);
@@ -51,7 +57,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     LevelSetStructure & operator()(int subNum) const;
 
     PhysBAMInterface<double> &getInterface() { return *physInterface; }
-    const Vec3D &getSurfaceNorm(int i) const { return triNorms[i]; }
+    const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
+    const Vec3D getInsidePoint() const { return insidePoint; }
 };
 
 class PhysBAMIntersector : public LevelSetStructure {
@@ -59,14 +66,19 @@ class PhysBAMIntersector : public LevelSetStructure {
     static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1;
 
   protected:
+  public: // For debug
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not
-    Vec<double> phi;
+    Vec<double> &phi;
     Vec<Vec3D> locNorm;
     EdgeSet &edges;
     LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes;
+    int nIntersect;
   public:
-    PhysBAMIntersector(SubDomain &, SVec<double, 3> &, DistPhysBAMIntersector &);
+    PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
+    void computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &n, Vec<double> &lWeight);
+    void finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &n, Vec<double> &lWeight);
+
     LevelSetResult
     getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
     bool isActive(double t, int n);
