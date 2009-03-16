@@ -74,6 +74,8 @@ class PhysBAMIntersector : public LevelSetStructure {
     EdgeSet &edges;
     LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes;
     int nIntersect;
+    void updatePhi(int p, int q, IntersectionResult<double> &res, SVec<double, 3> &X, Vec<double> &phi,
+                   SVec<double, 3> &normApprox, Vec<double> &weightSum);
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
     void computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &n, Vec<double> &lWeight);
