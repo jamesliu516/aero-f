@@ -603,7 +603,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
         for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
         double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*gradPhi/normal[l].norm()*(-1.0); //projected to structure surface
+        area *= normal[l]*res.gradPhi/normal[l].norm()*(-1.0); //projected to structure surface
         LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
@@ -619,7 +619,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
         for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*gradPhi/normal[l].norm(); //projected to structure surface
+        area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
         LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
