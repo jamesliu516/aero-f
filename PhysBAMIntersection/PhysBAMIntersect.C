@@ -10,6 +10,11 @@
 #include "LevelSet/IntersectionFactory.h"
 #include "parser/Assigner.h"
 #include <Connectivity.h>
+#include <vector>
+#include <queue>
+
+using std::vector;
+using std::pair;
 
 static Timer *timer;
 const int PhysBAMIntersector::UNDECIDED, PhysBAMIntersector::INSIDE, PhysBAMIntersector::OUTSIDE;
@@ -323,9 +328,13 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   normApprox = 0;
   weightSum = 0;
 
+  // Create the list of reverse edges
+  vector<pair<int, int> > reverseEdges;
   for(int i = 0; i < numEdges; ++i)
     if(edgeRes(i+1).y.triangleID >= 0) {
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
+      // Add the reverse edge to the list of edges to compute
+      reverseEdges.push_back(pair<int,int>(q,p));
       const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(i+1).y.triangleID-1);
       Vec3D edgeVec(X[q][0]-X[p][0], X[q][1]-X[p][1], X[q][2]-X[p][2]);
       if(edgeVec.norm() == 0)
@@ -338,16 +347,60 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       double phip = phiq-dot;
 
       phi[p] += weight*phip;
-      phi[q] += weight*phiq;
+     // phi[q] += weight*phiq;
       for(int j = 0; j < 3; ++j) {
         normApprox[p][j] += weight*trNorm[j];
-        normApprox[q][j] += weight*trNorm[j];
+      //  normApprox[q][j] += weight*trNorm[j];
       }
       weightSum[p] += weight;
-      weightSum[q] += weight;
+     // weightSum[q] += weight;
       nIntersect++;
+      if(p == 9129 || q == 9129)
+        std::cout << "Cut " << p << " " << q << " " << weight <<  " triangle " << edgeRes(i+1).y.triangleID-1<< std::endl;
     }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
+
+
+  LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > reverseEdgeRes(nIntersect);
+  for(int i = 0; i < nIntersect; ++i) {
+      reverseEdgeRes(i+1).x[1] = reverseEdges[i].first+1;
+      reverseEdgeRes(i+1).x[2] = reverseEdges[i].second+1;
+  }
+
+  t0 = timer->getTime();
+  // First call to intersect to find all intersections
+  distIntersector.getInterface().Intersect(xyz, reverseEdgeRes,distIntersector.getTolerance());
+  t = timer->getTime();
+
+  nIntersect = 0;
+  for(int i = 0; i < reverseEdges.size(); ++i) {
+    int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
+    if(reverseEdgeRes(i+1).y.triangleID >= 0) {
+      updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
+      nIntersect++;
+    } else {
+      std::cout << "Reverse between " << p << " and " << q << " has no intersection" << std::endl;
+      LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
+      edgeRes(1).x[1] = 1;
+      edgeRes(1).x[2] = 2;
+
+      LIST_ARRAY<VECTOR<double,3> > xyz(2);
+      xyz(1)[1] = X[p][0];
+      xyz(1)[2] = X[p][1];
+      xyz(1)[3] = X[p][2];
+      xyz(2)[1] = X[q][0];
+      xyz(2)[2] = X[q][1];
+      xyz(2)[3] = X[q][2];
+
+      distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance()+1e-9);
+      std::cout << "redoing it gives: " << edgeRes(1).y.triangleID << std::endl;
+      if(edgeRes(1).y.triangleID < 0)
+        std::cerr << "Reverse cut could not be fixed! This will probably lead to a crash or incorrect results!" << std::endl;
+      else
+        updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
+    }
+  }
+  std::cout << "Second time around, found " << nIntersect << " intersections in " << t-t0 << " ms." << std::endl;
 
 }
 
@@ -359,7 +412,7 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
   for(int i = 0; i < numNodes; ++i)
     if(weightSum[i] > 0) {
       phi[i] /= weightSum[i];
-      status[i] = (phi[i] >= -1e-3) ? INSIDE : OUTSIDE;
+      status[i] = (phi[i] >= 0) ? INSIDE : OUTSIDE;
       double nl = Vec3D(normApprox[i]).norm();
       if(nl != 0)
         locNorm[i] = Vec3D(normApprox[i]) / nl;
@@ -400,23 +453,105 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
      }
   }
 
-  Vec<int> list(numNodes);
   Connectivity &nToN = *(sub.createEdgeBasedConnectivity());
+
+  std::vector<int> problemNodes;
+  for(int cur = 0; cur < sub.numNodes(); ++cur) {
+    if(status[cur] != UNDECIDED)
+      continue;
+    int v = 0;
+    for(int i = 0; i < nToN.num(cur); ++i)
+      if (status[nToN[cur][i]] != UNDECIDED)
+        v |= (status[nToN[cur][i]] == INSIDE) ? 1 : 2;
+    if(v == 3)
+      problemNodes.push_back(cur);
+  }
+
+
+  for(int j = 0; j < problemNodes.size(); ++j) {
+    int nIn = 0, nOut = 0;
+    int nd = problemNodes[j];
+    Vec3D thisNode(X[nd]);
+    double phiThis, phiMin, phiMax;
+    std::cerr << "Node " << nd << " is causing problems." << std::endl;
+    double maxDist = 0, minDot, maxDot;
+    double phiSum = 0;
+    double wSum = 0;
+    bool isInit = false;
+    for(int i = 0; i < nToN.num(nd); ++i) {
+      int oNd = nToN[nd][i];
+      if(status[oNd] == UNDECIDED)
+        continue;
+      Vec3D otherNode(X[oNd]);
+      double phiONd = phi[oNd];
+      Vec3D oNdNormal = locNorm[oNd];
+      double dot = (thisNode-otherNode)*oNdNormal;
+      double phiEst = phiONd + dot;
+      double dist = (thisNode-otherNode).norm();
+      double weight = std::abs(dot/dist);
+      phiSum += weight*phiEst;
+      wSum += weight;
+      if(!isInit) {
+        phiThis = phiMin = phiMax = phiEst;
+        maxDist = dist;
+        maxDot = minDot = (thisNode-otherNode)*oNdNormal/dist;
+        isInit = true;
+      }
+      if(std::abs(phiEst) < std::abs(phiThis))
+        phiThis = phiEst;
+      if(phiEst < phiMin) { phiMin = phiEst; minDot = (thisNode-otherNode)*oNdNormal/dist; }
+      if(phiEst > phiMax) { phiMax = phiEst; maxDot = (thisNode-otherNode)*oNdNormal/dist; }
+      maxDist = std::max(maxDist, dist);
+    }
+    if(phiMin * phiMax <= 0 || nd >= 0) {
+      std::cerr << "WOW! " << nd << " " << phiSum/wSum << std::endl;
+      std::cout << "Phi: "<<phiThis << " Min: " << phiMin << " Max : " << phiMax  << " minDot: " <<minDot << " maxDot: " << maxDot << std::endl;
+      if(nd >= 0 ) {
+        std::cout << "My status: " << status[nd] << " and weight " << weightSum[nd] << std::endl;
+        for(int i = 0; i < nToN.num(nd); ++i) {
+          int oNd = nToN[nd][i];
+          if(oNd == nd)
+            continue;
+          int edgeNum = edges.find(nd, oNd);
+          std::cout << oNd << " Status: " << status[oNd] << " triangle: " << edgeRes(edgeNum+1).y.triangleID << std::endl;
+          if(status[oNd] == UNDECIDED)
+            continue;
+          Vec3D otherNode(X[oNd]);
+          double phiONd = phi[oNd];
+          Vec3D oNdNormal = locNorm[oNd];
+          double dot = (thisNode-otherNode)*oNdNormal;
+          double phiEst = phiONd + dot;
+          double dist = (thisNode-otherNode).norm();
+          double weight = std::abs(dot/dist);
+        }
+      }
+    }
+  }
+  Vec<int> list(numNodes);
+  Vec<int> level(numNodes);
   // Look for a start point
   int next = 0, lead = 0;
-  for(int i = 0; i < sub.numNodes(); ++i)
-    if(status[i] != UNDECIDED)
+  for(int i = 0; i < numNodes; ++i)
+    if(status[i] != UNDECIDED) {
       list[lead++] = i;
+      level[i] = 0;
+    }
   std::cout << "Initial lead: " << lead << std::endl;
   while(next < lead) {
     int cur = list[next++];
     int curStatus = status[cur];
+    int curLevel = level[cur];
     if(curStatus == UNDECIDED)
       std::cout << "Weird!!!" << std::endl;
     for(int i = 0; i < nToN.num(cur); ++i) {
       if(status[nToN[cur][i]] == UNDECIDED) {
         status[nToN[cur][i]] = curStatus;
+        level[nToN[cur][i]] = curLevel+1;
         list[lead++] = nToN[cur][i];
+      } else {
+        if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
+          std::cerr << "Incompatible nodes have met: " << cur << " and " << nToN[cur][i] <<
+             " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
       }
     }
   }
@@ -444,6 +579,24 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
           //   " and " << nToN[cur][i] << std::endl;
       }
   std::cout << "We have " << numWeird << " intersections to revisit" << std::endl;
+}
+
+void PhysBAMIntersector::updatePhi(int p, int q, IntersectionResult<double> &res, SVec<double, 3> &X, Vec<double> &phi,
+                                   SVec<double, 3> &normApprox, Vec<double> &weightSum) {
+  double alpha = res.alpha;
+  int trID = res.triangleID-1;
+  const Vec3D &trNorm = distIntersector.getSurfaceNorm(trID);
+  Vec3D edgeVec(X[q][0]-X[p][0], X[q][1]-X[p][1], X[q][2]-X[p][2]);
+  if(edgeVec.norm() == 0)
+    return;
+  Vec3D edgeDir = edgeVec / edgeVec.norm();
+  double dot = trNorm*edgeVec;
+  double weight = std::abs(trNorm*edgeDir)+1e-3;
+  double phip = (alpha-1)*dot;
+  phi[p] += weight*phip;
+  for(int j = 0; j < 3; ++j)
+    normApprox[p][j] += weight*trNorm[j];
+  weightSum[p] += weight;
 }
 
 LevelSetResult
