@@ -335,7 +335,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
       // Add the reverse edge to the list of edges to compute
       reverseEdges.push_back(pair<int,int>(q,p));
-      const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(i+1).y.triangleID-1);
+     /* const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(i+1).y.triangleID-1);
       Vec3D edgeVec(X[q][0]-X[p][0], X[q][1]-X[p][1], X[q][2]-X[p][2]);
       if(edgeVec.norm() == 0)
         continue;
@@ -353,10 +353,9 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       //  normApprox[q][j] += weight*trNorm[j];
       }
       weightSum[p] += weight;
-     // weightSum[q] += weight;
+     // weightSum[q] += weight;*/
+      updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
       nIntersect++;
-      if(p == 9129 || q == 9129)
-        std::cout << "Cut " << p << " " << q << " " << weight <<  " triangle " << edgeRes(i+1).y.triangleID-1<< std::endl;
     }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
 
@@ -400,7 +399,6 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
         updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
     }
   }
-  std::cout << "Second time around, found " << nIntersect << " intersections in " << t-t0 << " ms." << std::endl;
 
 }
 
