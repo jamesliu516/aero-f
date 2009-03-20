@@ -658,6 +658,15 @@ double PostFcnEuler::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[
 
 }
 
+//--------------------------------------------------------------------------------------
+
+double PostFcnEuler::computeHeatFluxRelatedValues(double dp1dxj[4][3], Vec3D& n, double d2w[3],
+                                               double* Vwall, double* Vface[3], double* Vtet[4], bool includeKappa)
+{
+
+  return 0.0;
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -934,8 +943,36 @@ double PostFcnNS::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3],
     double qj[3];
     NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
     hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2]; 
-  }
+}
 
+  return hp;
+
+}
+//------------------------------------------------------------------------------
+//NICOLE
+double PostFcnNS::computeHeatFluxRelatedValues(double dp1dxj[4][3], Vec3D& n, double d2w[3],
+                                   double* Vwall, double* Vface[3], double* Vtet[4], bool includeKappa)
+{
+  double hp = 0.0;
+
+  if (wallFcn)
+    hp = wallFcn->computeHeatPower(n, d2w, Vwall, Vface);
+  else {
+    double T[4], Tcg;
+    computeTemperature(Vtet, T, Tcg);
+    double dTdxj[3];
+    computeTemperatureGradient(dp1dxj, T, dTdxj);  
+
+    double kappa = -1; //The fact that it is negative balances the minus sign in NavierStokesTerm::computeHeatFluxVector
+    if(includeKappa == true)
+      {
+        kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
+      }
+     
+       double qj[3];
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
+    hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2]; 
+    }
   return hp;
 
 }

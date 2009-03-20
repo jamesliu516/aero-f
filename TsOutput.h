@@ -106,6 +106,16 @@ private:
 
   FILE *fpdForces;
 
+//NICOLE
+//  char *tempnormalderivative;
+//  FILE *fptempnormalderivative;
+  char *heatfluxes;
+  FILE **fpHeatFluxes;
+  
+  
+
+
+
 public:
 
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
@@ -127,6 +137,11 @@ public:
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<double> * = 0);
+/*  void TsOutput<dim>::writeHeatFluxesToDisk(IoData iod, int it, int itSc, int itNl, double OUI,
+                                          DistSVec<double,3> &X, DistSVec<double,dim> &U);*/
+  void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
+                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeConservationErrors(IoData &iod, int it, double t, 
                                double *totqty, double *f1qty, double *f2qty,

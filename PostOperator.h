@@ -43,8 +43,10 @@ class PostOperator {
   Domain *domain;
   Communicator *com;
   int numSurf;
+  int numSurfHF;
   map<int,int> surfOutMap;
-  map<int,int> surfComputeMap;
+  map<int,int> surfOutMapHF; //NICOLE
+  map<int,int> surfComputeMap; //AS far as I can figure out this map is never used
   
  // Coefficients to Compute nodal force transfer
   double nodalForceWeights[2];
@@ -83,15 +85,19 @@ public:
 
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);
-
+  void computeNodalHeatFluxRelatedValues(DistSVec<double,3> &, DistSVec<double,dim> &,
+                                               DistVec<double> &, bool includeKappa);
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<double> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
+  //NICOLE
+  void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3> &,
+                                          DistSVec<double,dim> &, double*);//, DistSVec<double>);
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
 
-  void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &, 
+  void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistVec<double> &, 
                              DistVec<double> &, DistTimeState<dim> *);
   void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
@@ -111,6 +117,10 @@ public:
                                 VecSet< DistSVec<double,3> > *mX = 0, DistVec<double> *genCF = 0);
   int getNumSurf() { return numSurf; }
   map<int, int> &getSurfMap() { return surfOutMap; }
+
+  int getNumSurfHF() { return numSurfHF; }
+  map<int, int> &getSurfMapHF() { return surfOutMapHF; }
+
 
 // Included (MB)
   void computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *);
