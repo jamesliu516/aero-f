@@ -101,7 +101,11 @@ public:
 				 double *, SVec<double,dim> &, double, SVec<double,3> &, double* gradP[3]) = 0;
   virtual void computeNodalHeatPower(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
+  virtual double computeHeatFluxes(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&,
+                                    double*, SVec<double,dim>&) = 0;
 
+  virtual void computeNodalHeatFluxRelatedValues(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, double*,
+                                           SVec<double,dim>&, Vec<double>&, Vec<double>&, bool)=0;
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 				     Vec3D &, Vec3D &,  double* gradP[3], int, 
@@ -184,9 +188,21 @@ public:
 			     d2wall, Vwall, V, P);
   }
 
+  double computeHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    return t->computeHeatFluxes(elems, postFcn, X,
+                             d2wall, Vwall, V);
+  }
 
 
 
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X, 
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+     t->computeNodalHeatFluxRelatedValues(elems, postFcn, X,
+                             d2wall, Vwall, V, P, N, includeKappa);
+  }
 
   void computeForceAndMoment(ElemSet &elems,
 			     PostFcn *postFcn, SVec<double,3> &X, 
@@ -466,6 +482,29 @@ public:
 			     d2wall, Vwall, V, P);
   }
 
+  template<int dim>
+  double computeHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    return wrapper->computeHeatFluxes(elems, postFcn, X,
+                             d2wall, Vwall, V);
+  }
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X,
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeNodalHeatFluxRelatedValues(elems, postFcn, X,
+                             d2wall, Vwall, V, P, N, includeKappa);
+  }
 
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
@@ -735,6 +774,20 @@ public:
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
 
+  template<int dim>
+  double computeNodalHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
+  }
+
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X,
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
+  }
 
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 

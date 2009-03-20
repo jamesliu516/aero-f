@@ -188,6 +188,11 @@ TransientData::TransientData()
   dForces = "";
   dEddyvis = "";
 
+  //NICOLE
+  tempnormalderivative = "";
+  surfaceheatflux = "";
+  heatfluxes = "";
+
   frequency = 0;
   length = 1.0;
   surface = 1.0;
@@ -203,7 +208,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 73, father);
+  ClassAssigner *ca = new ClassAssigner(name, 76, father); //NICOLE, used to be 73
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -286,6 +291,11 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "VelocitySensitivity", this, &TransientData::dVelocityVector);
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
+
+//NICOLE
+  new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
+  new ClassStr<TransientData>(ca, "SurfaceHeatFlux", this, &TransientData::surfaceheatflux); 
+  new ClassStr<TransientData>(ca, "HeatFluxes", this, &TransientData::heatfluxes);
 
 }
 
@@ -2583,15 +2593,18 @@ SurfaceData::SurfaceData()  {
   rotationID = -1;
   velocity = 0.0;
 
-  type = (Type) UNSPECIFIED;
+  type = (Type) UNSPECIFIED; //ADIABATIC OR ISOTHERMAL OR UNSPECIFIED
   temp = -1.0;
+//NICOLE
+  computeHeatFluxes = (ComputeHeatFluxes) UNSPECIFIED_HF;
+  heatFluxResults = NO_HF; 
 }
 
 //------------------------------------------------------------------------------
 static RootClassAssigner nullAssigner;
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 13, &nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -2599,6 +2612,10 @@ Assigner *SurfaceData::getAssigner()  {
   new ClassToken<SurfaceData> (ca, "ComputeForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeForces), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
+//NICOLE 
+  new ClassToken<SurfaceData> (ca, "ComputeHeatFluxes", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxes", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);

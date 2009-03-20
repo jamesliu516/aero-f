@@ -597,12 +597,23 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
+  void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+                                            GeoState&, SVec<double,3>&,
+                                            SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
+
+  template<int dim>
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
 			     Vec3D *, Vec3D *, int , 
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
+
+  //NICOLE 
+  template<int dim>
+  void SubDomain::computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+                                      GeoState &, SVec<double,3> &,
+                                      SVec<double,dim> &, double *);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
