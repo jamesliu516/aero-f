@@ -1526,7 +1526,7 @@ struct SurfaceData  {
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
   double temp;
 
-  enum ComputeHeatFluxes {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
+  enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
   enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
   //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
 
