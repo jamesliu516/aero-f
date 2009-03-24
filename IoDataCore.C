@@ -295,7 +295,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 //NICOLE
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "SurfaceHeatFlux", this, &TransientData::surfaceheatflux); 
-  new ClassStr<TransientData>(ca, "HeatFluxes", this, &TransientData::heatfluxes);
+  new ClassStr<TransientData>(ca, "HeatPower", this, &TransientData::heatfluxes);
 
 }
 
@@ -2596,7 +2596,7 @@ SurfaceData::SurfaceData()  {
   type = (Type) UNSPECIFIED; //ADIABATIC OR ISOTHERMAL OR UNSPECIFIED
   temp = -1.0;
 //NICOLE
-  computeHeatFluxes = (ComputeHeatFluxes) UNSPECIFIED_HF;
+  computeHeatFluxes = (ComputeHeatPower) UNSPECIFIED_HF;
   heatFluxResults = NO_HF; 
 }
 
@@ -2604,18 +2604,18 @@ SurfaceData::SurfaceData()  {
 static RootClassAssigner nullAssigner;
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 13, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 12, &nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
   new ClassDouble<SurfaceData>(ca, "Nz", this, &SurfaceData::nz);
   new ClassToken<SurfaceData> (ca, "ComputeForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeForces), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
-  new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1); //I think this variable is never used
 //NICOLE 
-  new ClassToken<SurfaceData> (ca, "ComputeHeatFluxes", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
-  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxes", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
-  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "ComputeHeatPower", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateHeatPower", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
+//  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);

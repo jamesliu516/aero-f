@@ -1631,9 +1631,9 @@ fprintf(stderr,"nSurfs = %i in TsOutput \n", nSurfs);
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
 fprintf(stderr, "HF[%i] = %e \n ", iSurf, HF[iSurf]);
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface;//Pour faire la moyenne
+        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; //Why the 2 factor?
       else
-       HF[iSurf] *= refVal->power; //A verifier
+       HF[iSurf] *= refVal->power; 
 fprintf(stderr, "SURFACE = %e\n\n\n\n", surface);
         fprintf(fpHeatFluxes[iSurf], "%d %e %d %d %e \n",
                 it, time, itSc, itNl, HF[iSurf]);
