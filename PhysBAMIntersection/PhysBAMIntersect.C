@@ -335,25 +335,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
       // Add the reverse edge to the list of edges to compute
       reverseEdges.push_back(pair<int,int>(q,p));
-     /* const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(i+1).y.triangleID-1);
-      Vec3D edgeVec(X[q][0]-X[p][0], X[q][1]-X[p][1], X[q][2]-X[p][2]);
-      if(edgeVec.norm() == 0)
-        continue;
-      Vec3D edgeDir = edgeVec / edgeVec.norm();
-      double weight = std::abs(edgeDir*trNorm)+1e-3;
-      double dot = trNorm*edgeVec;
-      double alpha = edgeRes(i+1).y.alpha;
-      double phiq = alpha*dot;
-      double phip = phiq-dot;
 
-      phi[p] += weight*phip;
-     // phi[q] += weight*phiq;
-      for(int j = 0; j < 3; ++j) {
-        normApprox[p][j] += weight*trNorm[j];
-      //  normApprox[q][j] += weight*trNorm[j];
-      }
-      weightSum[p] += weight;
-     // weightSum[q] += weight;*/
       updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
       nIntersect++;
     }
