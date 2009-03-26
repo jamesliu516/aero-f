@@ -14,7 +14,7 @@
 #include <Communicator.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-#include "Ghost/DistEulerStructGhostFluid.h"
+// MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 #include <LevelSet/FluidTypeCriterion.h>
 
 #include <stdio.h>

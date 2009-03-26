@@ -5,7 +5,7 @@
 
 #include <IoData.h>
 #include <Domain.h>
-#include "Ghost/DistEulerStructGhostFluid.h"
+// MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
 
