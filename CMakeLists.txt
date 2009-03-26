@@ -139,8 +139,6 @@ ADD_LIBRARY(FluidBase
              BCApplierCore.C 
 	     BCond.C 
              BlockAlloc.C 
-             Ghost/EulerStructGhostFluidCore.C
-             Ghost/DistEulerStructGhostFluidCore.C 
              LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
             )
@@ -358,7 +356,7 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} -lpthread)
+TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
 SET_TARGET_PROPERTIES(fluid 
                       PROPERTIES 
 		        RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
