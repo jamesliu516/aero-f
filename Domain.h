@@ -62,6 +62,9 @@ template<int dim, class Scalar = double> class DistNodalGrad;
 
 //------------------------------------------------------------------------------
 
+/** Class containing the geometry of all the subdomains used in the current MPI process
+ * 
+ */
 class Domain {
 
   int numLocSub;
