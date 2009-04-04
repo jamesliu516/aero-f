@@ -69,7 +69,7 @@ class PhysBAMIntersector : public LevelSetStructure {
   public: // For debug
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not
-    Vec<double> &phi;
+    Vec<double> &phi; //<! Pseudo phi value
     Vec<Vec3D> locNorm;
     EdgeSet &edges;
     LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes;
@@ -78,7 +78,14 @@ class PhysBAMIntersector : public LevelSetStructure {
                    SVec<double, 3> &normApprox, Vec<double> &weightSum);
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
+    /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
+     *
+     * results are for the subdomain only */
     void computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &n, Vec<double> &lWeight);
+    /** complete the computation of the signed distance after communication with neighboring subdomains
+     * has been done
+     *
+     * status is created and the locNorm contains our estimate of the normal for nodes near the structure*/
     void finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &n, Vec<double> &lWeight);
 
     LevelSetResult
