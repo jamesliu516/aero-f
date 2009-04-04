@@ -25,11 +25,16 @@ struct LevelSetResult {
 /** Abstract class for finding levelset information */
 class LevelSetStructure {
   public:
+    /** returns the normal and normal velocity at intersection between edge ni, nj and structure
+     *
+     * If ni, nj is not an edge of the fluid mesh, result is undefined.
+     * */
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
     virtual bool isActive(double t, int n) = 0; //!< Whether this node is active or ghost.
-    virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0;
+    virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
 
+    /** creates an array of values which are positive inside the fluid and negative outside. */
     virtual void computePhi(Vec<double> &phi);
 
     Vec3D totalForce;

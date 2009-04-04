@@ -18,7 +18,12 @@ class IntersectProblemData {
 
 class IntersectorConstructor {
   public:
+
     virtual DistLevelSetStructure *getIntersector(IntersectProblemData &) = 0;
+    /** Intersector initialization method
+     *
+     * \param dataTree the data read from the input file for this intersector.
+     */
     virtual void init(ParseTree &dataTree) = 0;
     virtual int print() = 0;
 };
@@ -33,6 +38,7 @@ class IntersectionFactory {
     static Communicator *com;
   public:
 
+    /** function to register an Intersector method */
     static IntersectorConstructor *
         registerClass(std::string name, IntersectorConstructor *);
     static void parseIntersectionObject(std::string name, ParseTree &data);

@@ -12,23 +12,30 @@ class Domain;
 template<int dim> class BcData;
 
 //------------------------------------------------------------------------------
-/* 
+/*
    angles[0] in the x-z plane (flow parallel to x-axis if alpha[0]=0)
    angles[1] in the x-y plane (flow parallel to x-axis if alpha[1]=0)
 */
 
+/** Distributed Boundary Condition data.
+ *
+ */
 template<int dim>
 class DistBcData {
 
 protected:
   enum BoundaryFluid { GAS=0, TAIT=1, JWL=2 } boundaryFluid;
-
+  /** angles of the incoming flow
+     *
+     * - angles[0] is \f$\alpha\f$ in the x-z plane (flow parallel to x-axis if angles[0]=0).
+     * - angles[1] is \f$\beta\f$ in the x'-y plane (flow parallel to x'-axis if angles[1]=0).
+    */
   double angles[2];
 
-  bool gravityOn;
-  double gravity;
+  bool gravityOn; //!< Whether gravity is activated or not.
+  double gravity; //!< intensity of the gravity
   double depth;
-  double ngravity[3];
+  double ngravity[3]; //!< direction of the gravity
 
   VarFcn *vf;
 
@@ -50,7 +57,7 @@ protected:
   Communicator *com;
   SubDomain **subDomain;
   BcData<dim> **subBcData;
-  
+
   map<int, RotationData *> &rotInfo;
   double tref;
   double vref;
@@ -107,7 +114,7 @@ public:
   DistVec<double> &getDerivativeOfTemperatureVector() { return (*dTemp); }
   virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &) {}
   virtual void initialize(IoData &, VarFcn *, DistSVec<double,3> &) {}
-  virtual void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}  
+  virtual void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}
   DistSVec<double,3> &getDerivativeOfVelocityVector() { return *dXdot; }
 
 };
@@ -134,7 +141,7 @@ private:
 
 // Included (MB)
   void initialize(IoData &, VarFcn *, DistSVec<double,3> &);
-  void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);  
+  void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);
   void setDerivativeOfBoundaryConditionsGas(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double, double, double);
   void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
   void updateFarFieldGasSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
@@ -142,7 +149,7 @@ private:
 public:
 
   DistBcDataEuler(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
-  ~DistBcDataEuler() {}  
+  ~DistBcDataEuler() {}
 
 };
 
@@ -164,7 +171,7 @@ class DistBcDataSA : public DistBcDataEuler<dim> {
 public:
 
   DistBcDataSA(IoData &, VarFcn *, Domain *, DistSVec<double,3> &);
-  ~DistBcDataSA();  
+  ~DistBcDataSA();
 
   void computeNodeValue(DistSVec<double,3> &);
 

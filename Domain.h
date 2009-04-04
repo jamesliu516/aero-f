@@ -61,9 +61,11 @@ template<int dim, class Scalar = double> class DistNodalGrad;
 
 
 //------------------------------------------------------------------------------
-
+/** \brief Class of all data for this MPI process
 /** Class containing the geometry of all the subdomains used in the current MPI process
- * 
+ *
+ * The Domain class contains all the SubDomain s and offers entry points for all
+ * parallel routines, distributing the work to each SubDomain.
  */
 class Domain {
 
