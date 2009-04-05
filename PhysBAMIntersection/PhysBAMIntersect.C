@@ -337,10 +337,12 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   // List of reverse edges
   vector<pair<int, int> > reverseEdges;
 
+/*
   Vec<int> trIntersectCount(distIntersector.length_triangle_list);
   Vec<int> trNdIsectCount(distIntersector.length_solids_particle_list);
   trNdIsectCount = 0;
   trIntersectCount = 0;
+*/
 
   // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
   // Add intersecting edges to the list of reverse edges
@@ -352,15 +354,15 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       reverseEdges.push_back(pair<int,int>(q,p));
 
       updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
-      trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
+      //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       int trId = edgeRes(i+1).y.triangleID-1;
       int *nd = distIntersector.triangle_list[trId];
-      for(int j = 0; j <3 ;++j)
-        trNdIsectCount[nd[j]]++;
+      /*for(int j = 0; j <3 ;++j)
+        trNdIsectCount[nd[j]]++;*/
       nIntersect++;
     }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
-  std::cout << "Nd min: " << trNdIsectCount.min() << std::endl;
+  //std::cout << "Nd min: " << trNdIsectCount.min() << std::endl;
 
   LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > reverseEdgeRes(nIntersect);
   for(int i = 0; i < nIntersect; ++i) {
@@ -378,7 +380,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
     int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
     if(reverseEdgeRes(i+1).y.triangleID >= 0) {
       updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
-      trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
+      //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       nIntersect++;
     } else {
       std::cout << "Reverse between " << p << " and " << q << " has no intersection" << std::endl;
@@ -403,11 +405,12 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
     }
   }
   int nZeros = 0;
+/*
   for(int i = 0; i < trIntersectCount.size(); ++i)
     if(trIntersectCount[i] == 0)
-      nZeros++;
-  std::cout << "Minimum triangle intersect: " << trIntersectCount.min() << " max: " << trIntersectCount.max() << std::endl;
-  std::cout << "Number of zeros: " << nZeros << std::endl;
+      nZeros++;*/
+  //std::cout << "Minimum triangle intersect: " << trIntersectCount.min() << " max: " << trIntersectCount.max() << std::endl;
+  //std::cout << "Number of zeros: " << nZeros << std::endl;
 }
 
 void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &normApprox,
