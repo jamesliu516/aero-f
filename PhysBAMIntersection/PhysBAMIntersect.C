@@ -71,9 +71,12 @@ LevelSetStructure &
 DistPhysBAMIntersector::operator()(int subNum) const {
   return *intersector[subNum];
 }
-
+/** Intersector initialization method
+*
+* \param dataTree the data read from the input file for this intersector.
+*/
 void DistPhysBAMIntersector::init(std::string solidSurface) {
-  //2.read data from "prolateSurface.top".
+  // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
   if (topFile == NULL) {fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
@@ -99,7 +102,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   if (thisNode!=length_triangle_list) {fprintf(stderr,"error in loading surface from file **!\n", thisNode); exit(1);}
   fclose(topFile);
 
-  //3. verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
+  // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"Checking the solid surface...\n");
   if (checkTriangulatedSurface()) com->fprintf(stderr,"OK.\n");
   else exit(-1);
@@ -268,9 +271,11 @@ DistPhysBAMIntersector::initializePhysBAM() {
   std::cout <<"Going to make PhysBAMInterface" << std::endl;
   physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
   std::cout <<"Done making PhysBAMInterface" << std::endl;
+  // Compute the normals of each of the structural triangles
   buildSolidNormals();
 }
 
+/** compute the intersections, node statuses and normals for the initial geometry */
 void
 DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   this->X = &X;
@@ -317,6 +322,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   for(int i = 0; i < X.size(); ++i)
     for(int j = 0; j < 3; ++j)
       xyz(i+1)[j+1] = X[i][j];
+
   double t0 = timer->getTime();
   distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
   double t = timer->getTime();
@@ -328,19 +334,33 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   normApprox = 0;
   weightSum = 0;
 
-  // Create the list of reverse edges
+  // List of reverse edges
   vector<pair<int, int> > reverseEdges;
+
+  Vec<int> trIntersectCount(distIntersector.length_triangle_list);
+  Vec<int> trNdIsectCount(distIntersector.length_solids_particle_list);
+  trNdIsectCount = 0;
+  trIntersectCount = 0;
+
+  // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
+  // Add intersecting edges to the list of reverse edges
   for(int i = 0; i < numEdges; ++i)
+    // check if this edge intersects the structure
     if(edgeRes(i+1).y.triangleID >= 0) {
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
       // Add the reverse edge to the list of edges to compute
       reverseEdges.push_back(pair<int,int>(q,p));
 
       updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
+      trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
+      int trId = edgeRes(i+1).y.triangleID-1;
+      int *nd = distIntersector.triangle_list[trId];
+      for(int j = 0; j <3 ;++j)
+        trNdIsectCount[nd[j]]++;
       nIntersect++;
     }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
-
+  std::cout << "Nd min: " << trNdIsectCount.min() << std::endl;
 
   LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > reverseEdgeRes(nIntersect);
   for(int i = 0; i < nIntersect; ++i) {
@@ -358,6 +378,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
     int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
     if(reverseEdgeRes(i+1).y.triangleID >= 0) {
       updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
+      trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       nIntersect++;
     } else {
       std::cout << "Reverse between " << p << " and " << q << " has no intersection" << std::endl;
@@ -381,7 +402,12 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
         updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
     }
   }
-
+  int nZeros = 0;
+  for(int i = 0; i < trIntersectCount.size(); ++i)
+    if(trIntersectCount[i] == 0)
+      nZeros++;
+  std::cout << "Minimum triangle intersect: " << trIntersectCount.min() << " max: " << trIntersectCount.max() << std::endl;
+  std::cout << "Number of zeros: " << nZeros << std::endl;
 }
 
 void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &normApprox,
@@ -435,6 +461,7 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
 
   Connectivity &nToN = *(sub.createEdgeBasedConnectivity());
 
+  // Find problem nodes: undecided nodes that have connections to both inside and outside nodes
   std::vector<int> problemNodes;
   for(int cur = 0; cur < sub.numNodes(); ++cur) {
     if(status[cur] != UNDECIDED)
@@ -507,9 +534,13 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
       }
     }
   }
+
+  // List is used as a FIFO queue
   Vec<int> list(numNodes);
   Vec<int> level(numNodes);
   // Look for a start point
+  // lead: In pointer
+  // next: out pointer (of FIFO)
   int next = 0, lead = 0;
   for(int i = 0; i < numNodes; ++i)
     if(status[i] != UNDECIDED) {
@@ -521,8 +552,6 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
     int cur = list[next++];
     int curStatus = status[cur];
     int curLevel = level[cur];
-    if(curStatus == UNDECIDED)
-      std::cout << "Weird!!!" << std::endl;
     for(int i = 0; i < nToN.num(cur); ++i) {
       if(status[nToN[cur][i]] == UNDECIDED) {
         status[nToN[cur][i]] = curStatus;
