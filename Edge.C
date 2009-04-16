@@ -526,18 +526,25 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
-  FILE *outFile = 0; //fopen("theEdges","w");
-  //fprintf(stderr, "Working on the edges\n");
   int ierr=0;
   riemann.reset(it);
 
   for (int l=0; l<numEdges; ++l) {
-    if (!masterFlag[l]) continue;
+//    if (!masterFlag[l]) continue;
 
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool iIsActive = LSS.isActive(0, i);
     bool jIsActive = LSS.isActive(0, j);
+
+    if ((locToGlobNodeMap[i]+1==256426 && locToGlobNodeMap[j]+1==948374) ||
+        (locToGlobNodeMap[j]+1==256426 && locToGlobNodeMap[i]+1==948374)) 
+      fprintf(stderr,"edge (%d()->%d(%d)), masterFlag = %d.\n", locToGlobNodeMap[i]+1, (int)iIsActive, locToGlobNodeMap[j]+1, (int)jIsActive, masterFlag[l]);
+
+
+    if (!masterFlag[l]) continue;
+    if( !iIsActive && !jIsActive ) 
+      continue;
 
     double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
@@ -546,7 +553,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-//    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
 // Reconstruction without crossing the interface.
     if (iIsActive && jIsActive)
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
@@ -577,9 +583,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       Vj[k+dim] = V[j][k];
     }
 
-    if( !iIsActive && !jIsActive ) //why not in the beginning?
-      continue;
-
     if (!LSS.edgeIntersectsStructure(0, i, j)) {  // same fluid
       //TODO:only valid for fluid/full solid. not valid for fluid/shell/fluid.
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
@@ -589,17 +592,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }
     else{			// interface
-      if(outFile) {
-        fprintf(outFile,"%d->%d", i,j);
-        fflush(outFile);
-      }
-      LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-      if(outFile) {
-        fprintf(outFile,".\n", i,j);
-        fflush(outFile);
-      }
-
       if (iIsActive) {
+        LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
         for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
 /*        double area = normal[l].norm(); //area of c.v. surface
@@ -616,6 +610,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
       if (jIsActive) {
+        LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
         for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
 /*        double area = normal[l].norm(); //area of c.v. surface
@@ -632,10 +627,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
     }
-  }
-  if(outFile) {
-    fflush(outFile);
-    fclose(outFile);
   }
 
   return ierr;

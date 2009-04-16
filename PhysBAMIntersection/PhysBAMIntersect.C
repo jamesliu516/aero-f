@@ -247,7 +247,6 @@ DistPhysBAMIntersector::initializePhysBAM() {
 // Initialize the Particles list
   PhysBAM::SOLIDS_PARTICLE<PhysBAM::VECTOR<double,3> >& physbam_solids_particle=*new PhysBAM::SOLIDS_PARTICLE<PhysBAM::VECTOR<double,3> >();
   physbam_solids_particle.Add_Particles(length_solids_particle_list);
-
   for (int i=0; i<length_solids_particle_list; i++) {
     physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(solids_particle_list[i][0],
         solids_particle_list[i][1], solids_particle_list[i][2]);
@@ -313,11 +312,17 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
     edgeRes(i+1).x[2] = ptr[i][1]+1;
   }
   status = UNDECIDED;
+
+  nodeMap = sub.getNodeMap();
+
+  locToGlobNodeMap = sub.getNodeMap();
 }
 
 void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &normApprox,
                                                Vec<double> &weightSum)
 {
+  bool* edgeMasterFlag = edges.getMasterFlag();
+
   LIST_ARRAY<VECTOR<double,3> > xyz(X.size());
   for(int i = 0; i < X.size(); ++i)
     for(int j = 0; j < 3; ++j)
@@ -346,7 +351,8 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
 
   // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
   // Add intersecting edges to the list of reverse edges
-  for(int i = 0; i < numEdges; ++i)
+  for(int i = 0; i < edgeRes.Size(); ++i) {
+    if (!edgeMasterFlag[i]) continue; 
     // check if this edge intersects the structure
     if(edgeRes(i+1).y.triangleID >= 0) {
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
@@ -361,6 +367,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
         trNdIsectCount[nd[j]]++;*/
       nIntersect++;
     }
+  }
   std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
   //std::cout << "Nd min: " << trNdIsectCount.min() << std::endl;
 
@@ -378,6 +385,8 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   nIntersect = 0;
   for(int i = 0; i < reverseEdges.size(); ++i) {
     int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
+    secondTriangleTracker[edges.find(p,q)] = reverseEdgeRes(i+1).y.triangleID-1;
+
     if(reverseEdgeRes(i+1).y.triangleID >= 0) {
       updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
       //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
@@ -395,13 +404,14 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       xyz(2)[1] = X[q][0];
       xyz(2)[2] = X[q][1];
       xyz(2)[3] = X[q][2];
-
       distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance()+1e-9);
       std::cout << "redoing it gives: " << edgeRes(1).y.triangleID << std::endl;
       if(edgeRes(1).y.triangleID < 0)
         std::cerr << "Reverse cut could not be fixed! This will probably lead to a crash or incorrect results!" << std::endl;
-      else
+      else {
         updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
+        secondTriangleTracker[edges.find(p,q)] = edgeRes(1).y.triangleID-1;
+      }
     }
   }
   int nZeros = 0;
@@ -417,8 +427,8 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
                                          Vec<double> &weightSum)
  {
   int numNodes = status.size();
-
-  for(int i = 0; i < numNodes; ++i)
+  
+  for(int i = 0; i < numNodes; ++i) {
     if(weightSum[i] > 0) {
       phi[i] /= weightSum[i];
       status[i] = (phi[i] >= 0) ? INSIDE : OUTSIDE;
@@ -428,7 +438,7 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
       else
         std::cout << "Really null norm" << std::endl;
     }
-
+  }
   if(nIntersect == 0) {
      LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
      edgeRes(1).x[1] = 1;
@@ -591,6 +601,7 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
           //   " and " << nToN[cur][i] << std::endl;
       }
   std::cout << "We have " << numWeird << " intersections to revisit" << std::endl;
+
 }
 
 void PhysBAMIntersector::updatePhi(int p, int q, IntersectionResult<double> &res, SVec<double, 3> &X, Vec<double> &phi,
@@ -609,6 +620,7 @@ void PhysBAMIntersector::updatePhi(int p, int q, IntersectionResult<double> &res
   for(int j = 0; j < 3; ++j)
     normApprox[p][j] += weight*trNorm[j];
   weightSum[p] += weight;
+  
 }
 
 LevelSetResult
@@ -623,7 +635,14 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
       std::cerr << "Norm (1) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
     return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
   }
-  Vec3D nrm = distIntersector.getSurfaceNorm(triangleID);
+  int triangle2ID = secondTriangleTracker[edgeNum];
+  Vec3D nrm;
+  if (triangle2ID<0) 
+    nrm = distIntersector.getSurfaceNorm(triangleID);
+  else {
+    if (ni<nj) nrm = distIntersector.getSurfaceNorm(triangleID); //NOTE:assume ni<nj for edge(ni,nj).
+    else nrm = distIntersector.getSurfaceNorm(triangle2ID);
+  }
   // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
   if(nrm.norm() == 0)
     std::cerr << "Norm (2) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;

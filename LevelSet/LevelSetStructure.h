@@ -50,7 +50,7 @@ class DistLevelSetStructure {
     virtual void initialize(Domain *, DistSVec<double,3> &X) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
     virtual void clearTotalForce();
-    virtual Vec3D getTotalForce();
+    virtual Vec3D getTotalForce(const double pref);
 
     virtual DistVec<double> &getPhi();
 

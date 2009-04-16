@@ -67,6 +67,11 @@ class PhysBAMIntersector : public LevelSetStructure {
 
   protected:
   public: // For debug
+
+    int *locToGlobNodeMap;
+    int *nodeMap;
+    std::map<int,int> secondTriangleTracker;
+    
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not
     Vec<double> &phi; //<! Pseudo phi value
