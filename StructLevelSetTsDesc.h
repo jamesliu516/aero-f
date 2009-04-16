@@ -26,6 +26,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   DistLevelSetStructure *distLSS;
   DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
   DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
+  double pressureRef;
 
  public:
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);

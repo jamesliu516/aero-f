@@ -80,8 +80,7 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
 
   this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  dU, this->riemann,it);
-  this->com->fprintf(stderr,"I'm here.\n");
-  this->distLSS->getTotalForce();
+  this->distLSS->getTotalForce(this->pressureRef);
   // for RK2 on moving grids
 //  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
   this->timeState->multiplyByTimeStep(dU);

@@ -42,6 +42,8 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+
+  pressureRef = ioData.ref.rv.pressure;
 }
 
 //------------------------------------------------------------------------------

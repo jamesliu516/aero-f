@@ -15,7 +15,7 @@ void DistLevelSetStructure::clearTotalForce()
 
 //-----------------------------------------------------------------------------------
 
-Vec3D DistLevelSetStructure::getTotalForce()
+Vec3D DistLevelSetStructure::getTotalForce(const double pref)
 {
   for (int iSub=0; iSub<numLocSub; iSub++) {
     totalForce[0] += (*this)(iSub).totalForce[0];
@@ -25,7 +25,6 @@ Vec3D DistLevelSetStructure::getTotalForce()
   Communicator *com = IntersectionFactory::getCommunicator();
   com->globalSum(3, totalForce);
 
-  double pref = 1.26e4;
   com->fprintf(stderr,"Total force on structure surface = [%e, %e, %e]\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
  // com->fprintf(forceFile, "%lf %lf %lf\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
   return totalForce;
