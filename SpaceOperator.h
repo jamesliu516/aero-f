@@ -146,6 +146,12 @@ public:
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it = 0);
+// Kevin's FSI with half-Riemann problems (for thin shell problems) 
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistSVec<double,dim> &,
+                       DistSVec<double,dim> &, DistLevelSetStructure *,
+                       DistVec<double> &, DistSVec<double,dim> &,
+                       DistExactRiemannSolver<dim> *, int it = 0);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
@@ -160,6 +166,9 @@ public:
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,
                          DistExactRiemannSolver<dim> *);
+  void updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij, 
+                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
+                         DistVec<int> &nodeTag0, DistVec<int> &nodeTag);  //for FS interface 
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 

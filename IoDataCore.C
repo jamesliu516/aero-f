@@ -2948,7 +2948,6 @@ void IoData::readCmdFile()
   extern int yyCmdfparse();
 
   setupCmdFileVariables();
-
 //  cmdFilePtr = freopen(cmdFileName, "r", stdin);
   yyCmdfin = cmdFilePtr = fopen(cmdFileName, "r");
 
@@ -4079,7 +4078,7 @@ int IoData::checkInputValuesDimensional()
       ref.rv.nutilde = viscosity / ref.density;
       ref.rv.kenergy = velocity*velocity;
       ref.rv.epsilon = velocity*velocity*velocity / ref.length;
-      ref.rv.time = ref.length / velocity;
+      ref.rv.time = ref.length / velocity; 
       ref.rv.force = ref.density * velocity*velocity * ref.length*ref.length;
       ref.rv.energy = ref.density * velocity*velocity * ref.length*ref.length*ref.length;
       ref.rv.power = ref.density * velocity*velocity*velocity * ref.length*ref.length;

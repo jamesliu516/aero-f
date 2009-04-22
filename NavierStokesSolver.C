@@ -8,9 +8,11 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 {
 
   Communicator* com = domain.getCommunicator();
-
-  if (ioData.eqs.numPhase == 1){
-    com->fprintf(stderr, "*** Warning: Running an EulerStructGhostFluid simulation\n");
+  if (ioData.eqs.numPhase == 2){
+    com->fprintf(stderr, "*** Warning: Running an Embedded Fluid-Shell-Fluid simulation\n");
+    StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
+  }else if (ioData.eqs.numPhase == 1){
+    com->fprintf(stderr, "*** Warning: Running an Embedded Fluid-Structure simulation\n");
     StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
   }else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)

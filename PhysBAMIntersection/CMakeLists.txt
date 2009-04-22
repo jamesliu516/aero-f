@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 FIND_PACKAGE(MPI)
 include(../base-exports.cmake)
-set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
+#set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
 FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../PhysBAMLight)
 SET(INC_DIR .. . ${PHYSBAM_BASE})
 IF(MPI_FOUND)

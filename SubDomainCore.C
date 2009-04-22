@@ -867,7 +867,6 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const FluidTypeCriterion &ftc,
                                                    SVec<int,1> &count, SVec<double,6> &R)
 {
-
   R = 0.0;
   count = 0;
 
@@ -986,9 +985,7 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
 {
 
   for (int i=0; i<R.size(); ++i) {
-
-		if(count[i][0]>2){ //enough neighbours to get a least square problem
-
+    if(count[i][0]>2){ //enough neighbours to get a least square problem
       double r11, or11, r12, r13, r22, r23, r33;
       if(!(R[i][0]>0.0)){
         r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
@@ -1001,7 +998,7 @@ void SubDomain::computeWeightsLeastSquaresNodePart(SVec<int,1> &count, SVec<doub
         if(!(R[i][3] - r12*r12>0.0)){
           r11 = 0.0; r12 = 0.0; r13 = 0.0; r22 = 0.0; r23 = 0.0; r33 = 0.0;
           //fprintf(stdout, "*** Warning: gradient = 0.0 - coplanar nodes for node %d\n", locToGlobNodeMap[i]+1);
-																																														        }else{
+        }else{
           r22  = sqrt(R[i][3] - r12*r12);
           r23  = (R[i][4] - r12*r13) / r22;
           r33 = R[i][5] - (r13*r13 + r23*r23);
@@ -4106,33 +4103,27 @@ double SubDomain::scalarNormalExtrap(double* value, Vec3D target, Vec3D normal, 
   bool found = false;
 
   int* myNodes = elems[myTet].nodeNum();
-  //fprintf(stderr,"myNodes = %d, %d, %d, %d.\n", myNodes[0], myNodes[1], myNodes[2], myNodes[3]);
 
   for (int iFace=0; iFace<4; iFace++) {
     int nodeA = myNodes[iFace%4], nodeB = myNodes[(iFace+1)%4], nodeC = myNodes[(iFace+2)%4];
-  //  fprintf(stderr,"iFace = %d, nodeA,B,C = %d, %d, %d.\n", iFace, nodeA, nodeB, nodeC);
     Vec3D A(X[nodeA][0], X[nodeA][1], X[nodeA][2]);
     Vec3D B(X[nodeB][0], X[nodeB][1], X[nodeB][2]);
     Vec3D C(X[nodeC][0], X[nodeC][1], X[nodeC][2]);
 
-//    fprintf(stderr,"I'm here.\n");
     Vec3D faceNormal = (B-A)^(C-A);  faceNormal = 1.0/faceNormal.norm()*faceNormal;
     double r = ((A-target)*faceNormal)/(faceNormal*normal);
     if (r<0) continue; // opposite direction.
     Vec3D P = target + r*normal;
 
-//    fprintf(stderr,"I'm here 2.\n");
     //debug for P.
     if ((P-A)*faceNormal>1e-10) {fprintf(stderr,"dot = %f, error in projection calculation. Abort.\n,",(P-A)*faceNormal); exit(-1);}
 
-//    fprintf(stderr,"I'm here 3.\n");
     //get barycentric coords.
     double rA = 0.5*((B-P)^(C-P)).norm(),  rB = 0.5*((C-P)^(A-P)).norm(),  rC = 0.5*((A-P)^(B-P)).norm();
     double rU = 0.5*((B-A)^(C-A)).norm();
     if (rA<0.0) rA=-rA;  if (rB<0.0) rB=-rB;  if (rC<0.0) rC=-rC;  if (rU<0.0) rU=-rU;
     rA /= rU;  rB /= rU;  rC /= rU;
 
-//    fprintf(stderr,"rA = %e, rB = %e, rC = %e. sum-1 = %e\n", rA, rB, rC, rA+rB+rC-1.0);
 
     if ((rA+rB+rC-1.0)>1e-10 || (rA+rB+rC-1.0)<-1e-10) continue;
     found = true;
@@ -4142,6 +4133,14 @@ double SubDomain::scalarNormalExtrap(double* value, Vec3D target, Vec3D normal, 
 
   if (!found) {fprintf(stderr,"error in normalExtrap(...). Abort.\n"); fprintf(stderr,"target: [%e, %e, %e], normal[%e,%e,%e], C1[%e,%e,%e], C2[%e,%e,%e], C3[%e,%e,%e], C4[%e,%e,%e]. \n", target[0], target[1], target[2], normal[0], normal[1], normal[2], X[myNodes[0]][0], X[myNodes[0]][1], X[myNodes[0]][2], X[myNodes[1]][0], X[myNodes[1]][1], X[myNodes[1]][2], X[myNodes[2]][0], X[myNodes[2]][1], X[myNodes[2]][2], X[myNodes[3]][0], X[myNodes[3]][1], X[myNodes[3]][2]); exit(-1);}
   return res;
+}
+
+//--------------------------------------------------------------------------------
+
+void SubDomain::updateNodeTag(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int> &nodeTag0, Vec<int> &nodeTag)
+{
+  // EdgeLoop(X, LSS, nodeTag0, nodeTag);
+  // NodeLoop
 }
 
 //--------------------------------------------------------------------------------

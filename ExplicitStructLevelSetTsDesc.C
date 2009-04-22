@@ -24,9 +24,9 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   StructLevelSetTsDesc<dim>(ioData, geoSource, dom),
   k1(this->getVecInfo()), k2(this->getVecInfo()),
   k3(this->getVecInfo()), k4(this->getVecInfo()),
-//  p1(this->getVecInfo()), p2(this->getVecInfo()),
-//  p3(this->getVecInfo()), p4(this->getVecInfo()),
-  U0(this->getVecInfo())//, Phi0(this->getVecInfo())
+  p1(this->getVecInfo()), p2(this->getVecInfo()),
+  p3(this->getVecInfo()), p4(this->getVecInfo()),
+  U0(this->getVecInfo()), Phi0(this->getVecInfo())
 {
   timeType = ioData.ts.expl.type;
   this->mmh = 0;
@@ -60,30 +60,114 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  computeRKUpdate(U, k1, 1);  //TODO: changes happen here.
+  if(this->LS) this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  computeRKUpdate(U, k1, 1);  
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
   this->timer->addFluidSolutionTime(t0);
-  U = U0;
-  checkSolution(U);
+
+  if (this->TYPE==2) {
+    if(this->LS) {
+      this->spaceOp->storePreviousPrimitive(U0, this->Vg, this->Phi,
+                                            this->Vgf, this->Vgfweight);
+      t0 = this->timer->getTime();
+  
+      computeRKUpdateLS(this->Phi, p1, U);
+      this->Phi = this->Phi - p1;
+
+      this->timer->addLevelSetSolutionTime(t0);
+
+      U = U0;
+      this->updateFSInterface();
+      this->updateNodeTag();
+      // Riemann overwrite using the value of Phi_{n+1}
+      this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi,
+                                       this->LS->Phin, this->Vgf,
+                                       this->Vgfweight, this->riemann);
+    } else {
+      U = U0;
+      this->updateFSInterface();
+      this->updateNodeTag();
+      this->spaceOp->updatePhaseChange(*this->X, U, *this->Wstarij, *this->Wstarji, this->distLSS, this->nodeTag0, this->nodeTag);
+    }
+
+    checkSolution(U);
+
+    if(this->LS) {
+      this->boundaryFlux  = *this->tmpDistSVec;
+      this->interfaceFlux = *this->tmpDistSVec2;
+    }
+  } else { //fluid-fullbody
+    U = U0;
+    checkSolution(U);
+  }
+
 }
 
+//-----------------------------------------------------------------------------
 
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
 {
-  this->spaceOp->applyBCsToSolutionVector(Ulocal);
-  this->distLSS->clearTotalForce();
+  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
+  if (this->TYPE==2) {
+    DistVec<double> nodeTagCopy(this->getVecInfo());
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      Vec<double> &subTagCopy = nodeTagCopy(iSub);
+      Vec<int> &subTag = this->nodeTag(iSub);
+      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
+    }
 
-  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                 dU, this->riemann,it);
-  this->distLSS->getTotalForce(this->pressureRef);
+    if(this->LS) {
+      *this->tmpDistSVec  = 0.0;
+      *this->tmpDistSVec2 = 0.0;
+    }
+
+    this->spaceOp->applyBCsToSolutionVector(Ulocal);
+    this->distLSS->clearTotalForce();
+
+    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                   nodeTagCopy, dU, this->riemann,it);
+    this->distLSS->getTotalForce(this->pressureRef);
+    this->timeState->multiplyByTimeStep(dU);
+  } else {
+    this->spaceOp->applyBCsToSolutionVector(Ulocal);
+    this->distLSS->clearTotalForce();
+
+    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                   dU, this->riemann,it);
+    this->distLSS->getTotalForce(this->pressureRef);
+    // for RK2 on moving grids
+    //  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
+    this->timeState->multiplyByTimeStep(dU);
+  }
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
+                                  DistVec<double> &dPhi, DistSVec<double,dim> &U)
+{
+  if (this->TYPE!=2) {
+    fprintf(stderr,"in ExplicitStructLevelSetTsDesc::computeRKUpdateLS, shouldn't call me! abort.\n");
+    exit(-1);
+  }
+  this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
   // for RK2 on moving grids
-//  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
-  this->timeState->multiplyByTimeStep(dU);
+  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Philocal, dPhi);
+  this->timeState->multiplyByTimeStep(dPhi);
+
 }
 
 //------------------------------------------------------------------------------
+
+
+
+
+

@@ -9,6 +9,7 @@
 struct DistInfo;
 
 class GeoSource;
+class LevelSet;
 template<class Scalar, int dim> class DistSVec;
 
 //------------------------------------------------------------------------
@@ -24,6 +25,12 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
   DistSVec<double,dim> k2;
   DistSVec<double,dim> k3;
   DistSVec<double,dim> k4;
+
+  DistVec<double> Phi0;
+  DistVec<double> p1;
+  DistVec<double> p2;
+  DistVec<double> p3;
+  DistVec<double> p4;
 
  public:
   ExplicitStructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -44,14 +51,14 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
 //  void solveNLEulerRK2(DistSVec<double,dim> &U);
 //  void solveNLEulerRK4(DistSVec<double,dim> &U);
 //  void solveNLLevelSet(DistSVec<double,dim> &U);
-// void solveNLLevelSetRK2(DistSVec<double,dim> &U);
+//  void solveNLLevelSetRK2(DistSVec<double,dim> &U);
 //  void solveNLLevelSetRK4(DistSVec<double,dim> &U);
 
 
   void computeRKUpdate(DistSVec<double,dim>& Ulocal,
                        DistSVec<double,dim>& dU, int it);
-//  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<double>& dPhi,
-//                         DistSVec<double,dim>& U);
+  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<double>& dPhi,
+                         DistSVec<double,dim>& U);
 
 };
 

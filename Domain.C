@@ -894,6 +894,114 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
+                                     DistExactRiemannSolver<dim> &riemann,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn,
+                                     DistBcData<dim>& bcData, DistGeoState& geoState,
+                                     DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                     DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
+                                     DistLevelSetStructure *LSS, DistVec<double> &nodeTag,
+                                     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     DistSVec<double,dim>& R, int it,
+                                     int failsafe, int rshift)
+{
+  double t0 = timer->getTime();
+  int ierr = 0;
+
+  if (!tag) {
+     tag = new DistSVec<int,2>(getNodeDistInfo());
+     *tag = 0;
+  }
+
+  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  *RR = R; // initialize temp residual
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+    ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
+                                             fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                                             X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
+                                             nodeTag(iSub), ngrad(iSub),
+                                             legrad, (*RR)(iSub), it,
+                                             (*tag)(iSub), failsafe, rshift);
+  }
+  com->globalSum(1, &ierr);
+
+  if (ierr) {
+    if (!failsafe) {
+      com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      exit(1);
+    }
+    else {   // If failsafe option is Yes or Always
+
+      *RR = R; // reinitialize temp residual
+
+#pragma omp parallel for
+      for(iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->sndData(*fsPat,  (*tag).subData(iSub));
+
+      fsPat->exchange();
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->addRcvData(*fsPat, (*tag).subData(iSub));
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->finalizeTags((*tag)(iSub));
+
+      ngrad.fix(*tag);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.limit(recFcn, X, ctrlVol, V);
+
+      if (egrad) egrad->fix(*tag);
+
+#pragma omp parallel for reduction(+: ierr)
+      for (iSub = 0; iSub < numLocSub; ++iSub) {
+        EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+        ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
+                                     fluxFcn, recFcn, bcData(iSub), geoState(iSub),
+                                     X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
+                                     nodeTag(iSub), ngrad(iSub),
+                                     legrad, (*RR)(iSub), it,
+                                     (*tag)(iSub), 0, rshift);
+      }
+
+      if (failsafe == 1) *tag = 0;
+    }
+  }
+
+#pragma omp parallel for reduction(+: ierr)
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->sndData(*vecPat, (*RR).subData(iSub));
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*vecPat, (*RR).subData(iSub));
+
+  R = *RR;
+
+  timer->addFiniteVolumeTermTime(t0);
+
+  if (RR) delete(RR); // delete temp residual
+
+// subdomain communication for riemann update values (cf ExactRiemannSolver.h)
+  if(it == 1){
+    DistSVec<double,dim> *rupdate = riemann.getRiemannUpdate();
+    DistVec<double> *weight= riemann.getRiemannWeight();
+    assemble(vecPat,*rupdate);
+    assemble(volPat,*weight);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
@@ -2619,6 +2727,24 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U)
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistVec<int> &nodeTag)
+{
+
+  int ierr = 0;
+
+#pragma omp parallel for reduction(+: ierr)
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    ierr += subDomain[iSub]->checkSolution(varFcn, U(iSub), nodeTag(iSub));
+
+  com->globalSum(1, &ierr);
+
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim>
 void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
@@ -2977,6 +3103,18 @@ void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub), nodeTag(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, DistVec<double> &Phi)
 {
   int iSub;
@@ -3246,4 +3384,23 @@ void Domain::getDerivativeOfGradP(DistNodalGrad<dim>& ngrad)
 
 }
 
+//-----------------------------------------------------------------------------
+template<int dim>
+void Domain::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                               DistLevelSetStructure *distLSS,
+                               DistVec<int> &nodeTag0, DistVec<int> &nodeTag)  //for FS interface
+{
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->updatePhaseChange(X(iSub), U(iSub), Wstarij(iSub), Wstarji(iSub), 
+                                       (*distLSS)(iSub), nodeTag0(iSub), nodeTag(iSub));
+}
+
+
+
 //-------------------------------------------------------------------------------
+
+
+
+

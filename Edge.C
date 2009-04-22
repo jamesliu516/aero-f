@@ -634,6 +634,149 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 }
 
 //------------------------------------------------------------------------------
+// for FSF (fluid-shell-fluid).
+template<int dim>
+int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn,
+                                     ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V, SVec<double,dim>& Wstarij,
+                                     SVec<double,dim>& Wstarji, LevelSetStructure &LSS, Vec<double> &nodeTag,
+                                     NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                     SVec<double,dim>& fluxes, int it,
+                                     SVec<int,2>& tag, int failsafe, int rshift)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+
+  double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double Wstar[2*dim];
+  double fluxi[dim], fluxj[dim];  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
+  double gphii[3];
+  double gphij[3];
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  double length;
+
+  SVec<double,dim> tempWstarij(Wstarij);
+  SVec<double,dim> tempWstarji(Wstarji);
+  Wstarij = 0.0;
+  Wstarji = 0.0;
+  Vec3D vStar(10.0,0.0,0.0);
+  Vec3D gradPhi(1.0,0.0,0.0);
+
+  int ierr=0;
+  riemann.reset(it);
+
+  for (int l=0; l<numEdges; ++l) {
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+    int typei = (nodeTag[i]>0.0) ? 1 : -1;
+    int typej = (nodeTag[j]>0.0) ? 1 : -1;
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+    for (int k=0; k<dim; ++k) {
+      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+    }
+
+// Reconstruction without crossing the interface.
+    if ((typei*typej)>0)
+      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+    else { // now at interface
+      if (tempWstarij[l][0]<1e-8 && tempWstarij[l][4]<1e-8) {// no riemann sol. (first time-step)
+        for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+        fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+                       locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+      } else {double tempVj[dim*2]; recFcn->compute(V[i], ddVij, tempWstarij[l], ddVji, Vi, tempVj);}
+
+      if (tempWstarji[l][0]<1e-8 && tempWstarji[l][4]<1e-8) {
+        for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+        fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
+                       locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+      } else {double tempVi[dim*2]; recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, tempVi, Vj);}
+    }
+
+/*    if ((typei*typej)>0)
+      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
+    else for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+*/
+    // check for negative pressure or density //
+    if (!rshift)
+      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+                                       failsafe, tag, V[i], V[j], nodeTag[i], nodeTag[j]); //also checking reconstructed values acrossinterface.
+
+    if (ierr) continue;
+
+    for (int k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+
+    if (typei==typej) {  // same fluid
+      if (typei<0) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, 1);
+      if (typei>0) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, -1);
+      for (int k=0; k<dim; ++k) {
+        fluxes[i][k] += flux[k];
+        fluxes[j][k] -= flux[k];
+      }
+    }
+    else{                       // interface
+//      fprintf(stderr,"edge(%d(%f),%d(%f)). LEFT: %e %e | RIGHT: %e %e\n", i,nodeTag[i],j,nodeTag[j], V[i][4], Vi[4], V[j][4], Vj[4]);
+      if (nodeTag[i]<0.0)
+        riemann.computeFSIRiemannSolution((int)nodeTag[i],Vi,vStar,gradPhi,varFcn,Wstar,j);
+      else
+        riemann.computeFSIRiemannSolution((int)nodeTag[i],Vi,vStar,-1.0*gradPhi,varFcn,Wstar,j);
+      fprintf(stderr,"Vi = (%e %e %e %e %e), vStar = (%e %e %e %e %e). nodeTag[i]=%e.\n", Vi[0], Vi[1],Vi[2], Vi[3], Vi[4], Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4], nodeTag[i]);
+      for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
+
+
+/*      double area = normal[l].norm(); //area of c.v. surface
+      area *= normal[l]*gradPhi/normal[l].norm(); //projected to structure surface
+      LSS.totalForce[0] += Wstar[4]*gradPhi[0]*area;
+      LSS.totalForce[1] += Wstar[4]*gradPhi[1]*area;
+      LSS.totalForce[2] += Wstar[4]*gradPhi[2]*area;
+      LSS.sendNodalForceToStruct(X[i],Wstar[4]*area*gradPhi);
+*/      LSS.totalForce[0] += Wstar[4]*normal[l][0];
+      LSS.totalForce[1] += Wstar[4]*normal[l][1];
+      LSS.totalForce[2] += Wstar[4]*normal[l][2];
+      LSS.sendNodalForceToStruct(X[i],Wstar[4]*normal[l]);
+
+
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
+      for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+
+      if (nodeTag[j]<0.0)
+        riemann.computeFSIRiemannSolution((int)nodeTag[j],Vj,vStar,gradPhi,varFcn,Wstar,i);
+      else
+        riemann.computeFSIRiemannSolution((int)nodeTag[j],Vj,vStar,-1.0*gradPhi,varFcn,Wstar,i);
+      fprintf(stderr,"Vj = (%e %e %e %e %e), vStar = (%e %e %e %e %e). nodeTag[j]=%e.\n", Vj[0], Vj[1],Vj[2], Vj[3], Vj[4], Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4], nodeTag[j]);
+
+      for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
+/*      LSS.totalForce[0] += -Wstar[4]*gradPhi[0]*area;
+      LSS.totalForce[1] += -Wstar[4]*gradPhi[1]*area;
+      LSS.totalForce[2] += -Wstar[4]*gradPhi[2]*area;
+      LSS.sendNodalForceToStruct(X[j],-Wstar[4]*area*gradPhi);
+*/      LSS.totalForce[0] += -Wstar[4]*normal[l][0];
+      LSS.totalForce[1] += -Wstar[4]*normal[l][1];
+      LSS.totalForce[2] += -Wstar[4]*normal[l][2];
+      LSS.sendNodalForceToStruct(X[j], -Wstar[4]*normal[l]);
+
+
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
+      for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+    }
+  }
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,

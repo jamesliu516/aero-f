@@ -19,7 +19,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.eqs.numPhase == 1) // FIX
+  if(1) // FIX
     fsiRiemann = new LocalRiemannFluidStructure();
 
 // Multiphase Riemann problem
@@ -95,10 +95,17 @@ void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vsta
       double *nphi, VarFcn *vf, double *Wstar, int nodej)
 
 {
-
   fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
          Wstar,rupdate[nodej],weight[nodej],iteration);
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::computeFSIRiemannSolution(int tag, double *Vi, double *Vstar,
+      double *nphi, VarFcn *vf, double *Wstar, int nodej)
 
+{
+  fsiRiemann->computeRiemannSolution(tag, Vi,Vstar,nphi,vf,
+         Wstar,rupdate[nodej],weight[nodej],iteration);
 }
 //------------------------------------------------------------------------------
 template<int dim>

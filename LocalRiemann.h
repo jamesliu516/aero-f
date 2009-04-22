@@ -55,6 +55,11 @@ public:
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatei, 
                             double &weighti, int it){}
+  // FSI-type Riemann problem
+  virtual void computeRiemannSolution(int tag, double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatei, 
+                            double &weighti, int it){}
 
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);
