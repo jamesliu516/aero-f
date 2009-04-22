@@ -1073,11 +1073,18 @@ void computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatei, 
                             double &weighti, int it);
+void computeRiemannSolution(int tag, double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatei, 
+                            double &weighti, int it);
 
 private:
   void eriemannfs(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
-                  VarFcn *vf);
+                  VarFcn *vf); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+  void eriemannfs(double rhol, double ul, double pl,
+                  double &rhoi, double ui, double &pi,
+                  VarFcn *vf, int tag); //note: ui shouldn't be changed. so the value (instead of reference) is used.
 };
 
 //------------------------------------------------------------------------------
@@ -1111,8 +1118,7 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   P_1  = vf->getPressure(Vi);
 
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
-
-  eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf);
+  eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf); //caution: U_i will not be modified!
 
   Wstar[0]  = R_i;                     Wstar[dim]    = Wstar[0];
   Wstar[1]  = vti[0]+U_i*nphi[0];      Wstar[dim+1]  = Wstar[1];
@@ -1128,12 +1134,51 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
 
 }
 
-#//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+inline
+void LocalRiemannFluidStructure::computeRiemannSolution(int tag, double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatej,
+                            double &weightj, int it)
+{
+
+  int dim = 5;
+
+  double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
+  double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
+
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+
+  R_1 = Vi[0];
+  U_1 = vni;
+  P_1  = vf->getPressure(Vi);
+
+  U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,tag); //caution: U_i will not be modified!
+
+  Wstar[0]  = R_i;                     Wstar[dim]    = Wstar[0];
+  Wstar[1]  = vti[0]+U_i*nphi[0];      Wstar[dim+1]  = Wstar[1];
+  Wstar[2]  = vti[1]+U_i*nphi[1];      Wstar[dim+2]  = Wstar[2];
+  Wstar[3]  = vti[2]+U_i*nphi[2];      Wstar[dim+3]  = Wstar[3];
+  Wstar[4]  = P_i;                     Wstar[dim+4]  = Wstar[4];
+
+  if(it==1){
+    weightj += 1.0;
+    for (int k=0; k<5; k++)
+      rupdatej[k] += Wstar[k];
+  }
+
+}
+
+//------------------------------------------------------------------------------
 
 inline
 void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
-                                            VarFcn *vf)
+                                            VarFcn *vf) //Caution: "ui" will not be modified!
 {
 
   // assume structure on the left of the fluid
@@ -1165,7 +1210,48 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
     if (pi<p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
   }
-  
-
 }
+
+//------------------------------------------------------------------------------
+
+inline
+void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
+                                            double &rhoi, double ui, double &pi,
+                                            VarFcn *vf, int tag) //Caution: "ui" will not be modified!
+{
+
+  // assume structure on the left of the fluid
+  // using the notation of Toro's paper
+
+  double gamma = (tag<=0) ? vf->getGammabis() : vf->getGamma();
+  double pref  = (tag<=0) ? vf->getPressureConstantbis() : vf->getPressureConstant();
+
+  if(u==ui){ // contact
+    rhoi = rho;
+    pi   = p;
+    return;
+  }
+
+  if(ui<u){ // rarefaction
+    double power = 2*gamma/(gamma-1.0);
+    double a = sqrt(gamma*(p+pref)/rho);
+    double pbar = p + pref;
+    pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1,power)-pref;
+    rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
+    if (pi>p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
+  }
+  else{ // shock
+    double temp = 2.0/((gamma+1)*rho*(ui-u)*(ui-u));
+    pi = p + 0.5*(1.0+sqrt(8.0*gamma*temp*(p+pref)/(gamma+1.0)+1.0))/temp;
+    temp = (gamma-1.0)/(gamma+1.0);
+    double pstarbar = pi + pref;
+    double pbar = p + pref;
+    rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
+    if (pi<p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
+  }
+}
+
+
+
+
 #endif

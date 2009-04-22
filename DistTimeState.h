@@ -87,6 +87,9 @@ public:
              DistSVec<double,dim> &U, IoData &iod);
   void setupUVolumesInitialConditions(IoData &iod);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
+  void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
+             DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod);
+  void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<int> &nodeTag);
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);

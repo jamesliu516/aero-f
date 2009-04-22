@@ -40,6 +40,7 @@ public:
   virtual double computeResidualNorm(DistSVec<double,dim>&);
   virtual void monitorInitialState(int, DistSVec<double,dim> &);
 
+  Timer *timer;
 protected:
 
   PosVecType *X;
@@ -77,7 +78,7 @@ protected:
 
   Domain *domain;
 
-  Timer *timer;
+//  Timer *timer;
   Communicator *com;
 
 // Included (MB)

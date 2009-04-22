@@ -321,6 +321,9 @@ public:
   template<int dim>
   void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
              PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+             PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag);
 
   template<int dim>
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
@@ -378,6 +381,15 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistLevelSetStructure *,
+                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistSVec<double,dim>&, int, int, int);
+
+  template<int dim>
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&,
+                               DistSVec<double,dim>&, DistSVec<double,dim>&,
+                               DistLevelSetStructure *, DistVec<double> &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
@@ -639,6 +651,9 @@ public:
   int checkSolution(VarFcn *, DistSVec<double,dim> &);
 
   template<int dim>
+  int checkSolution(VarFcn *, DistSVec<double,dim> &, DistVec<int> &nodeTag);
+
+  template<int dim>
   int checkSolution(VarFcn *, DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &);
 
 
@@ -785,14 +800,13 @@ public:
   int numElems();
 
   int numNodes();
-
+  void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 
-
-  //void getTriangulatedSurfaceFromFace(DistSVec<double,3> &);
-
-  //void printTriangulatedSurface();
-
+  template<int dim>
+  void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &, 
+                         DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *,
+                         DistVec<int> &, DistVec<int> &);
 
  };
 

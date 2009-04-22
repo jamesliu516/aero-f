@@ -48,7 +48,6 @@ int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
   int status = resolve(U, ioData);
-
   return status;
 
 }

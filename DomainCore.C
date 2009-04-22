@@ -1454,6 +1454,15 @@ int Domain::numNodes() //TODO: don't need Edge, Face, Elem...
 
 //-------------------------------------------------------------------------------
 
+void Domain::updateNodeTag(DistSVec<double,3> &X, DistLevelSetStructure *LSS, DistVec<int> &nodeTag0, DistVec<int> &nodeTag)
+{ 
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) 
+    subDomain[iSub]->updateNodeTag(X(iSub), (*LSS)(iSub), nodeTag0(iSub), nodeTag(iSub));
+}
+
+//-------------------------------------------------------------------------------
+
 void Domain::computeCharacteristicEdgeLength(DistSVec<double,3> &X, double& minLength, double& aveLength, double& maxLength, int& numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
 {
   double subDminLength[numLocSub], subDaveLength[numLocSub], subDmaxLength[numLocSub];

@@ -306,6 +306,63 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
+                               DistSVec<double,dim> &Ufar,
+                               DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod)
+{
+
+  *Un = Ufar;
+  nodeTag = 1;
+
+  if (!iod.volumes.volumeMap.dataMap.empty()) {
+    Communicator *com = domain->getCommunicator(); //for screen output only.
+    com->fprintf(stderr,"WARNING: volume map exists but will be ignored!\n");
+  }
+  setupUMultiFluidInitialConditions(iod,X,nodeTag);
+
+  if (name[0] != 0) {
+    domain->readVectorFromFile(name, 0, 0, *Un);
+    if (data->use_nm1)
+      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
+    if (data->use_nm2)
+      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
+  }
+
+  U  = *Un;
+  if (data->use_nm1 && !data->exist_nm1)
+    *Unm1 = *Un;
+  if (data->use_nm2 && !data->exist_nm2)
+    *Unm2 = *Unm1;
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub)
+    if (!subTimeState[iSub])
+      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
+                                              (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, 
+                                                           DistVec<int> &nodeTag)
+{
+  // These initial conditions are setup using MultiFluid.FluidModel2
+  // which can be a gas or a liquid or a jwl gas.
+  // Note that Un was already initialized using the far-field. Therefore the only initialization
+  // left to do is for the spheres and other geometric shapes.
+
+  if (iod.mf.initialConditions.nspheres>0) { 
+    Communicator *com = domain->getCommunicator(); //for screen output only.
+    com->fprintf(stderr,"WARNING: sphere domains exist but will be ignored!\n");
+  }
+
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, 
+                                                   X, *Un, nodeTag);
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
                                DistVec<double> &Phi,

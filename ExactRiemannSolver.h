@@ -38,6 +38,8 @@ class ExactRiemannSolver{
   // for structure-fluid "half-Riemann" problem
   void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej);
+  void computeFSIRiemannSolution(int tag, double *Vi, double *Vstar, double *nphi, 
+                                 VarFcn *vf, double *Wstar, int nodej);
 
 
   void reset(int it);

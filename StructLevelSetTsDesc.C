@@ -29,8 +29,22 @@ using std::min;
 template<int dim>
 StructLevelSetTsDesc<dim>::
 StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  TsDesc<dim>(ioData, geoSource, dom)
+  TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
+  Phi(this->getVecInfo()), Vg(this->getVecInfo()),
+  PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
+  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
 {
+  if (TYPE==1) fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
+  if (TYPE==2) fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+
+  timeStep = 0.0;
+  fsiPosition = 0.0;
+  fsiNormal = 0.0;
+  fsiVelocity = 0.0;
+
+  fprintf(stderr,"gam = %e;  gamp = %e;\n", this->varFcn->getGamma(), this->varFcn->getGammabis());
+  fprintf(stderr,"Pstiff = %e; Pstiffp = %e;\n", this->varFcn->getPressureConstant(), this->varFcn->getPressureConstantbis()); 
+
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
@@ -44,6 +58,31 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 
   pressureRef = ioData.ref.rv.pressure;
+// for FF interface
+//  LS = new LevelSet(ioData, this->domain);
+  LS = 0; // for debug!
+  Vgf = 0;
+  Vgfweight = 0;
+  if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
+    Vgf = new DistSVec<double,dim>(this->getVecInfo());
+    Vgfweight = new DistVec<double>(this->getVecInfo());
+    *Vgf =-1.0;
+    *Vgfweight =0.0;
+  }
+
+  //multiphase conservation check (also for FF interface)
+  boundaryFlux  = 0.0;
+  interfaceFlux = 0.0;
+  computedQty   = 0.0;
+  tmpDistSVec   = 0;
+  tmpDistSVec2  = 0;
+  for(int i=0; i<dim; i++){
+    expectedTot[i] = 0.0; expectedF1[i] = 0.0; expectedF2[i] = 0.0;
+    computedTot[i] = 0.0; computedF1[i] = 0.0; computedF2[i] = 0.0;
+  }
+
+  frequencyLS = ioData.mf.frequency;
+  interfaceTypeFF = ioData.mf.interfaceType;
 }
 
 //------------------------------------------------------------------------------
@@ -55,6 +94,12 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+
+  if (LS) delete LS;
+  if (Vgf) delete Vgf;
+  if (Vgfweight) delete Vgfweight;
+  if(tmpDistSVec)  delete tmpDistSVec;
+  if(tmpDistSVec2) delete tmpDistSVec2;
 }
 
 //------------------------------------------------------------------------------
@@ -64,9 +109,31 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 //from TsDesc::setupTimeStepping. Skipped alot mesh motion handlers...
 {
   this->geoState->setup2(this->timeState->getData());
-  //TODO: timeState->setup different as in LevelSetTsDesc.
-  this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-  this->distLSS->initialize(this->domain,*this->X);
+
+  if (TYPE==1) {  
+    this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
+    this->distLSS->initialize(this->domain,*this->X);
+  } else if (TYPE==2) { 
+    // load the FS interface.
+    if (ioData.mf.initialConditions.nplanes != 1) {
+      fprintf(stderr,"number of planes != 1! Abort...\n"); exit(-1);}
+    fsiPosition[0] = ioData.mf.initialConditions.p1.cen_x;
+    fsiPosition[1] = ioData.mf.initialConditions.p1.cen_y;
+    fsiPosition[2] = ioData.mf.initialConditions.p1.cen_z;
+    fsiNormal[0] = ioData.mf.initialConditions.p1.nx;
+    fsiNormal[1] = ioData.mf.initialConditions.p1.ny;
+    fsiNormal[2] = ioData.mf.initialConditions.p1.nz;
+    fsiNormal /= fsiNormal.norm();
+    fsiVelocity = 10.0; //TODO: should read from the input file.
+
+    fprintf(stderr,"Position = [%e, %e, %e];  Normal = [%e, %e, %e];  Velo = %e.\n", fsiPosition[0], fsiPosition[1], fsiPosition[2], fsiNormal[0], fsiNormal[1], fsiNormal[2], fsiVelocity);
+
+    this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, nodeTag, ioData);
+    nodeTag0 = nodeTag;
+    this->distLSS->initialize(this->domain,*this->X);
+
+    if(LS) LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -74,48 +141,149 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
-// same with both TsDEsc::computeTimeStep and LevelSetTsDesc::computeTimeStep, except "printf" line.
 {
-//  this->com->barrier(); this->com->fprintf(stderr,"in SLSTsDesc::computeTimeStep.\n");
-  double t0 = this->timer->getTime();
-//  this->com->barrier(); this->com->fprintf(stderr,"in SLSTsDesc::computeTimeStep (1).\n");
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
-//  this->com->barrier(); this->com->fprintf(stderr,"in SLSTsDesc::computeTimeStep (2).\n");
-  int numSubCycles = 1;
-  double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->X, *this->A, U);
-  //TODO: create new computeTimeStep in TimeState. Set dt in ghost region to be a large constant.
-//  this->com->barrier(); this->com->fprintf(stderr,"dt = %f.\n", dt);
+  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
+  if (TYPE==2) {
+    DistVec<double> nodeTagCopy(this->getVecInfo());
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      Vec<double> &subTagCopy = nodeTagCopy(iSub);
+      Vec<int> &subTag = nodeTag(iSub);
+      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
+    }
 
-  if (this->problemType[ProblemData::UNSTEADY])
-    this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
-                      dt*this->refVal->time, numSubCycles);
+    double t0 = this->timer->getTime();
+    this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+    int numSubCycles = 1;
+    double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                              &numSubCycles, *this->geoState, *this->A, U,nodeTagCopy);
+    if (this->problemType[ProblemData::UNSTEADY])
+      this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
+                        dt*this->refVal->time, numSubCycles);
+  
+    this->timer->addFluidSolutionTime(t0);
+    this->timer->addTimeStepTime(t0);
 
-  this->timer->addFluidSolutionTime(t0);
-  this->timer->addTimeStepTime(t0);
+    timeStep = dt;
+    return dt;
+  } else {
+    double t0 = this->timer->getTime();
+    this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+    int numSubCycles = 1;
+    double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                              &numSubCycles, *this->geoState, *this->X, *this->A, U);
 
-  return dt;
+    if (this->problemType[ProblemData::UNSTEADY])
+      this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
+                        dt*this->refVal->time, numSubCycles);
+
+    this->timer->addFluidSolutionTime(t0);
+    this->timer->addTimeStepTime(t0);
+
+    return dt;
+  }
+
 }
 
 //---------------------------------------------------------------------------
 
 template<int dim>
 void StructLevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
-{ // same as in TsDesc::updateStateVectors.
-//  this->com->barrier(); this->com->fprintf(stderr,"in SLSTsDesc::updateStateVectors.\n");
+{ 
   this->geoState->update(*this->X, *this->A);
-  this->timeState->update(U);
+  if(LS) { 
+    LS->update(Phi);
+    this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
+                            Vgf, Vgfweight, riemann);
+    if(frequencyLS > 0 && it%frequencyLS == 0){
+      LS->conservativeToPrimitive(Phi,PhiV,U);
+      LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+      LS->primitiveToConservative(PhiV,Phi,U);
+    }
+  } else this->timeState->update(U);
+}
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
+int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
+{
+  int ierr = 0;
+  if (TYPE==2) {  
+    if(LS) ierr = this->domain->checkSolution(this->varFcn, *this->A, U, Phi, LS->Phin);
+    else   ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
+  } else ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+
+  return ierr;
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
-// same as in LevelSetTsDesc::checkSolution. TODO: no phi. how to check?
+void StructLevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
 {
-  int ierr = 0;
-  ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
-  return ierr;
+  if(!tmpDistSVec)  tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
+// computes the total mass, momentum and energy
+// 1- in the whole domain regardless of which phase they belong to
+// 2- in the positive phase (phi>=0.0 <=> sign= 1)
+// 3- in the negative phase (phi< 0.0 <=> sign=-1)
+// The computed total domain mass, momentum and energy can be compared
+//     to expected values (since only what goes out and comes in need to be
+//     to be accounted for).
+// When considering one phase, only the mass can be compared to an expected
+//     value since the flux is zero at the interface between the two fluids.
+//     For the momentum and the energy, the physical flux depends on the
+//     pressure at this interface. More to be said here (numerical flux among
+//     other things)
+  int fluid1 =  1;
+  int fluid2 = -1;
+
+  // total mass, total mass of fluid1, total mass of fluid2
+  // note that there are two types of conservation errors:
+  // 1 - fluxes do not cancel at the interface
+  // 2 - populating of cell that changes fluid
+  // Both have an effect on the total mass
+  // Only the type-2 error has an effect on the total mass of fluid-i
+
+  computedQty = U;
+  computedQty *= *this->A;
+  computedQty.sum(computedTot);
+
+  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0inside routine
+  tmpDistSVec->sum(computedF1);
+
+  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0inside routine
+  tmpDistSVec->sum(computedF2);
+
+  // expected total mass, mass in fluid1, mass in fluid2
+  // an expected mass is computed iteratively, that is
+  // m_{n+1} = m_{n} + fluxes_at_boundaries
+  if(it==0){
+    for (int i=0; i<dim; i++){
+       expectedTot[i] = computedTot[i];
+       expectedF1[i]  = computedF1[i];
+       expectedF2[i]  = computedF2[i];
+    }
+    return;
+  }
+
+  const double dt = this->timeState->getTime();
+  double bcfluxsum[dim];
+
+  boundaryFlux.sum(bcfluxsum);
+  for (int i=0; i<dim; i++)
+    expectedTot[i] += dt*bcfluxsum[i];
+
+  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(bcfluxsum);
+  for (int i=0; i<dim; i++)
+    expectedF1[i] += dt*bcfluxsum[i];
+
+  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
+  tmpDistSVec->sum(bcfluxsum);
+  for (int i=0; i<dim; i++)
+    expectedF2[i] += dt*bcfluxsum[i];
+
 }
 
 //------------------------------------------------------------------------------
@@ -133,20 +301,41 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
 
+  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
+  DistVec<double> nodeTagCopy(this->getVecInfo());
+  if (TYPE==2) {
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      Vec<double> &subTagCopy = nodeTagCopy(iSub);
+      Vec<int> &subTag = nodeTag(iSub);
+      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
+    }
+  }
+  // ----------------------------------------------------
+
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-
-    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+    if (TYPE==2) {
+      this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTagCopy);
+      this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTagCopy);
+      this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTagCopy);
+      this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTagCopy);
+    } else {
+      this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+      this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+      this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+      this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
+    }
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi());
+    if (TYPE==2) this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTagCopy);
+    else this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi());
+
+    if(LS)  this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
-//  this->com->barrier(); this->com->fprintf(stderr,"DONE.\n");
 }
 
 //------------------------------------------------------------------------------
@@ -154,7 +343,9 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
-{ // comes from TsDesc::outputToDisk
+{ 
+  if(LS) conservationErrors(U,it);
+
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;
@@ -162,14 +353,39 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-  this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,
-                                   distLSS->getPhi());
-  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
+  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
+  DistVec<double> nodeTagCopy(this->getVecInfo());
+  if (TYPE==2) {  
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      Vec<double> &subTagCopy = nodeTagCopy(iSub);
+      Vec<int> &subTag = nodeTag(iSub);
+      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
+    }
+  }
+  // ----------------------------------------------------
+  if (TYPE==2) {
+    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTagCopy);
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTagCopy);
+    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTagCopy);
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTagCopy);
+    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTagCopy);
+    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+  } else {
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,
+                                     distLSS->getPhi());
+    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+  }
+  if(LS) {
+    this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+    this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
+  } else
+    this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
 
   if (*lastIt) {
     this->timer->setRunTime();
@@ -184,10 +400,13 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)
-{ //TODO:simply copied from TsDesc::outputForces. need to be modified to work.
+{ //TODO:need to be modified to work.
   // add a new writeForcesToDisk in TsOutput. then go into PostOperator and add a new computeForceAndMoment.
   double cpu = this->timer->getRunTime();
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+  if(LS)
+    this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &Phi);
+  else
+    this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
 }
 
 //------------------------------------------------------------------------------
@@ -234,8 +453,21 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
-{ //from TsDesc::computeResidualNorm. only compute residual for Phi>0 TODO: shouldn't do this for shell.
-  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
+{
+  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
+  DistVec<double> nodeTagCopy(this->getVecInfo());
+  if (TYPE==2) {
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      Vec<double> &subTagCopy = nodeTagCopy(iSub);
+      Vec<int> &subTag = nodeTag(iSub);
+      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
+    }
+  }
+
+  if (TYPE==2) this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTagCopy, *this->R, this->riemann, 0);
+  else this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
+  
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;
   res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
@@ -270,29 +502,50 @@ void StructLevelSetTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim>
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void StructLevelSetTsDesc<dim>::updateFSInterface()
+{
+  if (TYPE!=2) {
+    fprintf(stderr,"In StructLevelSetTsDesc::updateFSInterface: Shouldn't call me! Abort.\n"); 
+    exit(-1);
+  }
+  if (timeStep<=0.0) {fprintf(stderr,"in StructLevelSetTsDesc, timeStep <= 0.0! Abort...\n"); exit(-1);}
+  double displacement = timeStep*fsiVelocity;
+  fsiPosition += displacement*fsiNormal;
+//  fsiPosition += 0.12; //for debug only.
+  fprintf(stderr,"Interface: [%e %e %e], normal [%e %e %e].\n", fsiPosition[0], fsiPosition[1], fsiPosition[2], fsiNormal[0], fsiNormal[1], fsiNormal[2]);
+}  
 
+//------------------------------------------------------------------------------
 
+template<int dim>
+void StructLevelSetTsDesc<dim>::updateNodeTag()
+{
+  if (TYPE!=2) {
+    fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n"); 
+    exit(-1);
+  }
+  if(LS) {fprintf(stderr,"Not ready for FF interface. Abort...\n"); exit(-1);}   
+  nodeTag0 = nodeTag;
+  nodeTag = 0;
 
+//  domain->updateNodeTag(*this->X, distLSS, nodeTag0, nodeTag);
+  
+  // temporarily.
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,3> &subX = (*this->X)(iSub);
+    Vec<int> &subNodeTag = nodeTag(iSub);
+    for (int i=0; i<subX.size(); i++) {
+      double scalar = fsiNormal[0]*(subX[i][0] - fsiPosition[0])
+                    + fsiNormal[1]*(subX[i][1] - fsiPosition[1])
+                    + fsiNormal[2]*(subX[i][2] - fsiPosition[2]);
+      subNodeTag[i] = (scalar>0.0) ? -1 : 1;
+    }
+  } 
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//-------------------------------------------------------------------------------
 
 
 

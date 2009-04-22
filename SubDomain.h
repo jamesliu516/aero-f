@@ -277,6 +277,9 @@ public:
   template<int dim>
   void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
              PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
+  template<int dim>
+  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+             PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U, Vec<int> &nodeTag);
 
   void computeLij(double [3][3], double [3], double [6], double [5]);
   void computeBij(double [3][3], double [6], double, double [3][3], double, double [5]);
@@ -363,7 +366,13 @@ public:
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
-
+  template<int dim>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&,
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, Vec<double> &,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
  template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
@@ -746,6 +755,9 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &);
 
   template<int dim>
+  int checkSolution(VarFcn *, SVec<double,dim> &, Vec<int> &);
+
+  template<int dim>
   int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &, Vec<double> &);
 
   template<int dim>
@@ -989,6 +1001,10 @@ public:
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
 
+  template<int dim>
+  void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+                         LevelSetStructure&, Vec<int>&, Vec<int>&);
+
 //  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
 
   void getTriangulatedSurfaceFromFace( TriangulatedSurface* );
@@ -1006,6 +1022,8 @@ public:
   int* getNeiElemOfNode(int, int, int&);
 
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
+
+  void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);  
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 

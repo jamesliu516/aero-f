@@ -313,8 +313,6 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
     hth->setup(&restart->frequency, &data->maxTime);
 
   *Xs = *X;
-  //timer->setSetupTime();
-//  if (eulerFSI) eulerFSI->setupCommunication(domain,X,*U); //for ghost solid simulation, setup the communication between AERO-F and PhysBAM. For more details refer to DistEulerFluidGhostSolid. 
 }
 
 //------------------------------------------------------------------------------

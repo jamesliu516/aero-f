@@ -5,6 +5,7 @@
 
 #include <IoData.h>
 #include <Domain.h>
+#include <LevelSet.h>
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
@@ -22,13 +23,59 @@ template<int dim>
 class StructLevelSetTsDesc : public TsDesc<dim> {
 
  protected:
-  DistExactRiemannSolver<dim> *riemann;
-  DistLevelSetStructure *distLSS;
-  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
-  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
+  DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
+
+  DistVec<int> nodeTag; // = 1 for fluid #1; = -1 for fluid #2.
+  DistVec<int> nodeTag0; // node tag for the previous time-step.
+
+  double timeStep;
+
+  // coefficients for piston simulations.
+  Vec3D fsiPosition;
+  Vec3D fsiNormal;
+  double fsiVelocity;
   double pressureRef;
 
+  // ----------- components for Fluid-Structure interface. -----------------------------
+  DistLevelSetStructure *distLSS; // tool for FS tracking (not necessarily a  "levelset solver".)
+  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
+  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
+  // ------------------------------------------------------------------------------------
+
+  // ----------- components for Fluid-Fluid interface -----------------------------------
+  LevelSet *LS;
+  DistVec<double> Phi;           //conservative variables
+  DistVec<double> PhiV;          //primitive variables
+  DistSVec<double,dim> Vg;       //primitive V for GFMP
+  DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
+  DistVec<double> *Vgfweight;
+
+  // multiphase conservation check
+  DistSVec<double,dim> boundaryFlux;
+  DistSVec<double,dim> interfaceFlux;
+  DistSVec<double,dim> computedQty;
+  DistSVec<double,dim> *tmpDistSVec;
+  DistSVec<double,dim> *tmpDistSVec2;
+  double expectedTot[dim];
+  double expectedF1[dim];
+  double expectedF2[dim];
+  double computedTot[dim];
+  double computedF1[dim];
+  double computedF2[dim];
+
+  // frequency for reinitialization of level set
+  int frequencyLS;
+
+  MultiFluidData::InterfaceType interfaceTypeFF; //to advance levelset or not
+  // --------------------------------------------------------------------------------------
+
+
+  
+
  public:
+  const int TYPE;   //TYPE = 1 (for fluid-fullbody) 
+                    //     = 2 (for fluid-shell-fluid)
+
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~StructLevelSetTsDesc();
 
@@ -49,8 +96,13 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
+  void conservationErrors(DistSVec<double,dim> &U, int it);
+  void updateFSInterface();
+  void updateNodeTag(); 
+
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
+  
 };
 
 

@@ -804,6 +804,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -826,6 +827,28 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
 }
 
+//------------------------------------------------------------------------------
+
+template<int dim>
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
+                                       LevelSetStructure &LSS, Vec<double> &nodeTag,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       SVec<double,dim>& fluxes, int it,
+                                       SVec<int,2>& tag, int failsafe, int rshift)
+{
+
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, nodeTag,
+                                           ngrad, egrad, fluxes, it,
+                                           tag, failsafe, rshift);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, nodeTag, fluxes); 
+  return ierr;
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -3760,6 +3783,37 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 template<int dim>
+int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &nodeTag)
+{
+
+  int ierr = 0;
+
+  for (int i=0; i<U.size(); ++i) {
+
+    double V[dim];
+    varFcn->conservativeToPrimitive(U[i], V);
+    double rho = varFcn->getDensity(V);
+    double p = varFcn->checkPressure(V, (double)nodeTag[i]);
+
+    if (rho <= 0.0) {
+      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+              rho, locToGlobNodeMap[i] + 1);
+      ++ierr;
+    }
+    if (p <= 0.0) {
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
+              p, locToGlobNodeMap[i] + 1, rho);
+      ++ierr;
+    }
+  }
+
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U,
                              Vec<double> &Phi, Vec<double> &Phin)
 {
@@ -4403,6 +4457,102 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                       PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U, Vec<int> &nodeTag){
+
+  double UU[5];
+
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+
+    double rho = ip.density;
+    double p   = ip.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ip.density;
+    double temperature = ip.temperature;
+    double vel = ip.velocity;
+    double u   = vel*cos(ip.alpha)*cos(ip.beta);
+    double v   = vel*cos(ip.alpha)*sin(ip.beta);
+    double w   = vel*sin(ip.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double nx = ip.nx;
+  double ny = ip.ny;
+  double nz = ip.nz;
+
+  for (int i=0; i<U.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    if(scalar > 0.0) {//node is on the same side indicated by vector
+      nodeTag[i] = -1;
+      for (int idim=0; idim<dim; idim++)
+        U[i][idim] = UU[idim];
+    }
+  }
+
+/*  FILE* ff = fopen("tag.out","w");
+  fprintf(ff,"node# x y z u0 u1 u2 u3 u4 tag\n");
+  for (int i=0; i<U.size(); i++) 
+    fprintf(ff,"%d %e %e %e %e %e %e %e %e %d\n", i+1, X[i][0], X[i][1], X[i][2], U[i][0], U[i][1], U[i][2], U[i][3], U[i][4], nodeTag[i]);
+  fclose(ff);*/
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
 {
   int i, j, k;
@@ -4876,5 +5026,72 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
 
 }
 
-///-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::updatePhaseChange(SVec<double,3> &X, SVec<double,dim> &U, 
+                                  SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
+                                  LevelSetStructure &LSS, Vec<int> &nodeTag0, Vec<int> &nodeTag)
+{
+  if(!NodeToNode) {
+    NodeToNode = createEdgeBasedConnectivity();
+    fprintf(stderr,"Note: node to node connectivity create.\n");
+  }
+
+  Vec3D normal(1.0, 0.0, 0.0);
+
+  Vec3D X0, Xij;
+  int iNei;
+  double proj, maxProj;
+  int bestNeighbor;
+
+  SVec<double,dim> tempU(U);
+
+  for (int iNode=0; iNode<numNodes(); iNode++) {
+    if (nodeTag0[iNode]==nodeTag[iNode]) continue;  //no need to update.
+
+    X0[0] = X[iNode][0];  X0[1] =  X[iNode][1];  X0[2] = X[iNode][2];
+    maxProj = 0.0;
+    for (int i=0; i<NodeToNode->num(iNode); i++) {
+      iNei = (*NodeToNode)[iNode][i];
+      if (nodeTag0[iNei]!=nodeTag[iNei] || nodeTag[iNei]!=nodeTag[iNode]) continue; //skip this neighbor
+
+      Xij[0] = X[iNei][0];  Xij[1] = X[iNei][1];  Xij[2] = X[iNei][2];
+      Xij = X0 - Xij;
+
+      proj = Xij*normal/(Xij.norm()*normal.norm());
+      if (proj>maxProj) {maxProj = proj; bestNeighbor = iNei;}  
+    }
+    if (maxProj<=1.e-8) {fprintf(stderr,"updatePhaseChange failed! Abort...\n"); exit(-1);}
+    for (int i=0; i<dim; i++) U[iNode][i] = U[bestNeighbor][i];
+  }
+
+/*  FILE* ff = fopen("updatePhase.out", "w");
+  for (int i=0; i<numNodes(); i++) 
+    fprintf(ff, "%d %e %e %e  %e %e %e %e %e  %d\n", i+1, X[i][0], X[i][1], X[i][2], U[i][0], U[i][1], U[i][2], U[i][3], U[i][4], nodeTag[i]);
+  fclose(ff);*/
+}
+
+//----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

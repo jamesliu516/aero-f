@@ -1406,12 +1406,12 @@ template<int dim>
 // Kevin's FSI with half-Riemann problems.
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
-                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *eulerFSI,
+                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          DistSVec<double,dim> &R,
                                          DistExactRiemannSolver<dim> *riemann, int it)
 {
   R = 0.0;
-  //DistVec<double> Phi = *(eulerFSI->getPhilevelPointer());
+  //DistVec<double> Phi = *(LSS->getPhilevelPointer());
   varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
@@ -1419,7 +1419,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // compute gradient of V using Phi:
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
-    DistFluidTypeFromIntersect dffi(*eulerFSI);
+    DistFluidTypeFromIntersect dffi(*LSS);
     DistFluidTypeCriterion &dftc = dffi;
     ngrad->compute(geoState->getConfig(), X, ctrlVol,
         dftc, *V);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
@@ -1436,9 +1436,62 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, eulerFSI, *ngrad, egrad,
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, *ngrad, egrad,
                                   R, it, failsafe,rshift);
 
+  if (use_modal == false)  {
+    int numLocSub = R.numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double *cv = ctrlVol.subData(iSub);
+      double (*r)[dim] = R.subData(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        double invcv = 1.0 / cv[i];
+        for (int j=0; j<dim; ++j)
+          r[i][j] *= invcv;
+      }
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+// Kevin's FSI with half-Riemann problems. (for thin shell problems)
+void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
+                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
+                                         DistVec<double> &nodeTagCopy, DistSVec<double,dim> &R,
+                                         DistExactRiemannSolver<dim> *riemann, int it)
+{
+  R = 0.0;
+
+  varFcn->conservativeToPrimitive(U, *V, &nodeTagCopy);  //need to make sure the ghost states are "valid".
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
+    double t0 = timer->getTime();
+    // compute gradient of V using Phi:
+    // for node with Phi, gradient of V is computed using V-values of neighbours
+    // that have the same Phi-sign
+    DistFluidTypeFromLevelSet dftfls(nodeTagCopy);
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, (DistFluidTypeCriterion &)dftfls, *V);
+        //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+    timer->addNodalGradTime(t0);
+  }
+  if (xpol) //boundary condition using xpol = extrapolation
+    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (volForce)
+    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
+    ngrad->limit(recFcn, X, ctrlVol, *V);
+  //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
+  //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
+  domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, nodeTagCopy, *ngrad, egrad,
+                                  R, it, failsafe,rshift);
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
 #pragma omp parallel for
@@ -1606,6 +1659,16 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
     // **** GFMP-like ****
     varFcn->primitiveToConservative(Vg, U, &Phi);
 
+}
+
+//-----------------------------------------------------------------------------
+template<int dim>
+void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
+                                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+                                      DistLevelSetStructure *distLSS,
+                                      DistVec<int> &nodeTag0, DistVec<int> &nodeTag)  //for FS interface
+{
+  domain->updatePhaseChange(X,U,Wstarij,Wstarji,distLSS,nodeTag0,nodeTag);    
 }
 
 //------------------------------------------------------------------------------

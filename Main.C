@@ -43,7 +43,6 @@ extern "C" int entrypoint(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
-
 #ifndef CREATE_DSO
   initCommunication(argc, argv);
 #endif

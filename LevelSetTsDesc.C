@@ -86,9 +86,6 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
   this->geoState->setup2(this->timeState->getData());
 
-//  this->domain->getTriangulatedSurfaceFromFace(*(this->X) );
-//  this->domain->printTriangulatedSurface();
-
   // initalize solution
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
