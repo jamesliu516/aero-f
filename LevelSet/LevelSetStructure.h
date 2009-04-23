@@ -11,13 +11,24 @@ template <class Scalar> class DistVec;
 
 /** Structure used to return levelset information */
 struct LevelSetResult {
+   double alpha;
+   double xi[2];
+   int trNodes[3];
    Vec3D gradPhi;
    Vec3D normVel;
 
+   LevelSetResult() {
+     alpha = xi[0] = xi[1] = -1.0;
+     trNodes[0] = trNodes[1] = trNodes[2] = -1;
+     gradPhi = normVel = 0.0;
+   }
    LevelSetResult(double gpx, double gpy, double gpz,
                   double nvx, double nvy, double nvz) :
 		  gradPhi(gpx, gpy, gpz), normVel(nvx, nvy, nvz) {
 		     gradPhi *= 1.0/gradPhi.norm();
+                     alpha = -1.0;
+                     xi[0] = xi[1] = -1.0;
+                     trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		   }
 
 };

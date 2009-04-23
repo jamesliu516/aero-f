@@ -798,7 +798,6 @@ public:
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
 
   int numElems();
-
   int numNodes();
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
@@ -807,7 +806,10 @@ public:
   void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &, 
                          DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *,
                          DistVec<int> &, DistVec<int> &);
-
+  template<int dim>
+  void computeForceLoad(DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
+                        DistSVec<double,dim> &, DistSVec<double,dim> &); 
+  
  };
 
 //------------------------------------------------------------------------------

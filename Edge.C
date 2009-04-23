@@ -526,6 +526,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
+  SVec<double,dim> tempWstarij(Wstarij);
+  SVec<double,dim> tempWstarji(Wstarji);
+  Wstarij = 0.0;
+  Wstarji = 0.0;
+
   int ierr=0;
   riemann.reset(it);
 
@@ -558,17 +563,17 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
     else { // now at interface
       if (iIsActive)
-        if (Wstarij[l][0]<1e-8 && Wstarij[l][4]<1e-8) {// no riemann sol. (first time-step)
+        if (tempWstarij[l][0]<1e-8 && tempWstarij[l][4]<1e-8) {// no riemann sol. (first time-step)
           for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
 //          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
 //                         locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-        } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
+        } else recFcn->compute(V[i], ddVij, tempWstarij[l], ddVji, Vi, Vj);
       if (jIsActive)
-        if (Wstarji[l][0]<1e-8 && Wstarji[l][4]<1e-8) {
+        if (tempWstarji[l][0]<1e-8 && tempWstarji[l][4]<1e-8) {
           for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
 //          fprintf(stderr,"linRec turned off for Node %d on Edge (%d->%d).\n",
 //                         locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
-        } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
+        } else recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, Vi, Vj);
     }
 
     // check for negative pressure or density //

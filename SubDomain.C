@@ -43,7 +43,7 @@ using std::max;
 #include <VectorSet.h>
 #include <LinkF77.h>
 #include <LowMachPrec.h>
-#include "LevelSet/LevelSetStructure.h"
+//#include "LevelSet/LevelSetStructure.h"
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -5065,21 +5065,137 @@ void SubDomain::updatePhaseChange(SVec<double,3> &X, SVec<double,dim> &U,
     if (maxProj<=1.e-8) {fprintf(stderr,"updatePhaseChange failed! Abort...\n"); exit(-1);}
     for (int i=0; i<dim; i++) U[iNode][i] = U[bestNeighbor][i];
   }
-
-/*  FILE* ff = fopen("updatePhase.out", "w");
-  for (int i=0; i<numNodes(); i++) 
-    fprintf(ff, "%d %e %e %e  %e %e %e %e %e  %d\n", i+1, X[i][0], X[i][1], X[i][2], U[i][0], U[i][1], U[i][2], U[i][3], U[i][4], nodeTag[i]);
-  fclose(ff);*/
 }
 
 //----------------------------------------------------------------------------
+/*
+void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, 
+                                 Vec<double> &pstarij, Vec<double> &pstarji)
+{
+  int T[4]; //nodes in a tet.
+  double x[4][3]; //coords of nodes in a tet.
+  int nPos, nNeg;
+  double count; //count = 3: get a triangle;  = 4: get a quadrangle.
+  int polygon[4][2];
+  int (*ptr)[2];
+  ptr = edges.getPtr();
+  bool *edgeFlag = edges.getMasterFlag();
 
+  for (int iElem=0; iElem<elems.size(); iElem++) {
+    nPos = nNeg = 0;
+    for (int i=0; i<4; i++) {
+      T[i] = elems[iElem][i];
+      (LSS.isActive(0,T[i])) ? nPos++ : nNeg++;
+    }
+    if (nPos==0 || nPos==4) continue; // this tet is away from interface.
 
+    for (int i=0; i<4; i++) {
+      x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
+    count = getPolygon(iElem, LSS, polygon);
 
+    if (count==3) { //get a triangle
+      LevelSetResult lsRes[3];
+      for (int k=0; k<3; k++) {
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
+        if (lsRes[k].alpha<0) {
+          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
+          exit(-1);
+        }
+      }
 
+      Vec3D Xinter[3];
+      double pStar[3];
+      for (int k=0; k<3; k++) {
+        int l = edges.find(polygon[k][0], polygon[k][1]);
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        double alpha = lsRes[k].alpha;
+        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
+        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
+            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
+          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]); 
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
+        }
+        if (pStar[k]<1.0e-8) {
+          fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]); 
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), pstarij[l], pstarji[l]);
 
+          exit(-1);}
+      } 
+      Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]); 
 
+      for (int k=0; k<3; k++) 
+        addLocalForce(nf,pStar[k],lsRes[k],Fs);
+      
+    } else if (count==4) { //get a quadrangle.
 
+      LevelSetResult lsRes[4];
+      for (int k=0; k<4; k++) {
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
+        if (lsRes[k].alpha<0) {
+          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
+          exit(-1);
+        }
+      }
+
+      Vec3D Xinter[4];
+      double pStar[4];
+      for (int k=0; k<4; k++) {
+        int l = edges.find(polygon[k][0], polygon[k][1]);
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        double alpha = lsRes[k].alpha;
+        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
+        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
+            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
+          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]); 
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
+        }
+        if (pStar[k]<1e-8) {
+          fprintf(stderr,"Got a quad. pStar = %e. Unable to proceed. \n", pStar[k]); 
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
+
+          exit(-1);}
+      }
+      double dist02 = (Xinter[2]-Xinter[0]).norm();
+      double dist13 = (Xinter[3]-Xinter[1]).norm();
+      int local[3];
+      if (dist02<dist13) { // connect 0,2.
+        local[0] = 0;  local[1] = 1;  local[2] = 2;
+        Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+        for (int k=0; k<3; k++) 
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+
+        local[0] = 0;  local[1] = 2;  local[2] = 3;
+        nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
+        for (int k=0; k<3; k++) 
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+        
+      } else { // connect 1,3.
+        local[0] = 1;  local[1] = 2;  local[2] = 3;
+        Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
+        for (int k=0; k<3; k++) 
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+
+        local[0] = 0;  local[1] = 1;  local[2] = 3;
+        nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
+        for (int k=0; k<3; k++) 
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+      }
+
+    } else {   
+      fprintf(stderr,"Error: contradiction in getPolygon. (edgeCount = %d). Abort.\n", count); 
+      exit(-1);
+    }
+  }
+}
+*/
 
 
 

@@ -385,7 +385,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   nIntersect = 0;
   for(int i = 0; i < reverseEdges.size(); ++i) {
     int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
-    secondTriangleTracker[edges.find(p,q)] = reverseEdgeRes(i+1).y.triangleID-1;
+    secondIntersection[edges.find(p,q)] = reverseEdgeRes(i+1).y;
 
     if(reverseEdgeRes(i+1).y.triangleID >= 0) {
       updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
@@ -410,7 +410,7 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
         std::cerr << "Reverse cut could not be fixed! This will probably lead to a crash or incorrect results!" << std::endl;
       else {
         updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
-        secondTriangleTracker[edges.find(p,q)] = edgeRes(1).y.triangleID-1;
+        secondIntersection[edges.find(p,q)] = edgeRes(1).y;
       }
     }
   }
@@ -627,26 +627,33 @@ LevelSetResult
 PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
   int triangleID = edgeRes(edgeNum+1).y.triangleID-1;
- //  std:cerr << "Going for the norm " << triangleID << endl;
   if(triangleID < 0) {
     Vec3D nrm = (std::abs(phi[ni]) < std::abs(phi[nj])) ? locNorm[ni] : locNorm[nj];
-    // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
     if(nrm.norm() == 0)
       std::cerr << "Norm (1) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
     return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
   }
-  int triangle2ID = secondTriangleTracker[edgeNum];
+
+  int triangle2ID = secondIntersection[edgeNum].triangleID-1;
   Vec3D nrm;
-  if (triangle2ID<0) 
-    nrm = distIntersector.getSurfaceNorm(triangleID);
-  else {
-    if (ni<nj) nrm = distIntersector.getSurfaceNorm(triangleID); //NOTE:assume ni<nj for edge(ni,nj).
-    else nrm = distIntersector.getSurfaceNorm(triangle2ID);
-  }
-  // std::cerr << "Norm is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+  IntersectionResult<double> result = edgeRes(edgeNum+1).y;
+  if (triangle2ID>=0 && ni>nj) 
+    result = secondIntersection[edgeNum]; 
+  int trueTriangleID = result.triangleID-1;
+  nrm = distIntersector.getSurfaceNorm(trueTriangleID);
+    
   if(nrm.norm() == 0)
     std::cerr << "Norm (2) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
-  return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
+
+  LevelSetResult lsRes(nrm[0], nrm[1], nrm[2], 0, 0, 0);
+  lsRes.alpha = result.alpha;
+  lsRes.xi[0] = result.zeta[0]; 
+  lsRes.xi[1] = result.zeta[1];
+  lsRes.trNodes[0] = distIntersector.triangle_list[trueTriangleID][0]; 
+  lsRes.trNodes[1] = distIntersector.triangle_list[trueTriangleID][1];
+  lsRes.trNodes[2] = distIntersector.triangle_list[trueTriangleID][2];
+
+  return lsRes;
 }
 
 bool PhysBAMIntersector::isActive(double t, int n) {

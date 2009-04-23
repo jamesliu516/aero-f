@@ -4247,22 +4247,228 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
 }
 
 
+//-----------------------------------------------------------------------------------------------
 
+void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
+                                 Vec<double> &pstarij, Vec<double> &pstarji)
+{
+  int T[4]; //nodes in a tet.
+  double x[4][3]; //coords of nodes in a tet.
+  int nPos, nNeg;
+  double count; //count = 3: get a triangle;  = 4: get a quadrangle.
+  int polygon[4][2];
+  int (*ptr)[2];
+  ptr = edges.getPtr();
+  bool *edgeFlag = edges.getMasterFlag();
 
+  for (int iElem=0; iElem<elems.size(); iElem++) {
+    nPos = nNeg = 0;
+    for (int i=0; i<4; i++) {
+      T[i] = elems[iElem][i];
+      (LSS.isActive(0,T[i])) ? nPos++ : nNeg++;
+    }
+    if (nPos==0 || nPos==4) continue; // this tet is away from interface.
 
+    for (int i=0; i<4; i++) {
+      x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
+    count = getPolygon(iElem, LSS, polygon);
 
+    if (count==3) { //get a triangle
+      LevelSetResult lsRes[3];
+      for (int k=0; k<3; k++) {
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
+        if (lsRes[k].alpha<0) {
+          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
+          exit(-1);
+        }
+      }
 
+      Vec3D Xinter[3];
+      double pStar[3];
+      for (int k=0; k<3; k++) {
+        int l = edges.find(polygon[k][0], polygon[k][1]);
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        double alpha = lsRes[k].alpha;
+        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
+        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
+            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
+          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]);
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
+        }
+        if (pStar[k]<1.0e-8) {
+          fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), pstarij[l], pstarji[l]);
 
+          exit(-1);}
+      }
+      Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
 
+      for (int k=0; k<3; k++)
+        addLocalForce(nf,pStar[k],lsRes[k],Fs);
 
+    } else if (count==4) { //get a quadrangle.
 
+      LevelSetResult lsRes[4];
+      for (int k=0; k<4; k++) {
+        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
+        if (lsRes[k].alpha<0) {
+          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
+          exit(-1);
+        }
+      }
 
+      Vec3D Xinter[4];
+      double pStar[4];
+      for (int k=0; k<4; k++) {
+        int l = edges.find(polygon[k][0], polygon[k][1]);
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        double alpha = lsRes[k].alpha;
+        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
+        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
+            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
+          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]);
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
+        }
+        if (pStar[k]<1e-8) {
+          fprintf(stderr,"Got a quad. pStar = %e. Unable to proceed. \n", pStar[k]);
+          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
 
+          exit(-1);}
+      }
+      double dist02 = (Xinter[2]-Xinter[0]).norm();
+      double dist13 = (Xinter[3]-Xinter[1]).norm();
+      int local[3];
+      if (dist02<dist13) { // connect 0,2.
+        local[0] = 0;  local[1] = 1;  local[2] = 2;
+        Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+        for (int k=0; k<3; k++)
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
 
+        local[0] = 0;  local[1] = 2;  local[2] = 3;
+        nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
+        for (int k=0; k<3; k++)
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
 
+      } else { // connect 1,3.
+        local[0] = 1;  local[1] = 2;  local[2] = 3;
+        Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
+        for (int k=0; k<3; k++)
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
 
+        local[0] = 0;  local[1] = 1;  local[2] = 3;
+        nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
+        for (int k=0; k<3; k++)
+          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+      }
 
+    } else {
+      fprintf(stderr,"Error: contradiction in getPolygon. (edgeCount = %d). Abort.\n", count);
+      exit(-1);
+    }
+  }
+}
 
+//-----------------------------------------------------------------------------------------------
+
+int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
+{
+  int facet[4][3] = {{0,1,3}, {1,2,3}, {0,3,2}, {0,2,1}};
+  int edgeIndex[4][3] = {{0,4,3}, {1,5,4}, {3,5,2}, {2,1,0}};
+  int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
+  int T[4]; //nodes in a tet.
+
+  for (int i=0; i<4; i++)
+    T[i] = elems[iElem][i];
+  for (int i=0; i<4; i++)
+    polygon[i][0] = polygon[i][1] = -1;
+
+  int nextEdge[6];
+  for (int i=0; i<6; i++) nextEdge[i] = -1;
+  int firstEdge = -1;
+
+  for (int iFacet=0; iFacet<4; iFacet++) {
+    int status = 0;
+    for (int j=0; j<3; j++) 
+      if (LSS.isActive(0,T[facet[iFacet][j]])) 
+         status |= 1 << j; 
+    switch (status) {
+      case 1: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][0];
+        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][2]; 
+        break;
+      case 2: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][1];
+        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][0]; 
+        break;
+      case 3: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][1];
+        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][2]; 
+        break;
+      case 4: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][2];
+        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][1]; 
+        break;
+      case 5: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][0];
+        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][1]; 
+        break;
+      case 6: 
+        if (firstEdge<0) 
+          firstEdge = edgeIndex[iFacet][2];
+        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][0]; 
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (firstEdge<0) return 0;
+  int curEdge = firstEdge;
+  int edgeCount = 0;
+  do {
+    if (edgeCount>4) {
+      fprintf(stderr,"Error in getPolygon. edgeCount = %d > 4, Abort...\n", edgeCount);
+      exit(-1);
+    }
+    if (LSS.isActive(0,T[edgeToNodes[curEdge][0]])) {
+      polygon[edgeCount][0] = T[edgeToNodes[curEdge][0]];
+      polygon[edgeCount][1] = T[edgeToNodes[curEdge][1]];
+    }else {
+      polygon[edgeCount][0] = T[edgeToNodes[curEdge][1]];
+      polygon[edgeCount][1] = T[edgeToNodes[curEdge][0]];
+    } 
+    edgeCount++;
+    curEdge = nextEdge[curEdge];
+  } while (curEdge>=0 && curEdge!=firstEdge);
+  
+  return edgeCount;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void SubDomain::addLocalForce(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
+{
+  Vec3D flocal = -1.0/3.0*p*nf;
+//  Vec3D flocal = -1.0/3.0*1.0*nf;
+  for (int iDim=0; iDim<3; iDim++) {
+    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
+    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
+    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
+  }
+}
 
 
 
