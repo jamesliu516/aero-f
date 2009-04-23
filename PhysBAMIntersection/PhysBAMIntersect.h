@@ -70,7 +70,7 @@ class PhysBAMIntersector : public LevelSetStructure {
 
     int *locToGlobNodeMap;
     int *nodeMap;
-    std::map<int,int> secondTriangleTracker;
+    std::map<int,IntersectionResult<double> > secondIntersection;
     
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not

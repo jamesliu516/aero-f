@@ -29,9 +29,9 @@ Vec3D DistLevelSetStructure::getTotalForce(const double pref)
 
   com->fprintf(stderr,"Total force on structure surface = [%e, %e, %e]\n", totalForce[0]*pref, totalForce[1]*pref, totalForce[2]*pref);
 
-  Vec3D structForce = (*this)(0).solidSurface.getTotalForce();
+/*  Vec3D structForce = (*this)(0).solidSurface.getTotalForce();
   com->fprintf(stderr,"Total force integrated on structure surface  = [%e, %e, %e]\n", structForce[0]*pref, structForce[1]*pref, structForce[2]*pref);
-
+*/
   return totalForce;
 }
 

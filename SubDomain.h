@@ -13,6 +13,7 @@
 #include <BCond.h>
 #include <TriangulatedSurface.h>
 #include <DenseMatrix.h>
+#include "LevelSet/LevelSetStructure.h"
 
 #ifdef OLD_STL
 #include <map.h>
@@ -1005,32 +1006,27 @@ public:
   void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
                          LevelSetStructure&, Vec<int>&, Vec<int>&);
 
+
 //  void getTriangulatedSurfaceFromFace( SVec<double,3> &);
-
   void getTriangulatedSurfaceFromFace( TriangulatedSurface* );
-
   void getTriangulatedSurfaceFromFace( SVec<double,3> &,  TriangulatedSurface* );
 
 //  void printTriangulatedSurface();
-
   void getGhostNodes(double*, int*, int&);
-
   bool isINodeinITet(Vec3D, int, SVec<double,3>&);
-
   void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
-
   int* getNeiElemOfNode(int, int, int&);
-
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
-
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);  
 
+  void computeForceLoad(SVec<double,3>&, double(*)[3], int, LevelSetStructure&, Vec<double>&,
+                        Vec<double>&);
+  int getPolygon(int, LevelSetStructure&, int[4][2]);
+  void addLocalForce(Vec3D, double, LevelSetResult&, double(*)[3]);
+
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
-
   double specifyBandwidth(Vec<double> &);
-
   double scalarNormalExtrap(double*, Vec3D, Vec3D, int, SVec<double,3> &, bool);
-
   bool insideOutside(double*, const double, const double, const double, const double,
                      const double, const double);
 

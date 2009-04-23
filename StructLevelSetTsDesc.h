@@ -30,6 +30,10 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
 
   double timeStep;
 
+  double (*Fs)[3]; //force distribution on the structure surfac3
+  int numStructNodes;
+  int numStructElems;
+
   // coefficients for piston simulations.
   Vec3D fsiPosition;
   Vec3D fsiNormal;
@@ -97,8 +101,11 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
   void conservationErrors(DistSVec<double,dim> &U, int it);
+
   void updateFSInterface();
-  void updateNodeTag(); 
+  void updateNodeTag();
+  
+  void computeForceLoad(); //compute Fs. 
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 

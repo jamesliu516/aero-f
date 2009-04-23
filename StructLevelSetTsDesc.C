@@ -34,16 +34,13 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
 {
-  if (TYPE==1) fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (TYPE==2) fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
+  if (TYPE==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
   timeStep = 0.0;
   fsiPosition = 0.0;
   fsiNormal = 0.0;
   fsiVelocity = 0.0;
-
-  fprintf(stderr,"gam = %e;  gamp = %e;\n", this->varFcn->getGamma(), this->varFcn->getGammabis());
-  fprintf(stderr,"Pstiff = %e; Pstiffp = %e;\n", this->varFcn->getPressureConstant(), this->varFcn->getPressureConstantbis()); 
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -58,6 +55,44 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 
   pressureRef = ioData.ref.rv.pressure;
+  fprintf(stderr,"reference pressure = %e.\n", pressureRef);
+//------ load structure mesh information from topFile --------
+  numStructNodes = 0;
+  numStructElems = 0; 
+  Fs = 0;
+  if (strlen(ioData.input.solidsurface)>0) {
+    char* solidsurface = new char[strlen(ioData.input.prefix) + strlen(ioData.input.solidsurface) + 1];
+    strcpy(solidsurface, ioData.input.prefix);
+    strcat(solidsurface, ioData.input.solidsurface);
+    FILE* topFile = fopen(solidsurface,"r");
+    if (topFile == NULL) {fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
+    fscanf(topFile,"%d %d", &numStructNodes, &numStructElems);
+  } 
+  if (numStructNodes>0 && numStructElems>0) {
+    this->com->fprintf(stderr,"# of struct nodes: %d,  # of struct elems: %d.\n", numStructNodes, numStructElems);
+    Fs = new double[numStructNodes][3];
+
+/*
+    double (*Fs1)[3];
+    double *Fs2[3];
+    double **Fs3;
+
+    Fs1 = new double[size][3];
+    Fs2[0] = new double[size];
+    Fs2[1] = new double[2*size];
+    Fs2[2] = new double[3*size];
+    Fs1[45][2]; // Legal
+    Fs2[2][45]; // legal
+    Fs2[45][2]; // illegal
+
+    Fs3 = new double*[size];
+    for(int = 0; i < size; ++i)
+      Fs3[i] = new double[3];
+*/
+
+  } else this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
+//-------------------------------------------------------------
+
 // for FF interface
 //  LS = new LevelSet(ioData, this->domain);
   LS = 0; // for debug!
@@ -94,6 +129,8 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+
+  if (Fs) delete[] Fs;
 
   if (LS) delete LS;
   if (Vgf) delete Vgf;
@@ -546,6 +583,36 @@ void StructLevelSetTsDesc<dim>::updateNodeTag()
 }
 
 //-------------------------------------------------------------------------------
+
+template<int dim>
+void StructLevelSetTsDesc<dim>::computeForceLoad()
+{
+  if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
+  for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
+  this->domain->computeForceLoad(*this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
+  
+  double tempFs[numStructNodes*3];
+  for (int i=0; i<numStructNodes; i++)
+    for (int j=0; j<3; j++)
+      tempFs[i*3+j] = Fs[i][j];  
+  this->com->globalSum(3*numStructNodes, tempFs);
+  for (int i=0; i<numStructNodes; i++)
+    for (int j=0; j<3; j++)
+      Fs[i][j] = tempFs[i*3+j];
+
+  double sumFs[3] = {0.0, 0.0, 0.0};  
+  for (int i=0; i<numStructNodes; i++) {
+    sumFs[0]+=Fs[i][0]; sumFs[1]+=Fs[i][1]; sumFs[2]+=Fs[i][2];}
+  this->com->fprintf(stderr,"total Force on structure surface: %e %e %e.\n", pressureRef*sumFs[0], pressureRef*sumFs[1], pressureRef*sumFs[2]);
+}
+
+
+
+
+
+
+
+
 
 
 
