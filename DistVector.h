@@ -82,6 +82,8 @@ public:
 
   bool *getMasterFlag(int i) const { return distInfo.getMasterFlag(i); }
 
+  void zeroNonMaster(); 
+    
 };
 
 //------------------------------------------------------------------------------
@@ -681,6 +683,29 @@ DistVec<Scalar>::max() const
   distInfo.com->globalMax(1, &vmax);
 
   return vmax;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+void
+DistVec<Scalar>::zeroNonMaster() 
+{
+
+  int iSub;
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+
+      int locOffset = distInfo.subOffset[iSub];
+      int locLen = distInfo.subLen[iSub];
+
+      for (int i = 0; i < locLen; ++i)
+        if (!distInfo.masterFlag[locOffset+i])
+           this->v[locOffset+i] = 0;
+   }
 
 }
 
