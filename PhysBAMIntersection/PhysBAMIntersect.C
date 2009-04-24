@@ -307,11 +307,11 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
               Vec<double> &pPhi, DistPhysBAMIntersector &distInt) :
  distIntersector(distInt), status(sub.numNodes()), phi(pPhi), locNorm(sub.numNodes()),
- edges(sub.getEdges()), edgeRes(sub.getEdges().size())
+ edges(sub.getEdges()), edgeRes(sub.getEdges().size()), globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
   int (*ptr)[2] = edges.getPtr();
-
+  
   for(int i = 0; i < numEdges; ++i) {
     edgeRes(i+1).x[1] = ptr[i][0]+1;
     edgeRes(i+1).x[2] = ptr[i][1]+1;
@@ -554,6 +554,7 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
         }
       }
     }
+    
   }
 
   // List is used as a FIFO queue
@@ -585,16 +586,68 @@ void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec
       }
     }
   }
+
   int nInside = 0, nOutside = 0, nUndecided = 0;
   for(int i = 0; i < sub.numNodes(); ++i) {
     if(status[i] == INSIDE)
       nInside++;
     else if(status[i] == OUTSIDE)
       nOutside++;
-    else
+    else 
       nUndecided++;
   }
-  std::cout << "Inside: " << nInside << " outside: " << nOutside << " undecided: " << nUndecided << std::endl;
+
+  int iter = 0;
+  while (nUndecided) {
+    for (int i=0; i<sub.numNodes(); ++i) 
+      if (status[i]==UNDECIDED) {
+        LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
+        edgeRes(1).x[1] = 1;
+        edgeRes(1).x[2] = 2;
+
+        Vec3D insidePoint = distIntersector.getInsidePoint();
+        LIST_ARRAY<VECTOR<double,3> > xyz(2);
+        xyz(1)[1] = X[i][0];
+        xyz(1)[2] = X[i][1];
+        xyz(1)[3] = X[i][2];
+        xyz(2)[1] = insidePoint[0];
+        xyz(2)[2] = insidePoint[1];
+        xyz(2)[3] = insidePoint[2];
+        fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
+              X[0][0], X[0][1], X[0][2],
+              insidePoint[0], insidePoint[1], insidePoint[2]);
+        distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
+        
+        if(edgeRes(1).y.triangleID >= 0) {
+          Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
+          const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
+          if(edgeVec*trNorm < 0) { 
+            status[i] = INSIDE; nInside++;}
+          else {status[i] = OUTSIDE; nOutside++;}
+        } else {status[i] = OUTSIDE; nOutside++;}
+        nUndecided--;
+
+        next = 0, lead = 0;
+        list[lead++] = i;
+        level[i] = 0;
+        while(next < lead) {
+          int cur = list[next++];
+          int curStatus = status[cur];
+          int curLevel = level[cur];
+          for(int k = 0; k < nToN.num(cur); ++k) {
+            if(status[nToN[cur][k]] == UNDECIDED) {
+              nUndecided--;
+              if (curStatus==INSIDE) nInside++; else nOutside++;
+              status[nToN[cur][k]] = curStatus;
+              level[nToN[cur][k]] = curLevel+1;
+              list[lead++] = nToN[cur][k];
+            } 
+          }
+        }
+        
+      }
+  }
+
   // Supplemental check
   int numWeird = 0;
   for(int cur = 0; cur < sub.numNodes(); ++cur)

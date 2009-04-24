@@ -68,6 +68,7 @@ class PhysBAMIntersector : public LevelSetStructure {
   protected:
   public: // For debug
 
+    int globIndex;
     int *locToGlobNodeMap;
     int *nodeMap;
     std::map<int,IntersectionResult<double> > secondIntersection;
