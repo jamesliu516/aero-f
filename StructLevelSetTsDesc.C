@@ -596,25 +596,15 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
     for (int j=0; j<3; j++)
       tempFs[i*3+j] = Fs[i][j];  
   this->com->globalSum(3*numStructNodes, tempFs);
-  for (int i=0; i<numStructNodes; i++)
-    for (int j=0; j<3; j++)
+  for (int i=0; i<numStructNodes; i++) {
+    for (int j=0; j<3; j++) 
       Fs[i][j] = tempFs[i*3+j];
-
+  }
   double sumFs[3] = {0.0, 0.0, 0.0};  
   for (int i=0; i<numStructNodes; i++) {
     sumFs[0]+=Fs[i][0]; sumFs[1]+=Fs[i][1]; sumFs[2]+=Fs[i][2];}
   this->com->fprintf(stderr,"total Force on structure surface: %e %e %e.\n", pressureRef*sumFs[0], pressureRef*sumFs[1], pressureRef*sumFs[2]);
+
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
+//-------------------------------------------------------------------------------

@@ -3407,16 +3407,16 @@ void Domain::computeForceLoad(DistSVec<double,3> &X, double (*Fs)[3], int sizeFs
 {
   double subFs[numLocSub][sizeFs][3];
   DistVec<double> pstarij(Wstarij.info());
-  DistVec<double> pstarji(Wstarji.info()); //extract p from Wstarij & Wstarji.
+  DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar to awoid assembling Wstar
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) 
     for (int i=0; i<Wstarij(iSub).size(); i++) {
       pstarij(iSub)[i] = Wstarij(iSub)[i][4];
       pstarji(iSub)[i] = Wstarji(iSub)[i][4];
     }
-  if(!edgePat) {fprintf(stderr,"edgePat not created! Unable to proceed.\n"); exit(-1);}
-  assemble(edgePat, pstarij);
-  assemble(edgePat, pstarji);
+  if(!scalarEdgePat) {fprintf(stderr,"scalarEdgePat not created! Unable to proceed.\n"); exit(-1);}
+  assembleEdge(scalarEdgePat, pstarij);
+  assembleEdge(scalarEdgePat, pstarji);
  
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {

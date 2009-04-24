@@ -2741,6 +2741,22 @@ void SubDomain::sndNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 
 //------------------------------------------------------------------------------
 
+void SubDomain::sndEdgeData(CommPattern<double> &edgePat, double *edgeData)
+{
+  int iSub, iEdge;
+  for (iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<double> sInfo = edgePat.getSendBuffer(sndChannel[iSub]);
+    for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      sInfo.data[iEdge]   = edgeData[edgeNum];
+    }
+  }
+}
+
+
+
+//------------------------------------------------------------------------------
+
 void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 			   double *edgeNormVel)
 {
@@ -2772,6 +2788,20 @@ void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::rcvEdgeData(CommPattern<double> &edgePat, double *edgeData)
+{
+  int iSub, iEdge;
+  for (iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<double> sInfo = edgePat.recData(rcvChannel[iSub]);
+    for (iEdge = 0; iEdge < numSharedEdges[iSub]; ++iEdge) {
+      int edgeNum = sharedEdges[iSub][iEdge].edgeNum;
+      edgeData[edgeNum] += sInfo.data[iEdge];
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -4255,11 +4285,11 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
   int T[4]; //nodes in a tet.
   double x[4][3]; //coords of nodes in a tet.
   int nPos, nNeg;
-  double count; //count = 3: get a triangle;  = 4: get a quadrangle.
+  int count; //count = 3: get a triangle;  = 4: get a quadrangle.
   int polygon[4][2];
   int (*ptr)[2];
   ptr = edges.getPtr();
-  bool *edgeFlag = edges.getMasterFlag();
+//  bool *edgeFlag = edges.getMasterFlag();
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
     nPos = nNeg = 0;
@@ -4287,31 +4317,22 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
       double pStar[3];
       for (int k=0; k<3; k++) {
         int l = edges.find(polygon[k][0], polygon[k][1]);
-        int i = ptr[l][0];
-        int j = ptr[l][1];
+        int i = polygon[k][0];
+        int j = polygon[k][1];
         double alpha = lsRes[k].alpha;
         Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
         Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
         Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
-        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
-        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
-            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
-          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]);
-          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
-        }
+        pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1.0e-8) {
           fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
-          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), pstarij[l], pstarji[l]);
-
           exit(-1);}
       }
       Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-
       for (int k=0; k<3; k++)
         addLocalForce(nf,pStar[k],lsRes[k],Fs);
 
     } else if (count==4) { //get a quadrangle.
-
       LevelSetResult lsRes[4];
       for (int k=0; k<4; k++) {
         lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
@@ -4325,22 +4346,15 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
       double pStar[4];
       for (int k=0; k<4; k++) {
         int l = edges.find(polygon[k][0], polygon[k][1]);
-        int i = ptr[l][0];
-        int j = ptr[l][1];
+        int i = polygon[k][0];
+        int j = polygon[k][1];
         double alpha = lsRes[k].alpha;
         Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
         Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
         Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
-        pStar[k] = (LSS.isActive(0,i)) ? pstarij[l] : pstarji[l];
-        if ((locToGlobNodeMap[i]+1==3078 && locToGlobNodeMap[j]+1==28503) ||
-            (locToGlobNodeMap[j]+1==3078 && locToGlobNodeMap[i]+1==28503)) {
-          fprintf(stderr,"Got a quad. pStar = %e.  \n", pStar[k]);
-          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
-        }
+        pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1e-8) {
           fprintf(stderr,"Got a quad. pStar = %e. Unable to proceed. \n", pStar[k]);
-          fprintf(stderr,"edge (%d): %d(%d) -> %d(%d). (local: %d->%d).  pStar_ij = %e,  pStar_ji = %e.\n", (int)edgeFlag[l], locToGlobNodeMap[i]+1, (int)LSS.isActive(0,i), locToGlobNodeMap[j]+1, (int)LSS.isActive(0,j), i,j, pstarij[l], pstarji[l]);
-
           exit(-1);}
       }
       double dist02 = (Xinter[2]-Xinter[0]).norm();
@@ -4460,9 +4474,9 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
 //-----------------------------------------------------------------------------------------------
 
 void SubDomain::addLocalForce(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
-{
+{ // assume nf carries the area of that triangle.
   Vec3D flocal = -1.0/3.0*p*nf;
-//  Vec3D flocal = -1.0/3.0*1.0*nf;
+//  Vec3D flocal = -1.0/3.0*(10.0/1.26)*nf;
   for (int iDim=0; iDim<3; iDim++) {
     Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
     Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
@@ -4470,7 +4484,21 @@ void SubDomain::addLocalForce(Vec3D nf, double p, LevelSetResult& lsRes, double(
   }
 }
 
+//-----------------------------------------------------------------------------------------------
 
+void SubDomain::addLocalForce2(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
+{ // assume nf carries the area of that triangle.
+  Vec3D ns = lsRes.gradPhi;
+//  Vec3D flocal = -1.0/3.0*p*(nf*ns)*ns;
+  Vec3D flocal = -1.0/3.0*(10.0/1.26)*(nf*ns)*ns;
+  for (int iDim=0; iDim<3; iDim++) {
+    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
+    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
+    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
 
 
 
