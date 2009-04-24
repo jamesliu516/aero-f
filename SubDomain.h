@@ -681,6 +681,8 @@ public:
   void identifyEdges(CommPattern<int> &);
   void sndNormals(CommPattern<double> &, Vec3D *, double *);
   void rcvNormals(CommPattern<double> &, Vec3D *, double *);
+  void sndEdgeData(CommPattern<double> &, double *);
+  void rcvEdgeData(CommPattern<double> &, double *);
   void sndEdgeInfo(CommPattern<int> &);
   void rcvEdgeInfo(CommPattern<int> &);
 
@@ -1023,6 +1025,7 @@ public:
                         Vec<double>&);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
   void addLocalForce(Vec3D, double, LevelSetResult&, double(*)[3]);
+  void addLocalForce2(Vec3D, double, LevelSetResult&, double(*)[3]);
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
   double specifyBandwidth(Vec<double> &);

@@ -92,6 +92,7 @@ class Domain {
 
   CommPattern<double> *weightPat;
   CommPattern<double> *edgePat;
+  CommPattern<double> *scalarEdgePat;
   CommPattern<double> *momPat;
   CommPattern<double> *csPat;
   CommPattern<double> *engPat;
@@ -625,6 +626,8 @@ public:
   void assemble(DistSVec<double,3> &v) {
     assemble(getVec3DPat(), v);
   }
+
+  void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
 
 
   template<class Scalar, int dim>

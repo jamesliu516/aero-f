@@ -127,6 +127,7 @@ Domain::~Domain()
   if (levelPat) delete levelPat;
   if (weightPat) delete weightPat;
   if (edgePat) delete edgePat;
+  if (scalarEdgePat) delete scalarEdgePat;
   if (momPat) delete momPat;
   if (csPat) delete csPat;
   if (engPat) delete engPat;
@@ -325,6 +326,7 @@ void Domain::numberEdges()
 			      CommPattern<int>::NonSym);
 
   edgePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+  scalarEdgePat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub)
@@ -342,9 +344,11 @@ void Domain::numberEdges()
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->rcvEdgeInfo(edgeNumPat);
     subDomain[iSub]->setComLenEdges(4, *edgePat);
+    subDomain[iSub]->setComLenEdges(1, *scalarEdgePat);
   }
 
   edgePat->finalize();
+  scalarEdgePat->finalize();
 
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub)
@@ -759,6 +763,25 @@ void Domain::computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->rcvNormals(*edgePat, edgeNorm.subData(iSub), edgeNormVel.subData(iSub));
   }
+
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::assembleEdge(CommPattern<double> *commPat, DistVec<double> &W)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->sndEdgeData(*commPat, W.subData(iSub));
+
+  commPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->rcvEdgeData(*commPat, W.subData(iSub));
 
 }
 

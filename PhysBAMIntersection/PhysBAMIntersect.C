@@ -352,14 +352,15 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
   // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
   // Add intersecting edges to the list of reverse edges
   for(int i = 0; i < edgeRes.Size(); ++i) {
-    if (!edgeMasterFlag[i]) continue; 
+    //if (!edgeMasterFlag[i]) continue; 
     // check if this edge intersects the structure
     if(edgeRes(i+1).y.triangleID >= 0) {
       int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
       // Add the reverse edge to the list of edges to compute
       reverseEdges.push_back(pair<int,int>(q,p));
 
-      updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
+      if(edgeMasterFlag[i])
+        updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
       //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       int trId = edgeRes(i+1).y.triangleID-1;
       int *nd = distIntersector.triangle_list[trId];
@@ -388,7 +389,8 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
     secondIntersection[edges.find(p,q)] = reverseEdgeRes(i+1).y;
 
     if(reverseEdgeRes(i+1).y.triangleID >= 0) {
-      updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
+      if(edgeMasterFlag[edges.find(q,p)])
+        updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
       //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       nIntersect++;
     } else {
@@ -409,7 +411,8 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       if(edgeRes(1).y.triangleID < 0)
         std::cerr << "Reverse cut could not be fixed! This will probably lead to a crash or incorrect results!" << std::endl;
       else {
-        updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
+        if(edgeMasterFlag[edges.find(q,p)])
+          updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
         secondIntersection[edges.find(p,q)] = edgeRes(1).y;
       }
     }
