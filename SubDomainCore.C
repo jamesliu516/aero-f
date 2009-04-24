@@ -4291,6 +4291,21 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
   ptr = edges.getPtr();
 //  bool *edgeFlag = edges.getMasterFlag();
 
+// ------------ just for debugging ---------------
+  if (globSubNum==26) {
+    FILE* ff = fopen("subD26.top","w");
+    fprintf(ff,"Nodes subD26Nodes\n");
+    for (int i=0; i<nodes.size(); i++) 
+      fprintf(ff,"%d %e %e %e\n", i+1, X[i][0], X[i][1], X[i][2]);
+    fprintf(ff, "Elements subD26 using subD26Nodes\n");
+    for (int i=0; i<elems.size(); i++) {
+      int* nodeNo = getElemNodeNum(i);
+      fprintf(ff,"%d %d %d %d %d %d\n", i+1, 5, nodeNo[0]+1, nodeNo[1]+1, nodeNo[2]+1, nodeNo[3]+1); 
+    }
+  }
+//-------------------------------------------------
+
+
   for (int iElem=0; iElem<elems.size(); iElem++) {
     nPos = nNeg = 0;
     for (int i=0; i<4; i++) {
