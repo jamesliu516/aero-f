@@ -3414,10 +3414,10 @@ void Domain::computeForceLoad(DistSVec<double,3> &X, double (*Fs)[3], int sizeFs
       pstarij(iSub)[i] = Wstarij(iSub)[i][4];
       pstarji(iSub)[i] = Wstarji(iSub)[i][4];
     }
-  if(!scalarEdgePat) {fprintf(stderr,"scalarEdgePat not created! Unable to proceed.\n"); exit(-1);}
+/*  if(!scalarEdgePat) {fprintf(stderr,"scalarEdgePat not created! Unable to proceed.\n"); exit(-1);}
   assembleEdge(scalarEdgePat, pstarij);
   assembleEdge(scalarEdgePat, pstarji);
- 
+*/
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;

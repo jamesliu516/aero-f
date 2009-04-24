@@ -291,7 +291,12 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   }
   // Addup the neighboring phis and weights
   d->assemble(*pseudoPhi);
+  // Make sure the value for pseudoPhi is independent of summation order.
+  pseudoPhi->zeroNonMaster();
+  d->assemble(*pseudoPhi);
+  
   d->assemble(weight);
+
   d->assemble(normApprox);
   // Use the values of phi and weights and finish the status
   for(int i = 0; i < numLocSub; ++i)
