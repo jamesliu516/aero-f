@@ -2196,3 +2196,20 @@ void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVe
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+                                          double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
+{
+  if (forceApp==1 || forceApp==2)
+    domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs, 
+                                    sizeFs, distLSS, Wstarij, Wstarji);
+  else if (forceApp==3 || forceApp==4)
+    domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs, 
+                                         sizeFs, distLSS, Wstarij, Wstarji);
+  else {fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); exit(-1);}
+
+}
+
+//------------------------------------------------------------------------------

@@ -6,6 +6,7 @@
 #include <IoData.h>
 #include <Domain.h>
 #include <LevelSet.h>
+#include <PostOperator.h>
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
@@ -20,7 +21,7 @@ template<int dim> class DistExactRiemannSolver;
 //------------------------------------------------------------------------
 
 template<int dim>
-class StructLevelSetTsDesc : public TsDesc<dim> {
+class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
  protected:
   DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
@@ -77,6 +78,12 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
   
 
  public:
+  int orderOfAccuracy; // consistent with the reconstruction type for space
+  int forceApp; // now have four options.
+                // = 1 : on GammaF, formula 1;
+                // = 2 : on GammaF, formula 2;
+                // = 3 : on Gamma*, formula 1;
+                // = 4 : on Gamma*, formula 2;
   const int TYPE;   //TYPE = 1 (for fluid-fullbody) 
                     //     = 2 (for fluid-shell-fluid)
 
@@ -109,6 +116,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> {
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
+  void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           double F[3], double M[3]);
   
 };
 

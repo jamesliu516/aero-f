@@ -535,18 +535,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   riemann.reset(it);
 
   for (int l=0; l<numEdges; ++l) {
-//    if (!masterFlag[l]) continue;
 
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool iIsActive = LSS.isActive(0, i);
     bool jIsActive = LSS.isActive(0, j);
-    if ((locToGlobNodeMap[i]+1==256426 && locToGlobNodeMap[j]+1==948374) ||
-        (locToGlobNodeMap[j]+1==256426 && locToGlobNodeMap[i]+1==948374)) 
-      fprintf(stderr,"edge (%d(%d)->%d(%d)), masterFlag = %d.\n", locToGlobNodeMap[i]+1, (int)iIsActive, locToGlobNodeMap[j]+1, (int)jIsActive, masterFlag[l]);
 
-
-//    if (!masterFlag[l]) continue;
     if( !iIsActive && !jIsActive ) 
       continue;
 
@@ -614,9 +608,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
-        LSS.totalForce[0] += Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += Wstar[4]*normal[l][2];
+//        LSS.totalForce[0] += Wstar[4]*normal[l][0];
+//        LSS.totalForce[1] += Wstar[4]*normal[l][1];
+//        LSS.totalForce[2] += Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
@@ -638,9 +632,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
-        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
+//        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
+//        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
+//        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
 
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];

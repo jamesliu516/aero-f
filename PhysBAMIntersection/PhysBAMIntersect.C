@@ -84,6 +84,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   len = fscanf(topFile,"%d %d", &length_solids_particle_list, &length_triangle_list);
   triangle_list = new int[length_triangle_list][3];
   solids_particle_list = new Vec3D[length_solids_particle_list];
+  solidX = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list);
 
   com->fprintf(stderr,"solid surface: %d nodes, %d elements.\n", length_solids_particle_list, length_triangle_list);
 
