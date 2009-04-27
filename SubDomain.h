@@ -1021,11 +1021,14 @@ public:
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);  
 
-  void computeForceLoad(SVec<double,3>&, double(*)[3], int, LevelSetStructure&, Vec<double>&,
-                        Vec<double>&);
+  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&, 
+                               Vec<double>&, Vec<double>&);
+  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&, 
+                                    Vec<double>&, Vec<double>&);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
-  void addLocalForce(Vec3D, double, LevelSetResult&, double(*)[3]);
-  void addLocalForce2(Vec3D, double, LevelSetResult&, double(*)[3]);
+  void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&, 
+                     LevelSetResult&, double(*)[3]);
+  void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
   double specifyBandwidth(Vec<double> &);

@@ -34,6 +34,11 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
 {
+
+  orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
+  forceApp = ioData.strucIntersect.forceApproach;
+
+  this->postOp->setForceGenerator(this);
   if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
   if (TYPE==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
@@ -51,45 +56,20 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if(intersectorName != 0)
     distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
 
+  // TODO Kevin needs to pass the distLSS to the postOp
+
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 
   pressureRef = ioData.ref.rv.pressure;
   fprintf(stderr,"reference pressure = %e.\n", pressureRef);
-//------ load structure mesh information from topFile --------
+//------ load structure mesh information ----------------------
   numStructNodes = 0;
-  numStructElems = 0; 
   Fs = 0;
-  if (strlen(ioData.input.solidsurface)>0) {
-    char* solidsurface = new char[strlen(ioData.input.prefix) + strlen(ioData.input.solidsurface) + 1];
-    strcpy(solidsurface, ioData.input.prefix);
-    strcat(solidsurface, ioData.input.solidsurface);
-    FILE* topFile = fopen(solidsurface,"r");
-    if (topFile == NULL) {fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
-    fscanf(topFile,"%d %d", &numStructNodes, &numStructElems);
-  } 
-  if (numStructNodes>0 && numStructElems>0) {
-    this->com->fprintf(stderr,"# of struct nodes: %d,  # of struct elems: %d.\n", numStructNodes, numStructElems);
+  numStructNodes = distLSS->getNumStructNodes();
+  if (numStructNodes>0) {
+    this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
     Fs = new double[numStructNodes][3];
-
-/*
-    double (*Fs1)[3];
-    double *Fs2[3];
-    double **Fs3;
-
-    Fs1 = new double[size][3];
-    Fs2[0] = new double[size];
-    Fs2[1] = new double[2*size];
-    Fs2[2] = new double[3*size];
-    Fs1[45][2]; // Legal
-    Fs2[2][45]; // legal
-    Fs2[45][2]; // illegal
-
-    Fs3 = new double*[size];
-    for(int = 0; i < size; ++i)
-      Fs3[i] = new double[3];
-*/
-
   } else this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 //-------------------------------------------------------------
 
@@ -589,9 +569,9 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->domain->computeForceLoad(*this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
+  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
   
-  double tempFs[numStructNodes*3];
+/*  double tempFs[numStructNodes*3];
   for (int i=0; i<numStructNodes; i++)
     for (int j=0; j<3; j++)
       tempFs[i*3+j] = Fs[i][j];  
@@ -600,11 +580,25 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
     for (int j=0; j<3; j++) 
       Fs[i][j] = tempFs[i*3+j];
   }
-  double sumFs[3] = {0.0, 0.0, 0.0};  
-  for (int i=0; i<numStructNodes; i++) {
-    sumFs[0]+=Fs[i][0]; sumFs[1]+=Fs[i][1]; sumFs[2]+=Fs[i][2];}
-  this->com->fprintf(stderr,"total Force on structure surface: %e %e %e.\n", pressureRef*sumFs[0], pressureRef*sumFs[1], pressureRef*sumFs[2]);
+*/}
 
+//-------------------------------------------------------------------------------
+
+template <int dim>
+void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           double F[3], double M[3]) {
+  computeForceLoad();
+  F[0] = F[1] = F[2] = 0.0;
+  for (int i=0; i<numStructNodes; i++) {
+    F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
+
+  M[0] = M[1] = M[2] = 0;
+  Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
+  for (int i = 0; i < Xstruc.size(); ++i) {
+     M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
+     M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
+     M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
+  }
 }
 
 //-------------------------------------------------------------------------------

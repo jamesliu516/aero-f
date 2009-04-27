@@ -284,6 +284,9 @@ public:
 
   void computeDerivativeOfGradP(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &);
 
+  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+                        double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji);
 };
 
 //------------------------------------------------------------------------------

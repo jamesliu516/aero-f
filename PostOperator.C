@@ -298,6 +298,17 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     delete [] mv;
   } 
 
+  double F[3], M[3];
+  if(forceGen != 0)
+    forceGen->getForcesAndMoments(U, X, F, M);
+
+  Fi[0][0] += F[0];
+  Fi[0][1] += F[1];
+  Fi[0][2] += F[2];
+  Mi[0][0] += M[0];
+  Mi[0][1] += M[1];
+  Mi[0][2] += M[2];
+
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],

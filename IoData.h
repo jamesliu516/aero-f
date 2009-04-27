@@ -1597,6 +1597,7 @@ struct StructureIntersect {
   ParseTree tree;
   const char *intersectorName;
   const char *libraryName;
+  int forceApproach;
 
   StructureIntersect() : tree("Data") { }
 

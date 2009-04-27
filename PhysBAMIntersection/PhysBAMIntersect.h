@@ -31,6 +31,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     int (*triangle_list)[3];
     double xMin, xMax, yMin, yMax, zMin, zMax;
     Vec3D *solids_particle_list;
+    Vec<Vec3D> *solidX;
     Vec3D *triNorms;
     Communicator *com;
     PhysBAMIntersector **intersector;
@@ -59,6 +60,9 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     PhysBAMInterface<double> &getInterface() { return *physInterface; }
     const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
     const Vec3D getInsidePoint() const { return insidePoint; }
+
+    Vec<Vec3D> &getStructPosition() { return *solidX; }
+    int getNumStructNodes () { return length_solids_particle_list; }
 };
 
 class PhysBAMIntersector : public LevelSetStructure {

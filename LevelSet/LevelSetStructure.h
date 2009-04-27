@@ -110,6 +110,8 @@ class DistLevelSetStructure {
 
     virtual DistVec<double> &getPhi();
 
+    virtual Vec<Vec3D> &getStructPosition() = 0;
+    virtual int getNumStructNodes() = 0;
     double totalForce[3];
 };
 

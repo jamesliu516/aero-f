@@ -28,6 +28,14 @@ template<int dim> class DistDynamicVMSTerm;
 template<int dim> class SpaceOperator;
 template<int dim> class DistTimeState;
 
+
+template<int dim>
+class ForceGenerator {
+  public:
+    virtual void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
+                                           double F[3], double M[3]) = 0;
+};
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -45,6 +53,9 @@ class PostOperator {
   int numSurf;
   map<int,int> surfOutMap;
   map<int,int> surfComputeMap;
+
+  // TODO Kevin needs to add a pointer to an object to retrieve Forces and Moments from the Embedded method
+  ForceGenerator<dim> *forceGen;
   
  // Coefficients to Compute nodal force transfer
   double nodalForceWeights[2];
@@ -134,6 +145,7 @@ public:
 
   void checkVec(DistSVec<double,3> &);
 
+  void setForceGenerator(ForceGenerator<dim> *fg) { forceGen = fg; }
 };
 
 //------------------------------------------------------------------------------

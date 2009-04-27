@@ -4279,8 +4279,47 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
-                                 Vec<double> &pstarij, Vec<double> &pstarji)
+void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState, 
+                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs, 
+                                        LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  bool* masterFlag = edges.getMasterFlag();
+  int (*ptr)[2];
+  int i,j;
+  ptr = edges.getPtr();
+  bool iActive, jActive;
+  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
+
+  for (int l=0; l<edges.size(); l++) {
+    if (!masterFlag[l]) continue;
+    i = ptr[l][0];
+    j = ptr[l][1];
+    iActive = LSS.isActive(0,i);
+    jActive = LSS.isActive(0,j);
+    if (iActive==jActive) continue;
+
+    // now (i,j) must intersect the structure.
+    LevelSetResult lsRes;
+    Vec3D flocal;
+    if (iActive) {
+      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      if (forceApp==1) flocal = pstarij[l]*normal[l];
+      else flocal = pstarij[l]*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+    }else{
+      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      if (forceApp==1) flocal = -pstarji[l]*normal[l];
+      else flocal = -pstarji[l]*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+    }
+    sendLocalForce(flocal, lsRes, Fs);
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X, 
+                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, 
+                                             Vec<double> &pstarij, Vec<double> &pstarji)
 {
   int T[4]; //nodes in a tet.
   double x[4][3]; //coords of nodes in a tet.
@@ -4289,22 +4328,13 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
   int polygon[4][2];
   int (*ptr)[2];
   ptr = edges.getPtr();
-//  bool *edgeFlag = edges.getMasterFlag();
 
-// ------------ just for debugging ---------------
-  if (globSubNum==26) {
-    FILE* ff = fopen("subD26.top","w");
-    fprintf(ff,"Nodes subD26Nodes\n");
-    for (int i=0; i<nodes.size(); i++) 
-      fprintf(ff,"%d %e %e %e\n", i+1, X[i][0], X[i][1], X[i][2]);
-    fprintf(ff, "Elements subD26 using subD26Nodes\n");
-    for (int i=0; i<elems.size(); i++) {
-      int* nodeNo = getElemNodeNum(i);
-      fprintf(ff,"%d %d %d %d %d %d\n", i+1, 5, nodeNo[0]+1, nodeNo[1]+1, nodeNo[2]+1, nodeNo[3]+1); 
-    }
-  }
-//-------------------------------------------------
-
+  int CODE;
+  if (forceApp==3 && orderOfAccuracy==1)  CODE = 3;
+  else if (forceApp==3 && orderOfAccuracy==2)  CODE = 5;
+  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 4;
+  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 4;
+  else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
     nPos = nNeg = 0;
@@ -4344,10 +4374,10 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
           exit(-1);}
       }
       Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-      for (int k=0; k<3; k++)
-        addLocalForce(nf,pStar[k],lsRes[k],Fs);
+      addLocalForce(1,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
 
     } else if (count==4) { //get a quadrangle.
+
       LevelSetResult lsRes[4];
       for (int k=0; k<4; k++) {
         lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
@@ -4374,28 +4404,19 @@ void SubDomain::computeForceLoad(SVec<double,3> &X, double (*Fs)[3], int sizeFs,
       }
       double dist02 = (Xinter[2]-Xinter[0]).norm();
       double dist13 = (Xinter[3]-Xinter[1]).norm();
-      int local[3];
       if (dist02<dist13) { // connect 0,2.
-        local[0] = 0;  local[1] = 1;  local[2] = 2;
         Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-        for (int k=0; k<3; k++)
-          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+        addLocalForce(1,nf, pStar[0], pStar[1], pStar[2], lsRes[0], lsRes[1], lsRes[2], Fs);
 
-        local[0] = 0;  local[1] = 2;  local[2] = 3;
         nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        for (int k=0; k<3; k++)
-          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+        addLocalForce(1,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);
 
       } else { // connect 1,3.
-        local[0] = 1;  local[1] = 2;  local[2] = 3;
         Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
-        for (int k=0; k<3; k++)
-          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+        addLocalForce(1,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
 
-        local[0] = 0;  local[1] = 1;  local[2] = 3;
         nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        for (int k=0; k<3; k++)
-          addLocalForce(nf, pStar[local[k]], lsRes[local[k]], Fs);
+        addLocalForce(1,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);
       }
 
     } else {
@@ -4488,7 +4509,56 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::addLocalForce(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
+void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3, 
+                              LevelSetResult& lsRes1, LevelSetResult& lsRes2, LevelSetResult& lsRes3,
+                              double(*Fs)[3])
+{
+  Vec3D flocal;
+  if (METHOD==1) {
+    flocal = -1.0/3.0*p1*nf;
+    sendLocalForce(flocal, lsRes1, Fs);
+    flocal = -1.0/3.0*p2*nf;
+    sendLocalForce(flocal, lsRes2, Fs);
+    flocal = -1.0/3.0*p3*nf;
+    sendLocalForce(flocal, lsRes3, Fs);
+    return;
+  }
+  if (METHOD==2) {
+    flocal = -1.0/3.0*p1*(nf*lsRes1.gradPhi)*lsRes1.gradPhi;
+    sendLocalForce(flocal, lsRes1, Fs);
+    flocal = -1.0/3.0*p2*(nf*lsRes2.gradPhi)*lsRes2.gradPhi;
+    sendLocalForce(flocal, lsRes2, Fs);
+    flocal = -1.0/3.0*p3*(nf*lsRes3.gradPhi)*lsRes3.gradPhi;
+    sendLocalForce(flocal, lsRes3, Fs);
+    return;
+  }
+  if (METHOD==3) {
+    double c1 = 1.0/6.0, c2 = 1.0/12.0;
+    flocal = -(c1*p1 + c2*(p2+p3))*nf;
+    sendLocalForce(flocal, lsRes1, Fs);
+    flocal = -(c1*p2 + c2*(p1+p3))*nf;
+    sendLocalForce(flocal, lsRes2, Fs);
+    flocal = -(c1*p3 + c2*(p1+p2))*nf;
+    sendLocalForce(flocal, lsRes3, Fs);
+    return;
+  }
+  fprintf(stderr,"METHOD=%d doesn't exist! Skipping the force calculation.\n", METHOD);
+} 
+
+//-----------------------------------------------------------------------------------------------
+
+void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
+{
+  for (int iDim=0; iDim<3; iDim++) {
+    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
+    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
+    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
+/*
+void SubDomain::addLocalParticleForceA(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
 { // assume nf carries the area of that triangle.
   Vec3D flocal = -1.0/3.0*p*nf;
 //  Vec3D flocal = -1.0/3.0*(10.0/1.26)*nf;
@@ -4501,7 +4571,7 @@ void SubDomain::addLocalForce(Vec3D nf, double p, LevelSetResult& lsRes, double(
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::addLocalForce2(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
+void SubDomain::addLocalParticleForceB(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
 { // assume nf carries the area of that triangle.
   Vec3D ns = lsRes.gradPhi;
 //  Vec3D flocal = -1.0/3.0*p*(nf*ns)*ns;
@@ -4512,15 +4582,6 @@ void SubDomain::addLocalForce2(Vec3D nf, double p, LevelSetResult& lsRes, double
     Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
   }
 }
-
+*/
 //-----------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
 

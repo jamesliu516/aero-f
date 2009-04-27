@@ -3,7 +3,13 @@ FIND_PACKAGE(MPI)
 include(../base-exports.cmake)
 #set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
 FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../PhysBAMLight)
+FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp
+/home/pavery/boost/boost_install/include/boost-1_34_1)
 SET(INC_DIR .. . ${PHYSBAM_BASE})
+IF(BOOST_INCLUDE_DIR)
+  SET(INC_DIR ${INC_DIR} ${BOOST_INCLUDE_DIR})
+ENDIF(BOOST_INCLUDE_DIR)
+
 IF(MPI_FOUND)
   MESSAGE("Will compile with MPI at: " ${MPI_INCLUDE_PATH})
   SET(INC_DIR ${INC_DIR} ${MPI_INCLUDE_PATH})

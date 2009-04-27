@@ -2841,9 +2841,11 @@ void StructureIntersect::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 3, 0);
   libraryName = 0;
   intersectorName = 0;
+  forceApproach = 0;
   new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
   new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
+  new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
 }
 
 void StructureIntersect::activate() {
