@@ -1075,7 +1075,7 @@ void ElemTet::computeStiffAndForceLIN(double *Kspace,
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X)
+void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X, SVec<double,3> &X0, double expansionStiffCoef)
 {
 
   // IN:  X is the current position of nodes
@@ -1085,13 +1085,13 @@ void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X)
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
 
   // Get "local" BallVertex stiffness matrix for tetrahedron
-  F77NAME(ballvertex)(X.data()+1, nodeNum(), K);
+  F77NAME(ballvertex)(X.data()+1, X0.data()+1, nodeNum(), K, expansionStiffCoef);
 
 }
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X)
+void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X, double expansionStiffCoef)
 {
 
   // IN:  X is the current position of nodes
@@ -1101,7 +1101,7 @@ void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X)
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
   
   // Get "local" TorsionSpring stiffness matrix for tetrahedron
-  F77NAME(torsionspring)(X.data()+1, nodeNum(), K);
+  F77NAME(torsionspring)(X.data()+1, nodeNum(), K, expansionStiffCoef);
   
 }
 

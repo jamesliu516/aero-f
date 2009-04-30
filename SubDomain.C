@@ -49,8 +49,8 @@ using std::max;
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
 		      double (*)[25], double (*)[5], double (*)[5]);
-  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12]);
-  void F77NAME(ballvertex)(double (*)[3], int [4], double (*)[12]);
+  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12], double &invCoef);
+  void F77NAME(ballvertex)(double (*)[3], double(*)[3], int [4], double (*)[12], double &invCoef);
 };
 
 //------------------------------------------------------------------------------
@@ -3674,12 +3674,12 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     }
 
     case DefoMeshMotionData::TORSIONAL_SPRINGS : {
-      elems[i].computeStiffTorsionSpring(kEl, X);
+      elems[i].computeStiffTorsionSpring(kEl, X, volStiff);
       break;
     }
 
     case DefoMeshMotionData::BALL_VERTEX : {
-      elems[i].computeStiffBallVertex(kEl, X);
+      elems[i].computeStiffBallVertex(kEl, X, nodes, volStiff);
       break;
     }
       

@@ -7,8 +7,8 @@
 #include <DiagMatrix.h>
 #include <SparseMatrix.h>
 
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 class MemoryPool;
 class BCApplier;
 
