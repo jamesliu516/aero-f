@@ -1672,7 +1672,9 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   parallelSVD(snaps, Utrue, singVals.data(), Vtrue, nSnaps);
   modalTimer->addEigSolvTime(t0);
 
+#ifdef DO_MODAL
   outputPODVectors(Utrue, singVals, nPOD);
+#endif
 /*
   // allocate for upper half of sym. eigprob
   double *eigVals = new double[nPOD];
