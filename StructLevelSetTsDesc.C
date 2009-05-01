@@ -570,8 +570,8 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
-  
-/*  double tempFs[numStructNodes*3];
+/*  
+  double tempFs[numStructNodes*3];
   for (int i=0; i<numStructNodes; i++)
     for (int j=0; j<3; j++)
       tempFs[i*3+j] = Fs[i][j];  
@@ -580,7 +580,21 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
     for (int j=0; j<3; j++) 
       Fs[i][j] = tempFs[i*3+j];
   }
-*/}
+  
+  FILE* fx = fopen("Fx.sol","w");
+  FILE* fy = fopen("Fy.sol","w");
+  FILE* fz = fopen("Fz.sol","w");
+  for (int i=0; i<numStructNodes; i++) 
+    this->com->fprintf(fx, "%e\n", Fs[i][0]);
+  for (int i=0; i<numStructNodes; i++) 
+    this->com->fprintf(fy, "%e\n", Fs[i][1]);
+  for (int i=0; i<numStructNodes; i++) 
+    this->com->fprintf(fz, "%e\n", Fs[i][2]);
+  fclose(fx);
+  fclose(fy);
+  fclose(fz); 
+*/
+}
 
 //-------------------------------------------------------------------------------
 
