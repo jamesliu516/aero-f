@@ -30,7 +30,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   numLocSub = dom->getNumLocSub();
   subDomain = dom->getSubDomain();
   com = dom->getCommunicator();
-
+  
   if (v) 
     V = v->alias();
   else 
@@ -56,6 +56,7 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   Cs = 0;
   CsDvms = 0;
   CsDles = 0;
+  forceGen = 0;
 
   spaceOp = new SpaceOperator<dim>(iod, vf, bc, gs, dom);
 
@@ -249,7 +250,6 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 
 // Phi must be a null pointer for single-phase flow
 // Phi points to a DistVec<double> for multi-phase flow
-
   int iSurf;
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     Fi[iSurf] = 0.0;
@@ -297,7 +297,6 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     delete [] fv;
     delete [] mv;
   } 
-
   double F[3], M[3];
   if(forceGen != 0)
     forceGen->getForcesAndMoments(U, X, F, M);

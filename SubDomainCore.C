@@ -4330,10 +4330,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   ptr = edges.getPtr();
 
   int CODE;
-  if (forceApp==3 && orderOfAccuracy==1)  CODE = 3;
-  else if (forceApp==3 && orderOfAccuracy==2)  CODE = 5;
-  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 4;
-  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 4;
+  if (forceApp==3 && orderOfAccuracy==1)  CODE = 1;
+  else if (forceApp==3 && orderOfAccuracy==2)  CODE = 3;
+  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 2;
+  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
@@ -4374,7 +4374,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
           exit(-1);}
       }
       Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-      addLocalForce(1,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
+      addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
 
     } else if (count==4) { //get a quadrangle.
 
@@ -4406,17 +4406,17 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
       double dist13 = (Xinter[3]-Xinter[1]).norm();
       if (dist02<dist13) { // connect 0,2.
         Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-        addLocalForce(1,nf, pStar[0], pStar[1], pStar[2], lsRes[0], lsRes[1], lsRes[2], Fs);
+        addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[2], lsRes[0], lsRes[1], lsRes[2], Fs);
 
         nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        addLocalForce(1,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);
+        addLocalForce(CODE,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);
 
       } else { // connect 1,3.
         Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
-        addLocalForce(1,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
+        addLocalForce(CODE,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
 
         nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        addLocalForce(1,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);
+        addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);
       }
 
     } else {
