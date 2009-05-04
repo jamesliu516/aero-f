@@ -3683,6 +3683,16 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
       break;
     }
       
+    case DefoMeshMotionData::NL_BALL_VERTEX : {
+      elems[i].computeStiffAndForceBallVertex(fEl, kEl, X, nodes, volStiff);
+      for (j=0, fEl_loc = fEl; j<elems[i].numNodes(); j++, fEl_loc+=3) {
+	F[ elems[i][j] ][0] -= fEl_loc[0];
+	F[ elems[i][j] ][1] -= fEl_loc[1];
+	F[ elems[i][j] ][2] -= fEl_loc[2];
+      }
+      break;
+    }
+      
     }
     
     // Add contribution to global matrix
