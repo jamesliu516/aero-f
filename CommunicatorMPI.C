@@ -8,6 +8,9 @@
 #define MPI_INTEGER MPI_INT
 #endif
 
+#include <complex>
+using std::complex;
+
 #ifdef USE_MPI
 template<>
 MPI_Datatype CommTrace<int>::MPIType = MPI_INTEGER;
