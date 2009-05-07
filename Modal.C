@@ -1658,7 +1658,6 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   
   Timer *modalTimer = domain.getTimer();
 
-#ifdef DO_SCALAPACK
   int nPOD = ioData->linearizedData.numPOD;
   int nconv = 0;
 
