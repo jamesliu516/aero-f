@@ -95,7 +95,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
   smag = 0;
   wale = 0;
   dles = 0;
-  dlest = 0;
   vms = 0;
   dvms = 0;
 
@@ -106,8 +105,7 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
     else if (ioData.eqs.tc.les.type == LESModelData::WALE)
        wale = new WaleLESTerm(ioData, varFcn);   
     else if (ioData.eqs.tc.les.type == LESModelData::DYNAMIC){
-      dles = new DistDynamicLESTerm<dim>(ioData, domain);
-      dlest = new DynamicLESTerm(ioData, varFcn);
+      dles = new DistDynamicLESTerm<dim>(varFcn, ioData, domain);
     }
     else if (ioData.eqs.tc.les.type == LESModelData::VMS)
       vms = new DistVMSLESTerm<dim>(varFcn, ioData, domain);
@@ -172,7 +170,6 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   smag = spo.smag;
   wale = spo.wale;
   dles = spo.dles;
-  dlest = spo.dlest;
   dvms = spo.dvms;
   fet = spo.fet;
   volForce = spo.volForce;
@@ -216,7 +213,6 @@ SpaceOperator<dim>::~SpaceOperator()
     if (smag) delete smag;
     if (wale) delete wale;
     if (dles) delete dles;
-    if (dlest) delete dlest;
     if (dvms) delete dvms;
     if (fet) delete fet;
     if (volForce) delete volForce;
@@ -262,15 +258,6 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
     rshift = 0;
 
   double gamma = ioData.schemes.ns.gamma;
-  int prec;
-
-  if (ioData.problem.prec == ProblemData::PRECONDITIONED) prec = 1;
-  else prec = 0;
-
-  double betaRef = ioData.prec.mach;
-  double K1 = ioData.prec.k;
-  double cmach = ioData.prec.cmach;
-  double shockreducer = ioData.prec.shockreducer;
 
   //for GAS
   if (ioData.eqs.numPhase == 1){
@@ -307,17 +294,17 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
 
           if (ioData.schemes.ns.flux == SchemeData::ROE) {
             if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeSA3D(gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeSA3D(rshift, gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
               ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeSA3D(gamma, ioData);
           }
           else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
             if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLESA3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLESA3D(gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLESA3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLESA3D(rshift, gamma, ioData);
             }
             else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
               fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
@@ -343,17 +330,17 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
 
           if (ioData.schemes.ns.flux == SchemeData::ROE) {
             if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeKE3D(gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeKE3D(rshift, gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
               ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeKE3D(gamma, ioData);
           }
           else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
             if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEKE3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEKE3D(gamma, ioData);
             else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
-              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEKE3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+              ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEKE3D(rshift, gamma, ioData);
             }
             else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
               fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
@@ -408,17 +395,17 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
           ff[BC_INTERNAL] = new FluxFcnPerfectGasVanLeerEuler3D(ioData);
         else if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacRoeEuler3D(gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(rshift, gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnPerfectGasExactJacRoeEuler3D(gamma, ioData);
         }
 	else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLEEuler3D(gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLEEuler3D(rshift, gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
             fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!"); 
@@ -427,9 +414,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
         }
         else if (ioData.schemes.ns.flux == SchemeData::HLLC) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLCEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasFDJacHLLCEuler3D(gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
-            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLCEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnPerfectGasApprJacHLLCEuler3D(rshift, gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
             fprintf(stderr,"Error... HLLC with Exact Jacobian not Implemented.. Aborting !!");
@@ -474,9 +461,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
       ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
       if (ioData.schemes.ns.flux == SchemeData::ROE) {
         if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleFDJacRoeEuler3D(gamma, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(rshift, gamma, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
           ff[BC_INTERNAL] = new FluxFcnWaterCompressibleExactJacRoeEuler3D(gamma, ioData);
       }
@@ -498,9 +485,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
       ff[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnJWLWallEuler3D(ioData);
       if (ioData.schemes.ns.flux == SchemeData::ROE) {
         if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-          ff[BC_INTERNAL] = new FluxFcnJWLFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnJWLFDJacRoeEuler3D(gamma, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-          ff[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(rshift, gamma, ioData);
         else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
           ff[BC_INTERNAL] = new FluxFcnJWLExactJacRoeEuler3D(gamma, ioData);
       }
@@ -553,13 +540,35 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                   
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE){
-            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacRoeEuler3D(gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE){
-            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacRoeEuler3D(rshift, gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInGasExactJacRoeEuler3D(gamma, ioData);
+          }
+        }
+        else if (ioData.schemes.ns.flux == SchemeData::HLLE) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacHLLEEuler3D(gamma, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacHLLEEuler3D(rshift, gamma, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
+            exit(1);
+          }
+        }
+        else if (ioData.schemes.ns.flux == SchemeData::HLLC) {
+          if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            ff[BC_INTERNAL] = new FluxFcnGasInGasFDJacHLLCEuler3D(gamma, ioData);
+          else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            ff[BC_INTERNAL] = new FluxFcnGasInGasApprJacHLLCEuler3D(rshift, gamma, ioData);
+          }
+          else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT) {
+            fprintf(stderr,"Error... HLLC with Exact Jacobian not Implemented.. Aborting !!");
+            exit(1);
           }
         }
       }
@@ -608,10 +617,10 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                   
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE){
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE){
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, ioData);
           }
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT){
             ff[BC_INTERNAL] = new FluxFcnGasInLiquidExactJacRoeEuler3D(gamma, ioData);
@@ -635,7 +644,7 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
         ff[BC_SYMMETRY] = new FluxFcnJWLInGasWallEuler3D(ioData);
                                                                                                   
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
-          ff[BC_INTERNAL] = new FluxFcnJWLInGasApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+          ff[BC_INTERNAL] = new FluxFcnJWLInGasApprJacRoeEuler3D(rshift, gamma, ioData);
         }
       }
     }
@@ -679,9 +688,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                                                                                                                      
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidFDJacRoeEuler3D(gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidApprJacRoeEuler3D(rshift, gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnLiquidInLiquidExactJacRoeEuler3D(gamma, ioData);
         }
@@ -725,9 +734,9 @@ FluxFcn **SpaceOperator<dim>::createFluxFcn(IoData &ioData)
                                                                                                                                                                                                      
         if (ioData.schemes.ns.flux == SchemeData::ROE) {
           if (ioData.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidFDJacRoeEuler3D(gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, betaRef, K1, cmach, shockreducer, prec, ioData);
+            ff[BC_INTERNAL] = new FluxFcnGasInLiquidApprJacRoeEuler3D(rshift, gamma, ioData);
           else if (ioData.ts.implicit.jacobian == ImplicitData::EXACT)
             ff[BC_INTERNAL] = new FluxFcnGasInLiquidExactJacRoeEuler3D(gamma, ioData);
         }
@@ -901,7 +910,7 @@ VolumicForceTerm *SpaceOperator<dim>::createVolumicForceTerm(IoData &ioData)
   
   VolumicForceTerm *vft = 0;
 
-  if(ioData.bc.hydro.type  == BcsHydroData::GRAVITY)
+  if(varFcn->gravity_value()>0.0)
     vft = new VolumicForceTerm(ioData);
 
   return vft;
@@ -1016,20 +1025,10 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   if (wale)
      domain->computeWaleLESTerm(wale, X, *V, R);
+
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
      
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
-
   DistVec<double> *irey;
   if(timeState)
     irey = timeState->getInvReynolds();
@@ -1127,22 +1126,8 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
   }
 
   if (dles){
-
     com->fprintf(stderr, "***** The equivalent derivatives of the functions dles->computeTestFilterValues and dles->computeTestFilterValues are not implemented!\n");
     exit(1);
-
-/*
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-*/
   }
 
   DistVec<double> *irey;
@@ -1234,18 +1219,8 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
   if (smag)
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
 
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
 
   DistVec<double> *irey;
   if(timeState)
@@ -1317,18 +1292,8 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
   if (smag)
     domain->computeSmagorinskyLESTerm(smag, X, *V, R);
 
-  if (dles){
-    DistSVec<double,2> *Cs;
-    DistVec<double> *VolSum;
-    Cs = new DistSVec<double,2>(domain->getNodeDistInfo());
-    VolSum = new DistVec<double>(domain->getNodeDistInfo());
-    *Cs = 0.0; *VolSum = 0.0;
-
-    dles->computeTestFilterValues(*Cs, *VolSum, X, *V);
-    domain->computeDynamicLESTerm(dlest, *Cs, *VolSum, X, *V, R);
-
-    delete (Cs); delete (VolSum);
-  }
+  if (dles)
+    dles->compute(ctrlVol, *bcData, X, *V, R);
 
   if (fet) {
     domain->computeOnlyGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
@@ -1372,7 +1337,9 @@ template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistVec<double> &Phi,
                                          DistSVec<double,dim> &R, 
-                                         DistExactRiemannSolver<dim> *riemann, int it)
+                                         DistExactRiemannSolver<dim> *riemann, int it,
+                                         DistSVec<double,dim> *bcFlux,
+                                         DistSVec<double,dim> *interfaceFlux)
 {
 
   R = 0.0;
@@ -1412,7 +1379,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Phi, *ngrad, egrad,
-                                  *ngradLS, R, it, failsafe,rshift);  
+                                  *ngradLS, R, it, bcFlux, interfaceFlux,
+                                  failsafe,rshift);  
 
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
@@ -1523,6 +1491,14 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
  }
  return 0.0;
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+double SpaceOperator<dim>::rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Finlet, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
+{
+  return domain->rerecomputeResidual(F, Finlet, X, Xlim1, Xlim2, Ylim1, Ylim2);
 }
 
 //------------------------------------------------------------------------------

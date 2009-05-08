@@ -102,7 +102,7 @@ c
 
 c
 c Computation of the dissipation term 
-c if prec = 1  then the dissipation is preconditioned
+c if prec = 1 or 2  then the dissipation is preconditioned
 c else if prec = 0 then it is not preconditioned
 c
 c Reference: Implicit Upwind Schemes for Lowmach number Compressible Flows

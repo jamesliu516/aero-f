@@ -120,13 +120,13 @@ void ElemSet::computeWaleLESTerm(WaleLESTerm *wale, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, Vec<double> &VolSum,
-				    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
+void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs, 
+                                    SVec<double,3> &X, SVec<double,dim> &V, SVec<double,dim> &R)
 
 {
 
  for (int i=0; i<numElems; ++i)
-    elems[i]->computeDynamicLESTerm(dles, Cs, VolSum, X, V, R);
+    elems[i]->computeDynamicLESTerm(dles, Cs, X, V, R);
 
 }
 
@@ -148,27 +148,13 @@ void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoSta
 
 template<int dim>
 void ElemSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-				    SVec<double,6> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, double gam,
-				    double R)
-
+                                   SVec<double,6> &Sij_Test, Vec<double> &modS_Test, 
+                                   SVec<double,8> &Eng_Test, SVec<double,3> &X, SVec<double,dim> &V, 
+                                   double gam, double R)
 {
 
  for (int i=0; i<numElems; ++i)
-   elems[i]->computeP1Avg(VCap, Mom_Test, Eng_Test, X, V, gam, R);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void ElemSet::computeCsValues(SVec<double,dim> &VCap, SVec<double,16> &Mom_Test,
-			      SVec<double,6> &Eng_Test, SVec<double,2> &Cs, 
-			      Vec<double> &VolSum, SVec<double,3> &X, double gam, double R)
-
-{
-
- for (int i=0; i<numElems; ++i)
-   elems[i]->computeCsValues(VCap, Mom_Test, Eng_Test, Cs, VolSum, X, gam, R);
+   elems[i]->computeP1Avg(VCap, Mom_Test, Sij_Test, modS_Test, Eng_Test, X, V, gam, R);
 
 }
 

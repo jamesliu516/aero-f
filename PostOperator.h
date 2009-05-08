@@ -62,11 +62,14 @@ private:
   WaleLESTerm *wale;  
   DistVMSLESTerm<dim> *vms;
   DistDynamicLESTerm<dim> *dles;
-  DynamicLESTerm *dlest;
   DistDynamicVMSTerm<dim> *dvms;
   SpaceOperator<dim> *spaceOp;
   CommPattern<double>* vec2Pat;
   PostFcn *postFcn;
+  DistVec<double> *mutOmu;
+  DistVec<double> *Cs;
+  DistVec<double> *CsDvms;
+  DistVec<double> *CsDles;
 
 public:
 
@@ -80,6 +83,7 @@ public:
 
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);
+
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<double> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 

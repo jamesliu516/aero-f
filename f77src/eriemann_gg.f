@@ -33,7 +33,7 @@ C     Declaration of variables:
 
 C     TOLPRE is precision tolerance for convergence of newton-raphson
 C     iteration and NRITER is max # of newton-raphson iterations
-      TOLPRE = 1.0E-06
+      TOLPRE = 1.0E-03
       NRITER = 100
 
       PRR = PR + PREFR

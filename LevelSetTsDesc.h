@@ -29,6 +29,19 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
   DistVec<double> *Vgfweight;
 
+  // multiphase conservation check
+  DistSVec<double,dim> boundaryFlux;
+  DistSVec<double,dim> interfaceFlux;
+  DistSVec<double,dim> computedQty;
+  DistSVec<double,dim> *tmpDistSVec;
+  DistSVec<double,dim> *tmpDistSVec2;
+  double expectedTot[dim];
+  double expectedF1[dim];
+  double expectedF2[dim];
+  double computedTot[dim];
+  double computedF1[dim];
+  double computedF2[dim];
+
   // frequency for reinitialization of level set
   int frequencyLS;
 
@@ -46,9 +59,6 @@ class LevelSetTsDesc : public TsDesc<dim> {
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~LevelSetTsDesc();
 
-  
-  LevelSet *getLevelSet() {return LS;};
-  
   //-- overrides the functions implemented in TsDesc.
   void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   double computeTimeStep(int, double *, DistSVec<double,dim> &);
@@ -62,6 +72,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
                     DistSVec<double,dim> &);
   void resetOutputToStructure(DistSVec<double,dim> &);
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+
+  void conservationErrors(DistSVec<double,dim> &U, int it);
 
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);

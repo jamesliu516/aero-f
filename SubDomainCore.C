@@ -1155,6 +1155,52 @@ void SubDomain::applySmoothing(Vec<double> &ctrlVol, Vec<double> &Q)
 
 //------------------------------------------------------------------------------
 
+void SubDomain::computeLocalAvg(SVec<double,3> &X, SVec<double,2> &Q, SVec<double,2> &W)
+{
+
+  double fourth = 1.0/4.0;
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double vol = elems[tetNum].computeVolume(X);
+    int idx[4] = {elems[tetNum][0], elems[tetNum][1],
+                  elems[tetNum][2], elems[tetNum][3]};
+    double Qcg[2];
+    Qcg[0] = fourth * (Q[idx[0]][0] + Q[idx[1]][0] + Q[idx[2]][0] + Q[idx[3]][0]);
+    Qcg[1] = fourth * (Q[idx[0]][1] + Q[idx[1]][1] + Q[idx[2]][1] + Q[idx[3]][1]);
+
+    for (int i=0; i<4; ++i) {
+//      if (nodeType[idx[i]] == BC_ADIABATIC_WALL_MOVING  || nodeType[idx[i]] == BC_ADIABATIC_WALL_FIXED  ||
+//          nodeType[idx[i]] == BC_ISOTHERMAL_WALL_MOVING || nodeType[idx[i]] == BC_ISOTHERMAL_WALL_FIXED) {
+//            W[idx[i]][0] += Q[idx[i]][0] * vol;
+//            W[idx[i]][1] += Q[idx[i]][1] * vol;   // essentially no smoothing on the boundary
+//      }
+//      else  {
+        W[idx[i]][0] += Qcg[0] * vol;
+        W[idx[i]][1] += Qcg[1] * vol;
+//      }
+    }
+
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::applySmoothing(Vec<double> &ctrlVol, SVec<double,2> &Q)
+{
+
+
+ for (int i=0; i<nodes.size(); ++i) {
+    double coef = 1.0 / (4.0*ctrlVol[i]);
+    Q[i][0] = coef * Q[i][0];
+    Q[i][1] = coef * Q[i][1];
+ }
+
+
+}
+
+//------------------------------------------------------------------------------
+
 /*
 
 //---------------------------------------//
@@ -1267,7 +1313,6 @@ MacroCellSet* SubDomain::findAgglomerateMesh(int scopeWidth,
 
 }
 */
-
 
 //------------------------------------------------------------------------------
   
@@ -2708,9 +2753,9 @@ void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 void SubDomain::setFaceType(int *facemap)
 {
 
-  for (int i=0; i<faces.size(); ++i)
+  for (int i=0; i<faces.size(); ++i){
     faces[i].setType(facemap);
-
+}
 }
 
 //------------------------------------------------------------------------------
@@ -2827,9 +2872,11 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
   for (int i=0;i<faces.size(); i++) { // Loop over faces
     bool isSliding = false; 
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) // surface has attribut is the input file
+    if(it!=surfaceMap.end()) { // surface has attribut is the input file
       if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
         isSliding = true;
+  
+  }
     if(!isSliding) { // -> contraint the nodes according to face "fluid code"
       switch(faces[i].getCode()) {
         case(BC_SYMMETRY): //by default a symmetry plane is fixed ...
@@ -3080,15 +3127,6 @@ void SubDomain::printInfo(FILE *fp)
 #endif
 //------------------------------------------------------------------------------
 
-void SubDomain::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &CsDeltaSq,
-                          SVec<double,3> &X, Vec<double> &Cs, Vec<double> &VolSum)
-{
-                                                                                                                                                       
-  elems.computeDynamicLESTerm(dles, CsDeltaSq, X, Cs, VolSum);
-                                                                                                                                                       
-}
-
-//------------------------------------------------------------------------------
 //HB: create & fill the sliding surface node ownership array which gives for each 
 //node the sliding surfaces to which this node belongs (using bit)
 //For instance, surfOwn[i] = [0 0 1 0 0 1] -> node i belongs to sliding surface 2 & 5
@@ -3718,6 +3756,7 @@ void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
 }
 
 //--------------------------------------------------------------------------
+
 void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi){
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
@@ -3731,6 +3770,7 @@ void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &P
 }
 
 //--------------------------------------------------------------------------
+
 void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, Vec<double> &Phi){
 
@@ -3748,6 +3788,103 @@ void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 }
 
 //--------------------------------------------------------------------------
+
+void SubDomain::computeTetsConnectedToNode(Vec<int> &Ni)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum)
+      for (int i=0; i<4; ++i)
+        ++Ni[elems[tetNum][i]];
+
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeLij(double Lij[3][3], double r_u[3], double r_u_u[6], double vc[5])
+{
+
+  if (vc[0] < 1.0e-7) vc[0] = 1.0e-7;
+                                                                                                                     
+  Lij[0][0] = r_u_u[0] - (1.0/vc[0])*(r_u[0]*r_u[0]);
+  Lij[0][1] = r_u_u[1] - (1.0/vc[0])*(r_u[0]*r_u[1]);
+  Lij[0][2] = r_u_u[2] - (1.0/vc[0])*(r_u[0]*r_u[2]);
+  Lij[1][1] = r_u_u[3] - (1.0/vc[0])*(r_u[1]*r_u[1]);
+  Lij[1][2] = r_u_u[4] - (1.0/vc[0])*(r_u[1]*r_u[2]);
+  Lij[2][2] = r_u_u[5] - (1.0/vc[0])*(r_u[2]*r_u[2]);
+  Lij[2][0] = Lij[0][2];
+  Lij[2][1] = Lij[1][2];
+  Lij[1][0] = Lij[0][1];
+  Lij[0][0] = Lij[0][0] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+  Lij[1][1] = Lij[1][1] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+  Lij[2][2] = Lij[2][2] - (1.0/3.0)*(Lij[0][0]+Lij[1][1]+Lij[2][2]);
+
+}
+                                                                                                                                                                                                                                          
+//-----------------------------------------------------------------------
+                                                                                                                                                                                                                                          
+void SubDomain::computeBij(double Bij[3][3], double r_s_p[6], double sqrt2S2,
+                           double Pij[3][3], double sq_rat_delta, double vc[5])
+                                                                                                                     
+                                                                                                                     
+{
+                                                                                                                                                                                                                                          
+   Bij[0][0] = r_s_p[0] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][0];
+   Bij[0][1] = r_s_p[3] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][1];
+   Bij[0][2] = r_s_p[4] - sq_rat_delta*vc[0]*sqrt2S2*Pij[0][2];
+   Bij[1][1] = r_s_p[1] - sq_rat_delta*vc[0]*sqrt2S2*Pij[1][1];
+   Bij[1][2] = r_s_p[5] - sq_rat_delta*vc[0]*sqrt2S2*Pij[1][2];
+   Bij[2][2] = r_s_p[2] - sq_rat_delta*vc[0]*sqrt2S2*Pij[2][2];
+   Bij[1][0] = Bij[0][1];
+   Bij[2][0] = Bij[0][2];
+   Bij[2][1] = Bij[1][2];
+                                                                                                                     
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeZi(double Zi[3], double sq_rat_delta, double sqrt2S2, double dtdxj[3],
+			  double r_s_dtdxj[3], double vc[5], double Cp)
+{
+  
+  Zi[0] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[0] - r_s_dtdxj[0]);
+  Zi[1] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[1] - r_s_dtdxj[1]);
+  Zi[2] = Cp * (sq_rat_delta*vc[0]*sqrt2S2*dtdxj[2] - r_s_dtdxj[2]);
+  
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::computeLi(double Li[3], double r_e, double r_e_plus_p, double r_u[3], double vc[5])
+{
+  
+  if (vc[0] < 0.0000001) vc[0] = 0.0000001;
+  Li[0] = (r_e+vc[4])*(r_u[0]/vc[0]) - (r_e_plus_p)*vc[1];
+  Li[1] = (r_e+vc[4])*(r_u[1]/vc[0]) - (r_e_plus_p)*vc[2];
+  Li[2] = (r_e+vc[4])*(r_u[2]/vc[0]) - (r_e_plus_p)*vc[3];
+  
+}
+
+//--------------------------------------------------------------------------
+
+void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
+                                   SVec<double,3> &X, Vec<double> &CsVal)
+{
+
+  for (int tetNum=0; tetNum < elems.size(); ++tetNum) {
+    double dp1dxj[4][3];
+    double vol = elems[tetNum].computeGradientP1Function(X, dp1dxj);
+    double cs[4] = {Cs[elems[tetNum][0]][0], Cs[elems[tetNum][1]][0],
+                    Cs[elems[tetNum][2]][0], Cs[elems[tetNum][3]][0]};
+
+    double csval = dles->outputCsValues(vol, cs, X, elems[tetNum]);
+    for (int i=0; i<4; ++i)
+      CsVal[elems[tetNum][i]] += csval * vol;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
 void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi){
 
@@ -3767,4 +3904,74 @@ void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
   }
 
 }
+//--------------------------------------------------------------------------
+void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap)  {
+for (int i=0;i<faces.size(); i++) { // Loop over faces
+    map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
+    if(it!=surfaceMap.end()) { // surface has attribut in the input file
+      if(it->second->type == SurfaceData::ADIABATIC) {
+        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)
+          faces[i].setType(BC_ADIABATIC_WALL_MOVING);
+        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED)
+          faces[i].setType(BC_ADIABATIC_WALL_FIXED);
+        }
+      if(it->second->type == SurfaceData::ISOTHERMAL) {
+if(faces[i].getCode()!=-1)
+        if(faces[i].getCode() == BC_ADIABATIC_WALL_MOVING){
+          faces[i].setType(BC_ISOTHERMAL_WALL_MOVING);
+        }
+        if(faces[i].getCode() == BC_ADIABATIC_WALL_FIXED){
+          faces[i].setType(BC_ISOTHERMAL_WALL_FIXED);
+        }
+      }
+   }
+}
+}
+//--------------------------------------------------------------------------
+void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &cpat) {
 
+  for (int i = 0; i < faces.size(); ++i) {
+    for (int j=0; j < faces[i].numNodes(); ++j) {
+      int surfNum = faces[i].getSurfaceID()+1;
+      const Face &face = faces[i];
+      faceFlag[face.nodeNum(j)] |= 1 << surfNum;
+    }
+  }
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = cpat.getSendBuffer(sndChannel[iSub]);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      nInfo.data[i] = faceFlag[ (*sharedNodes)[iSub][i] ];
+  }
+}
+
+//--------------------------------------------------------------------------
+void SubDomain::completeFaceBelongsToSurface(Vec<int> &ndToSurfFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &cpat) {
+   for (int iSub = 0; iSub < numNeighb; ++iSub) {
+     SubRecInfo<int> nInfo = cpat.recData(rcvChannel[iSub]);
+     for (int i = 0; i < sharedNodes->num(iSub); ++i)
+       ndToSurfFlag[(*sharedNodes)[iSub][i]] |= nInfo.data[i];
+   }
+
+   for(int i = 0; i < ndToSurfFlag.size(); ++i)
+     if(ndToSurfFlag[i] != 0) {
+       int count = (ndToSurfFlag[i] & 1) != 0 ? 1 : 0;
+       double totTemp =  (ndToSurfFlag[i] & 1) != 0 ? nodeTemp[i] : 0.0;
+       for(int j = 1; j < 8*sizeof(int); j++) {
+         if( ndToSurfFlag[i] & (1 << j) ) {
+             map<int,SurfaceData*>::iterator it = surfaceMap.find(j-1);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL) {
+               if(it->second->temp > 0){ 
+               totTemp += (it->second->temp);
+               count++;
+             }
+               }
+         }
+       }
+       if(count != 0){
+       nodeTemp[i] = totTemp/count; 
+       }
+    }
+}

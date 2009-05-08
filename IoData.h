@@ -71,9 +71,13 @@ struct TransientData {
   const char *epsturb;
   const char *eddyvis;
   const char *dplus;
+  const char *sfric;
+  const char *tavsfric;
   const char *psensor;
   const char *csdles;
+  const char *tavcsdles;
   const char *csdvms;
+  const char *tavcsdvms;
   const char *mutOmu;
   const char *velocity;
   const char *tavvelocity;
@@ -91,6 +95,7 @@ struct TransientData {
   const char *hydrostaticlift;
   const char *hydrodynamiclift;
   const char *residuals;
+  const char *conservation;
   const char *podFile;
   const char *romFile;
   const char *philevel;
@@ -293,9 +298,7 @@ struct BcsWallData {
 
 struct BcsHydroData {
 
-  enum TypeVolumicForce {NONE = 0, GRAVITY = 1} type;
-  double gravity, depth;
-  double alpha, beta;
+  double depth;
 
   BcsHydroData();
   ~BcsHydroData() {}
@@ -832,6 +835,8 @@ struct EquationsData {
 // uniform boundary conditions and the uniform initial conditions are computed
 // with the values given to characterize the first fluid!
                                                                                               
+  double gravity_x, gravity_y, gravity_z;
+
   FluidModelData fluidModel;
   FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;
@@ -1020,7 +1025,7 @@ struct SchemesData {
 struct ExplicitData {
 
 //time-integration scheme used
-  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1} type;
+  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1, FORWARD_EULER = 2, ONE_BLOCK_RK2 = 3} type;
 
   ExplicitData();
   ~ExplicitData() {}
@@ -1509,10 +1514,14 @@ struct SurfaceData  {
 
   double nx, ny, nz;
   int sBit;
-  enum ComputeForces {FALSE = 0, TRUE = 1, UNSPECIFIED = 2} computeForces;
+  static const int UNSPECIFIED = -1;
+  enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   double velocity;
+
+  enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
+  double temp;
 
   SurfaceData();
   Assigner *getAssigner();
@@ -1609,10 +1618,12 @@ public:
   int checkInputValuesEssentialBC();
   int checkInputValuesStateEquation();
   int checkInputValuesNonDimensional();
-  int checkInputValuesDimensional();
+//  int checkInputValuesDimensional();
+  int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
-  int checkSolverValues();
+  int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
+//  int checkSolverValues();
   int checkInputValuesMulti_step1();
   void checkInputValuesMulti_step2();
   int checkInputValuesMultiEOS();

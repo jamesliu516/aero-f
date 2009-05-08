@@ -398,3 +398,211 @@ GenFullM::transposeMult(GenFullM& m, GenFullM& res)
  
 }
 */
+
+//--------------------------------------------------------------------------------
+template<class Scalar>
+SymFullM<Scalar>::SymFullM()
+{
+  n = 0;
+  v = 0;
+}
+
+template<class Scalar>
+SymFullM<Scalar>::SymFullM(int nr)
+{
+  n = nr;
+  v = new Scalar[n*(n+1)/2];
+}
+
+template<class Scalar>
+SymFullM<Scalar>::SymFullM(const SymFullM &m)
+{
+  n = m.n;
+  int vSize = n*(n+1)/2;
+  v = new Scalar[vSize];
+  for (int i=0; i < vSize; ++i)
+    v[i] = m.v[i];
+}
+
+template<class Scalar>
+SymFullM<Scalar>::~SymFullM()
+{
+  if (v) delete [] v;
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::setNewSize(int nr, double initVal)
+{
+  n = nr;
+  delete [] v;
+  int vSize = n*(n+1)/2;
+  v = new Scalar[vSize];
+  for (int i=0; i<vSize; ++i)
+    v[i] = initVal;
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::operator=(const SymFullM<Scalar> &m)
+{
+  if (m.v == v) return ;
+
+  if (n != m.n) {
+    if (v) delete [] v ;
+    n = m.n;
+    v = new Scalar[n*(n+1)/2] ;
+  }
+
+  // copy data
+  for (int i=0; i < n*(n+1)/2; ++i)
+    v[i] = m.v[i] ;
+
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::operator=(const Scalar c)
+{
+  for (int i=0; i<n*(n+1)/2; ++i)
+    v[i] = c;
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::operator*=(const Scalar c)
+{
+
+  for (int i=0; i<n*(n+1)/2; ++i)
+    v[i] *= c;
+}
+
+template<class Scalar>
+SymFullM<Scalar> SymFullM<Scalar>::operator*(SymFullM &m)
+{
+  if (n != m.n) return SymFullM(1) ; //error
+  SymFullM res(n) ;
+  for (int i = 0 ; i < n ; ++i) {
+    for (int j=0; j <= i ; ++j) {
+      res[i][j] = 0.0;
+      for (int k = 0;  k <= j ; ++k)
+        res[i][j] += (*this)[i][k] * m[j][k];
+      for (int k = j+1;  k <= i ; ++k)
+        res[i][j] += (*this)[i][k] * m[k][j];
+      for (int k = i+1;  k < n ; ++k)
+        res[i][j] += (*this)[k][i] * m[k][j];
+    }
+  }
+  return res;
+}
+
+template<class Scalar>
+GenFullM<Scalar> SymFullM<Scalar>::operator*(GenFullM<Scalar> &m)
+{
+  if (n != m.nrow) return GenFullM<Scalar>(1) ; //error
+  SymFullM res(n, m.ncolumn) ;
+  for (int i = 0 ; i < n ; ++i) {
+    for (int j = 0; j < m.ncolumn ; ++j) {
+      res[i][j] = 0.0;
+      for (int k = 0;  k <= i; ++k)
+        res[i][j] += (*this)[i][k] * m[k][j];
+      for (int k = i+1;  k < n; ++k)
+        res[i][j] += (*this)[k][i] * m[k][j];
+    }
+  }
+  return res;
+}
+
+template<class Scalar>
+GenFullM<Scalar> SymFullM<Scalar>::operator%(GenFullM<Scalar> &m)
+{
+  if (n != m.ncolumn) return GenFullM<Scalar>(1,1) ; //error
+  GenFullM<Scalar> res(n,m.nrow) ;
+
+  for (int i=0; i< n; ++i) {
+    for (int j=0; j< m.nrow; ++j) {
+      res[i][j] = 0.0;
+      for (int k=0;  k<= i; ++k)
+        res[i][j] += (*this)[i][k] * m[j][k];
+        for (int k=0;  k< n; ++k)
+          res[i][j] += (*this)[k][i] * m[j][k];
+    }
+  }
+  return res;
+}
+
+
+template<class Scalar>
+void SymFullM<Scalar>::invert()
+{
+
+  SymFullM tmp(*this);
+  tmp.factor();
+  double *rhs = new double[n];
+  for (int j=0; j < n; ++j) { //for each j solve Axj = ej
+    for (int i=0; i < n; ++i) {
+      if (j!=i)
+        rhs[i] = 0.0;
+      else
+        rhs[i] = 1.0;
+    }
+    tmp.reSolve(rhs);
+    for (int i=j; i < n; ++i)
+      (*this)[i][j] = rhs[i];
+  }
+
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::print(char *msg)
+{
+  if (*msg) fprintf(stderr,"%s\n",msg);
+  for (int i=0 ; i < n ; ++i) {
+    for (int j=0; j <= i  ; ++j)
+      fprintf(stderr,"%e ",(*this)[i][j]) ;
+    for (int j=i+1; j < n  ; ++j)
+      fprintf(stderr,"%e ",(*this)[j][i]) ;
+    fprintf(stderr,"\n") ;
+  }
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::zero()
+{
+ for (int i=0; i< n*(n+1)/2 ; ++i)
+   v[i] = 0.0;
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::factor()
+{
+  for (int i=0; i<n; ++i) {
+    if ((*this)[i][i] <= 0.0) {
+       fprintf(stderr,"Error in Cholesky factorization:negative elements on the diagonal \n");
+       return;
+    }
+    double invD = 1.0/(*this)[i][i];
+    for (int j=i+1; j < n; ++j) {
+      double c = (*this)[j][i] *invD ;
+      for (int k=j; k < n; ++k)
+        (*this)[k][j] -= c*(*this)[k][i];
+    }
+    for (int k=i; k<n; ++k)
+      (*this)[k][i] *= sqrt(invD);
+  }  
+}
+
+template<class Scalar>
+void SymFullM<Scalar>::reSolve(double *x)
+{
+ // Forward elimination
+ for (int i=0; i<n; ++i){
+   x[i] = x[i]/(*this)[i][i];
+   for (int j=i+1; j < n; ++j)
+     x[j] -= (*this)[j][i]*x[i];
+ }
+ // Backward substitution
+ for (int i=n; i--; ) {
+   for (int j=i+1; j < n; ++j)
+     x[i] -= (*this)[j][i]*x[j];
+   x[i] /= (*this)[i][i];
+ }
+}
+
+

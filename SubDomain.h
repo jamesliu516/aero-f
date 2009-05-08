@@ -50,6 +50,7 @@ class BCData;
 class MatchNodeSet; // HB
 class LevelSet;
 class VolumicForceTerm;
+class TimeLowMachPrec;
 
 struct V6NodeData;
 struct Vec3D;
@@ -224,7 +225,10 @@ public:
 
   void setBCond(BCondSet *subBC) { mmsBCs = subBC; }
   void applySmoothing(Vec<double> &, Vec<double> &);
+  void applySmoothing(Vec<double> &, SVec<double,2> &);
+  void computeTetsConnectedToNode(Vec<int> &Ni);
   void computeLocalAvg(SVec<double,3> &, Vec<double> &, Vec<double> &);
+  void computeLocalAvg(SVec<double,3> &, SVec<double,2> &, SVec<double,2> &);
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
   void setPhiForFluid1(Vec<double> &);
@@ -244,6 +248,8 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, Vec<double> &Phi);
+  void outputCsDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &);
+
   void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi);
   template<int dim>
@@ -255,6 +261,12 @@ public:
   template<int dim>
   void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
              PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
+
+  void computeLij(double [3][3], double [3], double [6], double [5]);              
+  void computeBij(double [3][3], double [6], double, double [3][3], double, double [5]);		
+  void computeZi(double [3], double, double, double [3], double [3], double [5], double);
+  void computeLi(double [3], double, double, double [3], double [5]);
+
 
   // moving mesh
 
@@ -268,12 +280,12 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       double, double, double);
+                       TimeLowMachPrec &);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       double, double, double, Vec<double> &);
+                       TimeLowMachPrec &, Vec<double> &);
 
 
   template<int dim, class Scalar>
@@ -323,7 +335,9 @@ public:
                               SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*, 
                               NodalGrad<1>&,
-                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
+                              SVec<double,dim>&, int, SVec<double,dim> *,
+                              SVec<double,dim> *,
+                              SVec<int,2>&, int, int);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
@@ -365,7 +379,10 @@ public:
                                                                                                   
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                  
+       
+  template<int dim>  
+  void rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
+                                                                                           
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -388,21 +405,30 @@ public:
   void computeMutOMuSmag(SmagorinskyLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
+  void computeMutOMuVMS(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
+
+  template<int dim>
+  void computeMutOMuDynamicVMS(DynamicVMSTerm *, SVec<double,dim> &, SVec<double,3> &,
+                               SVec<double,dim> &, Vec<double> &, Vec<double> &);
+
+  template<int dim>
   void computeMutOMuWale(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
-  void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &,
-                  SVec<double,6> &, SVec<double,3> &, SVec<double,dim> &, double, double);
+  void computeMutOMuDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, 
+                               SVec<double,dim> &, Vec<double> &);
 
   template<int dim>
-  void computeCsValues(SVec<double,dim> &,  SVec<double,16> &,
-                  SVec<double,6> &, SVec<double,2> &, Vec<double> &, SVec<double,3> &, double, double);
+  void computeTestFilterAvgs(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
+                             SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double>&,  SVec<double,3> &, SVec<double,dim> &,
-                  SVec<double,dim> &);
+  void computeCsValues(SVec<double,dim> &,  SVec<double,16> &, SVec<double,6> &, Vec<double> &,
+                       SVec<double,8> &, SVec<double,2> &, Vec<int> &, SVec<double,3> &, double, double);
 
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &, Vec<double> &);
+  template<int dim>
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, SVec<double,dim> &, 
+                             SVec<double,dim> &);
                                                                                                                           
   template<int dim>
   void computeVMSLES_Step1(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
@@ -693,7 +719,11 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &);
+  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &, Vec<double> &);
+
+  template<int dim>
+  void restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi, 
+                        SVec<double,dim> &restriction, int sign);
 
   template<int dim>
   void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<double> * = 0);
@@ -729,7 +759,11 @@ public:
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
-  
+
+  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);
+  void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
+  void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
+ 
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
   
@@ -921,7 +955,7 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &,
                                 SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
-                                Vec<double> &, Vec<double> &, double, double, double, double);
+                                Vec<double> &, Vec<double> &, double, TimeLowMachPrec &);
 
   void checkVec(SVec<double,3> &);
 

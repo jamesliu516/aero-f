@@ -202,7 +202,9 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 			 DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
   setup1(name, X, ctrlVol);
+  com->printf(2, "Done with 1\n");
   setup2(timeData);
+  com->printf(2, "Done with 2\n");
 }
 
 //------------------------------------------------------------------------------

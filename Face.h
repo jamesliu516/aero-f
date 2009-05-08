@@ -54,6 +54,7 @@ class EdgeSet;
 class ElemSet;
 class GeoState;
 class BinFileHandler;
+class TimeLowMachPrec;
 
 struct Vec3D;
 
@@ -100,6 +101,7 @@ public:
 				 double *, SVec<double,dim> &, double, SVec<double,3> &, double* gradP[3]) = 0;
   virtual void computeNodalHeatPower(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
+
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 				     Vec3D &, Vec3D &,  double* gradP[3], int, 
@@ -181,6 +183,10 @@ public:
     t->computeNodalHeatPower(elems, postFcn, X, 
 			     d2wall, Vwall, V, P);
   }
+
+
+
+
 
   void computeForceAndMoment(ElemSet &elems,
 			     PostFcn *postFcn, SVec<double,3> &X, 
@@ -322,6 +328,8 @@ public:
 
   static const int MaxNumNd = 4;
 
+  virtual int nodeNum(int i) const = 0;
+
 protected:
   virtual void *getWrapper_dim(GenFaceHelper_dim *, 
 			       int size, char *memorySpace) = 0;
@@ -377,6 +385,7 @@ public:
 
   void setup(int, int *, int, int surface_id = 0);
   void setType(int *);
+  void setType(int t) { code = t; }
   void setNodeType(int*, int*);
   void setNodeFaceType(int*);
   void setElementNumber(int elemNum, int rotDir);
@@ -457,6 +466,7 @@ public:
 			     d2wall, Vwall, V, P);
   }
 
+
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
@@ -495,14 +505,14 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normal, Vec<double> &normalVel,
-		       SVec<double,dim> &V, Vec<double> &dt, double beta,
-		       double k1, double cmach, Vec<double> &Phi);
+		       SVec<double,dim> &V, Vec<double> &dt, 
+		       TimeLowMachPrec &tprec, Vec<double> &Phi);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 		       Vec<Vec3D> &normal, Vec<double> &normalVel,
 		       SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idti, 
-		       Vec<double> &idtv, double beta, double k1, double cmach);
+		       Vec<double> &idtv, TimeLowMachPrec &tprec);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -513,7 +523,7 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
 			       double *Ub, Vec<double> &Phi, 
-			       SVec<double,dim> &fluxes);
+			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -636,7 +646,8 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D>  &normals, Vec<Vec3D>  &dNormals, Vec<double> normalVel, Vec<double> dNormalVel,
 			   SVec<double,3> &X, SVec<double,3> &dX, SVec<double,dim> &V, SVec<double,dim> &dV, 
-			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, double beta, double k1, double cmach);
+			   Vec<double> &dIdti, Vec<double> &dIdtv, double dMach, 
+                           TimeLowMachPrec &tprec);
 
   template<int dim>
   void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
@@ -723,6 +734,7 @@ public:
 			     SVec<double,dim>& V, Vec<double>& P) {
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }
+
 
   template<int dim>
   void computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, 
@@ -856,11 +868,11 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       double, double, double, Vec<double> &);
+                       TimeLowMachPrec &, Vec<double> &);
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
-                       Vec<double> &, double, double, double);
+                       Vec<double> &, TimeLowMachPrec &);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
@@ -869,7 +881,7 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &, Vec<double> &, 
-                               SVec<double,dim> &);
+                               SVec<double,dim> &, SVec<double,dim> *);
 
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
@@ -926,7 +938,8 @@ public:
   template<int dim>
   void computeDerivativeOfTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 			      SVec<double,3> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, 
-			      Vec<double> &, Vec<double> &, double, double, double, double);
+			      Vec<double> &, Vec<double> &, double, 
+                              TimeLowMachPrec &);
 
 };
 

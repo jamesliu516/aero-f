@@ -4,6 +4,7 @@
 #include <TimeData.h>
 #include <DistVector.h>
 #include <DistMacroCell.h>
+#include <LowMachPrec.h>
 
 class VarFcn;
 class Domain;
@@ -35,14 +36,16 @@ private:
   double gam;
   double pstiff;
 
-  bool prec;
+  TimeLowMachPrec    tprec;
+  SpatialLowMachPrec sprec; //only for computation of irey
+  /*bool prec;
   double beta;
   double mach;
   double cmach;
   double k1;
   double betav;
+*/
   double viscousCst;
-
 
   TimeData *data;
 

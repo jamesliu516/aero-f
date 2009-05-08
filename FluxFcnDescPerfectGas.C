@@ -118,12 +118,12 @@ void FluxFcnPerfectGasApprJacHLLEEuler3D::compute(double length, double irey, do
 
 //------------------------------------------------------------------------------
 
-void FluxFcnPerfectGasApprJacHLLEEuler3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnPerfectGasApprJacHLLEEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                                 double *VL, double *VR,
                                                 double *jacL, double *jacR, int flag)
 {
-
-  computeJacobiansPerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
+  
+  computeJacobiansPerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
 
 }
 
@@ -438,12 +438,12 @@ void FluxFcnPerfectGasApprJacHLLESA3D::compute(double length, double irey, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnPerfectGasApprJacHLLESA3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnPerfectGasApprJacHLLESA3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                              double *VL, double *VR,
                                              double *jacL, double *jacR, int flag)
 {
 
-  computeJacobiansPerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
+  computeJacobiansPerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
 
 }
 
@@ -723,12 +723,12 @@ void FluxFcnPerfectGasApprJacHLLEKE3D::compute(double length, double irey, doubl
 
 //------------------------------------------------------------------------------
 
-void FluxFcnPerfectGasApprJacHLLEKE3D::computeJacobians(double irey, double *normal, double normalVel,
+void FluxFcnPerfectGasApprJacHLLEKE3D::computeJacobians(double length, double irey, double *normal, double normalVel,
                                              double *VL, double *VR,
                                              double *jacL, double *jacR, int flag)
 {
 
-  computeJacobiansPerfectGas(irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
+  computeJacobiansPerfectGas(length, irey, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, flag);
 
 }
 

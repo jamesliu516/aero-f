@@ -176,7 +176,7 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 	Riemann = riemann;
                                                                                                                  
   if (recFcnCon) {
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann, 0);
                                                                                                                  
     if (timeState)
       timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -206,7 +206,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp.pad(Qeps);
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -229,7 +229,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Qepstmp.pad(Qeps);
 
     if(Phi)
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
     else
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -267,7 +267,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 #endif
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 

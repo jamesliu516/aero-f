@@ -65,7 +65,7 @@ public:
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, SVec<double,9> &);
-  double computeGradientP1Function(SVec<double,3> &, double [4][3], double * = NULL);
+  double computeGradientP1Function(SVec<double,3> &nodes, double ngrad[4][3], double * = NULL);
   double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
                                    double nGrad[4][3]);
   void computeStiffAndForce(double *, double *, 
@@ -74,25 +74,9 @@ public:
   void computeStiffBallVertex(double *, SVec<double, 3> &);
   void computeStiffTorsionSpring(double *, SVec<double, 3> &);
 
-  void computeLij(double [3][3], double [3], double [6], double [5]);
-
-  void computeBij(double [3][3], double [6], double , double [3][3], double , double [5]);
-
-  void computeLi(double [3], double , double , double [3], double [5]);
-
-  void computeZi(double [3], double , double , double [3], double [3], double [5], double , double); 
-
-  void computePij(double [3][3], double [3][3]);
-
   void computeTemp(double *[4], double [4], double);
 
   void computeTempGradient(double [4][3], double [4], double [3]);
-
-  double computeNormSij(double [3][3]);
-
-  void computeVelocity(double *[4], double [4][3],double [3], double [4]);
-
-  void computeVelocityGradient(double [4][3], double [4][3], double [3][3]);
 
   
   //-----functions in Tet.C
@@ -121,14 +105,12 @@ public:
 				 SVec<double,dim> &R);
 
   template<int dim>
-  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
-		          SVec<double,dim> &R);
+  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &,
+                             SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, Vec<double> &, 
-			     SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
-
-  void computeDynamicLESTerm(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &, Vec<double> &);
+  void computeWaleLESTerm(WaleLESTerm *, SVec<double,3> &, SVec<double,dim> &V,
+		          SVec<double,dim> &R);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
@@ -146,13 +128,8 @@ public:
 				       double *, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   template<int dim>
-  void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, 
-		    SVec<double,3> &, SVec<double,dim> &, double, double);
-
-  template<int dim>
-  void computeCsValues(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, SVec<double,2> &, Vec<double> &,
-		       SVec<double,3> &, double, double);
-
+  void computeP1Avg(SVec<double,dim> &, SVec<double,16> &, SVec<double,6> &, Vec<double> &,
+                    SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
 
 // Included (MB)
   double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &);

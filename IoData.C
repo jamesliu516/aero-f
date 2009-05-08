@@ -24,7 +24,7 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<NewtonData>
     (ca, "FailSafe", this, reinterpret_cast<int NewtonData::*>(&NewtonData::failsafe), 3,
-     "No", 0, "Yes", 1, "Always", 2);
+     "Off", 0, "On", 1, "AlwaysOn", 2);
   new ClassInt<NewtonData>(ca, "MaxIts", this, &NewtonData::maxIts);
   new ClassDouble<NewtonData>(ca, "Eps", this, &NewtonData::eps);
 

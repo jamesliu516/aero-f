@@ -89,6 +89,22 @@ void DistVMSLESTerm<dim>::compute(int config, DistVec<double> &ctrlVol,
 
 //------------------------------------------------------------------------
 
+template<int dim>
+void DistVMSLESTerm<dim>::computeMutOMu(DistVec<double> &ctrlVol,
+                                        DistSVec<double,3> &X,
+                                        DistSVec<double,dim> &V,
+                                        DistVec<double> &mutOmu)
+{
+
+  bool doInitialTasks = true;
+
+  domain->computeMutOMuVMS(vmst, macroCells, ctrlVol, 
+                           doInitialTasks, *VtBar, *volRatio,
+                           X, V, scopeDepth, mutOmu);
+
+}
+
+//------------------------------------------------------------------------
 // Included (MB)
 template<int dim>
 void DistVMSLESTerm<dim>::computeDerivative(int config, DistVec<double> &ctrlVol,

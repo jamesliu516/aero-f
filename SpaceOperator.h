@@ -75,7 +75,6 @@ private:
   DistExtrapolation<dim> *xpol;
   DistVMSLESTerm<dim> *vms;
   DistDynamicLESTerm<dim> *dles;
-  DynamicLESTerm *dlest;
   DistDynamicVMSTerm<dim> *dvms;
   FemEquationTerm *fet;
   SmagorinskyLESTerm *smag;
@@ -137,7 +136,9 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
                        DistSVec<double,dim> &, 
-                       DistExactRiemannSolver<dim> *, int it = 0);
+                       DistExactRiemannSolver<dim> *, int it,
+                       DistSVec<double,dim> * = 0, 
+                       DistSVec<double,dim> * = 0);
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
@@ -150,6 +151,10 @@ public:
                          DistExactRiemannSolver<dim> *);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+ 
+  double rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Finlet, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
+
+
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
                                      DistSVec<double,dim> &);
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,

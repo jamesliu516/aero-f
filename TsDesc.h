@@ -53,6 +53,10 @@ protected:
   DistSVec<double,dim> *V;
   DistSVec<double,dim> *R;
   DistSVec<double,dim> *Rinlet;
+  double Xlim1;
+  double Xlim2;
+  double Ylim1;
+  double Ylim2;
 
   RefVal *refVal;
   VarFcn *varFcn;
@@ -102,6 +106,7 @@ public:
   HeatTransferHandler* createHeatTransferHandler(IoData&, GeoSource&);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  double rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
   double computePositionVector(bool *, int, double);

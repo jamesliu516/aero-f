@@ -483,6 +483,9 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double t0 = timer->getTime();
 
   Timer *timer;
   timer = domain->getTimer();
@@ -522,7 +525,9 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
 
-  timer->removeForceAndDispComm(t0);
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+                                     // structure in the mesh solution
+
   //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
   return dt;
 
@@ -593,6 +598,8 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   }
   timer->removeForceAndDispComm(t0);
 
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+                                     // structure in the mesh solution
 
   if (algNum != 10 || it == it0)  {
     //ARL: bug
