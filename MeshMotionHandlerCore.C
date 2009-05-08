@@ -484,6 +484,10 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
 
+  Timer *timer;
+  timer = domain->getTimer();
+  double t0 = timer->getTime();
+
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
   if (steady)
@@ -494,10 +498,15 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   if ((algNum == 20 || algNum == 21) && it == 0) 
     dt *= 0.5;
 
-  if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
+  if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
     if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
-    else if(it!=1){;strExc->sendForce(F);}
+    else if(it!=1){strExc->sendForce(F);}
+  }
+  else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    else if(it==it0) {strExc->sendForce(F);}
+    else if(it!=1){strExc->sendForce(F);}
   }
   else if (algNum == 8) {
     getModalMotion(X);
@@ -513,6 +522,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
 
+  timer->removeForceAndDispComm(t0);
   //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
   return dt;
 
@@ -530,6 +540,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 {
   Timer *timer;
   timer = domain->getTimer();
+  double t0 = timer->getTime();
 
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
@@ -540,7 +551,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   if ((algNum == 20 || algNum == 21) && it == 0) 
     dt *= 0.5;
 
-  if (algNum == 20 || algNum == 21){
+  if (algNum == 20){
+    if(it==0){ strExc->sendForce(F);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else return 0.0; // last iteration!
+  }
+  else if (algNum == 21){
     if(it==0){ strExc->sendForce(F);}
     else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
     else return 0.0; // last iteration!
@@ -575,6 +591,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //  return 0.0;
     //}
   }
+  timer->removeForceAndDispComm(t0);
 
 
   if (algNum != 10 || it == it0)  {

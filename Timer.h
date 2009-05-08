@@ -18,7 +18,8 @@ class Timer {
     romSol, romConstr, romTimeInteg,
     comm, localCom, globalCom, interCom,
     io, binread, binwrite,
-    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp
+    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
+    waitrec, timeStep
   };
 
   int numTimings;
@@ -45,6 +46,7 @@ public:
   void setSetupTime();
   void setRunTime();
 
+  double addTimeStepTime(double);
   double addNodalWeightsTime(double);
   double addNodalGradTime(double);
   double addFiniteVolumeTermTime(double);
@@ -62,6 +64,7 @@ public:
   double addMeshAssemblyTime(double);
   double addMeshPrecSetupTime(double);
   double addMeshKspTime(double);
+  double removeForceAndDispComm(double);
   double addPodConstrTime(double);
   double addSnapsLinSolvTime(double);
   double addPadeReconstrTime(double);
@@ -77,6 +80,7 @@ public:
   double addBinaryReadTime(double);
   double addBinaryWriteTime(double);
   double addFluidSolutionTime(double);
+  double addWaitAndReceiveDisp(double);
 
   // Level-Set Timer Functions
   double addLevelSetSolutionTime(double);

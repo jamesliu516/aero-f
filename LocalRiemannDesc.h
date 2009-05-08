@@ -596,7 +596,7 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 {
 
   bool computeRiemannSolutionJWLJWLimplemented = false;
-  assert(computeRiemannSolutionJWLJWLimplemented);
+  if(computeRiemannSolutionJWLJWLimplemented) exit(1);
   int dim = 5;
 	
   double P_1, P_2, U_1, U_2, R_1, R_2;
@@ -703,7 +703,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 {
 
   bool computeRiemannSolutionGasJWLimplemented = false;
-  assert(computeRiemannSolutionGasJWLimplemented);
+  if(computeRiemannSolutionGasJWLimplemented) exit(1);
   int dim = 5;
 	
   double P_1, P_2, U_1, U_2, R_1, R_2;

@@ -1376,6 +1376,10 @@ MultiFluidData::MultiFluidData()
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
 
+  // for buckling of cylinder
+  Prate = -1.0;
+  Pinit = -1.0;
+
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1383,7 +1387,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 17, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1426,7 +1430,10 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   fluidModel.setup("FluidModel", ca);
   fluidModel2.setup("FluidModel2", ca);
   initialConditions.setup("InitialConditions", ca);
-                                                                                                        
+
+  new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
+  new ClassDouble<MultiFluidData>(ca, "Pinit", this, &MultiFluidData::Pinit);
+
 }
 
 //------------------------------------------------------------------------------
@@ -3328,6 +3335,8 @@ void IoData::checkInputValuesMulti_step2(){
       nonDimensionalizeFluidModel(mf.fluidModel2);
 
     }
+    mf.Pinit /= ref.rv.pressure;
+    mf.Prate /= ref.rv.pressure/ref.rv.time;
 
   }    
 }
@@ -4366,7 +4375,8 @@ int IoData::checkSolverValues()
   }
 
 // for Multiphase flow using levelset
-  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT){
+  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT
+                       && mf.interfaceType != MultiFluidData::FSF){
     com->fprintf(stderr, "*** Error: Linear reconstruction of the levelset is needed!\n");
     ++error;
   }

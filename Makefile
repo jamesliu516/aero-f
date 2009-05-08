@@ -1,7 +1,7 @@
 # This make file does not need to be changed if you are compiling on lancer or thunderbird or nivation
 
 #uncoment this to use the intel compiler
-#compiler = intel
+compiler = intel
 
 PREFIX     = fluid
 THESYS     = `/bin/uname -s`
@@ -75,11 +75,11 @@ CXXOBJS    = BcFcnCore.o \
              TsRestartCore.o \
              VarFcn.o \
              VMSLESTerm.o \
-             VolumicForceTerm.o \
              DynamicVMSTerm.o \
              WallFcnCore.o \
              BCApplierCore.o \
 	     BCond.o \
+             VolumicForceTerm.o \
 	     BlockAlloc.o
 
 
@@ -107,8 +107,8 @@ CXX       = g++
 #include default.defs
 #include nivation.defs
 
-#usescalapack = false
-usescalapack = true
+usescalapack = false
+#usescalapack = true
 ifeq ($(usescalapack),true)
   SFLAGS       = -DDO_SCALAPACK
 else
@@ -166,16 +166,12 @@ endif
 # search for arpack directory and make appropriate definitons
 findarpack = $(shell ls $(ARPACKLIB))
 
-ifeq ($(findstring $(ARPACKLIB), $(findarpack)), $(ARPACKLIB))
-  DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float -DDO_MODAL
-else
-  ARPACKLIB = 
-  DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
-endif
+ARPACKLIB = 
+DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
 
 DYNLINKFLAGS = -rdynamic --export-dynamic
 
-MPIFLAG = -DUSE_MPI -DMPI_NO_CPPBIND \
+MPIFLAG = -DUSE_MPI -DMPI_NO_CPPBIND -DMPICH_IGNORE_CXX_SEEK \
           -DUSE_STDARG -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDARG_H=1 \
           -DUSE_STDARG=1 -DMALLOC_RET_VOID=1 -DHAVE_MPI_CPP -fexceptions \
           #-I/opt/mpich/myrinet/gnu/include/mpi2c++ -fexceptions -I/opt/mpich/myrinet/gnu/include

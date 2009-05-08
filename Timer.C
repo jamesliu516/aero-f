@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 41;
+  numTimings = 43;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -130,6 +130,20 @@ void Timer::setRunTime()
 
   counter[run]++;
   data[run] = getRunTime(); 
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addTimeStepTime(double t0) 
+{ 
+
+  double t = getTime() - t0;
+  
+  counter[timeStep]++;
+  data[timeStep] += t; 
+
+  return t;
 
 }
 
@@ -376,6 +390,19 @@ double Timer::addMeshKspTime(double t0)
 
   counter[meshKsp]++;
   data[meshKsp] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::removeForceAndDispComm(double t0)
+{
+
+  double t = getTime() - t0;
+
+  data[mesh] -= t;
 
   return t;
 
@@ -633,6 +660,20 @@ double Timer::addLSKspTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addWaitAndReceiveDisp(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[waitrec]++;
+  data[waitrec] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -684,6 +725,9 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "\n");
   com->fprintf(fp, "Fluid Solution                : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[fluid], tmax[fluid], tavg[fluid]);
+  com->fprintf(fp, "  Time Steps                  : %10.2f %10.2f %10.2f %9d\n", 
+	       tmin[timeStep], tmax[timeStep], tavg[timeStep], 
+	       counter[timeStep]);
   com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);
@@ -778,7 +822,7 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "\n");
   }
 
-  com->fprintf(fp, "Communication                 : %10.2f %10.2f %10.2f         -\n", 
+  com->fprintf(fp, "Communication/Synchronization : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[comm], tmax[comm], tavg[comm]);
   com->fprintf(fp, "  Local                       : %10.2f %10.2f %10.2f         -\n",
 	       tmin[localCom], tmax[localCom], tavg[localCom]);

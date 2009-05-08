@@ -12,7 +12,7 @@ SAR           = ar cr
 LD            = g++
 
 # Intel C/C++ & Fortran compiler
-#compiler = intel
+compiler = intel
 #useomp = true
 ifeq ($(compiler), intel)
   #CXXDIR = $(ICCHOME)

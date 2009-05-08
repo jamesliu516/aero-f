@@ -1385,8 +1385,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     timer->addNodalGradTime(t0);
   }
 
-  if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
+  if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0){
+    double t0 = timer->getTime();
     ngradLS->compute(geoState->getConfig(), X, ctrlVol, PhiS);
+    timer->addNodalGradTime(t0);
+  }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);

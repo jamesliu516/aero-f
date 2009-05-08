@@ -115,9 +115,7 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
 {
 
   this->spaceOp->applyBCsToSolutionVector(U);
-  this->com->printf(2,"computing Residual\n");
   this->spaceOp->computeResidual(*this->X, *this->A, U, dU, this->timeState);
-  this->com->printf(2,"multiply By TimeStep\n");
   this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, U, dU);
   this->timeState->multiplyByTimeStep(dU);
   this->timeState->multiplyByPreconditioner(U,dU);
