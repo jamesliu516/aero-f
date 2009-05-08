@@ -57,6 +57,7 @@ int main(int argc, char **argv)
   int i, numCodes;
   int *size1, *argc1;
   char ***argv1;
+  int ierr;
 
   if (argv[1] == 0) {
     if (rank == 0) {
@@ -97,9 +98,15 @@ int main(int argc, char **argv)
   for (i=1; i<numCodes+1; ++i)
     index[i] = index[i-1] + size1[i-1];
 
+//  for (i=0; i<numCodes; ++i)
+//    if (rank >= index[i] && rank < index[i+1])
+//      startCode(argc1[i], argv1[i]);
   for (i=0; i<numCodes; ++i)
-    if (rank >= index[i] && rank < index[i+1])
-      startCode(argc1[i], argv1[i]);
+    if (rank >= index[i] && rank < index[i+1]){
+      ierr = startCode(argc1[i], argv1[i]);
+      if(ierr) ierr = startCode(argc1[i], argv1[i], "entrypoint_");
+      if(ierr) exit(-1);
+    }
 
 #ifdef USE_MPI
   MPI_Finalize();
@@ -267,14 +274,18 @@ int startCode(int argc, char **argv, char *routine)
 
   if (msg) {
     fprintf(stderr,"*** Error: dynamic loading of \'%s\': %s\n", name, msg);
-    exit(-1);
+    dlclose(handle);
+    return 1;
+    //exit(-1);
   }
 
   int (*fct)(int, char **) = (int (*)(int, char **)) dlsym(handle, routine);
 
   if (!fct) {
     fprintf(stderr,"*** Error: could not find \'%s\' in \'%s\'\n", routine, name);
-    exit(-1);
+    dlclose(handle);
+    return 1;
+    //exit(-1);
   }
 
   int ierr = (*fct)(argc, argv);

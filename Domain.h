@@ -338,6 +338,8 @@ public:
   void getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi);
   template<int dim>
   void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U);
 
   // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 

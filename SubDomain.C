@@ -4615,6 +4615,34 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
+
+  double rhoe, ptemp;
+  if(vf->getType() != VarFcn::GASINGAS && vf->getType() != VarFcn::GASINLIQUID){
+    fprintf(stdout, "*** Error : Increasing pressure for this case is not possible right now...\n");
+    exit(1);
+  }
+
+  double gam = vf->getGamma();
+  double ps  = vf->getPressureConstant();
+
+  double rhovel2 = U[0][1] * U[0][1] + U[0][2] * U[0][2] + U[0][3] * U[0][3];
+  rhoe = (p+gam*ps)/(gam-1.0) + 0.5 * rhovel2;
+
+// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
+// are updated. It is assumed that the input and output states are uniform!
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == 0)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        U[nodeNums[iNode]][4] = rhoe;
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void SubDomain::printVariable(SVec<double,dim> &V, VarFcn *vf)
 {
   inletNodes.printVariable(V, sharedInletNodes, vf);

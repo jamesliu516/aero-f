@@ -797,6 +797,8 @@ struct MultiFluidData {
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
 
+  double Prate, Pinit;
+
   FluidModelData fluidModel;
   FluidModelData fluidModel2;
   InitialConditionsData initialConditions;

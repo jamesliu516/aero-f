@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 42;
+  numTimings = 43;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -654,6 +654,20 @@ double Timer::addLSKspTime(double t0)
 
   counter[lsKsp]++;
   data[lsKsp] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addWaitAndReceiveDisp(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[waitrec]++;
+  data[waitrec] += t;
 
   return t;
 

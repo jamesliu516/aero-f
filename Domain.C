@@ -3056,6 +3056,15 @@ void Domain::checkWeights(DistVec<double> &Phi, DistVec<double> &Phin,
 }
 //-------------------------------------------------------------------------------
 template<int dim>
+void Domain::IncreasePressure(double p, VarFcn *vf,  DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->IncreasePressure(p,vf,U(iSub));
+
+}
+//-------------------------------------------------------------------------------
+template<int dim>
 void Domain::padeReconstruction(VecSet<DistSVec<double, dim> >&snapsCoarse, VecSet<DistSVec<double, dim> >&snaps, int *stepParam, double *freqCoarse, double deltaFreq, int nStrMode, int L, int M, int nPoints)
 {
   int nSteps = stepParam[0];

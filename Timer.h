@@ -19,7 +19,7 @@ class Timer {
     comm, localCom, globalCom, interCom,
     io, binread, binwrite,
     levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
-    timeStep
+    waitrec, timeStep
   };
 
   int numTimings;
@@ -80,6 +80,7 @@ public:
   double addBinaryReadTime(double);
   double addBinaryWriteTime(double);
   double addFluidSolutionTime(double);
+  double addWaitAndReceiveDisp(double);
 
   // Level-Set Timer Functions
   double addLevelSetSolutionTime(double);

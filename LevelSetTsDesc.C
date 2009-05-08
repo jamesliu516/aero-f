@@ -61,6 +61,10 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   frequencyLS = ioData.mf.frequency;
   interfaceType = ioData.mf.interfaceType;
+
+  Prate = ioData.mf.Prate;
+  Pinit = ioData.mf.Pinit;
+  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 }
 
 //------------------------------------------------------------------------------
@@ -331,6 +335,23 @@ void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
     _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &Phi);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+{
+  if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
+
+  if(t>tmax && t-dt>tmax) {this->com->fprintf(stdout, "max pressure reached\n"); return true;} // max pressure was reached, so now we solve
+  else{ // max pressure not reached, so we do not solve and we increase pressure and let structure react
+    this->com->fprintf(stdout, "about to increase pressure to value of %e\n", Pinit+t*Prate);
+    this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U);
+    return false;
+  }
+
 
 }
 

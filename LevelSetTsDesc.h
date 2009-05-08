@@ -47,6 +47,14 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   MultiFluidData::InterfaceType interfaceType; //to advance levelset or not
   
+  //buckling cylinder parameters
+  // pressure is increased in the fluid at rate Prate from
+  // initial pressure Pinit until it reaches the pressure
+  // given by boundary conditions which happens at tmax.
+  double tmax;
+  double Prate;
+  double Pinit;
+
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~LevelSetTsDesc();
@@ -68,6 +76,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   void conservationErrors(DistSVec<double,dim> &U, int it);
 
 
+  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
 };
