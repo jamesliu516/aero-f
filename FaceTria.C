@@ -265,7 +265,6 @@ void FaceTria::computeNodalHeatPower(ElemSet& elems,
     Vec3D n;
     computeNormal(X, n);
     Elem& elem = elems[elemNum];
-
     double dp1dxj[4][3];
     if (postFcn->doesFaceNeedGradientP1Function())
       elem.computeGradientP1Function(X, dp1dxj);
@@ -278,10 +277,76 @@ void FaceTria::computeNodalHeatPower(ElemSet& elems,
     double hp = third * postFcn->computeHeatPower(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 
     for (int j=0; j<3; ++j)
-      P[ nodeNum(j) ] += hp;
+       P[ nodeNum(j) ] += hp;
+    
+    }
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+double FaceTria::computeHeatFluxes(ElemSet& elems,
+                                     PostFcn* postFcn, SVec<double,3>& X,
+                                     Vec<double>& d2wall, double* Vwall,
+                                     SVec<double,dim>& V)
+{  double hp = 0; 
+  if (code == BC_ISOTHERMAL_WALL_MOVING){   
+    Vec3D n;
+    computeNormal(X, n);
+    Elem& elem = elems[elemNum];
+    double dp1dxj[4][3];
+    if (postFcn->doesFaceNeedGradientP1Function())
+      elem.computeGradientP1Function(X, dp1dxj);
+
+    double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
+    double* Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
+    double* Vtet[4] = {V[elem[0]], V[elem[1]],
+                       V[elem[2]], V[elem[3]]};
+
+    hp = postFcn->computeHeatPower(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+  }
+   return hp;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FaceTria::computeNodalHeatFluxRelatedValues(ElemSet& elems,
+                                     PostFcn* postFcn, SVec<double,3>& X,
+                                     Vec<double>& d2wall, double* Vwall,
+                                     SVec<double,dim>& V, Vec<double>& P,
+                                     Vec<double>& N, bool includeKappa)
+{
+  if (code == BC_ISOTHERMAL_WALL_MOVING){
+    Vec3D n;
+    computeNormal(X, n);
+    Elem& elem = elems[elemNum];
+
+    double dp1dxj[4][3];
+    if (postFcn->doesFaceNeedGradientP1Function())
+      elem.computeGradientP1Function(X, dp1dxj);
+    double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
+    double* Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
+    double* Vtet[4] = {V[elem[0]], V[elem[1]],
+                       V[elem[2]], V[elem[3]]};
+
+    double hp = postFcn->computeHeatFluxRelatedValues(dp1dxj, n, d2w, Vwall, Vface, Vtet, includeKappa);
+    double norm = sqrt(n*n);
+     
+        for (int j=0; j<3; ++j)
+        {
+          if(hp != 0){
+            if(N[ nodeNum(j) ] <0){
+                 N[ nodeNum(j) ] = 0;
+            }         
+             P[ nodeNum(j) ] += hp;
+             N[ nodeNum(j) ] += norm;
+          }
+        }
   }
 }
+
 //------------------------------------------------------------------------------
+
 
 // Included (MB)
 template<int dim>

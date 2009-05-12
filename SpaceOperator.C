@@ -1496,14 +1496,6 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 //------------------------------------------------------------------------------
 
 template<int dim>
-double SpaceOperator<dim>::rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Finlet, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
-{
-  return domain->rerecomputeResidual(F, Finlet, X, Xlim1, Xlim2, Ylim1, Ylim2);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
 void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U, 
                                 DistSVec<double,dim> &Vg, DistVec<double> &Phi,
                                 DistSVec<double,dim> *Vgf, DistVec<double> *weight)
