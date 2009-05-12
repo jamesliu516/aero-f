@@ -1120,20 +1120,6 @@ double Domain::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-double Domain::rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
-{
-
-#pragma omp parallel for
-  for (int iSub=0; iSub < numLocSub; iSub++)
-    subDomain[iSub]->rerecomputeResidual(F(iSub), Ffar(iSub), X(iSub), Xlim1, Xlim2, Ylim1, Ylim2);
-
-  return Ffar*Ffar;
-}
-
-
-//------------------------------------------------------------------------------
-
 template<class Scalar, int neq>
 void Domain::finishJacobianGalerkinTerm(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A)  {
 
@@ -2402,7 +2388,6 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
-
   if (step == 0)
     com->barrier();
 
