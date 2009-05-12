@@ -608,10 +608,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
-//        LSS.totalForce[0] += Wstar[4]*normal[l][0];
-//        LSS.totalForce[1] += Wstar[4]*normal[l][1];
-//        LSS.totalForce[2] += Wstar[4]*normal[l][2];
-
+/*        LSS.totalForce[0] += Wstar[4]*normal[l][0];
+        LSS.totalForce[1] += Wstar[4]*normal[l][1];
+        LSS.totalForce[2] += Wstar[4]*normal[l][2];
+*/
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
@@ -632,10 +632,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
         LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
 */
-//        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
-//        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
-//        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
-
+/*        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
+        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
+        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
+*/
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
@@ -754,11 +754,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       LSS.totalForce[0] += Wstar[4]*gradPhi[0]*area;
       LSS.totalForce[1] += Wstar[4]*gradPhi[1]*area;
       LSS.totalForce[2] += Wstar[4]*gradPhi[2]*area;
-      LSS.sendNodalForceToStruct(X[i],Wstar[4]*area*gradPhi);
 */      LSS.totalForce[0] += Wstar[4]*normal[l][0];
       LSS.totalForce[1] += Wstar[4]*normal[l][1];
       LSS.totalForce[2] += Wstar[4]*normal[l][2];
-      LSS.sendNodalForceToStruct(X[i],Wstar[4]*normal[l]);
 
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
@@ -774,11 +772,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 /*      LSS.totalForce[0] += -Wstar[4]*gradPhi[0]*area;
       LSS.totalForce[1] += -Wstar[4]*gradPhi[1]*area;
       LSS.totalForce[2] += -Wstar[4]*gradPhi[2]*area;
-      LSS.sendNodalForceToStruct(X[j],-Wstar[4]*area*gradPhi);
 */      LSS.totalForce[0] += -Wstar[4]*normal[l][0];
       LSS.totalForce[1] += -Wstar[4]*normal[l][1];
       LSS.totalForce[2] += -Wstar[4]*normal[l][2];
-      LSS.sendNodalForceToStruct(X[j], -Wstar[4]*normal[l]);
 
 
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);

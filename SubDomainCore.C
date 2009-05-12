@@ -4369,6 +4369,17 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
         Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
+
+        //Kevin's debug, check if Xinter is really on the surface.
+        int N1 = lsRes[k].trNodes[0];
+        int N2 = lsRes[k].trNodes[1];
+        int N3 = lsRes[k].trNodes[2];
+ 
+
+
+        //------------------
+
+
         if (pStar[k]<1.0e-8) {
           fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
           exit(-1);}
@@ -4554,34 +4565,29 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
     Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
     Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
   }
-}
-
-//-----------------------------------------------------------------------------------------------
-/*
-void SubDomain::addLocalParticleForceA(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
-{ // assume nf carries the area of that triangle.
-  Vec3D flocal = -1.0/3.0*p*nf;
-//  Vec3D flocal = -1.0/3.0*(10.0/1.26)*nf;
-  for (int iDim=0; iDim<3; iDim++) {
-    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
-    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
-    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
+/*  int NODE = 19243 - 1;
+  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) { 
+    if(lsRes.trNodes[0]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
+    if(lsRes.trNodes[1]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[1]*flocal[0], lsRes.xi[1]*flocal[1], lsRes.xi[1]*flocal[2]);
+    if(lsRes.trNodes[2]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[0], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[1], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[2]);
+    fprintf(stderr,"Fs[%d] = %e %e %e.\n", NODE, Fs[NODE][0], Fs[NODE][1], Fs[NODE][2]);
   }
-}
 
-//-----------------------------------------------------------------------------------------------
-
-void SubDomain::addLocalParticleForceB(Vec3D nf, double p, LevelSetResult& lsRes, double(*Fs)[3])
-{ // assume nf carries the area of that triangle.
-  Vec3D ns = lsRes.gradPhi;
-//  Vec3D flocal = -1.0/3.0*p*(nf*ns)*ns;
-  Vec3D flocal = -1.0/3.0*(10.0/1.26)*(nf*ns)*ns;
-  for (int iDim=0; iDim<3; iDim++) {
-    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
-    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
-    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
+  NODE = 19570 - 1;
+  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) { 
+    if(lsRes.trNodes[0]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
+    if(lsRes.trNodes[1]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[1]*flocal[0], lsRes.xi[1]*flocal[1], lsRes.xi[1]*flocal[2]);
+    if(lsRes.trNodes[2]==NODE)
+      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[0], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[1], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[2]);
+    fprintf(stderr,"Fs[%d] = %e %e %e.\n", NODE, Fs[NODE][0], Fs[NODE][1], Fs[NODE][2]);
   }
+*/  
 }
-*/
+
 //-----------------------------------------------------------------------------------------------
 

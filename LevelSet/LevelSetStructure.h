@@ -33,49 +33,6 @@ struct LevelSetResult {
 
 };
 
-// ------- test for load transfer ------------------------------
-class PistonSurface1D {
-  public:
-    Vec3D nodes[4];
-    int elems[2][3];
-    Vec3D nodalForce[4];
-
-    PistonSurface1D() { 
-      nodes[0] = Vec3D(0.0, -0.25, -0.25);
-      nodes[1] = Vec3D(0.0, 0.25, -0.25);
-      nodes[2] = Vec3D(0.0, -0.25, 0.25);
-      nodes[3] = Vec3D(0.0, 0.25, 0.25);
-      elems[0][0] = 0; elems[0][1] = 1; elems[0][2] = 2;
-      elems[1][0] = 1; elems[1][1] = 2; elems[1][2] = 3;
-    }
-    ~PistonSurface1D(){}
-
-    void addForce(Vec3D X, Vec3D force) {
-      for (int iElem=0; iElem<2; iElem++) {
-        Vec3D xprod = (nodes[elems[iElem][1]]-nodes[elems[iElem][0]])^
-                      (nodes[elems[iElem][2]]-nodes[elems[iElem][0]]);
-        double area = 0.5*xprod.norm();
-        X[0] = nodes[0][0];
-        double coord[3];
-        for (int iNode = 0; iNode<3; iNode++) {
-          xprod = (nodes[elems[iElem][(iNode+1)%3]]-X)^
-                  (nodes[elems[iElem][(iNode+2)%3]]-X);
-          coord[iNode] = 0.5*xprod.norm()/area;
-        }
-        if (fabs(coord[0]+coord[1]+coord[2]-1.0)<1e-6) {
-          nodalForce[elems[iElem][0]] += coord[0]*force;
-          nodalForce[elems[iElem][1]] += coord[1]*force;
-          nodalForce[elems[iElem][2]] += coord[2]*force;
-          break;
-        }
-        if (iElem==1) fprintf(stderr,"ERROR in load transfer. Abort...\n");
-      }
-    }
-    void clearForce() {for (int i=0; i<4; i++) nodalForce[i] = 0.0;} 
-    Vec3D getTotalForce() {return (nodalForce[0]+nodalForce[1]+nodalForce[2]+nodalForce[3]);} 
-}; 
-// --------------------------------------------------------------
-
 /** Abstract class for finding levelset information */
 class LevelSetStructure {
   public:
@@ -91,9 +48,9 @@ class LevelSetStructure {
     /** creates an array of values which are positive inside the fluid and negative outside. */
     virtual void computePhi(Vec<double> &phi);
 
+    virtual double checkPointOnSurface(Vec3D, int, int, int) = 0;
+
     Vec3D totalForce;
-    PistonSurface1D solidSurface;
-    void sendNodalForceToStruct(Vec3D X, Vec3D force) {solidSurface.addForce(X,force);}
 };
 
 class DistLevelSetStructure {

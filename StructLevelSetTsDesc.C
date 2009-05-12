@@ -56,8 +56,6 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if(intersectorName != 0)
     distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
 
-  // TODO Kevin needs to pass the distLSS to the postOp
-
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 
