@@ -949,7 +949,6 @@ double PostFcnNS::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3],
 
 }
 //------------------------------------------------------------------------------
-//NICOLE
 double PostFcnNS::computeHeatFluxRelatedValues(double dp1dxj[4][3], Vec3D& n, double d2w[3],
                                    double* Vwall, double* Vface[3], double* Vtet[4], bool includeKappa)
 {

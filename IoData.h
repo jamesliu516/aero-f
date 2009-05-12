@@ -115,7 +115,6 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
 
-//NICOLE
   const char *tempnormalderivative;
   const char *surfaceheatflux;
   const char *heatfluxes;

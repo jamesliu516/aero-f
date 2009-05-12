@@ -45,7 +45,7 @@ class PostOperator {
   int numSurf;
   int numSurfHF;
   map<int,int> surfOutMap;
-  map<int,int> surfOutMapHF; //NICOLE
+  map<int,int> surfOutMapHF;
   map<int,int> surfComputeMap; //AS far as I can figure out this map is never used
   
  // Coefficients to Compute nodal force transfer
@@ -91,9 +91,9 @@ public:
                              DistVec<double> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
-  //NICOLE
+  
   void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3> &,
-                                          DistSVec<double,dim> &, double*);//, DistSVec<double>);
+                                          DistSVec<double,dim> &, double*);
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
 

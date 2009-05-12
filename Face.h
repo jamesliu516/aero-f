@@ -763,7 +763,7 @@ public:
 			 PostFcn *postFcn, SVec<double,3> &X, 
 			 Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
 			 double pin, SVec<double,3> &F, double* gradP[3]) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -771,7 +771,7 @@ public:
 			     PostFcn* postFcn, SVec<double,3>& X, 
 			     Vec<double>& d2wall, double* Vwall, 
 			     SVec<double,dim>& V, Vec<double>& P) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -795,7 +795,7 @@ public:
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
 			     double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
                                         Vec<double> *genCF) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
   
   /* WARNING : THIS FUNCTION IS RETURNING A DOUBLE ? ... IS THIS A PROBLEM ? */
@@ -803,21 +803,21 @@ public:
   double computeInterfaceWork(ElemSet &elems, PostFcn* postFcn, 
 			      SVec<double,3>& X, Vec<double>& d2wall, double ndot, 
 			      double* Vwall, SVec<double,dim>& V, double pin) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeScalarQuantity(PostFcn::ScalarType type, ElemSet &elems, PostFcn *postFcn, 
 			     SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
 			     SVec<double,dim> &V, SVec<double,2> &Q) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, double *Vwall,
 			   SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
   
   template<int dim, class Scalar, int neq>
@@ -825,14 +825,14 @@ public:
 				   SVec<double,3> &X, Vec<double> &ctrlVol,
 				   Vec<double> &d2wall, double *Vwall, 
 				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeForceDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
 			  SVec<double,dim> &V, SVec<double,dim> &deltaU, Vec<double> &modalF, 
 			  SVec<double,3> **localMX) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -841,13 +841,13 @@ public:
 				SVec<double, dim> &Vwall, double pInfty, Vec3D &CFi, Vec3D &CMi, 
 				Vec3D &CFv, Vec3D &CMv, double* gradP[3], VecSet< SVec<double,3> > *mX,
                                         Vec<double> *genCF) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeFDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
 		      SVec<double,dim> &Vgl, Vec3D (*F)) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
 // Included (MB)
@@ -855,7 +855,7 @@ public:
   void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
 			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3]) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -863,7 +863,7 @@ public:
                                          Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, 
                                          SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
 
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -874,20 +874,20 @@ public:
                                              Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
 				             double* gradP[3], double* dGradP[3], int hydro) {
 
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
                                        Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, 
                                        SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
                                     double *Vwall, double *dVwall, SVec<double,dim> &V) {
-    fprintf(stderr, "Error: undifined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
   }
 
 };

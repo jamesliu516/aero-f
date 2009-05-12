@@ -265,7 +265,6 @@ void FaceTria::computeNodalHeatPower(ElemSet& elems,
     Vec3D n;
     computeNormal(X, n);
     Elem& elem = elems[elemNum];
-//  fprintf(stderr, "FaceTria::computeNodalHeatPower \n");
     double dp1dxj[4][3];
     if (postFcn->doesFaceNeedGradientP1Function())
       elem.computeGradientP1Function(X, dp1dxj);
@@ -290,11 +289,10 @@ double FaceTria::computeHeatFluxes(ElemSet& elems,
                                      Vec<double>& d2wall, double* Vwall,
                                      SVec<double,dim>& V)
 {  double hp = 0; 
-  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING){   
+  if (code == BC_ISOTHERMAL_WALL_MOVING){   
     Vec3D n;
     computeNormal(X, n);
     Elem& elem = elems[elemNum];
-//  fprintf(stderr, "FaceTria::computeNodalHeatPower \n");
     double dp1dxj[4][3];
     if (postFcn->doesFaceNeedGradientP1Function())
       elem.computeGradientP1Function(X, dp1dxj);
@@ -306,13 +304,11 @@ double FaceTria::computeHeatFluxes(ElemSet& elems,
 
     hp = postFcn->computeHeatPower(dp1dxj, n, d2w, Vwall, Vface, Vtet);
   }
-//fprintf(stderr, " in FaceTria::computeHeatFluxes and hp = %e \n", hp);
    return hp;
 }
 
 //------------------------------------------------------------------------------
 
-//NICOLE
 template<int dim>
 void FaceTria::computeNodalHeatFluxRelatedValues(ElemSet& elems,
                                      PostFcn* postFcn, SVec<double,3>& X,
@@ -320,7 +316,7 @@ void FaceTria::computeNodalHeatFluxRelatedValues(ElemSet& elems,
                                      SVec<double,dim>& V, Vec<double>& P,
                                      Vec<double>& N, bool includeKappa)
 {
-  if ((code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ADIABATIC_WALL_MOVING) && code != BC_SYMMETRY){
+  if (code == BC_ISOTHERMAL_WALL_MOVING){
     Vec3D n;
     computeNormal(X, n);
     Elem& elem = elems[elemNum];
