@@ -113,16 +113,12 @@ PostOperator<dim>::PostOperator(IoData &iod, VarFcn *vf, DistBcData<dim> *bc,
   
   }
 
-//NICOLE
   numSurfHF = 1;
-//  &sMap = iod.surfaces.surfaceMap.dataMap;
-//  map<int, SurfaceData *>::iterator it;
   for(it = sMap.begin(); it != sMap.end(); ++it) {
     if(it->second->computeHeatFluxes == SurfaceData::TRUE_HF
        || (it->second->computeHeatFluxes == SurfaceData::UNSPECIFIED
           && it->second->heatFluxResults == SurfaceData::YES_HF) ){
       if(it->second->heatFluxResults == SurfaceData::YES_HF){
-       // fprintf(stderr, "surfOutMapHF[%i] = %i \n", it->first, numSurfHF);
         surfOutMapHF[it->first] = numSurfHF++;  
       }
       else {
@@ -242,14 +238,11 @@ void PostOperator<dim>::computeNodalHeatPower(DistSVec<double,3>& X, DistSVec<do
 }
 
 //------------------------------------------------------------------------------
-//NICOLE
 template<int dim>
 void PostOperator<dim>::computeNodalHeatFluxRelatedValues(DistSVec<double,3>& X, DistSVec<double,dim>& U,
                                               DistVec<double>& Q, bool includeKappa)
 {
-//  DistVec<double> P(domain->getNodeDistInfo());
   DistVec<double> N(domain->getNodeDistInfo());
-//  P = 0.0;
   Q = 0.0;
   N = -1.0;
 
@@ -383,7 +376,6 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
 }
 
 //------------------------------------------------------------------------------
-//NICOLE
 
 template<int dim>
 void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X, 
@@ -724,12 +716,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-//NICOLE
   else if(type == PostFcn::TEMPERATURE_NORMAL_DERIVATIVE){
     bool includeKappa = false;
     computeNodalHeatFluxRelatedValues(X,U,Q, includeKappa);
   }
-
   else if(type == PostFcn::SURFACE_HEAT_FLUX){
     bool includeKappa2 = true;
     computeNodalHeatFluxRelatedValues(X,U,Q, includeKappa2);

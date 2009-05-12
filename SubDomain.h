@@ -380,9 +380,6 @@ public:
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
        
-  template<int dim>  
-  void rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
-                                                                                           
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -609,7 +606,6 @@ public:
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
 
-  //NICOLE 
   template<int dim>
   void SubDomain::computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
                                       GeoState &, SVec<double,3> &,

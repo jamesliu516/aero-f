@@ -159,10 +159,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
   }
-//NICOLE
   if (iod.output.transient.surfaceheatflux[0] != 0) {
     sscale[PostFcn::SURFACE_HEAT_FLUX] = iod.ref.rv.power /(iod.ref.rv.length * iod.ref.rv.length);
-//    sscale[PostFcn::SURFACE_HEAT_FLUX] = iod.ref.rv.temperature /iod.ref.rv.length;
     scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
     sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",
             iod.output.transient.prefix, iod.output.transient.surfaceheatflux);
@@ -382,7 +380,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     hydrodynamiclift = 0;
 
-//NICOLE
   if (iod.output.transient.heatfluxes[0] != 0) {
     heatfluxes = new char[sp + strlen(iod.output.transient.heatfluxes)];
     sprintf(heatfluxes, "%s%s", iod.output.transient.prefix, iod.output.transient.heatfluxes);
@@ -426,7 +423,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpHydroDynamicForces = new FILE *[nSurf];
   fpHydroStaticLift    = new FILE *[nSurf];
   fpHydroDynamicLift   = new FILE *[nSurf];
-  fpHeatFluxes         = new FILE *[nSurfHF]; //NICOLE
+  fpHeatFluxes         = new FILE *[nSurfHF]; 
 
   for (int iSurf = 0; iSurf < nSurf; iSurf++)  {
     fpForces[iSurf]          = 0;
@@ -440,7 +437,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
 
   for (int iSurf = 0; iSurf < nSurfHF; iSurf++)  {
-    fpHeatFluxes[iSurf]         = 0; //NICOLE
+    fpHeatFluxes[iSurf]         = 0; 
   }
 
 
@@ -547,21 +544,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
-/*
-//----------------------------------------------------------------------
-//NICOLE
-  if (iod.output.transient.surfaceheatflux[0] != 0) {
-    scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
-    sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.surfaceheatflux);
-  }
-  if (iod.output.transient.tempnormalderivative[0] != 0) {
-    scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = new char[sp + strlen(iod.output.transient.tempnormalderivative)];
-    sprintf(scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
-  }
-//-------------------------------------------------------------------------
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -1599,22 +1581,12 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
 }
 
 //------------------------------------------------------------------------------
-//NICOLE
-/*
 template<int dim>
-void TsOutput<dim>::writeHeatFluxesToDisk(IoData iod, int it, int itSc, int itNl, double t,
-                                          DistSVec<double,3> &X, DistSVec<double,dim> &U)
-*/
-template<int dim>
-void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
+  void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<double> *Phi)
-//For sure pass: iod it, itSc, itN1, t, X, U
-//Phi is an argument of Computeforces..
 {
   int nSurfs = postOp->getNumSurfHF();
-
-fprintf(stderr,"nSurfs = %i in TsOutput \n", nSurfs);
 
   double *HF = new double[nSurfs];
   for(int index =0; index < nSurfs; index++){
@@ -1629,12 +1601,10 @@ fprintf(stderr,"nSurfs = %i in TsOutput \n", nSurfs);
   int iSurf;
   if (fpHeatFluxes[0]) {
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
-fprintf(stderr, "HF[%i] = %e \n ", iSurf, HF[iSurf]);
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
         HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; //Why the 2 factor?
       else
        HF[iSurf] *= refVal->power; 
-fprintf(stderr, "SURFACE = %e\n\n\n\n", surface);
         fprintf(fpHeatFluxes[iSurf], "%d %e %d %d %e \n",
                 it, time, itSc, itNl, HF[iSurf]);
       fflush(fpHeatFluxes[iSurf]);
@@ -2059,7 +2029,6 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
   }
-//NICOLE
   if (iod.output.transient.surfaceheatflux[0] != 0) {
     scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
     sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",

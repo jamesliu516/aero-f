@@ -188,7 +188,6 @@ TransientData::TransientData()
   dForces = "";
   dEddyvis = "";
 
-  //NICOLE
   tempnormalderivative = "";
   surfaceheatflux = "";
   heatfluxes = "";
@@ -208,7 +207,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 76, father); //NICOLE, used to be 73
+  ClassAssigner *ca = new ClassAssigner(name, 76, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -292,10 +291,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
 
-//NICOLE
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
-  new ClassStr<TransientData>(ca, "SurfaceHeatFlux", this, &TransientData::surfaceheatflux); 
-  new ClassStr<TransientData>(ca, "HeatPower", this, &TransientData::heatfluxes);
+  new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
+  new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
 
 }
 
@@ -2593,9 +2591,8 @@ SurfaceData::SurfaceData()  {
   rotationID = -1;
   velocity = 0.0;
 
-  type = (Type) UNSPECIFIED; //ADIABATIC OR ISOTHERMAL OR UNSPECIFIED
+  type = (Type) UNSPECIFIED; 
   temp = -1.0;
-//NICOLE
   computeHeatFluxes = (ComputeHeatPower) UNSPECIFIED_HF;
   heatFluxResults = NO_HF; 
 }
@@ -2612,10 +2609,9 @@ Assigner *SurfaceData::getAssigner()  {
   new ClassToken<SurfaceData> (ca, "ComputeForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeForces), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1); //I think this variable is never used
-//NICOLE 
-  new ClassToken<SurfaceData> (ca, "ComputeHeatPower", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
-  new ClassToken<SurfaceData> (ca, "SeparateHeatPower", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
-//  new ClassToken<SurfaceData> (ca, "SeparateHeatFluxFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
+  
+  new ClassToken<SurfaceData> (ca, "ComputeHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
@@ -4159,7 +4155,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
 
-//NICOLE    
        for(int j = 1; j < 8*sizeof(int); j++) {
             map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
              if(it == surfaceMap.end())
@@ -4168,7 +4163,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
                it->second->temp /= ref.rv.temperature;
             }
        }
-//END NICOLE
 
     linearizedData.stepsize = ts.timestep;
     linearizedData.stepsizeinitial = ts.timestepinitial;
