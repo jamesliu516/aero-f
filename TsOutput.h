@@ -134,9 +134,9 @@ public:
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<double> * = 0);
-  void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
-                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi = 0);
+  void writeHeatFluxesToDisk(bool, int, int, int, double, double,
+                                      double* , DistSVec<double,3> &, DistSVec<double,dim> &,
+                                      DistVec<double> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeConservationErrors(IoData &iod, int it, double t, 
                                double *totqty, double *f1qty, double *f2qty,

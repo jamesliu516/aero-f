@@ -594,7 +594,7 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
-  void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+  void computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
                                             GeoState&, SVec<double,3>&,
                                             SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
 
@@ -607,7 +607,7 @@ public:
                              Vec<double> *genCF = 0);
 
   template<int dim>
-  void SubDomain::computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+  void computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
                                       GeoState &, SVec<double,3> &,
                                       SVec<double,dim> &, double *);
 

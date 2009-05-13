@@ -36,7 +36,6 @@ StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, 
   ootscale = 1.0 / iod.ref.rv.time;
   oovscale = 1.0 / iod.ref.rv.tvelocity;
   ootempscale = 1.0 / iod.ref.rv.temperature;
-  
   fscale = iod.ref.rv.tforce;
   pscale = iod.ref.rv.tpower;
 
@@ -139,6 +138,8 @@ void StructExc::negotiate()
       exit(1);
     }
 
+    numStrNodes[0][1] = 0;
+    for (iCpu=1; iCpu<numStrCPU; ++iCpu)
       numStrNodes[iCpu][1] = numStrNodes[iCpu-1][1] + numStrNodes[iCpu-1][0];
 
   }
