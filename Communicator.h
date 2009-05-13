@@ -39,8 +39,9 @@ struct RecInfo {
 
 };
 
-//------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------
+/** class for communicator with other processes */
 class Communicator {
 
   int thisCPU;
@@ -81,7 +82,7 @@ public:
   RecInfo recFrom(int, int, Scalar *, int);
 
   template<class Scalar>
-  void exchange(int, int, int *, int *, Scalar **, int *, Scalar **); 
+  void exchange(int, int, int *, int *, Scalar **, int *, Scalar **);
 
   template<class Scalar>
   void broadcast(int, Scalar *, int = 0);
@@ -106,30 +107,58 @@ public:
   void setMaxVerbose(int v) { maxverbose = v; }
   int getMaxVerbose() { return maxverbose; }
 
+
 };
+
+namespace Communication {
+
+template<typename Scalar>
+class Window {
+#ifdef USE_MPI
+	MPI_Win win;
+#endif
+	Communicator &com;
+	Scalar *data;
+public:
+	static const int Add=0, Min=1, Max=2;
+	Window(Communicator &c, int size, Scalar *s);
+    void get(int locOff, int size, int prNum, int remOff);
+    void put(int locOff, int size, int prNum, int remOff);
+    void accumulate(int locOff, int size, int prNum, int remOff, int op);
+    void fence(bool startOrEnd);
+};
+
+}
+/** allocate memory that can be used for one-sided communication */
+ void* operator new(size_t, Communicator &c);
+ void operator delete(void *p, Communicator &c);
+
+ void *operator new[](size_t size, Communicator &c);
+
+ void operator delete[](void *p, Communicator &c);
 
 //------------------------------------------------------------------------------
 
 class SubDTopo {
 
-  struct CPair { 
+  struct CPair {
 
     int from, to, cpuID;
 
-    CPair() {} 
-    CPair(int f, int t, int c) { from =f; to = t; cpuID =c; } 
+    CPair() {}
+    CPair(int f, int t, int c) { from =f; to = t; cpuID =c; }
 
     // the following operator is required by the STL sort algorithm
     bool operator < (const CPair &x) const
-    { 
+    {
       // we want to order first by cpuID (with local coms first)
       // then by origin and then by destination
-      return cpuID < x.cpuID || (cpuID  == x.cpuID && 
-				 (from < x.from || (from == x.from && to < x.to))); 
+      return cpuID < x.cpuID || (cpuID  == x.cpuID &&
+				 (from < x.from || (from == x.from && to < x.to)));
     }
     bool operator == (const CPair &x) const
-    { 
-      return cpuID == x.cpuID && from == x.from && to == x.to; 
+    {
+      return cpuID == x.cpuID && from == x.from && to == x.to;
     }
 
   };
@@ -152,7 +181,7 @@ class SubDTopo {
   void makeCrossConnect(); // builds neighbCPU cpuSC and cpuRC
 
 public:
-  // The constructor only needs the connectivity of the subdomains of 
+  // The constructor only needs the connectivity of the subdomains of
   // this CPU to be correct, the connectivity of other subdomains can be
   // (and is in slave domain) ommited.
   SubDTopo (int CPU, Connectivity *subToSub, Connectivity *CPUToSub);
@@ -184,7 +213,7 @@ struct SubRecInfo {
 
 //------------------------------------------------------------------------------
 /*
-   CommPattern represent a communication pattern. 
+   CommPattern represent a communication pattern.
      Communication is based on the model that a message from one
      subdomain to another subdomain is made of a number of vectors.
      Such vectors are stored in a matrix form. That matrix may have
@@ -223,14 +252,14 @@ protected:
   int *crossSendLen, *crossRcvLen;
   T **crossSendBuffer;
   T **crossRcvBuffer;
-  
+
   int numChannels;
   SubRecInfo<T> *sRecInfo;
 
   Communicator *communicator;
 
 public:
-    
+
   CommPattern(SubDTopo *, Communicator *, Mode = Share, Symmetry = Sym);
 
 #ifdef MEM_TMPL_FUNC

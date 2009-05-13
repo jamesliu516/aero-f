@@ -12,7 +12,7 @@ template <class Scalar> class DistVec;
 /** Structure used to return levelset information */
 struct LevelSetResult {
    double alpha;
-   double xi[2];
+   double xi[3];
    int trNodes[3];
    Vec3D gradPhi;
    Vec3D normVel;
@@ -27,10 +27,25 @@ struct LevelSetResult {
 		  gradPhi(gpx, gpy, gpz), normVel(nvx, nvy, nvz) {
 		     gradPhi *= 1.0/gradPhi.norm();
                      alpha = -1.0;
-                     xi[0] = xi[1] = -1.0;
+                     xi[0] = xi[1] = xi[2] = -1.0;
                      trNodes[0] = trNodes[1] = trNodes[2] = -1;
 		   }
 
+   class iterator {
+	   double *xip;
+	   int *nodep;
+   public:
+	   iterator(double *x, int *n) : xip(x), nodep(n) { }
+	   iterator & operator++() { xip++; nodep++; }
+	   bool operator !=(const iterator &it) const {
+		   return xip != it.xip && nodep != it.nodep;
+	   }
+	   double Ni() const { return *xip; }
+	   double nodeNum() const { return *nodep; }
+   };
+
+   iterator begin() { return iterator(xi, trNodes); }
+   iterator end() { return iterator(xi+3, trNodes+3); }
 };
 
 // ------- test for load transfer ------------------------------
@@ -40,7 +55,7 @@ class PistonSurface1D {
     int elems[2][3];
     Vec3D nodalForce[4];
 
-    PistonSurface1D() { 
+    PistonSurface1D() {
       nodes[0] = Vec3D(0.0, -0.25, -0.25);
       nodes[1] = Vec3D(0.0, 0.25, -0.25);
       nodes[2] = Vec3D(0.0, -0.25, 0.25);
@@ -71,9 +86,9 @@ class PistonSurface1D {
         if (iElem==1) fprintf(stderr,"ERROR in load transfer. Abort...\n");
       }
     }
-    void clearForce() {for (int i=0; i<4; i++) nodalForce[i] = 0.0;} 
-    Vec3D getTotalForce() {return (nodalForce[0]+nodalForce[1]+nodalForce[2]+nodalForce[3]);} 
-}; 
+    void clearForce() {for (int i=0; i<4; i++) nodalForce[i] = 0.0;}
+    Vec3D getTotalForce() {return (nodalForce[0]+nodalForce[1]+nodalForce[2]+nodalForce[3]);}
+};
 // --------------------------------------------------------------
 
 /** Abstract class for finding levelset information */
