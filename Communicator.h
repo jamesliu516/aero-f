@@ -39,6 +39,10 @@ struct RecInfo {
 
 };
 
+namespace Communication {
+  template <typename Scalar>
+    class Window;
+}
 
 //------------------------------------------------------------------------------
 /** class for communicator with other processes */
@@ -107,26 +111,28 @@ public:
   void setMaxVerbose(int v) { maxverbose = v; }
   int getMaxVerbose() { return maxverbose; }
 
-
+  template <typename Scalar>
+    friend class Communication::Window;
 };
 
 namespace Communication {
 
-template<typename Scalar>
-class Window {
+  template<typename Scalar>
+  class Window {
 #ifdef USE_MPI
-	MPI_Win win;
+    MPI_Win win;
 #endif
-	Communicator &com;
-	Scalar *data;
-public:
-	static const int Add=0, Min=1, Max=2;
-	Window(Communicator &c, int size, Scalar *s);
+    Communicator &com;
+    Scalar *data;
+  public:
+    static const int Add=0, Min=1, Max=2;
+    Window(Communicator &c, int size, Scalar *s);
+    ~Window();
     void get(int locOff, int size, int prNum, int remOff);
     void put(int locOff, int size, int prNum, int remOff);
-    void accumulate(int locOff, int size, int prNum, int remOff, int op);
+    void accumulate(Scalar *s, int locOff, int size, int prNum, int remOff, int op);
     void fence(bool startOrEnd);
-};
+  };
 
 }
 /** allocate memory that can be used for one-sided communication */

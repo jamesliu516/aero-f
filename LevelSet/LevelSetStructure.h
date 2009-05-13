@@ -38,7 +38,7 @@ struct LevelSetResult {
 	   iterator(double *x, int *n) : xip(x), nodep(n) { }
 	   iterator & operator++() { xip++; nodep++; }
 	   bool operator !=(const iterator &it) const {
-		   return xip != it.xip && nodep != it.nodep;
+		   return xip != it.xip || nodep != it.nodep;
 	   }
 	   double Ni() const { return *xip; }
 	   double nodeNum() const { return *nodep; }

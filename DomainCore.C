@@ -27,6 +27,7 @@ using std::max;
 #define FLUID_ID 0
 #define STRUC_ID 1
 #define HEAT_ID  2
+#define EMBED_ID 3
 
 //------------------------------------------------------------------------------
 
@@ -92,6 +93,8 @@ Domain::Domain()
   }
   else
     heatTimer = 0;
+
+  embedCom = allCom[EMBED_ID];
 
   meshMotionBCs = 0; //HB
 
@@ -1478,9 +1481,9 @@ int Domain::numNodes() //TODO: don't need Edge, Face, Elem...
 //-------------------------------------------------------------------------------
 
 void Domain::updateNodeTag(DistSVec<double,3> &X, DistLevelSetStructure *LSS, DistVec<int> &nodeTag0, DistVec<int> &nodeTag)
-{ 
+{
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) 
+  for (int iSub=0; iSub<numLocSub; iSub++)
     subDomain[iSub]->updateNodeTag(X(iSub), (*LSS)(iSub), nodeTag0(iSub), nodeTag(iSub));
 }
 

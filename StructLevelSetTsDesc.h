@@ -10,7 +10,7 @@
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
-
+class DynamicNodalTransfer;
 class GeoSource;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
@@ -43,8 +43,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   // ----------- components for Fluid-Structure interface. -----------------------------
   DistLevelSetStructure *distLSS; // tool for FS tracking (not necessarily a  "levelset solver".)
-  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges 
-  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges 
+  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges
   // ------------------------------------------------------------------------------------
 
   // ----------- components for Fluid-Fluid interface -----------------------------------
@@ -74,8 +74,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   MultiFluidData::InterfaceType interfaceTypeFF; //to advance levelset or not
   // --------------------------------------------------------------------------------------
 
-
-  
+  DynamicNodalTransfer *dynNodalTransfer;
 
  public:
   int orderOfAccuracy; // consistent with the reconstruction type for space
@@ -84,7 +83,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                 // = 2 : on GammaF, formula 2;
                 // = 3 : on Gamma*, formula 1;
                 // = 4 : on Gamma*, formula 2;
-  const int TYPE;   //TYPE = 1 (for fluid-fullbody) 
+  const int TYPE;   //TYPE = 1 (for fluid-fullbody)
                     //     = 2 (for fluid-shell-fluid)
 
   StructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -104,6 +103,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                     DistSVec<double,dim> &);
   void outputPositionVectorToDisk();
   void resetOutputToStructure(DistSVec<double,dim> &);
+  /** Override the TsDesc routine because forces are sent to the structure
+   * in a different way than the general case */
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
@@ -111,14 +112,14 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   void updateFSInterface();
   void updateNodeTag();
-  
-  void computeForceLoad(); //compute Fs. 
+
+  void computeForceLoad(); //compute Fs.
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);
-  
+
 };
 
 

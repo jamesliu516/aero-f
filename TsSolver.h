@@ -6,13 +6,13 @@
 class IoData;
 
 //------------------------------------------------------------------------------
-
+/** Class which handles the algorithmic organization of the solution for all problems */
 template<class ProblemDescriptor>
 class TsSolver {
 
   ProblemDescriptor *probDesc;
 
-  int resolve(typename ProblemDescriptor::SolVecType &, 
+  int resolve(typename ProblemDescriptor::SolVecType &,
               IoData &);
 
 public:
@@ -31,9 +31,9 @@ public:
 
 template<class ProblemDescriptor>
 TsSolver<ProblemDescriptor>::TsSolver(ProblemDescriptor *prbd)
-{ 
-  
-  probDesc = prbd; 
+{
+
+  probDesc = prbd;
 
 }
 
@@ -114,7 +114,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       itSc++;
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
-      
+
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
       // compute control volumes and velocities

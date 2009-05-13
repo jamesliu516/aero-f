@@ -106,6 +106,7 @@ class Domain {
   Communicator *strCom;
   Communicator *heatCom;
   Communicator *globCom;
+  Communicator *embedCom;
 
   Timer *timer;
   Timer *strTimer;
@@ -161,6 +162,7 @@ public:
   Communicator *getCommunicator() const { return com; }
   Communicator *getStrCommunicator() { return strCom; }
   Communicator *getHeatCommunicator() { return heatCom; }
+  Communicator *getEmbedCommunicator() { return embedCom; }
   Timer *getTimer() const { return timer; }
   Timer *getStrTimer() const { return strTimer; }
   Timer *getHeatTimer() const { return heatTimer; }
@@ -806,16 +808,16 @@ public:
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 
   template<int dim>
-  void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &, 
+  void updatePhaseChange(DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *,
                          DistVec<int> &, DistVec<int> &);
   template<int dim>
-  void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, 
-                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &); 
+  void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int,
+                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &);
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
-                                    DistSVec<double,dim> &, DistSVec<double,dim> &); 
-  
+                                    DistSVec<double,dim> &, DistSVec<double,dim> &);
+
  };
 
 //------------------------------------------------------------------------------

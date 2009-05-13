@@ -1,6 +1,7 @@
 #include <StructLevelSetTsDesc.h>
 #include <DistExactRiemannSolver.h>
 #include <LevelSet/IntersectionFactory.h>
+#include <FSI/DynamicNodalTransfer.h>
 
 #include <math.h>
 
@@ -67,7 +68,8 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   numStructNodes = distLSS->getNumStructNodes();
   if (numStructNodes>0) {
     this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
-    Fs = new double[numStructNodes][3];
+    // We allocate Fs from memory that allows fast one-sided MPI communication
+    Fs = new (*this->com) double[numStructNodes][3];
   } else this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 //-------------------------------------------------------------
 
@@ -96,6 +98,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   frequencyLS = ioData.mf.frequency;
   interfaceTypeFF = ioData.mf.interfaceType;
+  if(this->domain->getEmbedCommunicator()) {
+    dynNodalTransfer = new DynamicNodalTransfer(*this->domain->getEmbedCommunicator());
+  } else
+    dynNodalTransfer = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -125,10 +131,10 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 {
   this->geoState->setup2(this->timeState->getData());
 
-  if (TYPE==1) {  
+  if (TYPE==1) {
     this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
     this->distLSS->initialize(this->domain,*this->X);
-  } else if (TYPE==2) { 
+  } else if (TYPE==2) {
     // load the FS interface.
     if (ioData.mf.initialConditions.nplanes != 1) {
       fprintf(stderr,"number of planes != 1! Abort...\n"); exit(-1);}
@@ -175,7 +181,7 @@ double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     if (this->problemType[ProblemData::UNSTEADY])
       this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
                         dt*this->refVal->time, numSubCycles);
-  
+
     this->timer->addFluidSolutionTime(t0);
     this->timer->addTimeStepTime(t0);
 
@@ -204,9 +210,9 @@ double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
 template<int dim>
 void StructLevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
-{ 
+{
   this->geoState->update(*this->X, *this->A);
-  if(LS) { 
+  if(LS) {
     LS->update(Phi);
     this->timeState->update(U, LS->Phin, LS->Phinm1, LS->Phinm2,
                             Vgf, Vgfweight, riemann);
@@ -224,7 +230,7 @@ template<int dim>
 int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if (TYPE==2) {  
+  if (TYPE==2) {
     if(LS) ierr = this->domain->checkSolution(this->varFcn, *this->A, U, Phi, LS->Phin);
     else   ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
   } else ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
@@ -358,7 +364,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                              double t, double dt, DistSVec<double,dim> &U)
-{ 
+{
   if(LS) conservationErrors(U,it);
 
   this->com->globalSum(1, &interruptCode);
@@ -370,7 +376,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
 
   // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
   DistVec<double> nodeTagCopy(this->getVecInfo());
-  if (TYPE==2) {  
+  if (TYPE==2) {
 #pragma omp parallel for
     for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
       Vec<double> &subTagCopy = nodeTagCopy(iSub);
@@ -441,29 +447,6 @@ void StructLevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 */
 }
 
-//-----------------------------------------------------------------------------
-
-template<int dim>
-void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
-                                          DistSVec<double,dim> &U)
-{ //TODO: need to be re-written.
-  /*       // TODO: mmh not needed?
-  if (mmh) {
-    double work[2];
-    mmh->computeInterfaceWork(dt, postOp, geoState->getXn(), this->timeState->getUn(), *X, U, work);
-    this->restart->energy[0] += work[0];
-    restart->energy[1] += work[1];
-  }
-
-  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
-  if (_mmh)
-    _mmh->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
-
-  if (hth)
-    hth->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
-*/
-}
-
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -482,7 +465,7 @@ double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 
   if (TYPE==2) this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTagCopy, *this->R, this->riemann, 0);
   else this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
-  
+
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;
   res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
@@ -521,7 +504,7 @@ template<int dim>
 void StructLevelSetTsDesc<dim>::updateFSInterface()
 {
   if (TYPE!=2) {
-    fprintf(stderr,"In StructLevelSetTsDesc::updateFSInterface: Shouldn't call me! Abort.\n"); 
+    fprintf(stderr,"In StructLevelSetTsDesc::updateFSInterface: Shouldn't call me! Abort.\n");
     exit(-1);
   }
   if (timeStep<=0.0) {fprintf(stderr,"in StructLevelSetTsDesc, timeStep <= 0.0! Abort...\n"); exit(-1);}
@@ -529,7 +512,7 @@ void StructLevelSetTsDesc<dim>::updateFSInterface()
   fsiPosition += displacement*fsiNormal;
 //  fsiPosition += 0.12; //for debug only.
   fprintf(stderr,"Interface: [%e %e %e], normal [%e %e %e].\n", fsiPosition[0], fsiPosition[1], fsiPosition[2], fsiNormal[0], fsiNormal[1], fsiNormal[2]);
-}  
+}
 
 //------------------------------------------------------------------------------
 
@@ -537,15 +520,15 @@ template<int dim>
 void StructLevelSetTsDesc<dim>::updateNodeTag()
 {
   if (TYPE!=2) {
-    fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n"); 
+    fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n");
     exit(-1);
   }
-  if(LS) {fprintf(stderr,"Not ready for FF interface. Abort...\n"); exit(-1);}   
+  if(LS) {fprintf(stderr,"Not ready for FF interface. Abort...\n"); exit(-1);}
   nodeTag0 = nodeTag;
   nodeTag = 0;
 
 //  domain->updateNodeTag(*this->X, distLSS, nodeTag0, nodeTag);
-  
+
   // temporarily.
 #pragma omp parallel for
   for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
@@ -557,7 +540,7 @@ void StructLevelSetTsDesc<dim>::updateNodeTag()
                     + fsiNormal[2]*(subX[i][2] - fsiPosition[2]);
       subNodeTag[i] = (scalar>0.0) ? -1 : 1;
     }
-  } 
+  }
 }
 
 //-------------------------------------------------------------------------------
@@ -568,29 +551,29 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
-/*  
+/*
   double tempFs[numStructNodes*3];
   for (int i=0; i<numStructNodes; i++)
     for (int j=0; j<3; j++)
-      tempFs[i*3+j] = Fs[i][j];  
+      tempFs[i*3+j] = Fs[i][j];
   this->com->globalSum(3*numStructNodes, tempFs);
   for (int i=0; i<numStructNodes; i++) {
-    for (int j=0; j<3; j++) 
+    for (int j=0; j<3; j++)
       Fs[i][j] = tempFs[i*3+j];
   }
-  
+
   FILE* fx = fopen("Fx.sol","w");
   FILE* fy = fopen("Fy.sol","w");
   FILE* fz = fopen("Fz.sol","w");
-  for (int i=0; i<numStructNodes; i++) 
+  for (int i=0; i<numStructNodes; i++)
     this->com->fprintf(fx, "%e\n", Fs[i][0]);
-  for (int i=0; i<numStructNodes; i++) 
+  for (int i=0; i<numStructNodes; i++)
     this->com->fprintf(fy, "%e\n", Fs[i][1]);
-  for (int i=0; i<numStructNodes; i++) 
+  for (int i=0; i<numStructNodes; i++)
     this->com->fprintf(fz, "%e\n", Fs[i][2]);
   fclose(fx);
   fclose(fy);
-  fclose(fz); 
+  fclose(fz);
 */
 }
 
@@ -614,3 +597,29 @@ void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, Dis
 }
 
 //-------------------------------------------------------------------------------
+
+template <int dim>
+void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, DistSVec<double,dim> &U)
+{
+	  /*       // TODO: mmh not needed?
+	  if (mmh) {
+	    double work[2];
+	    mmh->computeInterfaceWork(dt, postOp, geoState->getXn(), this->timeState->getUn(), *X, U, work);
+	    this->restart->energy[0] += work[0];
+	    restart->energy[1] += work[1];
+	  }
+
+	  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
+	  if (_mmh)
+	    _mmh->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
+
+	  if (hth)
+	    hth->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
+	*/
+  if(dynNodalTransfer) {
+    computeForceLoad();
+    // Now send the force to the structure
+    SVec<double,3> v(numStructNodes, Fs);
+    dynNodalTransfer->sendForce(v);
+  }
+}

@@ -2,7 +2,7 @@
 #include <Connectivity.h>
 
 template <class T>
-CommPattern<T>::CommPattern(SubDTopo *topo, Communicator *_com, 
+CommPattern<T>::CommPattern(SubDTopo *topo, Communicator *_com,
 			    Mode _mode, Symmetry _sym)
 {
  int i, j;
@@ -62,7 +62,7 @@ CommPattern<T>::finalize()
           sRecInfo[reverseChannel[i]].leadDim = sRecInfo[i].leadDim;
           sRecInfo[reverseChannel[i]].nvec = sRecInfo[i].nvec;
         }
-      } 
+      }
    } else {
       // send and receive the message length and number of vectors (leadDim is
       // implicitely set to the message length)
@@ -103,7 +103,7 @@ CommPattern<T>::finalize()
           sRecInfo[ (*rcvConnect)[iCPU][i] ].nvec = rcvMsg[offset+1];
           totLen += rcvMsg[offset]*rcvMsg[offset+1];
           offset += 2;
-        }    
+        }
      //fprintf(stderr, "Tot=len is %d  for %d\n", totLen, communicator->cpuNum());
    }
  }
@@ -111,7 +111,7 @@ CommPattern<T>::finalize()
  // work, independently of whether we are symmetric or not
  if(mode == Share &&numCPUs == 1) return;
 
- if(numCPUs != 1 && numNeighbCPUs > 0){ 
+ if(numCPUs != 1 && numNeighbCPUs > 0){
     // When there are several other CPUs, we need to allocate
     // the cross CPU memory buffers
     int i, j, totLen=0;
@@ -180,7 +180,7 @@ CommPattern<T>::exchange()
   if (numCPUs == 1) return;
   // Do the actual exchange MLX
 
-  communicator->exchange(101, numNeighbCPUs, neighbCPUs, crossSendLen, 
+  communicator->exchange(101, numNeighbCPUs, neighbCPUs, crossSendLen,
 			 crossSendBuffer, crossRcvLen, crossRcvBuffer);
 
 }
@@ -250,13 +250,13 @@ void Communicator::sendTo(int cpu, int tag, Scalar *buffer, int len)
 template<class Scalar>
 RecInfo Communicator::recFrom(int tag, Scalar *buffer, int len)
 {
-  
+
   RecInfo rInfo;
 
 #ifdef USE_MPI
   double t0;
   if (timer) t0 = timer->getTime();
- 
+
   MPI_Status status;
   MPI_Recv(buffer, CommTrace<Scalar>::multiplicity*len, CommTrace<Scalar>::MPIType, MPI_ANY_SOURCE, tag, comm, &status);
   MPI_Get_count(&status, CommTrace<Scalar>::MPIType, &rInfo.len);
@@ -297,9 +297,9 @@ RecInfo Communicator::recFrom(int cpu, int tag, Scalar *buffer, int len)
 //------------------------------------------------------------------------------
 
 template<class Scalar>
-void Communicator::exchange(int tag, int numNeighb, int *cpus, int *sndLen,          
-			    Scalar **sndData, int *rcvLen, Scalar **rcvData)     
-{                                                                                    
+void Communicator::exchange(int tag, int numNeighb, int *cpus, int *sndLen,
+			    Scalar **sndData, int *rcvLen, Scalar **rcvData)
+{
 
   //fprintf(stderr, " ... Exchanging w/ %d Neigh CPUS, %d crossSendLen %d, crossRcvLen\n", numNeighb, sndLen, rcvLen);
 #ifdef USE_MPI
@@ -315,7 +315,7 @@ void Communicator::exchange(int tag, int numNeighb, int *cpus, int *sndLen,
   for (iCpu = 0; iCpu < numNeighb; ++iCpu) {
     int len = rcvLen[iCpu];
     if (len == 0) continue;
-    MPI_Irecv(rcvData[iCpu], CommTrace<Scalar>::multiplicity*len, CommTrace<Scalar>::MPIType, 
+    MPI_Irecv(rcvData[iCpu], CommTrace<Scalar>::multiplicity*len, CommTrace<Scalar>::MPIType,
 	      cpus[iCpu], tag, comm, rcvId+rcvReq);
     rcvReq += 1;
   }
@@ -324,7 +324,7 @@ void Communicator::exchange(int tag, int numNeighb, int *cpus, int *sndLen,
   for (iCpu = 0; iCpu < numNeighb; ++iCpu) {
     int len = sndLen[iCpu];
     if (len == 0) continue;
-    MPI_Isend(sndData[iCpu], CommTrace<Scalar>::multiplicity*len, CommTrace<Scalar>::MPIType, 
+    MPI_Isend(sndData[iCpu], CommTrace<Scalar>::multiplicity*len, CommTrace<Scalar>::MPIType,
 	      cpus[iCpu], tag, comm, sndId+sendReq);
     sendReq += 1;
   }
@@ -335,7 +335,7 @@ void Communicator::exchange(int tag, int numNeighb, int *cpus, int *sndLen,
 
   if (timer) timer->addLocalComTime(t0);
 #endif
-                                                                                   
+
 }
 
 //------------------------------------------------------------------------------
@@ -367,7 +367,7 @@ void Communicator::globalOp(int len, Scalar *x, MPI_Op op)
   Scalar *work;
   bool delete_work = false;
 
-  if (segSize > 5000) {    
+  if (segSize > 5000) {
     delete_work =  true;
     work = new Scalar[segSize];
   } else
@@ -429,7 +429,7 @@ void Communicator::globalSum(int len, Scalar *x)
 #ifdef MEM_TMPL_FUNC
 template <class T>
 template <class TB>
-CommPattern<T>::CommPattern(CommPattern<TB> &pb, Communicator *_com, 
+CommPattern<T>::CommPattern(CommPattern<TB> &pb, Communicator *_com,
 			    Mode _mode, Symmetry _sym)
 {
   communicator = _com;
@@ -446,3 +446,39 @@ CommPattern<T>::CommPattern(CommPattern<TB> &pb, Communicator *_com,
  finalize();
 }
 #endif
+
+namespace Communication {
+
+  template <typename Scalar>
+  Window<Scalar>::Window(Communicator &c, int size, Scalar *s) : com(c) {
+#ifdef USE_MPI
+    MPI_Win_create(s, size, sizeof(Scalar), MPI_INFO_NULL,
+        com.comm, &win);
+#endif
+  }
+  template <typename Scalar>
+    Window<Scalar>::~Window() {
+  #ifdef USE_MPI
+      MPI_Win_free(&win);
+  #endif
+    }
+
+  template <typename Scalar>
+  void Window<Scalar>::accumulate(Scalar *a, int locOff, int size, int prNum, int remOff, int op) {
+#ifdef USE_MPI
+    static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
+    MPI_Accumulate(a+locOff, size*CommTrace<Scalar>::multiplicity, CommTrace<Scalar>::MPIType,
+        prNum,
+        remOff*CommTrace<Scalar>::multiplicity, size*CommTrace<Scalar>::multiplicity,
+        CommTrace<Scalar>::MPIType, mpiOp[op],
+        win);
+#endif
+      }
+  template <typename Scalar>
+    void Window<Scalar>::fence(bool isBeginning) {
+      if(isBeginning)
+        MPI_Win_fence((MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE), win);
+      else
+        MPI_Win_fence(MPI_MODE_NOSUCCEED, win);
+  }
+}
