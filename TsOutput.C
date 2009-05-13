@@ -1154,8 +1154,10 @@ void TsOutput<dim>::closeAsciiFiles()
     if (fpLift[iSurf]) fclose(fpLift[iSurf]);
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
-    if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
-  }  
+  } 
+  for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
+     if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
+  }
   if (fpResiduals) fclose(fpResiduals);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
@@ -1602,7 +1604,7 @@ template<int dim>
   if (fpHeatFluxes[0]) {
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       if (refVal->mode == RefVal::NON_DIMENSIONAL)
-        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; //Why the 2 factor?
+        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; 
       else
        HF[iSurf] *= refVal->power; 
         fprintf(fpHeatFluxes[iSurf], "%d %e %d %d %e \n",
