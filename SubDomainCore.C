@@ -4279,8 +4279,8 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState, 
-                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs, 
+void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
+                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                         LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -4317,8 +4317,8 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X, 
-                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, 
+void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
+                                             double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
                                              Vec<double> &pstarij, Vec<double> &pstarji)
 {
   int T[4]; //nodes in a tet.
@@ -4374,7 +4374,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         int N1 = lsRes[k].trNodes[0];
         int N2 = lsRes[k].trNodes[1];
         int N3 = lsRes[k].trNodes[2];
- 
+
 
 
         //------------------
@@ -4457,39 +4457,39 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
 
   for (int iFacet=0; iFacet<4; iFacet++) {
     int status = 0;
-    for (int j=0; j<3; j++) 
-      if (LSS.isActive(0,T[facet[iFacet][j]])) 
-         status |= 1 << j; 
+    for (int j=0; j<3; j++)
+      if (LSS.isActive(0,T[facet[iFacet][j]]))
+         status |= 1 << j;
     switch (status) {
-      case 1: 
-        if (firstEdge<0) 
+      case 1:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][2]; 
+        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][2];
         break;
-      case 2: 
-        if (firstEdge<0) 
+      case 2:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][0]; 
+        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][0];
         break;
-      case 3: 
-        if (firstEdge<0) 
+      case 3:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][1];
-        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][2]; 
+        nextEdge[edgeIndex[iFacet][1]] = edgeIndex[iFacet][2];
         break;
-      case 4: 
-        if (firstEdge<0) 
+      case 4:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][1]; 
+        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][1];
         break;
-      case 5: 
-        if (firstEdge<0) 
+      case 5:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][0];
-        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][1]; 
+        nextEdge[edgeIndex[iFacet][0]] = edgeIndex[iFacet][1];
         break;
-      case 6: 
-        if (firstEdge<0) 
+      case 6:
+        if (firstEdge<0)
           firstEdge = edgeIndex[iFacet][2];
-        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][0]; 
+        nextEdge[edgeIndex[iFacet][2]] = edgeIndex[iFacet][0];
         break;
       default:
         break;
@@ -4510,17 +4510,17 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
     }else {
       polygon[edgeCount][0] = T[edgeToNodes[curEdge][1]];
       polygon[edgeCount][1] = T[edgeToNodes[curEdge][0]];
-    } 
+    }
     edgeCount++;
     curEdge = nextEdge[curEdge];
   } while (curEdge>=0 && curEdge!=firstEdge);
-  
+
   return edgeCount;
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3, 
+void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3,
                               LevelSetResult& lsRes1, LevelSetResult& lsRes2, LevelSetResult& lsRes3,
                               double(*Fs)[3])
 {
@@ -4554,19 +4554,27 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
     return;
   }
   fprintf(stderr,"METHOD=%d doesn't exist! Skipping the force calculation.\n", METHOD);
-} 
+}
 
 //-----------------------------------------------------------------------------------------------
 
 void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
 {
+	for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) {
+		int n = it.nodeNum();
+		double coef = it.Ni();
+		for(int i = 0; i < 3; ++i)
+			Fs[n][i] += coef*flocal[i];
+	}
+		/*
   for (int iDim=0; iDim<3; iDim++) {
     Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
     Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
     Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
   }
+  */
 /*  int NODE = 19243 - 1;
-  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) { 
+  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) {
     if(lsRes.trNodes[0]==NODE)
       fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
     if(lsRes.trNodes[1]==NODE)
@@ -4577,7 +4585,7 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
   }
 
   NODE = 19570 - 1;
-  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) { 
+  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) {
     if(lsRes.trNodes[0]==NODE)
       fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
     if(lsRes.trNodes[1]==NODE)
@@ -4586,7 +4594,7 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
       fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[0], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[1], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[2]);
     fprintf(stderr,"Fs[%d] = %e %e %e.\n", NODE, Fs[NODE][0], Fs[NODE][1], Fs[NODE][2]);
   }
-*/  
+*/
 }
 
 //-----------------------------------------------------------------------------------------------

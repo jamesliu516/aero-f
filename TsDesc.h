@@ -26,7 +26,7 @@ template<int dim> class SpaceOperator;
 template<int dim> class PostOperator;
 
 //------------------------------------------------------------------------------
-
+/** Base class for time integration descriptors */
 template<int dim>
 class TsDesc {
 
@@ -65,7 +65,7 @@ protected:
   RefVal *refVal;
   VarFcn *varFcn;
 
-  
+
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
@@ -122,12 +122,12 @@ public:
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
 
-  virtual void setupOutputToDisk(IoData &, bool *, int, double, 
+  virtual void setupOutputToDisk(IoData &, bool *, int, double,
 			 	DistSVec<double,dim> &);
-  virtual void outputToDisk(IoData &, bool*, int, int, int, double, double, 
+  virtual void outputToDisk(IoData &, bool*, int, int, int, double, double,
 				DistSVec<double,dim> &);
 
-  virtual void outputForces(IoData &, bool*, int, int, int, double, double, 
+  virtual void outputForces(IoData &, bool*, int, int, int, double, double,
 		    DistSVec<double,dim> &);
 
   void outputPositionVectorToDisk();
@@ -145,7 +145,7 @@ public:
 
   virtual double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti) { };
 
-// Included (MB)  
+// Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
