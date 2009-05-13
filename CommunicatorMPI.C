@@ -4,6 +4,7 @@
 
 #include <Communicator.h>
 #include <complex>
+#include <new>
 
 #ifndef MPI_INTEGER
 #define MPI_INTEGER MPI_INT
@@ -111,7 +112,7 @@ Communicator::Communicator(MPI_Comm c1)
 #endif
 
 //------------------------------------------------------------------------------
-// note: color+1 is used in order to make the routine compatible with the 
+// note: color+1 is used in order to make the routine compatible with the
 // fortran communication library (which is restricted to 4 codes)
 
 void Communicator::split(int color, int maxcolor, Communicator** c)
@@ -153,9 +154,9 @@ void Communicator::split(int color, int maxcolor, Communicator** c)
     }
   }
 
-  if (leaders) 
+  if (leaders)
     delete [] leaders;
-  if (newleaders) 
+  if (newleaders)
     delete [] newleaders;
 #else
   c[color] = this;
@@ -186,7 +187,7 @@ int Communicator::barrier()
   int ierr = 0;
 
 #ifdef USE_MPI
-  ierr = MPI_Barrier(comm); 
+  ierr = MPI_Barrier(comm);
 #endif
 
   return ierr;
@@ -249,3 +250,52 @@ void Communicator::waitForAllReq()
 }
 
 //------------------------------------------------------------------------------
+
+void* operator new(size_t size, Communicator &) {
+  void *a;
+#ifdef USE_MPI
+	MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
+
+#else // USE_MPI
+	a = malloc(size);
+#endif // USE_MPI
+	if( !a ) {
+
+	    std::bad_alloc ba;
+
+	    throw ba;
+	  }
+	return a;
+}
+
+void operator delete(void *p, Communicator &) {
+#ifdef USE_MPI
+	MPI_Free_mem(p);
+#else // USE_MPI
+	free(p);
+#endif // USE_MPI
+}
+
+void* operator new[](size_t size, Communicator &) {
+	void *a;
+#ifdef USE_MPI
+	MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
+#else // USE_MPI
+	a = malloc(size);
+#endif // USE_MPI
+	if( !a ) {
+
+	    std::bad_alloc ba;
+
+	    throw ba;
+	  }
+	return a;
+}
+
+void operator delete[](void *p, Communicator &) {
+#ifdef USE_MPI
+	MPI_Free_mem(p);
+#else // USE_MPI
+	free(p);
+#endif // USE_MPI
+}
