@@ -227,7 +227,6 @@ template<int dim>
 void PostOperator<dim>::computeNodalHeatPower(DistSVec<double,3>& X, DistSVec<double,dim>& U, 
 					      DistVec<double>& P)
 {
-
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
