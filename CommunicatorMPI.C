@@ -164,6 +164,16 @@ void Communicator::split(int color, int maxcolor, Communicator** c)
 
 }
 
+Communicator *Communicator::merge(bool high)
+{
+#ifdef USE_MPI
+  MPI_Comm newComm;
+  MPI_Intercomm_merge(comm, high ? 1 : 0, &newComm);
+  return new Communicator(newComm);
+#endif
+  return 0;
+}
+
 //------------------------------------------------------------------------------
 
 int Communicator::remoteSize()
