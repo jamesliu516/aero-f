@@ -3920,6 +3920,36 @@ void SubDomain::computeLi(double Li[3], double r_e, double r_e_plus_p, double r_
 
 //--------------------------------------------------------------------------
 
+void SubDomain::findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SVec<double,3> &Xmax)
+{
+  for (int iNode=0; iNode<nodes.size(); iNode++) {
+    Xmin[iNode][0] = Xmax[iNode][0] = X[iNode][0];
+    Xmin[iNode][1] = Xmax[iNode][1] = X[iNode][1];
+    Xmin[iNode][2] = Xmax[iNode][2] = X[iNode][2];
+  }
+
+  int (*ptr)[2] = edges.getPtr();
+  bool* edgeMasterFlag = edges.getMasterFlag();
+  int p, q;
+  
+  for (int l=0; l<edges.size(); l++) {
+    if (!edgeMasterFlag[l]) 
+      continue; 
+    p = ptr[l][0];
+    q = ptr[l][1];
+    for (int k=0; k<3; k++) {
+      if (X[q][k]<Xmin[p][k])  Xmin[p][k] = X[q][k];
+      if (X[p][k]<Xmin[q][k])  Xmin[q][k] = X[p][k];
+    }
+    for (int k=0; k<3; k++) {
+      if (X[q][k]>Xmax[p][k])  Xmax[p][k] = X[q][k];
+      if (X[p][k]>Xmax[q][k])  Xmax[q][k] = X[p][k];
+    }
+  }
+}
+
+//--------------------------------------------------------------------------
+
 void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
                                    SVec<double,3> &X, Vec<double> &CsVal)
 {

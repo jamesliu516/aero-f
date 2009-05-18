@@ -2739,8 +2739,23 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 	w[ (*sharedNodes)[iSub][iNode] ][j] += buffer[iNode][j];
       }
   }
+}
 
+//------------------------------------------------------------------------------
 
+template<class Scalar, int dim, class OpType>
+void SubDomain::operateRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim], const OpType &oper)
+{
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<Scalar> sInfo = sp.recData(rcvChannel[iSub]);
+    Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
+      for (int j = 0; j < dim; ++j)  {
+        w[ (*sharedNodes)[iSub][iNode] ][j] = OpType::apply(w[ (*sharedNodes)[iSub][iNode]][j], buffer[iNode][j]);
+      }
+  }
 }
 
 //------------------------------------------------------------------------------

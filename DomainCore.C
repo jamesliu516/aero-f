@@ -1569,3 +1569,20 @@ void Domain::outputCsDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
 }
 
 // ------------------------------------------------------------------------------------------
+
+void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xmin, DistSVec<double,3> &Xmax)
+{
+ 
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->findNodeBoundingBoxes(X(iSub), Xmin(iSub), Xmax(iSub));
+
+  operMin<double> minOp;
+  assemble(Xmin, minOp);
+  operMax<double> maxOp;
+  assemble(Xmax, maxOp);
+
+
+}
+
+// ------------------------------------------------------------------------------------------

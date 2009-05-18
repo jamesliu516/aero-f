@@ -59,6 +59,23 @@ template<int dim> class DistExactRiemannSolver;
 template<int dim, class Scalar = double> class DistNodalGrad;
 #endif
 
+template<class Scalar>
+class operAdd {
+  public:
+   static inline Scalar apply(Scalar a, Scalar b) { return a+b; }
+};
+
+template<class Scalar>
+class operMin {
+  public:
+   static inline Scalar apply(Scalar a, Scalar b) { return std::min(a,b); }
+};
+
+template<class Scalar>
+class operMax {
+  public:
+   static inline Scalar apply(Scalar a, Scalar b) { return std::max(a,b); }
+};
 
 //------------------------------------------------------------------------------
 /** \brief Class of all data for this MPI process
@@ -220,6 +237,7 @@ public:
   void computeTetsConnectedToNode(DistVec<int> &);
   void outputCsDynamicLES(DynamicLESTerm *, DistVec<double> &, DistSVec<double,2> &,
                           DistSVec<double,3> &, DistVec<double> &);
+  void findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xmin, DistSVec<double,3> &Xmax);
 
   template<class MatScalar, class PrecScalar>
   void computeStiffAndForce(DefoMeshMotionData::Element, DistSVec<double,3>&,
@@ -617,6 +635,9 @@ public:
   template<int dim, class Scalar>
   void assemble(CommPattern<Scalar> *, DistSVec<Scalar,dim> &);
 
+  template<int dim, class Scalar, class OpType >
+  void assemble(CommPattern<Scalar> *, DistSVec<Scalar,dim> &, const OpType &);
+
   template<class Scalar>
   void assemble(CommPattern<Scalar> *, DistVec<double> &);
 
@@ -627,6 +648,11 @@ public:
 
   void assemble(DistSVec<double,3> &v) {
     assemble(getVec3DPat(), v);
+  }
+
+  template<class OpType>
+  void assemble(DistSVec<double,3> &v, const OpType &oper) {
+    assemble(getVec3DPat(), v, oper);
   }
 
   void assembleEdge(CommPattern<double> *commPat, DistVec<double> &W);
