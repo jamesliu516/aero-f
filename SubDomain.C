@@ -921,7 +921,7 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
   inletNodes.recomputeResidual(F,Finlet);
 }
 
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 template<class Scalar, int dim>
 void SubDomain::checkRHS(Scalar (*rhs)[dim])
@@ -3420,8 +3420,26 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
 
 }
-
+ 
 //------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn* postFcn, BcData<dim>& bcData,
+                                      GeoState& geoState, SVec<double,3>& X,
+                                      SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa)
+{
+
+  P = 0.0;
+  N = -1.0;
+
+  Vec<double>& d2wall = geoState.getDistanceToWall();
+  SVec<double,dim>& Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeNodalHeatFluxRelatedValues(elems, postFcn, X, d2wall, Vwall[i], V, P, N, includeKappa);
+
+}
+
+//------------------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -3474,6 +3492,33 @@ void SubDomain::computeForceAndMoment(map<int,int> & surfOutMap, PostFcn *postFc
     }
   }
 
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn, BcData<dim>& bcData,
+                                      GeoState& geoState, SVec<double,3>& X,
+                                      SVec<double,dim>& V, double* HF)
+{
+  Vec<double>& d2wall = geoState.getDistanceToWall();
+  SVec<double,dim>& Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i){
+    int idx;
+    map<int,int>::iterator it = surfOutMapHF.find(faces[i].getSurfaceID());
+    if(it != surfOutMapHF.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)  
+        idx = 0;
+      else
+        idx = -1;
+    }
+    if(idx >= 0)  {
+   double hp = faces[i].computeHeatFluxes(elems, postFcn, X, d2wall, Vwall[i], V);
+    HF[idx] += hp;
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

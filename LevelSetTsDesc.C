@@ -252,6 +252,7 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
     this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &Phi);
   }
 
 }
@@ -278,6 +279,7 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
   this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   if (*lastIt) {
