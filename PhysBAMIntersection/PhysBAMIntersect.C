@@ -9,6 +9,7 @@
 #include <Timer.h>
 #include "LevelSet/IntersectionFactory.h"
 #include "parser/Assigner.h"
+#include "Geometry/KDTree.h"
 #include <Connectivity.h>
 #include <vector>
 #include <queue>
@@ -49,6 +50,24 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     }
 
 
+};
+
+class MyTriangle {
+  int id;
+  double x[3], w[3];
+public:
+  MyTriangle() {}
+  MyTriangle(int i, Vec<Vec3D> &coord, int *nd) {
+    id = i;
+
+    for(int j = 0; j <3; ++j) {
+      x[j] = std::min(std::min(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j]);
+      w[j] = std::max(std::max(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j])-x[j];
+    }
+
+  }
+  double val(int i) const { return x[i]; }
+  double width(int i) const { return w[i]; }
 };
 
 
@@ -322,6 +341,22 @@ PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
   nodeMap = sub.getNodeMap();
 
   locToGlobNodeMap = sub.getNodeMap();
+}
+
+void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist) {
+  int ntri = distIntersector.length_triangle_list;
+  MyTriangle *myTris = new MyTriangle[ntri];
+  for(int i = 0; i < ntri; ++i)
+    myTris[i] = MyTriangle(i, *distIntersector.solidX, distIntersector.triangle_list[i]);
+
+  KDTree<MyTriangle> structureTree(ntri, myTris);
+
+  for(int i = 0; i < boxMin.size(); ++i) {
+    MyTriangle candidates[32];
+    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, 32);
+    if(nFound > 32)
+      std::cerr << "There were more candidates than we can handle: " << nFound << std::endl;
+  }
 }
 
 void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &normApprox,
