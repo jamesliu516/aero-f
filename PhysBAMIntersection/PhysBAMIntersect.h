@@ -76,7 +76,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     int *locToGlobNodeMap;
     int *nodeMap;
     std::map<int,IntersectionResult<double> > secondIntersection;
-    
+
     DistPhysBAMIntersector &distIntersector;
     Vec<int> status; //<! Whether a node is inside the fluid domain or not
     Vec<double> &phi; //<! Pseudo phi value
@@ -99,6 +99,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     }
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
+    void getClosestTriangles(SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
      *
      * results are for the subdomain only */

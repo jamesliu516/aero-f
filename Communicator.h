@@ -69,6 +69,7 @@ public:
 #endif
 
   void split(int, int, Communicator**);
+  Communicator *merge(bool high); //<! returns the intra-communicator for the two groups of an inter-communicator
   int remoteSize();
   int barrier();
   int sync() { return(barrier()); } ;
