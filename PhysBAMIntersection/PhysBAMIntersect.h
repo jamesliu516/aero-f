@@ -112,7 +112,7 @@ class PhysBAMIntersector : public LevelSetStructure {
 
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
-    void getClosestTriangles();
+    void getClosestTriangles(SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
      *
      * results are for the subdomain only */

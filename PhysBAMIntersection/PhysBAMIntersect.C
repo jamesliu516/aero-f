@@ -70,8 +70,8 @@ public:
     }
 
   }
-  double val(int i) { return x[i]; }
-  double width(int i) { return w[i]; }
+  double val(int i) const { return x[i]; }
+  double width(int i) const { return w[i]; }
 };
 
 
@@ -422,13 +422,20 @@ void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2
   if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
 }
 
-void PhysBAMIntersector::getClosestTriangles() {
-  int ntri = length_triangle_list;
+void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist) {
+  int ntri = distIntersector.length_triangle_list;
   MyTriangle *myTris = new MyTriangle[ntri];
   for(int i = 0; i < ntri; ++i)
-    myTris[i] = MyTriangle(i, *solidX, triangle_list[i]);
+    myTris[i] = MyTriangle(i, *distIntersector.solidX, distIntersector.triangle_list[i]);
 
   KDTree<MyTriangle> structureTree(ntri, myTris);
+
+  for(int i = 0; i < boxMin.size(); ++i) {
+    MyTriangle candidates[32];
+    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, 32);
+    if(nFound > 32)
+      std::cerr << "There were more candidates than we can handle: " << nFound << std::endl;
+  }
 }
 
 int PhysBAMIntersector::closestTriangle(Vec3D x0, int tria, double& dist)
