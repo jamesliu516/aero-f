@@ -287,6 +287,7 @@ public:
   void computeZi(double [3], double, double, double [3], double [3], double [5], double);
   void computeLi(double [3], double, double, double [3], double [5]);
 
+  void findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SVec<double,3> &Xmax);
 
   // moving mesh
 
@@ -700,6 +701,9 @@ public:
 
   template<class Scalar, int dim>
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<class Scalar, int dim, class OpType>
+  void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
 
   template<class Scalar, int dim>
   void sndInletData(CommPattern<Scalar> &, Scalar (*)[dim]);

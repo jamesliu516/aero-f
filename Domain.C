@@ -2548,6 +2548,26 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W)
 
 //------------------------------------------------------------------------------
 
+template<int dim, class Scalar, class OpType >
+void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W, const OpType &oper)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->sndData(*commPat, W.subData(iSub));
+
+  commPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->operateRcvData(*commPat, W.subData(iSub), oper);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar>
 void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<double> &W)
 {
