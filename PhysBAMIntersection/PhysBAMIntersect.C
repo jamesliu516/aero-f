@@ -9,6 +9,7 @@
 #include <Timer.h>
 #include "LevelSet/IntersectionFactory.h"
 #include "parser/Assigner.h"
+#include "Geometry/KDTree.h"
 #include <Connectivity.h>
 #include <vector>
 #include <queue>
@@ -53,6 +54,24 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     }
 
 
+};
+
+class MyTriangle {
+  int id;
+  double x[3], w[3];
+public:
+  MyTriangle() {}
+  MyTriangle(int i, Vec<Vec3D> &coord, int *nd) {
+    id = i;
+
+    for(int j = 0; j <3; ++j) {
+      x[j] = std::min(std::min(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j]);
+      w[j] = std::max(std::max(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j])-x[j];
+    }
+
+  }
+  double val(int i) { return x[i]; }
+  double width(int i) { return w[i]; }
 };
 
 
@@ -403,6 +422,15 @@ void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2
   if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
 }
 
+void PhysBAMIntersector::getClosestTriangles() {
+  int ntri = length_triangle_list;
+  MyTriangle *myTris = new MyTriangle[ntri];
+  for(int i = 0; i < ntri; ++i)
+    myTris[i] = MyTriangle(i, *solidX, triangle_list[i]);
+
+  KDTree<MyTriangle> structureTree(ntri, myTris);
+}
+
 int PhysBAMIntersector::closestTriangle(Vec3D x0, int tria, double& dist)
 {
   const int MAX_ITER = 100;
@@ -460,7 +488,7 @@ int PhysBAMIntersector::closestTriangle(Vec3D x0, int tria, double& dist)
   }
 
   //shouldn't reach here if the closest triangle is found.
-  fprintf(stderr,"failed in finding the closest triangle to (%e, %e, %e). Traversed triangles include:\n");
+//  fprintf(stderr,"failed in finding the closest triangle to (%e, %e, %e). Traversed triangles include:\n");
   for (int i=0; i<MAX_ITER-1; i++)
     fprintf(stderr,"TRIANGLE # %d (dist = %e).\n", prevTri[i].first, prevTri[i].second);
   exit(-1);
