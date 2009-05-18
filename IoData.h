@@ -115,6 +115,10 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
 
+  const char *tempnormalderivative;
+  const char *surfaceheatflux;
+  const char *heatfluxes;
+
   int frequency;
   double x0, y0, z0;
   double length;
@@ -1512,15 +1516,22 @@ struct SurfaceData  {
 
   double nx, ny, nz;
   int sBit;
-  enum ComputeForces {FALSE = 0, TRUE = 1, UNSPECIFIED = 2} computeForces;
+  static const int UNSPECIFIED = -1;
+  enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   double velocity;
 
+  enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
+  double temp;
+
+  enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
+  enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
+  //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
+
   SurfaceData();
   Assigner *getAssigner();
   void setBit(int b) { sBit = b; }
-
 };
 
 //------------------------------------------------------------------------------
@@ -1612,10 +1623,12 @@ public:
   int checkInputValuesEssentialBC();
   int checkInputValuesStateEquation();
   int checkInputValuesNonDimensional();
-  int checkInputValuesDimensional();
+//  int checkInputValuesDimensional();
+  int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
-  int checkSolverValues();
+  int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
+//  int checkSolverValues();
   int checkInputValuesMulti_step1();
   void checkInputValuesMulti_step2();
   int checkInputValuesMultiEOS();

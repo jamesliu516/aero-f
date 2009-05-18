@@ -285,7 +285,8 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
   return spaceOp->recomputeResidual(F,Finlet);
 
 }
-//-------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
@@ -493,7 +494,6 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
 				    DistSVec<double,dim> &U)
 {
-
   if (it == data->maxIts)
     *lastIt = true;
   else
@@ -501,12 +501,13 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
-
   timer->setSetupTime();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
+
+
 
     output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -515,7 +516,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-
+    output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
   }
 
 }
@@ -541,6 +542,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
+  output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
   if (*lastIt) {
     timer->setRunTime();
@@ -627,16 +629,15 @@ void TsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
 template<int dim>
 double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-
   spaceOp->computeResidual(*X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
-  double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
 
   double res = 0.0;
   if (data->resType == -1){
     res = (*R)*(*R);
-    res -= res2;
-  }else {
+
+ 
+  }else{ 
     int iSub;
     const DistInfo& distInfo = R->info();
 #ifndef MPI_OMP_REDUCTION

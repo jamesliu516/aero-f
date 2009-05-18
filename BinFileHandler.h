@@ -204,7 +204,7 @@ BinFileHandler::BinFileHandler(const char *name, const char *flag, double ver) :
   }
 
   if (ierr) {
-    fprintf(stderr, "*** Error: unable to open \'%s\'\n", name);
+    fprintf(stderr, "*** Error: unable to open \'%s\'\n", name); 
     exit(1);
   }
 

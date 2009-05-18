@@ -101,6 +101,11 @@ public:
 				 double *, SVec<double,dim> &, double, SVec<double,3> &, double* gradP[3]) = 0;
   virtual void computeNodalHeatPower(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				     double*, SVec<double,dim>&, Vec<double>&) = 0;
+  virtual double computeHeatFluxes(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&,
+                                    double*, SVec<double,dim>&) = 0;
+
+  virtual void computeNodalHeatFluxRelatedValues(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, double*,
+                                           SVec<double,dim>&, Vec<double>&, Vec<double>&, bool)=0;
   virtual void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 				     Vec3D &, Vec3D &,  double* gradP[3], int, 
@@ -181,6 +186,22 @@ public:
 			     SVec<double,dim>& V, Vec<double>& P) {
     t->computeNodalHeatPower(elems, postFcn, X, 
 			     d2wall, Vwall, V, P);
+  }
+
+  double computeHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    return t->computeHeatFluxes(elems, postFcn, X,
+                             d2wall, Vwall, V);
+  }
+
+
+
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X, 
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+     t->computeNodalHeatFluxRelatedValues(elems, postFcn, X,
+                             d2wall, Vwall, V, P, N, includeKappa);
   }
 
   void computeForceAndMoment(ElemSet &elems,
@@ -323,6 +344,8 @@ public:
 
   static const int MaxNumNd = 4;
 
+  virtual int nodeNum(int i) const = 0;
+
 protected:
   virtual void *getWrapper_dim(GenFaceHelper_dim *, 
 			       int size, char *memorySpace) = 0;
@@ -378,6 +401,7 @@ public:
 
   void setup(int, int *, int, int surface_id = 0);
   void setType(int *);
+  void setType(int t) { code = t; }
   void setNodeType(int*, int*);
   void setNodeFaceType(int*);
   void setElementNumber(int elemNum, int rotDir);
@@ -456,6 +480,30 @@ public:
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeNodalHeatPower(elems, postFcn, X, 
 			     d2wall, Vwall, V, P);
+  }
+
+  template<int dim>
+  double computeHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    return wrapper->computeHeatFluxes(elems, postFcn, X,
+                             d2wall, Vwall, V);
+  }
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X,
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeNodalHeatFluxRelatedValues(elems, postFcn, X,
+                             d2wall, Vwall, V, P, N, includeKappa);
   }
 
   template<int dim>
@@ -715,7 +763,7 @@ public:
 			 PostFcn *postFcn, SVec<double,3> &X, 
 			 Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
 			 double pin, SVec<double,3> &F, double* gradP[3]) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -723,7 +771,22 @@ public:
 			     PostFcn* postFcn, SVec<double,3>& X, 
 			     Vec<double>& d2wall, double* Vwall, 
 			     SVec<double,dim>& V, Vec<double>& P) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  double computeNodalHeatFluxes(ElemSet &elems,
+                             PostFcn* postFcn, SVec<double,3>& X,
+                             Vec<double>& d2wall, double* Vwall,
+                             SVec<double,dim>& V) {
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
+  }
+
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &elems, PostFcn* postFcn, SVec<double,3>& X,
+                                 Vec<double>& d2wall, double* Vwall, SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa){
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -732,7 +795,7 @@ public:
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
 			     double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
                                         Vec<double> *genCF) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
   
   /* WARNING : THIS FUNCTION IS RETURNING A DOUBLE ? ... IS THIS A PROBLEM ? */
@@ -740,21 +803,21 @@ public:
   double computeInterfaceWork(ElemSet &elems, PostFcn* postFcn, 
 			      SVec<double,3>& X, Vec<double>& d2wall, double ndot, 
 			      double* Vwall, SVec<double,dim>& V, double pin) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeScalarQuantity(PostFcn::ScalarType type, ElemSet &elems, PostFcn *postFcn, 
 			     SVec<double,3> &X, Vec<double> &d2wall, double *Vwall, 
 			     SVec<double,dim> &V, SVec<double,2> &Q) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, double *Vwall,
 			   SVec<double,dim> &V, SVec<double,dim> &R) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
   
   template<int dim, class Scalar, int neq>
@@ -762,14 +825,14 @@ public:
 				   SVec<double,3> &X, Vec<double> &ctrlVol,
 				   Vec<double> &d2wall, double *Vwall, 
 				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeForceDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
 			  SVec<double,dim> &V, SVec<double,dim> &deltaU, Vec<double> &modalF, 
 			  SVec<double,3> **localMX) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -778,13 +841,13 @@ public:
 				SVec<double, dim> &Vwall, double pInfty, Vec3D &CFi, Vec3D &CMi, 
 				Vec3D &CFv, Vec3D &CMv, double* gradP[3], VecSet< SVec<double,3> > *mX,
                                         Vec<double> *genCF) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeFDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
 		      SVec<double,dim> &Vgl, Vec3D (*F)) {
-    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
 
 // Included (MB)
@@ -792,7 +855,7 @@ public:
   void computeDerivativeOfNodalForce(ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X, SVec<double,3> &dX,
 			     Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, SVec<double,dim> &dV,
 			     double pin, double dS[3], SVec<double,3> &dF, double* gradP[3], double* dGradP[3]) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfNodalForce) for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -800,7 +863,7 @@ public:
                                          Vec<double>& d2wall, double* Vwall, double* dVwall, SVec<double,dim>& V, 
                                          SVec<double,dim>& dV, double dS[3], Vec<double>& dP) {
 
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfNodalHeatPower) for this face type\n"); exit(1);
   }
 
   template<int dim>
@@ -811,20 +874,20 @@ public:
                                              Vec3D &x0, Vec3D &dFi, Vec3D &dMi, Vec3D &dFv, Vec3D &dMv, 
 				             double* gradP[3], double* dGradP[3], int hydro) {
 
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfForceAndMoment) for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeDerivativeOfGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
                                        Vec<double> &d2wall, double *Vwall, double *dVwall, SVec<double,dim> &V, 
                                        SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
-    fprintf(stderr, "Error: undifined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeDerivativeOfGalerkinTerm) for this face type\n"); exit(1);
   }
 
   template<int dim>
   void computeBCsJacobianWallValues(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, Vec<double> &d2wall, 
                                     double *Vwall, double *dVwall, SVec<double,dim> &V) {
-    fprintf(stderr, "Error: undifined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
+    fprintf(stderr, "Error: undefined function (computeBCsJacobianWallValues) for this face type\n"); exit(1);
   }
 
 };

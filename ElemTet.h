@@ -65,7 +65,7 @@ public:
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &, 
 			      SVec<double,3> &, SVec<double,3> &);
   void computeEdgeWeightsGalerkin(SVec<double,3> &, SVec<double,9> &);
-  double computeGradientP1Function(SVec<double,3> &, double [4][3], double * = NULL);
+  double computeGradientP1Function(SVec<double,3> &nodes, double ngrad[4][3], double * = NULL);
   double computeGradientP1Function(Vec3D &A, Vec3D &B, Vec3D &C, Vec3D &D, 
                                    double nGrad[4][3]);
   void computeStiffAndForce(double *, double *, 

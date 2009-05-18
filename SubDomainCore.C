@@ -2742,9 +2742,9 @@ void SubDomain::rcvNormals(CommPattern<double> &edgePat, Vec3D *edgeNorm,
 void SubDomain::setFaceType(int *facemap)
 {
 
-  for (int i=0; i<faces.size(); ++i)
+  for (int i=0; i<faces.size(); ++i){
     faces[i].setType(facemap);
-
+}
 }
 
 //------------------------------------------------------------------------------
@@ -2861,9 +2861,11 @@ SubDomain::getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<i
   for (int i=0;i<faces.size(); i++) { // Loop over faces
     bool isSliding = false; 
     map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) // surface has attribut is the input file
+    if(it!=surfaceMap.end()) { // surface has attribut is the input file
       if(it->second->nx != 0.0 || it->second->ny != 0.0 || it->second->nz != 0.0) // it's a sliding surface
         isSliding = true;
+  
+  }
     if(!isSliding) { // -> contraint the nodes according to face "fluid code"
       switch(faces[i].getCode()) {
         case(BC_SYMMETRY): //by default a symmetry plane is fixed ...
@@ -3891,6 +3893,46 @@ void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
   }
 
 }
+//--------------------------------------------------------------------------
+void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap)  {
+for (int i=0;i<faces.size(); i++) { // Loop over faces
+    map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
+    if(it!=surfaceMap.end()) { // surface has attribut in the input file
+      if(it->second->type == SurfaceData::ADIABATIC) {
+        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)
+          faces[i].setType(BC_ADIABATIC_WALL_MOVING);
+        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED)
+          faces[i].setType(BC_ADIABATIC_WALL_FIXED);
+        }
+      if(it->second->type == SurfaceData::ISOTHERMAL) {
+if(faces[i].getCode()!=-1)
+        if(faces[i].getCode() == BC_ADIABATIC_WALL_MOVING){
+          faces[i].setType(BC_ISOTHERMAL_WALL_MOVING);
+        }
+        if(faces[i].getCode() == BC_ADIABATIC_WALL_FIXED){
+          faces[i].setType(BC_ISOTHERMAL_WALL_FIXED);
+        }
+      }
+   }
+}
+}
+//--------------------------------------------------------------------------
+void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &cpat) {
+
+  for (int i = 0; i < faces.size(); ++i) {
+    for (int j=0; j < faces[i].numNodes(); ++j) {
+      int surfNum = faces[i].getSurfaceID()+1;
+      const Face &face = faces[i];
+      faceFlag[face.nodeNum(j)] |= 1 << surfNum;
+    }
+  }
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    SubRecInfo<int> nInfo = cpat.getSendBuffer(sndChannel[iSub]);
+    for (int i = 0; i < sharedNodes->num(iSub); ++i)
+      nInfo.data[i] = faceFlag[ (*sharedNodes)[iSub][i] ];
+  }
+}
 
 //--------------------------------------------------------------------------
 // for mesh motion (with RK2 time-integration)
@@ -3908,3 +3950,32 @@ void SubDomain::computePrdtPhiCtrlVolRatio(Vec<double> &ratioTimesPhi, Vec<doubl
 
 ///-----------------------------------------------------------------------------
 
+void SubDomain::completeFaceBelongsToSurface(Vec<int> &ndToSurfFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &cpat) {
+   for (int iSub = 0; iSub < numNeighb; ++iSub) {
+     SubRecInfo<int> nInfo = cpat.recData(rcvChannel[iSub]);
+     for (int i = 0; i < sharedNodes->num(iSub); ++i)
+       ndToSurfFlag[(*sharedNodes)[iSub][i]] |= nInfo.data[i];
+   }
+
+   for(int i = 0; i < ndToSurfFlag.size(); ++i)
+     if(ndToSurfFlag[i] != 0) {
+       int count = (ndToSurfFlag[i] & 1) != 0 ? 1 : 0;
+       double totTemp =  (ndToSurfFlag[i] & 1) != 0 ? nodeTemp[i] : 0.0;
+       for(int j = 1; j < 8*sizeof(int); j++) {
+         if( ndToSurfFlag[i] & (1 << j) ) {
+             map<int,SurfaceData*>::iterator it = surfaceMap.find(j-1);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL) {
+               if(it->second->temp > 0){ 
+               totTemp += (it->second->temp);
+               count++;
+             }
+               }
+         }
+       }
+       if(count != 0){
+       nodeTemp[i] = totTemp/count; 
+       }
+    }
+}

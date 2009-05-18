@@ -2375,7 +2375,6 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
-
   if (step == 0)
     com->barrier();
 

@@ -373,7 +373,7 @@ public:
                                                                                                   
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
-                                                                                                  
+       
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -588,12 +588,22 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
+  void computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+                                            GeoState&, SVec<double,3>&,
+                                            SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
+
+  template<int dim>
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
 			     Vec3D *, Vec3D *, int , 
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
+
+  template<int dim>
+  void computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+                                      GeoState &, SVec<double,3> &,
+                                      SVec<double,dim> &, double *);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -750,7 +760,11 @@ public:
   int* getMeshMotionDofType(map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP, MatchNodeSet* matchNodes=0 ); 
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
-  
+
+  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);
+  void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
+  void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
+ 
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
   

@@ -388,6 +388,7 @@ void Domain::setNodeType(IoData &ioData)
   bcpriority[BC_INTERNAL              ] = -1;
 
   int iSub;
+
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->setFaceType(facemap);
@@ -402,6 +403,13 @@ void Domain::setNodeType(IoData &ioData)
 
   ndC.finalize();
 
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->changeSurfaceType(ioData.surfaces.surfaceMap.dataMap);
+
+ this->com->sync();
+
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->setNodeType(bcpriority, ndC);
@@ -411,6 +419,7 @@ void Domain::setNodeType(IoData &ioData)
 #pragma omp parallel for
   for (iSub = 0; iSub<numLocSub; ++iSub)
     nodeType[iSub] = subDomain[iSub]->completeNodeType(bcpriority, ndC);
+
 
   /*
   DistSVec<double,1> nt(*nodeDistInfo);
@@ -445,7 +454,7 @@ void Domain::setNodeType(IoData &ioData)
   }
 
   if(numSlipSurfs)  
-    com->fprintf(stderr," ... There is %d sliding surfaces.\n",numSlipSurfs); 
+    com->fprintf(stderr," ... There are %d sliding surfaces.\n",numSlipSurfs); 
    
   int **slipSurfOwn = new int*[numLocSub];
 

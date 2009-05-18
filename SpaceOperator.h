@@ -151,6 +151,7 @@ public:
                          DistExactRiemannSolver<dim> *);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+ 
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
                                      DistSVec<double,dim> &);
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,

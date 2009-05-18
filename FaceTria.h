@@ -47,6 +47,8 @@ public:
   // Number of nodes
   int numNodes() { return 3; }
 
+  int nodeNum(int i) const  { return nodeNumT[i]; }
+
   // Get element type
   const Type type() { return Face::TRIA; }
 
@@ -82,6 +84,14 @@ public:
   template<int dim>
   void computeNodalHeatPower(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&, 
 			     double*, SVec<double,dim>&, Vec<double>&);
+
+  template<int dim>
+  double computeHeatFluxes(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&,
+                             double*, SVec<double,dim>&);
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, double*,
+                                           SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
 
   template<int dim>
   void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
