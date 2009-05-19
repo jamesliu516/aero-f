@@ -86,6 +86,11 @@ class PhysBAMIntersector : public LevelSetStructure {
     int nIntersect;
     void updatePhi(int p, int q, IntersectionResult<double> &res, SVec<double, 3> &X, Vec<double> &phi,
                    SVec<double, 3> &normApprox, Vec<double> &weightSum);
+
+    /** compute projection of any point on the plane of a triangle.
+     * send back the signed distance and barycentric coordinates of the projection point. */
+    void projection(Vec3D, int, double&, double&, double&);
+
     double checkPointOnSurface(Vec3D pt, int N1, int N2, int N3) {
       Vec<Vec3D> &solidX = distIntersector.getStructPosition();
       Vec3D X1 = solidX[N1];
@@ -99,7 +104,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     }
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<double> &phi, DistPhysBAMIntersector &);
-    void getClosestTriangles(SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
+    void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
      *
      * results are for the subdomain only */
