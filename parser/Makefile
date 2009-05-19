@@ -11,7 +11,7 @@ $(LIB): $(OBJS)
 	$(SAR) $(LIB) $(OBJS)
 	echo $(LIB)
 
-Lexer.o: Parser.tab.c Lexer.C
+Lexer.o: Parser.tab.C Lexer.C
 	$(CXX) $(CXXFLAGS) -c Lexer.C
 
 Parser.tab.o: Parser.tab.C
