@@ -1721,8 +1721,9 @@ void ExplicitData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ExplicitData>
     (ca, "Type", this,
-     reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 4,
-     "RungeKutta4", 0, "RungeKutta2", 1, "ForwardEuler", 2, "OneBlockRK2", 3);
+     reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 5,
+     "RungeKutta4", 0, "RungeKutta2", 1, "ForwardEuler", 2, 
+     "OneBlockRK2", 3, "OneBlockRK2bis", 4);
 
 }
 
