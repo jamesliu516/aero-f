@@ -404,9 +404,6 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<int dim>
-  double rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
-
-  template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
 			   DistGeoState &, DistSVec<double,3> &, 
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
