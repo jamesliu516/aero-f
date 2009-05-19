@@ -380,9 +380,6 @@ public:
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
        
-  template<int dim>  
-  void rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
-                                                                                           
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -597,12 +594,22 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
+  void computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+                                            GeoState&, SVec<double,3>&,
+                                            SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
+
+  template<int dim>
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
 			     Vec3D *, Vec3D *, int , 
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
+
+  template<int dim>
+  void computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+                                      GeoState &, SVec<double,3> &,
+                                      SVec<double,dim> &, double *);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 

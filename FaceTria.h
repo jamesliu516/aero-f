@@ -85,6 +85,13 @@ public:
   void computeNodalHeatPower(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&, 
 			     double*, SVec<double,dim>&, Vec<double>&);
 
+  template<int dim>
+  double computeHeatFluxes(ElemSet &,PostFcn*, SVec<double,3>&, Vec<double>&,
+                             double*, SVec<double,dim>&);
+
+  template<int dim>
+  void computeNodalHeatFluxRelatedValues(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, double*,
+                                           SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
 
   template<int dim>
   void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
