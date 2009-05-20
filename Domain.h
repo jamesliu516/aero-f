@@ -6,9 +6,12 @@
 #include <Timer.h>
 #include <VectorSet.h>
 #include <Vector.h>
-#include <complex.h>
 #include <DenseMatrix.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
+#include <iostream>
+using std::cout;
+using std::endl;
 
 class VarFcn;
 class BcFcn;

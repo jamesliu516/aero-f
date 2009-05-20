@@ -1,3 +1,4 @@
+#include <cstring>
 #include <TsParameters.h>
 #include <IoData.h>
 

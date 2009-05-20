@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "Dictionary.h"
-#include "Parser.tab.h"
+#include "Parser.tab.H"
 int yyCmdfline_num = 1;
 void C_comments(void);
 void CPP_comments(void);

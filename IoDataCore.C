@@ -2133,8 +2133,9 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<DefoMeshMotionData>
     (ca, "Element", this, 
-     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 4,
-     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3);
+     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 5,
+     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3,
+         "NonLinearBallVertex", 4);
 
   new ClassDouble<DefoMeshMotionData>(ca, "VolumeStiffness", this, &DefoMeshMotionData::volStiff);
   new ClassToken<DefoMeshMotionData>

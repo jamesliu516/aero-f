@@ -92,7 +92,7 @@ public:
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
   
-  void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3> &,
+  void computeHeatFluxes(DistSVec<double,3> &,
                                           DistSVec<double,dim> &, double*);
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);

@@ -4,10 +4,10 @@
 #include <alloca.h>
 #include <Vector.h>
 #include <DistInfo.h>
-#include <complex.h>
 #include <math.h>
 
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 //------------------------------------------------------------------------------
 
 template<class Scalar>
