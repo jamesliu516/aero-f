@@ -33,6 +33,8 @@ class LocalRiemann {
 //    -LocalRiemannGfmparGasGas
 //    -LocalRiemannGfmparGasTait
 //    -LocalRiemannGfmparTaitTait
+//    -LocalRiemannGfmparJWLJWL
+//    -LocalRiemannGfmparJWLGas
 
 public:
   LocalRiemann() {}
@@ -78,9 +80,57 @@ protected:
                    double v1, double u1, double p1,
                    double v, double &u, double &p,
                    double &du, double &dp);
+
+  void updatePhaseChangingNodeValues(double * const dx, 
+                                     double * const Wi, double * const Wj,
+                                     double &weighti, double *rupdatei, 
+                                     double &weightj, double *rupdatej);
 };
 
 //----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+inline
+void LocalRiemann::updatePhaseChangingNodeValues(
+                      double * const dx, double * const Wi, double * const Wj,
+                      double &weighti, double *rupdatei, 
+                      double &weightj, double *rupdatej)
+{
+// In multiphase flow:
+// From one iteration to the next, some nodes change phases.
+// The state values at these nodes are not relevant to the thermodynamics
+//     of the fluid they belong to at the end of the iteration and thus
+//     must somehow be replaced or "updated".
+// Appropriate state values are given by the interfacial states of the
+//     solution of the two-phase Riemann problem.
+// In three dimensions, there are several interfacial states to consider.
+// The present routine uses all interfacial states that are upwind of
+//    the node that may need to be "updated" and weighs them according
+//    to their upwind position.
+
+  int dim = 5;
+
+  double temp = 0.0;
+  double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+  double normWi2 = Wi[1]*Wi[1]+Wi[2]*Wi[2]+Wi[3]*Wi[3];
+  double normWj2 = Wj[1]*Wj[1]+Wj[2]*Wj[2]+Wj[3]*Wj[3];
+
+  if(normdx2 > 0.0 && normWj2 > 0.0)
+    temp = -(Wj[1]*dx[0]+Wj[2]*dx[1]+Wj[3]*dx[2])/sqrt(normdx2*normWj2);
+    if (temp > 0.0){
+      weighti += temp;
+    for (int k=0; k<dim; k++)
+      rupdatei[k] += temp*Wj[k];
+  }
+  temp = 0.0;
+  if(normdx2 > 0.0 && normWi2 > 0.0)
+    temp = (Wi[1]*dx[0]+Wi[2]*dx[1]+Wi[3]*dx[2])/sqrt(normdx2*normWi2);
+  if(temp > 0.0){ // for update of node j
+    weightj += temp;
+    for (int k=0; k<dim; k++)
+      rupdatej[k] += temp*Wi[k];
+  }
+
+}
 //----------------------------------------------------------------------------
 inline
 void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
@@ -109,7 +159,7 @@ void LocalRiemann::riemannInvariant2(VarFcn *vf, double phi,
                    double &du, double &dp){
 //compute integrals using ODEs. Integrand are not approximated.
 //integrate using 2nd order integration
-  int N  = 50;
+  int N  = 500;
   double dt = (v-v1)/N;
   double t = v1; u = u1; p = p1;
   double V[5] = { 1.0/v1, u1, 0.0, 0.0, p1 };
