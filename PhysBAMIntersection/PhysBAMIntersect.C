@@ -71,6 +71,158 @@ public:
   int trId() const { return id; }
 };
 
+//----------------------------------------------------------------------------
+
+/** Utility class to find the signed distance to the surface of the structure */
+class ClosestTriangle {
+  int (*triNodes)[3];
+  Vec3D *structX;
+  Vec3D *structNorm;
+
+  bool isFirst;
+  int bestTrId;
+  int n1, n2; //!< if both ns are non negative, the best point is on an edge
+  Vec3D n;
+  double minDist; //!< Signed distance to the surface
+  Vec3D x;
+
+  /** Check an edge
+   * returns true if this edge is the new closest one.
+   */
+  bool checkEdge(int trId, int p1, int p2, int p3);
+  double project(Vec3D x0, int tria, double& xi1, double& xi2);
+  double project(int n1, int n2, double &alpha);
+public:
+  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN);
+  void start(Vec3D x);
+  void checkTriangle(int trId);
+  double signedDistance() const { return minDist; }
+  int bestTriangle() const { return bestTrId; }
+};
+
+//----------------------------------------------------------------------------
+
+ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN) {
+  triNodes = nd;
+  structX = sX;
+  structNorm = sN;
+}
+
+//----------------------------------------------------------------------------
+
+void
+ClosestTriangle::start(Vec3D xp) {
+  x = xp;
+  isFirst = true;
+}
+
+//----------------------------------------------------------------------------
+
+double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
+{
+  int iA = triNodes[tria][0];
+  int iB = triNodes[tria][1];
+  int iC = triNodes[tria][2];
+  Vec3D xA = structX[iA];
+  Vec3D xB = structX[iB];
+  Vec3D xC = structX[iC];
+
+  Vec3D ABC = 0.5*(xB-xA)^(xC-xA);
+  double areaABC = ABC.norm();
+  Vec3D dir = 1.0/areaABC*ABC;
+
+  //calculate the projection.
+  double dist = (x0-xA)*dir;
+  Vec3D xp = x0 - dist*dir;
+
+  //calculate barycentric coords.
+  double areaPBC = (0.5*(xB-xp)^(xC-xp))*dir;
+  double areaPCA = (0.5*(xC-xp)^(xA-xp))*dir;
+  xi1 = areaPBC/areaABC;
+  xi2 = areaPCA/areaABC;
+
+// check. (TODO:to be deleted.)
+  double areaPAB = (0.5*(xA-xp)^(xB-xp))*dir;
+  double xi3 = areaPAB/areaABC;
+  if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
+  return dist;
+}
+
+//----------------------------------------------------------------------------
+
+void
+ClosestTriangle::checkTriangle(int trId) {
+  double dist;
+  int *nd = triNodes[trId];
+  double xi1, xi2;
+  dist = project(x, trId, xi1, xi2);
+  double xi3 = 1-xi1-xi2;
+  if(xi1 >= 0 && xi2 >= 0 && xi3 >= 0) {
+    if(isFirst || std::abs(minDist) > std::abs(dist)) {
+      isFirst = false;
+      minDist = dist;
+      bestTrId = trId;
+      n1 = n2 = -1;
+    }
+  }else {
+    if(xi1 < 0)
+      checkEdge(trId, nd[1], nd[2], nd[0]);
+    if(xi2 < 0)
+      checkEdge(trId, nd[0], nd[2], nd[1]);
+    if(xi3 < 0)
+      checkEdge(trId, nd[0], nd[1], nd[2]);
+  }
+}
+
+//----------------------------------------------------------------------------
+
+bool
+ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3) {
+  int p1, p2;
+  if(ip1 < ip2) {
+    p1 = ip1;
+    p2 = ip2;
+  } else {
+    p1 = ip2;
+    p2 = ip1;
+  }
+  if(n1 == p1 && n2 == p2) { //<! If we've already looked at this edge before
+    // If we have already examined this edge and the sign opinions disagree, we need to make the right decision
+    // Check if the p3 is in the positive or negative side of the other triangle
+    // When signs disagree, the true distance has the opposite sign. because the triangle surface is the
+    // end of point with the same sign as p3;
+    double xi1, xi2;
+    double d2 = project(structX[p3], bestTrId, xi1, xi2);
+    if(d2*minDist>0)
+      minDist = -minDist;
+  } else {
+    double dist, alpha;
+    dist = project(p1, p2, alpha);
+    int cn1 = (alpha > 1) ? p2 : p1;
+    int cn2 = p2;
+    if(alpha < 0 || alpha > 1) {
+      dist = (x-structX[cn1]).norm();
+      cn2 = -1;
+      //<! Check if this node was already our best solution to correct the sign if necessary
+      if(cn1 == n1 && cn2 == n2) {
+        double xi1, xi2;
+        double d2 = project(structX[p3], bestTrId, xi1, xi2);
+        if(d2*minDist>0)
+              minDist = -minDist;
+      }
+    }
+
+    if(isFirst || dist < minDist) {
+      isFirst = false;
+      bestTrId = trId;
+      n = structNorm[bestTrId];
+      minDist = dist;
+      n1 = cn1;
+      n2 = cn2;
+    }
+  }
+}
+
 
 IntersectorConstructor *myIntersect =
   IntersectionFactory::registerClass("PhysBAM", new PhysBAMIntersectorConstructor());
@@ -197,6 +349,7 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface() {
 void
 DistPhysBAMIntersector::buildSolidNormals() {
   triNorms = new Vec3D[length_triangle_list];
+  triSize = new double[length_triangle_list];
   // Also look to determine a point inside the solid but away from the structure.
   double nrmMax = 0;
   int trMaxNorm = -1;
@@ -213,6 +366,17 @@ DistPhysBAMIntersector::buildSolidNormals() {
     double dx3 = solids_particle_list[n3][0]-x1;
     double dy3 = solids_particle_list[n3][1]-y1;
     double dz3 = solids_particle_list[n3][2]-z1;
+
+   // first calculate the "size" of the triangle.
+    double dx23 = solids_particle_list[n3][0] - solids_particle_list[n2][0];
+    double dy23 = solids_particle_list[n3][1] - solids_particle_list[n2][1];
+    double dz23 = solids_particle_list[n3][2] - solids_particle_list[n2][2];
+    double size12 = Vec3D(dx2,dy2,dz2).norm();
+    double size13 = Vec3D(dx3,dy3,dz3).norm();
+    double size23 = Vec3D(dx23,dy23,dz23).norm();
+    triSize[iTriangle] = min(size12,min(size13,size23));
+
+    // now calculate the normal.
     triNorms[iTriangle] = Vec3D(dx2, dy2, dz2)^Vec3D(dx3,dy3,dz3);
     double nrm = triNorms[iTriangle].norm();
     if(nrm > nrmMax) {
@@ -304,187 +468,45 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
   pseudoPhi = new DistVec<double>(X.info());
-  DistVec<double> weight(X.info());
-  DistSVec<double,3> normApprox(X.info());
+
+  // for getClosestTriangles
+  DistSVec<double,3> boxMax(X.info());
+  DistSVec<double,3> boxMin(X.info());
+  DistVec<double> distance(X.info());
+  DistVec<int> tId(X.info());
+
+  d->findNodeBoundingBoxes(X,boxMin,boxMax);
+ 
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), (*pseudoPhi)(i), *this);
-    intersector[i]->computeLocalPseudoPhi(X(i), normApprox(i), weight(i));
+    intersector[i]->getClosestTriangles(X(i), boxMin(i), boxMax(i), tId(i), distance(i));  
+
+    intersector[i]->computeFirstLayerNodeStatus(tId(i), distance(i));
+    intersector[i]->fixUntouchedSubDomain(X(i));
+    intersector[i]->finishNodeStatus(*(d->getSubDomain()[i]), X(i));
+    intersector[i]->findIntersections(X(i));
   }
-  // Addup the neighboring phis and weights
-  d->assemble(*pseudoPhi);
-  // Make sure the value for pseudoPhi is independent of summation order.
-  pseudoPhi->zeroNonMaster();
-  d->assemble(*pseudoPhi);
-
-  d->assemble(weight);
-
-  d->assemble(normApprox);
-  // Use the values of phi and weights and finish the status
-  for(int i = 0; i < numLocSub; ++i)
-    intersector[i]->finishPseudoPhi(*(d->getSubDomain()[i]), X(i), normApprox(i), weight(i));
 }
 
+//----------------------------------------------------------------------------
 
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
               Vec<double> &pPhi, DistPhysBAMIntersector &distInt) :
- distIntersector(distInt), status(sub.numNodes()), phi(pPhi), locNorm(sub.numNodes()),
- edges(sub.getEdges()), edgeRes(sub.getEdges().size()), globIndex(sub.getGlobSubNum())
+ distIntersector(distInt), status(sub.numNodes()), phi(pPhi),
+ edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
-  int (*ptr)[2] = edges.getPtr();
 
-  for(int i = 0; i < numEdges; ++i) {
-    edgeRes(i+1).x[1] = ptr[i][0]+1;
-    edgeRes(i+1).x[2] = ptr[i][1]+1;
-  }
   status = UNDECIDED;
 
   nodeMap = sub.getNodeMap();
 
   locToGlobNodeMap = sub.getNodeMap();
+
+  nFirstLayer = 0;
 }
 
-/** Utility class to find the signed distance to the surface of the structure */
-class ClosestTriangle {
-  int (*triNodes)[3];
-  Vec3D *structX;
-  Vec3D *structNorm;
-
-  bool isFirst;
-  int bestTrId;
-  int n1, n2; //!< if both ns are non negative, the best point is on an edge
-  Vec3D n;
-  double minDist; //!< Signed distance to the surface
-  Vec3D x;
-
-  /** Check an edge
-   * returns true if this edge is the new closest one.
-   */
-  bool checkEdge(int trId, int p1, int p2, int p3);
-  double project(Vec3D x0, int tria, double& xi1, double& xi2);
-  double project(int n1, int n2, double &alpha);
-public:
-  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN);
-  void start(Vec3D x);
-  void checkTriangle(int trId);
-  double signedDistance() const { return minDist; }
-  int bestTriangle() const { return bestTrId; }
-};
-
-
-
-ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN) {
-  triNodes = nd;
-  structX = sX;
-  structNorm = sN;
-}
-
-void
-ClosestTriangle::start(Vec3D xp) {
-  x = xp;
-  isFirst = true;
-}
-
-double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
-{
-  int iA = triNodes[tria][0];
-  int iB = triNodes[tria][1];
-  int iC = triNodes[tria][2];
-  Vec3D xA = structX[iA];
-  Vec3D xB = structX[iB];
-  Vec3D xC = structX[iC];
-
-  Vec3D ABC = 0.5*(xB-xA)^(xC-xA);
-  double areaABC = ABC.norm();
-  Vec3D dir = 1.0/areaABC*ABC;
-
-  //calculate the projection.
-  double dist = (x0-xA)*dir;
-  Vec3D xp = x0 - dist*dir;
-
-  //calculate barycentric coords.
-  double areaPBC = (0.5*(xB-xp)^(xC-xp))*dir;
-  double areaPCA = (0.5*(xC-xp)^(xA-xp))*dir;
-  xi1 = areaPBC/areaABC;
-  xi2 = areaPCA/areaABC;
-
-// check. (TODO:to be deleted.)
-  double areaPAB = (0.5*(xA-xp)^(xB-xp))*dir;
-  double xi3 = areaPAB/areaABC;
-  if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
-  return dist;
-}
-
-void
-ClosestTriangle::checkTriangle(int trId) {
-  double dist;
-  int *nd = triNodes[trId];
-  double xi1, xi2;
-  dist = project(x, trId, xi1, xi2);
-  double xi3 = 1-xi1-xi2;
-  if(xi1 >= 0 && xi2 >= 0 && xi3 >= 0) {
-    if(isFirst || std::abs(minDist) > std::abs(dist)) {
-      isFirst = false;
-      minDist = dist;
-      bestTrId = trId;
-      n1 = n2 = -1;
-    }
-  }else {
-    if(xi1 < 0)
-      checkEdge(trId, nd[1], nd[2], nd[0]);
-    if(xi2 < 0)
-      checkEdge(trId, nd[0], nd[2], nd[1]);
-    if(xi3 < 0)
-      checkEdge(trId, nd[0], nd[1], nd[2]);
-  }
-}
-
-bool
-ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3) {
-  int p1, p2;
-  if(ip1 < ip2) {
-    p1 = ip1;
-    p2 = ip2;
-  } else {
-    p1 = ip2;
-    p2 = ip1;
-  }
-  if(n1 == p1 && n2 == p2) { //<! If we've already looked at this edge before
-    // If we have already examined this edge and the sign opinions disagree, we need to make the right decision
-    // Check if the p3 is in the positive or negative side of the other triangle
-    // When signs disagree, the true distance has the opposite sign. because the triangle surface is the
-    // end of point with the same sign as p3;
-    double xi1, xi2;
-    double d2 = project(structX[p3], bestTrId, xi1, xi2);
-    if(d2*minDist>0)
-      minDist = -minDist;
-  } else {
-    double dist, alpha;
-    dist = project(p1, p2, alpha);
-    int cn1 = (alpha > 1) ? p2 : p1;
-    int cn2 = p2;
-    if(alpha < 0 || alpha > 1) {
-      dist = (x-structX[cn1]).norm();
-      cn2 = -1;
-      //<! Check if this node was already our best solution to correct the sign if necessary
-      if(cn1 == n1 && cn2 == n2) {
-        double xi1, xi2;
-        double d2 = project(structX[p3], bestTrId, xi1, xi2);
-        if(d2*minDist>0)
-              minDist = -minDist;
-      }
-    }
-
-    if(isFirst || dist < minDist) {
-      isFirst = false;
-      bestTrId = trId;
-      n = structNorm[bestTrId];
-      minDist = dist;
-      n1 = cn1;
-      n2 = cn2;
-    }
-  }
-}
+//----------------------------------------------------------------------------
 
 /** Find the closest structural triangle for each node. If no triangle intersect the bounding box of the node,
 * no closest triangle exists
@@ -520,36 +542,189 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
   }
 }
 
-void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3> &normApprox,
-                                               Vec<double> &weightSum)
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist)
+{
+  const double TOL = 1.0e-4;
+  for (int i=0; i<tId.size(); i++) {
+    if (tId[i]<0) 
+      continue;
+    status[i] = (dist[i]>=TOL*distIntersector.triSize[tId[i]]) ? INSIDE : OUTSIDE;
+    nFirstLayer++;
+  }
+}
+
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
+{
+  if(nFirstLayer == 0) {
+     LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
+     edgeRes(1).x[1] = 1;
+     edgeRes(1).x[2] = 2;
+
+     Vec3D insidePoint = distIntersector.getInsidePoint();
+     LIST_ARRAY<VECTOR<double,3> > xyz(2);
+     xyz(1)[1] = X[0][0];
+     xyz(1)[2] = X[0][1];
+     xyz(1)[3] = X[0][2];
+     xyz(2)[1] = insidePoint[0];
+     xyz(2)[2] = insidePoint[1];
+     xyz(2)[3] = insidePoint[2];
+     fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
+           X[0][0], X[0][1], X[0][2],
+           insidePoint[0], insidePoint[1], insidePoint[2]);
+     distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
+     if(edgeRes(1).y.triangleID >= 0) {
+       Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
+       const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
+       if(edgeVec*trNorm < 0) {
+         fprintf(stderr, "This subdomain is outside the structure\n");
+         status[0] = INSIDE;
+       } else {
+         fprintf(stderr, "This subdomain is inside the structure\n");
+         status[0] = OUTSIDE;
+       }
+     } else {
+       fprintf(stderr, "This subdomain is trivially inside the structure\n");
+       status[0] = OUTSIDE;
+     }
+  }
+}
+
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
+{
+  int numNodes = status.size();
+  Connectivity &nToN = *(sub.createEdgeBasedConnectivity());
+
+  // Propogate status to the entire subdomain.
+  // List is used as a FIFO queue
+  Vec<int> list(numNodes);
+  Vec<int> level(numNodes);
+  // Look for a start point
+  // lead: In pointer
+  // next: out pointer (of FIFO)
+  int next = 0, lead = 0;
+  for(int i = 0; i < numNodes; ++i)
+    if(status[i] != UNDECIDED) {
+      list[lead++] = i;
+      level[i] = 0;
+    }
+  std::cout << "Initial lead (# decided nodes): " << lead << std::endl;
+  while(next < lead) {
+    int cur = list[next++];
+    int curStatus = status[cur];
+    int curLevel = level[cur];
+    for(int i = 0; i < nToN.num(cur); ++i) {
+      if(status[nToN[cur][i]] == UNDECIDED) {
+        status[nToN[cur][i]] = curStatus;
+        level[nToN[cur][i]] = curLevel+1;
+        list[lead++] = nToN[cur][i];
+      } else {
+        if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
+          std::cerr << "Incompatible nodes have met: " << cur << " and " << nToN[cur][i] <<
+             " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
+      }
+    }
+  }
+
+  // calculate the number of inside/outside/undecided nodes.
+  int nInside = 0, nOutside = 0, nUndecided = 0;
+  for(int i = 0; i < numNodes; ++i) {
+    if(status[i] == INSIDE)        nInside++;
+    else if(status[i] == OUTSIDE)  nOutside++;
+    else                           nUndecided++;
+  }
+
+  if (nUndecided) 
+    fprintf(stderr,"WARNING: In Subdomain %d, there are %d nodes that are UNDECIDED!\n", sub.getGlobSubNum(), nUndecided);
+
+  //debug only: Plot the first layer of inside nodes.
+/*  int (*ptr)[2] = edges.getPtr();
+  FILE* firstLayer = fopen("firstLayer.top","w");
+  fprintf(firstLayer, "Nodes InsideNodes\n");
+  for (int i=0; i<sub.numNodes(); i++)
+    if (status[i]==OUTSIDE) fprintf(firstLayer,"%d %e %e %e\n", i+1, X[i][0], X[i][1], X[i][2]);
+  fprintf(firstLayer, "Elements FirstLayer using InsideNodes\n");
+  for (int l=0; l<edges.size(); l++){
+    int x1 = ptr[l][0], x2 = ptr[l][1];
+    if (status[x1]!=OUTSIDE || status[x2]!=OUTSIDE) continue;
+    int crit = 0;
+    for (int i=0; i<nToN.num(x1); i++)
+      if (status[nToN[x1][i]]==INSIDE) {crit++; break;}
+    for (int i=0; i<nToN.num(x2); i++)
+      if (status[nToN[x2][i]]==INSIDE) {crit++; break;}
+    if (crit==2)
+      fprintf(firstLayer,"%d %d %d %d\n", l+1, (int)1, x1+1, x2+1);
+  }
+  fclose(firstLayer);
+*/
+}
+
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
+{
+  int (*ptr)[2] = edges.getPtr();
+  const double TOL = 1.0e-3;
+  int MAX_ITER = 50;
+  int max_iter = 0;
+
+  for (int l=0; l<edges.size(); l++) {
+    int p = ptr[l][0], q = ptr[l][1];
+    if(status[p]==status[q]) continue;
+
+    //now need to find an intersection for this edge .
+    Vec3D xp(X[p]), xq(X[q]);
+    Vec3D dir = xq - xp;
+    Vec3D xpPrime, xqPrime;
+
+    LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(2);
+    edgeRes(1).x[1] = 1;  edgeRes(1).x[2] = 2;
+    edgeRes(2).x[1] = 2;  edgeRes(2).x[2] = 1;
+
+    for (int iter=0; iter<MAX_ITER; iter++) {
+      double coeff = iter*iter*TOL;
+      Vec3D xpPrime = xp - coeff*dir;
+      Vec3D xqPrime = xq + coeff*dir;
+      LIST_ARRAY<VECTOR<double,3> > xyz(2);
+      xyz(1)[1] = xpPrime[0];  xyz(1)[2] = xpPrime[1];  xyz(1)[3] = xpPrime[2];
+      xyz(2)[1] = xqPrime[0];  xyz(2)[2] = xqPrime[1];  xyz(2)[3] = xqPrime[2];
+
+      distIntersector.getInterface().Intersect(xyz, edgeRes, coeff*dir.norm());
+
+      if (edgeRes(1).y.triangleID>=0 || edgeRes(2).y.triangleID>=0) {
+        CrossingEdgeRes[l] = edgeRes(1).y;
+        ReverseCrossingEdgeRes[l] = edgeRes(2).y;
+        if (iter>max_iter) max_iter = iter;
+        break;
+      }
+    }
+
+    if (edgeRes(1).y.triangleID<0 && edgeRes(2).y.triangleID<0)
+    fprintf(stderr,"ERROR: failed to get an intersection between node %d and %d. \n",
+                    locToGlobNodeMap[p]+1,locToGlobNodeMap[q]+1);
+  }
+  fprintf(stderr,"In subdomain %d: maximum iteration: %d. maximum tolerance: %e.\n", globIndex, max_iter, (max_iter+1)*(max_iter+1)*TOL);
+}
+
+//----------------------------------------------------------------------------
+
+/*
+void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, Vec<int> &tId, Vec<double> &dist, 
+                                               SVec<double,3> &normApprox, Vec<double> &weightSum)
 {
   bool* edgeMasterFlag = edges.getMasterFlag();
 
-  LIST_ARRAY<VECTOR<double,3> > xyz(X.size());
-  for(int i = 0; i < X.size(); ++i)
-    for(int j = 0; j < 3; ++j)
-      xyz(i+1)[j+1] = X[i][j];
-
-  double t0 = timer->getTime();
-  distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
-  double t = timer->getTime();
-  nIntersect = 0;
   int numEdges = edges.size();
   int numNodes = status.size();
 
   phi = 0;
   normApprox = 0;
   weightSum = 0;
-
-  // List of reverse edges
-  vector<pair<int, int> > reverseEdges;
-
-/*
-  Vec<int> trIntersectCount(distIntersector.length_triangle_list);
-  Vec<int> trNdIsectCount(distIntersector.length_solids_particle_list);
-  trNdIsectCount = 0;
-  trIntersectCount = 0;
-*/
 
   // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
   // Add intersecting edges to the list of reverse edges
@@ -566,8 +741,6 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
       //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
       int trId = edgeRes(i+1).y.triangleID-1;
       int *nd = distIntersector.triangle_list[trId];
-      /*for(int j = 0; j <3 ;++j)
-        trNdIsectCount[nd[j]]++;*/
       nIntersect++;
     }
   }
@@ -620,12 +793,6 @@ void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, SVec<double,3>
     }
   }
   int nZeros = 0;
-/*
-  for(int i = 0; i < trIntersectCount.size(); ++i)
-    if(trIntersectCount[i] == 0)
-      nZeros++;*/
-  //std::cout << "Minimum triangle intersect: " << trIntersectCount.min() << " max: " << trIntersectCount.max() << std::endl;
-  //std::cout << "Number of zeros: " << nZeros << std::endl;
 }
 
 void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &normApprox,
@@ -880,28 +1047,36 @@ void PhysBAMIntersector::updatePhi(int p, int q, IntersectionResult<double> &res
   weightSum[p] += weight;
 
 }
+*/
+
+//----------------------------------------------------------------------------
 
 LevelSetResult
 PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
-  int triangleID = edgeRes(edgeNum+1).y.triangleID-1;
-  if(triangleID < 0) {
-    Vec3D nrm = (std::abs(phi[ni]) < std::abs(phi[nj])) ? locNorm[ni] : locNorm[nj];
-    if(nrm.norm() == 0)
-      std::cerr << "Norm (1) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
-    return LevelSetResult(nrm[0], nrm[1], nrm[2], 0, 0, 0);
+  if (!edgeIntersectsStructure(0.0,ni,nj)) {
+    fprintf(stderr,"There is no intersection between node %d(status:%d) and %d(status:%d)! Abort...\n",
+                   ni, status[ni], nj, status[nj]);
+    exit(-1);
   }
 
-  int triangle2ID = secondIntersection[edgeNum].triangleID-1;
-  Vec3D nrm;
-  IntersectionResult<double> result = edgeRes(edgeNum+1).y;
-  if (triangle2ID>=0 && ni>nj)
-    result = secondIntersection[edgeNum];
-  int trueTriangleID = result.triangleID-1;
-  nrm = distIntersector.getSurfaceNorm(trueTriangleID);
+  IntersectionResult<double> result; //need to determine which result to choose.
+  IntersectionResult<double> rij = CrossingEdgeRes[edgeNum];
+  IntersectionResult<double> rji = ReverseCrossingEdgeRes[edgeNum];
 
-  if(nrm.norm() == 0)
-    std::cerr << "Norm (2) is " << nrm[0] << " " << nrm[1] << " " << nrm[2] << std::endl;
+  if (rij.triangleID>=0 && rij.triangleID>=0 && rij.triangleID==rji.triangleID)
+    result = rij;
+  else if (rij.triangleID>=0 && rji.triangleID>=0 && rij.triangleID!=rji.triangleID)
+    result = (ni<nj) ? rij : rji;
+  else if (rij.triangleID>=0 && rji.triangleID<0)
+    result = rij;
+  else if (rij.triangleID<0 && rji.triangleID>=0)
+    result = rji;
+  else //we really have no intersection for this edge!
+    fprintf(stderr,"ERROR: intersection between %d and %d can not be detected.\n", ni, nj);
+
+  int trueTriangleID = result.triangleID-1;
+  Vec3D nrm = distIntersector.getSurfaceNorm(trueTriangleID);
 
   LevelSetResult lsRes(nrm[0], nrm[1], nrm[2], 0, 0, 0);
   lsRes.alpha = result.alpha;
@@ -915,13 +1090,19 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   return lsRes;
 }
 
+//----------------------------------------------------------------------------
+
 bool PhysBAMIntersector::isActive(double t, int n) {
   return status[n] == INSIDE;
 }
 
+//----------------------------------------------------------------------------
+
 bool PhysBAMIntersector::edgeIntersectsStructure(double t, int ni, int nj) const {
   return status[ni] != status[nj];
 }
+
+//----------------------------------------------------------------------------
 
 void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2, double& dist)
 {
@@ -951,3 +1132,6 @@ void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2
   double xi3 = areaPAB/areaABC;
   if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
 }
+
+//----------------------------------------------------------------------------
+
