@@ -652,12 +652,12 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
 
 void PhysBAMIntersector::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist)
 {
-  const double TOL = 1.0e-4;
+  const double TOL = 0;
   int nInside=0, nOutside=0;
   for (int i=0; i<tId.size(); i++) {
     if (tId[i]<0)
       continue;
-    status[i] = (dist[i]>=TOL*distIntersector.triSize[tId[i]]) ? INSIDE : OUTSIDE;
+    status[i] = (dist[i]>=TOL) ? INSIDE : OUTSIDE;
     if(status[i] == INSIDE)
       nInside++;
     else
