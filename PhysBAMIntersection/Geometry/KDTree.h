@@ -14,7 +14,7 @@ template <class Obj> class DirComp {
 };
 
 /** This templated class implements a kD-tree
- * The Obj class can be any type 
+ * The Obj class can be any type
  * CompType must provide a comparison object for each direction.
  * Objects in the tree have a span and the tree is built based on their
  * lowest-coordinates. They need to return what their width is in each direction*/
@@ -27,7 +27,7 @@ class KDTree {
      double w[dim];
      Obj *obj; // Non zero if this is a terminal leaf.
      KDTree<Obj, dim, CompType> *leftTree, *rightTree;
-     
+
      int getBestSplit(int nobj, Obj *allObjs, int dir);
    public:
      KDTree(int nobj, Obj *allObjs, int depth = 0);
@@ -61,7 +61,7 @@ KDTree<Obj, dim, CompType>::KDTree(int nobj, Obj *allObjs, int depth) {
   int split;
   int bestDir;
   double quality[dim], bestQuality;
-  
+
   while(1) {
     if(nObj <= 4) {
       split = nObj;
@@ -78,7 +78,7 @@ KDTree<Obj, dim, CompType>::KDTree(int nobj, Obj *allObjs, int depth) {
       bestDir = dir;
     }
     // See if we should look for better.
-    if(quality[dir] > 0.25*nObj) 
+    if(quality[dir] > 0.25*nObj)
       break;
     else {
        int newdir = (dir+1)%dim;
@@ -115,7 +115,7 @@ KDTree<Obj, dim, CompType>::getBestSplit(int nobj, Obj *allObjs, int dir) {
   if(nobj <= 4) {
      return nobj;
   }
-  
+
   CompType compare(dir);
   std::sort(allObjs, allObjs+nobj, compare);
   int leftSplit = nobj/2;
@@ -130,9 +130,9 @@ KDTree<Obj, dim, CompType>::getBestSplit(int nobj, Obj *allObjs, int dir) {
   while(rightSplit < nobj
          && allObjs[rightSplit].val(dir) == allObjs[rightSplit-1].val(dir))
     rightSplit++;
-  
+
   int split = (nobj-leftSplit < rightSplit) ? leftSplit : rightSplit;
-  
+
   return split;
 };
 
@@ -144,7 +144,7 @@ KDTree<Obj, dim, CompType>::findCandidates(double x[dim], Obj *o, int maxNObj, i
     for(int i = 0; i < nObj; ++i) {
       // check that we fall within the box.
       int k;
-	    
+
       for(k = 0; k < dim && x[k] >= obj[i].val(k) && x[k]  <= obj[i].val(k)+obj[i].width(k)
                ; )
 	   ++k;
@@ -152,12 +152,12 @@ KDTree<Obj, dim, CompType>::findCandidates(double x[dim], Obj *o, int maxNObj, i
         continue;
       if(nPot >= maxNObj)
         return maxNObj+1; // we do not have enough space
-      o[nPot++] = obj[i];  
+      o[nPot++] = obj[i];
     }
     return nPot;
   }
   int nFound = 0;
-  if(x[dir] <= splitVal+leftTree->maxWidth(dir)) 
+  if(x[dir] <= splitVal+leftTree->maxWidth(dir))
     nFound = leftTree->findCandidates(x, o, maxNObj,depth+1);
 
   if(x[dir] >= splitVal)
@@ -168,7 +168,7 @@ KDTree<Obj, dim, CompType>::findCandidates(double x[dim], Obj *o, int maxNObj, i
 
 template <class Obj, int dim, class CompType>
 int
-KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim], 
+KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim],
               Obj *o, int maxNObj, double &dist) {
   if(obj) {
     int nPot = 0;
@@ -179,7 +179,7 @@ KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim],
       for(k = 0; k < dim; ++k)
         locDist = std::max(locDist,
 	            std::max(obj[i].val(k)-x[k], x[k]-obj[i].val(k)-obj[i].width(k)));
-      if(dist >= 0 && locDist > dist) 
+      if(dist >= 0 && locDist > dist)
         continue;
       if(dist < 0 || locDist < dist) {
         nPot = 0;
@@ -188,7 +188,7 @@ KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim],
       if(nPot >= maxNObj)
         return maxNObj+1; // we do not have enough space
 
-      o[nPot++] = obj[i];  
+      o[nPot++] = obj[i];
     }
     return nPot;
   }
@@ -201,7 +201,7 @@ KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim],
     int nRightFound=0;
     if(x[dir] >= splitVal-dist) {
       nRightFound = rightTree->findCloseCandidates(x, o+nFound, maxNObj-nFound, potDist);
-      if(nRightFound > maxNObj) 
+      if(nRightFound > maxNObj)
         return nRightFound;
       if(potDist < dist) {
         dist = potDist;
@@ -231,7 +231,7 @@ KDTree<Obj, dim, CompType>::findCloseCandidates(double x[dim],
 
 template <class Obj, int dim, class CompType>
 int
-KDTree<Obj, dim, CompType>::findCandidatesWithin(double x[dim], 
+KDTree<Obj, dim, CompType>::findCandidatesWithin(double x[dim],
               Obj *o, int maxNObj, double dist) {
   if(obj) {
     int nPot = 0;
@@ -242,18 +242,18 @@ KDTree<Obj, dim, CompType>::findCandidatesWithin(double x[dim],
       for(k = 0; k < dim; ++k)
         locDist = std::max(locDist,
 	            std::max(obj[i].val(k)-x[k], x[k]-obj[i].val(k)-obj[i].width(k)));
-      if(locDist > dist) 
+      if(locDist > dist)
         continue;
       if(nPot >= maxNObj)
         return maxNObj+1; // we do not have enough space
 
-      o[nPot++] = obj[i];  
+      o[nPot++] = obj[i];
     }
     return nPot;
   }
   int nFound = 0;
 
-  if(x[dir] <= splitVal+leftTree->maxWidth(dir)+dist) 
+  if(x[dir] <= splitVal+leftTree->maxWidth(dir)+dist)
     nFound = leftTree->findCandidatesWithin(x, o, maxNObj, dist);
 
   if(x[dir]+dist >= splitVal)
@@ -267,24 +267,25 @@ int KDTree<Obj, dim, CompType>::findCandidatesInBox(double xmin[dim], double xma
   if(obj) {
     int nPot = 0;
     for(int i = 0; i < nObj; ++i) {
+      bool isOutside = false;
       for(int k = 0; k < dim; ++k)
         if(xmax[k] < obj[i].val(k) ||
            xmin[k] > obj[i].val(k)+obj[i].width(k))
-          continue;
-        
-      if(nPot >= maxNObj)
-        return maxNObj+1; // we do not have enough space
-
-      o[nPot++] = obj[i];  
+          isOutside = true;
+      if(isOutside)
+        continue;
+      if(nPot < maxNObj)
+        o[nPot] = obj[i];
+      nPot++;
     }
     return nPot;
   }
   int nFound = 0;
 
-  if(xmax[dir] <= splitVal+leftTree->maxWidth(dir)) 
+  if(xmin[dir] <= splitVal+leftTree->maxWidth(dir))
     nFound = leftTree->findCandidatesInBox(xmin, xmax, o, maxNObj);
 
-  if(xmin[dir] >= splitVal)
+  if(xmax[dir] >= splitVal)
     nFound += rightTree->findCandidatesInBox(xmin, xmax, o+nFound, maxNObj-nFound);
 
   return nFound;
