@@ -63,8 +63,6 @@ class LevelSetStructure {
     /** creates an array of values which are positive inside the fluid and negative outside. */
     virtual void computePhi(Vec<double> &phi);
 
-    virtual double checkPointOnSurface(Vec3D, int, int, int) = 0;
-
     Vec3D totalForce;
 };
 
