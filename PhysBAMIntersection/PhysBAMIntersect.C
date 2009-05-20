@@ -467,7 +467,6 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   timer = domain->getTimer();
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
-  pseudoPhi = new DistVec<double>(X.info());
 
   // for getClosestTriangles
   DistSVec<double,3> boxMax(X.info());
@@ -478,7 +477,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   d->findNodeBoundingBoxes(X,boxMin,boxMax);
  
   for(int i = 0; i < numLocSub; ++i) {
-    intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), (*pseudoPhi)(i), *this);
+    intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), *this);
     intersector[i]->getClosestTriangles(X(i), boxMin(i), boxMax(i), tId(i), distance(i));  
 
     intersector[i]->computeFirstLayerNodeStatus(tId(i), distance(i));
@@ -491,8 +490,8 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 //----------------------------------------------------------------------------
 
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
-              Vec<double> &pPhi, DistPhysBAMIntersector &distInt) :
- distIntersector(distInt), status(sub.numNodes()), phi(pPhi),
+                    DistPhysBAMIntersector &distInt) :
+ distIntersector(distInt), status(sub.numNodes()), 
  edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
