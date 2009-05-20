@@ -5,7 +5,7 @@
 
 #include <IoData.h>
 #include <KspConvCriterion.h>
-#include <complex.h>
+#include <complex>
 
 //------------------------------------------------------------------------------
 
@@ -660,7 +660,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp,ScalarT>::solveT(VecType &b,
 }
 //------------------------------------------------------------------------------
 inline double myConj(double x)  { return x; }
-inline complex<double>  myConj(complex<double> x)  { return conj(x); }
+inline std::complex<double>  myConj(std::complex<double> x)  { return std::conj(x); }
 //------------------------------------------------------------------------------
 
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>

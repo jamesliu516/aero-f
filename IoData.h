@@ -1266,7 +1266,7 @@ struct BLMeshMotionData {
 struct DefoMeshMotionData {
 
   enum Type {BASIC = 0, COROTATIONAL = 1} type;
-  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3} element;
+  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3, NL_BALL_VERTEX = 4 } element;
 
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;

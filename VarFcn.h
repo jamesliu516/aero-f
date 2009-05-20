@@ -5,8 +5,12 @@
 #include <Vector3D.h>
 
 #include <math.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 #include <IoData.h>
 

@@ -1,8 +1,8 @@
 #ifndef _BC_FCN_H_
 #define _BC_FCN_H_
 
-#include<complex.h>
-typedef complex<double> bcomp;
+#include<complex>
+typedef std::complex<double> bcomp;
 class IoData;
 
 //------------------------------------------------------------------------------
