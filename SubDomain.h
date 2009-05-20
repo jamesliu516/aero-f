@@ -782,7 +782,8 @@ public:
 
 	template<int dim>
   void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                      Vec<double> &weight, Vec<double> &Phi);
+                      Vec<double> &weight, Vec<double> &Phi,
+                      SVec<double,3> &X);
 
   template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);

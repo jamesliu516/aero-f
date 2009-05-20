@@ -180,7 +180,7 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, 
-                                          this->Vgfweight);
+                                          this->Vgfweight, *this->X);
 
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);

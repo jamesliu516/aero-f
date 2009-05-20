@@ -1498,15 +1498,16 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 template<int dim>
 void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U, 
                                 DistSVec<double,dim> &Vg, DistVec<double> &Phi,
-                                DistSVec<double,dim> *Vgf, DistVec<double> *weight)
+                                DistSVec<double,dim> *Vgf, DistVec<double> *weight,
+                                DistSVec<double,3> &X)
 {
 
   varFcn->conservativeToPrimitive(U, Vg, &Phi);
   //if(riemann->RiemannUpdatePhase())
     //nothing to do, everything has been done when computing the fluxes
   if(Vgf && weight){
-    //domain->storePrimitive(Vg,*Vgf,*weight,Phi);
-    storeGhost(Vg,Phi,*Vgf,*weight);
+    domain->storePrimitive(Vg,*Vgf,*weight,Phi,X);
+    //storeGhost(Vg,Phi,*Vgf,*weight);
   }
 
 }

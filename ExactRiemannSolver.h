@@ -30,7 +30,7 @@ class ExactRiemannSolver{
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi, VarFcn *vf,
                               int &epsi, int &epsj, double *Wi, double *Wj,
-                              int i, int j);
+                              int i, int j, double dx[3]);
 
   void reset(int it);
 	

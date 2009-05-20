@@ -42,7 +42,8 @@ public:
                             double Phii, double Phij, double *nphi, VarFcn *vf,
                             int &epsi, int &epsj, double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
-                            double &weighti, double &weightj, int it){}
+                            double &weighti, double &weightj, 
+                            double dx[3], int it){}
 
   virtual void eriemann(double rhol, double ul, double pl, 
                         double rhor, double ur, double pr, 
@@ -53,6 +54,10 @@ public:
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);
 
+  void riemannInvariant2(VarFcn *vf, double phi,
+                   double v1, double u1, double p1, 
+                   double v,  double &u, double &p, 
+                   double &du, double &dp);
   void riemannInvariant(VarFcn *vf, double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
@@ -87,7 +92,7 @@ void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
     res[0] = ( mat[3]*rhs[0]-mat[1]*rhs[1])/determinant;
     res[1] = (-mat[2]*rhs[0]+mat[0]*rhs[1])/determinant;
   }else{
-    fprintf(stdout, "zero-determinant\n");
+    fprintf(stdout, "zero-determinant (mat = [%e , %e ; %e , %e] = %e)\n", mat[0],mat[3],mat[1],mat[2],determinant);
     res[0] = 0.0;
     res[1] = 0.0;
   }
@@ -96,6 +101,48 @@ void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+inline
+void LocalRiemann::riemannInvariant2(VarFcn *vf, double phi,
+                   double v1, double u1, double p1,
+                   double v,  double &u, double &p,
+                   double &du, double &dp){
+//compute integrals using ODEs. Integrand are not approximated.
+//integrate using 2nd order integration
+  int N  = 50;
+  double dt = (v-v1)/N;
+  double t = v1; u = u1; p = p1;
+  double V[5] = { 1.0/v1, u1, 0.0, 0.0, p1 };
+  double c = vf->computeSoundSpeed(V,phi);
+  bool continueCondition = true;
+
+  while (continueCondition) {
+    V[1] = u - phi*c/t*dt/2;
+    V[4] = p - c*c/(t*t)*dt/2;
+    t  += dt/2;
+    V[0] = 1.0/t;
+    if(vf->checkPressure(V,phi) < 0.0) break;
+    c = vf->computeSoundSpeed(V,phi);
+
+    u -= phi*c/t*dt;
+    p -= c*c/(t*t)*dt;
+    t  += dt/2;
+
+    V[0] = 1.0/t; V[1] = u; V[4] = p;
+    if(vf->checkPressure(V,phi) < 0.0) break;
+    c = vf->computeSoundSpeed(V,phi);
+
+    continueCondition = (t<v-dt/4.0);
+
+  }
+  du = -phi*c/v;
+  dp = -c*c/(v*v);
+  if(vf->checkPressure(V,phi)<0.0){
+    u=0.0; p=0.0; du=0.0; dp=0.0;
+  }
+
+}
+
 inline
 void LocalRiemann::riemannInvariant(VarFcn *vf, double phi,
                    double v1, double u1, double p1, 
