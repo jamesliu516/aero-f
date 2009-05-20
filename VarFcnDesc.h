@@ -812,6 +812,13 @@ inline
 bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
                             double phin, double *Riemann, double weight)
 {
+ // weight has value 1 if Extrapolation Update for GFMPAR (option 1) using storeGhost function
+ // weight can have any positive value if Riemann Update for GFMPAR
+ //    ** integer values expected if mean of Riemann Update (option 2)
+ //    ** any values expected if Riemann Update based on direction of the flow (option 3)
+ // weight can have any positive value if Extrapolation Update for GFMPAR using storePrimitive function
+ //    ** integer values expected if mean of Extrapolation Update (option 4)
+ //    ** any values expected if Extrapolation Update based on direction of the flow (option 5)
 
   //nature of fluid at this node has not changed over time
   if(phi*phin > 0.0){
@@ -826,9 +833,16 @@ bool VarFcnGasInGasEuler3D::updatePhaseChange(double *V, double *U, double phi,
       fprintf(stdout, "negative weight in updatePhaseChange\n");
       exit(1);
     }
+    // option 1 and 2 and 4
     for(int k=0; k<5; k++)
-    //for(int k=0; k<1; k++)
       V[k] = Riemann[k]/weight;
+    // option 3 and option 5
+    //for(int k=0; k<5; k++)
+    //  V[k] = Riemann[k];
+    // option 3bis: using Riemann update except for velocity
+    //V[0] = Riemann[0];
+    //V[4] = Riemann[4];
+    
 
     // from Fluid2 to Fluid1, ie Gas To Gas
     if(phi>=0.0 && phin<0.0)
