@@ -466,19 +466,23 @@ namespace Communication {
   template <typename Scalar>
   void Window<Scalar>::accumulate(Scalar *a, int locOff, int size, int prNum, int remOff, int op) {
 #ifdef USE_MPI
+
     static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
     MPI_Accumulate(a+locOff, size*CommTrace<Scalar>::multiplicity, CommTrace<Scalar>::MPIType,
         prNum,
         remOff*CommTrace<Scalar>::multiplicity, size*CommTrace<Scalar>::multiplicity,
         CommTrace<Scalar>::MPIType, mpiOp[op],
         win);
+
 #endif
       }
   template <typename Scalar>
     void Window<Scalar>::fence(bool isBeginning) {
+#ifdef USE_MPI
       if(isBeginning)
         MPI_Win_fence((MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE), win);
       else
         MPI_Win_fence(MPI_MODE_NOSUCCEED, win);
+#endif
   }
 }

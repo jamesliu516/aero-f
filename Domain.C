@@ -820,7 +820,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                              (*tag)(iSub), failsafe, rshift);
   }
   com->globalSum(1, &ierr);
- 
+
   if (ierr) {
     if (!failsafe) {
       com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
@@ -3414,52 +3414,17 @@ void Domain::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
 {
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->updatePhaseChange(X(iSub), U(iSub), Wstarij(iSub), Wstarji(iSub), 
+    subDomain[iSub]->updatePhaseChange(X(iSub), U(iSub), Wstarij(iSub), Wstarji(iSub),
                                        (*distLSS)(iSub), nodeTag0(iSub), nodeTag(iSub));
 }
 
 //-------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoState& geoState, 
-                                     DistSVec<double,3> &X, double (*Fs)[3], int sizeFs, 
+void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
+                                     DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                      DistLevelSetStructure *distLSS,
-                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
-{
-  double subFs[numLocSub][sizeFs][3];
-  DistVec<double> pstarij(Wstarij.info());
-  DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) 
-    for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
-      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
-    }
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++) {
-    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
-    subDomain[iSub]->computeCVBasedForceLoad(forceApp, orderOfAccuracy, geoState(iSub), X(iSub), subFs[iSub],
-                                             sizeFs, (*distLSS)(iSub), pstarij(iSub), pstarji(iSub));
-  }
-  for (int is=0; is<sizeFs; is++) {
-    Fs[is][0] = subFs[0][is][0];  
-    Fs[is][1] = subFs[0][is][1];  
-    Fs[is][2] = subFs[0][is][2];  
-  }
-  for (int iSub=1; iSub<numLocSub; iSub++) 
-    for (int is=0; is<sizeFs; is++) {
-      Fs[is][0] += subFs[0][is][0];  
-      Fs[is][1] += subFs[0][is][1];  
-      Fs[is][2] += subFs[0][is][2];  
-    }
-}
-
-//-------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
-                                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
+                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
 {
   double subFs[numLocSub][sizeFs][3];
   DistVec<double> pstarij(Wstarij.info());
@@ -3473,8 +3438,43 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
-    subDomain[iSub]->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs, 
-                                                  (*distLSS)(iSub), pstarij(iSub), pstarji(iSub));
+    subDomain[iSub]->computeCVBasedForceLoad(forceApp, orderOfAccuracy, geoState(iSub), X(iSub), subFs[iSub],
+                                             sizeFs, (*distLSS)(iSub), pstarij(iSub), pstarji(iSub), pInfty);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[0][is][0];
+      Fs[is][1] += subFs[0][is][1];
+      Fs[is][2] += subFs[0][is][2];
+    }
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+                                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+                                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
+{
+  double subFs[numLocSub][sizeFs][3];
+  DistVec<double> pstarij(Wstarij.info());
+  DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    for (int i=0; i<Wstarij(iSub).size(); i++) {
+      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
+      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
+    }
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    subDomain[iSub]->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
+                                                  (*distLSS)(iSub), pstarij(iSub), pstarji(iSub), pInfty);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];

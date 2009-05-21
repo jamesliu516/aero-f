@@ -1663,12 +1663,12 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
 
 //-----------------------------------------------------------------------------
 template<int dim>
-void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
-                                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                                       DistLevelSetStructure *distLSS,
                                       DistVec<int> &nodeTag0, DistVec<int> &nodeTag)  //for FS interface
 {
-  domain->updatePhaseChange(X,U,Wstarij,Wstarji,distLSS,nodeTag0,nodeTag);    
+  domain->updatePhaseChange(X,U,Wstarij,Wstarji,distLSS,nodeTag0,nodeTag);
 }
 
 //------------------------------------------------------------------------------
@@ -2202,12 +2202,13 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
                                           double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
                                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
 {
+  double pressInfty = iod->bc.inlet.pressure;
   if (forceApp==1 || forceApp==2)
-    domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs, 
-                                    sizeFs, distLSS, Wstarij, Wstarji);
+    domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
+                                    sizeFs, distLSS, Wstarij, Wstarji, pressInfty);
   else if (forceApp==3 || forceApp==4)
-    domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs, 
-                                         sizeFs, distLSS, Wstarij, Wstarji);
+    domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
+                                         sizeFs, distLSS, Wstarij, Wstarji, pressInfty);
   else {fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); exit(-1);}
 
 }

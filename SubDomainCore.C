@@ -3931,10 +3931,10 @@ void SubDomain::findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SV
   int (*ptr)[2] = edges.getPtr();
   bool* edgeMasterFlag = edges.getMasterFlag();
   int p, q;
-  
+
   for (int l=0; l<edges.size(); l++) {
-    if (!edgeMasterFlag[l]) 
-      continue; 
+    if (!edgeMasterFlag[l])
+      continue;
     p = ptr[l][0];
     q = ptr[l][1];
     for (int k=0; k<3; k++) {
@@ -4311,7 +4311,7 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
 
 void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
                                         SVec<double,3> &X, double (*Fs)[3], int sizeFs,
-                                        LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji)
+                                        LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   bool* masterFlag = edges.getMasterFlag();
@@ -4334,12 +4334,12 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     Vec3D flocal;
     if (iActive) {
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = pstarij[l]*normal[l];
-      else flocal = pstarij[l]*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
+      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
     }else{
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal = -pstarji[l]*normal[l];
-      else flocal = -pstarji[l]*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
+      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
     }
     sendLocalForce(flocal, lsRes, Fs);
   }
@@ -4349,7 +4349,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
 
 void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
                                              double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
-                                             Vec<double> &pstarij, Vec<double> &pstarji)
+                                             Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
 {
   int T[4]; //nodes in a tet.
   double x[4][3]; //coords of nodes in a tet.
@@ -4399,21 +4399,22 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
         Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
+        if (pStar[k]<1.0e-8) {
+          fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
+          exit(-1);
+        }
+        pStar[k] -= pInfty;
 
         //Kevin's debug, check if Xinter is really on the surface.
         int N1 = lsRes[k].trNodes[0];
         int N2 = lsRes[k].trNodes[1];
         int N3 = lsRes[k].trNodes[2];
 
-
+      }
 
         //------------------
 
 
-        if (pStar[k]<1.0e-8) {
-          fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
-          exit(-1);}
-      }
       Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
       addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
 
