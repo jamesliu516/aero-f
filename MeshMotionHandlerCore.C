@@ -487,10 +487,6 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   timer = domain->getTimer();
   double t0 = timer->getTime();
 
-  Timer *timer;
-  timer = domain->getTimer();
-  double t0 = timer->getTime();
-
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
   if (steady)
