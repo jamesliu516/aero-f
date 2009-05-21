@@ -99,7 +99,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   frequencyLS = ioData.mf.frequency;
   interfaceTypeFF = ioData.mf.interfaceType;
   if(this->domain->getEmbedCommunicator()) {
-    Communicator *intraCom =this->domain->getEmbedCommunicator()->merge(false);
+    Communicator *intraCom =this->domain->getEmbedCommunicator()->merge(true);
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *intraCom);
   } else
     dynNodalTransfer = 0;

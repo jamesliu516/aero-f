@@ -1023,14 +1023,14 @@ public:
   void  localCoord(Vec3D, int, SVec<double, 3>&, Vec3D&);
   int* getNeiElemOfNode(int, int, int&);
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
-  void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);  
+  void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);
 
-  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&, 
-                               Vec<double>&, Vec<double>&);
-  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&, 
-                                    Vec<double>&, Vec<double>&);
+  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
+                               Vec<double>&, Vec<double>&, double pInfty);
+  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
+                                    Vec<double>&, Vec<double>&, double pInfty);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
-  void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&, 
+  void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
                      LevelSetResult&, double(*)[3]);
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
 

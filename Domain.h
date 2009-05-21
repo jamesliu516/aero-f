@@ -839,10 +839,10 @@ public:
                          DistVec<int> &, DistVec<int> &);
   template<int dim>
   void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int,
-                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &);
+                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
-                                    DistSVec<double,dim> &, DistSVec<double,dim> &);
+                                    DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
 
  };
 
