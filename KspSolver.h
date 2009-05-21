@@ -9,8 +9,8 @@
 class KspData;
 class KspConvCriterion;
 
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 #ifndef _KSPSLVR_TMPL_
 #define _KSPSLVR_TMPL_

@@ -1,9 +1,10 @@
 c     *******************************************************************
 c 
-      subroutine TorsionSpring(coor, nu, ktetglob)
+      subroutine TorsionSpring(coor, nu, ktetglob, invCoef)
       IMPLICIT NONE
       real*8 coor(3,*)
       integer nu(4)
+      real*8 invCoef
 c
 c
       integer map_pointer(4,3,4)
@@ -631,10 +632,10 @@ c
        areasq =  area * area 
 c    
        cfac = lsq12/areasq
-
-       c1 = cfac*lsq13
-       c2 = cfac*lsq23
-       c3 = lsq13*lsq23/areasq
+c      ML modified to stiffen also when area increases.
+       c1 = cfac*lsq13 + invCoef/(cfac*lsq13)
+       c2 = cfac*lsq23 + invCoef/(cfac*lsq23)
+       c3 = lsq13*lsq23/areasq + invCoef*areasq/(lsq13*lsq23)
 c
 c
 c

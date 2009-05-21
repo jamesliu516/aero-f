@@ -936,19 +936,6 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                                     DistSVec<double,dim> &U,
-                                     DistSVec<double,dim> &R)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
-                                             U(iSub), R(iSub));
-
-}
-//------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
@@ -1117,20 +1104,6 @@ double Domain::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &
 
   return Finlet*Finlet;
 }
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-double Domain::rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
-{
-
-#pragma omp parallel for
-  for (int iSub=0; iSub < numLocSub; iSub++)
-    subDomain[iSub]->rerecomputeResidual(F(iSub), Ffar(iSub), X(iSub), Xlim1, Xlim2, Ylim1, Ylim2);
-
-  return Ffar*Ffar;
-}
-
 
 //------------------------------------------------------------------------------
 
@@ -2402,7 +2375,6 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
-
   if (step == 0)
     com->barrier();
 
@@ -3154,3 +3126,17 @@ void Domain::getDerivativeOfGradP(DistNodalGrad<dim>& ngrad)
 }
 
 //-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computePrdtWCtrlVolRatio(DistSVec<double,dim> &ratioTimesU, DistSVec<double,dim> &U, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computePrdtWCtrlVolRatio(ratioTimesU(iSub), U(iSub), ctrlVol(iSub), geoState(iSub));
+
+}
+
+//-------------------------------------------------------------------------------
+
+
+

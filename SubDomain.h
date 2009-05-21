@@ -20,8 +20,8 @@
 using std::map;
 #endif
 
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 class VarFcn;
 class PostFcn;
@@ -351,12 +351,6 @@ public:
   template<int dim>
   void computeFiniteVolumeBar_Step2(MacroCellSet **,SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               SVec<double,dim> &U, SVec<double,dim> &R);
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               Vec<double> &Phi, Vec<double> &dPhi);
- 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
                                        Vec<double> &, SVec<double,3> &, Vec<double> &, 
@@ -380,9 +374,6 @@ public:
   template<int dim>
   void recomputeResidual(SVec<double,dim> &, SVec<double,dim> &);
        
-  template<int dim>  
-  void rerecomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Ffar, SVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
-                                                                                           
   template<class Scalar,int dim>
   void checkRHS(Scalar (*)[dim]);
 
@@ -597,12 +588,22 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
+  void computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+                                            GeoState&, SVec<double,3>&,
+                                            SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
+
+  template<int dim>
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
 			     Vec3D *, Vec3D *, int , 
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0, 
                              Vec<double> *genCF = 0);
+
+  template<int dim>
+  void computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+                                      GeoState &, SVec<double,3> &,
+                                      SVec<double,dim> &, double *);
 
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&, 
@@ -967,6 +968,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, GeoState &);
+
+  void computePrdtPhiCtrlVolRatio(Vec<double> &, Vec<double> &, Vec<double> &, GeoState &);
 
 };
 

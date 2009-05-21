@@ -1,8 +1,8 @@
 c     *******************************************************************
 c 
-      subroutine BallVertex(coor, nu, kf)
+      subroutine BallVertex(coor, coor0, nu, kf, expandCoef)
       IMPLICIT NONE
-      real*8 coor(3,*)
+      real*8 coor(3,*), coor0(3,*), expandCoef;
       integer nu(4)
 c
 c
@@ -19,12 +19,18 @@ c
       real*8 rx23, ry23, rz23
       real*8 rx24, ry24, rz24
       real*8 rx34, ry34, rz34
+      real*8 rx0_12, ry0_12, rz0_12
+      real*8 rx0_13, ry0_13, rz0_13
+      real*8 rx0_14, ry0_14, rz0_14
+      real*8 rx0_23, ry0_23, rz0_23
+      real*8 rx0_24, ry0_24, rz0_24
+      real*8 rx0_34, ry0_34, rz0_34
       real*8 L12, L13, L14, L23, L24, L34
       real*8 xp1, yp1, zp1
       real*8 xp2, yp2, zp2
       real*8 xp3, yp3, zp3
       real*8 xp4, yp4, zp4
-      real*8 L, Lp1, Lp2, Lp3, Lp4
+      real*8 L, Lp1, Lp2, Lp3, Lp4, Lp1_0, Lp2_0, Lp3_0, Lp4_0
       real*8 k11, k22, k33, k44
       real*8 ipx, ipy, ipz
       real*8 iqx, iqy, iqz
@@ -36,6 +42,7 @@ c
       real*8 isxisx, isxisy, isxisz, isyisy, isyisz, iszisz
 c
       real*8 avx(4), avy(4), avz(4)
+      real*8 avx0(4), avy0(4), avz0(4)
 c
       integer ro, col
 
@@ -52,7 +59,6 @@ c	     kf(ro,col) = 0.0
 c          enddo
 c          enddo
 c
-
 
 c      Calculation of the length vectors
 c
@@ -90,6 +96,43 @@ c
           rx34 =  coor(1,nu(4)) - coor(1,nu(3))
           ry34 =  coor(2,nu(4)) - coor(2,nu(3))
           rz34 =  coor(3,nu(4)) - coor(3,nu(3))
+
+c      Calculation of the initial length vectors
+c
+c
+          rx0_12 =  coor0(1,nu(2)) - coor0(1,nu(1))
+          ry0_12 =  coor0(2,nu(2)) - coor0(2,nu(1))
+          rz0_12 =  coor0(3,nu(2)) - coor0(3,nu(1))
+c
+c
+c
+          rx0_13 =  coor0(1,nu(3)) - coor0(1,nu(1))
+          ry0_13 =  coor0(2,nu(3)) - coor0(2,nu(1))
+          rz0_13 =  coor0(3,nu(3)) - coor0(3,nu(1))
+c
+c
+c
+          rx0_14 =  coor0(1,nu(4)) - coor0(1,nu(1))
+          ry0_14 =  coor0(2,nu(4)) - coor0(2,nu(1))
+          rz0_14 =  coor0(3,nu(4)) - coor0(3,nu(1))
+c
+c
+c
+          rx0_23 =  coor0(1,nu(3)) - coor0(1,nu(2))
+          ry0_23 =  coor0(2,nu(3)) - coor0(2,nu(2))
+          rz0_23 =  coor0(3,nu(3)) - coor0(3,nu(2))
+c
+c
+c
+          rx0_24 =  coor0(1,nu(4)) - coor0(1,nu(2)) 
+          ry0_24 =  coor0(2,nu(4)) - coor0(2,nu(2))
+          rz0_24 =  coor0(3,nu(4)) - coor0(3,nu(2))
+c
+c
+c
+          rx0_34 =  coor0(1,nu(4)) - coor0(1,nu(3))
+          ry0_34 =  coor0(2,nu(4)) - coor0(2,nu(3))
+          rz0_34 =  coor0(3,nu(4)) - coor0(3,nu(3))
 
 c     Length of each side
 c
@@ -144,7 +187,48 @@ c
       avx(4) = avx(4)/L
       avy(4) = avy(4)/L
       avz(4) = avz(4)/L
+c     Computation of the original normal vectors of the 4 tetra faces
+c
+c     face 1-2-3
+c
 
+      avx0(1)  =  ry0_12*rz0_13 - rz0_12*ry0_13
+      avy0(1)  = -rx0_12*rz0_13 + rz0_12*rx0_13
+      avz0(1)  =  rx0_12*ry0_13 - ry0_12*rx0_13
+      L = sqrt(avx0(1)**2+avy0(1)**2+avz0(1)**2)
+      avx0(1) = avx0(1)/L
+      avy0(1) = avy0(1)/L
+      avz0(1) = avz0(1)/L
+c
+c     face 2-1-4
+c
+      avx0(2)  =  ry0_14*rz0_12 - rz0_14*ry0_12
+      avy0(2)  = -rx0_14*rz0_12 + rz0_14*rx0_12
+      avz0(2)  =  rx0_14*ry0_12 - ry0_14*rx0_12
+      L = sqrt(avx0(2)**2+avy0(2)**2+avz0(2)**2)
+      avx0(2) = avx0(2)/L
+      avy0(2) = avy0(2)/L
+      avz0(2) = avz0(2)/L
+c
+c     face 4-1-3
+c
+      avx0(3)  =  ry0_13*rz0_14 - rz0_13*ry0_14
+      avy0(3)  = -rx0_13*rz0_14 + rz0_13*rx0_14
+      avz0(3)  =  rx0_13*ry0_14 - ry0_13*rx0_14
+      L = sqrt(avx0(3)**2+avy0(3)**2+avz0(3)**2)
+      avx0(3) = avx0(3)/L
+      avy0(3) = avy0(3)/L
+      avz0(3) = avz0(3)/L
+c
+c     face 2-4-3
+c
+      avx0(4)  =  ry0_24*rz0_23 - rz0_24*ry0_23
+      avy0(4)  = -rx0_24*rz0_23 + rz0_24*rx0_23
+      avz0(4)  =  rx0_24*ry0_23 - ry0_24*rx0_23
+      L = sqrt(avx0(4)**2+avy0(4)**2+avz0(4)**2)
+      avx0(4) = avx0(4)/L
+      avy0(4) = avy0(4)/L
+      avz0(4) = avz0(4)/L
 c   
 c    
 c    Finding the coordinate of the point where the perpendicular from the vertex
@@ -284,6 +368,19 @@ c     length of the vertex from the point on the face opposite to it
       Lp4 = sqrt((xp4-coor(1,nu(4)))**2 + (yp4-coor(2,nu(4)))**2 
      & + (zp4-coor(3,nu(4)))**2)   
 
+      Lp1_0 = (coor0(1,nu(4))-coor0(1,nu(2)))*avx0(1)
+     &      + (coor0(2,nu(4))-coor0(2,nu(2)))*avy0(1)
+     &      + (coor0(3,nu(4))-coor0(3,nu(2)))*avz0(1)
+      Lp2_0 = (coor0(1,nu(3))-coor0(1,nu(1)))*avx0(2)
+     &      + (coor0(2,nu(3))-coor0(2,nu(1)))*avy0(2)
+     &      + (coor0(3,nu(3))-coor0(3,nu(1)))*avz0(2)
+      Lp3_0 = (coor0(1,nu(2))-coor0(1,nu(1)))*avx0(3)
+     &      + (coor0(2,nu(2))-coor0(2,nu(1)))*avy0(3)
+     &      + (coor0(3,nu(2))-coor0(3,nu(1)))*avz0(3)
+      Lp4_0 = (coor0(1,nu(1))-coor0(1,nu(2)))*avx0(4)
+     &      + (coor0(2,nu(1))-coor0(2,nu(2)))*avy0(4)
+     &      + (coor0(3,nu(1))-coor0(3,nu(2)))*avz0(4)
+
       ipx = (xp1-coor(1,nu(1)))/Lp1 
       ipy = (yp1-coor(2,nu(1)))/Lp1
       ipz = (zp1-coor(3,nu(1)))/Lp1
@@ -300,10 +397,10 @@ c     length of the vertex from the point on the face opposite to it
       isy = (yp4-coor(2,nu(4)))/Lp4
       isz = (zp4-coor(3,nu(4)))/Lp4
 
-      k11 = (1.0/Lp1)
-      k22 = (1.0/Lp2)
-      k33 = (1.0/Lp3)
-      k44 = (1.0/Lp4)
+      k11 = (1.0/Lp1)+expandCoef*Lp1/Lp1_0**2
+      k22 = (1.0/Lp2)+expandCoef*Lp2/Lp2_0**2
+      k33 = (1.0/Lp3)+expandCoef*Lp3/Lp3_0**2
+      k44 = (1.0/Lp4)+expandCoef*Lp4/Lp4_0**2
 
       ipxipx = k11*ipx*ipx
       ipxipy = k11*ipx*ipy

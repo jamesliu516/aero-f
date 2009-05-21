@@ -26,7 +26,7 @@ public:
                    K_TURB = 10, EPS_TURB = 11, EDDY_VISCOSITY = 12, DELTA_PLUS = 13, 
                    PSENSOR = 14, MUT_OVER_MU = 15, PHILEVEL = 16, DIFFPRESSURE = 17, 
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
-                   WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, SSIZE = 24};
+                   WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, TEMPERATURE_NORMAL_DERIVATIVE = 24, SURFACE_HEAT_FLUX = 25, SSIZE = 26};
 
 
 // Original
@@ -68,6 +68,9 @@ public:
 
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]) = 0;
+
+  virtual double computeHeatFluxRelatedValues(double [4][3], Vec3D& , double [3],
+                                   double* , double* [3], double* [4], bool) =0;
 
   virtual double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
 				      double* [3], double* [4], double) = 0;
@@ -121,6 +124,8 @@ public:
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]);
+  virtual double computeHeatFluxRelatedValues(double [4][3], Vec3D& , double [3],
+                                   double* , double* [3], double* [4], bool);
   virtual double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
 				      double* [3], double* [4], double);
 
@@ -166,7 +171,8 @@ public:
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
 			  double*, double* [3], double* [4]);
-
+  virtual double computeHeatFluxRelatedValues(double [4][3], Vec3D& , double [3],
+                                   double* , double* [3], double* [4], bool);
   double computeInterfaceWork(double [4][3], Vec3D&, double, double [3], double*, 
 			      double* [3], double* [4], double);
   bool doesFaceNeedGradientP1Function() { return ((wallFcn) ? false : true); }

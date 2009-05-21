@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <complex.h>
+#include <complex>
 
-typedef complex<double> bcomp;
+typedef std::complex<double> bcomp;
 
 //------------------------------------------------------------------------------
 // warning: b and c must be different

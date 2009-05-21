@@ -23,6 +23,7 @@ private:
   DistSVec<double,dim> k3;
   DistSVec<double,dim> k4;
   DistSVec<double,dim> Ubc;
+  DistSVec<double,dim> ratioTimesU;
   bool RK4;
 
 public:

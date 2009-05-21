@@ -5,8 +5,8 @@
 #include <MvpMatrix.h>
 #include <DistVector.h>
 #include <DistMatrix.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 class VarFcn;
 class FluxFcn;

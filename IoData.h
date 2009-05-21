@@ -115,6 +115,10 @@ struct TransientData {
   const char *dDisplacement;
   const char *dForces;
 
+  const char *tempnormalderivative;
+  const char *surfaceheatflux;
+  const char *heatfluxes;
+
   int frequency;
   double x0, y0, z0;
   double length;
@@ -1264,7 +1268,7 @@ struct BLMeshMotionData {
 struct DefoMeshMotionData {
 
   enum Type {BASIC = 0, COROTATIONAL = 1} type;
-  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3} element;
+  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3, NL_BALL_VERTEX = 4 } element;
 
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;
@@ -1523,10 +1527,13 @@ struct SurfaceData  {
   enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
   double temp;
 
+  enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
+  enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
+  //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
+
   SurfaceData();
   Assigner *getAssigner();
   void setBit(int b) { sBit = b; }
-
 };
 
 //------------------------------------------------------------------------------
