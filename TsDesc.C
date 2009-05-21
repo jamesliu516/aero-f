@@ -29,10 +29,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
-  Xlim1 = 0.025/ioData.ref.rv.length;
-  Xlim2 = 0.075/ioData.ref.rv.length;
-  Ylim1 = 0/ioData.ref.rv.length;
-  Ylim2 = 0.1/ioData.ref.rv.length;
 
   timer = domain->getTimer();
   com = domain->getCommunicator();
@@ -292,15 +288,6 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
 
 //------------------------------------------------------------------------------
 template<int dim>
-double TsDesc<dim>::rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2)
-{
-
-  return spaceOp->rerecomputeResidual(F,Ffar,X,Xlim1, Xlim2, Ylim1, Ylim2);
-
-}
-
-//-------------------------------------------------------------------------------
-template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
@@ -507,7 +494,6 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
 				    DistSVec<double,dim> &U)
 {
-
   if (it == data->maxIts)
     *lastIt = true;
   else
@@ -515,12 +501,13 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
-
   timer->setSetupTime();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
+
+
 
     output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -529,7 +516,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-
+    output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
   }
 
 }
@@ -555,6 +542,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
+  output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
   if (*lastIt) {
     timer->setRunTime();
@@ -643,26 +631,10 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
   spaceOp->computeResidual(*X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
-//double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
-//  com->fprintf(stdout, "Total Residual res = %e\n", (*R)*(*R));
-//  double res2 = spaceOp->rerecomputeResidual(*R, *Rinlet ,*X, Xlim1);
-//  com->fprintf(stdout, "after computing Partial Residual res2 = %e\n", res2);
-//  double res3 = spaceOp->rerecomputeResidual(*R, *Rinlet ,*X, Xlim2);
-  //double res3 = 0.0;
-
-//double res1 = spaceOp->rerecomputeResidual(*R, *Rinlet ,*X, Xlim1, Xlim2, Ylim1, Ylim2);  
-//  com->fprintf(stdout, "Partial Residual res = %e\n", res1);
 
   double res = 0.0;
   if (data->resType == -1){
     res = (*R)*(*R);
-//    res = res2 - res3;
-//      res = res1; 
-//    res -= res2;
-//    res -= res3;
-//  com->fprintf(stdout, "after computing Extra Residual res = %e\n", res);
-
-//  com->fprintf(stdout, "Used Residual res = %e\n", res);
 
  
   }else{ 

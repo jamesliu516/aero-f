@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <complex.h>
 
 #ifdef USE_MPI
 #include <mpi.h>

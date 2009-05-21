@@ -6,9 +6,12 @@
 #include <Timer.h>
 #include <VectorSet.h>
 #include <Vector.h>
-#include <complex.h>
 #include <DenseMatrix.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
+#include <iostream>
+using std::cout;
+using std::endl;
 
 class VarFcn;
 class BcFcn;
@@ -372,12 +375,6 @@ public:
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistSVec<double,dim> &U, DistSVec<double,dim> &R);
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistVec<double> &Phi, DistVec<double> &dPhi);
-
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 
 				       DistVec<double> &,
@@ -401,9 +398,6 @@ public:
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);
   template<int dim>
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  template<int dim>
-  double rerecomputeResidual(DistSVec<double,dim> &F, DistSVec<double,dim> &Ffar, DistSVec<double,3> &X, double Xlim1, double Xlim2, double Ylim1, double Ylim2);
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &, 
@@ -748,6 +742,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
+
+  void computePrdtPhiCtrlVolRatio(DistVec<double> &, DistVec<double> &, DistVec<double> &, DistGeoState &);
 
  };
 
