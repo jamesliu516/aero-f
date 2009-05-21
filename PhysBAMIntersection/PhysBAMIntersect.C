@@ -86,17 +86,29 @@ class ClosestTriangle {
   double minDist; //!< Signed distance to the surface
   Vec3D x;
 
+  static const int maxNPairs = 32;
+
+  int nPairs;
+  int periTri[maxNPairs];
+
   /** Check an edge
    * returns true if this edge is the new closest one.
    */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
+  void checkVertex(int vn, int trId);
   double project(Vec3D x0, int tria, double& xi1, double& xi2);
   double edgeProject(int n1, int n2, double &alpha);
+  double getSignedVertexDistance() const;
 public:
   ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN);
   void start(Vec3D x);
   void checkTriangle(int trId);
-  double signedDistance() const { return minDist; }
+  double signedDistance() const {
+    if(n1 < 0 || n2 >= 0) return minDist;
+    else
+      return getSignedVertexDistance();
+  }
+
   int bestTriangle() const { return bestTrId; }
 
   int mode;
@@ -119,6 +131,7 @@ ClosestTriangle::start(Vec3D xp) {
   bestTrId = -1;
   n1 = n2 = -1;
   mode = -1;
+  nPairs = 0;
 }
 //----------------------------------------------------------------------------
 double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
@@ -189,6 +202,32 @@ ClosestTriangle::checkTriangle(int trId) {
   }
 }
 
+FILE *eNodes = 0;
+void ClosestTriangle::checkVertex(int ip1, int trId) {
+  // If this node is already our best solution
+  if(n1 == ip1 && n2 < 0) {
+    if(nPairs == maxNPairs) {
+      std::cerr << "Too many peripheral triangles to a node!" << std::endl;
+      throw "Too many peripheral triangles";
+    }
+    periTri[nPairs++] = trId;
+    return;
+  }
+  // Compute the distance to the node. Determining the sign of the distance
+  // is delayed until the very end
+  double dist = (x-structX[ip1]).norm();
+  if(isFirst || dist < std::abs(minDist)) {
+    isFirst = false;
+    n1 = ip1;
+    n2 = -1;
+    nPairs = 1;
+    minDist = dist;
+    periTri[0] = trId;
+    bestTrId = trId;
+    mode = 2;
+  }
+}
+
 //----------------------------------------------------------------------------
 int agree=0, disagree=0;
 bool
@@ -220,27 +259,8 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     int cn1 = (alpha > 1) ? p2 : p1;
     int cn2 = p2;
     if(alpha < 0 || alpha > 1) {
-      dist = sign*(x-structX[cn1]).norm();
-      cn2 = -1;
-      //<! Check if this node was already our best solution to correct the sign if necessary
-      if(cn1 == n1 && cn2 == n2) {
-        if(trDist*minDist >= 0)
-          return true;
-        double xi1, xi2;
-        double d2 = project(structX[p3], bestTrId, xi1, xi2);
-        if(d2*minDist>0)
-              minDist = -minDist;
-      }
-      else if(isFirst || std::abs(dist) < std::abs(minDist)) {
-        isFirst = false;
-        bestTrId = trId;
-        n = structNorm[bestTrId];
-        minDist = dist;
-        n1 = cn1;
-        n2 = cn2;
-        mode = 2;
-        return true;
-      }
+      checkVertex(cn1, trId);
+      return true;
     }
 
     if(isFirst || std::abs(dist) < std::abs(minDist)) {
@@ -253,6 +273,14 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
       mode = 1;
     }
   }
+}
+
+double ClosestTriangle::getSignedVertexDistance() const {
+  /* if(eNodes == 0)
+    eNodes = fopen("EdgeNodes", "w");
+  fprintf(eNodes, "%d %f %f %f %f %f %f\n", n1+1, x[0], x[1], x[2], structX[n1][0], structX[n1][1], structX[n1][2]);
+  fflush(eNodes);*/
+  return minDist;
 }
 
 
