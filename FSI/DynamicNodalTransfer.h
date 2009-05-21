@@ -9,18 +9,21 @@
 #define DYNAMICNODALTRANSFER_H_
 
 class Communicator;
+class IoData;
 template<typename Scalar, int dim> class SVec;
 
 /** Class to handle communication of nodal forces and displacement with the structure
  *
  */
 class DynamicNodalTransfer {
+  double fScale;
 	Communicator &com;
 public:
-	DynamicNodalTransfer(Communicator &);
+	DynamicNodalTransfer(IoData& iod, Communicator &);
 	~DynamicNodalTransfer();
 
-	void sendForce(SVec<double, 3> &);
+	/** routine to send the force to the structure. On output, f has been dimensionalized. */
+	void sendForce(SVec<double, 3> &f);
 };
 
 #endif /* DYNAMICNODALTRANSFER_H_ */
