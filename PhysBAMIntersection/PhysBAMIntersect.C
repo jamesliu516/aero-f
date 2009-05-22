@@ -78,7 +78,7 @@ class ClosestTriangle {
   int (*triNodes)[3];
   Vec3D *structX;
   Vec3D *structNorm;
-
+public:
   bool isFirst;
   int bestTrId;
   int n1, n2; //!< if both ns are non negative, the best point is on an edge
@@ -88,6 +88,7 @@ class ClosestTriangle {
 
   static const int maxNPairs = 32;
 
+  bool isConsistant, isPositive;
   int nPairs;
   int periTri[maxNPairs];
 
@@ -95,7 +96,7 @@ class ClosestTriangle {
    * returns true if this edge is the new closest one.
    */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
-  void checkVertex(int vn, int trId);
+  void checkVertex(int vn, int trId, double trDist);
   double project(Vec3D x0, int tria, double& xi1, double& xi2);
   double edgeProject(int n1, int n2, double &alpha);
   double getSignedVertexDistance() const;
@@ -203,7 +204,7 @@ ClosestTriangle::checkTriangle(int trId) {
 }
 
 FILE *eNodes = 0;
-void ClosestTriangle::checkVertex(int ip1, int trId) {
+void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
   // If this node is already our best solution
   if(n1 == ip1 && n2 < 0) {
     if(nPairs == maxNPairs) {
@@ -211,6 +212,9 @@ void ClosestTriangle::checkVertex(int ip1, int trId) {
       throw "Too many peripheral triangles";
     }
     periTri[nPairs++] = trId;
+    bool thisSign = (trDist >= 0);
+    if(thisSign != isPositive)
+      isConsistant = false;
     return;
   }
   // Compute the distance to the node. Determining the sign of the distance
@@ -225,6 +229,8 @@ void ClosestTriangle::checkVertex(int ip1, int trId) {
     periTri[0] = trId;
     bestTrId = trId;
     mode = 2;
+    isConsistant = true;
+    isPositive = trDist >= 0;
   }
 }
 
@@ -259,7 +265,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     int cn1 = (alpha > 1) ? p2 : p1;
     int cn2 = p2;
     if(alpha < 0 || alpha > 1) {
-      checkVertex(cn1, trId);
+      checkVertex(cn1, trId, trDist);
       return true;
     }
 
@@ -280,6 +286,8 @@ double ClosestTriangle::getSignedVertexDistance() const {
     eNodes = fopen("EdgeNodes", "w");
   fprintf(eNodes, "%d %f %f %f %f %f %f\n", n1+1, x[0], x[1], x[2], structX[n1][0], structX[n1][1], structX[n1][2]);
   fflush(eNodes);*/
+  if(isConsistant)
+    return isPositive ? minDist : -minDist;
   return minDist;
 }
 
@@ -336,9 +344,9 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   fclose(topFile);
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  /*com->fprintf(stderr,"Checking the solid surface...\n");
   if (checkTriangulatedSurface()) com->fprintf(stderr,"OK.\n");
-  else exit(-1);
+  else exit(-1);*/
 
   getBoundingBox();
 
@@ -624,11 +632,11 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
       if(tId[i] < 0)
         std::cout << "Horror!!!" << std::endl;
       dist[i] = closestTriangle.signedDistance();
-      if(closestTriangle.mode == 0 && dist[i] <= 0)
+      if(closestTriangle.mode == 0 && dist[i] != 0)
         trBased++;
-      if(closestTriangle.mode == 1 && dist[i] <= 0)
+      if(closestTriangle.mode == 1 && dist[i] < 0)
               edgeBased++;
-      if(closestTriangle.mode == 2 && dist[i] <= 0)
+      if(closestTriangle.mode == 2 && dist[i] != 0)
               vertexBased++;
       nClose++;
       maxDist = std::max(maxDist, std::abs(dist[i]));
@@ -657,22 +665,6 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
   std::cout << "Fluid box: " << boxMin[errNode][0] << " " << boxMin[errNode][1] << " "<< boxMin[errNode][2] << " "
   << boxMax[errNode][0] << " " << boxMax[errNode][1] << " "<< boxMax[errNode][2] << std::endl;
 
-  double minDist = 1e9;
-  int bestNd = -1;
-  for(int i = 0; i < 3993; ++i) {
-    double dist = (structX[i]-Vec3D(X[2410])).norm();
-    if(dist < minDist) {
-      minDist = dist;
-      bestNd = i;
-    }
-    int cnt= 0;
-    for(int j = 0; j < 3; ++j)
-      if(structX[i][j] >= boxMin[2410][j] && structX[i][j] <= boxMax[2410][j])
-        cnt++;
-    if(cnt == 3)
-        std::cout << i << " is a winner!" << std::endl;
-  }
-  std::cout << "Best structural node for fluid node 2410: " << bestNd << " at distance " << minDist << std::endl;
   std::cout << "Max candidates: " << maxCand << " at " << ndMaxCand << std::endl;
 }
 
