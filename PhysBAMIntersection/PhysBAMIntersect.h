@@ -92,6 +92,18 @@ class PhysBAMIntersector : public LevelSetStructure {
      * send back the signed distance and barycentric coordinates of the projection point. */
     void projection(Vec3D, int, double&, double&, double&);
 
+    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3) {
+      Vec<Vec3D> &solidX = distIntersector.getStructPosition();
+      Vec3D X1 = solidX[N1];
+      Vec3D X2 = solidX[N2];
+      Vec3D X3 = solidX[N3];
+
+      Vec3D normal = (X2-X1)^(X3-X1);
+      normal /=  normal.norm();
+
+      return fabs((pt-X1)*normal);
+    }
+
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, DistPhysBAMIntersector &);
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);

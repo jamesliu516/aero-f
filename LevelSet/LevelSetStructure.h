@@ -41,7 +41,7 @@ struct LevelSetResult {
 		   return xip != it.xip || nodep != it.nodep;
 	   }
 	   double Ni() const { return *xip; }
-	   double nodeNum() const { return *nodep; }
+	   int nodeNum() const { return *nodep; }
    };
 
    iterator begin() { return iterator(xi, trNodes); }
@@ -62,6 +62,8 @@ class LevelSetStructure {
 
     /** creates an array of values which are positive inside the fluid and negative outside. */
     virtual void computePhi(Vec<double> &phi);
+
+    virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
     Vec3D totalForce;
 };
