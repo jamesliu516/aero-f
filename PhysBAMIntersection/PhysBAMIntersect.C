@@ -842,6 +842,7 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
     fprintf(stderr,"ERROR: failed to get an intersection between node %d and %d. \n",
                     locToGlobNodeMap[p]+1,locToGlobNodeMap[q]+1);
   }
+ 
   std::cout << "Maximum edge distance: " << maxEdgeSize << std::endl;
   fprintf(stderr,"In subdomain %d: maximum iteration: %d. maximum tolerance: %e.\n", globIndex, max_iter, (max_iter+1)*(max_iter+1)*TOL);
 }
@@ -1198,15 +1199,24 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   IntersectionResult<double> result; //need to determine which result to choose.
   IntersectionResult<double> rij = CrossingEdgeRes[edgeNum];
   IntersectionResult<double> rji = ReverseCrossingEdgeRes[edgeNum];
+  double alpha0 = 0.0;
 
-  if (rij.triangleID>=0 && rij.triangleID>=0 && rij.triangleID==rji.triangleID)
+  if (rij.triangleID>=0 && rij.triangleID>=0 && rij.triangleID==rji.triangleID) {
     result = rij;
-  else if (rij.triangleID>=0 && rji.triangleID>=0 && rij.triangleID!=rji.triangleID)
+    alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha;
+  }  
+  else if (rij.triangleID>=0 && rji.triangleID>=0 && rij.triangleID!=rji.triangleID) {
     result = (ni<nj) ? rij : rji;
-  else if (rij.triangleID>=0 && rji.triangleID<0)
+    alpha0 = result.alpha;
+  }
+  else if (rij.triangleID>=0 && rji.triangleID<0) {
     result = rij;
-  else if (rij.triangleID<0 && rji.triangleID>=0)
+    alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha; 
+  }
+  else if (rij.triangleID<0 && rji.triangleID>=0) {
     result = rji;
+    alpha0 = (ni<nj)? 1.0-result.alpha : result.alpha;
+  }
   else //we really have no intersection for this edge!
     fprintf(stderr,"ERROR: intersection between %d and %d can not be detected.\n", ni, nj);
 
@@ -1214,7 +1224,7 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   Vec3D nrm = distIntersector.getSurfaceNorm(trueTriangleID);
 
   LevelSetResult lsRes(nrm[0], nrm[1], nrm[2], 0, 0, 0);
-  lsRes.alpha = result.alpha;
+  lsRes.alpha = alpha0;
   lsRes.xi[0] = result.zeta[0];
   lsRes.xi[1] = result.zeta[1];
   lsRes.xi[2] = 1-result.zeta[0]-result.zeta[1];
@@ -1262,10 +1272,6 @@ void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2
   xi1 = areaPBC/areaABC;
   xi2 = areaPCA/areaABC;
 
-// check. (TODO:to be deleted.)
-  double areaPAB = (0.5*(xA-xp)^(xB-xp))*dir;
-  double xi3 = areaPAB/areaABC;
-  if (xi1+xi2+xi3-1.0>1e-10) fprintf(stderr,"Oh no!\n");
 }
 
 //----------------------------------------------------------------------------

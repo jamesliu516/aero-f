@@ -4366,6 +4366,17 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
+  // for debuging: output the reconstructed surface.
+  FILE* nodeFile = 0;
+  //FILE* nodeFile = fopen("recNodes.top","w");
+  int nodeCount = 1;
+  if(nodeFile) fprintf(nodeFile, "Nodes recNodes\n");
+  FILE* elemFile = 0;
+  //FILE* elemFile = fopen("recElems.top","w");
+  int elemCount = 1;
+  if(elemFile) fprintf(elemFile, "Elements recSurface using recNodes\n");
+  // -----------------------------------------------
+
   for (int iElem=0; iElem<elems.size(); iElem++) {
     nPos = nNeg = 0;
     for (int i=0; i<4; i++) {
@@ -4395,25 +4406,44 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         int i = polygon[k][0];
         int j = polygon[k][1];
         double alpha = lsRes[k].alpha;
-        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
-        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
-        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
+        Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
+        Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1.0e-8) {
           fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
           exit(-1);
         }
         pStar[k] -= pInfty;
+      }
 
-        //Kevin's debug, check if Xinter is really on the surface.
+      for (int k=0; k<3; k++) {
         int N1 = lsRes[k].trNodes[0];
         int N2 = lsRes[k].trNodes[1];
         int N3 = lsRes[k].trNodes[2];
-
+        LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
+        double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
+        if (dist>1e-3) {
+          fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist); 
+/*
+          int l = edges.find(polygon[k][0], polygon[k][1]);
+          int i = polygon[k][0];
+          int j = polygon[k][1];
+          double alpha = 1.0-lsRes[k].alpha;
+          Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+          Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+          Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+*/          
+          }
       }
 
-        //------------------
-
+      //print the reconstructed surface
+      if(nodeFile&&elemFile) {
+        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
+        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
+        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
+        fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);
+      }
 
       Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
       addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
@@ -4436,14 +4466,35 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         int i = polygon[k][0];
         int j = polygon[k][1];
         double alpha = lsRes[k].alpha;
-        Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
-        Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
-        Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+        Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
+        Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
+        Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1e-8) {
           fprintf(stderr,"Got a quad. pStar = %e. Unable to proceed. \n", pStar[k]);
           exit(-1);}
+        pStar[k] -= pInfty;
       }
+      // check if intersection point is really on surface.
+      for (int k=0; k<4; k++) {
+        int N1 = lsRes[k].trNodes[0];
+        int N2 = lsRes[k].trNodes[1];
+        int N3 = lsRes[k].trNodes[2];
+        double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
+        if (dist>1e-3) {
+          fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist); 
+/*
+          int l = edges.find(polygon[k][0], polygon[k][1]);
+          int i = polygon[k][0];
+          int j = polygon[k][1];
+          double alpha = 1.0-lsRes[k].alpha;
+          Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
+          Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
+          Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
+*/        
+        }
+      }
+
       double dist02 = (Xinter[2]-Xinter[0]).norm();
       double dist13 = (Xinter[3]-Xinter[1]).norm();
       if (dist02<dist13) { // connect 0,2.
@@ -4453,12 +4504,32 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
         addLocalForce(CODE,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);
 
+        //print the reconstructed surface
+        if(nodeFile&&elemFile) {
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[3][0], Xinter[3][1], Xinter[3][2]); 
+          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-2);
+          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-2, nodeCount-1);
+        }
+
       } else { // connect 1,3.
         Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
         addLocalForce(CODE,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
 
         nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
         addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);
+
+        //print the reconstructed surface
+        if(nodeFile&&elemFile) {
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
+          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[3][0], Xinter[3][1], Xinter[3][2]); 
+          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-1);
+          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);
+        }
       }
 
     } else {
@@ -4466,6 +4537,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
       exit(-1);
     }
   }
+  if(nodeFile) fclose(nodeFile);
+  if(elemFile) fclose(elemFile);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -4604,28 +4677,6 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
     Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
   }
   */
-/*  int NODE = 19243 - 1;
-  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) {
-    if(lsRes.trNodes[0]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
-    if(lsRes.trNodes[1]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[1]*flocal[0], lsRes.xi[1]*flocal[1], lsRes.xi[1]*flocal[2]);
-    if(lsRes.trNodes[2]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[0], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[1], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[2]);
-    fprintf(stderr,"Fs[%d] = %e %e %e.\n", NODE, Fs[NODE][0], Fs[NODE][1], Fs[NODE][2]);
-  }
-
-  NODE = 19570 - 1;
-  if (lsRes.trNodes[0]==NODE || lsRes.trNodes[1]==NODE || lsRes.trNodes[2]==NODE) {
-    if(lsRes.trNodes[0]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[0]*flocal[0], lsRes.xi[0]*flocal[1], lsRes.xi[0]*flocal[2]);
-    if(lsRes.trNodes[1]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, lsRes.xi[1]*flocal[0], lsRes.xi[1]*flocal[1], lsRes.xi[1]*flocal[2]);
-    if(lsRes.trNodes[2]==NODE)
-      fprintf(stderr,"added to Node %d: %e %e %e.\n", NODE+1, (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[0], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[1], (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[2]);
-    fprintf(stderr,"Fs[%d] = %e %e %e.\n", NODE, Fs[NODE][0], Fs[NODE][1], Fs[NODE][2]);
-  }
-*/
 }
 
 //-----------------------------------------------------------------------------------------------
