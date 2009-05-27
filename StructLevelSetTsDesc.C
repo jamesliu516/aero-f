@@ -60,8 +60,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
 
+  *Wstarij = 0.0;
+  *Wstarji = 0.0;
+
   pressureRef = ioData.ref.rv.pressure;
-  fprintf(stderr,"reference pressure = %e.\n", pressureRef);
 //------ load structure mesh information ----------------------
   numStructNodes = 0;
   Fs = 0;
@@ -422,8 +424,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)
-{ //TODO:need to be modified to work.
-  // add a new writeForcesToDisk in TsOutput. then go into PostOperator and add a new computeForceAndMoment.
+{ 
   double cpu = this->timer->getRunTime();
   if(LS)
     this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &Phi);

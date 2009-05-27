@@ -1581,8 +1581,6 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
   assemble(Xmin, minOp);
   operMax<double> maxOp;
   assemble(Xmax, maxOp);
-
-
 }
 
 // ------------------------------------------------------------------------------------------

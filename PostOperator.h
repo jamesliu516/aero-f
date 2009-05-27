@@ -54,7 +54,6 @@ class PostOperator {
   map<int,int> surfOutMap;
   map<int,int> surfComputeMap;
 
-  // TODO Kevin needs to add a pointer to an object to retrieve Forces and Moments from the Embedded method
   ForceGenerator<dim> *forceGen;
   
  // Coefficients to Compute nodal force transfer

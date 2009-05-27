@@ -11,6 +11,8 @@
 #include "Geometry/TRIANGULATED_SURFACE.h"
 #include <Vector.h>
 
+using std::pair;
+using std::map;
 using PhysBAM::PhysBAMInterface;
 using PhysBAM::LIST_ARRAY;
 using PhysBAM::PAIR;
@@ -25,6 +27,10 @@ class EdgeSet;
 template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
+  typedef pair<int, int> iipair;
+  typedef pair<int, bool> ibpair;
+  typedef pair<iipair, ibpair> EdgePair;
+
   protected:
   public: // For debugging
     int length_solids_particle_list, length_triangle_list;
@@ -41,6 +47,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Domain *domain;
     DistSVec<double,3> *X;
     double tolerance;
+    double insidePointTol;
 
     // A point known to be inside of the closed structural surface.
     Vec3D insidePoint;
@@ -52,6 +59,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void init(std::string structureFileName);
 
     double getTolerance() const { return tolerance; }
+    EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
@@ -92,17 +100,8 @@ class PhysBAMIntersector : public LevelSetStructure {
      * send back the signed distance and barycentric coordinates of the projection point. */
     void projection(Vec3D, int, double&, double&, double&);
 
-    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3) {
-      Vec<Vec3D> &solidX = distIntersector.getStructPosition();
-      Vec3D X1 = solidX[N1];
-      Vec3D X2 = solidX[N2];
-      Vec3D X3 = solidX[N3];
-
-      Vec3D normal = (X2-X1)^(X3-X1);
-      normal /=  normal.norm();
-
-      return fabs((pt-X1)*normal);
-    }
+    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
 
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, DistPhysBAMIntersector &);

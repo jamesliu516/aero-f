@@ -3927,7 +3927,6 @@ void SubDomain::findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SV
     Xmin[iNode][1] = Xmax[iNode][1] = X[iNode][1];
     Xmin[iNode][2] = Xmax[iNode][2] = X[iNode][2];
   }
-
   int (*ptr)[2] = edges.getPtr();
   bool* edgeMasterFlag = edges.getMasterFlag();
   int p, q;

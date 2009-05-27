@@ -301,7 +301,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
   if(forceGen != 0)
     forceGen->getForcesAndMoments(U, X, F, M);
 
-  Fi[0][0] += F[0];
+  Fi[0][0] += F[0]; //assuming there is only one surface! (or the "embedded force" is associated to surf#1.)
   Fi[0][1] += F[1];
   Fi[0][2] += F[2];
   Mi[0][0] += M[0];
