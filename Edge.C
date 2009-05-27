@@ -528,8 +528,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
   SVec<double,dim> tempWstarij(Wstarij);
   SVec<double,dim> tempWstarji(Wstarji);
-  Wstarij = 0.0;
-  Wstarji = 0.0;
+  if (it>0) { //if it>0 (i.e. not called from computeResidualNorm), clear Wstarij and Wstarji for update.
+    Wstarij = 0.0;
+    Wstarji = 0.0;
+  }
 
   int ierr=0;
   riemann.reset(it);
@@ -593,49 +595,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (iIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
-        for (int k=0; k<dim; k++) Wstarij[l][k] = Wstar[k]; //stores Wstar for later use.
+        if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+          for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k]; 
         if (!masterFlag[l]) continue;
-/*        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm()*(-1.0); //projected to structure surface
-        LSS.totalForce[0] += -10.0/1.26*res.gradPhi[0]*area;
-        LSS.totalForce[1] += -10.0/1.26*res.gradPhi[1]*area;
-        LSS.totalForce[2] += -10.0/1.26*res.gradPhi[2]*area;
-*/
-/*
-        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm()*(-1.0); //projected to structure surface
-        LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
-        LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
-        LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
-*/
-/*        LSS.totalForce[0] += Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += Wstar[4]*normal[l][2];
-*/
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
       if (jIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
-        for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
+        if (it>0)
+          for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         if (!masterFlag[l]) continue;
-/*        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
-        LSS.totalForce[0] += -10.0/1.26*res.gradPhi[0]*area;
-        LSS.totalForce[1] += -10.0/1.26*res.gradPhi[1]*area;
-        LSS.totalForce[2] += -10.0/1.26*res.gradPhi[2]*area;
-*/
-/*        double area = normal[l].norm(); //area of c.v. surface
-        area *= normal[l]*res.gradPhi/normal[l].norm(); //projected to structure surface
-        LSS.totalForce[0] += -Wstar[4]*res.gradPhi[0]*area;
-        LSS.totalForce[1] += -Wstar[4]*res.gradPhi[1]*area;
-        LSS.totalForce[2] += -Wstar[4]*res.gradPhi[2]*area;
-*/
-/*        LSS.totalForce[0] += -Wstar[4]*normal[l][0];
-        LSS.totalForce[1] += -Wstar[4]*normal[l][1];
-        LSS.totalForce[2] += -Wstar[4]*normal[l][2];
-*/
         fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }

@@ -16,6 +16,11 @@
 
 using std::vector;
 using std::pair;
+using std::map;
+
+typedef pair<int, int> iipair;
+typedef pair<int, bool> ibpair;
+typedef pair<iipair, ibpair> EdgePair;
 
 static Timer *timer;
 const int PhysBAMIntersector::UNDECIDED, PhysBAMIntersector::INSIDE, PhysBAMIntersector::OUTSIDE;
@@ -42,7 +47,6 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     int print();
 
     void init(ParseTree &dataTree) {
-        std::cout << "inside the init function" << std::endl;
         ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 2, 0);
         new ClassStr<PhysBAMIntersectorConstructor>(ca, "structureFile", this, &PhysBAMIntersectorConstructor::structureFile);
         new ClassDouble<PhysBAMIntersectorConstructor>(ca, "tolerance", this, &PhysBAMIntersectorConstructor::tolIntersect);
@@ -51,6 +55,8 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
 
 
 };
+
+//----------------------------------------------------------------------------
 
 class MyTriangle {
   int id;
@@ -174,6 +180,7 @@ double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
 }
 
 //----------------------------------------------------------------------------
+
 static int neg = 0, pos = 0;
 void
 ClosestTriangle::checkTriangle(int trId) {
@@ -202,6 +209,8 @@ ClosestTriangle::checkTriangle(int trId) {
       checkEdge(trId, nd[0], nd[1], nd[2], dist);
   }
 }
+
+//----------------------------------------------------------------------------
 
 FILE *eNodes = 0;
 void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
@@ -235,6 +244,7 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
 }
 
 //----------------------------------------------------------------------------
+
 int agree=0, disagree=0;
 bool
 ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
@@ -281,6 +291,8 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
   }
 }
 
+//----------------------------------------------------------------------------
+
 double ClosestTriangle::getSignedVertexDistance() const {
   /* if(eNodes == 0)
     eNodes = fopen("EdgeNodes", "w");
@@ -291,21 +303,26 @@ double ClosestTriangle::getSignedVertexDistance() const {
   return minDist;
 }
 
+//----------------------------------------------------------------------------
 
 IntersectorConstructor *myIntersect =
   IntersectionFactory::registerClass("PhysBAM", new PhysBAMIntersectorConstructor());
 
+//----------------------------------------------------------------------------
 
 int PhysBAMIntersectorConstructor::print() {
   return 0;
 }
 
-
+//----------------------------------------------------------------------------
 
 DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   com = IntersectionFactory::getCommunicator();
   tolerance = tol;
+  insidePointTol = 1.0e-4;
 }
+
+//----------------------------------------------------------------------------
 
 LevelSetStructure &
 DistPhysBAMIntersector::operator()(int subNum) const {
@@ -319,7 +336,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
-  if (topFile == NULL) {fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
+  if (topFile == NULL) {com->fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
   int len;
   len = fscanf(topFile,"%d %d", &length_solids_particle_list, &length_triangle_list);
   triangle_list = new int[length_triangle_list][3];
@@ -332,7 +349,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   for (int iNode=0; iNode<length_solids_particle_list; iNode++)
     len = fscanf(topFile, "%d %lf %lf %lf", &thisNode, &(solids_particle_list[iNode][0]),
         &(solids_particle_list[iNode][1]), &(solids_particle_list[iNode][2]));
-  if (thisNode!=length_solids_particle_list) {fprintf(stderr,"error in loading surface from file *!\n"); exit(1);}
+  if (thisNode!=length_solids_particle_list) {com->fprintf(stderr,"error in loading surface from file *!\n"); exit(1);}
 
   int nothing;
   for (int iElem=0; iElem<length_triangle_list; iElem++) {
@@ -340,79 +357,85 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
         &(triangle_list[iElem][2]));
     triangle_list[iElem][0]--; triangle_list[iElem][1]--; triangle_list[iElem][2]--;
   }
-  if (thisNode!=length_triangle_list) {fprintf(stderr,"error in loading surface from file **!\n", thisNode); exit(1);}
+  if (thisNode!=length_triangle_list) {com->fprintf(stderr,"error in loading surface from file **!\n", thisNode); exit(1);}
   fclose(topFile);
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  /*com->fprintf(stderr,"Checking the solid surface...\n");
-  if (checkTriangulatedSurface()) com->fprintf(stderr,"OK.\n");
-  else exit(-1);*/
+  com->fprintf(stderr,"Checking the solid surface...\n");
+  if (checkTriangulatedSurface()) com->fprintf(stderr,"Ok.\n");
+  else exit(-1); 
 
   getBoundingBox();
-
   initializePhysBAM();
 }
 
+//----------------------------------------------------------------------------
+
 void DistPhysBAMIntersector::getBoundingBox() {
-   xMin = xMax = solids_particle_list[0][0];
-   yMin = yMax = solids_particle_list[0][1];
-   zMin = zMax = solids_particle_list[0][2];
-   for(int i = 1; i < length_solids_particle_list; ++i) {
-      xMin = std::min(xMin, solids_particle_list[i][0]);
-      xMax = std::min(xMax, solids_particle_list[i][0]);
-      yMin = std::min(yMin, solids_particle_list[i][0]);
-      yMax = std::max(yMax, solids_particle_list[i][0]);
-      zMin = std::max(zMin, solids_particle_list[i][0]);
-      zMax = std::max(zMax, solids_particle_list[i][0]);
-   }
+  xMin = xMax = solids_particle_list[0][0];
+  yMin = yMax = solids_particle_list[0][1];
+  zMin = zMax = solids_particle_list[0][2];
+  for(int i = 1; i < length_solids_particle_list; ++i) {
+    xMin = std::min(xMin, solids_particle_list[i][0]);
+    xMax = std::min(xMax, solids_particle_list[i][0]);
+    yMin = std::min(yMin, solids_particle_list[i][0]);
+    yMax = std::max(yMax, solids_particle_list[i][0]);
+    zMin = std::max(zMin, solids_particle_list[i][0]);
+    zMax = std::max(zMax, solids_particle_list[i][0]);
+  }
 }
 
-bool DistPhysBAMIntersector::checkTriangulatedSurface() {
-  if ((length_triangle_list==0) || (length_solids_particle_list==0))
-    {fprintf(stderr,"Solid surface not loaded.\n"); return false;}
-  int numOfEdges = length_triangle_list*3/2,iEdge=0;
-  if ((numOfEdges-((double)length_triangle_list)*3.0/2.0>0.1) ||
-      (numOfEdges-((double)length_triangle_list)*3.0/2.0<-0.1))
-    {fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
-  int edgeOrientation[numOfEdges][2];//edgeOrientation[i][0,1] stores from, to nodes.
+//----------------------------------------------------------------------------
+
+EdgePair DistPhysBAMIntersector::makeEdgePair(int node1, int node2, int triangleNumber) {
+if(node1 < node2)
+ return EdgePair(iipair(node1, node2), ibpair(triangleNumber, true));
+else
+ return EdgePair(iipair(node2, node1), ibpair(triangleNumber, false));
+}
+
+//----------------------------------------------------------------------------
+
+bool DistPhysBAMIntersector::checkTriangulatedSurface()
+{
+  map<iipair, ibpair> edgeMap;
+
   for (int iTriangle=0; iTriangle<length_triangle_list; iTriangle++) {
     int from1, to1, from2, to2, from3, to3;
     bool found1, found2, found3;
     from1 = triangle_list[iTriangle][0];  to1 = triangle_list[iTriangle][1];  found1 = false;
     from2 = triangle_list[iTriangle][1];  to2 = triangle_list[iTriangle][2];  found2 = false;
     from3 = triangle_list[iTriangle][2];  to3 = triangle_list[iTriangle][0];  found3 = false;
-    for (int j=0; j<iEdge; j++) {
-      if ((edgeOrientation[j][0]==from1) && (edgeOrientation[j][1]==to1))
-        {fprintf(stderr,"Not all triangles on SolidSurface point outward. exit.\n"); return false; }
-      else if ((edgeOrientation[j][0]==to1) && (edgeOrientation[j][1]==from1))
-        found1 = true;
-      if ((edgeOrientation[j][0]==from2) && (edgeOrientation[j][1]==to2))
-        {fprintf(stderr,"Not all triangles on SolidSurface point outward. exit.\n"); return false; }
-      else if ((edgeOrientation[j][0]==to2) && (edgeOrientation[j][1]==from2))
-        found2 = true;
-      if ((edgeOrientation[j][0]==from3) && (edgeOrientation[j][1]==to3))
-        {fprintf(stderr,"Not all triangles on SolidSurface point outward. exit.\n"); return false; }
-      else if ((edgeOrientation[j][0]==to3) && (edgeOrientation[j][1]==from3))
-        found3 = true;
-    }
-    if (!found1) {
-      if (iEdge>=numOfEdges)
-        {fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
-      edgeOrientation[iEdge][0] = from1;  edgeOrientation[iEdge][1] = to1; iEdge++;
-    }
-    if (!found2) {
-      if (iEdge>=numOfEdges)
-        {fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
-      edgeOrientation[iEdge][0] = from2;  edgeOrientation[iEdge][1] = to2; iEdge++;
-    }
-    if (!found3) {
-      if (iEdge>=numOfEdges)
-        {fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
-      edgeOrientation[iEdge][0] = from3;  edgeOrientation[iEdge][1] = to3; iEdge++;
+
+    EdgePair ep[3];
+    ep[0] = makeEdgePair(from1, to1, iTriangle);
+    ep[1] = makeEdgePair(from2, to2, iTriangle);
+    ep[2] = makeEdgePair(from3, to3, iTriangle);
+
+    for(int i=0; i < 3; ++i) {
+      map<iipair, ibpair>::iterator it = edgeMap.find(ep[i].first);
+      if(it != edgeMap.end()) { // we found this edge
+         if(it->second.second == ep[i].second.second)
+           {com->fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
+         else {
+             int oTriangle = it->second.first;
+             int n1 = it->second.second ? ep[i].first.first : ep[i].first.second;
+             int edgeIndex;
+             if(triangle_list[oTriangle][0] == n1)
+               edgeIndex = 0;
+             else if(triangle_list[oTriangle][1] == n1)
+               edgeIndex = 1;
+             else
+               edgeIndex = 2;
+         }
+      } else
+        edgeMap[ep[i].first] = ep[i].second;
     }
   }
   return true;
 }
+
+//----------------------------------------------------------------------------
 
 void
 DistPhysBAMIntersector::buildSolidNormals() {
@@ -480,20 +503,21 @@ DistPhysBAMIntersector::buildSolidNormals() {
      xyz(2)[1] = p2[0];
      xyz(2)[2] = p2[1];
      xyz(2)[3] = p2[2];
-     fprintf(stderr, "P1: %f %f %f, P2: %f %f %f\n", p1[0], p1[1], p1[2],
-           p2[0], p2[1], p2[2]);
+//     fprintf(stderr, "P1: %f %f %f, P2: %f %f %f\n", p1[0], p1[1], p1[2],
+//           p2[0], p2[1], p2[2]);
      getInterface().Intersect(xyz, edgeRes,getTolerance());
-     fprintf(stderr, "Starting from %d, reached %d and %d\n",
-              trMaxNorm+1, edgeRes(1).y.triangleID, edgeRes(2).y.triangleID);
+//     fprintf(stderr, "Starting from %d, reached %d and %d\n",
+//              trMaxNorm+1, edgeRes(1).y.triangleID, edgeRes(2).y.triangleID);
      if(edgeRes(1).y.triangleID < 0)
-       fprintf(stderr, "ERROR: OPEN SURFACE\n");
+       com->fprintf(stderr, "ERROR: OPEN SURFACE\n");
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
-     fprintf(stderr, "Distance is: %f vs max %f\n", (insidePoint-p1).norm(), maxDist);
-     fprintf(stderr, "%f Inside point: %f %f %f\n", edgeRes(1).y.alpha, insidePoint[0], insidePoint[1], insidePoint[2]);
+//     fprintf(stderr, "Distance is: %f vs max %f\n", (insidePoint-p1).norm(), maxDist);
+//     fprintf(stderr, "%f Inside point: %f %f %f\n", edgeRes(1).y.alpha, insidePoint[0], insidePoint[1], insidePoint[2]);
   } else
-    fprintf(stderr, "All triangles are degenerate!!\n");
+    com->fprintf(stderr, "All triangles are degenerate!!\n");
 }
 
+//----------------------------------------------------------------------------
 
 void
 DistPhysBAMIntersector::initializePhysBAM() {
@@ -520,12 +544,12 @@ DistPhysBAMIntersector::initializePhysBAM() {
   // Construct TRIANGULATED_SURFACE.
   PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
   physbam_triangulated_surface.Update_Triangle_List();
-  std::cout <<"Going to make PhysBAMInterface" << std::endl;
   physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
-  std::cout <<"Done making PhysBAMInterface" << std::endl;
   // Compute the normals of each of the structural triangles
   buildSolidNormals();
 }
+
+//----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
@@ -613,17 +637,10 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
       ndMaxCand = i;
     }
     closestTriangle.start(X[i]);
-    /*if(i == 9130)
-      std::cout << "Box: " << boxMin[i][0] << " " << boxMin[i][1] << " "<< boxMin[i][2] << " "
-         << boxMax[i][0] << " " << boxMax[i][1] << " "<< boxMax[i][2] << std::endl;*/
     for(int j = 0; j < std::min(500,nFound); ++j) {
       double xi1, xi2, dist;
 
       closestTriangle.checkTriangle(candidates[j].trId());
-    /*  if(i == 9130) {
-        std::cout << " " << candidates[j].trId()<< " box " << candidates[j].val(0) << " " << candidates[j].val(1) << " " << candidates[j].val(2) <<
-                " " << candidates[j].val(0)+candidates[j].width(0) << " " << candidates[j].val(1)+candidates[j].width(1) << " " << candidates[j].val(2)+candidates[j].width(2) << std::endl;
-      }*/
     }
     if(nFound <= 0)
       tId[i] = -1;
@@ -657,15 +674,15 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
       }
     }
   }
-  std::cout << "Close nodes: " << nClose << " Maximum distance: " << maxDist << " Max size: " << maxSize << std::endl;
-  std::cout << "Neg probs: " << neg << " Pos probs: " << pos << std::endl;
-  std::cout << "triangle Based: " << trBased << " edge based: " << edgeBased << " vertex based: " << vertexBased << std::endl;
-  std::cout << "Maximum error: " << maxErr << " exact: " << exactPhi << " numerical: " << numPhi << " node: " << errNode <<
-  " " << X[errNode][0] << " " << X[errNode][1] << " " << X[errNode][2] << std::endl;
-  std::cout << "Fluid box: " << boxMin[errNode][0] << " " << boxMin[errNode][1] << " "<< boxMin[errNode][2] << " "
-  << boxMax[errNode][0] << " " << boxMax[errNode][1] << " "<< boxMax[errNode][2] << std::endl;
+//  std::cout << "Close nodes: " << nClose << " Maximum distance: " << maxDist << " Max size: " << maxSize << std::endl;
+//  std::cout << "Neg probs: " << neg << " Pos probs: " << pos << std::endl;
+//  std::cout << "triangle Based: " << trBased << " edge based: " << edgeBased << " vertex based: " << vertexBased << std::endl;
+//  std::cout << "Maximum error: " << maxErr << " exact: " << exactPhi << " numerical: " << numPhi << " node: " << errNode <<
+//  " " << X[errNode][0] << " " << X[errNode][1] << " " << X[errNode][2] << std::endl;
+//  std::cout << "Fluid box: " << boxMin[errNode][0] << " " << boxMin[errNode][1] << " "<< boxMin[errNode][2] << " "
+//  << boxMax[errNode][0] << " " << boxMax[errNode][1] << " "<< boxMax[errNode][2] << std::endl;
 
-  std::cout << "Max candidates: " << maxCand << " at " << ndMaxCand << std::endl;
+//  std::cout << "Max candidates: " << maxCand << " at " << ndMaxCand << std::endl;
 }
 
 //----------------------------------------------------------------------------
@@ -684,7 +701,7 @@ void PhysBAMIntersector::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> d
       nOutside++;
     nFirstLayer++;
   }
-  std::cout << "Number inside: " << nInside << " outside: " << nOutside << " out of " << tId.size() << std::endl;
+//  std::cout << "Number inside: " << nInside << " outside: " << nOutside << " out of " << tId.size() << std::endl;
 }
 
 //----------------------------------------------------------------------------
@@ -704,22 +721,24 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
      xyz(2)[1] = insidePoint[0];
      xyz(2)[2] = insidePoint[1];
      xyz(2)[3] = insidePoint[2];
-     fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
-           X[0][0], X[0][1], X[0][2],
-           insidePoint[0], insidePoint[1], insidePoint[2]);
-     distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
+//     fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
+//           X[0][0], X[0][1], X[0][2],
+//           insidePoint[0], insidePoint[1], insidePoint[2]);
+     double thickness = std::max(distIntersector.insidePointTol, distIntersector.getTolerance());
+//     fprintf(stderr,"For subdomain %d: tol = %e.\n", globIndex, thickness);
+     distIntersector.getInterface().Intersect(xyz, edgeRes, thickness);
      if(edgeRes(1).y.triangleID >= 0) {
        Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
        const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
        if(edgeVec*trNorm < 0) {
-         fprintf(stderr, "This subdomain is outside the structure\n");
+//         fprintf(stderr, "This subdomain is outside the structure\n");
          status[0] = INSIDE;
        } else {
-         fprintf(stderr, "This subdomain is inside the structure\n");
+//         fprintf(stderr, "This subdomain is inside the structure\n");
          status[0] = OUTSIDE;
        }
      } else {
-       fprintf(stderr, "This subdomain is trivially inside the structure\n");
+//       fprintf(stderr, "This subdomain is trivially inside the structure\n");
        status[0] = OUTSIDE;
      }
   }
@@ -745,7 +764,7 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
       list[lead++] = i;
       level[i] = 0;
     }
-  std::cout << "Initial lead (# decided nodes): " << lead << std::endl;
+//  std::cout << "Initial lead (# decided nodes): " << lead << std::endl;
   while(next < lead) {
     int cur = list[next++];
     int curStatus = status[cur];
@@ -757,7 +776,8 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
         list[lead++] = nToN[cur][i];
       } else {
         if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
-          std::cerr << "Incompatible nodes have met: " << cur << " and " << nToN[cur][i] <<
+          std::cerr << "Incompatible nodes have met: " << cur << "("<< status[cur] <<") and " << 
+             nToN[cur][i] << "(" << status[nToN[cur][i]] << ") " <<
              " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
       }
     }
@@ -771,8 +791,57 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
     else                           nUndecided++;
   }
 
-  if (nUndecided)
-    fprintf(stderr,"WARNING: In Subdomain %d, there are %d nodes that are UNDECIDED!\n", sub.getGlobSubNum(), nUndecided);
+  while (nUndecided) {
+    for (int i=0; i<sub.numNodes(); ++i)
+      if (status[i]==UNDECIDED) {
+        LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
+        edgeRes(1).x[1] = 1;
+        edgeRes(1).x[2] = 2;
+
+        Vec3D insidePoint = distIntersector.getInsidePoint();
+        LIST_ARRAY<VECTOR<double,3> > xyz(2);
+        xyz(1)[1] = X[i][0];
+        xyz(1)[2] = X[i][1];
+        xyz(1)[3] = X[i][2];
+        xyz(2)[1] = insidePoint[0];
+        xyz(2)[2] = insidePoint[1];
+        xyz(2)[3] = insidePoint[2];
+//        fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
+//              X[0][0], X[0][1], X[0][2],
+//              insidePoint[0], insidePoint[1], insidePoint[2]);
+
+        double thickness = std::max(distIntersector.insidePointTol, distIntersector.getTolerance());
+        distIntersector.getInterface().Intersect(xyz, edgeRes, thickness);
+
+        if(edgeRes(1).y.triangleID >= 0) {
+          Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
+          const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
+          if(edgeVec*trNorm < 0) {
+            status[i] = INSIDE; nInside++;}
+          else {status[i] = OUTSIDE; nOutside++;}
+        } else {status[i] = OUTSIDE; nOutside++;}
+        nUndecided--;
+
+        next = 0, lead = 0;
+        list[lead++] = i;
+        level[i] = 0;
+        while(next < lead) {
+          int cur = list[next++];
+          int curStatus = status[cur];
+          int curLevel = level[cur];
+          for(int k = 0; k < nToN.num(cur); ++k) {
+            if(status[nToN[cur][k]] == UNDECIDED) {
+              nUndecided--;
+              if (curStatus==INSIDE) nInside++; else nOutside++;
+              status[nToN[cur][k]] = curStatus;
+              level[nToN[cur][k]] = curLevel+1;
+              list[lead++] = nToN[cur][k];
+            }
+          }
+        }
+
+      }
+  }
 
   //debug only: Plot the first layer of inside nodes.
 /*  int (*ptr)[2] = edges.getPtr();
@@ -843,347 +912,9 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
                     locToGlobNodeMap[p]+1,locToGlobNodeMap[q]+1);
   }
  
-  std::cout << "Maximum edge distance: " << maxEdgeSize << std::endl;
-  fprintf(stderr,"In subdomain %d: maximum iteration: %d. maximum tolerance: %e.\n", globIndex, max_iter, (max_iter+1)*(max_iter+1)*TOL);
+//  std::cout << "Maximum edge distance: " << maxEdgeSize << std::endl;
+//  fprintf(stderr,"In subdomain %d: maximum iteration: %d. maximum tolerance: %e.\n", globIndex, max_iter, (max_iter+1)*(max_iter+1)*TOL);
 }
-
-//----------------------------------------------------------------------------
-
-/*
-void PhysBAMIntersector::computeLocalPseudoPhi(SVec<double,3> &X, Vec<int> &tId, Vec<double> &dist,
-                                               SVec<double,3> &normApprox, Vec<double> &weightSum)
-{
-  bool* edgeMasterFlag = edges.getMasterFlag();
-
-  int numEdges = edges.size();
-  int numNodes = status.size();
-
-  phi = 0;
-  normApprox = 0;
-  weightSum = 0;
-
-  // Compute the contribution of each intersection to pseudoPhi, the normals and the weights.
-  // Add intersecting edges to the list of reverse edges
-  for(int i = 0; i < edgeRes.Size(); ++i) {
-    //if (!edgeMasterFlag[i]) continue;
-    // check if this edge intersects the structure
-    if(edgeRes(i+1).y.triangleID >= 0) {
-      int p = edgeRes(i+1).x[1]-1, q = edgeRes(i+1).x[2]-1;
-      // Add the reverse edge to the list of edges to compute
-      reverseEdges.push_back(pair<int,int>(q,p));
-
-      if(edgeMasterFlag[i])
-        updatePhi(p, q, edgeRes(i+1).y, X, phi, normApprox, weightSum);
-      //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
-      int trId = edgeRes(i+1).y.triangleID-1;
-      int *nd = distIntersector.triangle_list[trId];
-      nIntersect++;
-    }
-  }
-  std::cout << "Number of intersections: " << nIntersect << " vs " << numEdges << " in " << (t-t0) << std::endl;
-  //std::cout << "Nd min: " << trNdIsectCount.min() << std::endl;
-
-  LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > reverseEdgeRes(nIntersect);
-  for(int i = 0; i < nIntersect; ++i) {
-      reverseEdgeRes(i+1).x[1] = reverseEdges[i].first+1;
-      reverseEdgeRes(i+1).x[2] = reverseEdges[i].second+1;
-  }
-
-  t0 = timer->getTime();
-  // First call to intersect to find all intersections
-  distIntersector.getInterface().Intersect(xyz, reverseEdgeRes,distIntersector.getTolerance());
-  t = timer->getTime();
-
-  nIntersect = 0;
-  for(int i = 0; i < reverseEdges.size(); ++i) {
-    int p = reverseEdgeRes(i+1).x[1]-1, q = reverseEdgeRes(i+1).x[2]-1;
-    secondIntersection[edges.find(p,q)] = reverseEdgeRes(i+1).y;
-
-    if(reverseEdgeRes(i+1).y.triangleID >= 0) {
-      if(edgeMasterFlag[edges.find(q,p)])
-        updatePhi(p, q, reverseEdgeRes(i+1).y, X, phi, normApprox, weightSum);
-      //trIntersectCount[edgeRes(i+1).y.triangleID-1]++;
-      nIntersect++;
-    } else {
-      std::cout << "Reverse between " << p << " and " << q << " has no intersection" << std::endl;
-      LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
-      edgeRes(1).x[1] = 1;
-      edgeRes(1).x[2] = 2;
-
-      LIST_ARRAY<VECTOR<double,3> > xyz(2);
-      xyz(1)[1] = X[p][0];
-      xyz(1)[2] = X[p][1];
-      xyz(1)[3] = X[p][2];
-      xyz(2)[1] = X[q][0];
-      xyz(2)[2] = X[q][1];
-      xyz(2)[3] = X[q][2];
-      distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance()+1e-9);
-      std::cout << "redoing it gives: " << edgeRes(1).y.triangleID << std::endl;
-      if(edgeRes(1).y.triangleID < 0)
-        std::cerr << "Reverse cut could not be fixed! This will probably lead to a crash or incorrect results!" << std::endl;
-      else {
-        if(edgeMasterFlag[edges.find(q,p)])
-          updatePhi(p, q, edgeRes(1).y, X, phi, normApprox, weightSum);
-        secondIntersection[edges.find(p,q)] = edgeRes(1).y;
-      }
-    }
-  }
-  int nZeros = 0;
-}
-
-void PhysBAMIntersector::finishPseudoPhi(SubDomain &sub, SVec<double,3> &X, SVec<double,3> &normApprox,
-                                         Vec<double> &weightSum)
- {
-  int numNodes = status.size();
-
-  for(int i = 0; i < numNodes; ++i) {
-    if(weightSum[i] > 0) {
-      phi[i] /= weightSum[i];
-      status[i] = (phi[i] >= 0) ? INSIDE : OUTSIDE;
-      double nl = Vec3D(normApprox[i]).norm();
-      if(nl != 0)
-        locNorm[i] = Vec3D(normApprox[i]) / nl;
-      else
-        std::cout << "Really null norm" << std::endl;
-    }
-  }
-  if(nIntersect == 0) {
-     LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
-     edgeRes(1).x[1] = 1;
-     edgeRes(1).x[2] = 2;
-
-     Vec3D insidePoint = distIntersector.getInsidePoint();
-     LIST_ARRAY<VECTOR<double,3> > xyz(2);
-     xyz(1)[1] = X[0][0];
-     xyz(1)[2] = X[0][1];
-     xyz(1)[3] = X[0][2];
-     xyz(2)[1] = insidePoint[0];
-     xyz(2)[2] = insidePoint[1];
-     xyz(2)[3] = insidePoint[2];
-     fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
-           X[0][0], X[0][1], X[0][2],
-           insidePoint[0], insidePoint[1], insidePoint[2]);
-     distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
-     if(edgeRes(1).y.triangleID >= 0) {
-       Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
-       const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
-       if(edgeVec*trNorm < 0) {
-         fprintf(stderr, "This subdomain is outside the structure\n");
-         status[0] = INSIDE;
-       } else {
-         fprintf(stderr, "This subdomain is inside the structure\n");
-         status[0] = OUTSIDE;
-       }
-     } else {
-       fprintf(stderr, "This subdomain is trivially inside the structure\n");
-       status[0] = OUTSIDE;
-     }
-  }
-
-  Connectivity &nToN = *(sub.createEdgeBasedConnectivity());
-
-  // Find problem nodes: undecided nodes that have connections to both inside and outside nodes
-  std::vector<int> problemNodes;
-  for(int cur = 0; cur < sub.numNodes(); ++cur) {
-    if(status[cur] != UNDECIDED)
-      continue;
-    int v = 0;
-    for(int i = 0; i < nToN.num(cur); ++i)
-      if (status[nToN[cur][i]] != UNDECIDED)
-        v |= (status[nToN[cur][i]] == INSIDE) ? 1 : 2;
-    if(v == 3)
-      problemNodes.push_back(cur);
-  }
-
-
-  for(int j = 0; j < problemNodes.size(); ++j) {
-    int nIn = 0, nOut = 0;
-    int nd = problemNodes[j];
-    Vec3D thisNode(X[nd]);
-    double phiThis, phiMin, phiMax;
-    std::cerr << "Node " << nd << " is causing problems." << std::endl;
-    double maxDist = 0, minDot, maxDot;
-    double phiSum = 0;
-    double wSum = 0;
-    bool isInit = false;
-    for(int i = 0; i < nToN.num(nd); ++i) {
-      int oNd = nToN[nd][i];
-      if(status[oNd] == UNDECIDED)
-        continue;
-      Vec3D otherNode(X[oNd]);
-      double phiONd = phi[oNd];
-      Vec3D oNdNormal = locNorm[oNd];
-      double dot = (thisNode-otherNode)*oNdNormal;
-      double phiEst = phiONd + dot;
-      double dist = (thisNode-otherNode).norm();
-      double weight = std::abs(dot/dist);
-      phiSum += weight*phiEst;
-      wSum += weight;
-      if(!isInit) {
-        phiThis = phiMin = phiMax = phiEst;
-        maxDist = dist;
-        maxDot = minDot = (thisNode-otherNode)*oNdNormal/dist;
-        isInit = true;
-      }
-      if(std::abs(phiEst) < std::abs(phiThis))
-        phiThis = phiEst;
-      if(phiEst < phiMin) { phiMin = phiEst; minDot = (thisNode-otherNode)*oNdNormal/dist; }
-      if(phiEst > phiMax) { phiMax = phiEst; maxDot = (thisNode-otherNode)*oNdNormal/dist; }
-      maxDist = std::max(maxDist, dist);
-    }
-    if(phiMin * phiMax <= 0 || nd >= 0) {
-      std::cerr << "WOW! " << nd << " " << phiSum/wSum << std::endl;
-      std::cout << "Phi: "<<phiThis << " Min: " << phiMin << " Max : " << phiMax  << " minDot: " <<minDot << " maxDot: " << maxDot << std::endl;
-      if(nd >= 0 ) {
-        std::cout << "My status: " << status[nd] << " and weight " << weightSum[nd] << std::endl;
-        for(int i = 0; i < nToN.num(nd); ++i) {
-          int oNd = nToN[nd][i];
-          if(oNd == nd)
-            continue;
-          int edgeNum = edges.find(nd, oNd);
-          std::cout << oNd << " Status: " << status[oNd] << " triangle: " << edgeRes(edgeNum+1).y.triangleID << std::endl;
-          if(status[oNd] == UNDECIDED)
-            continue;
-          Vec3D otherNode(X[oNd]);
-          double phiONd = phi[oNd];
-          Vec3D oNdNormal = locNorm[oNd];
-          double dot = (thisNode-otherNode)*oNdNormal;
-          double phiEst = phiONd + dot;
-          double dist = (thisNode-otherNode).norm();
-          double weight = std::abs(dot/dist);
-        }
-      }
-    }
-
-  }
-
-  // List is used as a FIFO queue
-  Vec<int> list(numNodes);
-  Vec<int> level(numNodes);
-  // Look for a start point
-  // lead: In pointer
-  // next: out pointer (of FIFO)
-  int next = 0, lead = 0;
-  for(int i = 0; i < numNodes; ++i)
-    if(status[i] != UNDECIDED) {
-      list[lead++] = i;
-      level[i] = 0;
-    }
-  std::cout << "Initial lead: " << lead << std::endl;
-  while(next < lead) {
-    int cur = list[next++];
-    int curStatus = status[cur];
-    int curLevel = level[cur];
-    for(int i = 0; i < nToN.num(cur); ++i) {
-      if(status[nToN[cur][i]] == UNDECIDED) {
-        status[nToN[cur][i]] = curStatus;
-        level[nToN[cur][i]] = curLevel+1;
-        list[lead++] = nToN[cur][i];
-      } else {
-        if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
-          std::cerr << "Incompatible nodes have met: " << cur << " and " << nToN[cur][i] <<
-             " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
-      }
-    }
-  }
-
-  int nInside = 0, nOutside = 0, nUndecided = 0;
-  for(int i = 0; i < sub.numNodes(); ++i) {
-    if(status[i] == INSIDE)
-      nInside++;
-    else if(status[i] == OUTSIDE)
-      nOutside++;
-    else
-      nUndecided++;
-  }
-
-  int iter = 0;
-  while (nUndecided) {
-    for (int i=0; i<sub.numNodes(); ++i)
-      if (status[i]==UNDECIDED) {
-        LIST_ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
-        edgeRes(1).x[1] = 1;
-        edgeRes(1).x[2] = 2;
-
-        Vec3D insidePoint = distIntersector.getInsidePoint();
-        LIST_ARRAY<VECTOR<double,3> > xyz(2);
-        xyz(1)[1] = X[i][0];
-        xyz(1)[2] = X[i][1];
-        xyz(1)[3] = X[i][2];
-        xyz(2)[1] = insidePoint[0];
-        xyz(2)[2] = insidePoint[1];
-        xyz(2)[3] = insidePoint[2];
-        fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
-              X[0][0], X[0][1], X[0][2],
-              insidePoint[0], insidePoint[1], insidePoint[2]);
-        distIntersector.getInterface().Intersect(xyz, edgeRes,distIntersector.getTolerance());
-
-        if(edgeRes(1).y.triangleID >= 0) {
-          Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
-          const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
-          if(edgeVec*trNorm < 0) {
-            status[i] = INSIDE; nInside++;}
-          else {status[i] = OUTSIDE; nOutside++;}
-        } else {status[i] = OUTSIDE; nOutside++;}
-        nUndecided--;
-
-        next = 0, lead = 0;
-        list[lead++] = i;
-        level[i] = 0;
-        while(next < lead) {
-          int cur = list[next++];
-          int curStatus = status[cur];
-          int curLevel = level[cur];
-          for(int k = 0; k < nToN.num(cur); ++k) {
-            if(status[nToN[cur][k]] == UNDECIDED) {
-              nUndecided--;
-              if (curStatus==INSIDE) nInside++; else nOutside++;
-              status[nToN[cur][k]] = curStatus;
-              level[nToN[cur][k]] = curLevel+1;
-              list[lead++] = nToN[cur][k];
-            }
-          }
-        }
-
-      }
-  }
-
-  // Supplemental check
-  int numWeird = 0;
-  for(int cur = 0; cur < sub.numNodes(); ++cur)
-    for(int i = 0; i < nToN.num(cur); ++i)
-      if(status[nToN[cur][i]] != status[cur])  {
-        int edgeNum = edges.find(cur, nToN[cur][i]);
-        if(edgeRes(edgeNum+1).y.triangleID < 0)
-          numWeird++;
-        if(weightSum[cur] == 0 && weightSum[nToN[cur][i]] == 0)
-          std::cout << "Got an edge with no life! while tol = " <<distIntersector.getTolerance() << std::endl;
-          //std::cout << "Found conflicting edge " << edgeNum << " between " << cur <<
-          //   " and " << nToN[cur][i] << std::endl;
-      }
-  std::cout << "We have " << numWeird << " intersections to revisit" << std::endl;
-
-}
-
-void PhysBAMIntersector::updatePhi(int p, int q, IntersectionResult<double> &res, SVec<double, 3> &X, Vec<double> &phi,
-                                   SVec<double, 3> &normApprox, Vec<double> &weightSum) {
-  double alpha = res.alpha;
-  int trID = res.triangleID-1;
-  const Vec3D &trNorm = distIntersector.getSurfaceNorm(trID);
-  Vec3D edgeVec(X[q][0]-X[p][0], X[q][1]-X[p][1], X[q][2]-X[p][2]);
-  if(edgeVec.norm() == 0)
-    return;
-  Vec3D edgeDir = edgeVec / edgeVec.norm();
-  double dot = trNorm*edgeVec;
-  double weight = std::abs(trNorm*edgeDir)+1e-3;
-  double phip = (alpha-1)*dot;
-  phi[p] += weight*phip;
-  for(int j = 0; j < 3; ++j)
-    normApprox[p][j] += weight*trNorm[j];
-  weightSum[p] += weight;
-
-}
-*/
 
 //----------------------------------------------------------------------------
 
@@ -1275,4 +1006,18 @@ void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2
 }
 
 //----------------------------------------------------------------------------
+
+double PhysBAMIntersector::isPointOnSurface(Vec3D pt, int N1, int N2, int N3) 
+{
+  Vec<Vec3D> &solidX = distIntersector.getStructPosition();
+  Vec3D X1 = solidX[N1];
+  Vec3D X2 = solidX[N2];
+  Vec3D X3 = solidX[N3];
+
+  Vec3D normal = (X2-X1)^(X3-X1);
+  normal /=  normal.norm();
+
+  return fabs((pt-X1)*normal);
+}
+
 

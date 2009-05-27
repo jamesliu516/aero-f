@@ -131,6 +131,8 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
   rho = vf->getDensity(Vi);
   p   = vf->checkPressure(Vi,phii);
 
+
+
   if (rho <= 0.0) {
     if(!failsafe){
       fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
