@@ -128,21 +128,19 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
     }
 
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
-    this->distLSS->clearTotalForce();
 
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    nodeTagCopy, dU, this->riemann,it);
-    this->distLSS->getTotalForce(this->pressureRef);
     this->timeState->multiplyByTimeStep(dU);
+
   } else {
+
+    //this->distLSS->recompute(); //TODO: should do this only for the unsteady case.
+
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
-    this->distLSS->clearTotalForce();
 
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    dU, this->riemann,it);
-    //this->distLSS->getTotalForce(this->pressureRef);
-    // for RK2 on moving grids
-    //  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
     this->timeState->multiplyByTimeStep(dU);
   }
 }
