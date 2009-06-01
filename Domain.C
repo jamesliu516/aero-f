@@ -3154,7 +3154,7 @@ void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, Dist
 //------------------------------------------------------------------------------
 template<int dim>
 void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                            DistVec<double> &weight, DistVec<double> &Phi)
+                            DistVec<double> &weight, DistFluidTypeCriterion &Phi)
 {
   int iSub;
 #pragma omp parallel for

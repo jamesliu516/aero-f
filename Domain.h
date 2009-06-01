@@ -351,7 +351,7 @@ public:
 
   template<int dim>
   void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                              DistVec<double> &weight, DistVec<double> &Phi);
+                              DistVec<double> &weight, DistFluidTypeCriterion &Phi);
 
   template<int dim>
   void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,

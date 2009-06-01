@@ -31,6 +31,7 @@ class KDTree {
      int getBestSplit(int nobj, Obj *allObjs, int dir);
    public:
      KDTree(int nobj, Obj *allObjs, int depth = 0);
+     ~KDTree();
      // Give the maximum width of object in this tree.
      // note this is not the same as the width of the bounding box
      // of the tree.
@@ -106,6 +107,14 @@ KDTree<Obj, dim, CompType>::KDTree(int nobj, Obj *allObjs, int depth) {
   rightTree = new KDTree<Obj, dim, CompType>(nObj-split, allObjs+split, dir+1);
   for(int d = 0; d < dim; ++d)
     w[d] = std::max(leftTree->w[d], rightTree->w[d]);
+}
+
+template <class Obj, int dim, class CompType>
+KDTree<Obj, dim, CompType>::~KDTree() {
+  if(obj == 0) {
+    delete leftTree;
+    delete rightTree;
+  }
 }
 
 

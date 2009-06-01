@@ -87,7 +87,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     *Vgfweight =0.0;
   }
 
-  //multiphase conservation check (also for FF interface)
+  //multiphase conservation check (only for FF interface)
   boundaryFlux  = 0.0;
   interfaceFlux = 0.0;
   computedQty   = 0.0;
@@ -130,7 +130,7 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 
 template<int dim>
 void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
-//from TsDesc::setupTimeStepping. Skipped alot mesh motion handlers...
+//from TsDesc::setupTimeStepping. 
 {
   this->geoState->setup2(this->timeState->getData());
 
@@ -465,8 +465,10 @@ double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
     }
   }
 
-  if (TYPE==2) this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTagCopy, *this->R, this->riemann, 0);
-  else this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
+  if (TYPE==2) 
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTagCopy, *this->R, this->riemann, 0);
+  else 
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;

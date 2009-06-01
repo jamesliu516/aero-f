@@ -4607,7 +4607,7 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                               Vec<double> &weight, Vec<double> &Phi)
+                               Vec<double> &weight, FluidTypeCriterion &Phi)
 {
 
   int i, j, k;
@@ -4619,7 +4619,8 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
-    if(Phi[i]*Phi[j]<=0.0){ //at interface
+//    if(Phi[i]*Phi[j]<=0.0){ //at interface
+    if(!Phi.isSameFluid(i,j)){ //at interface
       if(weight[i]<1.e-6){
         weight[i] = 1.0;
         for(k=0; k<5; k++)

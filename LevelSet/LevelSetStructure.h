@@ -57,7 +57,7 @@ class LevelSetStructure {
      * */
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
-    virtual bool isActive(double t, int n) = 0; //!< Whether this node is active or ghost.
+    virtual bool isActive(double t, int n) const = 0; //!< Whether this node is active or ghost.
     virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
 
     /** creates an array of values which are positive inside the fluid and negative outside. */

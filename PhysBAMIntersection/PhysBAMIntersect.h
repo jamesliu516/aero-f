@@ -127,7 +127,7 @@ class PhysBAMIntersector : public LevelSetStructure {
 
     LevelSetResult
     getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-    bool isActive(double t, int n);
+    bool isActive(double t, int n) const;
     bool edgeIntersectsStructure(double t, int ni, int nj) const;
 
 };
