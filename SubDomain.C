@@ -271,6 +271,18 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
       ddz[j][k] -= Wj[2] * deltaVar;
     }
   }
+
+//Kevin's debug: use const extrapolation for nodes close to interface.
+/*  for (int l=0; l<edges.size(); ++l) {
+    if (!edgeFlag[l]) continue;
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    if (!Phi.isSameFluid(i,j))
+      for (int k=0; k<dim; ++k)
+        ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+  }
+*/
 }
 
 //------------------------------------------------------------------------------

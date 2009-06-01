@@ -582,23 +582,55 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 
 //----------------------------------------------------------------------------
 
+/** compute the intersections, node statuses and normals for the initial geometry */
+void
+DistPhysBAMIntersector::recompute() {
+
+  // for getClosestTriangles
+  DistSVec<double,3> boxMax(X->info());
+  DistSVec<double,3> boxMin(X->info());
+  DistVec<double> distance(X->info());
+  DistVec<int> tId(X->info());
+
+  domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
+
+  for(int i = 0; i < numLocSub; ++i) {
+    intersector[i]->reset();
+    intersector[i]->getClosestTriangles((*X)(i), boxMin(i), boxMax(i), tId(i), distance(i));
+
+    intersector[i]->computeFirstLayerNodeStatus(tId(i), distance(i));
+    intersector[i]->fixUntouchedSubDomain((*X)(i));
+    intersector[i]->finishNodeStatus(*(domain->getSubDomain()[i]), (*X)(i));
+    intersector[i]->findIntersections((*X)(i));
+  }
+}
+
+//----------------------------------------------------------------------------
+
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
                     DistPhysBAMIntersector &distInt) :
- distIntersector(distInt), status(sub.numNodes()),
+ distIntersector(distInt), status(sub.numNodes()), status0(sub.numNodes()),
  edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 
   status = UNDECIDED;
-
-  nodeMap = sub.getNodeMap();
+  status0 = UNDECIDED;
 
   locToGlobNodeMap = sub.getNodeMap();
 
   nFirstLayer = 0;
 }
 
-bool verb =  false;
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::reset()
+{
+  status0 = status;
+  status = UNDECIDED;
+  nFirstLayer = 0;
+}
+
 //----------------------------------------------------------------------------
 
 /** Find the closest structural triangle for each node. If no triangle intersect the bounding box of the node,
@@ -628,7 +660,6 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
   int ndMaxCand = -1;
   for(int i = 0; i < X.size(); ++i) {
     MyTriangle candidates[500];
-    verb = i == 2410;
     int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, 500);
     if(nFound > 500)
       std::cerr << "There were more candidates than we can handle: " << nFound << std::endl;
@@ -674,6 +705,8 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
       }
     }
   }
+
+  delete [] myTris;
 //  std::cout << "Close nodes: " << nClose << " Maximum distance: " << maxDist << " Max size: " << maxSize << std::endl;
 //  std::cout << "Neg probs: " << neg << " Pos probs: " << pos << std::endl;
 //  std::cout << "triangle Based: " << trBased << " edge based: " << edgeBased << " vertex based: " << vertexBased << std::endl;
