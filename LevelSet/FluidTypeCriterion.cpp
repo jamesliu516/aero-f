@@ -17,12 +17,18 @@ class FluidTypeFromIntersect : public FluidTypeCriterion {
     bool isSameFluid(int i, int j) const {
       return !intersector.edgeIntersectsStructure(0, i, j);
     }
+    int myPhase(int i) const {
+      return (intersector.isActive(0.0, i)) ? 1 : -1;
+    }
 };
 
 bool
 FluidTypeFromLevelSet::isSameFluid(int i, int j) const
 { return phi[i]*phi[j] > 0; }
 
+int
+FluidTypeFromLevelSet::myPhase(int i) const 
+{ return (phi[i]>0) ? 1 : -1; }
 
 DistFluidTypeFromLevelSet::DistFluidTypeFromLevelSet(const DistVec<double> &phi) {
   ft = new FluidTypeFromLevelSet*[phi.numLocSub()];

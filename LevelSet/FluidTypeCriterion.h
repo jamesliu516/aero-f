@@ -19,6 +19,7 @@ class DistVec;
 class FluidTypeCriterion {
   public:
     virtual bool isSameFluid(int i, int j) const = 0;
+    virtual int myPhase(int i) const = 0;
 };
 
 class FluidTypeFromLevelSet : public FluidTypeCriterion {
@@ -26,6 +27,7 @@ class FluidTypeFromLevelSet : public FluidTypeCriterion {
   public:
     FluidTypeFromLevelSet(const Vec<double> &p) : phi(p) {}
     bool isSameFluid(int i, int j) const;
+    int myPhase(int i) const;
 };
 
 class DistFluidTypeCriterion {

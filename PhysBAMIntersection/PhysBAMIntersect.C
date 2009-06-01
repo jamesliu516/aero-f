@@ -968,7 +968,7 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 
 //----------------------------------------------------------------------------
 
-bool PhysBAMIntersector::isActive(double t, int n) {
+bool PhysBAMIntersector::isActive(double t, int n) const{
   return status[n] == INSIDE;
 }
 
