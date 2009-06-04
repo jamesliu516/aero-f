@@ -3949,6 +3949,26 @@ void SubDomain::findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SV
 
 //--------------------------------------------------------------------------
 
+void SubDomain::findSubDomainBoundingBoxes(SVec<double,3>&X, double *Xmin, double *Xmax)
+{
+  SVec<double,3> BBmin(nodes.size());
+  SVec<double,3> BBmax(nodes.size());
+  findNodeBoundingBoxes(X, BBmin, BBmax);
+  
+  for (int i=0; i<3; i++) {
+    Xmin[i] = BBmin[0][i];
+    Xmax[i] = BBmax[0][i];
+  }
+
+  for (int i=0; i<nodes.size(); i++) 
+    for (int j=0; j<3; j++) {
+      if (Xmin[j]>BBmin[i][j])  Xmin[j] = BBmin[i][j];
+      if (Xmax[j]<BBmax[i][j])  Xmax[j] = BBmax[i][j];
+    }
+}
+
+//--------------------------------------------------------------------------
+
 void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
                                    SVec<double,3> &X, Vec<double> &CsVal)
 {

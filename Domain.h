@@ -352,6 +352,10 @@ public:
   template<int dim>
   void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
                               DistVec<double> &weight, DistFluidTypeCriterion &Phi);
+  template<int dim>
+  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistLevelSetStructure *distLSS);
 
   template<int dim>
   void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,

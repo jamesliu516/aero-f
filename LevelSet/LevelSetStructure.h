@@ -7,6 +7,7 @@ class Domain;
 template<class Scalar, int dim>
 class DistSVec;
 template <class Scalar> class Vec;
+template <class Scalar, int dim> class SVec;
 template <class Scalar> class DistVec;
 
 /** Structure used to return levelset information */
@@ -15,7 +16,7 @@ struct LevelSetResult {
    double xi[3];
    int trNodes[3];
    Vec3D gradPhi;
-   Vec3D normVel;
+   Vec3D normVel; //NOTE: this is the velocity, NOT normal velocity.
 
    LevelSetResult() {
      alpha = xi[0] = xi[1] = -1.0;
@@ -58,6 +59,7 @@ class LevelSetStructure {
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
     virtual bool isActive(double t, int n) const = 0; //!< Whether this node is active or ghost.
+    virtual bool wasActive(double t, int n) const = 0; //!< Whether this node was active or ghost in the last iteration.
     virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
 
     /** creates an array of values which are positive inside the fluid and negative outside. */
@@ -81,7 +83,8 @@ class DistLevelSetStructure {
     virtual Vec3D getTotalForce(const double pref);
 
     virtual DistVec<double> &getPhi();
-
+    virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;
+    virtual void recompute(double dtf, double dtfLeft, double dts) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;
     virtual int getNumStructNodes() = 0;
     double totalForce[3];

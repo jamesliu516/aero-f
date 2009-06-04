@@ -4659,6 +4659,80 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
 }
 
 //--------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
+{
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); l++){
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+//selective averaged extrapolation (based on direction of the flow)
+    if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
+/*      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+      double normUi2 = V[i][1]*V[i][1]+V[i][2]*V[i][2]+V[i][3]*V[i][3];
+      double normUj2 = V[j][1]*V[j][1]+V[j][2]*V[j][2]+V[j][3]*V[j][3];
+      double udotdx = 0.0;
+
+      if(normdx2*normUj2 > 0.0)
+        udotdx = -(dx[0]*V[j][1]+dx[1]*V[j][2]+dx[2]*V[j][3])/sqrt(normdx2*normUj2);
+      if(udotdx > 0.0){
+        Weights[i] += udotdx;
+        for(k=0; k<5; k++)
+          VWeights[i][k] += udotdx*V[j][k];
+      }
+
+      if(normdx2*normUi2 > 0.0)
+        udotdx = (dx[0]*V[i][1]+dx[1]*V[i][2]+dx[2]*V[i][3])/sqrt(normdx2*normUi2);
+      if(udotdx > 0.0){
+        Weights[j] += udotdx;
+        for(k=0; k<5; k++)
+          VWeights[j][k] += udotdx*V[i][k];
+      }*/
+      if(Weights[i]<1.e-6){
+        Weights[i] = 1.0;
+        for(k=0; k<5; k++)
+          VWeights[i][k] = V[j][k];
+      }else{
+        Weights[i] += 1.0;
+        for(k=0; k<5; k++)
+          VWeights[i][k] += V[j][k];
+      }
+
+      if(Weights[j]<1.e-6){
+        Weights[j] = 1.0;
+        for(k=0; k<5; k++)
+          VWeights[j][k] = V[i][k];
+      }else{
+        Weights[j] += 1.0;
+        for(k=0; k<5; k++)
+          VWeights[j][k] += V[i][k];
+      }
+
+    }
+
+  } 
+
+/*  FILE* debug = fopen("weights.out","w");
+  for (int l=0; l<edges.size(); l++) {
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+    if(!LSS.edgeIntersectsStructure(0.0,i,j)) continue;
+    fprintf(debug,"%d (%e) (%e %e %e %e %e) (%d)\n", i+1, Weights[i], VWeights[i][0]/Weights[i], VWeights[i][1]/Weights[i], VWeights[i][2]/Weights[i], VWeights[i][3]/Weights[i], VWeights[i][4]/Weights[i], LSS.isActive(0.0,i));
+    fprintf(debug,"%d (%e) (%e %e %e %e %e) (%d)\n", j+1, Weights[j], VWeights[j][0]/Weights[j], VWeights[j][1]/Weights[j], VWeights[j][2]/Weights[j], VWeights[j][3]/Weights[j], VWeights[j][4]/Weights[j], LSS.isActive(0.0,j));
+  }
+  fclose(debug);*/
+}
+
+//--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
                                    Vec<double> &Phi, SVec<double,dim> &Psi,

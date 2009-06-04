@@ -162,10 +162,17 @@ public:
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
                          DistVec<double> &Phi,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight);
+  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                                       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                                       DistLevelSetStructure *distLSS);
   void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,
                          DistExactRiemannSolver<dim> *);
+  void updatePhaseChange(DistSVec<double,dim> &V,
+                         DistSVec<double,dim> &U,
+                         DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
+                         DistLevelSetStructure *distLSS);
   void updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij, 
                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
                          DistVec<int> &nodeTag0, DistVec<int> &nodeTag);  //for FS interface 

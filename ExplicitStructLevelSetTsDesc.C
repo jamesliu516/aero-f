@@ -29,7 +29,13 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   U0(this->getVecInfo()), Phi0(this->getVecInfo())
 {
   timeType = ioData.ts.expl.type;
-  this->mmh = 0;
+
+  //initialize mmh (EmbeddedMeshMotionHandler).
+  if(this->dynNodalTransfer) {
+    MeshMotionHandler *_mmh = 0;
+    _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+    this->mmh = _mmh;
+  } else this->mmh = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -51,6 +57,7 @@ int ExplicitStructLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
 {solveNLAllFE(U);} // Forward Euler.
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -60,8 +67,24 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  if(this->LS) this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+  if(this->LS) 
+    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+
+  if(this->TYPE==1 && this->mmh) { //recompute intersections and update phase change.
+    if (this->Weights && this->VWeights)
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                     *this->VWeights, this->distLSS);
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    fprintf(stderr,"dtf = %e, dtfLeft = %e, dts = %e.\n", this->dtf, this->dtfLeft, this->dts);
+
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
+
+    if (this->Weights && this->VWeights)
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS);
+  }
+
   computeRKUpdate(U, k1, 1);  
+
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
@@ -126,19 +149,14 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
       *this->tmpDistSVec  = 0.0;
       *this->tmpDistSVec2 = 0.0;
     }
-
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
-
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    nodeTagCopy, dU, this->riemann,it);
     this->timeState->multiplyByTimeStep(dU);
 
   } else {
-
-    //this->distLSS->recompute(); //TODO: should do this only for the unsteady case.
-
+    
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
-
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    dU, this->riemann,it);
     this->timeState->multiplyByTimeStep(dU);

@@ -4,6 +4,8 @@
 #include <IoData.h>
 #include <DistVector.h>
 #include <Vector3D.h>
+#include <LevelSet/LevelSetStructure.h>
+#include <FSI/DynamicNodalTransfer.h>
 
 class VarFcn;
 class MatchNodeSet;
@@ -304,6 +306,35 @@ public:
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+
+};
+
+//------------------------------------------------------------------------------
+
+class EmbeddedMeshMotionHandler : public MeshMotionHandler {  //<! For embedded fluid-structure interactions
+ 
+protected:
+
+  double dts;            //<! structure time-step.
+  Vec3D *structX0;       //<! initial position of structure nodes.
+  Vec3D *structXn;       //<! position of struct nodes at t^n.
+  Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
+  Vec3D *structVel;      //<! velocity of struct nodes.
+
+  DynamicNodalTransfer *dynNodalTransfer; 
+  DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).
+
+public:
+
+  EmbeddedMeshMotionHandler(IoData &, Domain *, DynamicNodalTransfer *, DistLevelSetStructure *);
+  ~EmbeddedMeshMotionHandler();
+
+  double update(bool *lastIt, int it, double t, DistSVec<double,3> &Xdot, DistSVec<double,3> &X) {return dts;}
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); //<! just get dt.
+  double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  /** get displacement and pass it to distLSS.  send force to structure. */
+
+  int getAlgNum()  { return 0; }
 
 };
 

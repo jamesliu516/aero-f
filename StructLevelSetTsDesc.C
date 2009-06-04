@@ -31,7 +31,7 @@ template<int dim>
 StructLevelSetTsDesc<dim>::
 StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Phi(this->getVecInfo()), Vg(this->getVecInfo()),
+  Phi(this->getVecInfo()), Vg(this->getVecInfo()), Vtemp(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
 {
@@ -59,11 +59,14 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  Weights = 0;
+  VWeights = 0;
+
   pressureRef = ioData.ref.rv.pressure;
+
 //------ load structure mesh information ----------------------
   numStructNodes = 0;
   Fs = 0;
@@ -100,11 +103,20 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   frequencyLS = ioData.mf.frequency;
   interfaceTypeFF = ioData.mf.interfaceType;
+
+//------------- For Fluid-Structure Interaction -------------------------
   if(this->domain->getEmbedCommunicator()) {
     Communicator *intraCom =this->domain->getEmbedCommunicator()->merge(true);
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *intraCom);
+
+    //for updating phase change
+    Weights  = new DistVec<double>(this->getVecInfo());
+    VWeights = new DistSVec<double,dim>(this->getVecInfo());
   } else
     dynNodalTransfer = 0;
+
+//----------------------------------------------------------------------
+
 }
 
 //------------------------------------------------------------------------------
@@ -116,6 +128,8 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (Weights) delete Weights;
+  if (VWeights) delete VWeights;
 
   if (Fs) delete[] Fs;
 
@@ -190,7 +204,9 @@ double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
     timeStep = dt;
     return dt;
+
   } else {
+
     double t0 = this->timer->getTime();
     this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
     int numSubCycles = 1;
@@ -203,6 +219,9 @@ double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
     this->timer->addFluidSolutionTime(t0);
     this->timer->addTimeStepTime(t0);
+
+    dtf = dt;
+    dtfLeft = *dtLeft + dt;
 
     return dt;
   }
@@ -605,25 +624,23 @@ void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, Dis
 template <int dim>
 void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, DistSVec<double,dim> &U)
 {
-	  /*       // TODO: mmh not needed?
-	  if (mmh) {
-	    double work[2];
-	    mmh->computeInterfaceWork(dt, postOp, geoState->getXn(), this->timeState->getUn(), *X, U, work);
-	    this->restart->energy[0] += work[0];
-	    restart->energy[1] += work[1];
-	  }
-
-	  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
-	  if (_mmh)
-	    _mmh->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
-
-	  if (hth)
-	    hth->updateOutputToStructure(dt, dtLeft, postOp, *X, U);
-	*/
   if(dynNodalTransfer) {
     computeForceLoad();
-    // Now send the force to the structure
+    // Now "accumulate" the force for the embedded structure
     SVec<double,3> v(numStructNodes, Fs);
-    dynNodalTransfer->sendForce(v);
+    dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);
   }
 }
+
+//-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+

@@ -3166,7 +3166,26 @@ void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
   assemble(volPat, weight);
 
 }
+
 //------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
+                                                     (*distLSS)(iSub),X(iSub));
+  
+  assemble(vecPat, VWeights);
+  assemble(volPat, Weights);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
                                 DistVec<double> &Phi, DistSVec<double,dim> &Psi,

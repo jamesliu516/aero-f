@@ -113,7 +113,7 @@ public:
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
   virtual void setupTimeStepping(DistSVec<double,dim> *, IoData &);
   virtual double computeTimeStep(int, double *, DistSVec<double,dim> &);
-  double computePositionVector(bool *, int, double);
+  virtual double computePositionVector(bool *, int, double);
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
