@@ -591,7 +591,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[j][k] -= flux[k];
       }
     }
-    else{			// interface
+    else{// interface
       if (iIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
         riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);

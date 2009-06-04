@@ -1192,6 +1192,7 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     pi   = p;
     return;
   }
+
   
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);

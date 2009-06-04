@@ -41,18 +41,27 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double fsiVelocity;
   double pressureRef;
 
+  // ----------- time steps -----------------------------------------------------------
+  double dtf;     //<! fluid time-step
+  double dtfLeft; //<! time until next structure time-step is reached.
+  double dts;     //<! structure time-step
+  // ----------------------------------------------------------------------------------
+
   // ----------- components for Fluid-Structure interface. -----------------------------
-  DistLevelSetStructure *distLSS; // tool for FS tracking (not necessarily a  "levelset solver".)
-  DistSVec<double,dim> *Wstarij;  // stores the FS Riemann solution (i->j) along edges
-  DistSVec<double,dim> *Wstarji;  // stores the FS Riemann solution (j->i) along edges
+  DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
+  DistSVec<double,dim> *Wstarij;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *Wstarji;  //<! stores the FS Riemann solution (j->i) along edges
+  DistSVec<double,dim> Vtemp;     //<! the primitive variables.
+  DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
+  DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
   // ------------------------------------------------------------------------------------
 
   // ----------- components for Fluid-Fluid interface -----------------------------------
   LevelSet *LS;
-  DistVec<double> Phi;           //conservative variables
-  DistVec<double> PhiV;          //primitive variables
-  DistSVec<double,dim> Vg;       //primitive V for GFMP
-  DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
+  DistVec<double> Phi;            //<! conservative variables
+  DistVec<double> PhiV;           //<! primitive variables
+  DistSVec<double,dim> Vg;        //<! primitive V for GFMP
+  DistSVec<double,dim> *Vgf;      //<! primitive V storage for phase change (if extrapolation)
   DistVec<double> *Vgfweight;
 
   // multiphase conservation check
@@ -106,6 +115,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   /** Override the TsDesc routine because forces are sent to the structure
    * in a different way than the general case */
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
+//  double computePositionVector(bool *lastIt, int it, double t);
+
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
   void conservationErrors(DistSVec<double,dim> &U, int it);

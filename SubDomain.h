@@ -288,6 +288,7 @@ public:
   void computeLi(double [3], double, double, double [3], double [5]);
 
   void findNodeBoundingBoxes(SVec<double,3>&X, SVec<double,3> &Xmin, SVec<double,3> &Xmax);
+  void findSubDomainBoundingBoxes(SVec<double,3>&X, double *Xmin, double *Xmax);
 
   // moving mesh
 
@@ -815,9 +816,13 @@ public:
   void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level);
   void FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level);
 
-	template<int dim>
+  template<int dim>
   void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
                       Vec<double> &weight, FluidTypeCriterion &Phi);
+
+  template<int dim>
+  void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
 
   template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);

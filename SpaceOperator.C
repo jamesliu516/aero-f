@@ -1628,6 +1628,19 @@ void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U,
   }
 
 }
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
+                           DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                           DistLevelSetStructure *distLSS)
+{
+  varFcn->conservativeToPrimitive(U, V);
+  Weights = 0.0;
+  VWeights = 0.0;
+  domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS);
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1662,6 +1675,46 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
 }
 
 //-----------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
+                             DistSVec<double,dim> &U,
+                             DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
+                             DistLevelSetStructure *distLSS)
+{
+  SubDomain **subD = domain->getSubDomain();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<double,dim> &subV(V(iSub));
+    Vec<double> &subWeights((*Weights)(iSub));
+    SVec<double,dim> &subVWeights((*VWeights)(iSub));
+
+    for (int i=0; i<subV.size(); i++) {
+      bool iIsActive = LSS.isActive(0.0, i);
+      bool iWasActive = LSS.wasActive(0.0, i);
+      if (iIsActive==iWasActive) //no phase change
+        continue;
+      if (!iIsActive) //changed from active to inactive -- nothing needs to be done.
+        continue;
+
+      if (subWeights[i]<=0.0) {
+        fprintf(stderr,"Failed in updating the phase change at node %d.\n", locToGlobNodeMap[i]+1);
+        exit(-1);
+      }  
+     
+      for (int iDim=0; iDim<dim; iDim++)
+        subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+    }
+  }
+
+  varFcn->primitiveToConservative(V, U);
+}
+
+//-----------------------------------------------------------------------------
+
 template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,

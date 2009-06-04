@@ -19,7 +19,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(1) // FIX
+  if(iod.strucIntersect.intersectorName != 0) // FIX
     fsiRiemann = new LocalRiemannFluidStructure();
 
 // Multiphase Riemann problem

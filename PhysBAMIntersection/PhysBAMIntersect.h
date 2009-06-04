@@ -36,8 +36,15 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     int length_solids_particle_list, length_triangle_list;
     int (*triangle_list)[3];
     double xMin, xMax, yMin, yMax, zMin, zMax;
+
     Vec3D *solids_particle_list;
+    Vec3D *solids_particle_list0;
+    Vec3D *solids_particle_list_n;
+    Vec3D *solids_particle_list_nPlus1;
+    Vec3D *solidVel;
+
     Vec<Vec3D> *solidX;
+
     Vec3D *triNorms;
     double *triSize;
     Communicator *com;
@@ -64,7 +71,9 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void initializePhysBAM();
 
     void initialize(Domain *, DistSVec<double,3> &X);
-    void recompute();
+    void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes);
+    void updatePhysBAMInterface(Vec3D *particles, int size);
+    void recompute(double dtf, double dtfLeft, double dts);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -121,6 +130,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     LevelSetResult
     getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
     bool isActive(double t, int n) const;
+    bool wasActive(double t, int n) const;
     bool edgeIntersectsStructure(double t, int ni, int nj) const;
 
 };
