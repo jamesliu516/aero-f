@@ -1052,7 +1052,7 @@ public:
                               int&, int (*)[4]);
 
   EdgeSet &getEdges() { return edges; }
-  Connectivity *getNodeToNode() { return NodeToNode; }
+  Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
 };
 //------------------------------------------------------------------------------
 

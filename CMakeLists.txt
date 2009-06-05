@@ -142,6 +142,7 @@ ADD_LIBRARY(FluidBase
              BlockAlloc.C 
              LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
+             Operators.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)

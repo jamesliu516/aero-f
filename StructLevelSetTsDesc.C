@@ -25,6 +25,8 @@ using std::min;
 #define PrecScalar double
 #endif
 
+#include "Operators.h"
+
 //------------------------------------------------------------------------------
 
 template<int dim>
