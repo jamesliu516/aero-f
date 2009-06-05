@@ -1456,7 +1456,6 @@ EmbeddedMeshMotionHandler::~EmbeddedMeshMotionHandler()
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  fprintf(stderr,"I'm here.\n");
   dts = dynNodalTransfer->getStructureTimeStep();
   return dts;
 }

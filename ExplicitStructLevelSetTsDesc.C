@@ -75,7 +75,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
       this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
                                                      *this->VWeights, this->distLSS);
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-    fprintf(stderr,"dtf = %e, dtfLeft = %e, dts = %e.\n", this->dtf, this->dtfLeft, this->dts);
+    this->com->fprintf(stderr,"dtf = %e, dtfLeft = %e, dts = %e.\n", this->dtf, this->dtfLeft, this->dts);
 
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
 

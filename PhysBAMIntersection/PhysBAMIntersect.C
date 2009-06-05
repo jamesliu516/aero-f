@@ -320,6 +320,9 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   com = IntersectionFactory::getCommunicator();
   tolerance = tol;
   insidePointTol = 1.0e-4;
+  physInterface = 0;
+  triNorms = 0;
+  triSize = 0;
 }
 
 //----------------------------------------------------------------------------
@@ -533,7 +536,6 @@ DistPhysBAMIntersector::initializePhysBAM() {
     physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(solids_particle_list[i][0],
         solids_particle_list[i][1], solids_particle_list[i][2]);
   }
-
   // Initialize the Triangle list
   PhysBAM::LIST_ARRAY<PhysBAM::VECTOR<int,3> > & physbam_triangle_list=*new PhysBAM::LIST_ARRAY<PhysBAM::VECTOR<int,3> >();
   for (int i=0; i<length_triangle_list; i++){
@@ -548,6 +550,7 @@ DistPhysBAMIntersector::initializePhysBAM() {
   // Construct TRIANGULATED_SURFACE.
   PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
   physbam_triangulated_surface.Update_Triangle_List();
+  if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
   // Compute the normals of each of the structural triangles
   buildSolidNormals();
@@ -589,7 +592,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 void
 DistPhysBAMIntersector::updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) {
 
-  fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
+  com->fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
   if(nNodes!=length_solids_particle_list) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
     exit(-1);
@@ -609,7 +612,7 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
   for (int i=0; i<size; i++)
     physInterface->triangulated_surface.particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0],
                                                                      particles[i][1], particles[i][2]);
-  physInterface->Update(); //assume the topology doesn't change.
+  physInterface->Update(true); //assume the topology doesn't change.
 }
 
 //----------------------------------------------------------------------------
@@ -618,7 +621,7 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
 void
 DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 
-  fprintf(stderr,"Recompute intersections!\n");
+  com->fprintf(stderr,"Recompute intersections.\n");
   if (dtfLeft<-1.0e-8) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -634,15 +637,16 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   DistVec<double> distance(X->info());
   DistVec<int> tId(X->info());
   
-//  buildSolidNormals();
   updatePhysBAMInterface(solids_particle_list, length_solids_particle_list);
+  buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
+  //debug.
   double xHere[3];
   xHere[0] = physInterface->triangulated_surface.particles.X(253)(1);
   xHere[1] = physInterface->triangulated_surface.particles.X(253)(2);
   xHere[2] = physInterface->triangulated_surface.particles.X(253)(3);
-  fprintf(stderr,"xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
+  com->fprintf(stderr,"xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
 
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->reset();
@@ -708,11 +712,18 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
   int errNode = -1;
   int maxCand = 0;
   int ndMaxCand = -1;
+
+  int nMaxCand = 500;
+  MyTriangle *candidates = new MyTriangle[nMaxCand];
   for(int i = 0; i < X.size(); ++i) {
-    MyTriangle candidates[500];
-    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, 500);
-    if(nFound > 500)
-      std::cerr << "There were more candidates than we can handle: " << nFound << std::endl;
+    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+    if(nFound > nMaxCand) {
+      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", there were more candidates than we can handle: " << nFound << std::endl;
+      nMaxCand = nFound;
+      delete [] candidates;
+      candidates = new MyTriangle[nMaxCand];
+      structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+    }
     if(nFound > maxCand) {
       maxCand = nFound;
       ndMaxCand = i;
@@ -742,20 +753,10 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
           (boxMin[i][0]-boxMax[i][0])*(boxMin[i][0]-boxMax[i][0]) +
           (boxMin[i][1]-boxMax[i][1])*(boxMin[i][1]-boxMax[i][1]) +
           (boxMin[i][2]-boxMax[i][2])*(boxMin[i][2]-boxMax[i][2]) ));
-      double a = 0.685;
-      double b = a/6;
-      double f = (X[i][0]-a)*(X[i][0]-a)/(a*a)+X[i][1]*X[i][1]/(b*b)+X[i][2]*X[i][2]/(b*b)-1;
-      Vec3D gradF(2*(X[i][0]-a)/(a*a), 2*X[i][1]/(b*b), 2*X[i][2]/(b*b));
-      double phiExact = f/gradF.norm();
-      if(std::abs(phiExact-dist[i]) > maxErr && phiExact*dist[i] < 0) {
-        maxErr= std::abs(phiExact-dist[i]);
-        exactPhi = phiExact;
-        numPhi = dist[i];
-        errNode = i;
-      }
     }
   }
 
+  delete [] candidates;
   delete [] myTris;
 //  std::cout << "Close nodes: " << nClose << " Maximum distance: " << maxDist << " Max size: " << maxSize << std::endl;
 //  std::cout << "Neg probs: " << neg << " Pos probs: " << pos << std::endl;
@@ -832,7 +833,7 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
 void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
 {
   int numNodes = status.size();
-  Connectivity &nToN = *(sub.createEdgeBasedConnectivity());
+  Connectivity &nToN = *(sub.getNodeToNode());
 
   // Propogate status to the entire subdomain.
   // List is used as a FIFO queue
