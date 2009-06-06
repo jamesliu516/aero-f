@@ -15,7 +15,8 @@ HeatTransferHandler::HeatTransferHandler(IoData& iod, MatchNodeSet** matchNodes,
   it0 = iod.restart.iteration;
   com = dom->getCommunicator();
 
-  strExc = new StructExc(iod, matchNodes, 1, domain->getHeatCommunicator(), domain);
+  strExc = new StructExc(iod, matchNodes, 1, domain->getHeatCommunicator(), domain->getCommunicator(),
+           domain->getNumLocSub());
   strExc->negotiate();
   strExc->getInfo();
 

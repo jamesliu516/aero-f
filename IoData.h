@@ -1609,6 +1609,25 @@ struct StructureIntersect {
 
 //------------------------------------------------------------------------------
 
+struct EmbeddedStructureInfo {
+  const char* surfaceMeshFile;
+  int mode;
+  double tMax;
+  double dt; 
+  double omega;
+  double dx;
+  double dy;
+  double dz;
+
+  EmbeddedStructureInfo() {}
+  ~EmbeddedStructureInfo() {}
+
+  Assigner *getAssigner();
+  void setup(const char *);
+};
+
+//------------------------------------------------------------------------------
+
 class IoData {
 
   char *cmdFileName;
@@ -1643,6 +1662,7 @@ public:
   Velocity rotations;
   Volumes volumes;
   StructureIntersect strucIntersect;
+  EmbeddedStructureInfo embeddedStructure;
 
 public:
 

@@ -130,7 +130,8 @@ namespace Communication {
     Window(Communicator &c, int size, Scalar *s);
     ~Window();
     void get(int locOff, int size, int prNum, int remOff);
-    void put(int locOff, int size, int prNum, int remOff);
+//    void put(int locOff, int size, int prNum, int remOff);
+    void put(Scalar *s, int locOff, int size, int prNum, int remOff);
     void accumulate(Scalar *s, int locOff, int size, int prNum, int remOff, int op);
     void fence(bool startOrEnd);
   };

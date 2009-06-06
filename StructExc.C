@@ -20,11 +20,11 @@
 
 //------------------------------------------------------------------------------
 
-StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Domain* domain)
+StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Communicator* fluidCom, int nSub)
 {
 
   bufsize = bs;
-  com = domain->getCommunicator();
+  com = fluidCom;
   strCom = sc;
 
   if (!strCom) {
@@ -39,7 +39,7 @@ StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, 
   fscale = iod.ref.rv.tforce;
   pscale = iod.ref.rv.tpower;
 
-  numLocSub = domain->getNumLocSub();
+  numLocSub = nSub;
   numStrCPU = strCom->remoteSize();
   numStrNodes = 0;
 

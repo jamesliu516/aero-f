@@ -13,6 +13,7 @@
 #include <Connectivity.h>
 #include <vector>
 #include <queue>
+#include <list>
 
 using std::vector;
 using std::pair;
@@ -340,6 +341,96 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
   if (topFile == NULL) {com->fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
+
+  // load the nodes and initialize all node-based variables.
+  char c1[200], c2[200], c3[200];
+  int num0 = 0, num1 = 0, nInputs;
+  double x1,x2,x3;
+  fscanf(topFile, "%s %s\n", c1, c2);
+  char debug[6]="Nodes";
+  for (int i=0; i<5; i++)
+    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface.c_str()); exit(-1);}
+
+  std::list<std::pair<int,Vec3D> > nodeList;
+  std::list<std::pair<int,Vec3D> >::iterator it;
+
+  int ndMax = 0;
+
+  while(1) {
+    nInputs = fscanf(topFile,"%s", c1);
+    if(nInputs!=1) break;
+    char *endptr;
+    num1 = strtol(c1, &endptr, 10);
+    if(endptr == c1) break;
+
+    fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    nodeList.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+    ndMax = std::max(num1, ndMax);
+    num0 = num1;
+  }
+  length_solids_particle_list = ndMax;
+
+  solids_particle_list           = new Vec3D[length_solids_particle_list];
+  solids_particle_list0          = new Vec3D[length_solids_particle_list];
+  solids_particle_list_n         = new Vec3D[length_solids_particle_list];
+  solids_particle_list_nPlus1    = new Vec3D[length_solids_particle_list];
+  solidVel                       = new Vec3D[length_solids_particle_list];
+  solidX = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list);
+
+  for (it=nodeList.begin(); it!=nodeList.end(); it++) 
+    solids_particle_list[it->first-1] = it->second;
+
+  for (int k=0; k<length_solids_particle_list; k++) {
+    solids_particle_list0[k]          = solids_particle_list[k];
+    solids_particle_list_n[k]         = solids_particle_list[k];
+    solids_particle_list_nPlus1[k]    = solids_particle_list[k];
+    solidVel[k]                       = Vec3D(0.0, 0.0, 0.0);
+  }
+
+  // load the elements.
+  if(nInputs!=1) {
+    fprintf(stderr,"Failed reading elements from file: %s\n", solidSurface.c_str()); exit(-1);}
+  fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+  char debug2[6] = "using";
+  for (int i=0; i<5; i++) 
+    if(debug2[i]!=c2[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface.c_str()); exit(-1);}
+    
+  std::list<int> elemList1;
+  std::list<int> elemList2;
+  std::list<int> elemList3;
+  std::list<int>::iterator it1;
+  std::list<int>::iterator it2;
+  std::list<int>::iterator it3;
+  int node1, node2, node3;
+
+  while(1) {
+    nInputs = fscanf(topFile,"%d", &num0);
+    if(nInputs!=1) break;
+    fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    elemList1.push_back(node1-1);
+    elemList2.push_back(node2-1);
+    elemList3.push_back(node3-1);
+  }
+  length_triangle_list = elemList1.size();
+
+  triangle_list = new int[length_triangle_list][3];
+  
+  it1 = elemList1.begin();
+  it2 = elemList2.begin();
+  it3 = elemList3.begin();
+  for (int i=0; i<length_triangle_list; i++) {
+    triangle_list[i][0] = *it1;
+    triangle_list[i][1] = *it2;
+    triangle_list[i][2] = *it3;
+    it1++;
+    it2++;
+    it3++;
+  } 
+
+  fclose(topFile);
+
+
+/*
   int len;
   len = fscanf(topFile,"%d %d", &length_solids_particle_list, &length_triangle_list);
 
@@ -373,7 +464,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   }
   if (thisNode!=length_triangle_list) {com->fprintf(stderr,"error in loading surface from file **!\n", thisNode); exit(1);}
   fclose(topFile);
-
+*/
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"Checking the solid surface...\n");
   if (checkTriangulatedSurface()) com->fprintf(stderr,"Ok.\n");
