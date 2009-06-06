@@ -464,6 +464,18 @@ namespace Communication {
     }
 
   template <typename Scalar>
+  void Window<Scalar>::put(Scalar *a, int locOff, int size, int prNum, int remOff) {
+#ifdef USE_MPI
+    static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
+    MPI_Put(a+locOff, size*CommTrace<Scalar>::multiplicity, CommTrace<Scalar>::MPIType,
+        prNum,
+        remOff*CommTrace<Scalar>::multiplicity, size*CommTrace<Scalar>::multiplicity,
+        CommTrace<Scalar>::MPIType,
+        win);
+#endif
+      }
+
+  template <typename Scalar>
   void Window<Scalar>::accumulate(Scalar *a, int locOff, int size, int prNum, int remOff, int op) {
 #ifdef USE_MPI
 

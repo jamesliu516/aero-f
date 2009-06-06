@@ -43,7 +43,7 @@ class StructExc {
 
 public:
 
-  StructExc(IoData&, MatchNodeSet**, int, Communicator*, Domain*);
+  StructExc(IoData&, MatchNodeSet**, int, Communicator*strCom, Communicator *flCom, int nSub);
   ~StructExc();
 
   void negotiate();

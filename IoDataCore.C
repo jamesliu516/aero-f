@@ -2837,8 +2837,10 @@ void VolumeInitialConditions::setup(const char *name, ClassAssigner *father) {
 
 }
 
+//------------------------------------------------------------------------------
+
 void StructureIntersect::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 3, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 0);
   libraryName = 0;
   intersectorName = 0;
   forceApproach = 0;
@@ -2847,6 +2849,8 @@ void StructureIntersect::setup(const char *name) {
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
 }
+
+//------------------------------------------------------------------------------
 
 void StructureIntersect::activate() {
   if(libraryName != 0) {
@@ -2869,6 +2873,27 @@ void StructureIntersect::activate() {
   if(intersectorName != 0) {
     IntersectionFactory::parseIntersectionObject(intersectorName, tree);
   }
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedStructureInfo::setup(const char *name) {
+  ClassAssigner *ca = new ClassAssigner(name, 0);
+  mode = 0;
+  tMax = 1.0e-6;
+  dt = 1.0e-6;
+  omega = 1000.0;
+  dx = dy = dz = 0.0;
+
+  new ClassStr<EmbeddedStructureInfo>(ca, "meshFile", this, &EmbeddedStructureInfo::surfaceMeshFile);
+  new ClassInt<EmbeddedStructureInfo>(ca, "mode", this, &EmbeddedStructureInfo::mode);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "maxTime", this, &EmbeddedStructureInfo::tMax);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "timeStep", this, &EmbeddedStructureInfo::dt);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "frequency", this, &EmbeddedStructureInfo::omega);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeX", this, &EmbeddedStructureInfo::dx);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeY", this, &EmbeddedStructureInfo::dy);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeZ", this, &EmbeddedStructureInfo::dz);
+ 
 }
 
 //------------------------------------------------------------------------------
@@ -2938,7 +2963,7 @@ void IoData::setupCmdFileVariables()
   rotations.setup("Velocity");
   volumes.setup("Volumes");
   strucIntersect.setup("Intersect");
-
+  embeddedStructure.setup("EmbeddedStructure");
 }
 
 //------------------------------------------------------------------------------

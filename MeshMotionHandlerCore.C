@@ -387,7 +387,8 @@ AeroMeshMotionHandler::AeroMeshMotionHandler(IoData &ioData, VarFcn *varFcn,
     *Fn = 0.0;
   }
 
-  strExc = new StructExc(ioData, matchNodes, 6, domain->getStrCommunicator(), domain);
+  strExc = new StructExc(ioData, matchNodes, 6, domain->getStrCommunicator(), domain->getCommunicator(),
+           domain->getNumLocSub());
   strExc->negotiate();
   mppFactor = strExc->getInfo();
 
