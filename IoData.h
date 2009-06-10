@@ -1611,14 +1611,16 @@ struct StructureIntersect {
 
 struct EmbeddedStructureInfo {
   const char* surfaceMeshFile;
+  const char* matcherFile;
   int mode;
+  int coupled;
   double tMax;
   double dt; 
   double omega;
   double dx;
   double dy;
   double dz;
-
+  
   EmbeddedStructureInfo() {}
   ~EmbeddedStructureInfo() {}
 

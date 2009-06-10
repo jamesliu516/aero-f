@@ -9,19 +9,26 @@
 #define DYNAMICNODALTRANSFER_H_
 #include<Vector.h>
 #include<Communicator.h>
+#include <DistInfo.h>
 
 using std::pair;
 
 class IoData;
+class StructExc;
 
 /** Class to temporarily play the role of a structure codes.
  *
  */
 class EmbeddedStructure {
   Communicator &com;
+  StructExc* structExc;
 
   const char *meshFile;
+  const char *matcherFile;
+ 
   int mode;
+  int coupled;
+  double tScale;
   double dt, tMax;
   double omega;
   double dx, dy, dz;
@@ -32,8 +39,10 @@ class EmbeddedStructure {
   double (*F)[3]; //force (received from fluid).
   int it;
 
+  DistInfo *di;
+
 public:
-  EmbeddedStructure(IoData& iod, Communicator &comm);
+  EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc);
   ~EmbeddedStructure();
 
   pair<double*, int> getTargetData();
@@ -57,7 +66,7 @@ class DynamicNodalTransfer {
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
 public:
-	DynamicNodalTransfer(IoData& iod, Communicator &);
+	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &);
 	~DynamicNodalTransfer();
 
 	/** routine to send the force to the structure. On output, f has been dimensionalized. */

@@ -108,7 +108,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------- For Fluid-Structure Interaction -------------------------
   if(ioData.embeddedStructure.surfaceMeshFile) {
-    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator());
+    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator());
     //dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getEmbedCommunicator());
 
     //for updating phase change

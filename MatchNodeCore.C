@@ -70,6 +70,55 @@ void MatchNodeSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2])
 
 }
 
+MatchNodeSet::MatchNodeSet(const char *name) {
+  FILE *fp = fopen(name, "r");
+
+  if (!fp)  {
+    fprintf(stderr, "*** ERROR: match file \'%s\' file does not exist\n", name);
+    exit(-1);
+  }
+
+  char line[MAXLINE];
+  fgets(line, MAXLINE, fp);
+  fgets(line, MAXLINE, fp);
+  sscanf(line, "%*s %d", &numNodes);
+
+  index = new int[numNodes][3];
+  gap = new double[numNodes][3];
+
+  // read match points
+  int i;
+  for (i = 0; i < numNodes; i++) {
+    fgets(line, MAXLINE, fp);
+    sscanf(line, "%d", index[i]);
+    index[i][0]--;
+    index[i][1] = index[i][0];
+  }
+
+  // read gap vectors
+  i = 0;
+  while (fgets(line, MAXLINE, fp) != 0) {
+    sscanf(line, "%lf %lf %lf", gap[i], gap[i]+1, gap[i]+2);
+    i++;
+  }
+
+  // check that # of gap vectors match number of matched points
+  if (i == 0) {
+    fprintf(stderr, " *** WARNING: setting all gap vectors to zero\n");
+    for (i = 0; i < numNodes; i++) {
+      gap[i][0] = 0.0;
+      gap[i][1] = 0.0;
+      gap[i][2] = 0.0;
+    }
+  }
+  else if (i != numNodes)  {
+    fprintf(stderr, " *** ERROR: incorrect number of gap vectors\n");
+    exit(-1);
+  }
+
+  fclose(fp);
+}
+
 //------------------------------------------------------------------------------
 
 void MatchNodeSet::exportInfo(int iSub, int (*list)[3])
@@ -102,10 +151,9 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
 
   norms[0] = 0.0;
   norms[1] = 0.0;
-
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
-      if (flag[ index[i][0] ]) {
+      if (flag==0||flag[ index[i][0] ]) {
 	norms[0] += disp[ index[i][2] ][0][k] * disp[ index[i][2] ][0][k];
 	norms[1] += disp[ index[i][2] ][1][k] * disp[ index[i][2] ][1][k];
       }

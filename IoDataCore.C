@@ -2880,13 +2880,16 @@ void StructureIntersect::activate() {
 void EmbeddedStructureInfo::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 0);
   mode = 0;
+  coupled = 0;
   tMax = 1.0e-6;
   dt = 1.0e-6;
   omega = 1000.0;
   dx = dy = dz = 0.0;
 
   new ClassStr<EmbeddedStructureInfo>(ca, "meshFile", this, &EmbeddedStructureInfo::surfaceMeshFile);
+  new ClassStr<EmbeddedStructureInfo>(ca, "matcherFile", this, &EmbeddedStructureInfo::matcherFile);
   new ClassInt<EmbeddedStructureInfo>(ca, "mode", this, &EmbeddedStructureInfo::mode);
+  new ClassInt<EmbeddedStructureInfo>(ca, "coupled", this, &EmbeddedStructureInfo::coupled);
   new ClassDouble<EmbeddedStructureInfo>(ca, "maxTime", this, &EmbeddedStructureInfo::tMax);
   new ClassDouble<EmbeddedStructureInfo>(ca, "timeStep", this, &EmbeddedStructureInfo::dt);
   new ClassDouble<EmbeddedStructureInfo>(ca, "frequency", this, &EmbeddedStructureInfo::omega);

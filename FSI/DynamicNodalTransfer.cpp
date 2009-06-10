@@ -8,12 +8,15 @@
 #include <FSI/DynamicNodalTransfer.h>
 #include <IoData.h>
 #include <Vector3D.h>
+#include <MatchNode.h>
+#include <StructExc.h>
+#include <DistVector.h>
 #include <list>
 //------------------------------------------------------------------------------
 
-DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c): com(c) , F(1), 
+DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc): com(c) , F(1), 
                            fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength),
-                           tScale(iod.ref.rv.time), structure(iod,c)
+                           tScale(iod.ref.rv.time), structure(iod,c,sc)
 
 {
   com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
@@ -56,6 +59,7 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU) {
   structure.sendDisplacement(&window);
   window.fence(false);
 
+  fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
   structU = 1.0/XScale*structU;
 }
 
@@ -71,13 +75,15 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 //------------------------------------------------------------------------------
 
-EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm) : com(comm), 
-                                             meshFile(iod.embeddedStructure.surfaceMeshFile)
-
+EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom) : com(comm), 
+                                             meshFile(iod.embeddedStructure.surfaceMeshFile),
+                                             matcherFile(iod.embeddedStructure.matcherFile),
+                                             tScale(iod.ref.rv.time)
 {
   // read the input.
 //  meshFile = iod.embeddedStructure.surfaceMeshFile;
   mode = iod.embeddedStructure.mode;
+  coupled = iod.embeddedStructure.coupled;
   tMax = iod.embeddedStructure.tMax;
   dt = iod.embeddedStructure.dt;
   omega = iod.embeddedStructure.omega;
@@ -94,7 +100,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm) : com(comm
   U = 0;
   F = 0;
   it = 0;
-  
+  structExc = 0;
+
   // load structure nodes (from file).
   FILE *nodeFile = 0;
   nodeFile = fopen(meshFile,"r");
@@ -139,12 +146,28 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm) : com(comm
 
   fclose(nodeFile);
     
-/*
+
   if(coupled) {
-    matchNodes = new MatchNodeSet *
-    structExc = new StructExc(iod, mns, 6, strCom, com, 1);
+    MatchNodeSet **mns = new MatchNodeSet *[1];
+    if(com.cpuNum() == 0)
+      mns[0] = new MatchNodeSet(matcherFile);
+    else 
+      mns[0] = new MatchNodeSet();
+    structExc = new StructExc(iod, mns, 6, &strCom, &com, 1);
+    structExc->negotiate();
+    structExc->getInfo();
+    dt = tScale*structExc->getTimeStep();
+    tMax = tScale*structExc->getMaxTime();
+
+
+    int *locToGlob = new int[1];
+    locToGlob[0] = 0;
+    di = new DistInfo(1, 1, 1, locToGlob, &com);
+
+    di->setLen(0,nNodes);
+    di->finalize(false);
   }
-*/
+
 }
 
 //------------------------------------------------------------------------------
@@ -154,6 +177,7 @@ EmbeddedStructure::~EmbeddedStructure()
   if(X) delete[] X;
   if(U) delete[] U;
   if(F) delete[] F;
+  if(structExc) delete structExc;  
 }
 
 //------------------------------------------------------------------------------
@@ -188,16 +212,29 @@ EmbeddedStructure::sendTimeStep(Communication::Window<double> *window)
 void
 EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 {
+  if(coupled) {
+     DistSVec<double,3> Y0(*di, X);
+     DistSVec<double,3> V(*di, U);
+     DistSVec<double,3> Ydot(*di);
+     DistSVec<double,3> Y(*di);
+     Y = Y0;
+
+     fprintf(stderr,"EmbeddedStructure::sendDisplacement is started.\n");
+     structExc->getDisplacement(Y0, Y, Ydot, V);
+     fprintf(stderr,"EmbeddedStructure::sendDisplacement is good. norm of disp = %e.\n", V.norm());
+  }
   if(com.cpuNum()>0) return; // only proc. #1 will send.
 
   it++;
-  double time = dt*(double)it;
+  if(!coupled) {
+    double time = dt*(double)it;
 
     for(int i = 0; i < nNodes; ++i) {
       U[i][0] = (1-cos(omega*time))*dx;
       U[i][1] = (1-cos(omega*time))*dy;
       U[i][2] = (X[i][1]*X[i][1])*(1-cos(omega*time))*dz;
     }
+   }
 //    Communication::Window<double> win2(*intracom, 3*nNodes, (double *)data);
     std::cout << "Sending a displacement to fluid ";
     for(int i = 0; i < com.size(); ++i) {
@@ -214,6 +251,11 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 void
 EmbeddedStructure::processReceivedForce()
 { 
+  if(coupled) {
+    DistSVec<double,3> f(*di, F);
+    structExc->sendForce(f);
+  }
+
   if(com.cpuNum()>0) return;
 
   double fx=0, fy=0, fz=0; //write the total froce.
