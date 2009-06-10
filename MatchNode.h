@@ -14,6 +14,8 @@ class MatchNodeSet {
 
 public:
 
+  MatchNodeSet(const char *fileName);
+  MatchNodeSet() { numNodes = 0; }
   MatchNodeSet(int);
   ~MatchNodeSet();
 
