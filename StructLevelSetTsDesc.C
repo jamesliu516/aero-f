@@ -40,6 +40,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
   forceApp = ioData.strucIntersect.forceApproach;
+  pressureChoice = ioData.strucIntersect.pressureChoice;
 
   this->postOp->setForceGenerator(this);
   if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
@@ -107,7 +108,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   interfaceTypeFF = ioData.mf.interfaceType;
 
 //------------- For Fluid-Structure Interaction -------------------------
-  if(ioData.embeddedStructure.surfaceMeshFile) {
+  if(ioData.embeddedStructure.mode>=0) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator());
     //dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getEmbedCommunicator());
 
@@ -542,7 +543,7 @@ void StructLevelSetTsDesc<dim>::updateFSInterface()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void StructLevelSetTsDesc<dim>::updateNodeTag()
+void StructLevelSetTsDesc<dim>::updateNodeTag() //for piston only.
 {
   if (TYPE!=2) {
     fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n");
@@ -571,35 +572,11 @@ void StructLevelSetTsDesc<dim>::updateNodeTag()
 //-------------------------------------------------------------------------------
 
 template<int dim>
-void StructLevelSetTsDesc<dim>::computeForceLoad()
+void StructLevelSetTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wstarij, *Wstarji);
-/*
-  double tempFs[numStructNodes*3];
-  for (int i=0; i<numStructNodes; i++)
-    for (int j=0; j<3; j++)
-      tempFs[i*3+j] = Fs[i][j];
-  this->com->globalSum(3*numStructNodes, tempFs);
-  for (int i=0; i<numStructNodes; i++) {
-    for (int j=0; j<3; j++)
-      Fs[i][j] = tempFs[i*3+j];
-  }
-
-  FILE* fx = fopen("Fx.sol","w");
-  FILE* fy = fopen("Fy.sol","w");
-  FILE* fz = fopen("Fz.sol","w");
-  for (int i=0; i<numStructNodes; i++)
-    this->com->fprintf(fx, "%e\n", Fs[i][0]);
-  for (int i=0; i<numStructNodes; i++)
-    this->com->fprintf(fy, "%e\n", Fs[i][1]);
-  for (int i=0; i<numStructNodes; i++)
-    this->com->fprintf(fz, "%e\n", Fs[i][2]);
-  fclose(fx);
-  fclose(fy);
-  fclose(fz);
-*/
+  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
 }
 
 //-------------------------------------------------------------------------------
@@ -607,7 +584,45 @@ void StructLevelSetTsDesc<dim>::computeForceLoad()
 template <int dim>
 void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]) {
-  computeForceLoad();
+  if (pressureChoice==0) //(default) use p* in force calculation.
+    computeForceLoad(this->Wstarij, this->Wstarji);
+
+  else if (pressureChoice==1) {
+    // -------------- construct Wij, Wji from U. Then use them for force calculation. -------------
+    DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    DistSVec<double,dim> VV(this->getVecInfo());
+    *Wij = 0.0;
+    *Wji = 0.0;
+    this->varFcn->conservativeToPrimitive(U,VV);
+    SubDomain **subD = this->domain->getSubDomain();
+
+#pragma omp parallel for
+    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+      SVec<double,dim> &subWij = (*Wij)(iSub);
+      SVec<double,dim> &subWji = (*Wji)(iSub);
+      SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+      SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+      SVec<double,dim> &subVV = VV(iSub);
+      int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();    
+      if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
+
+      for (int l=0; l<subWij.size(); l++) {
+        int i = ptr[l][0];
+        int j = ptr[l][1];
+        if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
+          for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
+        if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
+          for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
+      }
+    } 
+
+    computeForceLoad(Wij, Wji);
+    delete Wij;
+    delete Wji;
+  }
+//-----------------------------------------------------------------------------------------------
+
   F[0] = F[1] = F[2] = 0.0;
   for (int i=0; i<numStructNodes; i++) {
     F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
@@ -627,7 +642,48 @@ template <int dim>
 void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, DistSVec<double,dim> &U)
 {
   if(dynNodalTransfer) {
-    computeForceLoad();
+
+    if (pressureChoice==0) //(default) use p* in force calculation.
+      computeForceLoad(this->Wstarij, this->Wstarji);
+    
+    else if (pressureChoice==1) {
+      // -------------- construct Wij, Wji from U. Then use them for force calculation. -------------
+      DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+      DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+      DistSVec<double,dim> VV(this->getVecInfo());
+      *Wij = 0.0;
+      *Wji = 0.0;
+      this->varFcn->conservativeToPrimitive(U,VV);
+      SubDomain **subD = this->domain->getSubDomain();
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+        SVec<double,dim> &subWij = (*Wij)(iSub);
+        SVec<double,dim> &subWji = (*Wji)(iSub);
+        SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+        SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+        SVec<double,dim> &subVV = VV(iSub);
+        int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+        if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
+  
+        for (int l=0; l<subWij.size(); l++) {
+          int i = ptr[l][0];
+          int j = ptr[l][1];
+          if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
+            for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
+          if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
+            for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
+        }
+      }
+
+      computeForceLoad(Wij, Wji);
+      delete Wij;
+      delete Wji;
+
+    }
+//-----------------------------------------------------------------------------------------------
+
+
     // Now "accumulate" the force for the embedded structure
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);

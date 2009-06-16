@@ -1598,6 +1598,7 @@ struct StructureIntersect {
   const char *intersectorName;
   const char *libraryName;
   int forceApproach;
+  int pressureChoice;
 
   StructureIntersect() : tree("Data") { }
 
@@ -1610,8 +1611,8 @@ struct StructureIntersect {
 //------------------------------------------------------------------------------
 
 struct EmbeddedStructureInfo {
-  const char* surfaceMeshFile;
-  const char* matcherFile;
+  const char *surfaceMeshFile;
+  const char *matcherFile;
   int mode;
   int coupled;
   double tMax;

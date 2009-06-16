@@ -59,7 +59,7 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU) {
   structure.sendDisplacement(&window);
   window.fence(false);
 
-  fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
+  com.fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
   structU = 1.0/XScale*structU;
 }
 
@@ -228,21 +228,28 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time = dt*(double)it;
-
-    for(int i = 0; i < nNodes; ++i) {
-      U[i][0] = (1-cos(omega*time))*dx;
-      U[i][1] = (1-cos(omega*time))*dy;
-      U[i][2] = (X[i][1]*X[i][1])*(1-cos(omega*time))*dz;
-    }
-   }
+    
+    if(mode==0)
+      for(int i = 0; i < nNodes; ++i) {
+        U[i][0] = (1-cos(omega*time))*dx;
+        U[i][1] = (1-cos(omega*time))*dy;
+        U[i][2] = (X[i][1]*X[i][1])*(1-cos(omega*time))*dz;
+      }
+    else if (mode==1) //heaving
+      for(int i=0; i < nNodes; ++i) {
+        U[i][0] = (1-cos(omega*time))*dx;
+        U[i][1] = (1-cos(omega*time))*dy;
+        U[i][2] = (1-cos(omega*time))*dz; 
+      }
+  }
 //    Communication::Window<double> win2(*intracom, 3*nNodes, (double *)data);
-    std::cout << "Sending a displacement to fluid ";
-    for(int i = 0; i < com.size(); ++i) {
-      std::cout << i;
-      window->put((double *)U, 0, 3*nNodes, i, 0);
-      if(i!=com.size()-1) std::cout << ", ";
-     }
-    std::cout << std::endl;
+  std::cout << "Sending a displacement to fluid ";
+  for(int i = 0; i < com.size(); ++i) {
+    std::cout << i;
+    window->put((double *)U, 0, 3*nNodes, i, 0);
+    if(i!=com.size()-1) std::cout << ", ";
+   }
+  std::cout << std::endl;
 
 }
 
