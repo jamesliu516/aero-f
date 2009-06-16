@@ -2844,10 +2844,13 @@ void StructureIntersect::setup(const char *name) {
   libraryName = 0;
   intersectorName = 0;
   forceApproach = 0;
+  pressureChoice = 0;
+
   new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
   new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
+  new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
 }
 
 //------------------------------------------------------------------------------
@@ -2879,7 +2882,7 @@ void StructureIntersect::activate() {
 
 void EmbeddedStructureInfo::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 0);
-  mode = 0;
+  mode = -1;  // -1 means "no embedded structure".
   coupled = 0;
   tMax = 1.0e-6;
   dt = 1.0e-6;

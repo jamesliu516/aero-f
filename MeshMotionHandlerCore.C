@@ -1069,7 +1069,6 @@ HeavingMeshMotionHandler::HeavingMeshMotionHandler(IoData &iod, Domain *dom) :
 
   dt = iod.forced.timestep;
   omega = 2.0 * acos(-1.0) * iod.forced.frequency;
-
   delta[0] = iod.forced.hv.ax;
   delta[1] = iod.forced.hv.ay;
   delta[2] = iod.forced.hv.az;
@@ -1128,7 +1127,7 @@ DistSVec<double,3> HeavingMeshMotionHandler::getModes()
 double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-
+  
   if (*lastIt) return dt;
 
   double hsintheta = 1.0 - cos(omega * (t + dt));

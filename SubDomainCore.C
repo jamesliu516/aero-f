@@ -4430,8 +4430,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1.0e-8) {
-          fprintf(stderr,"Got a triangle. pStar = %e. Unable to proceed. \n", pStar[k]);
-          exit(-1);
+          fprintf(stderr,"WARNING: Got a triangle. pStar = %e. \n", pStar[k]);
+          pStar[k] = pInfty;
         }
         pStar[k] -= pInfty;
       }
@@ -4490,8 +4490,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
         if (pStar[k]<1e-8) {
-          fprintf(stderr,"Got a quad. pStar = %e. Unable to proceed. \n", pStar[k]);
-          exit(-1);}
+          fprintf(stderr,"WARNING: Got a quad. pStar = %e. \n", pStar[k]);
+          pStar[k] = pInfty;}
         pStar[k] -= pInfty;
       }
       // check if intersection point is really on surface.
