@@ -399,14 +399,15 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   
   new ClassToken<ProblemData>
     (ca, "Type", this, 
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22, 
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 23, 
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3, 
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8, 
      "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11, 
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
-     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21);
+     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
+     "SparseGridGeneration", 22);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this, 
@@ -1359,11 +1360,11 @@ InitialConditionsData::InitialConditionsData()
 }
                                                                                                         
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                         
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   s1.setup("Sphere1", ca);
   s2.setup("Sphere2", ca);
@@ -1372,7 +1373,68 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
+SparseGridData::SparseGridData()
+{
+
+  minPoints = 100;
+  maxPoints = 100;
+  relAccuracy = 1.e-3;
+  absAccuracy = 1.e-1;
+
+  dimAdaptDegree = 0.7;
+
+  range1min = 0.0; range1max = 1.0;
+  range2min = 0.0; range2max = 1.0;
+  range3min = 0.0; range3max = 1.0;
+
+  range1[0] = 0.0; range1[1] = 1.0;
+  range2[0] = 0.0; range2[1] = 1.0;
+  range3[0] = 0.0; range3[1] = 1.0;
+
+  numOutputs = 1;
+  numInputs  = 2;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SparseGridData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+
+  new ClassInt<SparseGridData>
+    (ca, "MinimumNumberOfPoints", this, &SparseGridData::minPoints);
+  new ClassInt<SparseGridData>
+    (ca, "MaximumNumberOfPoints", this, &SparseGridData::maxPoints);
+  new ClassDouble<SparseGridData>
+    (ca, "RelativeAccuracy", this, &SparseGridData::relAccuracy);
+  new ClassDouble<SparseGridData>
+    (ca, "AbsoluteAccuracy", this, &SparseGridData::absAccuracy);
+  new ClassDouble<SparseGridData>
+    (ca, "Output1Minimum", this, &SparseGridData::range1min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output1Maximum", this, &SparseGridData::range1max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output2Minimum", this, &SparseGridData::range2min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output2Maximum", this, &SparseGridData::range2max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output3Minimum", this, &SparseGridData::range3min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output3Maximum", this, &SparseGridData::range3max);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfOutputs", this, &SparseGridData::numOutputs);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfInputs",  this, &SparseGridData::numInputs);
+  new ClassDouble<SparseGridData>
+    (ca, "DimAdaptDegree", this, &SparseGridData::dimAdaptDegree);
+
+}
+
+//------------------------------------------------------------------------------
+
 MultiFluidData::MultiFluidData()
 {
 
@@ -1399,7 +1461,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 17, father);
+  ClassAssigner *ca = new ClassAssigner(name, 18, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1442,6 +1504,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   fluidModel.setup("FluidModel", ca);
   fluidModel2.setup("FluidModel2", ca);
   initialConditions.setup("InitialConditions", ca);
+  sparseGrid.setup("SparseGrid",ca);
                                                                                                         
 }
 
@@ -3250,6 +3313,7 @@ int IoData::checkInputValues()
   checkInputValuesDefaultOutlet();
 
   checkInputValuesMulti_step2();
+  error += checkInputValuesSparseGrid(mf.sparseGrid);
                                                                                                   
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -4434,3 +4498,32 @@ for(int j = 1; j < 8*sizeof(int); j++) {
 
 }  
 
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
+
+  int error = 0;
+
+  if(sparseGrid.minPoints > sparseGrid.maxPoints){
+    com->fprintf(stderr, "*** Error: sparse grid has incorrect number of points\n");
+    error++;
+  }
+
+  if(sparseGrid.relAccuracy <= 0.0 || sparseGrid.absAccuracy <= 0.0){
+    com->fprintf(stderr, "*** Error: sparse grid has incorrect accuracy specification(s)\n");
+    error++;
+  }
+
+  if(sparseGrid.dimAdaptDegree<0.0 || sparseGrid.dimAdaptDegree>1.0){
+    com->fprintf(stderr, "*** Error: sparse grid must have a dimension adaptivity degree between 0 and 1\n");
+    error++;
+  }
+
+  if(sparseGrid.numOutputs <= 0 || sparseGrid.numInputs <= 0){
+    com->fprintf(stderr, "*** Error: sparse grid must have positive numbers of inputs and outputs\n");
+    error++;
+  }
+
+  return error;
+
+}

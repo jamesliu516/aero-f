@@ -2,6 +2,7 @@
 #define _LOCAL_RIEMANN_H
 
 #include <LinkF77.h>
+#include <SparseGrid.h>
 
 class VarFcn;
 
@@ -53,6 +54,8 @@ public:
                         double &rhoil, double &rhoir,
                         VarFcn *vf){}
 
+  //void tabulateRiemann(VarFcn *vf, double v1, double s1, double vref, double &u){ u = 1.0; }
+  void tabulateRiemann(double v1, double s1, double vref, double &u){ u = 1.0; }
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);
 
