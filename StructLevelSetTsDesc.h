@@ -94,6 +94,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                 // = 4 : on Gamma*, formula 2;
   int pressureChoice; // = 0. use p* in force calculation.
                       // = 1. use pij or pji (reconstructed pressure) in force calculation.
+  int phaseChangeChoice; // = 0. use nodal values.
+                         // = 1. use solutions of Riemann problems.
   const int TYPE;   //TYPE = 1 (for fluid-fullbody)
                     //     = 2 (for fluid-shell-fluid)
 

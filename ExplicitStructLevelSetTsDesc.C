@@ -71,11 +71,17 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
 
   if(this->TYPE==1 && this->mmh) { //recompute intersections and update phase change.
+
     if (this->Weights && this->VWeights)
-      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                     *this->VWeights, this->distLSS);
+      if (this->phaseChangeChoice==0)
+        this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                       *this->VWeights, this->distLSS);
+      else if (this->phaseChangeChoice==1)
+        this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij, 
+                                                       *this->Wstarji, *this->Weights, *this->VWeights,
+                                                       this->distLSS);
+
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-    this->com->fprintf(stderr,"dtf = %e, dtfLeft = %e, dts = %e.\n", this->dtf, this->dtfLeft, this->dts);
 
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
 

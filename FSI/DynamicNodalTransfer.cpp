@@ -241,6 +241,12 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][1] = (1-cos(omega*time))*dy;
         U[i][2] = (1-cos(omega*time))*dz; 
       }
+    else if (mode==2) //heaving with a constant velocity (in this case dx dy dz are velocity
+      for(int i=0; i < nNodes; ++i) {
+        U[i][0] = time*dx;
+        U[i][1] = time*dy;
+        U[i][2] = time*dz;
+      }
   }
 //    Communication::Window<double> win2(*intracom, 3*nNodes, (double *)data);
   std::cout << "Sending a displacement to fluid ";

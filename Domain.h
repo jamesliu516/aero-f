@@ -358,6 +358,11 @@ public:
                           DistLevelSetStructure *distLSS);
 
   template<int dim>
+  void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
+               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS);
+
+  template<int dim>
   void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
 			  DistVec<double> &Phi, DistSVec<double,dim> &Psi,
 			  DistVec<int> &Tag,

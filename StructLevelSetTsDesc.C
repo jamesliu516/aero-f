@@ -41,6 +41,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
   forceApp = ioData.strucIntersect.forceApproach;
   pressureChoice = ioData.strucIntersect.pressureChoice;
+  phaseChangeChoice = ioData.strucIntersect.phaseChangeChoice;
 
   this->postOp->setForceGenerator(this);
   if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");

@@ -1642,6 +1642,20 @@ void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, 
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+void SpaceOperator<dim>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, 
+                           DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
+                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                           DistLevelSetStructure *distLSS)
+{
+  varFcn->conservativeToPrimitive(U, V);
+  Weights = 0.0;
+  VWeights = 0.0;
+  domain->computeRiemannWeightsForEmbeddedStruct(X, V, Wstarij, Wstarji, Weights, VWeights, distLSS);
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
@@ -1683,7 +1697,6 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistLevelSetStructure *distLSS)
 {
   SubDomain **subD = domain->getSubDomain();
-
 #pragma omp parallel for
   for (int iSub=0; iSub<domain->getNumLocSub(); iSub++) {
     int* locToGlobNodeMap = subD[iSub]->getNodeMap();

@@ -2845,12 +2845,14 @@ void StructureIntersect::setup(const char *name) {
   intersectorName = 0;
   forceApproach = 0;
   pressureChoice = 0;
+  phaseChangeChoice = 0;
 
   new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
   new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
   new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
+  new ClassInt<StructureIntersect>(ca, "phaseChangeChoice", this, &StructureIntersect::phaseChangeChoice);
 }
 
 //------------------------------------------------------------------------------

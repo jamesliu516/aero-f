@@ -1599,6 +1599,7 @@ struct StructureIntersect {
   const char *libraryName;
   int forceApproach;
   int pressureChoice;
+  int phaseChangeChoice;
 
   StructureIntersect() : tree("Data") { }
 

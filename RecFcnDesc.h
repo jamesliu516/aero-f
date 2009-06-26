@@ -672,7 +672,6 @@ inline
 void RecFcnVanAlbada<5>::compute(double* Vi, double* ddVij, double* Vj, double* ddVji,
 				 double* Vij, double* Vji)
 {
-  //[Kevin's temporary notes] I am here (01/03/2009)
   vanalbada(Vi[0], ddVij[0], Vj[0], ddVji[0], Vij[0], Vji[0]);
   vanalbada(Vi[1], ddVij[1], Vj[1], ddVji[1], Vij[1], Vji[1]);
   vanalbada(Vi[2], ddVij[2], Vj[2], ddVji[2], Vij[2], Vji[2]);

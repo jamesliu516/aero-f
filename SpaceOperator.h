@@ -165,6 +165,11 @@ public:
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistLevelSetStructure *distLSS);
+  void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
+                           DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                           DistLevelSetStructure *distLSS);
   void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,

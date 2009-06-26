@@ -119,7 +119,6 @@ void RigidMeshMotionHandler::setupVelocityPoints(IoData &ioData)
   //we want the points to be ordered with increasing time
   int ierrlocal = 0;
   for (int i=0; i<nvpts-1; i++) {
-   // fprintf(stderr,"<Kevin's debugging> timeVpts[i] = %f, timeVpts[i+1] = %f.\n", timeVpts[i], timeVpts[i+1]);
     if(timeVpts[i] >= timeVpts[i+1])
       ierrlocal++;
   }

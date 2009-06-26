@@ -3187,6 +3187,24 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
 //------------------------------------------------------------------------------
 
 template<int dim>
+void Domain::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
+               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeRiemannWeightsForEmbeddedStruct(V(iSub), Wstarij(iSub), Wstarji(iSub), 
+                                                     VWeights(iSub),Weights(iSub), (*distLSS)(iSub),X(iSub));
+
+  assemble(vecPat, VWeights);
+  assemble(volPat, Weights);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
                                 DistVec<double> &Phi, DistSVec<double,dim> &Psi,
                                 DistVec<int> &Tag,

@@ -825,6 +825,11 @@ public:
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
 
   template<int dim>
+  void computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,
+                      SVec<double,dim> &Wstarji, SVec<double,dim> &VWeights, Vec<double> &Weights,
+                      LevelSetStructure &LSS, SVec<double,3> &X);
+
+  template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
 
   template<int dim>

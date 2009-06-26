@@ -1203,8 +1203,11 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     if (pi>p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
   }
   else{ // shock
-    double temp = 2.0/((gamma+1)*rho*(ui-u)*(ui-u));
+/*    double temp = 2.0/((gamma+1)*rho*(ui-u)*(ui-u));
     pi = p + 0.5*(1.0+sqrt(8.0*gamma*temp*(p+pref)/(gamma+1.0)+1.0))/temp;
+*/
+    double temp = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
+    pi = p + 0.5*temp + sqrt(0.25*temp*temp + 2.0*gamma*temp*(p+pref)/(gamma+1.0));
     temp = (gamma-1.0)/(gamma+1.0);
     double pstarbar = pi + pref;
     double pbar = p + pref;
