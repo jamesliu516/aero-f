@@ -87,7 +87,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
 
 class PhysBAMIntersector : public LevelSetStructure {
   public:
-    static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1;
+    static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1; //INSIDE: inside real fluid, OUTSIDE: ~~
 
   protected:
   public: // For debug

@@ -424,9 +424,6 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 					   DistVec<double> &ctrlVol, DistSVec<double,dim> &U)
 {
 
-  //Kevin's debug.
-  Communicator *com = domain->getCommunicator();
-
   varFcn->conservativeToPrimitive(U, *V);
 
   domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, X, ctrlVol, *V, *dt, *idti, *idtv, *irey, tprec, sprec);

@@ -296,8 +296,10 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     delete [] mi;
     delete [] fv;
     delete [] mv;
-  } 
+  }
+
   double F[3], M[3];
+  F[0] = F[1] = F[2] = M[0] = M[1] = M[2] = 0.0;
   if(forceGen != 0)
     forceGen->getForcesAndMoments(U, X, F, M);
 
@@ -347,6 +349,8 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       Mv[0] += Mv[it->second];
     }
   }
+
+
 }
 
 //------------------------------------------------------------------------------

@@ -1123,7 +1123,6 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
     // if single-phase flow -- Phi is a null pointer
     // if multi-phase flow  -- Phi points to a DistVec<double>
     postOp->computeForceAndMoment(rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
-
     if(mX != 0) 
       com->globalSum(GF.size(), GF.data());
 

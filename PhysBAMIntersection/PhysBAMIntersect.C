@@ -429,42 +429,6 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
 
   fclose(topFile);
 
-
-/*
-  int len;
-  len = fscanf(topFile,"%d %d", &length_solids_particle_list, &length_triangle_list);
-
-  triangle_list = new int[length_triangle_list][3];
-  solids_particle_list           = new Vec3D[length_solids_particle_list];
-  solids_particle_list0          = new Vec3D[length_solids_particle_list];
-  solids_particle_list_n         = new Vec3D[length_solids_particle_list];
-  solids_particle_list_nPlus1    = new Vec3D[length_solids_particle_list];
-  solidVel                       = new Vec3D[length_solids_particle_list];
-  solidX = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list);
-
-
-  int thisNode;
-  for (int iNode=0; iNode<length_solids_particle_list; iNode++)
-    len = fscanf(topFile, "%d %lf %lf %lf", &thisNode, &(solids_particle_list[iNode][0]),
-        &(solids_particle_list[iNode][1]), &(solids_particle_list[iNode][2]));
-  if (thisNode!=length_solids_particle_list) {com->fprintf(stderr,"error in loading surface from file *!\n"); exit(1);}
-
-  for (int k=0; k<length_solids_particle_list; k++) {
-    solids_particle_list0[k]          = solids_particle_list[k];
-    solids_particle_list_n[k]         = solids_particle_list[k];
-    solids_particle_list_nPlus1[k]    = solids_particle_list[k];
-    solidVel[k]                       = Vec3D(0.0, 0.0, 0.0);
-  }
-
-  int nothing;
-  for (int iElem=0; iElem<length_triangle_list; iElem++) {
-    len = fscanf(topFile, "%d %d %d %d %d", &thisNode, &nothing, &(triangle_list[iElem][0]), &(triangle_list[iElem][1]),
-        &(triangle_list[iElem][2]));
-    triangle_list[iElem][0]--; triangle_list[iElem][1]--; triangle_list[iElem][2]--;
-  }
-  if (thisNode!=length_triangle_list) {com->fprintf(stderr,"error in loading surface from file **!\n", thisNode); exit(1);}
-  fclose(topFile);
-*/
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"Checking the solid surface...\n");
   if (checkTriangulatedSurface()) com->fprintf(stderr,"Ok.\n");
@@ -733,10 +697,12 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
   //debug.
+  int iHere = 1;
+  //int iHere = 253;
   double xHere[3];
-  xHere[0] = physInterface->triangulated_surface.particles.X(253)(1);
-  xHere[1] = physInterface->triangulated_surface.particles.X(253)(2);
-  xHere[2] = physInterface->triangulated_surface.particles.X(253)(3);
+  xHere[0] = physInterface->triangulated_surface.particles.X(iHere)(1);
+  xHere[1] = physInterface->triangulated_surface.particles.X(iHere)(2);
+  xHere[2] = physInterface->triangulated_surface.particles.X(iHere)(3);
   com->fprintf(stderr,"xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
 
   for(int i = 0; i < numLocSub; ++i) {
@@ -748,6 +714,7 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->finishNodeStatus(*(domain->getSubDomain()[i]), (*X)(i));
     intersector[i]->findIntersections((*X)(i));
   }
+
 }
 
 //----------------------------------------------------------------------------
@@ -951,8 +918,8 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
         list[lead++] = nToN[cur][i];
       } else {
         if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
-          std::cerr << "Incompatible nodes have met: " << cur << "("<< status[cur] <<") and " << 
-             nToN[cur][i] << "(" << status[nToN[cur][i]] << ") " <<
+          std::cerr << "Incompatible nodes have met: " << locToGlobNodeMap[cur]+1 << "("<< status[cur] <<") and " << 
+             locToGlobNodeMap[nToN[cur][i]]+1 << "(" << status[nToN[cur][i]] << ") " <<
              " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
       }
     }
@@ -1083,8 +1050,8 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
     }
 
     if (edgeRes(1).y.triangleID<0 && edgeRes(2).y.triangleID<0)
-    fprintf(stderr,"ERROR: failed to get an intersection between node %d and %d. \n",
-                    locToGlobNodeMap[p]+1,locToGlobNodeMap[q]+1);
+    fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
+                    locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
   }
  
 //  std::cout << "Maximum edge distance: " << maxEdgeSize << std::endl;
