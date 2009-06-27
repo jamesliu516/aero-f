@@ -6,8 +6,8 @@
 class RefVal;
 class VarFcn;
 
-void functionTest(double a, double b, double c, double &res){ 
-  res = a*a*b + a + 100*b + a*b/2.0;
+void functionTest(double *in, double *res){ 
+  res[0] = in[0]*in[0]*in[1] + in[0] + 100*in[1] + in[0]*in[1]/2.0;
   //fprintf(stderr, "in functionTest -- res = %e\n", res);
 }
 
@@ -67,9 +67,9 @@ public:
       coord[0][1] = 8.11111;
       sparseGridCopy.interpolate(1, coord, output);
       fprintf(stdout, "interpolation output is %e\n", output[0][0]);
-      double res;
-      functionTest(coord[0][0],coord[0][1],1.0,res);
-      fprintf(stdout, "exact output is %e\n", res);
+      double *res = new double;
+      functionTest(coord[0],res);
+      fprintf(stdout, "exact output is %e\n", res[0]);
     }else{
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 5\n");
     }

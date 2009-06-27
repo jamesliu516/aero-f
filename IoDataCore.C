@@ -1376,6 +1376,7 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 
 SparseGridData::SparseGridData()
 {
+  verbose = 0;
 
   minPoints = 100;
   maxPoints = 100;
@@ -1402,8 +1403,10 @@ SparseGridData::SparseGridData()
 void SparseGridData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
 
+  new ClassInt<SparseGridData>
+    (ca, "Verbose", this, &SparseGridData::verbose);
   new ClassInt<SparseGridData>
     (ca, "MinimumNumberOfPoints", this, &SparseGridData::minPoints);
   new ClassInt<SparseGridData>
