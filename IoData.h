@@ -788,6 +788,8 @@ struct InitialConditionsData {
 
 struct SparseGridData {
 
+  int verbose;
+
   int minPoints;
   int maxPoints;
   double relAccuracy;

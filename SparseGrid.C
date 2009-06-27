@@ -7,6 +7,8 @@
 template<int dim, int out>
 SparseGrid<dim,out>::SparseGrid(){
 
+  verbose = 0;
+
   nPoints     = 0;
   sizeSurplus = 0;
   surplus     = 0;
@@ -17,8 +19,8 @@ SparseGrid<dim,out>::SparseGrid(){
 
   maxPoints = 100;
   minPoints = 100;
-  absAccuracy = 1.0;
-  relAccuracy = 0.1;
+  absAccuracy = -1.0;
+  relAccuracy = -1.0;
   for(int idim=0; idim<dim; idim++){
     range[idim][0] = 0.0;
     range[idim][1] = 0.0;
@@ -26,12 +28,10 @@ SparseGrid<dim,out>::SparseGrid(){
   dimAdaptDegree = 0.0;
 
   nAdaptivePoints = 0;
-  nInactiveSet = 0;
-  inactiveSet = 0;
-  activeSetAll = 0;
+  active = 0;
 
-  errorActiveSet = 0;
-  costActiveSet  = 0;
+  activeError = 0;
+  activeCost  = 0;
 
   neighbour = 0;
   error = 0;
@@ -45,10 +45,9 @@ SparseGrid<dim,out>::~SparseGrid(){
 
   delete [] surplus;
   delete [] multiIndex;
-  delete [] inactiveSet;
-  delete [] activeSetAll;
-  delete [] errorActiveSet;
-  delete [] costActiveSet;
+  delete [] active;
+  delete [] activeError;
+  delete [] activeCost;
   delete [] neighbour;
   delete [] error;
 
@@ -57,44 +56,9 @@ SparseGrid<dim,out>::~SparseGrid(){
 //------------------------------------------------------------------------------
 
 template<int dim, int out>
-SparseGrid<dim,out>::SparseGrid(int maxPts_, int minPts_, double absAcc_,
-          double relAcc_, double range_[dim][2], double dimAdaptDegree_){
-
-  maxPoints = maxPts_;
-  minPoints = minPts_;
-  absAccuracy = absAcc_;
-  relAccuracy = relAcc_;
-  for(int idim=0; idim<dim; idim++){
-    range[idim][0] = range_[idim][0];
-    range[idim][1] = range_[idim][1];
-  }
-  dimAdaptDegree = dimAdaptDegree_; //min(max(dimAdaptDegree_,0),1);
-
-  nPoints         = 0;
-  sizeSurplus     = maxPoints;
-  surplus         = new Output[sizeSurplus];
-
-  nSubGrids       = 0;
-  sizeMultiIndex  = 10;
-  multiIndex      = new MultiIndex[sizeMultiIndex];
-
-  nAdaptivePoints = 0;
-  nInactiveSet    = 0;
-  inactiveSet     = new int[sizeMultiIndex];
-  activeSetAll    = new bool[sizeMultiIndex];
-
-  errorActiveSet  = new double[sizeMultiIndex];
-  costActiveSet   = new double[sizeMultiIndex];
-
-  neighbour       = new Neighbour[sizeMultiIndex];
-  error           = new Output[sizeMultiIndex];
-  
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, int out>
 SparseGrid<dim,out>::SparseGrid(SparseGridData &data){
+
+  verbose = data.verbose;
 
   maxPoints = data.maxPoints;
   minPoints = data.minPoints;
@@ -117,11 +81,9 @@ SparseGrid<dim,out>::SparseGrid(SparseGridData &data){
   multiIndex      = new MultiIndex[sizeMultiIndex];
 
   nAdaptivePoints = 0;
-  nInactiveSet    = 0;
-  inactiveSet     = new int[sizeMultiIndex];
-  activeSetAll    = new bool[sizeMultiIndex];
-  errorActiveSet  = new double[sizeMultiIndex];
-  costActiveSet   = new double[sizeMultiIndex];
+  active          = new bool[sizeMultiIndex];
+  activeError  = new double[sizeMultiIndex];
+  activeCost   = new double[sizeMultiIndex];
 
   neighbour       = new Neighbour[sizeMultiIndex];
   error           = new Output[sizeMultiIndex];
@@ -131,11 +93,9 @@ SparseGrid<dim,out>::SparseGrid(SparseGridData &data){
 //------------------------------------------------------------------------------
 
 template<int dim, int out>
-void SparseGrid<dim,out>::tabulate(void (*fn)(double, double, double, double &)){
+void SparseGrid<dim,out>::tabulate(void (*fn)(Coord , Output )){
 
-  fprintf(stdout, "###########################################\n");
-  fprintf(stdout, "#     INITIALIZATION\n");
-  fprintf(stdout, "###########################################\n");
+  messages(1);
   initialize(fn);
 
   bool success = false;
@@ -143,44 +103,19 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(double, double, double, double &))
   int currentMultiIndex, addedSubGrids;
 
   while(nPoints<maxPoints && !success){
-    fprintf(stdout, "###########################################\n");
-    fprintf(stdout, "#     BEGIN ITERATION\n");
-    fprintf(stdout, "###########################################\n");
-    fprintf(stdout, "#     STATE AT BEGINNING OF ITERATION\n");
-    fprintf(stdout, "# activeSetAll is:");
-    for(int kk = 0; kk<nSubGrids; kk++)
-      fprintf(stdout, "  %d", activeSetAll[kk]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "# multiIndex is:");
-    for(int idim = 0; idim<dim; idim++){
-      for(int kk = 0; kk<nSubGrids; kk++)
-        fprintf(stdout, "  %d", multiIndex[kk][idim]);
-      fprintf(stdout, "\n#               ");
-    }
-    fprintf(stdout, "\n");
-    fprintf(stdout, "# errorActiveSet is:");
-    for(int kk = 0; kk<nSubGrids; kk++)
-      fprintf(stdout, "  %e", errorActiveSet[kk]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "# costActiveSet is:");
-    for(int kk = 0; kk<nSubGrids; kk++)
-      fprintf(stdout, "  %e", costActiveSet[kk]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "# errors are:");
-    for(int iout = 0; iout<out; iout++){
-      for(int kk = 0; kk<nSubGrids; kk++)
-        fprintf(stdout, "  %e", error[kk][iout]);
-      fprintf(stdout, "\n#               ");
-    }
-    fprintf(stdout, "\n");
+
+    messages(2);
+    
     // get next active subgrid
     currentMultiIndex = currentSubGrid(adaptivity);
-    fprintf(stdout, "###########################################\n");
-    fprintf(stdout, "# adding grid number %d(%d) to inactive grid set\n", currentMultiIndex, adaptivity);
-    fprintf(stdout, "###########################################\n");
-    // get the backward neighbours of that subgrid (why?)
+    if(currentMultiIndex<0){
+      fprintf(stdout, "SparseGrid: no more subgrids available\n");
+      exit(1);
+    }
+    active[currentMultiIndex] = false;
+    messages(3,currentMultiIndex);
 
-    // resize arrays if potential number of grids exceeds sizeMultiIndex at end of iteration
+    // resize arrays
     while(nSubGrids+dim>sizeMultiIndex) resizeMultiIndex();
 
     addedSubGrids = 0;
@@ -188,22 +123,15 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(double, double, double, double &))
     //   check if it is admissible
     for(int idim=0; idim<dim; idim++){
       if(admissible(currentMultiIndex, idim)){
-        fprintf(stdout, "###########################################\n");
-        fprintf(stdout, "# neighbour of %d in direction %d is admissible\n", currentMultiIndex, idim);
-        fprintf(stdout, "###########################################\n");
+        messages(4,currentMultiIndex);
         // find its own neighbours
         findNeighbours(currentMultiIndex, idim, addedSubGrids);
-        activeSetAll[neighbour[currentMultiIndex][idim]] = true;
+        // the forward admissible neighbour is now active
+        active[neighbour[currentMultiIndex][idim]] = true;
         addedSubGrids++;
       }
     }
-    fprintf(stdout, "###########################################\n");
-    fprintf(stdout, "# neighbours of %d are:", currentMultiIndex);
-    for(int ineigh=0; ineigh<2*dim; ineigh++)
-      fprintf(stdout, "  %d", neighbour[currentMultiIndex][ineigh]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "###########################################\n");
-      
+    messages(5,currentMultiIndex);
 
     // get the hierarchical surplus of the points on the admissible 
     // forward neighbouring subgrids (which become active subgrids)
@@ -212,22 +140,13 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(double, double, double, double &))
       nPoints += numNewPoints;
       nSubGrids++;
       if(adaptivity) nAdaptivePoints += numNewPoints;
-      fprintf(stdout, "###########################################\n");
-      fprintf(stdout, "# forward admissible grid %d leads to %d points and %d subgrids\n", forwardAdmissible, nPoints, nSubGrids);
-      fprintf(stdout, "###########################################\n");
+      messages(6,forwardAdmissible);
     }
-    activeSetAll[currentMultiIndex] = false;
 
     if(nPoints>minPoints)
       success = checkAccuracy();
 
-    fprintf(stdout, "###########################################\n");
-    fprintf(stdout, "\n");
   }
-  fprintf(stdout, "\n");
-  fprintf(stdout, "###########################################\n");
-  fprintf(stdout, "#     SPARSE GRID HAS BEEN CREATED\n");
-  fprintf(stdout, "###########################################\n");
 
 }
 
@@ -235,7 +154,7 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(double, double, double, double &))
 
 template<int dim, int out>
 inline
-void SparseGrid<dim,out>::initialize(void (*fn)(double,double,double,double &)){
+void SparseGrid<dim,out>::initialize(void (*fn)(Coord, Output )){
 // initialization of the data structures for the first subgrid
 // in the Clenshaw-Curtis grid, which contains only one point located
 // at the center of the hypercube (this is level of refinement 0 in all directions).
@@ -244,23 +163,28 @@ void SparseGrid<dim,out>::initialize(void (*fn)(double,double,double,double &)){
   nPoints   = 1;
   nSubGrids = 1;
   for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
-  Coord firstPoint; double res;
+
+  Coord firstPoint; Output res;
   for(int idim=0; idim<dim; idim++) 
     firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
-  if(out==1) fn(firstPoint[0],firstPoint[1],temp,res);
-  for(int iout=0; iout<out; iout++) surplus[0][iout] = res;
+  fn(firstPoint,res);
+  for(int iout=0; iout<out; iout++){
+    surplus[0][iout] = res[iout];
+    fnmin[iout]      = res[iout];
+    fnmax[iout]      = res[iout];
+  }
   
-  
-  errorActiveSet[0] = surplus[0][0]; //max(surplus[0]);
+  activeError[0] = surplus[0][0]; //max(surplus[0]);
   for(int iout=1; iout<out; iout++)
-    if(errorActiveSet[0]<surplus[0][iout]) errorActiveSet[0] = surplus[0][iout];
-  costActiveSet[0]  = 1.0;
-  activeHeapError.insert(0,errorActiveSet);
-  activeHeapCost.insert(0,costActiveSet);
-  activeSetAll[0] = true;
+    if(activeError[0]<surplus[0][iout]) activeError[0] = surplus[0][iout];
+  activeCost[0]  = 1.0;
+  activeHeapError.insert(0,activeError);
+  activeHeapCost.insert(0,activeCost);
+  active[0] = true;
 
   for(int iout=0; iout<out; iout++)
     error[0][iout] = surplus[0][iout];
+
   // no backward neighbour for subGrid multiIndex[0]
   for(int isize=0; isize<sizeMultiIndex; isize++)
     for(int neigh=0; neigh<2*dim; neigh++)
@@ -272,6 +196,7 @@ void SparseGrid<dim,out>::initialize(void (*fn)(double,double,double,double &)){
 template<int dim, int out>
 inline
 int SparseGrid<dim,out>::currentSubGrid(bool &adaptivity){
+// pick next subgrid: choose from the two available heaps
 
   bool done = false;
   int current  = -1;
@@ -281,20 +206,20 @@ int SparseGrid<dim,out>::currentSubGrid(bool &adaptivity){
   while(!done){
     current = -1;
     if(nAdaptivePoints>dimAdaptDegree*nPoints) // non-adaptive
-      current = activeHeapCost.pop(costActiveSet);
+      current = activeHeapCost.pop(activeCost);
 
     if(current<0){ // adaptive
-      current = activeHeapError.pop(errorActiveSet);
+      current = activeHeapError.pop(activeError);
       if(current>=0) adaptivity = true;
     }
 
     if(current<0)
-      current = activeHeapCost.pop(costActiveSet);
+      current = activeHeapCost.pop(activeCost);
 
     if(current<0) return current;
 
-    // make usre it is really active
-    if(activeSetAll[current]) done = true;
+    // make sure it is really active
+    if(active[current]) done = true;
 
   }
 
@@ -310,14 +235,15 @@ bool SparseGrid<dim,out>::admissible(const int currentMultiIndex,
                                      const int forwardDir){
 
   // currentMultiIndex has multi-index multiIndex[currentMultiIndex]
-  // the forward neighbour considered here has multi-index:
-  //    multiIndex[currentMultiIndex] + canonical_vector(forwardDir)
-  // To check its admissibility, all its backward neighbours must be inactive
-  //   subgrids. In particular, its backward neighbour currentMultiIndex
+  // To check the admissibility of the newMultiIndex 
+  // (defined by the forward neighbour of currentMultiIndex in the 
+  //  direction forwardDir, see sketch SparseGrid<dim,out>::findNeighbours),
+  // all its backward neighbours must be inactive (integrated) subgrids.
+  // In particular, its backward neighbour currentMultiIndex
   //   refers to an inactive subgrid. 
 
-// NOT VALID FOR FIRST POINT of FIRST GRID!
-  int backwardOfCurrent, backwardOfForward;
+  int backwardOfCurrent, backwardOfNew;
+
   for(int idim=0; idim<dim; idim++){
     if(forwardDir == idim) continue;
     backwardOfCurrent = neighbour[currentMultiIndex][dim+idim];
@@ -328,9 +254,9 @@ bool SparseGrid<dim,out>::admissible(const int currentMultiIndex,
       }
       continue;
     }
-    backwardOfForward = neighbour[backwardOfCurrent][forwardDir];
-    if(backwardOfForward<0) return false; // not part of sparse grid 
-    if(activeSetAll[backwardOfForward]) return false; // part of sparse grid, but active
+    backwardOfNew = neighbour[backwardOfCurrent][forwardDir];
+    if(backwardOfNew<0)       return false; // not part of sparse grid 
+    if(active[backwardOfNew]) return false; // part of sparse grid, but active
     
   }
 
@@ -344,29 +270,39 @@ template<int dim, int out>
 inline
 void SparseGrid<dim,out>::findNeighbours(const int currentMultiIndex,
                                          const int forwardDir, const int addedSubGrids){
-// NOT VALID FOR FIRST POINT of FIRST GRID!
-  int backwardOfCurrent, backwardOfForward;
+  int backwardOfCurrent, backwardOfNew;
+  const int newMultiIndex = nSubGrids+addedSubGrids;
 
+//    ____________________
+//   |         |          |
+//   | Current |   New    |  idim
+//   |_________|__________|   ^
+//   |         |          |   |
+//   |  bOfC   |  bOfN    |   |
+//   |_________|__________|   ----> forwardDir
+//
+
+  // find the neighbours
   for(int idim=0; idim<dim; idim++){
     if(forwardDir == idim){
-      neighbour[currentMultiIndex      ][forwardDir    ] = nSubGrids+addedSubGrids;
-      neighbour[nSubGrids+addedSubGrids][dim+forwardDir] = currentMultiIndex;
+      neighbour[currentMultiIndex][forwardDir    ] = newMultiIndex;
+      neighbour[newMultiIndex    ][forwardDir+dim] = currentMultiIndex;
     }else{
       backwardOfCurrent = neighbour[currentMultiIndex][dim+idim];
       if(!(backwardOfCurrent<0)){ 
-        backwardOfForward = neighbour[backwardOfCurrent][forwardDir];
-        neighbour[backwardOfForward      ][idim    ] = nSubGrids+addedSubGrids;
-        neighbour[nSubGrids+addedSubGrids][dim+idim] = backwardOfForward;
+        backwardOfNew = neighbour[backwardOfCurrent][forwardDir];
+        neighbour[backwardOfNew][idim    ] = newMultiIndex;
+        neighbour[newMultiIndex][idim+dim] = backwardOfNew;
       }
     }
   }
 
+  // get the levels of refinement of the new active subgrids
   for(int idim=0; idim<dim; idim++){
-//    fprintf(stderr, "### findNeighbours -- %d is a backward neighbour of %d in direction %d\n", neighbour[nSubGrids+addedSubGrids][idim+dim], nSubGrids+addedSubGrids, idim);
-//    fprintf(stderr, "### findNeighbours -- it has level %d\n", multiIndex[neighbour[nSubGrids+addedSubGrids][idim+dim]][idim]);
-    if(neighbour[nSubGrids+addedSubGrids][idim+dim]>=0)
-      multiIndex[nSubGrids+addedSubGrids][idim] = multiIndex[neighbour[nSubGrids+addedSubGrids][idim+dim]][idim]+1;
-    else multiIndex[nSubGrids+addedSubGrids][idim] = 0;
+    backwardOfNew = neighbour[newMultiIndex][idim+dim];
+    if(backwardOfNew>=0)
+      multiIndex[newMultiIndex][idim] = multiIndex[backwardOfNew][idim]+1;
+    else multiIndex[newMultiIndex][idim] = 0;
   }
 
 }
@@ -376,24 +312,18 @@ void SparseGrid<dim,out>::findNeighbours(const int currentMultiIndex,
 template<int dim, int out>
 inline
 int SparseGrid<dim,out>::integrateForwardAdmissible(const int newSubGridIndex,
-                            void (*fn)(double,double,double,double &)){
+                            void (*fn)(Coord , Output )){
 
   int nPointsSubGrid;
-  //fprintf(stderr, "### integrateForwardAdmissible -- generating SubGrid\n");
   Coord * subGrid = generateSubGrid(newSubGridIndex,nPointsSubGrid);
-  //fprintf(stderr, "### integrateForwardAdmissible -- evaluating Function on SubGrid\n");
   evaluateFunctionOnGrid(subGrid, nPointsSubGrid, fn);
-  //fprintf(stderr, "### integrateForwardAdmissible -- evaluating Interpolation on Grid\n");
+  bounds(nPointsSubGrid);
   evaluatePreviousInterpolation(subGrid, nPointsSubGrid);
-  //fprintf(stderr, "### integrateForwardAdmissible -- updating Errors\n");
+
   updateError(nPointsSubGrid);
-  //fprintf(stderr, "### integrateForwardAdmissible -- updating Costs\n");
   updateCost();
-  //fprintf(stderr, "### integrateForwardAdmissible -- inserting new grid in active heap for error\n");
-  activeHeapError.insert(newSubGridIndex,errorActiveSet);
-  //fprintf(stderr, "### integrateForwardAdmissible -- inserting new grid in active heap for cost\n");
-  activeHeapCost.insert(newSubGridIndex,costActiveSet);
-  //fprintf(stderr, "### integrateForwardAdmissible -- about to return\n");
+  activeHeapError.insert(newSubGridIndex,activeError);
+  activeHeapCost.insert(newSubGridIndex,activeCost);
 
   delete [] subGrid;
   return nPointsSubGrid;
@@ -408,11 +338,7 @@ SparseGrid<dim,out>::generateSubGrid(const int newSubGrid,
                                      int &nPointsSubGrid){
 
   // find number of points in subgrid (Clenshaw-Curtis type)
-  //   and coordinates of the points in each direction
-  // tensorization is done later.
-  fprintf(stderr, "the new subgrid (%d) has multi indices:\n", newSubGrid);
-  for(int idim=0; idim<dim; idim++)
-    fprintf(stderr, "%d  ", multiIndex[newSubGrid][idim]);
+  // and coordinates of the points in each direction.
   nPointsSubGrid = 1;
   int nPointsDim[dim];
   int nCumulatedPointsDim[dim];
@@ -493,91 +419,18 @@ template<int dim, int out>
 inline
 void SparseGrid<dim,out>::evaluateFunctionOnGrid(Coord *subGrid,
                                                  const int nPointsSubGrid,
-                                                 void (*fn)(double,double,double,double &)){
+                                                 void (*fn)(Coord , Output )){
 
   while(nPoints+nPointsSubGrid > sizeSurplus) resizeSurplus();
 
   Coord scaledCoord;
-  double res, temp = 1.0;
+  Output res;
   for(int iPts=0; iPts<nPointsSubGrid; iPts++){
     scale(subGrid[iPts],scaledCoord, 0);
-    if(dim==2 && out==1) fn(scaledCoord[0],scaledCoord[1],temp,res);
-    //else if(dim==3) res = fn(scaledCoord[0],scaledCoord[1],scaledCoord[2]);
-    else{
-      fprintf(stdout, "*** Error: (Sparse Grid) wrong function call\n");
-      exit(1);
-    }
-    surplus[nPoints+iPts][0] = res;
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, int out>
-inline
-void SparseGrid<dim,out>::resizeSurplus(){
-
-  Output *larger = new Output[2*sizeSurplus];
-  for(int i=0; i<sizeSurplus; i++)
+    fn(scaledCoord,res);
     for(int iout=0; iout<out; iout++)
-      larger[i][iout] = surplus[i][iout];
-
-  sizeSurplus *= 2;
-
-  delete [] surplus;
-  surplus = larger;
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, int out>
-inline
-void SparseGrid<dim,out>::resizeMultiIndex(){
-
-  MultiIndex *largerMultiIndex = new MultiIndex[2*sizeMultiIndex];
-  for(int i=0; i<sizeMultiIndex; i++)
-    for(int idim=0; idim<dim; idim++)
-      largerMultiIndex[i][idim] = multiIndex[i][idim];
-
-  delete [] multiIndex;
-  multiIndex = largerMultiIndex;
-
-  double *largerErrorActiveSet = new double[2*sizeMultiIndex];
-  double *largerCostActiveSet = new double[2*sizeMultiIndex];
-  bool *largerActiveSetAll = new bool[2*sizeMultiIndex];
-  for(int i=0; i<sizeMultiIndex; i++){
-    largerErrorActiveSet[i]= errorActiveSet[i];
-    largerCostActiveSet[i]= costActiveSet[i];
-    largerActiveSetAll[i]= activeSetAll[i];
+      surplus[nPoints+iPts][iout] = res[iout];
   }
-
-  delete [] errorActiveSet; delete [] costActiveSet; delete [] activeSetAll;
-  errorActiveSet = largerErrorActiveSet;
-  costActiveSet = largerCostActiveSet;
-  activeSetAll = largerActiveSetAll;
-
-  Output *largerError = new Output[2*sizeMultiIndex];
-  for(int i=0; i<sizeMultiIndex; i++)
-    for(int iout=0; iout<out; iout++)
-      largerError[i][iout] = error[i][iout];
-
-  delete [] error;
-  error = largerError;
-
-  Neighbour *largerNeighbour = new Neighbour[2*sizeMultiIndex];
-  for(int i=0; i<2*sizeMultiIndex; i++)
-    for(int ineigh=0; ineigh<2*dim; ineigh++)
-      largerNeighbour[i][ineigh] = -1;
-  for(int i=0; i<nSubGrids; i++)
-    for(int ineigh=0; ineigh<2*dim; ineigh++)
-      largerNeighbour[i][ineigh] = neighbour[i][ineigh];
-
-  delete [] neighbour;
-  neighbour = largerNeighbour;
-
-  sizeMultiIndex *= 2;
 
 }
 
@@ -600,6 +453,25 @@ void SparseGrid<dim,out>::scale(Coord subGrid, Coord &scaledCoord, int op){
 
 template<int dim, int out>
 inline
+void SparseGrid<dim,out>::bounds(const int nPointsSubGrid){
+
+  double temp;
+
+  // computes the "errors" given by the surpluses for a subgrid in each output
+  for(int iout=0; iout<out; iout++){
+    for(int iPts=0; iPts<nPointsSubGrid; iPts++){
+      temp = surplus[nPoints+iPts][iout];
+      if(temp<fnmin[iout]) fnmin[iout] = temp;
+      if(temp>fnmax[iout]) fnmax[iout] = temp;
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+inline
 void SparseGrid<dim,out>::evaluatePreviousInterpolation(Coord *subGrid,
                                                  const int nPointsSubGrid){
 
@@ -610,10 +482,6 @@ void SparseGrid<dim,out>::evaluatePreviousInterpolation(Coord *subGrid,
       surplus[nPoints+iPts][iout] -= temp[iout];
   }
 
-  /*for(int iPts=0; iPts<nPointsSubGrid; iPts++)
-    for(int iout=0; iout<out; iout++) 
-      fprintf(stderr, "### surplus[%d][%d] = %e\n", nPoints+iPts, iout, surplus[nPoints+iPts][iout]); 
-*/
 }
 
 //------------------------------------------------------------------------------
@@ -625,21 +493,22 @@ void SparseGrid<dim,out>::updateError(const int nPointsSubGrid){
   Output indicator; double temp;
 
   // computes the "errors" given by the surpluses for a subgrid in each output
-  for(int iout=0; iout<out; iout++) indicator[iout] = 0.0;
-  for(int iout=0; iout<out; iout++)
+  for(int iout=0; iout<out; iout++){
+    indicator[iout] = 0.0;
     for(int iPts=0; iPts<nPointsSubGrid; iPts++){
       temp = surplus[nPoints+iPts][iout];
       indicator[iout] += ((temp>0) ? temp : -temp);
+      if(temp<fnmin[iout]) fnmin[iout] = temp;
+      if(temp>fnmax[iout]) fnmax[iout] = temp;
     }
+  }
 
-  errorActiveSet[nSubGrids] = 0.0;
+  activeError[nSubGrids] = 0.0; // = max(indicator)
   for(int iout=0; iout<out; iout++)
-    if(indicator[iout] > errorActiveSet[nSubGrids])
-      errorActiveSet[nSubGrids] = indicator[iout];
+    if(indicator[iout] > activeError[nSubGrids])
+      activeError[nSubGrids] = indicator[iout];
 
-  //fprintf(stderr, "### updateError -- errorActiveSet[%d] = %e\n", nSubGrids, errorActiveSet[nSubGrids]);
-
-  // computes the "errors" for the 
+  // computes the "errors" for the accuracy check
   for(int iout=0; iout<out; iout++){
     error[nSubGrids][iout] = 0.0;
     for(int iPts=0; iPts<nPointsSubGrid; iPts++){
@@ -658,12 +527,11 @@ template<int dim, int out>
 inline
 void SparseGrid<dim,out>::updateCost(){
 
-  costActiveSet[nSubGrids] = 0.0;
-  for(int idim=0; idim<dim; idim++){
-    costActiveSet[nSubGrids] += static_cast<double>(multiIndex[nSubGrids][idim]);
-    //fprintf(stderr, "### updateCost -- costActiveSet[%d] = %e\n", nSubGrids, costActiveSet[nSubGrids]);
-  }
-  costActiveSet[nSubGrids] = 1.0/costActiveSet[nSubGrids];
+  activeCost[nSubGrids] = 0.0;
+  for(int idim=0; idim<dim; idim++)
+    activeCost[nSubGrids] += static_cast<double>(multiIndex[nSubGrids][idim]);
+
+  activeCost[nSubGrids] = 1.0/activeCost[nSubGrids];
 
 }
 
@@ -672,31 +540,37 @@ void SparseGrid<dim,out>::updateCost(){
 template<int dim, int out>
 inline
 bool SparseGrid<dim,out>::checkAccuracy(){
-// absolute accuracy only for now
+
   double temp;
   double maxsurplus[out];
   for(int iout=0; iout<out; iout++){
     for(int iactiveErr=0; iactiveErr<activeHeapError.size(); iactiveErr++){
-      if(activeSetAll[activeHeapError[iactiveErr]]){
+      if(active[activeHeapError[iactiveErr]]){
         temp = error[activeHeapError[iactiveErr]][iout];
         if(temp>maxsurplus[iout]) maxsurplus[iout] = temp;
       }
     }
 
     for(int iactiveCost=0; iactiveCost<activeHeapCost.size(); iactiveCost++){
-      if(activeSetAll[activeHeapCost[iactiveCost]]){
+      if(active[activeHeapCost[iactiveCost]]){
         temp = error[activeHeapCost[iactiveCost]][iout];
         if(temp>maxsurplus[iout]) maxsurplus[iout] = temp;
       }
     }
   }
 
-  // for now assume that out = 1;
-  double absAcc = maxsurplus[0];
-  for(int iout=1; iout<out; iout++)
+  double absAcc = 0.0;
+  double relAcc = 0.0;
+  for(int iout=0; iout<out; iout++){
     if(absAcc<maxsurplus[iout]) absAcc = maxsurplus[iout];
-  if(absAcc<absAccuracy){
-    fprintf(stdout, "current absolute accuracy is %e and less than desired absolute accuracy %e\n", absAcc, absAccuracy);
+    if(fnmax[iout]>fnmin[iout])
+      if(relAcc<maxsurplus[iout]/(fnmax[iout]-fnmin[iout])) 
+        relAcc = maxsurplus[iout]/(fnmax[iout]-fnmin[iout]);
+  }
+
+
+  if(absAcc<absAccuracy || relAcc<relAccuracy){
+    messages(7);
     return true;
   }
   else return false;
@@ -710,66 +584,70 @@ template<int dim, int out>
 inline
 void SparseGrid<dim,out>::singleInterpolation(Coord coord, Output &output){
 
-  int index = 0;
+  int firstSurplus = 0; // points to first surplus of the considered subgrid
   int nPointsSubGrid;
-  int index2[dim], index3;
-  double scale; int xp;
+  int surplusLocalCoord[dim], contributingSurplus;
   for(int iout=0; iout<out; iout++) output[iout] = 0.0;
 
-  //fprintf(stderr, "### singleInterpolation -- nSubGrids = %d\n", nSubGrids);
+  messages(8);
+
   for(int subGrid=0; subGrid<nSubGrids; subGrid++){
-    //for(int debugDim=0; debugDim<dim; debugDim++)
-    //  fprintf(stderr, "###      for multiIndex[%d][%d] = %d\n", subGrid, debugDim, multiIndex[subGrid][debugDim]);
+
     // compute subGrid data structures
     nPointsSubGrid = 1;
     int nPointsDim[dim];
     int nCumulatedPointsDim[dim];
-    for(int i=0; i<dim; i++){
-      if(multiIndex[subGrid][i] == 0)
-        nPointsDim[i] = 1;
-      else if(multiIndex[subGrid][i] < 3)
-        nPointsDim[i] = 2;
+    for(int idim=0; idim<dim; idim++){
+      if(multiIndex[subGrid][idim] == 0)
+        nPointsDim[idim] = 1;
+      else if(multiIndex[subGrid][idim] < 3)
+        nPointsDim[idim] = 2;
       else
-        nPointsDim[i] = static_cast<int>(pow(2,multiIndex[subGrid][i]-1));
+        nPointsDim[idim] = static_cast<int>(pow(2,multiIndex[subGrid][idim]-1));
   
-      nCumulatedPointsDim[i] = nPointsDim[i];
-      nPointsSubGrid *= nPointsDim[i];
+      nCumulatedPointsDim[idim] = nPointsDim[idim];
+      nPointsSubGrid *= nPointsDim[idim];
     }
 
-    // interpolation
+    // interpolation: value of the basis function at the considered subgrid (basisFnVal)
+    //              : detection of the corresponding surplus in numbering of the
+    //                  considered subgrid (surplusLocalCoord).
     double basisFnVal = 1.0;
     for(int idim=0; idim<dim; idim++){
       if(multiIndex[subGrid][idim] == 1){
-        if(coord[idim] == 1.0) index2[idim] = 1;
+        if(coord[idim] == 1.0) surplusLocalCoord[idim] = 1;
         else{
-          xp = static_cast<int>(floor(coord[idim]*2));
+          int xp = static_cast<int>(floor(coord[idim]*2));
           if(xp == 0) basisFnVal *= 2.0*(0.5 - coord[idim]);
           else        basisFnVal *= 2.0*(coord[idim] - 0.5);
-          index2[idim] = xp;
+          surplusLocalCoord[idim] = xp;
         }
-      }else if(multiIndex[subGrid][idim] == 0) index2[idim] = 0;
+      }else if(multiIndex[subGrid][idim] == 0) surplusLocalCoord[idim] = 0;
       else if(coord[idim] == 0.0){
         basisFnVal = 0.0;
         break;
       }else{
-        scale = pow(2.0,multiIndex[subGrid][idim]);
-        xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
+        double scale = pow(2.0,multiIndex[subGrid][idim]);
+        int xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
         basisFnVal *= (1.0 - scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale));
+        surplusLocalCoord[idim] = xp;
       }
 
       if(basisFnVal == 0.0) break;
 
     }
 
-    //fprintf(stderr, "### singleInterpolation -- basisFnVal = %e\n", basisFnVal);
+    // contributing surplus in the considered subgrid is added to result
     if(basisFnVal > 0.0){
-      index3 = index + index2[0];
-      for(int idim=1; idim<dim; idim++) index3 += nCumulatedPointsDim[idim-1]*index2[idim];
-      for(int iout=0; iout<out; iout++) output[iout] += basisFnVal*surplus[index3][iout];
-      //fprintf(stderr, "### singleInterpolation -- surplus[%d][0] = %e\n", index3, surplus[index3][0]);
+      // position of the contributing surplus in the array of surpluses
+      contributingSurplus = firstSurplus + surplusLocalCoord[0];
+      for(int idim=1; idim<dim; idim++)
+        contributingSurplus += nCumulatedPointsDim[idim-1]*surplusLocalCoord[idim];
+      // contribution added
+      for(int iout=0; iout<out; iout++)
+        output[iout] += basisFnVal*surplus[contributingSurplus][iout];
     }
-    index += nPointsSubGrid;
-    //fprintf(stderr, "### singleInterpolation -- index = %d\n", index);
+    firstSurplus += nPointsSubGrid;
 
   }
 
@@ -785,8 +663,37 @@ void SparseGrid<dim,out>::interpolate(int numRes, Coord *coord,
   Coord scaledCoord;
   for(int iPts=0; iPts<numRes; iPts++){
     scale(coord[iPts],scaledCoord, 1);
-    //if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
+    if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
     singleInterpolation(scaledCoord, res[iPts]);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+inline
+bool SparseGrid<dim,out>::outOfRange(Coord coord){
+
+  for(int idim=0; idim<dim; idim++)
+    if(coord[idim]<0 || coord[idim]>1){
+      fprintf(stdout, "*** Warning: coordinates(%e) in dimension %d is out of bounds [0,1]\n", coord[idim], idim);
+      return true;
+    }
+
+  return false;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+inline
+void SparseGrid<dim,out>::closestPointInRange(Coord &coord){
+
+  for(int idim=0; idim<dim; idim++){
+    if(coord[idim]<0) coord[idim] = 0.0;
+    if(coord[idim]>1) coord[idim] = 1.0;
   }
 
 }
@@ -883,13 +790,76 @@ void SparseGrid<dim,out>::readFromFile(){
   sizeSurplus = nPoints;
   sizeMultiIndex = nSubGrids;
 
-  fprintf(stdout, "????????????????????????????????????\n");
-  fprintf(stdout, "\n");
-  fprintf(stdout, "min/maxPoints = %d %d\n", minPoints, maxPoints);
-  fprintf(stdout, "abs/relAccuracy = %e %e\n", absAccuracy, relAccuracy);
-  fprintf(stdout, "degree of dimensional adaptivity = %e\n", dimAdaptDegree);
-  fprintf(stdout, "range1 is [%e %e]\n", range[0][0], range[0][1]);
-  fprintf(stdout, "range2 is [%e %e]\n", range[1][0], range[1][1]);
+}
+
+//------------------------------------------------------------------------------
+// Auxiliary functions
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+inline
+void SparseGrid<dim,out>::resizeSurplus(){
+
+  Output *larger = new Output[2*sizeSurplus];
+  for(int i=0; i<sizeSurplus; i++)
+    for(int iout=0; iout<out; iout++)
+      larger[i][iout] = surplus[i][iout];
+
+  sizeSurplus *= 2;
+
+  delete [] surplus;
+  surplus = larger;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+inline
+void SparseGrid<dim,out>::resizeMultiIndex(){
+
+  MultiIndex *largerMultiIndex = new MultiIndex[2*sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++)
+    for(int idim=0; idim<dim; idim++)
+      largerMultiIndex[i][idim] = multiIndex[i][idim];
+
+  delete [] multiIndex;
+  multiIndex = largerMultiIndex;
+
+  double *largerErrorActiveSet = new double[2*sizeMultiIndex];
+  double *largerCostActiveSet = new double[2*sizeMultiIndex];
+  bool *largerActive= new bool[2*sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++){
+    largerErrorActiveSet[i]= activeError[i];
+    largerCostActiveSet[i]= activeCost[i];
+    largerActive[i]= active[i];
+  }
+
+  delete [] activeError; delete [] activeCost; delete [] active;
+  activeError = largerErrorActiveSet;
+  activeCost = largerCostActiveSet;
+  active= largerActive;
+
+  Output *largerError = new Output[2*sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++)
+    for(int iout=0; iout<out; iout++)
+      largerError[i][iout] = error[i][iout];
+
+  delete [] error;
+  error = largerError;
+
+  Neighbour *largerNeighbour = new Neighbour[2*sizeMultiIndex];
+  for(int i=0; i<2*sizeMultiIndex; i++)
+    for(int ineigh=0; ineigh<2*dim; ineigh++)
+      largerNeighbour[i][ineigh] = -1;
+  for(int i=0; i<nSubGrids; i++)
+    for(int ineigh=0; ineigh<2*dim; ineigh++)
+      largerNeighbour[i][ineigh] = neighbour[i][ineigh];
+
+  delete [] neighbour;
+  neighbour = largerNeighbour;
+
+  sizeMultiIndex *= 2;
 
 }
 
@@ -1009,11 +979,113 @@ int SparseGrid<dim,out>::Heap::pop(double *value){
 }
 
 //------------------------------------------------------------------------------
-// TEST for DEBUG PURPOSES
+// functions for DEBUG PURPOSES
 //------------------------------------------------------------------------------
 
 template<int dim, int out>
-void SparseGrid<dim,out>::test(void (*fn)(double, double, double, double &)){
+void SparseGrid<dim,out>::messages(const int flag, const int arg){
+
+  if(verbose==0) return;
+
+  if(flag==1){
+    fprintf(stdout, "###########################################\n");
+    fprintf(stdout, "#     INITIALIZATION\n");
+    fprintf(stdout, "###########################################\n");
+  }
+
+  if(flag==2){
+    fprintf(stdout, "#     BEGIN ITERATION\n");
+    fprintf(stdout, "###########################################\n");
+    if(verbose>1){
+      fprintf(stdout, "#     STATE AT BEGINNING OF ITERATION\n");
+      fprintf(stdout, "# activity of grids is:");
+      for(int kk = 0; kk<nSubGrids; kk++)
+        fprintf(stdout, "  %d", active[kk]);
+      fprintf(stdout, "\n");
+      fprintf(stdout, "# multiIndex is:");
+      for(int idim = 0; idim<dim; idim++){
+        for(int kk = 0; kk<nSubGrids; kk++)
+          fprintf(stdout, "  %d", multiIndex[kk][idim]);
+        fprintf(stdout, "\n#               ");
+      }
+      fprintf(stdout, "# activeError is:");
+      for(int kk = 0; kk<nSubGrids; kk++)
+        fprintf(stdout, "  %e", activeError[kk]);
+      fprintf(stdout, "\n");
+      fprintf(stdout, "# activeCost is:");
+      for(int kk = 0; kk<nSubGrids; kk++)
+        fprintf(stdout, "  %e", activeCost[kk]);
+      fprintf(stdout, "\n");
+      fprintf(stdout, "# errors are:");
+      for(int iout = 0; iout<out; iout++){
+        for(int kk = 0; kk<nSubGrids; kk++)
+          fprintf(stdout, "  %e", error[kk][iout]);
+        fprintf(stdout, "\n#               ");
+      }
+      fprintf(stdout, "\n");
+      fprintf(stdout, "# surpluses are:");
+      for(int iout = 0; iout<out; iout++){
+        for(int kk = 0; kk<nSubGrids; kk++)
+          fprintf(stdout, "  %e", surplus[kk][iout]);
+        fprintf(stdout, "\n#               ");
+      }
+      fprintf(stdout, "\n###########################################\n");
+    }
+  }
+
+  if(flag==3 && verbose>3){
+    fprintf(stdout, "# adding grid %d to inactive grid set\n", arg);
+    fprintf(stdout, "###########################################\n");
+  }
+  
+  if(flag==4 && verbose>3){
+    fprintf(stdout, "# neighbour of %d is admissible\n", arg);
+    fprintf(stdout, "###########################################\n");
+  }
+
+  if(flag==5 && verbose>3){
+    fprintf(stdout, "# neighbours of %d are:", arg);
+    for(int ineigh=0; ineigh<2*dim; ineigh++)
+      fprintf(stdout, "  %d", neighbour[arg][ineigh]);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "###########################################\n");
+  }
+
+  if(flag==6 && verbose>3){
+    fprintf(stdout, "# forward admissible grid %d leads to %d points and %d subgrids\n", arg, nPoints, nSubGrids);
+    fprintf(stdout, "###########################################\n");
+  }
+
+  if(flag==7 && verbose>3){
+    fprintf(stdout, "# desired absolute accuracy %e has been reached\n", absAccuracy);
+    fprintf(stdout, "###########################################\n");
+  }
+
+  if(flag==8 && verbose>2){
+    fprintf(stderr, "### singleInterpolation -- nSubGrids = %d\n", nSubGrids);
+    for(int subGrid=0; subGrid<nSubGrids; subGrid++){
+      for(int debugDim=0; debugDim<dim; debugDim++)
+      fprintf(stderr, "###      for multiIndex[%d][%d] = %d\n", subGrid, debugDim, multiIndex[subGrid][debugDim]);
+    }
+  }
+
+  if(flag==9){
+    fprintf(stdout, "###########################################\n");
+    fprintf(stdout, "# After reading sparse grid file,");
+    fprintf(stdout, "# min/maxPoints = %d / %d\n", minPoints, maxPoints);
+    fprintf(stdout, "# abs/relAccuracy = %e / %e\n", absAccuracy, relAccuracy);
+    fprintf(stdout, "# degree of dimensional adaptivity = %e\n", dimAdaptDegree);
+    for(int idim=0; idim<dim; idim++)
+      fprintf(stdout, "# range[%d] is [%e %e]\n", idim, range[idim][0], range[idim][1]);
+    fprintf(stdout, "###########################################\n");
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int out>
+void SparseGrid<dim,out>::test(void (*fn)(Coord , Output )){
 
 
   assert(dim==2 && out==1);
@@ -1097,46 +1169,46 @@ void SparseGrid<dim,out>::test(void (*fn)(double, double, double, double &)){
   for(int toto=0; toto<8; toto++)
     fprintf(stderr, "multiIndex[%d]= %d, %d\n", toto, multiIndex[toto][0], multiIndex[toto][1]);
 
-  errorActiveSet[0] = 0.1;
-  errorActiveSet[1] = 0.2;
-  errorActiveSet[2] = 0.3;
-  errorActiveSet[3] = 0.4;
-  errorActiveSet[4] = 0.5;
-  errorActiveSet[5] = 0.6;
-  errorActiveSet[6] = 0.7;
-  errorActiveSet[7] = 0.8;
-  errorActiveSet[8] = 0.9;
+  activeError[0] = 0.1;
+  activeError[1] = 0.2;
+  activeError[2] = 0.3;
+  activeError[3] = 0.4;
+  activeError[4] = 0.5;
+  activeError[5] = 0.6;
+  activeError[6] = 0.7;
+  activeError[7] = 0.8;
+  activeError[8] = 0.9;
 
-  activeHeapError.insert(0,errorActiveSet);
-  activeHeapError.insert(1,errorActiveSet);
-  activeHeapError.insert(2,errorActiveSet);
-  activeHeapError.insert(3,errorActiveSet);
-  activeHeapError.insert(4,errorActiveSet);
-  activeHeapError.insert(5,errorActiveSet);
-  activeHeapError.insert(6,errorActiveSet);
-  activeHeapError.insert(7,errorActiveSet);
+  activeHeapError.insert(0,activeError);
+  activeHeapError.insert(1,activeError);
+  activeHeapError.insert(2,activeError);
+  activeHeapError.insert(3,activeError);
+  activeHeapError.insert(4,activeError);
+  activeHeapError.insert(5,activeError);
+  activeHeapError.insert(6,activeError);
+  activeHeapError.insert(7,activeError);
 
   fprintf(stderr, "\n");
   for(int toto=0; toto<activeHeapError.size(); toto++)
     fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
   
-  int popped = activeHeapError.pop(errorActiveSet);
+  int popped = activeHeapError.pop(activeError);
   fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
   fprintf(stderr, "\n");
   for(int toto=0; toto<activeHeapError.size(); toto++)
     fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
-  popped = activeHeapError.pop(errorActiveSet);
+  popped = activeHeapError.pop(activeError);
   fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
   fprintf(stderr, "\n");
   for(int toto=0; toto<activeHeapError.size(); toto++)
     fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
-  popped = activeHeapError.pop(errorActiveSet);
+  popped = activeHeapError.pop(activeError);
   fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
   fprintf(stderr, "\n");
   for(int toto=0; toto<activeHeapError.size(); toto++)
     fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
 
-  activeHeapError.insert(1,errorActiveSet);
+  activeHeapError.insert(1,activeError);
   fprintf(stderr, "\n");
   for(int toto=0; toto<activeHeapError.size(); toto++)
     fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
