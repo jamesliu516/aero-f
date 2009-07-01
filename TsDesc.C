@@ -374,6 +374,9 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 {
   if (!mmh) return;
 
+  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
+  if (_mmh) return;
+
   geoState->interpolate(dt, dtLeft, *Xs, *X);
 
 }
@@ -383,8 +386,9 @@ void TsDesc<dim>::interpolatePositionVector(double dt, double dtLeft)
 template<int dim>
 void TsDesc<dim>::computeMeshMetrics(int it)
 {
+  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(mmh);
 
-  if (mmh) {
+  if (mmh && !_mmh) {
     if (it >= 0) com->fprintf(stderr, "GeoState Computing for it %d\n", it);
     double t0 = timer->getTime();
     geoState->compute(timeState->getData(), bcData->getVelocityVector(), *X, *A);
@@ -392,7 +396,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if (mmh || hth)
+  if ((mmh && _mmh) || hth)
     bcData->update(*X);
 
 }
