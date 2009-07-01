@@ -467,7 +467,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
    mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
    mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
 
-   if (algNum == 1) 
+   if (algNum == 1) //Ping-Pong 
      *lastIt = true;
   }
 

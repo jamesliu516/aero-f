@@ -1209,6 +1209,10 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
   }
   tprevf = time;
 
+  delete[] Fi;
+  delete[] Fv;
+  delete[] Mi;
+  delete[] Mv;
 }
 
 //------------------------------------------------------------------------------
@@ -1310,6 +1314,15 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
     }
   }
 
+  delete []FiS;
+  delete []MiS;
+  delete []FvS;
+  delete []MvS;
+  delete []FiD;
+  delete []MiD;
+  delete []FvD;
+  delete []MvD;
+
 }
 
 //------------------------------------------------------------------------------
@@ -1401,6 +1414,11 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
   }
 
   tprevl = time;
+
+  delete [] Fi;
+  delete [] Fv;
+  delete [] Mi;
+  delete [] Mv;
 
 }
 //------------------------------------------------------------------------------
@@ -1494,6 +1512,14 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
     }
   }
 
+  delete [] FiS;
+  delete [] FvS;
+  delete [] MiS;
+  delete [] MvS;
+  delete [] FiD;
+  delete [] FvD;
+  delete [] MiD;
+  delete [] MvD;
 }
 
 //------------------------------------------------------------------------------
