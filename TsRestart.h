@@ -1,6 +1,9 @@
 #ifndef _TS_RESTART_H_
 #define _TS_RESTART_H_
 
+#include<Vector.h>
+#include<Vector3D.h>
+
 class IoData;
 class RefVal;
 class DistGeoState;
@@ -28,6 +31,8 @@ public:
   char *levelsets[3];
   char *data[3];
 
+  char *structPos;
+
   int frequency;
 
 public:
@@ -40,6 +45,9 @@ public:
 		   DistTimeState<dim> &, DistGeoState &, 
 		   LevelSet *LS);
 
+  /** Function to write the structure positions to disk. Used for the embedded-method only. */
+  void writeStructPosToDisk(int, bool, Vec<Vec3D>&);
+ 
 // Included (MB)
   void rstVar(IoData &);
 

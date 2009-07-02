@@ -93,14 +93,11 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   dts = probDesc->computePositionVector(&lastIt, it, t);
-
   if (lastIt)
     probDesc->outputPositionVectorToDisk();
 
   while (!lastIt) {
-
     probDesc->resetOutputToStructure(U);
-
     int itSc = 0;
     int itNl = 0;
     int itNlLS = 0;

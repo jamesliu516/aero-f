@@ -32,12 +32,13 @@ class EmbeddedStructure {
   double dt, tMax;
   double omega;
   double dx, dy, dz;
+  double t0; // starting time.
+  int it;
 
   int nNodes;
   double (*X)[3]; //original node coordinates
   double (*U)[3]; //displacement
   double (*F)[3]; //force (received from fluid).
-  int it;
 
   DistInfo *di;
 

@@ -25,6 +25,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   structure.sendTimeStep(&window);
   window.fence(false);
 }
+
   dts /= tScale;
   com.barrier();
   com.fprintf(stderr,"dt = %e\n", dts);
@@ -81,7 +82,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
                                              tScale(iod.ref.rv.time)
 {
   // read the input.
-//  meshFile = iod.embeddedStructure.surfaceMeshFile;
   mode = iod.embeddedStructure.mode;
   coupled = iod.embeddedStructure.coupled;
   tMax = iod.embeddedStructure.tMax;
@@ -90,6 +90,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   dx = iod.embeddedStructure.dx;
   dy = iod.embeddedStructure.dy;
   dz = iod.embeddedStructure.dz;
+  t0= iod.embeddedStructure.t0;
 
   com.fprintf(stderr,"Structure Information read from inputfile ...\n");
   com.fprintf(stderr,"mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
@@ -129,7 +130,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   }
   nNodes = nodeList.size();
 
-  fprintf(stderr,"In EmbeddedStructure: nNodes = %d\n",nNodes);  
   X = new (com) double[nNodes][3];
   
   count = 0;
@@ -227,7 +227,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
   it++;
   if(!coupled) {
-    double time = dt*(double)it;
+    double time = t0 + dt*(double)it;
     
     if(mode==0)
       for(int i = 0; i < nNodes; ++i) {

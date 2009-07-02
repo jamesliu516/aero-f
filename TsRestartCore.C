@@ -36,6 +36,12 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(data[0], "");
 
+  structPos = new char[sp + strlen(iod.output.restart.structPos)];
+  if (iod.output.restart.structPos[0] != 0)
+    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.structPos);
+  else
+    sprintf(structPos, "");
+
   if (iod.output.restart.type == RestartData::SINGLE) {
     for (int i=1; i<3; ++i) {
       solutions[i] = solutions[0];
@@ -85,6 +91,27 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   energy[1] = iod.restart.energy;
   frequency = iod.output.restart.frequency;
 
+}
+
+//------------------------------------------------------------------------------
+
+void TsRestart::writeStructPosToDisk(int cpuNum, bool lastIt, Vec<Vec3D>& Xs)
+{
+  
+  if(cpuNum>0) return; //only Proc.#1 will work.
+
+  if ((lastIt || (frequency > 0 && iteration % frequency == 0)) && structPos[0]!=0) {
+    FILE *fp = fopen(structPos,"w");
+    if (!fp) {
+      fprintf(stderr, "*** Error: could not open \'%s\'\n", structPos);
+      exit(1);
+    }
+
+    for (int i=0; i<Xs.size(); i++)
+      fprintf(fp,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
+
+   fclose(fp);
+  }
 }
 
 //------------------------------------------------------------------------------

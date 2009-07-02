@@ -309,6 +309,8 @@ RestartData::RestartData()
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
 
+  structPos = "";
+
   frequency = 0;
 
 }
@@ -318,7 +320,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
+  ClassAssigner *ca = new ClassAssigner(name, 8, father);
 
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
@@ -329,6 +331,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
+  new ClassStr<RestartData>(ca, "StructPosition", this, &RestartData::structPos);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
 
 }
@@ -2890,6 +2893,7 @@ void EmbeddedStructureInfo::setup(const char *name) {
   dt = 1.0e-6;
   omega = 1000.0;
   dx = dy = dz = 0.0;
+  t0 = 0.0;
 
   new ClassStr<EmbeddedStructureInfo>(ca, "meshFile", this, &EmbeddedStructureInfo::surfaceMeshFile);
   new ClassStr<EmbeddedStructureInfo>(ca, "matcherFile", this, &EmbeddedStructureInfo::matcherFile);
@@ -2901,6 +2905,7 @@ void EmbeddedStructureInfo::setup(const char *name) {
   new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeX", this, &EmbeddedStructureInfo::dx);
   new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeY", this, &EmbeddedStructureInfo::dy);
   new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeZ", this, &EmbeddedStructureInfo::dz);
+  new ClassDouble<EmbeddedStructureInfo>(ca, "t0", this, &EmbeddedStructureInfo::t0);
  
 }
 

@@ -169,6 +169,8 @@ struct RestartData {
   const char *levelsets;
   const char *data;
 
+  const char *structPos;
+
   int frequency;
 
   RestartData();
@@ -1614,6 +1616,7 @@ struct StructureIntersect {
 struct EmbeddedStructureInfo {
   const char *surfaceMeshFile;
   const char *matcherFile;
+
   int mode;
   int coupled;
   double tMax;
@@ -1622,7 +1625,8 @@ struct EmbeddedStructureInfo {
   double dx;
   double dy;
   double dz;
-  
+  double t0;
+ 
   EmbeddedStructureInfo() {}
   ~EmbeddedStructureInfo() {}
 
