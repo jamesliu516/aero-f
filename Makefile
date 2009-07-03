@@ -79,6 +79,7 @@ CXXOBJS    = BcFcnCore.o \
              WallFcnCore.o \
              BCApplierCore.o \
 	     BCond.o \
+	     SparseGrid.o \
 	     BlockAlloc.o
 
 

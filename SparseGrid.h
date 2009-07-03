@@ -47,22 +47,24 @@ online
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 class SparseGrid {
+
+  int dim, out;
 
   int verbose;
 
-  typedef double Output[out];
-  typedef int    MultiIndex[dim];
-  typedef double Coord[dim];
-  typedef int    Neighbour[2*dim];
+  //typedef double Output[out];
+  //typedef int    MultiIndex[dim];
+  //typedef double Coord[dim];
+  //typedef int    Neighbour[2*dim];
+  typedef double Range[2];
 
   int nPoints;            // number of stored points (on the sparse grid)
-  Output *surplus;        // hierarchical surplus for each point for each output
+  double **surplus;        // hierarchical surplus for each point for each output
   int sizeSurplus;
 
   int nSubGrids;          // number of stored subgrids
-  MultiIndex *multiIndex; // multi-index for each stored subgrid
+  int **multiIndex; // multi-index for each stored subgrid
   int sizeMultiIndex;
 
 // user-specified values for the creation of the sparse grid
@@ -70,15 +72,15 @@ class SparseGrid {
   int minPoints;          // min number of points in the grid
   double absAccuracy;     // required absolute accuracy
   double relAccuracy;     // required relative accuracy
-  double range[dim][2];   // range of the tabulation (min and max in each dir)
+  Range *range;           // range of the tabulation (min and max in each dir)
   double dimAdaptDegree;  
 
 // data structures necessary to construct a sparse grid
 
-  double fnmin[out];      // minimum values of the interpolation
-  double fnmax[out];      // maximum values of the interpolation
+  double *fnmin;      // minimum values of the interpolation
+  double *fnmax;      // maximum values of the interpolation
 
-  Output *error;          // errors for each subgrid in each dimension
+  double **error;          // errors for each subgrid in each dimension
                           // used for accuracy check
                           // max_{pts of subgrid}(abs(surpluses[idim] of a subgrid))
 
@@ -121,7 +123,7 @@ class SparseGrid {
                           // by the cost of their corresponding subgrid.
   double *activeCost;     // cost of each subgrid (same indexation as multiIndex)
 
-  Neighbour *neighbour;   // list of neighbours of a stored subgrid
+  int **neighbour;   // list of neighbours of a stored subgrid
                           // (same indexation as multiIndex and
                           // points to multiIndex)
                           // first the forward indices and then the backward ones
@@ -132,45 +134,45 @@ public:
   SparseGrid(SparseGridData &data);
 
   // functions to create the sparse grid with function fn to tabulate
-  void tabulate(void (*fn)(Coord , Output ));
+  void tabulate(void (*fn)(double * , double * ));
   void printToFile();
 
 
   // functions to perform interpolation on sparse grid
   void readFromFile();
-  void interpolate(int numRes, Coord *coord, Output *res);
+  void interpolate(int numRes, double **coord, double **res);
 
   // test function for debugging
-  void test(void (*fn)(Coord , Output ));
+  void test(void (*fn)(double * , double * ));
 
 private:
-  SparseGrid(const SparseGrid<dim, out> &sparseGrid); // to prevent copying such objects
-  SparseGrid& operator=(const SparseGrid<dim,out> &sparseGrid);
+  SparseGrid(const SparseGrid &sparseGrid); // to prevent copying such objects
+  SparseGrid& operator=(const SparseGrid &sparseGrid);
 
-  void initialize(void (*fn)(Coord , Output ));
+  void initialize(void (*fn)(double * , double * ));
   int  currentSubGrid(bool &adaptivity);
   bool admissible(const int currentMultiIndex, const int forwardDir);
   void findNeighbours(const int currentMultiIndex, const int forwardDir, 
                       const int addedSubGrids);
   int integrateForwardAdmissible(const int newSubGrid, 
-                      void (*fn)(Coord , Output ));
-  Coord *generateSubGrid(const int newSubGrid, int &nPointsSubGrid);
-  void evaluateFunctionOnGrid(Coord *subGrid, const int nPointsSubGrid, 
-                              void (*fn)(Coord , Output ));
+                      void (*fn)(double * , double * ));
+  double **generateSubGrid(const int newSubGrid, int &nPointsSubGrid);
+  void evaluateFunctionOnGrid(double **subGrid, const int nPointsSubGrid, 
+                              void (*fn)(double * , double * ));
   void resizeSurplus();
   void resizeMultiIndex();
-  void scale(Coord subGrid, Coord &scaledCoord, int op);
+  void scale(double *subGrid, double *scaledCoord, int op);
   void bounds(const int nPointsSubGrid);
-  bool outOfRange(Coord coord);
-  void closestPointInRange(Coord &coord);
-  void evaluatePreviousInterpolation(Coord *subGrid, const int nPointsSubGrid);
+  bool outOfRange(double *coord);
+  void closestPointInRange(double *coord);
+  void evaluatePreviousInterpolation(double **subGrid, const int nPointsSubGrid);
   void updateError(const int nPointsSubGrid);
   void updateCost();
-  void tensorize(Coord *res, double ** coordDim, int *nPtsDim, 
+  void tensorize(double **res, double ** coordDim, int *nPtsDim, 
                  int *nCumulatedPtsDim);
   bool checkAccuracy();
 
-  void singleInterpolation(Coord coord, Output &output);
+  void singleInterpolation(double * coord, double * output);
 
   void messages(const int flag, const int arg=0);
 
@@ -178,9 +180,5 @@ private:
 };
 
 //------------------------------------------------------------------------------
-
-#ifdef TEMPLATE_FIX
-#include <SparseGrid.C>
-#endif
 
 #endif

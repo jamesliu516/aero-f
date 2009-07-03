@@ -1,13 +1,16 @@
 #include <SparseGrid.h>
+#include <math.h>
 
 
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::SparseGrid(){
+SparseGrid::SparseGrid(){
 
   verbose = 0;
+
+  dim = 0;
+  out = 0;
 
   nPoints     = 0;
   sizeSurplus = 0;
@@ -21,10 +24,7 @@ SparseGrid<dim,out>::SparseGrid(){
   minPoints = 100;
   absAccuracy = -1.0;
   relAccuracy = -1.0;
-  for(int idim=0; idim<dim; idim++){
-    range[idim][0] = 0.0;
-    range[idim][1] = 0.0;
-  }
+  range = 0;
   dimAdaptDegree = 0.0;
 
   nAdaptivePoints = 0;
@@ -35,65 +35,83 @@ SparseGrid<dim,out>::SparseGrid(){
 
   neighbour = 0;
   error = 0;
+  fnmin = 0;
+  fnmax = 0;
 
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::~SparseGrid(){
+SparseGrid::~SparseGrid(){
 
+  for(int i=0; i<sizeSurplus; i++) delete [] surplus[i];
   delete [] surplus;
+  for(int i=0; i<sizeMultiIndex; i++) delete [] multiIndex[i];
   delete [] multiIndex;
+  delete [] range;
   delete [] active;
   delete [] activeError;
   delete [] activeCost;
-  delete [] neighbour;
-  delete [] error;
+  if(neighbour){ // not initialized if sparse grid read from a file
+    for(int i=0; i<sizeMultiIndex; i++) delete [] neighbour[i];
+    delete [] neighbour;
+  }
+  if(error){ // not initialized if sparse grid read from a file
+    for(int i=0; i<sizeMultiIndex; i++) delete [] error[i];
+    delete [] error;
+  }
+  delete [] fnmin;
+  delete [] fnmax;
 
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::SparseGrid(SparseGridData &data){
+SparseGrid::SparseGrid(SparseGridData &data){
 
+  dim = data.numInputs;
+  out = data.numOutputs;
   verbose = data.verbose;
 
   maxPoints = data.maxPoints;
   minPoints = data.minPoints;
   absAccuracy = data.absAccuracy;
   relAccuracy = data.relAccuracy;
-  range[0][0] = data.range1min;
-  range[0][1] = data.range1max;
-  range[1][0] = data.range2min;
-  range[1][1] = data.range2max;
-  range[2][0] = data.range3min;
-  range[2][1] = data.range3max;
-  dimAdaptDegree = data.dimAdaptDegree; //min(max(dimAdaptDegree_,0),1);
+  range = new Range[dim];
+  for(int idim=0; idim<dim; idim++){
+    range[idim][0] = data.range[idim][0];
+    range[idim][1] = data.range[idim][1];
+  }
+  dimAdaptDegree = data.dimAdaptDegree;
 
   nPoints         = 0;
   sizeSurplus     = maxPoints;
-  surplus         = new Output[sizeSurplus];
+  surplus         = new double *[sizeSurplus];
+  for(int i=0; i<sizeSurplus; i++) surplus[i] = new double[out];
 
   nSubGrids       = 0;
   sizeMultiIndex  = 10;
-  multiIndex      = new MultiIndex[sizeMultiIndex];
+  multiIndex      = new int *[sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++) multiIndex[i] = new int[dim];
 
   nAdaptivePoints = 0;
   active          = new bool[sizeMultiIndex];
   activeError  = new double[sizeMultiIndex];
   activeCost   = new double[sizeMultiIndex];
 
-  neighbour       = new Neighbour[sizeMultiIndex];
-  error           = new Output[sizeMultiIndex];
+  neighbour       = new int *[sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++) neighbour[i] = new int[2*dim];
   
+  error           = new double *[sizeMultiIndex];
+  for(int i=0; i<sizeMultiIndex; i++) error[i] = new double[out];
+  
+  fnmin = new double[out];
+  fnmax = new double[out];
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-void SparseGrid<dim,out>::tabulate(void (*fn)(Coord , Output )){
+void SparseGrid::tabulate(void (*fn)(double * , double * )){
 
   messages(1);
   initialize(fn);
@@ -115,16 +133,16 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(Coord , Output )){
     active[currentMultiIndex] = false;
     messages(3,currentMultiIndex);
 
-    // resize arrays
+    // resize arrays if necessary
     while(nSubGrids+dim>sizeMultiIndex) resizeMultiIndex();
 
     addedSubGrids = 0;
-    // for each forward neighbour(one in each direction),
+    // for each forward neighbour(one in each direction/dimension),
     //   check if it is admissible
     for(int idim=0; idim<dim; idim++){
       if(admissible(currentMultiIndex, idim)){
         messages(4,currentMultiIndex);
-        // find its own neighbours
+        // find its neighbours and index it as a neighbour of its own neighbours
         findNeighbours(currentMultiIndex, idim, addedSubGrids);
         // the forward admissible neighbour is now active
         active[neighbour[currentMultiIndex][idim]] = true;
@@ -139,6 +157,7 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(Coord , Output )){
       int numNewPoints = integrateForwardAdmissible(nSubGrids, fn);
       nPoints += numNewPoints;
       nSubGrids++;
+
       if(adaptivity) nAdaptivePoints += numNewPoints;
       messages(6,forwardAdmissible);
     }
@@ -152,9 +171,8 @@ void SparseGrid<dim,out>::tabulate(void (*fn)(Coord , Output )){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::initialize(void (*fn)(Coord, Output )){
+void SparseGrid::initialize(void (*fn)(double *, double * )){
 // initialization of the data structures for the first subgrid
 // in the Clenshaw-Curtis grid, which contains only one point located
 // at the center of the hypercube (this is level of refinement 0 in all directions).
@@ -164,7 +182,7 @@ void SparseGrid<dim,out>::initialize(void (*fn)(Coord, Output )){
   nSubGrids = 1;
   for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
 
-  Coord firstPoint; Output res;
+  double firstPoint[dim]; double res[out];
   for(int idim=0; idim<dim; idim++) 
     firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
   fn(firstPoint,res);
@@ -193,9 +211,8 @@ void SparseGrid<dim,out>::initialize(void (*fn)(Coord, Output )){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-int SparseGrid<dim,out>::currentSubGrid(bool &adaptivity){
+int SparseGrid::currentSubGrid(bool &adaptivity){
 // pick next subgrid: choose from the two available heaps
 
   bool done = false;
@@ -229,15 +246,14 @@ int SparseGrid<dim,out>::currentSubGrid(bool &adaptivity){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-bool SparseGrid<dim,out>::admissible(const int currentMultiIndex,
+bool SparseGrid::admissible(const int currentMultiIndex,
                                      const int forwardDir){
 
   // currentMultiIndex has multi-index multiIndex[currentMultiIndex]
   // To check the admissibility of the newMultiIndex 
   // (defined by the forward neighbour of currentMultiIndex in the 
-  //  direction forwardDir, see sketch SparseGrid<dim,out>::findNeighbours),
+  //  direction forwardDir, see sketch SparseGrid::findNeighbours),
   // all its backward neighbours must be inactive (integrated) subgrids.
   // In particular, its backward neighbour currentMultiIndex
   //   refers to an inactive subgrid. 
@@ -266,9 +282,8 @@ bool SparseGrid<dim,out>::admissible(const int currentMultiIndex,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::findNeighbours(const int currentMultiIndex,
+void SparseGrid::findNeighbours(const int currentMultiIndex,
                                          const int forwardDir, const int addedSubGrids){
   int backwardOfCurrent, backwardOfNew;
   const int newMultiIndex = nSubGrids+addedSubGrids;
@@ -309,13 +324,12 @@ void SparseGrid<dim,out>::findNeighbours(const int currentMultiIndex,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-int SparseGrid<dim,out>::integrateForwardAdmissible(const int newSubGridIndex,
-                            void (*fn)(Coord , Output )){
+int SparseGrid::integrateForwardAdmissible(const int newSubGridIndex,
+                            void (*fn)(double * , double * )){
 
   int nPointsSubGrid;
-  Coord * subGrid = generateSubGrid(newSubGridIndex,nPointsSubGrid);
+  double ** subGrid = generateSubGrid(newSubGridIndex,nPointsSubGrid);
   evaluateFunctionOnGrid(subGrid, nPointsSubGrid, fn);
   bounds(nPointsSubGrid);
   evaluatePreviousInterpolation(subGrid, nPointsSubGrid);
@@ -325,23 +339,22 @@ int SparseGrid<dim,out>::integrateForwardAdmissible(const int newSubGridIndex,
   activeHeapError.insert(newSubGridIndex,activeError);
   activeHeapCost.insert(newSubGridIndex,activeCost);
 
+  for (int i=0; i<nPointsSubGrid; i++) delete [] subGrid[i];
   delete [] subGrid;
   return nPointsSubGrid;
 
 }
 
 //------------------------------------------------------------------------------
-
-template<int dim, int out>
-typename SparseGrid<dim,out>::Coord *
-SparseGrid<dim,out>::generateSubGrid(const int newSubGrid,
+inline
+double **SparseGrid::generateSubGrid(const int newSubGrid,
                                      int &nPointsSubGrid){
 
   // find number of points in subgrid (Clenshaw-Curtis type)
   // and coordinates of the points in each direction.
   nPointsSubGrid = 1;
-  int nPointsDim[dim];
-  int nCumulatedPointsDim[dim];
+  int nPointsDim[dim]; // number of points in each dimension
+  int nCumulatedPointsDim[dim]; // number of cumulated points in each dimension
   double **coordDim = new double*[dim];
   for(int i=0; i<dim; i++){
     if(multiIndex[newSubGrid][i] == 0){
@@ -376,7 +389,9 @@ SparseGrid<dim,out>::generateSubGrid(const int newSubGrid,
   }
 
   // tensorization of the coordinates is returned in res
-  Coord *res = new Coord[nPointsSubGrid];
+  double **res = new double *[nPointsSubGrid];
+  for(int i=0; i<nPointsSubGrid; i++)
+    res[i] = new double[dim];
   tensorize(res,coordDim,nPointsDim,nCumulatedPointsDim);
 
   for(int i=0; i<dim; i++) delete [] coordDim[i];
@@ -388,9 +403,8 @@ SparseGrid<dim,out>::generateSubGrid(const int newSubGrid,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::tensorize(Coord *res, double ** coordDim,
+void SparseGrid::tensorize(double **res, double ** coordDim,
                                     int *nPtsDim, int *nCumulatedPtsDim){
 
   for(int newdim=0; newdim<dim; newdim++){
@@ -415,16 +429,15 @@ void SparseGrid<dim,out>::tensorize(Coord *res, double ** coordDim,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::evaluateFunctionOnGrid(Coord *subGrid,
-                                                 const int nPointsSubGrid,
-                                                 void (*fn)(Coord , Output )){
+void SparseGrid::evaluateFunctionOnGrid(double **subGrid,
+                                        const int nPointsSubGrid,
+                                        void (*fn)(double * , double * )){
 
   while(nPoints+nPointsSubGrid > sizeSurplus) resizeSurplus();
 
-  Coord scaledCoord;
-  Output res;
+  double scaledCoord[dim];
+  double res[out];
   for(int iPts=0; iPts<nPointsSubGrid; iPts++){
     scale(subGrid[iPts],scaledCoord, 0);
     fn(scaledCoord,res);
@@ -436,9 +449,8 @@ void SparseGrid<dim,out>::evaluateFunctionOnGrid(Coord *subGrid,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::scale(Coord subGrid, Coord &scaledCoord, int op){
+void SparseGrid::scale(double *subGrid, double *scaledCoord, int op){
 
   if(op==0)
     for(int i=0; i<dim; i++)
@@ -451,9 +463,8 @@ void SparseGrid<dim,out>::scale(Coord subGrid, Coord &scaledCoord, int op){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::bounds(const int nPointsSubGrid){
+void SparseGrid::bounds(const int nPointsSubGrid){
 
   double temp;
 
@@ -470,12 +481,11 @@ void SparseGrid<dim,out>::bounds(const int nPointsSubGrid){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::evaluatePreviousInterpolation(Coord *subGrid,
+void SparseGrid::evaluatePreviousInterpolation(double **subGrid,
                                                  const int nPointsSubGrid){
 
-  Output temp;
+  double temp[out];
   for(int iPts=0; iPts<nPointsSubGrid; iPts++){
     singleInterpolation(subGrid[iPts], temp);
     for(int iout=0; iout<out; iout++) 
@@ -486,11 +496,10 @@ void SparseGrid<dim,out>::evaluatePreviousInterpolation(Coord *subGrid,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::updateError(const int nPointsSubGrid){
+void SparseGrid::updateError(const int nPointsSubGrid){
 
-  Output indicator; double temp;
+  double indicator[out]; double temp;
 
   // computes the "errors" given by the surpluses for a subgrid in each output
   for(int iout=0; iout<out; iout++){
@@ -498,8 +507,6 @@ void SparseGrid<dim,out>::updateError(const int nPointsSubGrid){
     for(int iPts=0; iPts<nPointsSubGrid; iPts++){
       temp = surplus[nPoints+iPts][iout];
       indicator[iout] += ((temp>0) ? temp : -temp);
-      if(temp<fnmin[iout]) fnmin[iout] = temp;
-      if(temp>fnmax[iout]) fnmax[iout] = temp;
     }
   }
 
@@ -523,9 +530,8 @@ void SparseGrid<dim,out>::updateError(const int nPointsSubGrid){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::updateCost(){
+void SparseGrid::updateCost(){
 
   activeCost[nSubGrids] = 0.0;
   for(int idim=0; idim<dim; idim++)
@@ -537,9 +543,8 @@ void SparseGrid<dim,out>::updateCost(){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-bool SparseGrid<dim,out>::checkAccuracy(){
+bool SparseGrid::checkAccuracy(){
 
   double temp;
   double maxsurplus[out];
@@ -580,9 +585,8 @@ bool SparseGrid<dim,out>::checkAccuracy(){
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 //assumes that each coord is between 0 and 1.
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::singleInterpolation(Coord coord, Output &output){
+void SparseGrid::singleInterpolation(double *coord, double *output){
 
   int firstSurplus = 0; // points to first surplus of the considered subgrid
   int nPointsSubGrid;
@@ -655,12 +659,9 @@ void SparseGrid<dim,out>::singleInterpolation(Coord coord, Output &output){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-inline
-void SparseGrid<dim,out>::interpolate(int numRes, Coord *coord,
-                                      Output *res){
+void SparseGrid::interpolate(int numRes, double **coord, double **res){
 
-  Coord scaledCoord;
+  double scaledCoord[dim];
   for(int iPts=0; iPts<numRes; iPts++){
     scale(coord[iPts],scaledCoord, 1);
     if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
@@ -671,9 +672,8 @@ void SparseGrid<dim,out>::interpolate(int numRes, Coord *coord,
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-bool SparseGrid<dim,out>::outOfRange(Coord coord){
+bool SparseGrid::outOfRange(double *coord){
 
   for(int idim=0; idim<dim; idim++)
     if(coord[idim]<0 || coord[idim]>1){
@@ -687,9 +687,8 @@ bool SparseGrid<dim,out>::outOfRange(Coord coord){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::closestPointInRange(Coord &coord){
+void SparseGrid::closestPointInRange(double *coord){
 
   for(int idim=0; idim<dim; idim++){
     if(coord[idim]<0) coord[idim] = 0.0;
@@ -702,8 +701,7 @@ void SparseGrid<dim,out>::closestPointInRange(Coord &coord){
 // SparseGrid::print and read sparse grid in a file
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-void SparseGrid<dim,out>::printToFile(){
+void SparseGrid::printToFile(){
 
   // print to file the number of subgrids and the corresponding multiIndex array
   //           and the number of points and the surpluses.
@@ -746,8 +744,7 @@ void SparseGrid<dim,out>::printToFile(){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-void SparseGrid<dim,out>::readFromFile(){
+void SparseGrid::readFromFile(){
 
   char mystring [100];
   FILE *fpSPARSEGRID = fopen("SparseGrid", "r");
@@ -761,25 +758,27 @@ void SparseGrid<dim,out>::readFromFile(){
 
   int readdim, readout;
   // characteristics used to create the sparse grid
-  fscanf(fpSPARSEGRID, "%d %d\n", &readdim, &readout);
-  assert(dim==readdim && out==readout);
+  fscanf(fpSPARSEGRID, "%d %d\n", &dim, &out);
 
   fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
   fscanf(fpSPARSEGRID, "%lf %lf %lf", &absAccuracy, &relAccuracy, &dimAdaptDegree);
+  range = new Range[dim];
   for(int idim=0; idim<dim; idim++)
     fscanf(fpSPARSEGRID, "%lf %lf ", &(range[idim][0]), &(range[idim][1]));
 
   // the sparse grid data
   fscanf(fpSPARSEGRID, "%d", &nSubGrids);
-  multiIndex = new MultiIndex[nSubGrids];
+  multiIndex = new int *[nSubGrids];
   for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+    multiIndex[isubgrid] = new int[dim];
     for(int idim=0; idim<dim; idim++)
       fscanf(fpSPARSEGRID, "%d ", &(multiIndex[isubgrid][idim]));
   }
 
   fscanf(fpSPARSEGRID, "%d", &nPoints);
-  surplus = new Output[nPoints];
+  surplus = new double *[nPoints];
   for(int ipts=0; ipts<nPoints; ipts++){
+    surplus[ipts] = new double[out];
     for(int iout=0; iout<out; iout++)
       fscanf(fpSPARSEGRID, "%lf ", &(surplus[ipts][iout]));
   }
@@ -796,33 +795,35 @@ void SparseGrid<dim,out>::readFromFile(){
 // Auxiliary functions
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::resizeSurplus(){
+void SparseGrid::resizeSurplus(){
 
-  Output *larger = new Output[2*sizeSurplus];
+  double **larger = new double *[2*sizeSurplus];
   for(int i=0; i<sizeSurplus; i++)
     for(int iout=0; iout<out; iout++)
       larger[i][iout] = surplus[i][iout];
 
-  sizeSurplus *= 2;
-
+  for(int i=0; i<sizeSurplus; i++) delete [] surplus[i];
   delete [] surplus;
+
+  sizeSurplus *= 2;
   surplus = larger;
 
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::resizeMultiIndex(){
+void SparseGrid::resizeMultiIndex(){
 
-  MultiIndex *largerMultiIndex = new MultiIndex[2*sizeMultiIndex];
+  int **largerMultiIndex = new int*[2*sizeMultiIndex];
+  for(int i=0; i<2*sizeMultiIndex; i++)
+    largerMultiIndex[i] = new int[dim];
   for(int i=0; i<sizeMultiIndex; i++)
     for(int idim=0; idim<dim; idim++)
       largerMultiIndex[i][idim] = multiIndex[i][idim];
 
+  for(int i=0; i<sizeMultiIndex; i++) delete [] multiIndex[i];
   delete [] multiIndex;
   multiIndex = largerMultiIndex;
 
@@ -840,15 +841,20 @@ void SparseGrid<dim,out>::resizeMultiIndex(){
   activeCost = largerCostActiveSet;
   active= largerActive;
 
-  Output *largerError = new Output[2*sizeMultiIndex];
+  double **largerError = new double *[2*sizeMultiIndex];
+  for(int i=0; i<2*sizeMultiIndex; i++)
+    largerError[i] = new double[out];
   for(int i=0; i<sizeMultiIndex; i++)
     for(int iout=0; iout<out; iout++)
       largerError[i][iout] = error[i][iout];
 
+  for(int i=0; i<sizeMultiIndex; i++) delete [] error[i];
   delete [] error;
   error = largerError;
 
-  Neighbour *largerNeighbour = new Neighbour[2*sizeMultiIndex];
+  int **largerNeighbour = new int *[2*sizeMultiIndex];
+  for(int i=0; i<2*sizeMultiIndex; i++)
+    largerNeighbour[i] = new int[2*dim];
   for(int i=0; i<2*sizeMultiIndex; i++)
     for(int ineigh=0; ineigh<2*dim; ineigh++)
       largerNeighbour[i][ineigh] = -1;
@@ -856,6 +862,7 @@ void SparseGrid<dim,out>::resizeMultiIndex(){
     for(int ineigh=0; ineigh<2*dim; ineigh++)
       largerNeighbour[i][ineigh] = neighbour[i][ineigh];
 
+  for(int i=0; i<sizeMultiIndex; i++) delete [] neighbour[i];
   delete [] neighbour;
   neighbour = largerNeighbour;
 
@@ -867,8 +874,7 @@ void SparseGrid<dim,out>::resizeMultiIndex(){
 // SparseGrid::Heap implementation
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::Heap::Heap(){
+SparseGrid::Heap::Heap(){
 
   size_    = 0;
   numElem_ = 0;
@@ -878,8 +884,7 @@ SparseGrid<dim,out>::Heap::Heap(){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::Heap::~Heap(){
+SparseGrid::Heap::~Heap(){
 
   delete [] elem_;
 
@@ -887,8 +892,7 @@ SparseGrid<dim,out>::Heap::~Heap(){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-SparseGrid<dim,out>::Heap::Heap(const Heap &heap){
+SparseGrid::Heap::Heap(const Heap &heap){
 
   size_    = heap.size_;
   numElem_ = heap.numElem_;
@@ -900,9 +904,8 @@ SparseGrid<dim,out>::Heap::Heap(const Heap &heap){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::Heap::sort(int index, double *value){
+void SparseGrid::Heap::sort(int index, double *value){
 
   if(index>numElem_-1 || index<0) return;
 
@@ -922,9 +925,8 @@ void SparseGrid<dim,out>::Heap::sort(int index, double *value){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-void SparseGrid<dim,out>::Heap::insert(int newElem, double *value){
+void SparseGrid::Heap::insert(int newElem, double *value){
 
   if(numElem_+1>size_){//resize
     if(size_>0) size_ *= 2;
@@ -943,9 +945,8 @@ void SparseGrid<dim,out>::Heap::insert(int newElem, double *value){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
 inline
-int SparseGrid<dim,out>::Heap::pop(double *value){
+int SparseGrid::Heap::pop(double *value){
 
   if(numElem_==0) return -1;
 
@@ -982,8 +983,7 @@ int SparseGrid<dim,out>::Heap::pop(double *value){
 // functions for DEBUG PURPOSES
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-void SparseGrid<dim,out>::messages(const int flag, const int arg){
+void SparseGrid::messages(const int flag, const int arg){
 
   if(verbose==0) return;
 
@@ -1084,8 +1084,7 @@ void SparseGrid<dim,out>::messages(const int flag, const int arg){
 
 //------------------------------------------------------------------------------
 
-template<int dim, int out>
-void SparseGrid<dim,out>::test(void (*fn)(Coord , Output )){
+void SparseGrid::test(void (*fn)(double * , double * )){
 
 
   assert(dim==2 && out==1);

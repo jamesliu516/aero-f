@@ -2,6 +2,7 @@
 #define _SPARSEGRIDGENERATOR_DESC_H_
 
 #include <IoData.h>
+#include <SparseGrid.h>
 
 class RefVal;
 class VarFcn;
@@ -50,19 +51,21 @@ public:
     fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 1\n");
     if(varFcn->getType() == VarFcn::JWL){
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 2\n");
-      SparseGrid<2,1> sparseGrid(ioData.mf.sparseGrid);
+      SparseGrid sparseGrid(ioData.mf.sparseGrid);
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 3\n");
       //sparseGrid.tabulate(lriemann->tabulateRiemann);
       sparseGrid.tabulate(functionTest);
       sparseGrid.printToFile();
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 4\n");
 
-      SparseGrid<2,1> sparseGridCopy;
+      SparseGrid sparseGridCopy;
       sparseGridCopy.readFromFile();
       typedef double Output[1];
       typedef double Coord[2];
-      Output *output = new Output[1];
-      Coord *coord = new Coord[1];
+      double **output = new double *[1];
+      double **coord = new double *[1];
+      output[0] = new double[1];
+      coord[0] = new double[2];
       coord[0][0] = 7.8745;
       coord[0][1] = 8.11111;
       sparseGridCopy.interpolate(1, coord, output);
@@ -73,6 +76,7 @@ public:
     }else{
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 5\n");
     }
+    fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 6\n");
   }
 
 

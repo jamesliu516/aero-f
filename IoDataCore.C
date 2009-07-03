@@ -1389,9 +1389,7 @@ SparseGridData::SparseGridData()
   range2min = 0.0; range2max = 1.0;
   range3min = 0.0; range3max = 1.0;
 
-  range1[0] = 0.0; range1[1] = 1.0;
-  range2[0] = 0.0; range2[1] = 1.0;
-  range3[0] = 0.0; range3[1] = 1.0;
+  range = 0;
 
   numOutputs = 1;
   numInputs  = 2;
@@ -4525,6 +4523,21 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   if(sparseGrid.numOutputs <= 0 || sparseGrid.numInputs <= 0){
     com->fprintf(stderr, "*** Error: sparse grid must have positive numbers of inputs and outputs\n");
     error++;
+  }
+
+  typedef double Range[2];
+  sparseGrid.range = new Range[sparseGrid.numOutputs];
+  if(sparseGrid.numInputs > 2){
+    sparseGrid.range[2][0] = sparseGrid.range3min;
+    sparseGrid.range[2][1] = sparseGrid.range3max;
+  }
+  if(sparseGrid.numInputs > 1){
+    sparseGrid.range[1][0] = sparseGrid.range2min;
+    sparseGrid.range[1][1] = sparseGrid.range2max;
+  }
+  if(sparseGrid.numInputs > 0){
+    sparseGrid.range[0][0] = sparseGrid.range1min;
+    sparseGrid.range[0][1] = sparseGrid.range1max;
   }
 
   return error;

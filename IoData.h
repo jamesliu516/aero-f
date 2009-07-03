@@ -799,9 +799,8 @@ struct SparseGridData {
   double range1min, range1max;
   double range2min, range2max;
   double range3min, range3max;
-  double range1[2];
-  double range2[2];
-  double range3[2];
+  typedef double Range[2];
+  Range *range;
 
   int numOutputs;
   int numInputs;
