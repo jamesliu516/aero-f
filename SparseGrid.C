@@ -498,8 +498,6 @@ void SparseGrid<dim,out>::updateError(const int nPointsSubGrid){
     for(int iPts=0; iPts<nPointsSubGrid; iPts++){
       temp = surplus[nPoints+iPts][iout];
       indicator[iout] += ((temp>0) ? temp : -temp);
-      if(temp<fnmin[iout]) fnmin[iout] = temp;
-      if(temp>fnmax[iout]) fnmax[iout] = temp;
     }
   }
 
