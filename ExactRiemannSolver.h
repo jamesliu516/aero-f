@@ -20,7 +20,7 @@ class ExactRiemannSolver{
 
   public:
 
-  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &);
+  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, VarFcn *);
   ~ExactRiemannSolver();
 
 

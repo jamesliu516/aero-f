@@ -10,7 +10,8 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom)
+DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
+                                                    VarFcn *vf)
 {
 
   updatePhase = false;
@@ -29,7 +30,7 @@ DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom)
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subExactRiemannSolver[iSub] =
       new ExactRiemannSolver<dim>(ioData, (*riemannupdate)(iSub),
-                         	(*weight)(iSub));
+                         	(*weight)(iSub), vf);
 
 }
 //------------------------------------------------------------------------------
