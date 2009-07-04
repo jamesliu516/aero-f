@@ -73,6 +73,7 @@ public:
       double *res = new double;
       functionTest(coord[0],res);
       fprintf(stdout, "exact output is %e\n", res[0]);
+
     }else{
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 5\n");
     }
