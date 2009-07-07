@@ -857,7 +857,6 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       // compute new delWRom
       delWnm1Rom = delWRom;
       delWRom = rhs + rhsTemp;
-
       // project soltn into full space
       delWFull = 0.0;
       for (i = 0; i < nPodVecs; ++i)
@@ -1304,7 +1303,6 @@ void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, D
   postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
   modalF += refModalF;
   modalF *= ioData->ref.rv.force;
-
   // form struct rhs and solve u dof
   double sdt2 = sdt*sdt;
   double prevU, prevY;
@@ -2518,8 +2516,9 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   double invDt = -1.0/ioData->ref.rv.time;
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
-    tmpVec = DE[iVec] * invDt;
-    tmpVec2 = DX[iVec];
+    //tmpVec = DE[iVec];
+    tmpVec = DE[iVec] * invDt; 
+    tmpVec2 = DX[iVec] ; 
     tmpVec /= controlVol;
     tmpVec2 /= controlVol;
  
@@ -2544,14 +2543,14 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
     for (jVec = 0; jVec < nPodVecs; jVec++)
       sysVals[iVec*sysSize+jVec] = romOperator[iVec][jVec];
     for (jVec = 0; jVec < nStrMode; jVec++)
-      sysVals[iVec*sysSize + nPodVecs + jVec] = outRom[iVec][jVec];
+      sysVals[iVec*sysSize + nPodVecs + jVec] = outRom[iVec][jVec];  
   }
 
   // populate 1,2 and 3,2 block
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
     for (jVec = 0; jVec < nPodVecs; jVec++)
-      sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = -ecVecs[iVec][jVec];
+      sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = ecVecs[iVec][jVec];
     for (jVec = 0; jVec < nStrMode; jVec++) {
       if (jVec == iVec)
         sysVals[sysSize*nPodVecs + iVec*sysSize + nPodVecs+nStrMode + jVec] = 1.0;
@@ -2581,9 +2580,10 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
   com->fprintf(romFP, "%d %d\n", nPodVecs, nStrMode);
   for (iVec = 0; iVec < sysSize; iVec++)  {
-    for (jVec = 0; jVec < sysSize; jVec++)
+    for (jVec = 0; jVec < sysSize; jVec++){
       com->fprintf(romFP, "%.16e ", sysVals[jVec*sysSize+iVec]);
-    com->fprintf(romFP, "\n");
+   }       
+   com->fprintf(romFP, "\n");
   }
 
   delete[] romFile;
