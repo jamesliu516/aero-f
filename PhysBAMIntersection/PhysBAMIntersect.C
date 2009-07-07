@@ -787,7 +787,7 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
       ndMaxCand = i;
     }
     closestTriangle.start(X[i]);
-    for(int j = 0; j < std::min(500,nFound); ++j) {
+    for(int j = 0; j < std::min(nMaxCand,nFound); ++j) {
       double xi1, xi2, dist;
 
       closestTriangle.checkTriangle(candidates[j].trId());
@@ -907,6 +907,9 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
       level[i] = 0;
     }
 //  std::cout << "Initial lead (# decided nodes): " << lead << std::endl;
+
+  int iDebug = 0;
+
   while(next < lead) {
     int cur = list[next++];
     int curStatus = status[cur];
@@ -917,10 +920,11 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
         level[nToN[cur][i]] = curLevel+1;
         list[lead++] = nToN[cur][i];
       } else {
-        if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0))
-          std::cerr << "Incompatible nodes have met: " << locToGlobNodeMap[cur]+1 << "("<< status[cur] <<") and " << 
-             locToGlobNodeMap[nToN[cur][i]]+1 << "(" << status[nToN[cur][i]] << ") " <<
-             " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
+        if(status[nToN[cur][i]] != curStatus && ( curLevel != 0 || level[nToN[cur][i]] != 0)) 
+          std::cerr << "Incompatible nodes have met: " << locToGlobNodeMap[cur]+1 << "("<< status[cur] 
+                    << ") and " << locToGlobNodeMap[nToN[cur][i]]+1 << "(" << status[nToN[cur][i]] << ") " 
+                    << " " << curLevel << " " << level[nToN[cur][i]] << std::endl;
+        
       }
     }
   }
