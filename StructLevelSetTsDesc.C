@@ -437,7 +437,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   } 
   else {
     this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
-    this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition());
+    this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n());
   }
 
   if (*lastIt) {
@@ -466,17 +466,12 @@ void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int i
 template<int dim>
 void StructLevelSetTsDesc<dim>::outputPositionVectorToDisk()
 {}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
 void StructLevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
-{//TODO: need to be re-written.
-/*   //TODO: mmh not needed?
-  AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
-  if (_mmh)
-    _mmh->resetOutputToStructure(postOp, *X, U);
-*/
-}
+{}
 
 //------------------------------------------------------------------------------
 

@@ -28,28 +28,42 @@ const int PhysBAMIntersector::UNDECIDED, PhysBAMIntersector::INSIDE, PhysBAMInte
 
 class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     const char *structureFile;
+    const char *restartStructureFile;
     double tolIntersect;
 
   public:
     PhysBAMIntersectorConstructor() {
       structureFile = 0;
+      restartStructureFile = 0;
       tolIntersect = 1e-3;
     }
 
     DistLevelSetStructure *getIntersector(IntersectProblemData&) {
       DistPhysBAMIntersector *inter = new DistPhysBAMIntersector(tolIntersect);
       std::string solidSurface = structureFile;
-      inter->init(solidSurface);
 
+      std::string solidSurface2 = (restartStructureFile) ? restartStructureFile : "";
+      inter->init(solidSurface, solidSurface2);
+      
+/*
+      if (restartStructureFile) {
+        std::string solidSurface2 = restartStructureFile;
+        inter->init(solidSurface, solidSurface2);
+      } else {
+        std::string solidSurface2 = "";
+        fprintf(stderr,"Hooray.\n");
+        inter->init(solidSurface, solidSurface2);
+      } 
+*/
       return inter;
-     // return 0;
     }
 
     int print();
 
     void init(ParseTree &dataTree) {
-        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 2, 0);
+        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 3, 0);
         new ClassStr<PhysBAMIntersectorConstructor>(ca, "structureFile", this, &PhysBAMIntersectorConstructor::structureFile);
+        new ClassStr<PhysBAMIntersectorConstructor>(ca, "restartStructureFile", this, &PhysBAMIntersectorConstructor::restartStructureFile);
         new ClassDouble<PhysBAMIntersectorConstructor>(ca, "tolerance", this, &PhysBAMIntersectorConstructor::tolIntersect);
         dataTree.implement(ca);
     }
@@ -336,13 +350,15 @@ DistPhysBAMIntersector::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistPhysBAMIntersector::init(std::string solidSurface) {
+void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartSolidSurface) {
   // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
   if (topFile == NULL) {com->fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
 
   // load the nodes and initialize all node-based variables.
+
+  // load solid nodes at t=0
   char c1[200], c2[200], c3[200];
   int num0 = 0, num1 = 0, nInputs;
   double x1,x2,x3;
@@ -370,13 +386,16 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   }
   length_solids_particle_list = ndMax;
 
+  // feed data to solids_particle_lists. 
   solids_particle_list           = new Vec3D[length_solids_particle_list];
   solids_particle_list0          = new Vec3D[length_solids_particle_list];
   solids_particle_list_n         = new Vec3D[length_solids_particle_list];
   solids_particle_list_nPlus1    = new Vec3D[length_solids_particle_list];
   solidVel                       = new Vec3D[length_solids_particle_list];
   solidX = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list);
-
+  solidX0 = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list0);
+  solidXn = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list_n);
+  
   for (it=nodeList.begin(); it!=nodeList.end(); it++) 
     solids_particle_list[it->first-1] = it->second;
 
@@ -428,6 +447,43 @@ void DistPhysBAMIntersector::init(std::string solidSurface) {
   } 
 
   fclose(topFile);
+
+  // load solid nodes at restart time.
+  if (restartSolidSurface.c_str()[0] != 0) {
+    FILE* resTopFile = fopen(restartSolidSurface.c_str(), "r");
+    if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+    int ndMax2 = 0;
+    std::list<std::pair<int,Vec3D> > nodeList2;
+    std::list<std::pair<int,Vec3D> >::iterator it2;
+
+    while(1) {
+      nInputs = fscanf(resTopFile,"%s", c1);
+      if(nInputs!=1) break;    
+      char *endptr;
+      num1 = strtol(c1, &endptr, 10);
+      if(endptr == c1) break;
+
+      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+      ndMax = std::max(num1, ndMax);
+    }
+    if (ndMax!=length_solids_particle_list) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart topFile is wrong.\n");
+      exit(1);
+    }
+
+    for (int k=0; k<length_solids_particle_list; k++)
+      solids_particle_list[k] = Vec3D(0,0,0);
+    
+    for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
+      solids_particle_list[it2->first-1] = it2->second;
+
+    for (int k=0; k<length_solids_particle_list; k++) {
+      solids_particle_list_n[k]         = solids_particle_list[k];
+      solids_particle_list_nPlus1[k]    = solids_particle_list[k];
+    }
+    fclose(resTopFile);
+  }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"Checking the solid surface...\n");
@@ -631,6 +687,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 
   d->findNodeBoundingBoxes(X,boxMin,boxMax);
 
+  com->fprintf(stderr,"compute Intersections.\n");
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), *this);
     intersector[i]->getClosestTriangles(X(i), boxMin(i), boxMax(i), tId(i), distance(i));
@@ -667,7 +724,7 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
   for (int i=0; i<size; i++)
     physInterface->triangulated_surface.particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0],
                                                                      particles[i][1], particles[i][2]);
-  physInterface->Update(true); //assume the topology doesn't change.
+  physInterface->Update(true); //also rebuild the topology (not really needed for now).
 }
 
 //----------------------------------------------------------------------------
@@ -682,7 +739,8 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     exit(-1);
   }
   //get current struct coordinates.
-  double alpha = (dts - dtfLeft + dtf/2.0)/dts;
+  double alpha = (dts - dtfLeft + dtf)/dts;
+  //double alpha = (dts - dtfLeft + dtf/2.0)/dts;
   for (int i=0; i<length_solids_particle_list; i++) 
     solids_particle_list[i] = (1.0-alpha)*solids_particle_list_n[i] + alpha*solids_particle_list_nPlus1[i];
 

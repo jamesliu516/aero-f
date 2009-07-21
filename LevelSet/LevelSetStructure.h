@@ -86,6 +86,8 @@ class DistLevelSetStructure {
     virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;
     virtual void recompute(double dtf, double dtfLeft, double dts) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;
+    virtual Vec<Vec3D> &getStructPosition_0() = 0;
+    virtual Vec<Vec3D> &getStructPosition_n() = 0;
     virtual int getNumStructNodes() = 0;
     double totalForce[3];
 };

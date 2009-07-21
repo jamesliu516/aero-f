@@ -1426,8 +1426,9 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   dts = 0.0;
 
   // TODO: In future the following information should be obtained from the structure codes.
-  Vec<Vec3D> &solidX = distLSS->getStructPosition();
-  int numStructNodes = solidX.size();
+  Vec<Vec3D> &solidX0 = distLSS->getStructPosition_0();
+  Vec<Vec3D> &solidXn = distLSS->getStructPosition_n();
+  int numStructNodes = solidX0.size();
 
   structX0        = new Vec3D[numStructNodes];
   structXn        = new Vec3D[numStructNodes];
@@ -1435,7 +1436,8 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   structVel       = new Vec3D[numStructNodes];
 
   for (int i=0; i<numStructNodes; i++) {
-    structX0[i] = structXn[i] = structXnPlus1[i] = solidX[i];
+    structX0[i] = solidX0[i];
+    structXn[i] = structXnPlus1[i] = solidXn[i];
     structVel[i] = Vec3D(0.0,0.0,0.0);
   }
 }
