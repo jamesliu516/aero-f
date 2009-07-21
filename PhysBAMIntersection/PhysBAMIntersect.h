@@ -44,6 +44,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec3D *solidVel;
 
     Vec<Vec3D> *solidX;
+    Vec<Vec3D> *solidXn;
+    Vec<Vec3D> *solidX0;
 
     Vec3D *triNorms;
     double *triSize;
@@ -63,7 +65,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void getBoundingBox();
   public:
     DistPhysBAMIntersector(double tol);
-    void init(std::string structureFileName);
+    void init(std::string structureFileName, std::string structureFileName);
 
     double getTolerance() const { return tolerance; }
     EdgePair makeEdgePair(int,int,int);
@@ -82,6 +84,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     const Vec3D getInsidePoint() const { return insidePoint; }
 
     Vec<Vec3D> &getStructPosition() { return *solidX; }
+    Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
+    Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     int getNumStructNodes () { return length_solids_particle_list; }
 };
 
