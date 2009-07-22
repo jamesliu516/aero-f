@@ -122,6 +122,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
   }
+// CBM
+  if (iod.output.transient.pressurecoefficient[0] != 0) {
+    sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
+    scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
+  }
+// CBM
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
 //    sscale[PostFcn::TEMPERATURE] = 1;
@@ -1995,6 +2003,14 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
   }
+// CBM
+  if (iod.output.transient.pressurecoefficient[0] != 0) {
+    sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
+    scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
+  }
+// CBM
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];

@@ -403,6 +403,11 @@ public:
                  gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2])
          + rho*(gravity[0]*dX[0]+gravity[1]*dX[1]+gravity[2]*dX[2]);
   }
+  virtual double computePressureCoefficient(double *V, double pinfty, 
+                                            double mach, bool dimFlag, double phi = 0.0) { 
+     fprintf(stderr, "... WARNING: computePressureCoefficient is only implemented for Perfect Gas Flows\n"); 
+     return 0.0; 
+  }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -466,6 +471,13 @@ public:
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     //double opmachr = 1.0 + 0.5*gam1*machr2;
     return V[4]*pow(opmach, gam*invgam1);
+  }
+
+  double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag, double phi = 0.0) { 
+    if (dimFlag)
+      return 2.0 * (V[4] - pinfty);
+    else 
+      return 2.0 * (V[4] - 1.0/(gam*mach*mach));
   }
 
 // Included (MB)
