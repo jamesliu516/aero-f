@@ -64,6 +64,7 @@ template<class Scalar, int dim> class GenMat;
 template<class Scalar, int dim> class SVec;
 template<class VecType> class VecSet;
 template<class VecType, class VT2> class SubVecSet;
+template<int dim> class ExactRiemannSolver;
 
 class FaceTria;
 
@@ -329,7 +330,7 @@ protected:
   virtual void *getWrapper_Scalar_dim_neq(GenFaceHelper_Scalar_dim_neq *, 
 					  int size, char *memorySpace) = 0;
   
-  int code;
+  int code; //boundary condition code
   int elemNum;
   int surface_id;
   int normNum;
@@ -509,6 +510,12 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 			       Vec<double> &normalVel, SVec<double,dim> &V, 
 			       double *Ub, SVec<double,dim> &fluxes);
+
+  template<int dim>
+  void computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                               FluxFcn **fluxFcn, Vec<Vec3D> &normal,
+                               Vec<double> &normalVel, SVec<double,dim> &V,
+                               double *Ub, SVec<double,dim> &fluxes);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -872,6 +879,11 @@ public:
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
+			       SVec<double,dim> &, SVec<double,dim> &);
+
+  template<int dim>
+  void computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, 
+                               FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &, SVec<double,dim> &);
 
   template<int dim>

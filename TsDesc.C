@@ -15,6 +15,7 @@
 #include <MemoryPool.h>
 #include <Timer.h>
 #include <alloca.h>
+#include <DistExactRiemannSolver.h>
 
 extern int interruptCode;
 
@@ -63,6 +64,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
+  riemann = new DistExactRiemannSolver<dim>(ioData, domain);
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
@@ -626,7 +628,7 @@ template<int dim>
 double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
   double tt = timer->getTime();
-  spaceOp->computeResidual(*X, *A, U, *R, timeState);
+  spaceOp->computeResidual(this->riemann, *X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
   double res = 0.0;
   {

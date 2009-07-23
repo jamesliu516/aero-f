@@ -134,6 +134,11 @@ public:
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
 // Included (MB)
+  void computeResidual(DistExactRiemannSolver<dim> *,
+                       DistSVec<double,3> &, DistVec<double> &,
+		       DistSVec<double,dim> &, DistSVec<double,dim> &,
+                       DistTimeState<dim> *, bool=true);
+// Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
                        DistSVec<double,dim> &,

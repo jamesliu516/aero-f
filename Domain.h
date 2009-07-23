@@ -395,6 +395,13 @@ public:
 			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
+  void computeFiniteVolumeTerm(DistExactRiemannSolver<dim>&,
+                               DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+			       DistSVec<double,3>&, DistSVec<double,dim>&,
+			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dim>&, int, int);
+
+  template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
