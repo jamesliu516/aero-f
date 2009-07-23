@@ -635,6 +635,99 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double>& 
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
+                                     DistVec<double> &ctrlVol, DistVec<double>& irey,
+                                     FluxFcn** fluxFcn, RecFcn* recFcn,
+                                     DistBcData<dim>& bcData, DistGeoState& geoState,
+                                     DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     DistSVec<double,dim>& R, int failsafe, int rshift)
+{
+
+  double t0 = timer->getTime();
+  int ierr = 0;
+
+  if (!tag) {
+     tag = new DistSVec<int,2>(getNodeDistInfo());
+     *tag = 0;
+  }
+
+  DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
+  *RR = R; // initialize temp residual
+
+  int iSub;
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+    ierr += subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), irey(iSub), fluxFcn, recFcn, bcData(iSub),
+                                                     geoState(iSub), X(iSub), V(iSub), ngrad(iSub),
+                                                     legrad, (*RR)(iSub), (*tag)(iSub), failsafe, rshift);
+  }
+
+  com->globalSum(1, &ierr);
+
+  if (ierr) {
+    if (!failsafe) {
+      com->fprintf(stderr," ... Error: some reconstructed pressure & density are negative. Aborting....\n");
+      exit(1);
+    }
+    else {   // If failsafe option is Yes or Always
+
+      *RR = R; // reinitialize temp residual
+
+#pragma omp parallel for
+      for(iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->sndData(*fsPat,  (*tag).subData(iSub));
+
+      fsPat->exchange();
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->addRcvData(*fsPat, (*tag).subData(iSub));
+
+#pragma omp parallel for
+      for (iSub = 0; iSub < numLocSub; ++iSub)
+        subDomain[iSub]->finalizeTags((*tag)(iSub));
+
+      ngrad.fix(*tag);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.limit(recFcn, X, ctrlVol, V);
+
+      if (egrad) egrad->fix(*tag);
+
+#pragma omp parallel for reduction(+: ierr)
+      for (iSub = 0; iSub < numLocSub; ++iSub) {
+        EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+        subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub), irey(iSub), fluxFcn, recFcn, bcData(iSub),
+                                                 geoState(iSub), X(iSub), V(iSub), ngrad(iSub),
+                                                 legrad, (*RR)(iSub), (*tag)(iSub), 0, rshift);
+      }
+
+      if (failsafe == 1) *tag = 0;
+    }
+  }
+
+#pragma omp parallel for reduction(+: ierr)
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->sndData(*vecPat, (*RR).subData(iSub));
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*vecPat, (*RR).subData(iSub));
+
+  R = *RR;
+
+  timer->addFiniteVolumeTermTime(t0);
+
+  if (RR) delete(RR); // delete temp residual
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim>
 void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,

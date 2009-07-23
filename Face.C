@@ -9,6 +9,7 @@
 #include <BcData.h>
 #include <BcDef.h>
 #include <Elem.h>
+#include <ExactRiemannSolver.h>
 #include <GeoState.h>
 #include <Vector3D.h>
 #include <Vector.h>
@@ -41,7 +42,6 @@ void Face::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> &Uout
   int k, j;
 
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
-
   if (code == BC_INLET_MOVING || code == BC_INLET_FIXED)
     for (k=0; k<dim; ++k) {
       for (j=0, U[k] = 0.0; j<numNodes(); ++j) 
@@ -301,10 +301,61 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 {
   if(fluxFcn[code]){
     double flux[dim];
-
     for (int l=0; l<numNodes(); ++l) {
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
 			     V[nodeNum(l)], Ub, flux);
+      for (int k=0; k<dim; ++k){
+        fluxes[ nodeNum(l) ][k] += flux[k];
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+//TODO: remaining issues...
+//      1) "wallVel" now works only if the wall moves in normal direction.
+//      2) in the flux calculation, the last 0.0 might be "normalVel".
+//      3) not sure if also works for implicitTsDesc
+
+template<int dim>
+void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                   FluxFcn **fluxFcn, Vec<Vec3D> &normals,
+                                   Vec<double> &normalVel, SVec<double,dim> &V,
+                                   double *Ub, SVec<double,dim> &fluxes)
+{
+  if(code==BC_ADIABATIC_WALL_MOVING || code==BC_ADIABATIC_WALL_FIXED) {
+  // FS Riemann based flux calculation.
+    double flux[dim], Wstar[2*dim];
+    int k;
+    Vec3D wallVel, unitNormal;
+    VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+
+    for (int l=0; l<numNodes(); ++l) {
+      k = nodeNum(l);
+      unitNormal = getNormal(normals,l)/(getNormal(normals,l).norm());
+      wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
+      riemann.computeFSIRiemannSolution(V[k], wallVel, -1.0*unitNormal, varFcn, Wstar, k); //<! "k" is passed in for updating phase-change, which is used only under the embedded framework. 
+/*
+      if(code==BC_ADIABATIC_WALL_MOVING) {//Kevin's debug 
+        fprintf(stderr,"** Solving a FS Riemann problem at moving wall.\n");
+        fprintf(stderr,"   Inputs : V[%d] = %e %e %e %e %e.  wallVel = %e %e %e.\n", 
+                           k+1, V[k][0], V[k][1], V[k][2], V[k][3], V[k][4], wallVel[0], wallVel[1], wallVel[2]);
+        fprintf(stderr,"   Outputs: Wstar = %e %e %e %e %e.\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
+      }
+*/
+      fluxFcn[BC_INTERNAL]->compute(0.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), V[k], Wstar, flux);
+      for (int i=0; i<dim; ++i)
+        fluxes[k][i] += flux[i];
+    }
+    return;
+  }
+
+
+  if(fluxFcn[code]){
+    double flux[dim];
+    for (int l=0; l<numNodes(); ++l) {
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
+                             V[nodeNum(l)], Ub, flux);
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }
@@ -608,6 +659,23 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 
   for (int i=0; i<numFaces; ++i)
     faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluxes);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FaceSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, 
+                                      FluxFcn **fluxFcn, BcData<dim> &bcData,
+                                      GeoState &geoState, SVec<double,dim> &V,
+                                      SVec<double,dim> &fluxes)
+{
+  Vec<Vec3D> &n = geoState.getFaceNormal();
+  Vec<double> &ndot = geoState.getFaceNormalVel();
+  SVec<double,dim> &Ub = bcData.getFaceStateVector();
+
+  for (int i=0; i<numFaces; ++i)
+    faces[i]->computeFiniteVolumeTerm(riemann, fluxFcn, n, ndot, V, Ub[i], fluxes);
 
 }
 

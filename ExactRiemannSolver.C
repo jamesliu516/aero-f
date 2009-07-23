@@ -19,7 +19,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(iod.strucIntersect.intersectorName != 0) // FIX
+  if(1) // FIX
+  //if(iod.strucIntersect.intersectorName != 0) // FIX
     fsiRiemann = new LocalRiemannFluidStructure();
 
 // Multiphase Riemann problem
@@ -63,7 +64,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
       fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
       exit(1);
     }
-  }
+  } 
 		
 
 }

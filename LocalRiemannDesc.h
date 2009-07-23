@@ -1142,7 +1142,6 @@ void LocalRiemannFluidStructure::computeRiemannSolution(int tag, double *Vi, dou
                             double *Wstar, double *rupdatej,
                             double &weightj, int it)
 {
-
   int dim = 5;
 
   double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
@@ -1157,7 +1156,9 @@ void LocalRiemannFluidStructure::computeRiemannSolution(int tag, double *Vi, dou
   P_1  = vf->getPressure(Vi);
 
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  fprintf(stderr,"I'm here.\n");
   eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,tag); //caution: U_i will not be modified!
+  fprintf(stderr,"I'm here too.\n");
 
   Wstar[0]  = R_i;                     Wstar[dim]    = Wstar[0];
   Wstar[1]  = vti[0]+U_i*nphi[0];      Wstar[dim+1]  = Wstar[1];

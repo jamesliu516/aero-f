@@ -758,6 +758,27 @@ void SubDomain::computePressureSensor(SVec<double,3>& X, SVec<double,dim>& V,
 template<int dim>
 int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       SVec<double,dim>& fluxes, SVec<int,2>& tag,
+                                       int failsafe, int rshift)
+{
+
+  int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState,
+                                           X, V, ngrad, egrad, fluxes, tag, failsafe, rshift);
+
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
+
+  return(ierr);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, 
+                                       Vec<double> &irey, FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
 				       SVec<double,3>& X, SVec<double,dim>& V,
 				       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
 				       SVec<double,dim>& fluxes, SVec<int,2>& tag,
@@ -767,7 +788,7 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
   int ierr = edges.computeFiniteVolumeTerm(locToGlobNodeMap, irey, fluxFcn, recFcn, elems, geoState,
                                            X, V, ngrad, egrad, fluxes, tag, failsafe, rshift);
 
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
+  faces.computeFiniteVolumeTerm(riemann, fluxFcn, bcData, geoState, V, fluxes);
 
   return(ierr);
 
@@ -833,7 +854,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
                                            ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes); //TODO: only works for 1-phase flow
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes); 
 
   return ierr;
 
@@ -3370,9 +3391,9 @@ void SubDomain::assignFreeStreamValues2(SVec<double,dim> &Uin, SVec<double,dim> 
 				      Uin[node], Uout[node], Uinlet[j]);
   }
 
-  for (int i=0; i<faces.size(); ++i)
+  for (int i=0; i<faces.size(); ++i) 
     faces[i].template assignFreeStreamValues2<dim>(Uin, Uout, U[i]);
-
+  
 }
 
 //------------------------------------------------------------------------------

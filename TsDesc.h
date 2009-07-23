@@ -24,6 +24,7 @@ template<int dim> class DistBcData;
 template<int dim> class DistTimeState;
 template<int dim> class SpaceOperator;
 template<int dim> class PostOperator;
+template<int dim> class DistExactRiemannSolver;
 
 //------------------------------------------------------------------------------
 /** Base class for time integration descriptors */
@@ -42,6 +43,7 @@ public:
 
   Timer *timer;
 protected:
+  DistExactRiemannSolver<dim> *riemann;
 
   PosVecType *X;
   VolVecType *A;
