@@ -60,7 +60,7 @@ struct TransientData {
   const char *tavpressure;
   const char *hydrostaticpressure;
   const char *hydrodynamicpressure;
-  const char *pressurecoefficient; //CBM
+  const char *pressurecoefficient;
   const char *temperature;
   const char *tavtemperature;
   const char *totalpressure;

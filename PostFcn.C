@@ -162,8 +162,8 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->hydrostaticPressure(V[0],X);
   else if(type == HYDRODYNAMICPRESSURE)
     q = varFcn->hydrodynamicPressure(V,X,phi);
-  else if(type == PRESSURECOEFFICIENT) //CBM
-    q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag); //CBM
+  else if(type == PRESSURECOEFFICIENT)
+    q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag);
   else if(type == PHILEVEL)
     q = phi/varFcn->getDensity(V);
 

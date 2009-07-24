@@ -133,7 +133,7 @@ TransientData::TransientData()
   tavpressure = "";
   hydrostaticpressure = "";
   hydrodynamicpressure = "";
-  pressurecoefficient = ""; //CBM
+  pressurecoefficient = "";
   temperature = "";
   tavtemperature = "";
   totalpressure = "";
@@ -225,7 +225,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DeltaPressure", this, &TransientData::diffpressure);
   new ClassStr<TransientData>(ca, "HydroStaticPressure", this, &TransientData::hydrostaticpressure);
   new ClassStr<TransientData>(ca, "HydroDynamicPressure", this, &TransientData::hydrodynamicpressure);
-  new ClassStr<TransientData>(ca, "PressureCoefficient", this, &TransientData::pressurecoefficient); //CBM
+  new ClassStr<TransientData>(ca, "PressureCoefficient", this, &TransientData::pressurecoefficient);
   new ClassStr<TransientData>(ca, "TavPressure", this, &TransientData::tavpressure);
   new ClassStr<TransientData>(ca, "Temperature", this, &TransientData::temperature);
   new ClassStr<TransientData>(ca, "TavTemperature", this, &TransientData::tavtemperature);
