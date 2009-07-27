@@ -2,7 +2,6 @@
 
 #include <BinFileHandler.h>
 
-
 //------------------------------------------------------------------------------
 
 MatchNodeSet::MatchNodeSet(int value)

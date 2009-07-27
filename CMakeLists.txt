@@ -1,5 +1,21 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
+
+# Code to determine if we should add some link libraries
+IF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
+  EXEC_PROGRAM(${CMAKE_Fortran_COMPILER}
+      ARGS "-### CMake/Modules/CMakeTestFortran.f"
+      OUTPUT_VARIABLE CMAKE_COMPILER_OUTPUT RETURN_VALUE CMAKE_COMPILER_RETURN)
+  IF(NOT CMAKE_COMPILER_RETURN)
+#      MESSAGE("Will add -lgfortran")
+      IF("${CMAKE_COMPILER_OUTPUT}" MATCHES ".*-lgfortran.*" )
+         SET(FORTRAN_HYBRID_LIBRARIES "-lgfortran")
+      ENDIF("${CMAKE_COMPILER_OUTPUT}" MATCHES ".*-lgfortran.*" )
+#  ELSE(NOT CMAKE_COMPILER_RETURN)
+#     MESSAGE("Problem: " ${CMAKE_COMPILER_OUTPUT} )
+  ENDIF(NOT CMAKE_COMPILER_RETURN)
+ENDIF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
+
 # SET(CMAKE_VERBOSE_MAKEFILE true)
 
 IF(NOT EXTRALIB)
@@ -265,6 +281,8 @@ SET(INC_DIR .)
 
 IF(PHYSBAM_INCLUDE_DIR)
   SET(INC_DIR ${INC_DIR} ${PHYSBAM_INCLUDE_DIR} ${PHYSBAM_INCLUDE_DIR}/Public_Library)
+  file(GLOB PHYSBAM_LIBS /home/icmewang/PhysBam/lib*.so /home/michel/Research/Academic/PhysBam/lib/lib*.so)
+  SET(EXTRALIBRARIES ${PHYSBAM_LIBS} ${EXTRALIBRARIES})
 ENDIF(PHYSBAM_INCLUDE_DIR)
 IF(BOOST_INCLUDE_DIR)
   SET(INC_DIR ${INC_DIR} ${BOOST_INCLUDE_DIR})
@@ -327,7 +345,7 @@ IF(MPI_FOUND)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 
-                          ${EXTRALIBRARIES})
+                          ${EXTRALIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}

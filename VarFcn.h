@@ -7,6 +7,10 @@
 #include <math.h>
 #include <complex>
 typedef std::complex<double> bcomp;
+#include <iostream>
+
+using std::cout;
+using std::endl;
 
 #include <IoData.h>
 
@@ -400,6 +404,11 @@ public:
                  gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2])
          + rho*(gravity[0]*dX[0]+gravity[1]*dX[1]+gravity[2]*dX[2]);
   }
+  virtual double computePressureCoefficient(double *V, double pinfty, 
+                                            double mach, bool dimFlag, double phi = 0.0) { 
+     fprintf(stderr, "... WARNING: computePressureCoefficient is only implemented for Perfect Gas Flows\n"); 
+     return 0.0; 
+  }
                                                                     
 };
 //------------------------------------------------------------------------------
@@ -468,10 +477,17 @@ public:
     return V[4]*pow(opmach, gam*invgam1);
   }
 
+  double computePressureCoefficient(double *V, double pinfty, double mach, bool dimFlag, double phi = 0.0) { 
+    if (dimFlag)
+      return 2.0 * (V[4] - pinfty);
+    else 
+      return 2.0 * (V[4] - 1.0/(gam*mach*mach));
+  }
+
 // Included (MB)
   double getVelocityNorm(double *V) { return sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]); }
   double getDerivativeOfVelocityNorm(double *V, double *dV) { return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]); }
-  double computeDerivativeOfTemperature(double *V, double *dV, double phi = 0.0) { return invgam1 * ( dV[4]*V[0] - V[4]*dV[0] ) / ( V[0]*V[0] ); }
+  double computeDerivativeOfTemperature(double *V, double *dV, double phi = 0.0) {return invgam1 * ( dV[4]*V[0] - V[4]*dV[0] ) / ( V[0]*V[0] ); }
   double computeDerivativeOfMachNumber(double *V, double *dV, double dMach, double phi = 0.0) {
     return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );
   }

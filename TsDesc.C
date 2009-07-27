@@ -288,7 +288,8 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
   return spaceOp->recomputeResidual(F,Finlet);
 
 }
-//-------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
 template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
@@ -493,7 +494,6 @@ template<int dim>
 void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double t, 
 				    DistSVec<double,dim> &U)
 {
-
   if (it == data->maxIts)
     *lastIt = true;
   else
@@ -501,7 +501,6 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
-
   timer->setSetupTime();
 
   if (it == 0) {
@@ -515,7 +514,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
- 
+    output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
   }
 
 }
@@ -541,6 +540,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
+  output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
   if (*lastIt) {
     timer->setRunTime();
@@ -627,22 +627,20 @@ void TsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
 template<int dim>
 double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  double tt = timer->getTime();
   spaceOp->computeResidual(this->riemann, *X, *A, U, *R, timeState);
   spaceOp->applyBCsToResidual(U, *R);
   double res = 0.0;
-  {
-    double res2 = spaceOp->recomputeResidual(*R, *Rinlet);
-    if (data->resType == -1){
-      res = (*R)*(*R);
-      res -= res2;
-    }else {
-      int iSub;
-      const DistInfo& distInfo = R->info();
+  if (data->resType == -1){
+    res = (*R)*(*R);
+
+ 
+  }else{ 
+    int iSub;
+    const DistInfo& distInfo = R->info();
 #ifndef MPI_OMP_REDUCTION
-      double* allres = reinterpret_cast<double*>(alloca(sizeof(double) * distInfo.numGlobSub));
-      for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
-        allres[iSub] = 0.0;
+    double* allres = reinterpret_cast<double*>(alloca(sizeof(double) * distInfo.numGlobSub));
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+      allres[iSub] = 0.0;
 #endif
 
 #ifdef MPI_OMP_REDUCTION
@@ -650,33 +648,33 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 #else
 #pragma omp parallel for
 #endif
-      for (iSub=0; iSub<distInfo.numLocSub; ++iSub) {
-        double (*r)[dim] = R->subData(iSub);
-        bool* flag = R->getMasterFlag(iSub);
-        double locres = 0.0;
-        for (int i=0; i<R->subSize(iSub); ++i) {
-       	if (flag[i])
-    	  locres += r[i][data->resType]*r[i][data->resType];
-        }
-#ifdef MPI_OMP_REDUCTION
-        res += locres;
-#else
-        allres[distInfo.locSubToGlobSub[iSub]] = locres;
-#endif
+    for (iSub=0; iSub<distInfo.numLocSub; ++iSub) {
+      double (*r)[dim] = R->subData(iSub);
+      bool* flag = R->getMasterFlag(iSub);
+      double locres = 0.0;
+      for (int i=0; i<R->subSize(iSub); ++i) {
+	if (flag[i])
+	  locres += r[i][data->resType]*r[i][data->resType];
       }
-
 #ifdef MPI_OMP_REDUCTION
-      distInfo.com->globalSum(1, &res);
+      res += locres;
 #else
-      distInfo.com->globalSum(distInfo.numGlobSub, allres);
-      res = 0.0;
-      for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
-        res += allres[iSub];
+      allres[distInfo.locSubToGlobSub[iSub]] = locres;
 #endif
     }
+
+#ifdef MPI_OMP_REDUCTION
+    distInfo.com->globalSum(1, &res);
+#else
+    distInfo.com->globalSum(distInfo.numGlobSub, allres);
+    res = 0.0;
+    for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) 
+      res += allres[iSub];
+#endif
   }
+
   return sqrt(res);
-  fprintf(stderr,"Timer for computeResidualNorm = %lf.\n", (timer->getTime())-tt);
+
 }
 
 //------------------------------------------------------------------------------

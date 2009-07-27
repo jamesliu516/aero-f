@@ -161,9 +161,6 @@ public:
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
-
-
-
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
                          DistVec<double> &Phi,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight);
@@ -188,7 +185,7 @@ public:
                          DistVec<int> &nodeTag0, DistVec<int> &nodeTag);  //for FS interface 
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
-
+ 
   double computeRealFluidResidual(DistSVec<double, dim> &, DistSVec<double,dim> &, DistLevelSetStructure &);
 
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,

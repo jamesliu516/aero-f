@@ -9,7 +9,7 @@
 // Included (MB)
 GeoState::GeoState(GeoData &gd, Vec<double> &ctrlvoln, Vec<double> &ctrlvolnm1,
 		   Vec<double> &ctrlvolnm2,
-                   Vec<double> &ctrlvoldot, Vec<double> &d2w,
+                   Vec<double> &d2w,
 		   Vec<Vec3D> &edgenorm, Vec<Vec3D> &facenorm,
 		   Vec<double> &edgenormvel, Vec<double> &facenormvel,
 		   Vec<Vec3D> &inletnodenorm, Vec<int>& numfaceneighb,
@@ -17,7 +17,6 @@ GeoState::GeoState(GeoData &gd, Vec<double> &ctrlvoln, Vec<double> &ctrlvolnm1,
                    Vec<double> &dEdgenormvel, Vec<double> &dFacenormvel,
                    SVec<double,3> &x, SVec<double,3> &dx) :
                    data(gd), ctrlVol_n(ctrlvoln), ctrlVol_nm1(ctrlvolnm1), ctrlVol_nm2(ctrlvolnm2),
-                   ctrlVol_dot(ctrlvoldot),
                    d2wall(d2w), edgeNorm(edgenorm), faceNorm(facenorm),
                    edgeNormVel(edgenormvel), faceNormVel(facenormvel), inletNodeNorm(inletnodenorm),
                    numFaceNeighb(numfaceneighb)
@@ -32,12 +31,11 @@ GeoState::GeoState(GeoData &gd, Vec<double> &ctrlvoln, Vec<double> &ctrlvolnm1,
 
 GeoState::GeoState(GeoData &gd, Vec<double> &ctrlvoln, Vec<double> &ctrlvolnm1, 
 		   Vec<double> &ctrlvolnm2,
-                   Vec<double> &ctrlvoldot, Vec<double> &d2w,
+                   Vec<double> &d2w,
 		   Vec<Vec3D> &edgenorm, Vec<Vec3D> &facenorm, 
 		   Vec<double> &edgenormvel, Vec<double> &facenormvel,
 		   Vec<Vec3D> &inletnodenorm, Vec<int>& numfaceneighb) :
   data(gd), ctrlVol_n(ctrlvoln), ctrlVol_nm1(ctrlvolnm1), ctrlVol_nm2(ctrlvolnm2), 
-  ctrlVol_dot(ctrlvoldot),
   d2wall(d2w), edgeNorm(edgenorm), faceNorm(facenorm), 
   edgeNormVel(edgenormvel), faceNormVel(facenormvel), inletNodeNorm(inletnodenorm),
   numFaceNeighb(numfaceneighb)

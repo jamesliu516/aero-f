@@ -53,7 +53,6 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   Xdot = new DistSVec<double,3>(domain->getNodeDistInfo());
 
 // for mesh motion (ALE) with RK2 only
-  ctrlVol_dot = new DistVec<double>(domain->getNodeDistInfo());
   if (data.use_save) { //true only if explicit with moving mesh
     ctrlVol_save = new DistVec<double>(domain->getNodeDistInfo());
     Xsave = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -157,7 +156,6 @@ DistGeoState::~DistGeoState()
   if (ctrlVol_nm1) delete ctrlVol_nm1;
   if (ctrlVol_nm2) delete ctrlVol_nm2;
   if (ctrlVol_save) delete ctrlVol_save;
-  if (ctrlVol_dot) delete ctrlVol_dot;
 
   if (d2wall) delete d2wall;
 
@@ -202,7 +200,9 @@ void DistGeoState::setup(const char *name, TimeData &timeData,
 			 DistSVec<double,3> *X, DistVec<double> *ctrlVol)
 {
   setup1(name, X, ctrlVol);
+  com->printf(2, "Done with 1\n");
   setup2(timeData);
+  com->printf(2, "Done with 2\n");
 }
 
 //------------------------------------------------------------------------------
@@ -281,7 +281,6 @@ void DistGeoState::setup2(TimeData &timeData)
     *Xdot = oodtnm1 * (*Xn - *Xnm1);
 
 // for mesh motion (ALE) with RK2 only
-  if (ctrlVol_dot)   *ctrlVol_dot = 0.0;
   if (ctrlVol_save)  *ctrlVol_save = *ctrlVol_n;
   if (Xsave)         *Xsave = *Xn;
 // end ALE-RK2
@@ -321,7 +320,7 @@ void DistGeoState::setup2(TimeData &timeData)
       if (optFlag)
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
 				       (*ctrlVol_nm2)(iSub),
-                                       (*ctrlVol_dot)(iSub), (*d2wall)(iSub),
+                                       (*d2wall)(iSub),
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub),
@@ -331,7 +330,7 @@ void DistGeoState::setup2(TimeData &timeData)
       else
       subGeoState[iSub] = new GeoState(data, (*ctrlVol_n)(iSub), (*ctrlVol_nm1)(iSub),
 				       (*ctrlVol_nm2)(iSub),
-                                       (*ctrlVol_dot)(iSub), (*d2wall)(iSub), 
+                                       (*d2wall)(iSub), 
 				       (*edgeNorm)(iSub), (*faceNorm)(iSub),
 				       (*edgeNormVel)(iSub), (*faceNormVel)(iSub),
 				       (*inletNodeNorm)(iSub), (*numFaceNeighb)(iSub));
@@ -384,10 +383,6 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
   }
   else if (data.typeNormals == DGCLData::EXPLICIT_RK2 && data.use_save){
 
-    //ctrlVol_dot computed for DGCLData::EXPLICIT_RK2_VOL
-    *ctrlVol_dot = (1.0 / timeData.dt_n) * (ctrlVol - *ctrlVol_n);
-
-
     // Xsave is temporarily used to compute the different configurations on which to compute the normals
     //       and the normal velocities
     *edgeNorm = 0.0;
@@ -406,23 +401,21 @@ void DistGeoState::compute(TimeData &timeData, DistSVec<double,3> &Xsdot,
     *faceNorm *= 0.5;
     *faceNormVel *= 0.5;
 
-    // save values of actual configuration Xnp1
+    //save values of actual configuration Xnp1
 
     *Xsave = X;
     *ctrlVol_save = ctrlVol;
 
     // return values X and ctrlVol on which to compute the fluxes!
-    // for Eulerian fluxes, implicit formulation/coding requires only normals and normal velocities
-    //                      explicit formulation/coding requires normals, normal velocities and volumes(!)
+    // for Eulerian fluxes, implicit/explicit formulation/coding requires normals and normal velocities
     // for Viscous terms, it is always required to have Xconfig which is not necessarily Xnp1!
     
     //X = 0.5*(*Xn) + 0.5*X;
     X += *Xn;
     X *= 0.5;
-    domain->computeControlVolumes(lscale, X, ctrlVol);
 
-    // now X and ctrlVol have the configuration on which to compute the fluxes 
-    // but do not correspond to Xnp1 and ctrlVol_np1 which will need to be restored
+    // now X has the configuration on which to compute the fluxes 
+    // but does not correspond to Xnp1 which will need to be restored
     // at end of iteration!
 
   }

@@ -140,6 +140,7 @@ TransientData::TransientData()
   tavpressure = "";
   hydrostaticpressure = "";
   hydrodynamicpressure = "";
+  pressurecoefficient = "";
   temperature = "";
   tavtemperature = "";
   totalpressure = "";
@@ -196,6 +197,10 @@ TransientData::TransientData()
   dForces = "";
   dEddyvis = "";
 
+  tempnormalderivative = "";
+  surfaceheatflux = "";
+  heatfluxes = "";
+
   frequency = 0;
   length = 1.0;
   surface = 1.0;
@@ -211,7 +216,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 73, father);
+  ClassAssigner *ca = new ClassAssigner(name, 77, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -228,6 +233,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DeltaPressure", this, &TransientData::diffpressure);
   new ClassStr<TransientData>(ca, "HydroStaticPressure", this, &TransientData::hydrostaticpressure);
   new ClassStr<TransientData>(ca, "HydroDynamicPressure", this, &TransientData::hydrodynamicpressure);
+  new ClassStr<TransientData>(ca, "PressureCoefficient", this, &TransientData::pressurecoefficient);
   new ClassStr<TransientData>(ca, "TavPressure", this, &TransientData::tavpressure);
   new ClassStr<TransientData>(ca, "Temperature", this, &TransientData::temperature);
   new ClassStr<TransientData>(ca, "TavTemperature", this, &TransientData::tavtemperature);
@@ -295,7 +301,12 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DisplacementSensitivity", this, &TransientData::dDisplacement);
   new ClassStr<TransientData>(ca, "ForceSensitivity", this, &TransientData::dForces);
 
+  new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
+  new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
+  new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
+
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -2135,8 +2146,9 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<DefoMeshMotionData>
     (ca, "Element", this,
-     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 4,
-     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3);
+     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 5,
+     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3,
+         "NonLinearBallVertex", 4);
 
   new ClassDouble<DefoMeshMotionData>(ca, "VolumeStiffness", this, &DefoMeshMotionData::volStiff);
   new ClassToken<DefoMeshMotionData>
@@ -2586,28 +2598,41 @@ SurfaceData::SurfaceData()  {
 
   sBit = 0;
 
-  computeForces = UNSPECIFIED;
+  computeForces = (ComputeForces) UNSPECIFIED;
   forceResults = NO;
 
   rotationID = -1;
   velocity = 0.0;
+
+  type = (Type) UNSPECIFIED; 
+  temp = -1.0;
+  computeHeatFluxes = (ComputeHeatPower) UNSPECIFIED_HF;
+  heatFluxResults = NO_HF; 
 }
 
 //------------------------------------------------------------------------------
 static RootClassAssigner nullAssigner;
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 12, &nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
   new ClassDouble<SurfaceData>(ca, "Nz", this, &SurfaceData::nz);
   new ClassToken<SurfaceData> (ca, "ComputeForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeForces), 2, "False", 0, "True", 1);
   new ClassToken<SurfaceData> (ca, "SeparateForces", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
-  new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateFile", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::forceResults), 2, "False", 0, "True", 1); //I think this variable is never used
+  
+  new ClassToken<SurfaceData> (ca, "ComputeHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::computeHeatFluxes), 2, "False", 0, "True", 1);
+  new ClassToken<SurfaceData> (ca, "SeparateHeatFlux", this, reinterpret_cast<int SurfaceData::*>(&SurfaceData::heatFluxResults), 2, "False", 0, "True", 1);
 
   new ClassInt<SurfaceData>(ca, "VelocityID", this, &SurfaceData::rotationID);
   new ClassDouble<SurfaceData>(ca, "Velocity", this, &SurfaceData::velocity);
+
+  new ClassToken<SurfaceData>(ca, "Type", this,
+                              (int SurfaceData::*)(&SurfaceData::type), 2,
+                              "Isothermal", ISOTHERMAL, "Adiabatic", ADIABATIC);
+  new ClassDouble<SurfaceData>(ca, "Temperature", this, &SurfaceData::temp);
 
   return ca;
 }
@@ -3026,7 +3051,7 @@ void IoData::readCmdFile()
   resetInputValues();
   error = checkFileNames();
   error += checkInputValues();
-  error += checkSolverValues();
+  error += checkSolverValues(surfaces.surfaceMap.dataMap);
   if (error) {
     com->fprintf(stderr, "*** Error: command file contained %d error%s\n",
 		 error, error>1? "s":"");
@@ -3344,8 +3369,9 @@ int IoData::checkInputValues()
   error += checkInputValuesStateEquation();
 
   error += checkInputValuesNonDimensional();
-  error += checkInputValuesDimensional();
 
+
+  error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap); 
   checkInputValuesTurbulence();
 
   checkInputValuesDefaultOutlet();
@@ -3961,7 +3987,7 @@ int IoData::checkInputValuesNonDimensional()
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
-      com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%d) given\n", bc.inlet.temperature);
+      com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%f) given\n", bc.inlet.temperature);
       error ++;
     }
     if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
@@ -3973,7 +3999,7 @@ int IoData::checkInputValuesNonDimensional()
   return error;
 }
 //------------------------------------------------------------------------------------
-int IoData::checkInputValuesDimensional()
+int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 {
 
 /* Non dimensionalization of two phase flows is somewhat tricky,
@@ -4256,6 +4282,16 @@ int IoData::checkInputValuesDimensional()
     restart.dt_nm2 /= ref.rv.time;
     restart.energy /= ref.rv.energy;
     bc.wall.temperature /= ref.rv.temperature;
+
+       for(int j = 1; j < 8*sizeof(int); j++) {
+            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL) {
+               it->second->temp /= ref.rv.temperature;
+            }
+       }
+
     linearizedData.stepsize = ts.timestep;
     linearizedData.stepsizeinitial = ts.timestepinitial;
     ts.timestep /= ref.rv.time;
@@ -4475,7 +4511,7 @@ void IoData::checkInputValuesDefaultOutlet()
 
 //------------------------------------------------------------------------------
 
-int IoData::checkSolverValues()
+int IoData::checkSolverValues(map<int,SurfaceData*>& surfaceMap)
 {
 
   int error = 0;
@@ -4495,11 +4531,25 @@ int IoData::checkSolverValues()
       ++error;
     }
   }
+
   if (eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ISOTHERMAL &&
       !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
-    com->fprintf(stderr, "*** Error: no valid wall temperature (%d) given\n", bc.wall.temperature);
+    com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given\n", bc.wall.temperature);
     ++error;
   }
+
+
+for(int j = 1; j < 8*sizeof(int); j++) {
+            map<int,SurfaceData*>::iterator it = surfaceMap.find(j);
+             if(it == surfaceMap.end())
+               continue;
+             if(it->second->type == SurfaceData::ISOTHERMAL && it->second->temp < 0 && eqs.type != EquationsData::EULER && bc.wall.type == BcsWallData::ADIABATIC &&
+                 !problem.type[ProblemData::THERMO] && bc.wall.temperature < 0.0) {
+               com->fprintf(stderr, "*** Error: no valid wall temperature (%f) given and (%f) given for surface (%d) \n", bc.wall.temperature, it->second->temp, j);
+               error++;
+            }
+       }
+
 
 // for Multiphase flow using levelset
   if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT

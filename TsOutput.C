@@ -123,8 +123,15 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
   }
+  if (iod.output.transient.pressurecoefficient[0] != 0) {
+    sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
+    scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
+  }
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
+//    sscale[PostFcn::TEMPERATURE] = 1;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
     sprintf(scalars[PostFcn::TEMPERATURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.temperature);
@@ -158,6 +165,18 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     avscalars[PostFcn::VORTICITYAVG] = new char[sp + strlen(iod.output.transient.tavvorticity)];
     sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
+  }
+  if (iod.output.transient.surfaceheatflux[0] != 0) {
+    sscale[PostFcn::SURFACE_HEAT_FLUX] = iod.ref.rv.power /(iod.ref.rv.length * iod.ref.rv.length);
+    scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
+    sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.surfaceheatflux);
+  }
+  if (iod.output.transient.tempnormalderivative[0] != 0) {
+    sscale[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = iod.ref.rv.temperature/iod.ref.rv.length;
+    scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = new char[sp + strlen(iod.output.transient.tempnormalderivative)];
+    sprintf(scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
   }
   if (iod.output.transient.nutturb[0] != 0) {
     sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
@@ -374,6 +393,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     hydrodynamiclift = 0;
 
+  if (iod.output.transient.heatfluxes[0] != 0) {
+    heatfluxes = new char[sp + strlen(iod.output.transient.heatfluxes)];
+    sprintf(heatfluxes, "%s%s", iod.output.transient.prefix, iod.output.transient.heatfluxes);
+  }
+  else
+    heatfluxes = 0;
+
   if (iod.output.transient.residuals[0] != 0) {
     residuals = new char[sp + strlen(iod.output.transient.residuals)];
     sprintf(residuals, "%s%s", iod.output.transient.prefix, iod.output.transient.residuals);
@@ -401,6 +427,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpGnForces  = 0;
 
   int nSurf = postOp->getNumSurf();
+  int nSurfHF = postOp->getNumSurfHF();
   fpForces             = new FILE *[nSurf];
   fpLift               = new FILE *[nSurf];
   fpTavForces          = new FILE *[nSurf];
@@ -409,6 +436,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   fpHydroDynamicForces = new FILE *[nSurf];
   fpHydroStaticLift    = new FILE *[nSurf];
   fpHydroDynamicLift   = new FILE *[nSurf];
+  fpHeatFluxes         = new FILE *[nSurfHF]; 
 
   for (int iSurf = 0; iSurf < nSurf; iSurf++)  {
     fpForces[iSurf]          = 0;
@@ -419,6 +447,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     fpHydroDynamicForces[iSurf] = 0;
     fpHydroStaticLift[iSurf]    = 0;
     fpHydroDynamicLift[iSurf]   = 0;
+  }
+
+  for (int iSurf = 0; iSurf < nSurfHF; iSurf++)  {
+    fpHeatFluxes[iSurf]         = 0; 
   }
 
 
@@ -525,7 +557,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
- 
 }
 
 //------------------------------------------------------------------------------
@@ -639,7 +670,7 @@ void TsOutput<dim>::openAsciiFiles()
       if (it->second > 0)
         surfNums[iSurf++] = it->first;
   }
-      
+     
   if (forces) {
     if (it0 != 0) 
       fpForces[0] = backupAsciiFile(forces);
@@ -701,7 +732,6 @@ void TsOutput<dim>::openAsciiFiles()
       fflush(fpdForces);
     }
   }
-
   if (hydrostaticforces) {
     if (it0 != 0){
       fpHydroStaticForces[0] = backupAsciiFile(hydrostaticforces);
@@ -1024,6 +1054,68 @@ void TsOutput<dim>::openAsciiFiles()
     }
   }
 
+//For Heat Fluxes the flags are different
+
+  int nSurfHF = postOp->getNumSurfHF();
+   int *surfNumsHF = 0;
+    if (nSurfHF > 0)  {
+    surfNumsHF = new int[nSurfHF];
+    map<int,int> surfMapHF = postOp->getSurfMapHF();
+    map<int, int>::iterator it;
+    iSurf = 1;
+    surfNumsHF[0] = 0;
+    for (it = surfMapHF.begin(); it != surfMapHF.end(); it++)
+      if (it->second > 0)
+        surfNumsHF[iSurf++] = it->first;
+  }
+
+  if (heatfluxes) {
+    if (it0 != 0)
+      fpHeatFluxes[0] = backupAsciiFile(heatfluxes);
+    if (it0 == 0 || fpHeatFluxes[0] == 0) {
+      fpHeatFluxes[0] = fopen(heatfluxes, "w");
+      if (!fpHeatFluxes[0]) {
+        fprintf(stderr, "*** HF Error: could not open \'%s\'\n", heatfluxes);
+        exit(1);
+      }
+      const char *addvar = "";
+ //     if (rmmh) addvar = rmmh->getTagName();
+      fprintf(fpHeatFluxes[0], "# TimeIteration Time SubCycles NewtonSteps ");
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        fprintf(fpHeatFluxes[0], "Nondimensional HeatFlux %s\n", addvar);
+      else
+        fprintf(fpHeatFluxes[0], "HeatFlux %s\n", addvar);
+    }
+    fflush(fpHeatFluxes[0]);
+  }
+
+  if (heatfluxes) {
+    for (iSurf = 1; iSurf < nSurfHF; iSurf++) {
+      char filename[256];
+      sprintf(filename,"%s%d", heatfluxes, surfNumsHF[iSurf]);
+      if (it0 != 0)
+        fpHeatFluxes[iSurf] = backupAsciiFile(filename);
+      if (it0 == 0 || fpHeatFluxes[iSurf] == 0) {
+        fpHeatFluxes[iSurf] = fopen(filename, "w");
+        if (!fpHeatFluxes[iSurf]) {
+           fprintf(stderr, "*** HF Error: could not open \'%s\'\n", filename);
+           exit(1);
+        }
+        const char *addvar = "";
+        if (rmmh) addvar = rmmh->getTagName();
+        fprintf(fpHeatFluxes[iSurf], "# TimeIteration Time SubCycles NewtonSteps ");
+        if (refVal->mode == RefVal::NON_DIMENSIONAL)
+          fprintf(fpHeatFluxes[iSurf], "Nondimensional HeatFlux  %s\n", addvar);
+        else
+          fprintf(fpHeatFluxes[iSurf], "HeatFlux %s\n", addvar);
+      }
+      fflush(fpHeatFluxes[iSurf]);
+    }
+  }
+
+
+
+
   if (residuals) {
     if (it0 != 0) 
       fpResiduals = backupAsciiFile(residuals);
@@ -1059,6 +1151,7 @@ void TsOutput<dim>::openAsciiFiles()
  }
 
  delete [] surfNums;
+ delete [] surfNumsHF;
 }
 
 //------------------------------------------------------------------------------
@@ -1074,6 +1167,9 @@ void TsOutput<dim>::closeAsciiFiles()
     if (fpLift[iSurf]) fclose(fpLift[iSurf]);
     if (fpTavForces[iSurf]) fclose(fpTavForces[iSurf]);
     if (fpTavLift[iSurf]) fclose(fpTavLift[iSurf]);
+  } 
+  for (int iSurf = 0; iSurf < postOp->getNumSurfHF(); iSurf++)  {
+     if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
   if (fpResiduals) fclose(fpResiduals);
   if (fpGnForces) fclose(fpGnForces);
@@ -1366,6 +1462,7 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 
 }
 
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1657,6 +1754,38 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
   delete [] FvD;
   delete [] MiD;
   delete [] MvD;
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+  void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
+                                      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
+{
+  int nSurfs = postOp->getNumSurfHF();
+
+  double *HF = new double[nSurfs];
+  for(int index =0; index < nSurfs; index++){
+    HF[index] = 0;
+  }
+
+  double time = refVal->time * t;
+
+  if (heatfluxes)
+    postOp->computeHeatFluxes(X,U,HF);
+
+  int iSurf;
+  if (fpHeatFluxes[0]) {
+    for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
+      if (refVal->mode == RefVal::NON_DIMENSIONAL)
+        HF[iSurf] *= 2.0 * refVal->length*refVal->length / surface; 
+      else
+       HF[iSurf] *= refVal->power; 
+        fprintf(fpHeatFluxes[iSurf], "%d %e %d %d %e \n",
+                it, time, itSc, itNl, HF[iSurf]);
+      fflush(fpHeatFluxes[iSurf]);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -2105,6 +2234,12 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(scalars[PostFcn::HYDRODYNAMICPRESSURE], "%s%s",
             iod.output.transient.prefix, iod.output.transient.hydrodynamicpressure);
   }
+  if (iod.output.transient.pressurecoefficient[0] != 0) {
+    sscale[PostFcn::PRESSURECOEFFICIENT] = 1.0;
+    scalars[PostFcn::PRESSURECOEFFICIENT] = new char[sp + strlen(iod.output.transient.pressurecoefficient)];
+    sprintf(scalars[PostFcn::PRESSURECOEFFICIENT], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.pressurecoefficient);
+  }
   if (iod.output.transient.temperature[0] != 0) {
     sscale[PostFcn::TEMPERATURE] = iod.ref.rv.temperature;
     scalars[PostFcn::TEMPERATURE] = new char[sp + strlen(iod.output.transient.temperature)];
@@ -2141,6 +2276,16 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(avscalars[PostFcn::VORTICITYAVG], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.tavvorticity);
   }
+  if (iod.output.transient.surfaceheatflux[0] != 0) {
+    scalars[PostFcn::SURFACE_HEAT_FLUX] = new char[sp + strlen(iod.output.transient.surfaceheatflux)];
+    sprintf(scalars[PostFcn::SURFACE_HEAT_FLUX], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.surfaceheatflux);
+  }
+  if (iod.output.transient.tempnormalderivative[0] != 0) {
+    scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE] = new char[sp + strlen(iod.output.transient.tempnormalderivative)];
+    sprintf(scalars[PostFcn::TEMPERATURE_NORMAL_DERIVATIVE], "%s%s",
+             iod.output.transient.prefix, iod.output.transient.tempnormalderivative);
+  }
   if (iod.output.transient.nutturb[0] != 0) {
     sscale[PostFcn::NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
     scalars[PostFcn::NUT_TURB] = new char[sp + strlen(iod.output.transient.nutturb)];
@@ -2166,6 +2311,8 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(scalars[PostFcn::DELTA_PLUS], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dplus);
   }
+
+
   if (iod.output.transient.philevel[0] != 0) {
     sscale[PostFcn::PHILEVEL] = 1.0;
     scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
@@ -2222,37 +2369,13 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     scalars[PostFcn::VELOCITY_NORM] = new char[sp + strlen(iod.output.transient.velocitynorm)];
     sprintf(scalars[PostFcn::VELOCITY_NORM], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.velocitynorm);
-  }
-
-  int dsp = strlen(iod.output.transient.prefix) + 1;
-
-  if (iod.output.transient.dDensity[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_DENSITY] = iod.ref.rv.density;
-    dScalars[PostFcn::DERIVATIVE_DENSITY] = new char[dsp + strlen(iod.output.transient.dDensity)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_DENSITY], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dDensity);
-  }
-
-  if (iod.output.transient.dPressure[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_PRESSURE] = iod.ref.rv.pressure;
-    dScalars[PostFcn::DERIVATIVE_PRESSURE] = new char[dsp + strlen(iod.output.transient.dPressure)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_PRESSURE], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dPressure);
-  }
-
-  if (iod.output.transient.dTemperature[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_TEMPERATURE] = iod.ref.rv.temperature;
-    dScalars[PostFcn::DERIVATIVE_TEMPERATURE] = new char[dsp + strlen(iod.output.transient.dTemperature)];
-    sprintf(dScalars[PostFcn::DERIVATIVE_TEMPERATURE], "%s%s", 
-	    iod.output.transient.prefix, iod.output.transient.dTemperature);
-  }
-
-  if (iod.output.transient.dTotalpressure[0] != 0) {
-    dSscale[PostFcn::DERIVATIVE_TOTPRESSURE] = iod.ref.rv.pressure;
-    dScalars[PostFcn::DERIVATIVE_TOTPRESSURE] = new char[dsp + strlen(iod.output.transient.dTotalpressure)];
+    sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
+	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
     sprintf(dScalars[PostFcn::DERIVATIVE_TOTPRESSURE], "%s%s", 
 	    iod.output.transient.prefix, iod.output.transient.dTotalpressure);
   }
+
+  int dsp = strlen(iod.output.transient.prefix) + 1;
 
   if (iod.output.transient.dNutturb[0] != 0) {
     dSscale[PostFcn::DERIVATIVE_NUT_TURB] = iod.ref.rv.viscosity_mu/iod.ref.rv.density;
