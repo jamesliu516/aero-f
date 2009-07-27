@@ -648,7 +648,13 @@ public:
 			     Vec3D *, Vec3D *, int ,
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
                              Vec<double> *genCF = 0);
-
+  template<int dim>
+  void computeForceAndMoment(ExactRiemannSolver<dim>&, VarFcn*, map<int,int> &surfIndexMap, PostFcn *,
+                             BcData<dim> &, GeoState &, SVec<double,3> &,
+                             SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
+                             Vec3D *, Vec3D *, int ,
+                             SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
+                             Vec<double> *genCF = 0);
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&,
 			      SVec<double,dim>&, Vec<double>&);

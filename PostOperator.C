@@ -13,6 +13,7 @@
 #include <DynamicLESTerm.h>
 #include <DistDynamicLESTerm.h>
 #include <DistDynamicVMSTerm.h>
+#include <DistExactRiemannSolver.h>
 #include <SpaceOperator.h>
 #include <VectorSet.h>
 
@@ -278,9 +279,143 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
 					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
     }
-    else 
+    else  
       subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
                                              X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
+
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+#pragma omp critical
+      Fi[iSurf] += fi[iSurf];
+#pragma omp critical
+      Mi[iSurf] += mi[iSurf];
+#pragma omp critical
+      Fv[iSurf] += fv[iSurf];
+#pragma omp critical
+      Mv[iSurf] += mv[iSurf];
+    }
+    delete [] fi;
+    delete [] mi;
+    delete [] fv;
+    delete [] mv;
+  }
+
+  double F[3], M[3];
+  F[0] = F[1] = F[2] = M[0] = M[1] = M[2] = 0.0;
+  if(forceGen != 0)
+    forceGen->getForcesAndMoments(U, X, F, M);
+
+  Fi[0][0] += F[0]; //assuming there is only one surface! (or the "embedded force" is associated to surf#1.)
+  Fi[0][1] += F[1];
+  Fi[0][2] += F[2];
+  Mi[0][0] += M[0];
+  Mi[0][1] += M[1];
+  Mi[0][2] += M[2];
+
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+#pragma omp critical
+    double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
+                       Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
+		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
+		       Mv[iSurf][0], Mv[iSurf][1], Mv[iSurf][2]};
+    com->globalSum(12, coef);
+
+    Fi[iSurf][0] = coef[0]; 
+    Fi[iSurf][1] = coef[1];
+    Fi[iSurf][2] = coef[2];
+
+    Mi[iSurf][0] = coef[3]; 
+    Mi[iSurf][1] = coef[4];
+    Mi[iSurf][2] = coef[5];
+
+    Fv[iSurf][0] = coef[6]; 
+    Fv[iSurf][1] = coef[7];
+    Fv[iSurf][2] = coef[8];
+
+    Mv[iSurf][0] = coef[9]; 
+    Mv[iSurf][1] = coef[10];
+    Mv[iSurf][2] = coef[11];
+ 
+  }
+
+  map<int, int>::iterator it;
+  iSurf = 1;
+  for (it = surfOutMap.begin(); it != surfOutMap.end(); it++)  {
+    if (it->second > 0)  {
+      Fi[0] += Fi[it->second];
+
+      Mi[0] += Mi[it->second];
+
+      Fv[0] += Fv[it->second];
+
+      Mv[0] += Mv[it->second];
+    }
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+// computes the non-dimensional forces and moments
+
+template<int dim>
+void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&riemann,
+                                              Vec3D &x0, DistSVec<double,3> &X, 
+					      DistSVec<double,dim> &U, 
+                                              DistVec<double> *Phi, Vec3D *Fi, 
+					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
+                                              VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+// Phi must be a null pointer for single-phase flow
+// Phi points to a DistVec<double> for multi-phase flow
+  int iSurf;
+  for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+    Fi[iSurf] = 0.0;
+    Mi[iSurf] = 0.0;
+    Fv[iSurf] = 0.0;
+    Mv[iSurf] = 0.0;
+  }
+
+  varFcn->conservativeToPrimitive(U, *V, Phi);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    Vec3D *fi = new Vec3D[numSurf];
+    Vec3D *mi = new Vec3D[numSurf];
+    Vec3D *fv = new Vec3D[numSurf];
+    Vec3D *mv = new Vec3D[numSurf];
+    for(iSurf = 0; iSurf < numSurf; ++iSurf) {
+      fi[iSurf] = 0.0;
+      mi[iSurf] = 0.0;
+      fv[iSurf] = 0.0;
+      mv[iSurf] = 0.0;
+    }
+
+/*    if (mX) {
+      SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub), 
+					     X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
+    }
+    else  
+      subDomain[iSub]->computeForceAndMoment(surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                             X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
+*/
+
+// *****  KW: FS Riemann based force calculation *******************
+    if (mX) {
+      SubVecSet<DistSVec<double,3>, SVec<double,3> > subMX(mX, iSub);
+      subDomain[iSub]->computeForceAndMoment(riemann(iSub),
+                                             varFcn, surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                             X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, &subMX, genCF);
+    }
+    else
+      subDomain[iSub]->computeForceAndMoment(riemann(iSub),
+                                             varFcn, surfOutMap, postFcn, (*bcData)(iSub), (*geoState)(iSub),
+                                             X(iSub), (*V)(iSub), x0, fi, mi, fv, mv, hydro, 0, 0);
+// *****************************************************************
+
+
+
 
     for(iSurf = 0; iSurf < numSurf; ++iSurf) {
 #pragma omp critical

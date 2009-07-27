@@ -27,6 +27,7 @@ template<int dim> class DistDynamicLESTerm;
 template<int dim> class DistDynamicVMSTerm;
 template<int dim> class SpaceOperator;
 template<int dim> class DistTimeState;
+template<int dim> class DistExactRiemannSolver;
 
 
 template<int dim>
@@ -96,6 +97,11 @@ public:
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<double> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
+                             VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
+  void computeForceAndMoment(DistExactRiemannSolver<dim>&, 
+                             Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
+                             DistVec<double> *,
+                             Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0,
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
 
   double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);

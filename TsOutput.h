@@ -21,7 +21,7 @@ class LevelSet;
 template<int dim> class PostOperator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistTimeState;
-
+template<int dim> class DistExactRiemannSolver;
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -117,6 +117,9 @@ public:
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
 			 DistSVec<double,3> &, DistSVec<double,dim> &,
+                         DistVec<double> * = 0); 
+  void writeForcesToDisk(DistExactRiemannSolver<dim>&, bool, int, int, int, double, double, double*,
+                         DistSVec<double,3> &, DistSVec<double,dim> &,
                          DistVec<double> * = 0);
   void writeHydroForcesToDisk(bool, int, int, int, double, double, double*, 
 			 DistSVec<double,3> &, DistSVec<double,dim> &,
