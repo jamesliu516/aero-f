@@ -334,6 +334,7 @@ int PhysBAMIntersectorConstructor::print() {
 DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   com = IntersectionFactory::getCommunicator();
   tolerance = tol;
+// JTG:  fprintf(stderr,"tolerance = %e.\n", tolerance);
   insidePointTol = 1.0e-4;
   physInterface = 0;
   triNorms = 0;
@@ -629,6 +630,7 @@ DistPhysBAMIntersector::buildSolidNormals() {
      xyz(2)[2] = p2[1];
      xyz(2)[3] = p2[2];
      getInterface().Intersect(xyz, edgeRes,getTolerance());
+//JTG:     assert(false);
      if(edgeRes(1).y.triangleID < 0)
        com->fprintf(stderr, "ERROR: OPEN SURFACE\n");
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);

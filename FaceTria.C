@@ -65,6 +65,67 @@ void FaceTria::computeForce(ElemSet &elems,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+inline
+void FaceTria::computeForce(ExactRiemannSolver<dim>& riemann, 
+                            VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &normalVel, ElemSet &elems,
+                            PostFcn *postFcn, SVec<double,3> &X,
+                            Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
+                            double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv,
+                            double* gradP[3], int hydro)
+{
+
+  Vec3D n;
+  computeNormal(X, n);
+  Elem& elem = elems[elemNum];
+
+  double dp1dxj[4][3];
+  if (postFcn->doesFaceNeedGradientP1Function())
+    elem.computeGradientP1Function(X, dp1dxj);
+
+  double d2w[3] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)], d2wall[nodeNum(2)]};
+
+  //compute new Vface and plug into Vtet.
+  //need: normalVel, normal, varFcn.
+  double Wstar[3][2*dim];
+  for (int l=0; l<3; ++l) {
+    int k = nodeNum(l);
+    Vec3D unitNormal = getNormal(normals, l)/(getNormal(normals,l).norm());
+    Vec3D wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
+    riemann.computeFSIRiemannSolution(V[nodeNum(l)], wallVel, -1.0*unitNormal, varFcn, Wstar[l], 0); 
+  }
+
+  double *Vface[3] = {Wstar[0], Wstar[1], Wstar[2]};
+  double *Vtet[4] = {V[elem[0]], V[elem[1]],
+                     V[elem[2]], V[elem[3]]};
+  for (int i=0; i<4; i++)
+    for(int j=0; j<3; j++)
+      if (elem[i]==nodeNum(j))
+        Vtet[i] = Wstar[j];
+
+//  double *Vface[3] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)]};
+//  double *Vtet[4] = {V[elem[0]], V[elem[1]],
+//                     V[elem[2]], V[elem[3]]};
+
+
+  double *Xface[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
+
+// Vamshi
+   double dPdx[3][3];
+   for(int i=0; i<3; i++) // i represents node
+   {
+    dPdx[i][0] = gradP[0][nodeNum(i)];
+    dPdx[i][1] = gradP[1][nodeNum(i)];
+    dPdx[i][2] = gradP[2][nodeNum(i)];
+   }
+
+  postFcn->computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin,
+                        Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+
+}
+
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim>
 inline
@@ -338,6 +399,43 @@ void FaceTria::computeForceAndMoment(ElemSet &elems, PostFcn *postFcn, SVec<doub
 // Lift, Drag and Forces needed to be computed based on computeForce alone
     Vec3D fi0,fi1,fi2,fv;
     computeForce(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
+    Fi += fi0 + fi1 + fi2;
+    Fv += fv;
+
+// XML Debug
+    Vec3D ff = fi0+fi2+fi1;
+// Moments need to be computed based on Transmitted forces, which takes care of spatial distribution of force
+    computeForceTransmitted(elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
+    Mi += (dx[0] ^ fi0) + (dx[1] ^ fi1) + (dx[2] ^ fi2); // dont remove paranthesis, they are needed for priority reasons
+    Mv += dxm ^ fv;
+
+    if(genCF != 0) {
+      for(int i = 0; i < genCF->size(); i++) {
+        Vec3D d[3] = { (*mX)[i][nodeNum(0)],  (*mX)[i][nodeNum(1)], (*mX)[i][nodeNum(2)] };
+        (*genCF)[i] += d[0]*fi0 + d[1]*fi1 + d[2]*fi2;
+      }
+    }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void FaceTria::computeForceAndMoment(ExactRiemannSolver<dim>& riemann,
+                                     VarFcn *varFcn, Vec<Vec3D> &n, Vec<double> &nVel,
+                                     ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                                     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
+                                     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv,
+                                     double* gradP[3], int hydro,
+                                     SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                     Vec<double> *genCF)
+{
+    Vec3D x[3] = {X[nodeNum(0)], X[nodeNum(1)], X[nodeNum(2)]};
+    Vec3D dx[3] = {x[0]-x0 , x[1]-x0 , x[2]-x0};
+    Vec3D dxm = third*(x[0]+x[1]+x[2]) - x0;
+
+// Lift, Drag and Forces needed to be computed based on computeForce alone
+    Vec3D fi0,fi1,fi2,fv;
+    computeForce(riemann, varFcn, n, nVel, elems, postFcn, X, d2wall, Vwall, V, 0, fi0,fi1,fi2, fv, gradP, hydro);
     Fi += fi0 + fi1 + fi2;
     Fv += fv;
 

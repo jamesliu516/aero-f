@@ -22,6 +22,13 @@ class FaceTria : public FaceDummy {
 		    double*gradP[3], int = 0);
 
   template<int dim>
+  void computeForce(ExactRiemannSolver<dim>&, VarFcn*, Vec<Vec3D> &, Vec<double> &, ElemSet &,
+                    PostFcn *, SVec<double,3> &, Vec<double> &, double *,
+                    SVec<double,dim> &, double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &,
+                    double*gradP[3], int = 0);
+
+
+  template<int dim>
   void computeForceTransmitted(ElemSet &,
                     PostFcn *, SVec<double,3> &, Vec<double> &, double *,
                     SVec<double,dim> &, double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &,
@@ -87,6 +94,13 @@ public:
   void computeForceAndMoment(ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &, 
 			     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 			     Vec3D &, Vec3D &, double* gradP[3], int, 
+                             SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                             Vec<double> *genCF);
+  template<int dim>
+  void computeForceAndMoment(ExactRiemannSolver<dim>&, VarFcn *, Vec<Vec3D> &, Vec<double> &,
+                             ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &,
+                             double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &,
+                             Vec3D &, Vec3D &, double* gradP[3], int,
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
                              Vec<double> *genCF);
 

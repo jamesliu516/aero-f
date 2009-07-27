@@ -106,6 +106,11 @@ public:
 				     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &, 
 				     Vec3D &, Vec3D &,  double* gradP[3], int, 
                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF) = 0;
+  virtual void computeForceAndMoment(ExactRiemannSolver<dim>&, VarFcn*, Vec<Vec3D> &, Vec<double> &,
+                                     ElemSet &, PostFcn *, SVec<double,3> &, Vec<double> &,
+                                     double *, SVec<double,dim> &, Vec3D &, Vec3D &, Vec3D &,
+                                     Vec3D &, Vec3D &,  double* gradP[3], int,
+                                     SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF) = 0;
   virtual double computeInterfaceWork(ElemSet &, PostFcn*, SVec<double,3>&, Vec<double>&, 
 				      double, double*, SVec<double,dim>&, double) = 0;
   virtual void computeScalarQuantity(PostFcn::ScalarType, ElemSet &, PostFcn *, SVec<double,3> &, 
@@ -192,6 +197,17 @@ public:
                                         Vec<double> *genCF) {
     t->computeForceAndMoment(elems, postFcn, X,  d2wall, Vwall, V, 
 			     x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
+  }
+
+  void computeForceAndMoment(ExactRiemannSolver<dim> &riemann,
+                             VarFcn *varFcn, Vec<Vec3D> &n, Vec<double> &nVel, ElemSet &elems,
+                             PostFcn *postFcn, SVec<double,3> &X,
+                             Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
+                             Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv,
+                              double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
+    t->computeForceAndMoment(riemann, varFcn, n, nVel, elems, postFcn, X,  d2wall, Vwall, V,
+                             x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
   }
   
   double computeInterfaceWork(ElemSet &elems, PostFcn* postFcn, 
@@ -472,7 +488,23 @@ public:
     wrapper->computeForceAndMoment(elems, postFcn, X,  d2wall, Vwall, V, 
 			     x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
   }
-  
+
+  template<int dim>
+  void computeForceAndMoment(ExactRiemannSolver<dim>& riemann, 
+                             VarFcn *varFcn, Vec<Vec3D> &n, Vec<double> &nVel,
+                             ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                             Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
+                             Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv,
+                             double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
+    FaceHelper_dim<dim> h;
+    char xx[64];
+    GenFaceWrapper_dim<dim> *wrapper=
+      (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    wrapper->computeForceAndMoment(riemann, varFcn, n, nVel, elems, postFcn, X,  d2wall, Vwall, V,
+                             x0, Fi, Mi, Fv, Mv, gradP, hydro, mX, genCF);
+  }
+ 
   template<int dim>
   double computeInterfaceWork(ElemSet &elems, PostFcn* postFcn, 
 			      SVec<double,3>& X, Vec<double>& d2wall, double ndot, 
@@ -744,6 +776,17 @@ public:
 			     Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V, 
 			     Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv, 
 			     double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
+                                        Vec<double> *genCF) {
+    fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
+  }
+
+  template<int dim>
+  void computeForceAndMoment(ExactRiemannSolver<dim>& riemann,
+                             VarFcn *varFcn,  Vec<Vec3D> &n, Vec<double> &nVel,
+                             ElemSet &elems, PostFcn *postFcn, SVec<double,3> &X,
+                             Vec<double> &d2wall, double *Vwall, SVec<double,dim> &V,
+                             Vec3D &x0, Vec3D &Fi, Vec3D &Mi, Vec3D &Fv, Vec3D &Mv,
+                             double* gradP[3], int hydro, SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX,
                                         Vec<double> *genCF) {
     fprintf(stderr, "Error: undifined function for this face type\n"); exit(1);
   }

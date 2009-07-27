@@ -1129,8 +1129,8 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
   
   if (*lastIt) return dt;
 
-//  double hsintheta = 1.0 - cos(omega * (t + dt));
-  double hsintheta = t + dt;
+  double hsintheta = 1.0 - cos(omega * (t + dt));
+//  double hsintheta = t + dt;
 
   int numLocSub = domain->getNumLocSub();
 

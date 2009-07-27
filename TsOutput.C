@@ -9,6 +9,7 @@
 #include <PostOperator.h>
 #include <MeshMotionHandler.h>
 #include <DistVector.h>
+#include <DistExactRiemannSolver.h>
 #include <BinFileHandler.h>
 #include <VectorSet.h>
 
@@ -1078,6 +1079,142 @@ void TsOutput<dim>::closeAsciiFiles()
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
+                                      bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
+				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                                      DistVec<double> *Phi)
+{
+
+  int nSurfs = postOp->getNumSurf();
+
+  Vec3D *Fi = new Vec3D[nSurfs];
+  Vec3D *Mi = new Vec3D[nSurfs];
+  Vec3D *Fv = new Vec3D[nSurfs];
+  Vec3D *Mv = new Vec3D[nSurfs];
+
+  Vec<double> GF( mX ? mX->numVectors(): 0);
+  if(mX) GF = 0.0;
+
+  double del_t;
+
+  if (TavF ==0 && TavM == 0) {
+    TavF = new Vec3D[nSurfs];
+    TavM = new Vec3D[nSurfs];
+    for(int i = 0; i < nSurfs; ++i) {
+      TavF[i] = 0.0;
+      TavM[i] = 0.0;
+    }
+  }
+
+  if(counter == 0) {
+    tinit = refVal->time*t;
+    tprevf = refVal->time*t;
+    tener = 0.0; tenerold = 0.0;
+    del_t = 0.0;
+  }
+
+  double time = refVal->time * t;
+
+  if (forces || tavforces)  {
+    Vec3D rVec = x0;
+    // if single-phase flow -- Phi is a null pointer
+    // if multi-phase flow  -- Phi points to a DistVec<double>
+    postOp->computeForceAndMoment(riemann, rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+    if(mX != 0) 
+      com->globalSum(GF.size(), GF.data());
+
+    Vec3D F = Fi[0] + Fv[0];
+    Vec3D moment = Mi[0] + Mv[0];
+    F *= refVal->force;
+    moment *= refVal->energy;
+  }
+
+  int iSurf;
+
+  if (fpForces[0] || fpTavForces[0]) {
+ 
+    for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
+      Vec3D F = Fi[iSurf] + Fv[iSurf];
+      Vec3D M = Mi[iSurf] + Mv[iSurf];
+      if (refVal->mode == RefVal::NON_DIMENSIONAL) {
+        F *= 2.0 * refVal->length*refVal->length / surface;
+        M *= 2.0 * refVal->length*refVal->length*refVal->length / (surface * length);
+      }
+      else {
+        F *= refVal->force;
+        M *= refVal->energy;
+      }
+      double energy = refVal->energy * e[0];
+
+
+      if (rmmh) {
+        double tag = rmmh->getTagValue(t);
+        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e %e \n", 
+	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy, tag);
+      }
+      else
+        fprintf(fpForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+       	        it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+
+      fflush(fpForces[iSurf]);
+
+      if(fpTavForces[iSurf] && counter == 0){
+        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+          it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+      }
+
+      del_t = time - tprevf; 
+      F *= del_t; TavF[iSurf] += F;
+      M *= del_t; TavM[iSurf] += M;
+      tener += energy*del_t; 
+
+      if(fpTavForces[iSurf] && counter > 0){
+        F = TavF[iSurf]; M = TavM[iSurf]; energy = tener; 
+        F /= (time - tinit); M /= (time - tinit);
+        energy /= (time - tinit); 
+        fprintf(fpTavForces[iSurf], "%d %e %d %d %e %e %e %e %e %e %e \n", 
+           it, time, itSc, itNl, F[0], F[1], F[2], M[0], M[1], M[2], energy);
+      }
+
+      fflush(fpTavForces[iSurf]);
+    }
+  }
+  if (fpGnForces) {
+
+     fprintf(fpGnForces,"%d %e %d %d", it, time, itSc, itNl);
+     for (int i=0; i < mX->numVectors(); i++) {
+       if (refVal->mode == RefVal::NON_DIMENSIONAL) 
+         fprintf(fpGnForces," %e", 2.0*refVal->length*refVal->length*GF[i]/surface);
+       else 
+         fprintf(fpGnForces," %e", refVal->force*GF[i]);
+     } 
+
+      fprintf(fpGnForces, "\n");
+
+      fflush(fpGnForces);
+  }
+
+  if (!steady) {
+    if (rmmh) {
+      double tag = rmmh->getTagValue(t);
+      com->printf(0, "It %d (%d,%d): Time=%g, Mach=%g, Elapsed Time=%.2e s\n", 
+		  it, itSc, itNl, t*refVal->time, tag, cpu);
+    }
+    else
+      com->printf(0, "It %d (%d,%d): Time=%g, Elapsed Time=%.2e s\n", 
+		  it, itSc, itNl, t*refVal->time, cpu);
+  }
+  tprevf = time;
+
+  delete[] Fi;
+  delete[] Fv;
+  delete[] Mi;
+  delete[] Mv;
 }
 
 //------------------------------------------------------------------------------
