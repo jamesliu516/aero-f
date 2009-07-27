@@ -13,7 +13,6 @@
 #include <MemoryPool.h>
 
 #include <math.h>
-//#include <iomanip>
 
 #include <string>
 
@@ -195,7 +194,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     }
   }
   else if (ioData.problem.mode == ProblemData::DIMENSIONAL) {
-
+    
     ioData.eqs.fluidModel.pmin *= ioData.ref.rv.pressure;
     ioData.eqs.fluidModel2.pmin *= ioData.ref.rv.pressure;
 
@@ -300,6 +299,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.restart.dt_nm1 /= ioData.ref.rv.time;
     ioData.restart.dt_nm2 /= ioData.ref.rv.time;
     ioData.restart.energy /= ioData.ref.rv.energy;
+
     ioData.bc.wall.temperature /= ioData.ref.rv.temperature;
     ioData.linearizedData.stepsize = ioData.ts.timestep;
     ioData.ts.timestep /= ioData.ref.rv.time;             // Problem in RigidRollMeshMotionHandler

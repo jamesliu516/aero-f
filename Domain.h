@@ -1,11 +1,17 @@
 #ifndef _DOMAIN_H_
 #define _DOMAIN_H_
 
+#include <IoData.h>
 #include <DistInfo.h>
 #include <Timer.h>
+#include <VectorSet.h>
 #include <Vector.h>
+#include <DenseMatrix.h>
 #include <complex>
 typedef std::complex<double> bcomp;
+#include <iostream>
+using std::cout;
+using std::endl;
 
 
 class IoData;
@@ -443,12 +449,6 @@ public:
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
-                               DistSVec<double,dim> &U, DistSVec<double,dim> &R);
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
-                               DistVec<double> &Phi, DistVec<double> &dPhi);
-
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &,
 				       DistVec<double> &,
@@ -859,6 +859,10 @@ public:
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
                                     DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
+  template<int dim>
+  void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
+
+  void computePrdtPhiCtrlVolRatio(DistVec<double> &, DistVec<double> &, DistVec<double> &, DistGeoState &);
 
  };
 

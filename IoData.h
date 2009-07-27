@@ -89,6 +89,7 @@ struct TransientData {
   const char *tavpressure;
   const char *hydrostaticpressure;
   const char *hydrodynamicpressure;
+  const char *pressurecoefficient;
   const char *temperature;
   const char *tavtemperature;
   const char *totalpressure;
@@ -143,6 +144,10 @@ struct TransientData {
   const char *dVelocityVector;
   const char *dDisplacement;
   const char *dForces;
+
+  const char *tempnormalderivative;
+  const char *surfaceheatflux;
+  const char *heatfluxes;
 
   int frequency;
   double x0, y0, z0;
@@ -1293,7 +1298,7 @@ struct BLMeshMotionData {
 struct DefoMeshMotionData {
 
   enum Type {BASIC = 0, COROTATIONAL = 1} type;
-  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3} element;
+  enum Element {LINEAR_FE = 0, NON_LINEAR_FE = 1, TORSIONAL_SPRINGS = 2, BALL_VERTEX = 3, NL_BALL_VERTEX = 4 } element;
 
   double volStiff;
   enum Mode {Recursive = 1, NonRecursive = 2} mode;
@@ -1543,15 +1548,22 @@ struct SurfaceData  {
 
   double nx, ny, nz;
   int sBit;
-  enum ComputeForces {FALSE = 0, TRUE = 1, UNSPECIFIED = 2} computeForces;
+  static const int UNSPECIFIED = -1;
+  enum ComputeForces {FALSE = 0, TRUE = 1 } computeForces;
   enum ForceResults {NO = 0, YES = 1} forceResults;
   int rotationID;
   double velocity;
 
+  enum Type { ADIABATIC = 1, ISOTHERMAL = 2 } type;
+  double temp;
+
+  enum ComputeHeatPower {FALSE_HF = 0, TRUE_HF = 1 } computeHeatFluxes;
+  enum HeatFluxResults {UNSPECIFIED_HF = -1, NO_HF = 0, YES_HF = 1} heatFluxResults;
+  //the HF (Heat Flux) index ensures that there is no confusion with the force related data.
+
   SurfaceData();
   Assigner *getAssigner();
   void setBit(int b) { sBit = b; }
-
 };
 
 //------------------------------------------------------------------------------
@@ -1686,10 +1698,12 @@ public:
   int checkInputValuesEssentialBC();
   int checkInputValuesStateEquation();
   int checkInputValuesNonDimensional();
-  int checkInputValuesDimensional();
+//  int checkInputValuesDimensional();
+  int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
-  int checkSolverValues();
+  int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
+//  int checkSolverValues();
   int checkInputValuesMulti_step1();
   void checkInputValuesMulti_step2();
   int checkInputValuesMultiEOS();

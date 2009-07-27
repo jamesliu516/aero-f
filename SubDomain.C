@@ -48,8 +48,8 @@ using std::max;
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
 		      double (*)[25], double (*)[5], double (*)[5]);
-  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12]);
-  void F77NAME(ballvertex)(double (*)[3], int [4], double (*)[12]);
+  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12], double &invCoef);
+  void F77NAME(ballvertex)(double (*)[3], double(*)[3], int [4], double (*)[12], double &invCoef);
 };
 
 //------------------------------------------------------------------------------
@@ -946,21 +946,6 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                                        SVec<double,dim> &U, SVec<double,dim> &R)
-{
-  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
-
-  for (int i=0; i<nodes.size(); ++i) {
-    double ratio = ctrlVol_dot[i]/ctrlVol[i];
-    for (int j=0; j<dim; ++j)
-      R[i][j] += ratio*U[i][j];
-  }
-
-}
-
-//------------------------------------------------------------------------------
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState, Vec<double> &irey,
@@ -1029,7 +1014,6 @@ void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> 
 
 
 
-//------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
 void SubDomain::checkRHS(Scalar (*rhs)[dim])
@@ -3543,8 +3527,26 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
 
 }
-
+ 
 //------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn* postFcn, BcData<dim>& bcData,
+                                      GeoState& geoState, SVec<double,3>& X,
+                                      SVec<double,dim>& V, Vec<double>& P, Vec<double>& N, bool includeKappa)
+{
+
+  P = 0.0;
+  N = -1.0;
+
+  Vec<double>& d2wall = geoState.getDistanceToWall();
+  SVec<double,dim>& Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i)
+    faces[i].computeNodalHeatFluxRelatedValues(elems, postFcn, X, d2wall, Vwall[i], V, P, N, includeKappa);
+
+}
+
+//------------------------------------------------------------------------------------------
 
 // Included (MB)
 template<int dim>
@@ -3636,6 +3638,33 @@ void SubDomain::computeForceAndMoment(ExactRiemannSolver<dim> &riemann, VarFcn *
     }
   }
 
+}
+
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn, BcData<dim>& bcData,
+                                      GeoState& geoState, SVec<double,3>& X,
+                                      SVec<double,dim>& V, double* HF)
+{
+  Vec<double>& d2wall = geoState.getDistanceToWall();
+  SVec<double,dim>& Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i){
+    int idx;
+    map<int,int>::iterator it = surfOutMapHF.find(faces[i].getSurfaceID());
+    if(it != surfOutMapHF.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)  
+        idx = 0;
+      else
+        idx = -1;
+    }
+    if(idx >= 0)  {
+   double hp = faces[i].computeHeatFluxes(elems, postFcn, X, d2wall, Vwall[i], V);
+    HF[idx] += hp;
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3805,12 +3834,22 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     }
 
     case DefoMeshMotionData::TORSIONAL_SPRINGS : {
-      elems[i].computeStiffTorsionSpring(kEl, X);
+      elems[i].computeStiffTorsionSpring(kEl, X, volStiff);
       break;
     }
 
     case DefoMeshMotionData::BALL_VERTEX : {
-      elems[i].computeStiffBallVertex(kEl, X);
+      elems[i].computeStiffBallVertex(kEl, X, nodes, volStiff);
+      break;
+    }
+      
+    case DefoMeshMotionData::NL_BALL_VERTEX : {
+      elems[i].computeStiffAndForceBallVertex(fEl, kEl, X, nodes, volStiff);
+      for (j=0, fEl_loc = fEl; j<elems[i].numNodes(); j++, fEl_loc+=3) {
+	F[ elems[i][j] ][0] -= fEl_loc[0];
+	F[ elems[i][j] ][1] -= fEl_loc[1];
+	F[ elems[i][j] ][2] -= fEl_loc[2];
+      }
       break;
     }
 
@@ -5272,4 +5311,20 @@ void SubDomain::updatePhaseChange(SVec<double,3> &X, SVec<double,dim> &U,
 }
 
 //----------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computePrdtWCtrlVolRatio(SVec<double,dim> &ratioTimesU, SVec<double,dim> &U, Vec<double> &ctrlVol, GeoState &geoState)
+{
+   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+   for (int i=0; i<nodes.size(); ++i) {
+     double ratio = ctrlVol_n[i]/ctrlVol[i];
+     for (int j=0; j<dim; ++j) {
+       ratioTimesU[i][j] = ratio * U[i][j];
+     }
+   }
+
+}
+
+//-----------------------------------------------------------------------------
 

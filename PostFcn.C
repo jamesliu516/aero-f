@@ -162,6 +162,8 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->hydrostaticPressure(V[0],X);
   else if(type == HYDRODYNAMICPRESSURE)
     q = varFcn->hydrodynamicPressure(V,X,phi);
+  else if(type == PRESSURECOEFFICIENT)
+    q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag);
   else if(type == PHILEVEL)
     q = phi/varFcn->getDensity(V);
   else if(type == PHILEVEL_STRUCTURE)
@@ -660,6 +662,16 @@ double PostFcnEuler::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[
 
 }
 
+//--------------------------------------------------------------------------------------
+
+double PostFcnEuler::computeHeatFluxRelatedValues(double dp1dxj[4][3], Vec3D& n, double d2w[3],
+                                               double* Vwall, double* Vface[3], double* Vtet[4], bool includeKappa)
+{
+
+  return 0.0;
+
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -933,13 +945,41 @@ double PostFcnNS::computeHeatPower(double dp1dxj[4][3], Vec3D& n, double d2w[3],
     computeTemperatureGradient(dp1dxj, T, dTdxj);
     double kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
     double qj[3];
-    computeHeatFluxVector(kappa, dTdxj, qj);
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
     hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2]; 
-  }
+}
 
   return hp;
 
 }
+//------------------------------------------------------------------------------
+double PostFcnNS::computeHeatFluxRelatedValues(double dp1dxj[4][3], Vec3D& n, double d2w[3],
+                                   double* Vwall, double* Vface[3], double* Vtet[4], bool includeKappa)
+{
+  double hp = 0.0;
+
+  if (wallFcn)
+    hp = wallFcn->computeHeatPower(n, d2w, Vwall, Vface);
+  else {
+    double T[4], Tcg;
+    computeTemperature(Vtet, T, Tcg);
+    double dTdxj[3];
+    computeTemperatureGradient(dp1dxj, T, dTdxj);  
+
+    double kappa = -1; //The fact that it is negative balances the minus sign in NavierStokesTerm::computeHeatFluxVector
+    if(includeKappa == true)
+      {
+        kappa = ooreynolds_mu * thermalCondFcn->compute(Tcg);
+      }
+     
+       double qj[3];
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
+    hp = qj[0]*n[0] + qj[1]*n[1] + qj[2]*n[2]; 
+    }
+  return hp;
+
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -965,7 +1005,7 @@ double PostFcnNS::computeDerivativeOfHeatPower(double dp1dxj[4][3], double ddp1d
     double dooreynolds_mu = -1.0 / ( reynolds_muNS * reynolds_muNS ) * dRe_mudMachNS * dS[0];
     double dkappa = dooreynolds_mu * thermalCondFcn->compute(Tcg) + ooreynolds_mu * thermalCondFcn->computeDerivative(Tcg, dTcg, dS[0]);
     double qj[3];
-    computeHeatFluxVector(kappa, dTdxj, qj);
+    NavierStokesTerm::computeHeatFluxVector(kappa, dTdxj, qj);
     double dqj[3];
     computeDerivativeOfHeatFluxVector(kappa, dkappa, dTdxj, ddTdxj, dqj);
     dhp = dqj[0]*n[0] + qj[0]*dn[0] + dqj[1]*n[1] + qj[1]*dn[1] + dqj[2]*n[2] + qj[2]*dn[2]; 
@@ -1064,21 +1104,7 @@ double PostFcnSA::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType typ
     double dmul = viscoFcn->compute_muDerivative(T, dT, dS[0]);
     dq = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul);
   }
-  else
-    dq = PostFcnEuler::computeDerivativeOfNodeScalarQuantity(type, dS, V, dV, X, dX);
-
-  return dq;
-
 }
-
-//------------------------------------------------------------------------------
-
-PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(iod)
-{
-
-}
-
-//------------------------------------------------------------------------------
 
 // Included (MB)
 void PostFcnDES::rstVar(IoData &iod, Communicator *com)
@@ -1091,6 +1117,13 @@ void PostFcnDES::rstVar(IoData &iod, Communicator *com)
 }
 
 //------------------------------------------------------------------------------
+PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(iod)
+{
+
+}
+
+//------------------------------------------------------------------------------
+
                                                                                                 
 double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
 {

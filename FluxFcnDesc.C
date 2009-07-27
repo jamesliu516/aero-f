@@ -1182,15 +1182,15 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
  
   double rho, u, v, w, p, nut, eps, k;
   
-  if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] == 0.0){
-    rho = Vb[0];
-    u = V[1];
-    v = V[2];
-    w = V[3];
-    p = V[4];
-  }
+ // if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] == 0.0){
+//    rho = Vb[0];
+//    u = V[1];
+//    v = V[2];
+//    w = V[3];
+//    p = V[4];
+//  }
 
-  else if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] <= 0.0){
+ if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] <= 0.0){
     rho = Vb[0];
     u = Vb[1];
     v = Vb[2];
@@ -1285,20 +1285,20 @@ void influx3DDerivative(int type, VarFcn* varFcn, double* normal, double* dNorma
   for (int i=1;i<dim;i++)
     dV[i] = 0.0;
   
-  if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] == 0.0){
-    rho = Vb[0];
-    u = V[1];
-    v = V[2];
-    w = V[3];
-    p = V[4];
-    drho = dVb[0];
-    du = dV[1];
-    dv = dV[2];
-    dw = dV[3];
-    dp = dV[4];
-  }
+//  if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] == 0.0){
+//    rho = Vb[0];
+//    u = V[1];
+//    v = V[2];
+//    w = V[3];
+//    p = V[4];
+//    drho = dVb[0];
+//    du = dV[1];
+//    dv = dV[2];
+//    dw = dV[3];
+//    dp = dV[4];
+//  }
 
-  else if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] <= 0.0){
+  if (V[1]*n[0]+V[2]*n[1]+V[3]*n[2] <= 0.0){
     rho = Vb[0];
     u = Vb[1];
     v = Vb[2];

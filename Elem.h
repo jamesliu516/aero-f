@@ -445,10 +445,13 @@ public:
   virtual void computeStiffAndForce(double *, double *, 
 				    SVec<double, 3> &, SVec<double,3> &, 
 				    double volStiff = 0.0) = 0;
+  virtual void computeStiffAndForceBallVertex(double *f, double *K, 
+				    SVec<double, 3> &X, SVec<double,3> &X0, 
+				    double volStiff = 0.0) = 0;
   virtual void computeStiffAndForceLIN(double *, SVec<double,3> &, SVec<double,3> &) = 0;
 
-  virtual void computeStiffBallVertex(double *, SVec<double,3> &) = 0;
-  virtual void computeStiffTorsionSpring(double *, SVec<double,3> &) = 0;
+  virtual void computeStiffBallVertex(double *, SVec<double,3> &X, SVec<double,3> &X0, double volStiff) = 0;
+  virtual void computeStiffTorsionSpring(double *, SVec<double,3> &, double volStiff) = 0;
   
 // Included (MB)
   virtual double computeDerivativeOfVolume(SVec<double,3> &, SVec<double,3> &) = 0;

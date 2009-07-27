@@ -1237,19 +1237,6 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
-                                     DistSVec<double,dim> &U,
-                                     DistSVec<double,dim> &R)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
-                                             U(iSub), R(iSub));
-
-}
-//------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
@@ -2725,7 +2712,6 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
-
   if (step == 0)
     com->barrier();
 
@@ -3617,6 +3603,16 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
       Fs[is][1] += subFs[0][is][1];
       Fs[is][2] += subFs[0][is][2];
     }
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computePrdtWCtrlVolRatio(DistSVec<double,dim> &ratioTimesU, DistSVec<double,dim> &U, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computePrdtWCtrlVolRatio(ratioTimesU(iSub), U(iSub), ctrlVol(iSub), geoState(iSub));
+
 }
 
 //-------------------------------------------------------------------------------

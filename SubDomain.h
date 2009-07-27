@@ -395,12 +395,6 @@ public:
   template<int dim>
   void computeFiniteVolumeBar_Step2(MacroCellSet **,SVec<double,1> &, SVec<double,dim> &, SVec<double,dim> &, int);
 
-  template<int dim>
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               SVec<double,dim> &U, SVec<double,dim> &R);
-  void computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                               Vec<double> &Phi, Vec<double> &dPhi);
-
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
                                        Vec<double> &, SVec<double,3> &, Vec<double> &,
@@ -642,6 +636,11 @@ public:
 			     SVec<double,dim>&, Vec<double>&);
 
   template<int dim>
+  void computeNodalHeatFluxRelatedValues(PostFcn*, BcData<dim>&,
+                                            GeoState&, SVec<double,3>&,
+                                            SVec<double,dim>&, Vec<double>&, Vec<double>&, bool);
+
+  template<int dim>
   void computeForceAndMoment(map<int,int> &surfIndexMap, PostFcn *,
                              BcData<dim> &, GeoState &, SVec<double,3> &,
 			     SVec<double,dim> &, Vec3D &, Vec3D *, Vec3D *,
@@ -655,6 +654,10 @@ public:
                              Vec3D *, Vec3D *, int ,
                              SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX = 0,
                              Vec<double> *genCF = 0);
+  template<int dim>
+  void computeHeatFluxes(map<int,int> &surfIndexMap, PostFcn * , BcData<dim> &,
+                                      GeoState &, SVec<double,3> &,
+                                      SVec<double,dim> &, double *);
   template<int dim>
   double computeInterfaceWork(PostFcn*, BcData<dim>&, GeoState&, SVec<double,3>&,
 			      SVec<double,dim>&, Vec<double>&);
@@ -819,6 +822,10 @@ public:
 
   void completeMeshMotionDofType(int* DofType, CommPattern<int> &ntP);
 
+  void changeSurfaceType(map<int,SurfaceData*>& surfaceMap);
+  void markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &ntP);
+  void completeFaceBelongsToSurface(Vec<int> &faceFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &ntP);
+ 
   template<int dim>
   void zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType);
 
@@ -1029,6 +1036,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(NodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, GeoState &);
+
+  void computePrdtPhiCtrlVolRatio(Vec<double> &, Vec<double> &, Vec<double> &, GeoState &);
 
   template<int dim>
   void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,

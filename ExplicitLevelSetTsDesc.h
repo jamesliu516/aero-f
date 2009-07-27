@@ -48,6 +48,11 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   DistVec<double> p3;
   DistVec<double> p4;
 
+// mesh motion modification for RK2
+// otherwise equal to U and Phi respectively
+  DistSVec<double,dim> ratioTimesU;
+  DistVec<double> ratioTimesPhi;
+
  public:
   ExplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitLevelSetTsDesc();

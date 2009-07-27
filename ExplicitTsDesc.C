@@ -10,7 +10,7 @@
 template<int dim>
 ExplicitTsDesc<dim>::ExplicitTsDesc(IoData& ioData, GeoSource& geoSource, Domain* dom) 
   : TsDesc<dim>(ioData, geoSource, dom), k1(this->getVecInfo()), k2(this->getVecInfo()), 
-  k3(this->getVecInfo()), k4(this->getVecInfo()), U0(this->getVecInfo()), Ubc(this->getInletVecInfo())
+  k3(this->getVecInfo()), k4(this->getVecInfo()), U0(this->getVecInfo()), Ubc(this->getInletVecInfo()),ratioTimesU(this->getVecInfo())
 {
   check = ioData.eqs.fluidModel.liquidModel.check;
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
@@ -92,28 +92,21 @@ void ExplicitTsDesc<dim>::computeRKFourthOrder(DistSVec<double,dim>& U)
 template<int dim>
 void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
 {
-
-/*  computeRKUpdate(U, k1);
-  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-
-  U0 = U - k1;
-  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  updateGhostFluid(U0);
-  computeRKUpdate(U0, k2);
-  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
-
-  U -= 1.0/2.0 * (k1 + k2);
-  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
-  this->spaceOp->applyBCsToSolutionVector(U);
-*/
+  this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
 
   computeRKUpdate(U, k1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-  U -= k1;
+
+  U0 = ratioTimesU - k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  computeRKUpdate(U0, k2);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
+
+  U = ratioTimesU - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
-  
-  
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -125,7 +118,6 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
 
   this->spaceOp->applyBCsToSolutionVector(U);
   this->spaceOp->computeResidual(this->riemann, *this->X, *this->A, U, dU, this->timeState);
-  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, U, dU);
   this->timeState->multiplyByTimeStep(dU);
   this->timeState->multiplyByPreconditioner(U,dU);
 }
