@@ -38,6 +38,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   problemType = ioData.problem.type;
   clippingType = ioData.ts.typeClipping;
   wallType = ioData.bc.wall.integration;
+  wallRecType = ioData.bc.wall.reconstruction;
 
   refVal = new RefVal(ioData.ref.rv);
 
@@ -507,7 +508,11 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
 
-    output->writeForcesToDisk(*this->riemann, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    if (wallRecType==BcsWallData::CONSTANT)
+      output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    else //wallRecType == EXACT_RIEMANN
+      output->writeForcesToDisk(*this->riemann, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -560,7 +565,10 @@ void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, i
 			       double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = timer->getRunTime();
-  output->writeForcesToDisk(*this->riemann, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+  if (wallRecType==BcsWallData::CONSTANT)
+    output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+  else //wallRecType==EXACT_RIEMANN
+    output->writeForcesToDisk(*this->riemann, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 }
 
 //------------------------------------------------------------------------------

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 FIND_PACKAGE(MPI)
 include(../base-exports.cmake)
 #set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../../PhysBAMLight)
+FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../PhysBAMLight)
 FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp
 /home/pavery/boost/boost_install/include/boost-1_34_1)
 SET(INC_DIR .. . ${PHYSBAM_BASE})
