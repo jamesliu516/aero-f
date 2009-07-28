@@ -53,6 +53,7 @@ protected:
   int numPhase;
   TsData::Clipping clippingType;
   BcsWallData::Integration wallType;
+  BcsWallData::Reconstruction wallRecType;
 
 //  TsParameters *data;
   TsInput *input;

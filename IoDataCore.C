@@ -521,6 +521,7 @@ BcsWallData::BcsWallData()
 
   type = ADIABATIC;
   integration = AUTO;
+  reconstruction = CONSTANT;
   temperature = -1.0;
   delta = -1.0;
 
@@ -539,6 +540,9 @@ void BcsWallData::setup(const char *name, ClassAssigner *father)
   new ClassToken<BcsWallData>(ca, "Integration", this,
 			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::integration), 2,
 			      "WallFunction", 1, "Full", 2);
+  new ClassToken<BcsWallData>(ca, "Reconstruction", this,
+			      reinterpret_cast<int BcsWallData::*>(&BcsWallData::reconstruction), 2,
+			      "Constant", 0, "ExactRiemann", 1);
   new ClassDouble<BcsWallData>(ca, "Temperature", this, &BcsWallData::temperature);
   new ClassDouble<BcsWallData>(ca, "Delta", this, &BcsWallData::delta);
 

@@ -319,6 +319,7 @@ struct BcsWallData {
 
   enum Type {ISOTHERMAL = 0, ADIABATIC = 1} type;
   enum Integration {AUTO = 0, WALL_FUNCTION = 1, FULL = 2} integration;
+  enum Reconstruction {CONSTANT = 0, EXACT_RIEMANN = 1} reconstruction;
 
   double temperature;
   double delta;

@@ -95,6 +95,8 @@ void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
   this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
 
   computeRKUpdate(U, k1);
+// KW: use Forward Euler
+/* 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
 
   U0 = ratioTimesU - k1;
@@ -103,6 +105,9 @@ void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
 
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
+*/
+
+  U = ratioTimesU - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
 
@@ -117,7 +122,12 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
 {
 
   this->spaceOp->applyBCsToSolutionVector(U);
-  this->spaceOp->computeResidual(this->riemann, *this->X, *this->A, U, dU, this->timeState);
+
+  if(this->wallRecType==BcsWallData::CONSTANT) 
+    this->spaceOp->computeResidual(*this->X, *this->A, U, dU, this->timeState);
+  else
+    this->spaceOp->computeResidual(this->riemann, *this->X, *this->A, U, dU, this->timeState);
+
   this->timeState->multiplyByTimeStep(dU);
   this->timeState->multiplyByPreconditioner(U,dU);
 }
