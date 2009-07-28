@@ -695,32 +695,34 @@ double PostOperator<dim>::computeInterfaceWork(DistSVec<double,3>& X,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type, 
-					      DistSVec<double,3>& X, 
-					      DistSVec<double,dim>& U, 
+void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
+                                              DistSVec<double,3>& X,
+                                              DistSVec<double,dim>& U,
                                               DistVec<double>& A,
-					      DistVec<double>& Q,
+                                              DistVec<double>& Q,
                                               DistTimeState<dim> *timeState)
 {
+
   int iSub;
+
   if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
       tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
     if (!vec2Pat) {
-      vec2Pat = new CommPattern<double>(domain->getSubTopo(), com, 
-					CommPattern<double>::CopyOnSend);
+      vec2Pat = new CommPattern<double>(domain->getSubTopo(), com,
+                                        CommPattern<double>::CopyOnSend);
 #pragma omp parallel for
       for (iSub = 0; iSub<numLocSub; ++iSub)
-	subDomain[iSub]->setComLenNodes(2, *vec2Pat);
+        subDomain[iSub]->setComLenNodes(2, *vec2Pat);
       vec2Pat->finalize();
     }
-      
+
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-      subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub), 
-						 (*geoState)(iSub), X(iSub), 
-						 (*V)(iSub), (*tmp2)(iSub));
+      subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub),
+                                                 (*geoState)(iSub), X(iSub),
+                                                 (*V)(iSub), (*tmp2)(iSub));
       subDomain[iSub]->sndData(*vec2Pat, tmp2->subData(iSub));
     }
 
@@ -734,14 +736,14 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double* q = Q.subData(iSub);
 
       for (int i=0; i<Q.subSize(iSub); ++i) {
-	if (t[i][0] != 0.0)
-	  q[i] = t[i][1] / t[i][0];
-	else
-	  q[i] = 0.0;
+        if (t[i][0] != 0.0)
+          q[i] = t[i][1] / t[i][0];
+        else
+          q[i] = 0.0;
       }
     }
-  } 
-  
+  }
+
   else if (type == PostFcn::VORTICITY) {
     DistSVec<double,6> R(domain->getNodeDistInfo());
     DistSVec<double,3> ddx(domain->getNodeDistInfo());
@@ -762,14 +764,14 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double (*t3)[3] = tmp3.subData(iSub);
       double (*x)[3] = X.subData(iSub);
       for (int i=0; i<tmp3.subSize(iSub); ++i) {
-	double v[dim];
-	varFcn->conservativeToPrimitive(u[i], v);
-	t3[i][0] = v[1];
-	t3[i][1] = v[2];
-	t3[i][2] = v[3];
+        double v[dim];
+        varFcn->conservativeToPrimitive(u[i], v);
+        t3[i][0] = v[1];
+        t3[i][1] = v[2];
+        t3[i][2] = v[3];
       }
       subDomain[iSub]->computeGradientsLeastSquares(X(iSub), R(iSub), tmp3(iSub),
-						    ddx(iSub), ddy(iSub), ddz(iSub));
+                                                    ddx(iSub), ddy(iSub), ddz(iSub));
     }
     domain->assemble(domain->getVec3DPat(), ddx);
     domain->assemble(domain->getVec3DPat(), ddy);
@@ -781,14 +783,14 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double (*dudz)[3] = ddz.subData(iSub);
       double* q = Q.subData(iSub);
       for (int i=0; i<Q.subSize(iSub); ++i) {
-	double w0 = dudy[i][0] - dudx[i][1];
-	double w1 = dudx[i][2] - dudz[i][0];
-	double w2 = dudz[i][1] - dudy[i][2];
-	q[i] = sqrt(w0*w0 + w1*w1 + w2*w2);
+        double w0 = dudy[i][0] - dudx[i][1];
+        double w1 = dudx[i][2] - dudz[i][0];
+        double w2 = dudz[i][1] - dudy[i][2];
+        q[i] = sqrt(w0*w0 + w1*w1 + w2*w2);
       }
     }
   }
- 
+
   else if (type == PostFcn::PSENSOR) {
     DistSVec<double,6> R(domain->getNodeDistInfo());
     DistSVec<double,dim> ddx(domain->getNodeDistInfo());
@@ -798,7 +800,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     domain->computeWeightsLeastSquares(X, R);
     domain->computeGradientsLeastSquares(X, R, *V, ddx, ddy, ddz);
     domain->computePressureSensor(threshold, X, *V, ddx, ddy, ddz, tmp3, Q);
-  } 
+  }
 
   else if (type == PostFcn::CSDLES) {
      if(!CsDles) CsDles = new DistVec<double>(domain->getNodeDistInfo());
@@ -813,7 +815,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
         q[i]  = cs[i];
       }
     }
-  } 
+  }
 
   else if (type == PostFcn::CSDVMS) {
     if(!CsDvms) CsDvms = new DistVec<double>(domain->getNodeDistInfo());
@@ -833,7 +835,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     if(!mutOmu) mutOmu = new DistVec<double>(domain->getNodeDistInfo());
     *mutOmu = 0.0;
     varFcn->conservativeToPrimitive(U, *V);
-                                                                                                                          
+
+
     if(vms) {
       vms->computeMutOMu(A, X, *V, *mutOmu);
     }
@@ -853,8 +856,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       dvms->computeMutOMu(A, X, *V, *Cs, *mutOmu);
     }
     else {
-       fprintf(stderr,"JJJ MuTOverMu option valid only for LES computations..  Aborting ....\n"); exit(1);	
-    }      
+       fprintf(stderr,"MuTOverMu option valid only for LES computations..  Aborting ....\n"); exit(1);
+    }
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double* q = Q.subData(iSub);
@@ -864,14 +867,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-  else if(type == PostFcn::TEMPERATURE_NORMAL_DERIVATIVE){
-    bool includeKappa = false;
-    computeNodalHeatFluxRelatedValues(X,U,Q, includeKappa);
-  }
-  else if(type == PostFcn::SURFACE_HEAT_FLUX){
-    bool includeKappa2 = true;
-    computeNodalHeatFluxRelatedValues(X,U,Q, includeKappa2);
-  }
+
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -879,7 +875,66 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub));
     }
   }
+
 }
+
+//------------------------------------------------------------------------------
+// Included (MB)
+
+template<int dim>
+void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], DistSVec<double,3>& X, DistSVec<double,3>& dX, DistSVec<double,dim>& U, DistSVec<double,dim>& dU, DistVec<double>& dQ, DistTimeState<dim> *timeState)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
+    subDomain[iSub]->computeDerivativeOfNodeScalarQuantity(type, postFcn, dS, (*V)(iSub), (*dV)(iSub), X(iSub), dX(iSub), dQ(iSub));
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp)  {
+
+  DistVec<double> Q(domain->getNodeDistInfo());
+  DistVec<double> XP(domain->getNodeDistInfo());
+  DistVec<double> YP(domain->getNodeDistInfo());
+  DistVec<double> ZP(domain->getNodeDistInfo());
+  Q = 0.0;
+  XP = 0.0;
+  YP = 0.0;
+  ZP = 0.0;
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+    subDomain[iSub]->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, postFcn, (*V)(iSub), X(iSub), Q(iSub));
+    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), XP(iSub), 0);
+    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), YP(iSub), 1);
+    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), ZP(iSub), 2);
+  }
+
+  double xp = XP.sum();
+  double yp = YP.sum();
+  double zp = ZP.sum();
+  double p = Q.sum();
+
+  if (p == 0)  {
+    cp[0] = 0;
+    cp[1] = 0;
+    cp[2] = 0;
+  } 
+  else {
+  cp[0] = xp/p;
+  cp[1] = yp/p;
+  cp[2] = zp/p;
+  }
+
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -1074,63 +1129,6 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 }
 
 //---------------------------------------------------------------------------------
-// Included (MB)
-template<int dim>
-void PostOperator<dim>::computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType type, double dS[3], DistSVec<double,3>& X, DistSVec<double,3>& dX, DistSVec<double,dim>& U, DistSVec<double,dim>& dU, DistVec<double>& dQ, DistTimeState<dim> *timeState)
-{
-
-  int iSub;
-
-#pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) {
-    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    varFcn->conservativeToPrimitiveDerivative(U(iSub), dU(iSub), (*V)(iSub), (*dV)(iSub));
-    subDomain[iSub]->computeDerivativeOfNodeScalarQuantity(type, postFcn, dS, (*V)(iSub), (*dV)(iSub), X(iSub), dX(iSub), dQ(iSub));
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp)  {
-
-  DistVec<double> Q(domain->getNodeDistInfo());
-  DistVec<double> XP(domain->getNodeDistInfo());
-  DistVec<double> YP(domain->getNodeDistInfo());
-  DistVec<double> ZP(domain->getNodeDistInfo());
-  Q = 0.0;
-  XP = 0.0;
-  YP = 0.0;
-  ZP = 0.0;
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-    subDomain[iSub]->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, postFcn, (*V)(iSub), X(iSub), Q(iSub));
-    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), XP(iSub), 0);
-    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), YP(iSub), 1);
-    subDomain[iSub]->computeXP(postFcn, (*V)(iSub), X(iSub), ZP(iSub), 2);
-  }
-
-  double xp = XP.sum();
-  double yp = YP.sum();
-  double zp = ZP.sum();
-  double p = Q.sum();
-
-  if (p == 0)  {
-    cp[0] = 0;
-    cp[1] = 0;
-    cp[2] = 0;
-  } 
-  else {
-  cp[0] = xp/p;
-  cp[1] = yp/p;
-  cp[2] = zp/p;
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
 template<int dim>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
