@@ -110,12 +110,15 @@ public:
   void computeHeatFluxes(DistSVec<double,3> &,
                                           DistSVec<double,dim> &, double*);
 
-    double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
+  double computeInterfaceWork(DistSVec<double,3>&, DistSVec<double,dim>&, DistVec<double>&);
 
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistVec<double> &, 
                              DistVec<double> &, DistTimeState<dim> *);
-  void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
+  void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
+                             DistSVec<double,dim> &, DistVec<double> &,
+                             DistVec<double> &, DistTimeState<dim> *, DistVec<double> &);
+   void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
                              DistSVec<double,dim> &, DistVec<double> &,
                              DistVec<double> &);

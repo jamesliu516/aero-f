@@ -4711,68 +4711,14 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
       polygon[edgeCount][0] = T[edgeToNodes[curEdge][1]];
       polygon[edgeCount][1] = T[edgeToNodes[curEdge][0]];
     }
-    edgeCount++;//--------------------------------------------------------------------------
-void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap)  {
-for (int i=0;i<faces.size(); i++) { // Loop over faces
-    map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) { // surface has attribut in the input file
-      if(it->second->type == SurfaceData::ADIABATIC) {
-        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)
-          faces[i].setType(BC_ADIABATIC_WALL_MOVING);
-        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED)
-          faces[i].setType(BC_ADIABATIC_WALL_FIXED);
-        }
-      if(it->second->type == SurfaceData::ISOTHERMAL) {
-if(faces[i].getCode()!=-1)
-        if(faces[i].getCode() == BC_ADIABATIC_WALL_MOVING){
-          faces[i].setType(BC_ISOTHERMAL_WALL_MOVING);
-        }
-        if(faces[i].getCode() == BC_ADIABATIC_WALL_FIXED){
-          faces[i].setType(BC_ISOTHERMAL_WALL_FIXED);
-        }
-      }
-   }
-}
-}
-//--------------------------------------------------------------------------
-void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &cpat) {
-
-  for (int i = 0; i < faces.size(); ++i) {
-    for (int j=0; j < faces[i].numNodes(); ++j) {
-      int surfNum = faces[i].getSurfaceID()+1;
-      const Face &face = faces[i];
-      faceFlag[face.nodeNum(j)] |= 1 << surfNum;
-    }
-  }
-
-  for (int iSub = 0; iSub < numNeighb; ++iSub) {
-    SubRecInfo<int> nInfo = cpat.getSendBuffer(sndChannel[iSub]);
-    for (int i = 0; i < sharedNodes->num(iSub); ++i)
-      nInfo.data[i] = faceFlag[ (*sharedNodes)[iSub][i] ];
-  }
-}
-
-//--------------------------------------------------------------------------
-// for mesh motion (with RK2 time-integration)
-
-void SubDomain::computePrdtPhiCtrlVolRatio(Vec<double> &ratioTimesPhi, Vec<double> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
-{
-   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
-
-   for (int i=0; i<nodes.size(); ++i) {
-     double ratio = ctrlVol_n[i]/ctrlVol[i];
-     ratioTimesPhi[i] = ratio * Phi[i];
-   }
-
-}
-
+    edgeCount++;
     curEdge = nextEdge[curEdge];
   } while (curEdge>=0 && curEdge!=firstEdge);
 
   return edgeCount;
 }
 
-//-----------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 
 void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3,
                               LevelSetResult& lsRes1, LevelSetResult& lsRes2, LevelSetResult& lsRes3,
@@ -4812,69 +4758,15 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
 
 //-----------------------------------------------------------------------------------------------
 
-void SubDomain::sendLocalForce//--------------------------------------------------------------------------
-void SubDomain::changeSurfaceType(map<int,SurfaceData*>& surfaceMap)  {
-for (int i=0;i<faces.size(); i++) { // Loop over faces
-    map<int,SurfaceData*>::iterator it = surfaceMap.find(faces[i].getSurfaceID());
-    if(it!=surfaceMap.end()) { // surface has attribut in the input file
-      if(it->second->type == SurfaceData::ADIABATIC) {
-        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING)
-          faces[i].setType(BC_ADIABATIC_WALL_MOVING);
-        if(faces[i].getCode() == BC_ISOTHERMAL_WALL_FIXED)
-          faces[i].setType(BC_ADIABATIC_WALL_FIXED);
-        }
-      if(it->second->type == SurfaceData::ISOTHERMAL) {
-if(faces[i].getCode()!=-1)
-        if(faces[i].getCode() == BC_ADIABATIC_WALL_MOVING){
-          faces[i].setType(BC_ISOTHERMAL_WALL_MOVING);
-        }
-        if(faces[i].getCode() == BC_ADIABATIC_WALL_FIXED){
-          faces[i].setType(BC_ISOTHERMAL_WALL_FIXED);
-        }
-      }
-   }
-}
-}
-//--------------------------------------------------------------------------
-void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &cpat) {
-
-  for (int i = 0; i < faces.size(); ++i) {
-    for (int j=0; j < faces[i].numNodes(); ++j) {
-      int surfNum = faces[i].getSurfaceID()+1;
-      const Face &face = faces[i];
-      faceFlag[face.nodeNum(j)] |= 1 << surfNum;
-    }
-  }
-
-  for (int iSub = 0; iSub < numNeighb; ++iSub) {
-    SubRecInfo<int> nInfo = cpat.getSendBuffer(sndChannel[iSub]);
-    for (int i = 0; i < sharedNodes->num(iSub); ++i)
-      nInfo.data[i] = faceFlag[ (*sharedNodes)[iSub][i] ];
-  }
-}
-
-//--------------------------------------------------------------------------
-// for mesh motion (with RK2 time-integration)
-
-void SubDomain::computePrdtPhiCtrlVolRatio(Vec<double> &ratioTimesPhi, Vec<double> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
+void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
 {
-   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
-
-   for (int i=0; i<nodes.size(); ++i) {
-     double ratio = ctrlVol_n[i]/ctrlVol[i];
-     ratioTimesPhi[i] = ratio * Phi[i];
-   }
-
-}
-(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
-{
-	for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) {
-		int n = it.nodeNum();
-		double coef = it.Ni();
-		for(int i = 0; i < 3; ++i)
-			Fs[n][i] += coef*flocal[i];
-	}
-		/*
+  for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) {
+    int n = it.nodeNum();
+    double coef = it.Ni();
+    for(int i = 0; i < 3; ++i)
+      Fs[n][i] += coef*flocal[i];
+  }
+/*
   for (int iDim=0; iDim<3; iDim++) {
     Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
     Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];

@@ -182,7 +182,6 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philo
   }
   this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
   // for RK2 on moving grids
-  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Philocal, dPhi);
   this->timeState->multiplyByTimeStep(dPhi);
 
 }
