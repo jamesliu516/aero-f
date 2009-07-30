@@ -1,5 +1,5 @@
-#ifndef _SPARSE_GRID_H_
-#define _SPARSE_GRID_H_
+#ifndef SPARSEGRID_HPP_
+#define SPARSEGRID_HPP_
 
 /*------------------------------------------------------------------------------
 COMMENTS on Sparse Grids.
@@ -39,32 +39,25 @@ online
 
 ------------------------------------------------------------------------------*/
 
-
-#include<IoData.h>
-
-
-
+#include "IoData.hpp"
 
 //------------------------------------------------------------------------------
 
 class SparseGrid {
+  double *parameters;
 
-  int dim, out;
-
+  int dim, out;           // number of inputs and outputs
+  
   int verbose;
 
-  //typedef double Output[out];
-  //typedef int    MultiIndex[dim];
-  //typedef double Coord[dim];
-  //typedef int    Neighbour[2*dim];
   typedef double Range[2];
 
   int nPoints;            // number of stored points (on the sparse grid)
-  double **surplus;        // hierarchical surplus for each point for each output
+  double **surplus;       // hierarchical surplus for each point for each output
   int sizeSurplus;
 
   int nSubGrids;          // number of stored subgrids
-  int **multiIndex; // multi-index for each stored subgrid
+  int **multiIndex;       // multi-index for each stored subgrid
   int sizeMultiIndex;
 
 // user-specified values for the creation of the sparse grid
@@ -73,14 +66,14 @@ class SparseGrid {
   double absAccuracy;     // required absolute accuracy
   double relAccuracy;     // required relative accuracy
   Range *range;           // range of the tabulation (min and max in each dir)
-  double dimAdaptDegree;  
+  double dimAdaptDegree;  // degree of dimensional adaptivity
 
 // data structures necessary to construct a sparse grid
 
-  double *fnmin;      // minimum values of the interpolation
-  double *fnmax;      // maximum values of the interpolation
+  double *fnmin;          // minimum values of the interpolation
+  double *fnmax;          // maximum values of the interpolation
 
-  double **error;          // errors for each subgrid in each dimension
+  double **error;         // errors for each subgrid in each dimension
                           // used for accuracy check
                           // max_{pts of subgrid}(abs(surpluses[idim] of a subgrid))
 
@@ -93,7 +86,7 @@ class SparseGrid {
   bool *active;           // for each subgrid, checks if it is active
                           // (same indexation as multiIndex)
 
-  class Heap{
+  class Heap{             // customed heap class
     int size_;
     int numElem_;
     int *elem_;
@@ -103,13 +96,13 @@ class SparseGrid {
     ~Heap();
     Heap(const Heap &heap);
     Heap &operator=(const Heap &heap);
-    int size(){ return numElem_; }
-    int &operator[](int i){return elem_[i];}
-    void sort(int index, double *value);     // sort after addition of a new element
+    int size() const{ return numElem_; }
+    int &operator[](int i) const {return elem_[i];}
+    void sort(int index, const double *value);     // sort after addition of a new element
                                              // placed at position 'index' and assuming
                                              // the rest was already sorted
-    void insert(int newElem, double *value);
-    int  pop(double *value);
+    void insert(const int newElem, const double *value);
+    int  pop(const double *value);
   };
 
   Heap activeHeapError;   // heap that contains the indices of the active subgrids
@@ -123,62 +116,97 @@ class SparseGrid {
                           // by the cost of their corresponding subgrid.
   double *activeCost;     // cost of each subgrid (same indexation as multiIndex)
 
-  int **neighbour;   // list of neighbours of a stored subgrid
+  int **neighbour;        // list of neighbours of a stored subgrid
                           // (same indexation as multiIndex and
                           // points to multiIndex)
                           // first the forward indices and then the backward ones
 
+protected:
+  //Adapter function object in order to tabulate member functions of a class
+  template<typename T>
+  class Functor{
+  public:
+    typedef void (T::*MemberFunctionType)(double *, double *, double *);
+
+    Functor(MemberFunctionType memberfn, T &object) : 
+      memberfn_(memberfn), object_(object){}
+
+    void operator()(double *argin, double *argout, double *argparameters){
+      (object_.*memberfn_)(argin, argout, argparameters);
+    }
+
+  private:
+    MemberFunctionType memberfn_;
+    T &object_;
+  };
+
+
 public:
   SparseGrid();
   ~SparseGrid();
-  SparseGrid(SparseGridData &data);
+  SparseGrid(SparseGridData &data, double *param);
 
-  // functions to create the sparse grid with function fn to tabulate
-  void tabulate(void (*fn)(double * , double * ));
-  void printToFile();
-
+  // one of the two following functions in order to create a tabulation
+  // choice depends if it is a member function of a class or not
+  template<typename T>
+  void tabulate(void (T::*fn)(double *, double *, double *), T &object);
+  
+  template<typename FnType>
+  void tabulate(FnType fn);
+  
+  // prints the tabulation in an ASCII file
+  // which can be later read by readFromFile()
+  void printToFile() const;
 
   // functions to perform interpolation on sparse grid
   void readFromFile();
-  void interpolate(int numRes, double **coord, double **res);
+  void interpolate(const int numRes, double **coord, double **res);
 
   // test function for debugging
-  void test(void (*fn)(double * , double * ));
+  template<typename FnType>
+  void test(FnType fn);
 
 private:
   SparseGrid(const SparseGrid &sparseGrid); // to prevent copying such objects
   SparseGrid& operator=(const SparseGrid &sparseGrid);
 
-  void initialize(void (*fn)(double * , double * ));
+  template<typename FnType>
+  void initialize(FnType fn);
   int  currentSubGrid(bool &adaptivity);
   bool admissible(const int currentMultiIndex, const int forwardDir);
   void findNeighbours(const int currentMultiIndex, const int forwardDir, 
                       const int addedSubGrids);
-  int integrateForwardAdmissible(const int newSubGrid, 
-                      void (*fn)(double * , double * ));
-  double **generateSubGrid(const int newSubGrid, int &nPointsSubGrid);
-  void evaluateFunctionOnGrid(double **subGrid, const int nPointsSubGrid, 
-                              void (*fn)(double * , double * ));
-  void resizeSurplus();
-  void resizeMultiIndex();
-  void scale(double *subGrid, double *scaledCoord, int op);
-  void bounds(const int nPointsSubGrid);
-  bool outOfRange(double *coord);
-  void closestPointInRange(double *coord);
+  template<typename FnType>
+  int integrateForwardAdmissible(const int newSubGrid, FnType fn);
+  double **generateSubGrid(const int newSubGrid, int &nPointsSubGrid) const;
+  void tensorize(double **res, double ** coordDim, const int *nPtsDim, 
+                 const int *nCumulatedPtsDim) const;
+  template<typename FnType>
+  void evaluateFunctionOnGrid(double **subGrid, const int nPointsSubGrid, FnType fn);
   void evaluatePreviousInterpolation(double **subGrid, const int nPointsSubGrid);
   void updateError(const int nPointsSubGrid);
   void updateCost();
-  void tensorize(double **res, double ** coordDim, int *nPtsDim, 
-                 int *nCumulatedPtsDim);
   bool checkAccuracy();
 
-  void singleInterpolation(double * coord, double * output);
+  void singleInterpolation(const double * coord, double * output) const;
 
-  void messages(const int flag, const int arg=0);
+  // depending on verbose, outputs messages on standard output
+  void messages(const int flag, const int arg=0) const;
 
+  void scale(const double *subGrid, double *scaledCoord, const int op) const;
+  void bounds(const int nPointsSubGrid);
+  bool outOfRange(double *coord) const;
+  void closestPointInRange(double *coord);
 
+  // resizing data structures if necessary  
+  void resizeSurplus();
+  void resizeMultiIndex();
+  
 };
 
 //------------------------------------------------------------------------------
-
+#ifdef TEMPLATE_FIX
+#include "SparseGrid.cpp"
 #endif
+
+#endif /*SPARSEGRID_HPP_*/
