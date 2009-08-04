@@ -313,8 +313,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
 //------------------------------------------------------------------------------
 //TODO: remaining issues...
-//      1) "wallVel" now works only if the wall moves in normal direction.
-//      2) in the flux calculation, the last 0.0 might be "normalVel".
 //      3) not sure if also works for implicitTsDesc
 
 template<int dim>

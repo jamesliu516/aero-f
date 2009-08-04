@@ -4519,7 +4519,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         int N3 = lsRes[k].trNodes[2];
         LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
         double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
-        if (dist>1e-3) {
+        if (dist>1e-2) {
           fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
 /*
           int l = edges.find(polygon[k][0], polygon[k][1]);
@@ -4577,7 +4577,7 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         int N2 = lsRes[k].trNodes[1];
         int N3 = lsRes[k].trNodes[2];
         double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
-        if (dist>1e-3) {
+        if (dist>1e-2) {
           fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist); 
 /*
           int l = edges.find(polygon[k][0], polygon[k][1]);
