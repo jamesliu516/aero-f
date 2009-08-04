@@ -635,8 +635,13 @@ void TsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
 template<int dim>
 double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  spaceOp->computeResidual(this->riemann, *X, *A, U, *R, timeState);
+  if (wallRecType==BcsWallData::CONSTANT)
+    spaceOp->computeResidual(*X, *A, U, *R, timeState);
+  else //wallRecTyp == ExactRiemann
+    spaceOp->computeResidual(this->riemann, *X, *A, U, *R, timeState);
+    
   spaceOp->applyBCsToResidual(U, *R);
+
   double res = 0.0;
   if (data->resType == -1){
     res = (*R)*(*R);
