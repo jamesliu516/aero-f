@@ -3,16 +3,17 @@
 
 #include <IoData.h>
 #include <SparseGrid.h>
+#include <math.h>
+#include <time.h>
 
 class RefVal;
 class VarFcn;
-
-void functionTest(double *in, double *res){ 
-  res[0] = in[0]*in[0]*in[1] + in[0] + 100*in[1] + in[0]*in[1]/2.0;
-  //fprintf(stderr, "in functionTest -- res = %e\n", res);
-}
+class LocalRiemann;
 
 //------------------------------------------------------------------------------
+  void functionTest(double *in, double *res, double *parameters){ 
+    res[0] = in[0]*in[0]*in[1]*in[1];
+  }
 
 class SparseGridGeneratorDesc {
 
@@ -22,13 +23,16 @@ private:
   VarFcn *varFcn;
   LocalRiemann *lriemann;
 
+  void memberFunctionTest(double *in, double *res, double *parameters){ 
+    res[0] = in[0]*in[0]*in[1]*in[1];
+  }
 
 public:
 
   SparseGridGeneratorDesc(IoData &ioData){
     refVal = new RefVal(ioData.ref.rv);
     varFcn = createVarFcn(ioData);
-    lriemann = new LocalRiemann();
+    lriemann = new LocalRiemann(varFcn);
 
     if(varFcn->getType() == VarFcn::GAS) fprintf(stderr, "GAS VarFcn\n");
     else if(varFcn->getType() == VarFcn::LIQUID) fprintf(stderr, "LIQUID VarFcn\n");
@@ -46,38 +50,59 @@ public:
     delete lriemann;
   }
 
-
   void tabulate(IoData & ioData){
-    fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 1\n");
+    srand(time(NULL));
+
+    double *refIn = new double[2]; double *refOut = new double[1];
+    refIn[0] = ioData.ref.rv.density;
+    refIn[1] = ioData.ref.rv.entropy;
+    refOut[0] = ioData.ref.rv.velocity;
+    fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
+
     if(varFcn->getType() == VarFcn::JWL){
+
+      lriemann->setReferenceDensity(ioData.eqs.fluidModel.jwlModel.rhoref);
+      fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 1\n");
+      double *parameters = new double;
+      parameters[0] = 1.0;
+      SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters);
+      sparseGrid.scaleGrid(refIn, refOut); // division operation
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 2\n");
-      SparseGrid sparseGrid(ioData.mf.sparseGrid);
+      //sparseGrid.tabulate(functionTest);
+      //sparseGrid.tabulate(&SparseGridGeneratorDesc::memberFunctionTest,*this);
+      sparseGrid.tabulate(&LocalRiemann::riemannInvariantGeneral2ndOrder,*lriemann);
+      sparseGrid.printToFile(refIn, refOut); // multiplication operation
       fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 3\n");
-      //sparseGrid.tabulate(lriemann->tabulateRiemann);
-      sparseGrid.tabulate(functionTest);
-      sparseGrid.printToFile();
-      fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 4\n");
 
       SparseGrid sparseGridCopy;
       sparseGridCopy.readFromFile();
-      typedef double Output[1];
-      typedef double Coord[2];
-      double **output = new double *[1];
-      double **coord = new double *[1];
-      output[0] = new double[1];
-      coord[0] = new double[2];
-      coord[0][0] = 7.8745;
-      coord[0][1] = 8.11111;
-      sparseGridCopy.interpolate(1, coord, output);
-      fprintf(stdout, "interpolation output is %e\n", output[0][0]);
-      double *res = new double;
-      functionTest(coord[0],res);
-      fprintf(stdout, "exact output is %e\n", res[0]);
+      sparseGridCopy.scaleGrid(refIn, refOut);
+      int numTest = 10;
+      double **output = new double *[numTest];
+      double **coord = new double *[numTest];
+      fprintf(stdout, "range1 = %e %e\n", ioData.mf.sparseGrid.range[0][0],ioData.mf.sparseGrid.range[0][1]);
+      fprintf(stdout, "range2 = %e %e\n", ioData.mf.sparseGrid.range[1][0],ioData.mf.sparseGrid.range[1][1]);
+      for(int iTest=0; iTest<numTest; iTest++){
+        output[iTest] = new double[1];
+        coord[iTest]  = new double[2];
+        coord[iTest][0] = (ioData.mf.sparseGrid.range[0][0] + static_cast<double>(rand())/RAND_MAX * (ioData.mf.sparseGrid.range[0][1] - ioData.mf.sparseGrid.range[0][0]))/refIn[0];
+        coord[iTest][1] = (ioData.mf.sparseGrid.range[1][0] + static_cast<double>(rand())/RAND_MAX * (ioData.mf.sparseGrid.range[1][1] - ioData.mf.sparseGrid.range[1][0]))/refIn[1];
+        fprintf(stdout, "coord[%d] = (%e %e)\n", iTest, coord[iTest][0], coord[iTest][1]);
+      }
+      sparseGridCopy.interpolate(numTest, coord, output);
+      double *exact = new double;
+      for(int iTest=0; iTest<numTest; iTest++){
+        //functionTest(coord[iTest],exact,parameters);
+        //memberFunctionTest(coord[iTest],exact,parameters);
+        lriemann->riemannInvariantGeneral2ndOrder(coord[iTest],exact,parameters);
+        fprintf(stdout, "interpolation/exact output is %e/%e and relative error is %e\n", 
+                output[iTest][0], exact[0], (exact[0]-output[iTest][0])/exact[0]);
+      }
 
     }else{
-      fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 5\n");
+      fprintf(stderr, "### SparseGridGeneratorDesc::nothing done!\n");
     }
-    fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- 6\n");
+    fprintf(stderr, "### SparseGridGeneratorDesc::tabulate -- finished\n");
   }
 
 
