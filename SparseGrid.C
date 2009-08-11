@@ -1,8 +1,7 @@
-#include "SparseGrid.hpp"
+#include "SparseGrid.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
 //------------------------------------------------------------------------------
 
@@ -166,7 +165,6 @@ template<typename FnType>
 void SparseGrid::test(FnType fn){
 
 
-  assert(dim==2 && out==1);
 /*
   // to test evaluatePreviousInterpolation and evaluateFunctionOnGrid
   //initialize

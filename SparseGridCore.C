@@ -1,4 +1,4 @@
-#include "SparseGrid.hpp"
+#include "SparseGrid.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -518,6 +518,7 @@ void SparseGrid::interpolate(const int numRes, double **coord, double **res){
 
   double scaledCoord[dim];
   for(int iPts=0; iPts<numRes; iPts++){
+    //fprintf(stdout, "# SparseGrid::interpolate using coord (%e %e)\n", coord[iPts][0], coord[iPts][1]);
     scale(coord[iPts],scaledCoord, 1);
     if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
     singleInterpolation(scaledCoord, res[iPts]);
@@ -554,7 +555,54 @@ void SparseGrid::closestPointInRange(double *coord){
 // SparseGrid::print and read sparse grid in a file
 //------------------------------------------------------------------------------
 
-void SparseGrid::printToFile() const{
+void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
+
+  if(refIn && range)
+    for(int idim=0; idim<dim; idim++){
+      if(refIn[idim] == 0.0){
+        fprintf(stdout, "*** Error: SparseGrid is being rescaled with factor 0!\n");
+        exit(1);
+      }
+      range[idim][0] /= refIn[idim]; // min of range
+      range[idim][1] /= refIn[idim]; // max of range
+      fprintf(stdout, "# SparseGrid::range = [ %e %e ]\n", range[idim][0], range[idim][1]);
+    }
+
+  if(refOut)
+    if(refOut[0]>0) absAccuracy /= refOut[0];
+
+  if(refOut && surplus){
+    for(int iPts=0; iPts<nPoints; iPts++)
+      for(int iout=0; iout<out; iout++){
+        if(refOut[iout] == 0.0){
+          fprintf(stdout, "*** Error: SparseGrid is being rescaled with factor 0!\n");
+          exit(1);
+        }
+        surplus[iPts][iout] /= refOut[iout];
+      }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
+
+  // first check scaling values are strictly positive!
+  if(refIn){
+    for(int idim=0; idim<dim; idim++)
+      if(refIn[idim]<=0.0){
+        fprintf(stderr, "*** Error: Sparse Grid file was not written!\n");
+        return;
+      }
+  }
+  if(refOut){
+    for(int iout=0; iout<out; iout++)
+      if(refOut[iout]<=0.0){
+        fprintf(stderr, "*** Error: Sparse Grid file was not written!\n");
+        return;
+      }
+  }
 
   // print to file the number of subgrids and the corresponding multiIndex array
   //           and the number of points and the surpluses.
@@ -570,9 +618,16 @@ void SparseGrid::printToFile() const{
   // characteristics used to create the sparse grid
   fprintf(fpSPARSEGRID, "%d %d\n", dim, out);
   fprintf(fpSPARSEGRID, "%d %d\n", minPoints, maxPoints);
-  fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", absAccuracy, relAccuracy, dimAdaptDegree);
-  for(int idim=0; idim<dim; idim++)
-    fprintf(fpSPARSEGRID, "%.12e %.12e ", range[idim][0], range[idim][1]);
+  if(refOut)
+    fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", refOut[0]*absAccuracy, relAccuracy, dimAdaptDegree);
+  else
+    fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", absAccuracy, relAccuracy, dimAdaptDegree);
+  for(int idim=0; idim<dim; idim++){
+    if(refIn)
+      fprintf(fpSPARSEGRID, "%.12e %.12e ", range[idim][0]*refIn[idim], range[idim][1]*refIn[idim]);
+    else
+      fprintf(fpSPARSEGRID, "%.12e %.12e ", range[idim][0], range[idim][1]);
+  }
   fprintf(fpSPARSEGRID, "\n");
 
   // the sparse grid data
@@ -585,8 +640,12 @@ void SparseGrid::printToFile() const{
   
   fprintf(fpSPARSEGRID, "%d\n", nPoints);
   for(int ipts=0; ipts<nPoints; ipts++){
-    for(int iout=0; iout<out; iout++)
-      fprintf(fpSPARSEGRID, "%.12e ", surplus[ipts][iout]);
+    for(int iout=0; iout<out; iout++){
+      if(refOut)
+        fprintf(fpSPARSEGRID, "%.12e ", surplus[ipts][iout]*refOut[iout]);
+      else
+        fprintf(fpSPARSEGRID, "%.12e ", surplus[ipts][iout]);
+    }
     fprintf(fpSPARSEGRID, "\n"); 
   }
   
@@ -840,6 +899,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
   	fprintf(stdout, "# tabulation done\n");
   	fprintf(stdout, "# number of subgrids = %d\n", nSubGrids);
   	fprintf(stdout, "# number of points   = %d\n", nPoints);
+  	fprintf(stdout, "# max number of points   = %d\n", maxPoints);
   	fprintf(stdout, "###########################################\n");
   }
   
@@ -922,7 +982,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
     fprintf(stdout, "###########################################\n");
   }
 
-  if(flag==7 && verbose>3){
+  if(flag==7){
     fprintf(stdout, "# desired absolute accuracy %e has been reached\n", absAccuracy);
     fprintf(stdout, "###########################################\n");
   }

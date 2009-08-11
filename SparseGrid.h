@@ -39,7 +39,7 @@ online
 
 ------------------------------------------------------------------------------*/
 
-#include "IoData.hpp"
+#include "IoData.h"
 
 //------------------------------------------------------------------------------
 
@@ -154,9 +154,12 @@ public:
   template<typename FnType>
   void tabulate(FnType fn);
   
+  // scales inputs and outputs
+  void scaleGrid(const double *refIn, const double *refOut);
+
   // prints the tabulation in an ASCII file
   // which can be later read by readFromFile()
-  void printToFile() const;
+  void printToFile(const double *refIn, const double *refOut) const;
 
   // functions to perform interpolation on sparse grid
   void readFromFile();
@@ -206,7 +209,7 @@ private:
 
 //------------------------------------------------------------------------------
 #ifdef TEMPLATE_FIX
-#include "SparseGrid.cpp"
+#include "SparseGrid.C"
 #endif
 
 #endif /*SPARSEGRID_HPP_*/

@@ -817,6 +817,7 @@ struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
   enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
+  enum RiemannComputation {FE = 0, RK2 = 1, TABULATION = 2} riemannComputation;
   int bandlevel;
   int subIt;
   double cfl;

@@ -3,6 +3,8 @@
 
 #include <LocalRiemann.h>
 #include <VarFcn.h>
+#include "IoData.h"
+#include "SparseGrid.h"
 #include <math.h>
 
 //----------------------------------------------------------------------------
@@ -859,16 +861,19 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
 
 class LocalRiemannGfmparGasJWL : public LocalRiemann {
 
-public:
-  LocalRiemannGfmparGasJWL(VarFcn *vf);
-  ~LocalRiemannGfmparGasJWL();
+  MultiFluidData::RiemannComputation riemannComputationType;
+  SparseGrid *tabulation;
 
-void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej, 
-                            double &weighti, double &weightj,
-                            double dx[3], int it);
+public:
+  LocalRiemannGfmparGasJWL(VarFcn *vf, IoData &iod);
+  ~LocalRiemannGfmparGasJWL(){ delete tabulation; }
+
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              double Phii, double Phij, double *nphi,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj,
+                              double dx[3], int it);
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
@@ -878,14 +883,30 @@ private:
   void eriemanngj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
                   double &pi, double &ui, double &rhoil, double &rhoir);
+
+  void riemannInvariantGeneralTabulation(double *in, double *res);
 };
 
 //----------------------------------------------------------------------------
 
 inline
-LocalRiemannGfmparGasJWL::LocalRiemannGfmparGasJWL(VarFcn *vf) : LocalRiemann()
+LocalRiemannGfmparGasJWL::LocalRiemannGfmparGasJWL(VarFcn *vf, IoData &iod) : 
+LocalRiemann()
 {
   vf_ = vf;
+  riemannComputationType = iod.mf.riemannComputation;
+  if(riemannComputationType == MultiFluidData::TABULATION){
+    double *refIn = new double[2]; double *refOut = new double[1];
+    refIn[0] = iod.ref.rv.density;
+    //refIn[1] = iod.ref.rv.entropy;
+    refIn[1] = pow(iod.ref.rv.density,-iod.eqs.fluidModel2.jwlModel.omega)*iod.ref.rv.velocity*iod.ref.rv.velocity;
+    refOut[0] = iod.ref.rv.velocity;
+    fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
+
+    tabulation = new SparseGrid;
+    tabulation->readFromFile();
+    tabulation->scaleGrid(refIn, refOut);
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -1007,8 +1028,8 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double frhoil = frhol;
   double frhopil = vf_->computeFrhop(1.0/vl,1.0);
 
-  fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
-  fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+  //fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+  //fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
 
   double gamr = vf_->getGamma();
   double prefr = vf_->getPressureConstant();
@@ -1023,13 +1044,13 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
 
   //compute left  JWL-term (shock or rarefaction)
     if( vil < vl){
-      fprintf(stdout, "shock\n");
+      //fprintf(stdout, "shock\n");
       frhoil  = vf_->computeFrho(1.0/vil,-1.0);
       frhopil = vf_->computeFrhop(1.0/vil,-1.0);
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
-      fprintf(stdout, "rarefaction\n");
-      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil);
+      //fprintf(stdout, "rarefaction\n");
+      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType);
     }
   //compute right GAS-term (shock or rarefaction)
     if( vir < vr){
@@ -1039,10 +1060,10 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       rarefactionGAS(1.0, gamr, gam1r, prefr, cr, vr, ur, pr, vir, uir, pir, duir, dpir);
     }
 
-    fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
-    fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
-    fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
-    fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+    //fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+    //fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+    //fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+    //fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
 
   //solve2x2System: function = jacobian*increment
     function[0] = uil-uir;
@@ -1055,11 +1076,11 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     increment[0] /= 5;
     increment[1] /= 5;
 
-    fprintf(stdout, "dvil = %e and dvir = %e\n", -increment[0],-increment[1]);
+    //fprintf(stdout, "dvil = %e and dvir = %e\n", -increment[0],-increment[1]);
 
   //update values and check bounds
-    fprintf(stdout, "1 -- vil = %e and vir = %e\n", vil, vir);
-    fprintf(stdout, "11-- vil = %e and vir = %e\n", vil-increment[0], vir-increment[1]);
+    //fprintf(stdout, "1 -- vil = %e and vir = %e\n", vil, vir);
+    //fprintf(stdout, "11-- vil = %e and vir = %e\n", vil-increment[0], vir-increment[1]);
     if(vil - increment[0] < 0.0)
       increment[0] = 0.5*vil;
     if(vir - increment[1] < 0.0)
@@ -1067,7 +1088,7 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     
     vil -= increment[0];
     vir -= increment[1];
-    fprintf(stdout, "2 -- vil = %e and vir = %e\n", vil, vir);
+    //fprintf(stdout, "2 -- vil = %e and vir = %e\n", vil, vir);
 
     if(vil < vl){ // at next iteration, leftrarefaction => ensures that some conditions are fulfilled
       double temp = omegal*vl/(omegal+2.0);
@@ -1079,7 +1100,7 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       if(vir<temp)
         vir = 0.5*(vir+increment[1]+temp);
     }
-    fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
+    //fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
     it++;
 
   //check convergence criterion
@@ -1091,7 +1112,7 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
 
   }//end newton iteration loop
   if(convergence){
-    fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
+    //fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
     rhoil = 1.0/vil;
     rhoir = 1.0/vir;
     ui    = 0.5*(uil+uir);
@@ -1100,12 +1121,20 @@ void LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     fprintf(stdout, "riemann solver did not converged\n");
     exit(1);
   }
-  fprintf(stdout, "rhoil, rhoir, ui, pi = %e %e %e %e\n", rhoil,rhoir, ui, pi);
-  exit(1);
+  //fprintf(stdout, "rhoil, rhoir, ui, pi = %e %e %e %e\n", rhoil,rhoir, ui, pi);
+  //exit(1);
 
 
 }
 //----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparGasJWL::riemannInvariantGeneralTabulation(double *in, 
+                                                                 double *res){
 
+  tabulation->interpolate(1,&in,&res);
+
+}
+
+//----------------------------------------------------------------------------
 
 #endif

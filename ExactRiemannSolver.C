@@ -48,7 +48,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
       lriemann = new LocalRiemannGfmparGasTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparGasJWL(vf);
+      lriemann = new LocalRiemannGfmparGasJWL(vf,iod);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
       lriemann = new LocalRiemannGfmparJWLJWL(vf);

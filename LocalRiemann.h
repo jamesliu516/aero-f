@@ -3,6 +3,7 @@
 
 #include <LinkF77.h>
 #include <SparseGrid.h>
+#include <IoData.h>
 
 class VarFcn;
 
@@ -48,8 +49,11 @@ protected:
 // is used for the computation of quantities related to the Riemann invariants.
 
 public:
-  LocalRiemann() {vf_ = 0; densityRef=1.63;}
+  LocalRiemann() {densityRef=1.63;}
+  LocalRiemann(VarFcn *vf) {vf_ = vf; densityRef=1.63;}
   ~LocalRiemann() {delete vf_;}
+
+  void setReferenceDensity(const double density){ densityRef=density; }
 
   virtual void computeRiemannSolution(double *Vi, double *Vj,
                             double Phii, double Phij, double *nphi,
@@ -63,6 +67,8 @@ public:
                         double &pi, double &ui,  
                         double &rhoil, double &rhoir){}
 
+  void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
+  void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);
 
@@ -70,15 +76,14 @@ protected:
   // in Quartapelle's algorithm to compute the solution of the Riemann problem
 
   // valid for General EOS
-  void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
-  void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
-  void riemannInvariantGeneralTabulation(double *in, double *res);
+  virtual void riemannInvariantGeneralTabulation(double *in, double *res);
 
   // valid for JWL only
   void rarefactionJWL(double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
-                   double &du, double &dp);
+                   double &du, double &dp,
+                   MultiFluidData::RiemannComputation type = MultiFluidData::RK2);
   void rarefactionJWL2ndOrder(double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
@@ -121,20 +126,26 @@ inline
 void LocalRiemann::rarefactionJWL(double phi,
                    double v1, double u1, double p1,
                    double v,  double &u, double &p,
-                   double &du, double &dp){
+                   double &du, double &dp, MultiFluidData::RiemannComputation type){
 
   double entropy = vf_->computeEntropy(1.0/v1,p1, phi);
   double in[2] = {1.0/v1, entropy};
   double res1[1] = {0.0};
-  //riemannInvariantGeneral1stOrder(in,res1,&phi);
-  riemannInvariantGeneral2ndOrder(in,res1,&phi);
-  //riemannInvariantGeneralTabulation(in,res1);
+  if(type == MultiFluidData::FE)
+    riemannInvariantGeneral1stOrder(in,res1,&phi);
+  else if(type == MultiFluidData::RK2)
+    riemannInvariantGeneral2ndOrder(in,res1,&phi);
+  else if(type == MultiFluidData::TABULATION)
+    riemannInvariantGeneralTabulation(in,res1);
 
   in[0] = 1.0/v;
   double res2[1] = {0.0};
-  //riemannInvariantGeneral1stOrder(in,res2,&phi);
-  riemannInvariantGeneral2ndOrder(in,res2,&phi);
-  //riemannInvariantGeneralTabulation(in,res2);
+  if(type == MultiFluidData::FE)
+    riemannInvariantGeneral1stOrder(in,res2,&phi);
+  else if(type == MultiFluidData::RK2)
+    riemannInvariantGeneral2ndOrder(in,res2,&phi);
+  else if(type == MultiFluidData::TABULATION)
+    riemannInvariantGeneralTabulation(in,res2);
 
   u = u1 - phi*(res2[0]-res1[0]);
   p = vf_->computeIsentropicPressure(entropy, 1.0/v, phi);
@@ -154,7 +165,7 @@ void LocalRiemann::riemannInvariantGeneral1stOrder(double *in, double *res,
 // in contains density and pressure
 // res is the output result and contains the variation of velocity
   res[0] = 0.0;
-  int N  = 500;
+  int N  = 2000;
   double density = densityRef; double entropy = in[1];
   double ddensity = (in[0] - densityRef)/N;
   double c = vf_->computeSoundSpeed(density,entropy,*phi);
@@ -176,7 +187,7 @@ void LocalRiemann::riemannInvariantGeneral1stOrder(double *in, double *res,
 inline
 void LocalRiemann::riemannInvariantGeneral2ndOrder(double *in, double *res,
                                                    double *phi){
-// in contains density and pressure
+// in contains density and entropy
 // res is the output result and contains the variation of velocity
   res[0] = 0.0;
   int N  = 500;
@@ -205,7 +216,8 @@ void LocalRiemann::riemannInvariantGeneral2ndOrder(double *in, double *res,
 
 inline
 void LocalRiemann::riemannInvariantGeneralTabulation(double *in, double *res){
-
+  fprintf(stderr, "*** Error: tabulation of the Riemann invariant is only available for Gas-JWL simulation\n");
+  exit(1);
 }
 
 //----------------------------------------------------------------------------

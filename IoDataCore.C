@@ -1442,6 +1442,7 @@ MultiFluidData::MultiFluidData()
   method = GHOSTFLUID_FOR_POOR;
   problem = BUBBLE; //hidden
   typePhaseChange = RIEMANN_SOLUTION; //hidden
+  riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
   bandlevel = 3;
@@ -1462,7 +1463,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 18, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1474,6 +1475,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
              "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
+  new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 3,
+             "FirstOrder", 0, "SecondOrder", 1, "Tabulation", 2);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
@@ -4089,6 +4093,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tvelocity = velocity / aero.displacementScaling;
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
+      ref.rv.entropy = pow(ref.rv.density,1.0-gamma)*velocity*velocity;
 
 // Included (MB)
       ref.rv.dvelocitydMach = dvelocitydMach;
@@ -4134,7 +4139,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tvelocity = velocity / aero.displacementScaling;
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
-
+      ref.rv.entropy = pow(ref.rv.density,-omegajwl)*velocity*velocity;
 
       eqs.fluidModel.jwlModel.A1     /= ref.rv.pressure;
       eqs.fluidModel.jwlModel.A2     /= ref.rv.pressure;
@@ -4173,8 +4178,9 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.force = ref.density * velocity*velocity * ref.length*ref.length;
       ref.rv.energy = ref.density * velocity*velocity * ref.length*ref.length*ref.length;
       ref.rv.power = ref.density * velocity*velocity*velocity * ref.length*ref.length;
+      ref.rv.entropy = pow(ref.rv.density,1.0-bwater)*velocity*velocity;
+
       ref.rv.tvelocity = velocity / aero.displacementScaling;
-                                                                                                        
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
                                                                                                         
