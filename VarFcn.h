@@ -405,8 +405,8 @@ public:
   }
   virtual double computePressureCoefficient(double *V, double pinfty, 
                                             double mach, bool dimFlag, double phi = 0.0) { 
-     fprintf(stderr, "... WARNING: computePressureCoefficient is only implemented for Perfect Gas Flows\n"); 
-     return 0.0; 
+     fprintf(stderr, "... ERROR: computePressureCoefficient is only implemented for Perfect Gas Simulations. Exiting.\n"); 
+     exit(-1);
   }
                                                                     
 };
