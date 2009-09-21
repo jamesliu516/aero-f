@@ -729,19 +729,6 @@ void Domain::computeFaceNormals(DistSVec<double,3> &X, DistVec<Vec3D> &faceNorm)
 }
 
 //------------------------------------------------------------------------------
-void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState,
-                                     DistVec<double> &Phi,
-                                     DistVec<double> &dPhi)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
-                                             Phi(iSub), dPhi(iSub));
-
-}
-
-//------------------------------------------------------------------------------
 
 void Domain::computeNormalsConfig(DistSVec<double,3> &Xconfig, DistSVec<double,3> &Xdot,
                                   DistVec<Vec3D> &edgeNorm, DistVec<double> &edgeNormVel,
@@ -1468,3 +1455,16 @@ void Domain::outputCsDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrlVol,
 }
 
 // ------------------------------------------------------------------------------------------
+
+void Domain::computePrdtPhiCtrlVolRatio(DistVec<double> &ratioTimesPhi, DistVec<double> &Phi, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computePrdtPhiCtrlVolRatio(ratioTimesPhi(iSub), Phi(iSub), ctrlVol(iSub), geoState(iSub));
+
+}
+
+//-------------------------------------------------------------------------------
+
+
+

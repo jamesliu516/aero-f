@@ -49,8 +49,8 @@ using std::max;
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2], 
 		      double (*)[25], double (*)[5], double (*)[5]);
-  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12]);
-  void F77NAME(ballvertex)(double (*)[3], int [4], double (*)[12]);
+  void F77NAME(torsionspring)(double (*)[3], int [4], double (*)[12], double &invCoef);
+  void F77NAME(ballvertex)(double (*)[3], double(*)[3], int [4], double (*)[12], double &invCoef);
 };
 
 //------------------------------------------------------------------------------
@@ -861,21 +861,6 @@ void SubDomain::computeFiniteVolumeBar_Step2(MacroCellSet **macroCells,
                fluxes[idx][k] += volRatio[idx][0] * sigma[i][k];
        }
      }
-  }
-
-}
-
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                                        SVec<double,dim> &U, SVec<double,dim> &R)
-{
-  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
-
-  for (int i=0; i<nodes.size(); ++i) {
-    double ratio = ctrlVol_dot[i]/ctrlVol[i];
-    for (int j=0; j<dim; ++j)
-      R[i][j] += ratio*U[i][j];
   }
 
 }
@@ -3703,12 +3688,22 @@ void SubDomain::computeStiffAndForce(DefoMeshMotionData::Element typeElement,
     }
 
     case DefoMeshMotionData::TORSIONAL_SPRINGS : {
-      elems[i].computeStiffTorsionSpring(kEl, X);
+      elems[i].computeStiffTorsionSpring(kEl, X, volStiff);
       break;
     }
 
     case DefoMeshMotionData::BALL_VERTEX : {
-      elems[i].computeStiffBallVertex(kEl, X);
+      elems[i].computeStiffBallVertex(kEl, X, nodes, volStiff);
+      break;
+    }
+      
+    case DefoMeshMotionData::NL_BALL_VERTEX : {
+      elems[i].computeStiffAndForceBallVertex(fEl, kEl, X, nodes, volStiff);
+      for (j=0, fEl_loc = fEl; j<elems[i].numNodes(); j++, fEl_loc+=3) {
+	F[ elems[i][j] ][0] -= fEl_loc[0];
+	F[ elems[i][j] ][1] -= fEl_loc[1];
+	F[ elems[i][j] ][2] -= fEl_loc[2];
+      }
       break;
     }
       
@@ -4912,6 +4907,23 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
     dGradP[1][i] = ddVdy[i][4];
     dGradP[2][i] = ddVdz[i][4];
   }
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computePrdtWCtrlVolRatio(SVec<double,dim> &ratioTimesU, SVec<double,dim> &U, Vec<double> &ctrlVol, GeoState &geoState)
+{
+   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+   for (int i=0; i<nodes.size(); ++i) {
+     double ratio = ctrlVol_n[i]/ctrlVol[i];
+     for (int j=0; j<dim; ++j) {
+       ratioTimesU[i][j] = ratio * U[i][j];
+     }
+   }
 
 }
 

@@ -5,11 +5,11 @@
 #include <Vector3D.h>
 #include <Vector.h>
 #include <BinFileHandler.h>
+#include <AutoDiff/Taylor.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-
 const double ElemTet::third = 1.0/3.0;
 const double ElemTet::fourth = 1.0/4.0;
 const double ElemTet::sixth = 1.0/6.0;
@@ -981,6 +981,185 @@ void ElemTet::computeStiffAndForce(double *force, double *Kspace,
 
 }
 
+void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
+				   SVec<double,3> &X, SVec<double,3> &X0, double volStiff)
+{
+  static const Vec3D e[3] = { Vec3D(1.0, 0.0, 0.0), Vec3D(0.0, 1.0, 0.0), Vec3D(0.0, 0.0, 1.0) };
+  static const int ndFace[4][4] = { {0, 1, 2, 3}, {0, 3, 1, 2}, {1, 3, 2, 0}, {0, 2, 3, 1} };
+  // X is the current position of nodes
+  // X0 is the reference position of nodes
+  
+  double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
+
+  for(int i = 0; i < 12; ++i)
+     force[i] = 0;
+  for(int j = 0; j < 12*12; ++j)
+     Kspace[j] = 0;
+  for(int iFace = 0; iFace < 4; ++iFace) {
+     int crossIdx[3][3] = { {0, 2, 1 }, { 2, 1, 0 }, { 1, 0, 2 } };
+     double crossCoef[3][3] = { { 0.0, 1.0, -1.0 }, { -1.0, 0.0, 1.0 }, { 1.0, -1.0, 0.0 } };
+     Vec3D vA = X[nodeNum(ndFace[iFace][0])];
+     Vec3D vB = X[nodeNum(ndFace[iFace][1])];
+     Vec3D vC = X[nodeNum(ndFace[iFace][2])];
+     Vec3D vK = X[nodeNum(ndFace[iFace][3])];
+     Vec3D AB = vB-vA, AC = vC-vA, CB = vB-vC, AK = vK-vA;
+     Vec3D S = AB ^ AC;
+     double Slen = S.norm();
+     Vec3D n = S/Slen;
+     double len = n*AK;
+
+
+
+     // The second derivatives are more complex.
+     // We first note that the derivative of S = AB x AC with respect Bi, Cj is ei x ej
+     // Then we get the the derivative of ||S||^2=S.S with respect to Bi and Cj
+     Taylor2<double,6> S2;
+     S2.val() = S*S;
+     Vec3D eiAC[3] = { e[0]^AC, e[1]^AC, e[2]^AC };
+     Vec3D ABei[3] = { AB^e[0], AB^e[1], AB^e[2] };
+     S2.d(0) = 2*(-AC[2]*S[1] + AC[1]*S[2]);// dS2/dB1 = 2(e1 x AC).S
+     S2.d(1) = 2*( AC[2]*S[0] - AC[0]*S[2]);
+     S2.d(2) = 2*(-AC[1]*S[0] + AC[0]*S[1]);
+
+     S2.d(3) = 2*( AB[2]*S[1] - AB[1]*S[2]);// dS2/dC1 = 2(AB x e1).S
+     S2.d(4) = 2*(-AB[2]*S[0] + AB[0]*S[2]);
+     S2.d(5) = 2*( AB[1]*S[0] - AB[0]*S[1]);
+
+     // dS2/dA1 = 2(e1 x CB).S = 2*(e1 x AB-e1 x AC).S = -2(AB x e1).S -2(e1 x AC).S
+     // The effect of moving A by dA is equivalent to moving both B and C by -dA
+     // All derivatives can thus be obtained from having only the derivatives with respect
+     // to the B and C variables.
+
+    for(int i = 0; i < 3; ++i) 
+      for(int j = 0; j < 3; ++j) {
+        S2.d(i,j) = eiAC[i]*eiAC[j]; // 1/2 d2S2dBidBj = (ei x AC). (ej x AC)
+        S2.d(3+i, 3+j) = ABei[i]*ABei[j]; // 1/2 d2S2dCidCj = (AB x ei). (AB x ej)
+        S2.d(i, 3+j) = S2.d(3+j, i) = // 1/2 d2S2dBidCj = (ei x ej).(AB x AC) + (ei x AC).(AB x ej)
+            crossCoef[i][j]*S[crossIdx[i][j]] + eiAC[i]*ABei[j];
+       }
+     // now the derivative of the inverse square root
+     double v = S2.val();
+     Taylor2<double,6> delta = S2;
+     delta.val() = 0.0;
+     double sqrv = sqrt(v);
+     Taylor2<double,6> invSqrS2 = 1.0/sqrv +(-(0.5/(sqrv*v)) + (3/(8*sqrv*v*v))*delta)*delta; 
+     
+     // Now we get the derivatives of S.AK
+     Taylor2<double,9> S_AK;
+     S_AK.val() = S*AK;
+     S_AK.d(0) = (-AC[2]*AK[1] + AC[1]*AK[2]);// dSAK/dB1 = (e1 x AC).AK
+     S_AK.d(1) = ( AC[2]*AK[0] - AC[0]*AK[2]);
+     S_AK.d(2) = (-AC[1]*AK[0] + AC[0]*AK[1]);
+
+     S_AK.d(3) = ( AB[2]*AK[1] - AB[1]*AK[2]);// dSAK/dC1 = (AB x e1).AK
+     S_AK.d(4) = (-AB[2]*AK[0] + AB[0]*AK[2]);
+     S_AK.d(5) = ( AB[1]*AK[0] - AB[0]*AK[1]);
+
+     S_AK.d(6) = S[0];
+     S_AK.d(7) = S[1];
+     S_AK.d(8) = S[2];
+
+     for(int i = 0; i < 3; ++i)
+       for(int j = 0; j < 3; ++j) {
+         S_AK.d(i,j) = 0.0;
+         S_AK.d(3+i, 3+j) = 0.0;
+         S_AK.d(6+i, 6+j) = 0.0;
+         // d2S_AK/dBidCj = (ei x ej).AK
+         S_AK.d(i, 3+j) = S_AK.d(3+j, i) = 0.5*crossCoef[i][j]*AK[crossIdx[i][j]];
+         // d2S_AK/dBidKj = (ei x AC)_j
+         S_AK.d(i, 6+j)   = S_AK.d(6+j, i)   = 0.5*eiAC[i][j];
+         S_AK.d(i+3, 6+j) = S_AK.d(6+j, i+3) = 0.5*ABei[i][j];
+       }
+     // Now extend 1/sqr(S.s) to the complete system.
+     Taylor2<double,9> invSqrS2_9;
+     invSqrS2_9.val() = invSqrS2.val();
+     for(int i = 0; i < 3; ++i) {
+           invSqrS2_9.d(i) = invSqrS2.d(i);
+           invSqrS2_9.d(i+3) = invSqrS2.d(i+3);
+           invSqrS2_9.d(i+6) = 0;
+           for(int j = i; j < 3; ++j) {
+             invSqrS2_9.d(i,j) = invSqrS2_9.d(j, i) = invSqrS2.d(i,j);
+             invSqrS2_9.d(i,j+3) = invSqrS2_9.d(j+3, i) = invSqrS2.d(i,j+3);
+             invSqrS2_9.d(i+3,j) = invSqrS2_9.d(j, i+3) = invSqrS2.d(i+3,j);
+             invSqrS2_9.d(i+3,j+3) = invSqrS2_9.d(j+3, i+3) = invSqrS2.d(i+3,j+3);
+             // K has no effect on the area
+             invSqrS2_9.d(i,j+6) = invSqrS2_9.d(j+6, i) = 0;
+             invSqrS2_9.d(i+3,j+6) = invSqrS2_9.d(j+6, i+3) = 0;
+             invSqrS2_9.d(i+6,j+6) = invSqrS2_9.d(j+6, i+6) = 0;
+             
+           }
+     }
+     //return invSqrS2_9;
+     Taylor2<double,9> l = invSqrS2_9*S_AK; // The length of the spring
+     //return S_AK;
+     //return l;
+
+     Vec3D vA0 = X0[nodeNum(ndFace[iFace][0])];
+     Vec3D vB0 = X0[nodeNum(ndFace[iFace][1])];
+     Vec3D vC0 = X0[nodeNum(ndFace[iFace][2])];
+     Vec3D vK0 = X0[nodeNum(ndFace[iFace][3])];
+     Vec3D AB0 = vB0-vA0, AC0 = vC0-vA0, AK0 = vK0-vA0;
+     Vec3D nS0 = AB0 ^ AC0;
+     Vec3D n0 = nS0/nS0.norm();
+
+     double len0 = n0*AK0; // The inital length the spring.
+
+     // The energy is l0 (l/l0 (log(l/l0)-1)+exp(alpha (l/l0-1)^2))
+     // or l0(r (log(r)-1)+exp(alpha (r-1)^2))
+     // Its first derivative is (2 alpha(r-1)exp(alpha (r-1)^2)+log(r))
+     // The second is 1/l0(4 alpha^2 (r-1)^2 +2 alpha) exp(alpha (r-1)^2 ) + 1/l
+     double alpha = volStiff;
+     double r = l.val()/len0;
+     double rm1 = r-1;
+     double rm1sq = rm1*rm1;
+     double expon = exp(alpha*rm1sq);
+     double logr = log(r);
+     double energy = len0*(r*(logr-1)+expon);
+     double f = 2*alpha*rm1*expon+logr;
+
+     double k = 0.5*(1/len0*(4*alpha*alpha*rm1sq+2*alpha)*expon+1/l.val());
+
+     Taylor2<double, 9> delta12 = l-l.val();
+     // E is the derivatives of the energy
+     Taylor2<double,9> E = (f + k*delta12)*delta12;
+
+     // distribute the force and stiffness
+     int oA = 3*ndFace[iFace][0];
+     int oB = 3*ndFace[iFace][1];
+     int oC = 3*ndFace[iFace][2];
+     int oK = 3*ndFace[iFace][3];
+
+     for(int i = 0; i < 3; ++i) {
+       force[oB+i] += E.d(i);
+       force[oC+i] += E.d(i+3);
+       force[oK+i] += E.d(i+6);
+       force[oA+i] -=  E.d(i) + E.d(i+3) + E.d(i+6);
+       for(int j = 0; j < 3; ++j) {
+         K[oB+i][oB+j] += E.d(i,j);
+         K[oB+i][oC+j] += E.d(i,j+3);
+         K[oC+j][oB+i] += E.d(i,j+3);
+         K[oB+i][oK+j] += E.d(i,j+6);
+         K[oK+j][oB+i] += E.d(i,j+6);
+         K[oB+i][oA+j] -= E.d(i,j)+E.d(i,j+3)+E.d(i,j+6);
+         K[oA+j][oB+i] -= E.d(i,j)+E.d(i,j+3)+E.d(i,j+6);
+         K[oC+i][oC+j] += E.d(i+3,j+3);
+         K[oC+i][oK+j] += E.d(i+3,j+6);
+         K[oK+j][oC+i] += E.d(i+3,j+6);
+         K[oC+i][oA+j] -= E.d(i+3,j)+E.d(i+3,j+3)+E.d(i+3,j+6);
+         K[oA+j][oC+i] -= E.d(i+3,j)+E.d(i+3,j+3)+E.d(i+3,j+6);
+         K[oK+i][oK+j] += E.d(i+6,j+6);
+         K[oK+i][oA+j] -= E.d(i+6,j)+E.d(i+6,j+3)+E.d(i+6,j+6);
+         K[oA+j][oK+i] -= E.d(i+6,j)+E.d(i+6,j+3)+E.d(i+6,j+6);
+         K[oA+i][oA+j] += E.d(i,j) + E.d(i,j+3) + E.d(i,j+6) 
+                        + E.d(i+3,j) + E.d(i+3,j+3) + E.d(i+3,j+6)
+                        + E.d(i+6,j) + E.d(i+6,j+3) + E.d(i+6,j+6);
+       }
+     }
+  }
+  // Now double K, as the Taylor object stores half of the second derivative
+  for(int i = 0; i < 12*12; ++i)
+    Kspace[i] *= 2.0;
+}
 //------------------------------------------------------------------------------
 
 void ElemTet::computeStiffAndForceLIN(double *Kspace,
@@ -1075,7 +1254,7 @@ void ElemTet::computeStiffAndForceLIN(double *Kspace,
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X)
+void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X, SVec<double,3> &X0, double expansionStiffCoef)
 {
 
   // IN:  X is the current position of nodes
@@ -1085,13 +1264,13 @@ void ElemTet::computeStiffBallVertex(double *Kspace, SVec<double,3> &X)
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
 
   // Get "local" BallVertex stiffness matrix for tetrahedron
-  F77NAME(ballvertex)(X.data()+1, nodeNum(), K);
+  F77NAME(ballvertex)(X.data()+1, X0.data()+1, nodeNum(), K, expansionStiffCoef);
 
 }
 
 //------------------------------------------------------------------------------
 
-void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X)
+void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X, double expansionStiffCoef)
 {
 
   // IN:  X is the current position of nodes
@@ -1101,7 +1280,7 @@ void ElemTet::computeStiffTorsionSpring(double *Kspace, SVec<double,3> &X)
   double (*K)[12] = reinterpret_cast<double (*)[12]> (Kspace);
   
   // Get "local" TorsionSpring stiffness matrix for tetrahedron
-  F77NAME(torsionspring)(X.data()+1, nodeNum(), K);
+  F77NAME(torsionspring)(X.data()+1, nodeNum(), K, expansionStiffCoef);
   
 }
 

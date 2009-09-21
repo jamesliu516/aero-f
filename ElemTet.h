@@ -4,7 +4,7 @@
 #include <Elem.h>
 
 //------------------------------------------------------------------------------
-
+/** Tetrahedral element */
 class ElemTet : public ElemDummy {
 
   static const double third;
@@ -70,9 +70,12 @@ public:
                                    double nGrad[4][3]);
   void computeStiffAndForce(double *, double *, 
 			    SVec<double, 3> &, SVec<double,3> &, double volStiff = 0.0);
+  void computeStiffAndForceBallVertex(double *f, double *K, 
+				    SVec<double, 3> &X, SVec<double,3> &X0, 
+				    double volStiff = 0.0);
   void computeStiffAndForceLIN(double *, SVec<double,3> &, SVec<double,3> &);
-  void computeStiffBallVertex(double *, SVec<double, 3> &);
-  void computeStiffTorsionSpring(double *, SVec<double, 3> &);
+  void computeStiffBallVertex(double *, SVec<double, 3> &X, SVec<double,3> &X0, double volStiff);
+  void computeStiffTorsionSpring(double *, SVec<double, 3> &X, double volStiff);
 
   void computeTemp(double *[4], double [4], double);
 

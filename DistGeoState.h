@@ -33,7 +33,6 @@ class DistGeoState {
   DistVec<double> *ctrlVol_nm1;
   DistVec<double> *ctrlVol_nm2;
   DistVec<double> *ctrlVol_save;
-  DistVec<double> *ctrlVol_dot;
 
   DistVec<double> *d2wall;
 

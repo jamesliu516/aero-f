@@ -593,17 +593,6 @@ void SubDomain::computeDerivativeOfNormals(SVec<double,3> &X, SVec<double,3> &dX
 }
 
 //------------------------------------------------------------------------------
-void SubDomain::computeVolumeChangeTerm(Vec<double> &ctrlVol, GeoState &geoState,
-                                        Vec<double> &Phi, Vec<double> &dPhi)
-{
-  Vec<double> &ctrlVol_dot = geoState.getCtrlVol_dot();
-
-  for (int i=0; i<nodes.size(); ++i)
-    dPhi[i] += ctrlVol_dot[i]/ctrlVol[i]*Phi[i];
-
-}
-
-//------------------------------------------------------------------------------
 
 void SubDomain::computeNormalsConfig(SVec<double,3> &Xconfig, SVec<double,3> &Xdot,
                                      Vec<Vec3D> &edgeNorm, Vec<double> &edgeNormVel,
@@ -3946,6 +3935,21 @@ void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &c
 }
 
 //--------------------------------------------------------------------------
+// for mesh motion (with RK2 time-integration)
+
+void SubDomain::computePrdtPhiCtrlVolRatio(Vec<double> &ratioTimesPhi, Vec<double> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
+{
+   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+   for (int i=0; i<nodes.size(); ++i) {
+     double ratio = ctrlVol_n[i]/ctrlVol[i];
+     ratioTimesPhi[i] = ratio * Phi[i];
+   }
+
+}
+
+///-----------------------------------------------------------------------------
+
 void SubDomain::completeFaceBelongsToSurface(Vec<int> &ndToSurfFlag, Vec<double> &nodeTemp, map<int,SurfaceData*>& surfaceMap, CommPattern<int> &cpat) {
    for (int iSub = 0; iSub < numNeighb; ++iSub) {
      SubRecInfo<int> nInfo = cpat.recData(rcvChannel[iSub]);

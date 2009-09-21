@@ -16,6 +16,8 @@ using std::vector;
 using std::map;
 #endif
 
+#include <stdlib.h>
+
 class Assigner {
  public:
    string name;
