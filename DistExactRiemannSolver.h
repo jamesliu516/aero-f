@@ -27,7 +27,7 @@ class DistExactRiemannSolver {
 
 
 public:
-  DistExactRiemannSolver(IoData &iod, Domain *dom);
+  DistExactRiemannSolver(IoData &iod, Domain *dom, VarFcn *vf);
   ~DistExactRiemannSolver();
 
   bool DoUpdatePhase() { return updatePhase; }

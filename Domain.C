@@ -2375,6 +2375,7 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
+
   if (step == 0)
     com->barrier();
 
@@ -2866,12 +2867,13 @@ void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, Dist
 //------------------------------------------------------------------------------
 template<int dim>
 void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                            DistVec<double> &weight, DistVec<double> &Phi)
+                            DistVec<double> &weight, DistVec<double> &Phi,
+                            DistSVec<double,3> &X)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),Phi(iSub));
+    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),Phi(iSub),X(iSub));
   }
 
   assemble(vecPat, Vgf);

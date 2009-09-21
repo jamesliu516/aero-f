@@ -921,7 +921,7 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
   inletNodes.recomputeResidual(F,Finlet);
 }
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
 void SubDomain::checkRHS(Scalar (*rhs)[dim])
@@ -3420,7 +3420,7 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
 
 }
- 
+
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn* postFcn, BcData<dim>& bcData,
@@ -4445,7 +4445,8 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                               Vec<double> &weight, Vec<double> &Phi)
+                               Vec<double> &weight, Vec<double> &Phi,
+                               SVec<double,3> &X)
 {
 
   int i, j, k;
@@ -4457,6 +4458,8 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
+/*
+// OPTION 1 : simple arithmetic mean extrapolation
     if(Phi[i]*Phi[j]<=0.0){ //at interface
       if(weight[i]<1.e-6){
         weight[i] = 1.0;
@@ -4478,6 +4481,34 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
           Vgf[j][k] += Vg[i][k];
       }
     }
+*/
+
+// OPTION 2 : selective averaged extrapolation (based on direction of the flow)
+
+    if(Phi[i]*Phi[j]<=0.0){ //at interface
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+      double normUi2 = Vg[i][1]*Vg[i][1]+Vg[i][2]*Vg[i][2]+Vg[i][3]*Vg[i][3];
+      double normUj2 = Vg[j][1]*Vg[j][1]+Vg[j][2]*Vg[j][2]+Vg[j][3]*Vg[j][3];
+      double udotdx = 0.0;
+
+      if(normdx2*normUj2 > 0.0)
+        udotdx = -(dx[0]*Vg[j][1]+dx[1]*Vg[j][2]+dx[2]*Vg[j][3])/sqrt(normdx2*normUj2);
+      if(udotdx > 0.0){
+        weight[i] += udotdx;
+        for(k=0; k<5; k++)
+          Vgf[i][k] += udotdx*Vg[j][k];
+      }
+
+      if(normdx2*normUi2 > 0.0)
+        udotdx = (dx[0]*Vg[i][1]+dx[1]*Vg[i][2]+dx[2]*Vg[i][3])/sqrt(normdx2*normUi2);
+      if(udotdx > 0.0){
+        weight[j] += udotdx;
+        for(k=0; k<5; k++)
+          Vgf[j][k] += udotdx*Vg[i][k];
+      }
+    }
+   
 
   }
 

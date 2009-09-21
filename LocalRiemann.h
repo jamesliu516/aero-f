@@ -2,6 +2,8 @@
 #define _LOCAL_RIEMANN_H
 
 #include <LinkF77.h>
+#include <SparseGrid.h>
+#include <IoData.h>
 
 class VarFcn;
 
@@ -33,71 +35,237 @@ class LocalRiemann {
 //    -LocalRiemannGfmparGasGas
 //    -LocalRiemannGfmparGasTait
 //    -LocalRiemannGfmparTaitTait
+//    -LocalRiemannGfmparJWLJWL
+//    -LocalRiemannGfmparJWLGas
+/* Depending on the EOS considered, the resolution of the Riemann problem
+ * can be done in different manners (cf Toro as well as Quartapelle).
+ */
+
+protected:
+  VarFcn *vf_;
+  double invRhoRef;
+  double densityRef;
+// to see if an integral computed on the fly or if a tabulated value
+// is used for the computation of quantities related to the Riemann invariants.
 
 public:
-  LocalRiemann() {}
-  ~LocalRiemann() {}
+  LocalRiemann() {densityRef=1.63;}
+  LocalRiemann(VarFcn *vf) {vf_ = vf; densityRef=1.63;}
+  ~LocalRiemann() {delete vf_;}
+
+  void setReferenceDensity(const double density){ densityRef=density; }
 
   virtual void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi, VarFcn *vf,
+                            double Phii, double Phij, double *nphi,
                             int &epsi, int &epsj, double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
-                            double &weighti, double &weightj, int it){}
+                            double &weighti, double &weightj, 
+                            double dx[3], int it){}
 
   virtual void eriemann(double rhol, double ul, double pl, 
                         double rhor, double ur, double pr, 
                         double &pi, double &ui,  
-                        double &rhoil, double &rhoir,
-                        VarFcn *vf){}
+                        double &rhoil, double &rhoir){}
 
+  void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
+  void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
 protected:
   virtual void solve2x2System(double *mat, double *rhs, double *res);
 
-  void riemannInvariant(VarFcn *vf, double phi,
+  // functions used to determine the Riemann invariants as needed
+  // in Quartapelle's algorithm to compute the solution of the Riemann problem
+
+  // valid for General EOS
+  virtual void riemannInvariantGeneralTabulation(double *in, double *res);
+
+  // valid for JWL only
+  void rarefactionJWL(double phi,
+                   double v1, double u1, double p1, 
+                   double v,  double &u, double &p, 
+                   double &du, double &dp,
+                   MultiFluidData::RiemannComputation type = MultiFluidData::RK2);
+  void rarefactionJWL2ndOrder(double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
                    double &du, double &dp);
-  void shockJWL(VarFcn *vf, double phi, double omega,
+  void rarefactionJWL1stOrder(double phi,
+                   double v1, double u1, double p1, 
+                   double v,  double &u, double &p, 
+                   double &du, double &dp);
+  void shockJWL(double phi, double omega,
                 double omp1oom, double frho, double frhoi, 
                 double frhopi,
                 double v, double u, double p, double vi,
                 double &ui, double &pi, double &dui, double &dpi);
 
+  // valid for Gas (Perfect and Stiffened)
   void shockGAS(double phi, double gamogam1,
                 double pref,
                 double v, double u, double p, 
                 double vi, double &ui, double &pi,
                 double &dui, double &dpi);
-  void riemannInvariantGAS(VarFcn *vf, double phi,
+  void rarefactionGAS(double phi,
                    double gam, double gam1, double pref, double c1, 
                    double v1, double u1, double p1,
                    double v, double &u, double &p,
                    double &du, double &dp);
+
+
+  // function used for the multiphase flow algorithm to update
+  // nodes that change phases
+  void updatePhaseChangingNodeValues(double * const dx, 
+                                     double * const Wi, double * const Wj,
+                                     double &weighti, double *rupdatei, 
+                                     double &weightj, double *rupdatej);
 };
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
 inline
-void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
-{
-  double determinant = mat[0]*mat[3]-mat[1]*mat[2];
-  double eps = 1.0e-15;
-  double norm = 1.0;
-  if(fabs(determinant)>eps*norm){
-    res[0] = ( mat[3]*rhs[0]-mat[1]*rhs[1])/determinant;
-    res[1] = (-mat[2]*rhs[0]+mat[0]*rhs[1])/determinant;
-  }else{
-    fprintf(stdout, "zero-determinant\n");
-    res[0] = 0.0;
-    res[1] = 0.0;
-  }
+void LocalRiemann::rarefactionJWL(double phi,
+                   double v1, double u1, double p1,
+                   double v,  double &u, double &p,
+                   double &du, double &dp, MultiFluidData::RiemannComputation type){
+
+  double entropy = vf_->computeEntropy(1.0/v1,p1, phi);
+  double in[2] = {1.0/v1, entropy};
+  double res1[1] = {0.0};
+  if(type == MultiFluidData::FE)
+    riemannInvariantGeneral1stOrder(in,res1,&phi);
+  else if(type == MultiFluidData::RK2)
+    riemannInvariantGeneral2ndOrder(in,res1,&phi);
+  else if(type == MultiFluidData::TABULATION)
+    riemannInvariantGeneralTabulation(in,res1);
+
+  in[0] = 1.0/v;
+  double res2[1] = {0.0};
+  if(type == MultiFluidData::FE)
+    riemannInvariantGeneral1stOrder(in,res2,&phi);
+  else if(type == MultiFluidData::RK2)
+    riemannInvariantGeneral2ndOrder(in,res2,&phi);
+  else if(type == MultiFluidData::TABULATION)
+    riemannInvariantGeneralTabulation(in,res2);
+
+  u = u1 - phi*(res2[0]-res1[0]);
+  p = vf_->computeIsentropicPressure(entropy, 1.0/v, phi);
+  double c = vf_->computeSoundSpeed(1.0/v, entropy, phi);
+  du = -phi*c/v;
+  dp = -c*c/(v*v);
+  //fprintf(stderr, "*** rarefactionJWL returns u=%e, p=%e, du=%e, dp=%e\n", u,p,du,dp);
 
 }
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
 inline
-void LocalRiemann::riemannInvariant(VarFcn *vf, double phi,
+void LocalRiemann::riemannInvariantGeneral1stOrder(double *in, double *res,
+                                                   double *phi){
+// in contains density and pressure
+// res is the output result and contains the variation of velocity
+  res[0] = 0.0;
+  int N  = 2000;
+  double density = densityRef; double entropy = in[1];
+  double ddensity = (in[0] - densityRef)/N;
+  double c = vf_->computeSoundSpeed(density,entropy,*phi);
+
+  bool continueCondition = true;
+  while(continueCondition){
+    res[0] -= c/density*ddensity;
+    density  += ddensity;
+    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    if(ddensity>0.0)
+      continueCondition = (density<in[0]-ddensity/2.0);
+    else continueCondition = (density>in[0]-ddensity/2.0);
+  }
+
+}
+
+//----------------------------------------------------------------------------
+
+inline
+void LocalRiemann::riemannInvariantGeneral2ndOrder(double *in, double *res,
+                                                   double *phi){
+// in contains density and entropy
+// res is the output result and contains the variation of velocity
+  res[0] = 0.0;
+  int N  = 500;
+  double density = densityRef; double entropy = in[1];
+  double ddensity = (in[0] - densityRef)/N;
+  double c = vf_->computeSoundSpeed(density,entropy,*phi);
+
+  bool continueCondition = true;
+  while(continueCondition){
+    //advance by first half density-step
+    res[0] -= c/density*ddensity/2.0;
+
+    density += ddensity;
+    //advance by second half density-step
+    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    res[0] -= c/density*ddensity/2.0;
+
+    if(ddensity>0.0)
+      continueCondition = (density<in[0]-ddensity/4.0);
+    else continueCondition = (density>in[0]-ddensity/4.0);
+  }
+
+}
+
+//----------------------------------------------------------------------------
+
+inline
+void LocalRiemann::riemannInvariantGeneralTabulation(double *in, double *res){
+  fprintf(stderr, "*** Error: tabulation of the Riemann invariant is only available for Gas-JWL simulation\n");
+  exit(1);
+}
+
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+// OLD JWL relation routines (for rarefaction only)
+inline
+void LocalRiemann::rarefactionJWL2ndOrder(double phi,
+                   double v1, double u1, double p1,
+                   double v,  double &u, double &p,
+                   double &du, double &dp){
+//compute integrals using ODEs. Integrand are not approximated.
+//integrate using 2nd order integration
+  int N  = 500;
+  double dt = (v-v1)/N;
+  double t = v1; u = u1; p = p1;
+  double V[5] = { 1.0/v1, u1, 0.0, 0.0, p1 };
+  double c = vf_->computeSoundSpeed(V,phi);
+  bool continueCondition = true;
+
+  while (continueCondition) {
+    V[1] = u - phi*c/t*dt/2;
+    V[4] = p - c*c/(t*t)*dt/2;
+    t  += dt/2;
+    V[0] = 1.0/t;
+    if(vf_->checkPressure(V,phi) < 0.0) break;
+    c = vf_->computeSoundSpeed(V,phi);
+
+    u -= phi*c/t*dt;
+    p -= c*c/(t*t)*dt;
+    t  += dt/2;
+
+    V[0] = 1.0/t; V[1] = u; V[4] = p;
+    if(vf_->checkPressure(V,phi) < 0.0) break;
+    c = vf_->computeSoundSpeed(V,phi);
+
+    continueCondition = (t<v-dt/4.0);
+
+  }
+  du = -phi*c/v;
+  dp = -c*c/(v*v);
+  if(vf_->checkPressure(V,phi)<0.0){
+    u=0.0; p=0.0; du=0.0; dp=0.0;
+  }
+
+}
+
+inline
+void LocalRiemann::rarefactionJWL1stOrder(double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
                    double &du, double &dp){
@@ -113,7 +281,7 @@ void LocalRiemann::riemannInvariant(VarFcn *vf, double phi,
   bool continueCondition = true;
   //fprintf(stdout, "begin loop\n");
   while(continueCondition){
-    c = vf->computeSoundSpeed(V,phi);
+    c = vf_->computeSoundSpeed(V,phi);
     u -= phi*c/t*dt;
     p -= c*c/(t*t)*dt;
     t  += dt;
@@ -121,13 +289,14 @@ void LocalRiemann::riemannInvariant(VarFcn *vf, double phi,
     V[0] = 1.0/t; V[1] = u; V[4] = p;
   }
   //fprintf(stdout, "end loop\n");
-  c = vf->computeSoundSpeed(V,phi);
+  c = vf_->computeSoundSpeed(V,phi);
   du = -phi*c/v;
   dp = -c*c/(v*v);
   //fprintf(stdout, "end riemannInvariant\n");
 }
+
 inline
-void LocalRiemann::shockJWL(VarFcn *vf, double phi, double omega,
+void LocalRiemann::shockJWL(double phi, double omega,
                    double omp1oom, double frho, double frhoi, 
                    double frhopi,
                    double v, double u, double p, double vi,
@@ -149,15 +318,17 @@ void LocalRiemann::shockJWL(VarFcn *vf, double phi, double omega,
 
 }
 //---------------------------------------------------------------------------
+// GAS relation routines
 inline
-void LocalRiemann::riemannInvariantGAS(VarFcn *vf, double phi,
+void LocalRiemann::rarefactionGAS(double phi,
                    double gam, double gam1, double pref, double c1,
                    double v1, double u1, double p1,
                    double v, double &u, double &p,
                    double &du, double &dp){
   p  = (p1+pref)*pow(v1/v,gam)-pref;
   double V[5] = {1.0/v, u, 0.0, 0.0, p};
-  double c = vf->computeSoundSpeed(V,phi);
+  //double c = vf_->computeSoundSpeed(V,phi);
+  double c = sqrt(gam*(p+pref)*v);
   u  = u1 - phi*2.0/gam1*(c1 - c);
 
   dp = -c*c/(v*v);
@@ -180,5 +351,70 @@ void LocalRiemann::shockGAS(double phi, double gamogam1,
   dui = -0.5*((vi-v)*dpi+pi-p)/(ui-u);
 }
 
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+
+inline
+void LocalRiemann::updatePhaseChangingNodeValues(
+                      double * const dx, double * const Wi, double * const Wj,
+                      double &weighti, double *rupdatei, 
+                      double &weightj, double *rupdatej)
+{
+// In multiphase flow:
+// From one iteration to the next, some nodes change phases.
+// The state values at these nodes are not relevant to the thermodynamics
+//     of the fluid they belong to at the end of the iteration and thus
+//     must somehow be replaced or "updated".
+// Appropriate state values are given by the interfacial states of the
+//     solution of the two-phase Riemann problem.
+// In three dimensions, there are several interfacial states to consider.
+// The present routine uses all interfacial states that are upwind of
+//    the node that may need to be "updated" and weighs them according
+//    to their upwind position.
+
+  int dim = 5;
+
+  double temp = 0.0;
+  double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+  double normWi2 = Wi[1]*Wi[1]+Wi[2]*Wi[2]+Wi[3]*Wi[3];
+  double normWj2 = Wj[1]*Wj[1]+Wj[2]*Wj[2]+Wj[3]*Wj[3];
+
+  if(normdx2 > 0.0 && normWj2 > 0.0)
+    temp = -(Wj[1]*dx[0]+Wj[2]*dx[1]+Wj[3]*dx[2])/sqrt(normdx2*normWj2);
+    if (temp > 0.0){
+      weighti += temp;
+    for (int k=0; k<dim; k++)
+      rupdatei[k] += temp*Wj[k];
+  }
+  temp = 0.0;
+  if(normdx2 > 0.0 && normWi2 > 0.0)
+    temp = (Wi[1]*dx[0]+Wi[2]*dx[1]+Wi[3]*dx[2])/sqrt(normdx2*normWi2);
+  if(temp > 0.0){ // for update of node j
+    weightj += temp;
+    for (int k=0; k<dim; k++)
+      rupdatej[k] += temp*Wi[k];
+  }
+
+}
+//----------------------------------------------------------------------------
+inline
+void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
+{
+  double determinant = mat[0]*mat[3]-mat[1]*mat[2];
+  double eps = 1.0e-15;
+  double norm = 1.0;
+  if(fabs(determinant)>eps*norm){
+    res[0] = ( mat[3]*rhs[0]-mat[1]*rhs[1])/determinant;
+    res[1] = (-mat[2]*rhs[0]+mat[0]*rhs[1])/determinant;
+  }else{
+    fprintf(stdout, "zero-determinant (mat = [%e , %e ; %e , %e] = %e)\n", mat[0],mat[3],mat[1],mat[2],determinant);
+    res[0] = 0.0;
+    res[1] = 0.0;
+  }
+
+}
+
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 #endif
 
