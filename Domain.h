@@ -6,9 +6,12 @@
 #include <Timer.h>
 #include <VectorSet.h>
 #include <Vector.h>
-#include <complex.h>
 #include <DenseMatrix.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
+#include <iostream>
+using std::cout;
+using std::endl;
 
 class VarFcn;
 class BcFcn;
@@ -370,12 +373,6 @@ public:
                                   DistMacroCellSet *, DistSVec<double,dim> &, DistSVec<double,1> &,
                                   DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                   DistSVec<double,dim>&, int, int, int, int);
-
-  template<int dim>
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistSVec<double,dim> &U, DistSVec<double,dim> &R);
-  void computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                               DistVec<double> &Phi, DistVec<double> &dPhi);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, DistBcData<dim> &, DistGeoState &, 
@@ -744,6 +741,11 @@ public:
 
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
+
+  template<int dim>
+  void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
+
+  void computePrdtPhiCtrlVolRatio(DistVec<double> &, DistVec<double> &, DistVec<double> &, DistGeoState &);
 
  };
 

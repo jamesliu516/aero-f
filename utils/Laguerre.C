@@ -1,6 +1,6 @@
 #include <math.h>
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 
 //taken from numerical recipes in c++

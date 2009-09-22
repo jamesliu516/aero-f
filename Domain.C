@@ -936,19 +936,6 @@ void Domain::computeFiniteVolumeBarTerm(DistVec<double> &ctrlVol,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void Domain::computeVolumeChangeTerm(DistVec<double> &ctrlVol, DistGeoState &geoState, 
-                                     DistSVec<double,dim> &U,
-                                     DistSVec<double,dim> &R)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeVolumeChangeTerm(ctrlVol(iSub), geoState(iSub),
-                                             U(iSub), R(iSub));
-
-}
-//------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
@@ -3132,3 +3119,17 @@ void Domain::getDerivativeOfGradP(DistNodalGrad<dim>& ngrad)
 }
 
 //-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computePrdtWCtrlVolRatio(DistSVec<double,dim> &ratioTimesU, DistSVec<double,dim> &U, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computePrdtWCtrlVolRatio(ratioTimesU(iSub), U(iSub), ctrlVol(iSub), geoState(iSub));
+
+}
+
+//-------------------------------------------------------------------------------
+
+
+

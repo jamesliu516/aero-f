@@ -133,6 +133,7 @@ TransientData::TransientData()
   tavpressure = "";
   hydrostaticpressure = "";
   hydrodynamicpressure = "";
+  pressurecoefficient = "";
   temperature = "";
   tavtemperature = "";
   totalpressure = "";
@@ -207,7 +208,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 76, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 77, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -224,6 +225,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DeltaPressure", this, &TransientData::diffpressure);
   new ClassStr<TransientData>(ca, "HydroStaticPressure", this, &TransientData::hydrostaticpressure);
   new ClassStr<TransientData>(ca, "HydroDynamicPressure", this, &TransientData::hydrodynamicpressure);
+  new ClassStr<TransientData>(ca, "PressureCoefficient", this, &TransientData::pressurecoefficient);
   new ClassStr<TransientData>(ca, "TavPressure", this, &TransientData::tavpressure);
   new ClassStr<TransientData>(ca, "Temperature", this, &TransientData::temperature);
   new ClassStr<TransientData>(ca, "TavTemperature", this, &TransientData::tavtemperature);
@@ -2134,8 +2136,9 @@ void DefoMeshMotionData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<DefoMeshMotionData>
     (ca, "Element", this, 
-     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 4,
-     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3);
+     reinterpret_cast<int DefoMeshMotionData::*>(&DefoMeshMotionData::element), 5,
+     "LinearFiniteElement", 0, "NonLinearFiniteElement", 1, "TorsionalSprings", 2, "BallVertexSprings", 3,
+         "NonLinearBallVertex", 4);
 
   new ClassDouble<DefoMeshMotionData>(ca, "VolumeStiffness", this, &DefoMeshMotionData::volStiff);
   new ClassToken<DefoMeshMotionData>
