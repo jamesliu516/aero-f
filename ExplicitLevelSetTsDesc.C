@@ -27,7 +27,9 @@ ExplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   k3(this->getVecInfo()), k4(this->getVecInfo()), 
   p1(this->getVecInfo()), p2(this->getVecInfo()), 
   p3(this->getVecInfo()), p4(this->getVecInfo()), 
-  U0(this->getVecInfo()), Phi0(this->getVecInfo())
+  U0(this->getVecInfo()), Phi0(this->getVecInfo()),
+  ratioTimesU(this->getVecInfo()), 
+  ratioTimesPhi(this->getVecInfo())
 {
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
 
@@ -123,13 +125,15 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
 {
 
   double t0 = this->timer->getTime();
+  this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
+  this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
   this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
   // *** prediction step ***
   computeRKUpdate(U, k1,1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-  U0 = U - k1;
+  U0 = ratioTimesU - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
   this->timer->addFluidSolutionTime(t0);
@@ -141,7 +145,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     t0 = this->timer->getTime();
 
     computeRKUpdateLS(this->Phi, p1, U);
-    Phi0 = this->Phi - p1;
+    Phi0 = ratioTimesPhi - p1;
 
     this->timer->addLevelSetSolutionTime(t0);
 
@@ -158,7 +162,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
   // *** corrector step ***
   computeRKUpdate(U0, k2,2);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
-  U -= 0.5 * (k1 + k2);
+  U = ratioTimesU - 0.5 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
 
@@ -171,7 +175,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     t0 = this->timer->getTime();
 
     computeRKUpdateLS(Phi0, p2, U0);
-    this->Phi = this->Phi - 0.5 * (p1 + p2);
+    this->Phi = ratioTimesPhi - 0.5 * (p1 + p2);
 
     this->timer->addLevelSetSolutionTime(t0);
 
@@ -303,12 +307,13 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEuler(DistSVec<double,dim> &U)
 template<int dim>
 void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK2(DistSVec<double,dim> &U)
 {
+  this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
   DistSVec<double,dim> Ubc(this->getVecInfo());
   this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
 
   computeRKUpdate(U, k1,1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-  U0 = U - k1;
+  U0 = ratioTimesU - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
   this->boundaryFlux  = *this->tmpDistSVec;
@@ -317,7 +322,7 @@ void ExplicitLevelSetTsDesc<dim>::solveNLEulerRK2(DistSVec<double,dim> &U)
 
   computeRKUpdate(U0, k2,2);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
-  U -= 1.0/2.0 * (k1 + k2);
+  U = ratioTimesU - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
@@ -396,11 +401,12 @@ template<int dim>
 void ExplicitLevelSetTsDesc<dim>::solveNLLevelSetRK2(DistSVec<double,dim> &U)
 {
 
+  this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
   computeRKUpdateLS(this->Phi, p1, U);
-  Phi0 = this->Phi - p1;
+  Phi0 = ratioTimesPhi - p1;
 
   computeRKUpdateLS(Phi0, p2, U);
-  this->Phi -= 1.0/2.0 * (p1+p2);
+  this->Phi = ratioTimesPhi - 1.0/2.0 * (p1+p2);
 
 }
 //------------------------------------------------------------------------------
@@ -434,7 +440,6 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                  dU, this->riemann,it, this->tmpDistSVec,
                                  this->tmpDistSVec2);
   // for RK2 on moving grids
-  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Ulocal, dU);
   this->timeState->multiplyByTimeStep(dU);
 }
 
@@ -446,7 +451,6 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
 
   this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
   // for RK2 on moving grids
-  this->domain->computeVolumeChangeTerm(*this->A, *this->geoState, Philocal, dPhi);
   this->timeState->multiplyByTimeStep(dPhi);
 
 }

@@ -7,7 +7,7 @@ GeoData::GeoData(IoData &ioData)
 
 // Included (MB)
   if (ioData.problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
-
+    
     if (ioData.ts.type != TsData::IMPLICIT)
       ioData.ts.type = TsData::IMPLICIT;
 
@@ -34,6 +34,7 @@ GeoData::GeoData(IoData &ioData)
       ioData.problem.type[ProblemData::AERO] ||
       ioData.problem.type[ProblemData::FORCED] ||
       ioData.problem.type[ProblemData::ROLL]) {
+    //FOR IMPLICIT SCHEMES
     if (ioData.ts.type == TsData::IMPLICIT) {
       use_n = true;
       if (ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF)
@@ -42,7 +43,8 @@ GeoData::GeoData(IoData &ioData)
 	use_nm1 = true;
 	use_nm2 = true;
       }
-
+      
+      //Choice of Normals
       if (ioData.dgcl.normals == DGCLData::AUTO) {
 	if (ioData.ts.implicit.type == ImplicitData::BACKWARD_EULER ||
 	    ioData.ts.implicit.type == ImplicitData::CRANK_NICOLSON)
@@ -55,52 +57,40 @@ GeoData::GeoData(IoData &ioData)
       else
 	typeNormals = ioData.dgcl.normals;    
       
+      //Choice of Velocities
       if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
 	typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
       else
 	typeVelocities = ioData.dgcl.velocities;
     }
+
+    //FOR EXPLICIT SCHEMES
     else if (ioData.ts.type == TsData::EXPLICIT) {
-      /*use_n = true;
-      use_save = true;
-      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
-        typeNormals = DGCLData::EXPLICIT_RK2;
-        typeVelocities = DGCLData::EXPLICIT_RK2_VEL;
-        typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
-      }
-      else{ // RK4 does not have proper algorithm yet!
-        if (ioData.dgcl.normals == DGCLData::AUTO)
-	  typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
-        else
-	  typeNormals = ioData.dgcl.normals;  // CBM  
-  
-        if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
-          typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
-        else
-          typeVelocities = ioData.dgcl.velocities;  // CBM
-
-        typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
-      }*/
       use_n = true;
-      if (ioData.dgcl.normals == DGCLData::AUTO) typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
-      else                                       typeNormals = ioData.dgcl.normals;  // CBM
+      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
+	use_save = true;
 
-      if (ioData.dgcl.velocities == DGCLData::AUTO_VEL) typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
-      else                                              typeVelocities = ioData.dgcl.velocities;  // CBM
-
-      //check ERK2 
-      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
-        if ( typeNormals == DGCLData::EXPLICIT_RK2 
-          && typeVelocities == DGCLData::EXPLICIT_RK2_VEL){
-          use_save = true;
-          typeVolumeChanges = DGCLData::EXPLICIT_RK2_VOL;
-        }else if ((typeNormals == DGCLData::EXPLICIT_RK2 && typeVelocities != DGCLData::EXPLICIT_RK2_VEL) ||
-                  (typeNormals != DGCLData::EXPLICIT_RK2 && typeVelocities == DGCLData::EXPLICIT_RK2_VEL)){
-          fprintf(stderr, "***Error: ERK2 algorithm not specified correctly\n");
-          exit(1);
-        }
+      //Choice of Normals
+      if (ioData.dgcl.normals == DGCLData::AUTO) {
+        if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
+	  typeNormals = DGCLData::EXPLICIT_RK2;
+        else
+	  typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
       }
+      else
+	typeNormals = ioData.dgcl.normals;
+
+      //Choice of Velocities
+      if (ioData.dgcl.velocities == DGCLData::AUTO_VEL) {
+	if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
+	  typeVelocities = DGCLData::EXPLICIT_RK2_VEL;
+	else
+	  typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+      }
+      else
+	typeVelocities = ioData.dgcl.velocities;
     }
+
   }
   if (ioData.problem.type[ProblemData::LINEARIZED])  {
     use_n = true;
