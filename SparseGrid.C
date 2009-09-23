@@ -1,4 +1,4 @@
-#include "SparseGrid.h"
+#include <SparseGrid.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

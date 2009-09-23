@@ -708,7 +708,7 @@ FluidModelData::FluidModelData()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                   
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
                                                                                                   
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
@@ -1403,7 +1403,7 @@ SparseGridData::SparseGridData()
 void SparseGridData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 15, father);
+  ClassAssigner *ca = new ClassAssigner(name, 14, father);
 
   new ClassInt<SparseGridData>
     (ca, "Verbose", this, &SparseGridData::verbose);
@@ -4535,7 +4535,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   }
 
   typedef double Range[2];
-  sparseGrid.range = new Range[sparseGrid.numOutputs];
+  sparseGrid.range = new Range[sparseGrid.numInputs];
   if(sparseGrid.numInputs > 2){
     sparseGrid.range[2][0] = sparseGrid.range3min;
     sparseGrid.range[2][1] = sparseGrid.range3max;

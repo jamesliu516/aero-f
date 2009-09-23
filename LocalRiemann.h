@@ -2,7 +2,7 @@
 #define _LOCAL_RIEMANN_H
 
 #include <LinkF77.h>
-#include <SparseGrid.h>
+//#include <SparseGrid.h>
 #include <IoData.h>
 
 class VarFcn;
@@ -51,7 +51,7 @@ protected:
 public:
   LocalRiemann() {densityRef=1.63;}
   LocalRiemann(VarFcn *vf) {vf_ = vf; densityRef=1.63;}
-  ~LocalRiemann() {delete vf_;}
+  ~LocalRiemann() {vf_ = 0;}
 
   void setReferenceDensity(const double density){ densityRef=density; }
 

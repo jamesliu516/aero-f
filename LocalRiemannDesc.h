@@ -3,8 +3,8 @@
 
 #include <LocalRiemann.h>
 #include <VarFcn.h>
-#include "IoData.h"
-#include "SparseGrid.h"
+#include <IoData.h>
+#include <SparseGrid.h>
 #include <math.h>
 
 //----------------------------------------------------------------------------
