@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 FIND_PACKAGE(MPI)
 include(../base-exports.cmake)
 #set_property(TARGET FluidBase PROPERTY IMPORTED_LOCATION "../libFluidBase.a")
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../PhysBAMLight)
+FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../../PhysBAM)
 FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp
 /home/pavery/boost/boost_install/include/boost-1_34_1)
 SET(INC_DIR .. . ${PHYSBAM_BASE})
@@ -18,4 +18,9 @@ ENDIF(MPI_FOUND)
 INCLUDE_DIRECTORIES(${INC_DIR})
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 add_library(PhysBAMIntersect SHARED PhysBAMIntersect.C)
-TARGET_LINK_LIBRARIES(PhysBAMIntersect FluidBase -L${PHYSBAM_BASE} -lphysbam)
+SET_TARGET_PROPERTIES(PhysBAMIntersect
+                PROPERTIES COMPILE_FLAGS
+"-I/lustre/home/kevinwgy/PhysBAM/Public_Library")
+TARGET_LINK_LIBRARIES(PhysBAMIntersect FluidBase -L${PHYSBAM_BASE} -lphysbam
+-lboost_iostreams)
+#TARGET_LINK_LIBRARIES(PhysBAMIntersect FluidBase -L${PHYSBAM_BASE} -lphysbam)

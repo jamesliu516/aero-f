@@ -6,15 +6,23 @@
 #include "LevelSet/LevelSetStructure.h"
 #include "LevelSet/IntersectionFactory.h"
 #include "PHYSBAM_INTERFACE.h"
+#include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
+#include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
+#include <PhysBAM_Geometry/Topology_Based_Geometry/TRIANGULATED_SURFACE.h>
+#include <Vector.h>
+
+/*#include "LevelSet/LevelSetStructure.h"
+#include "LevelSet/IntersectionFactory.h"
+#include "PHYSBAM_INTERFACE.h"
 #include "Particles/SOLIDS_PARTICLE.h"
 #include "Grids/TRIANGLE_MESH.h"
 #include "Geometry/TRIANGULATED_SURFACE.h"
 #include <Vector.h>
-
+*/
 using std::pair;
 using std::map;
 using PhysBAM::PhysBAMInterface;
-using PhysBAM::LIST_ARRAY;
+using PhysBAM::ARRAY;
 using PhysBAM::PAIR;
 using PhysBAM::VECTOR;
 using PhysBAM::IntersectionResult;

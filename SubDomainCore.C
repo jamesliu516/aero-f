@@ -4463,12 +4463,12 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   // for debuging: output the reconstructed surface.
-  FILE* nodeFile = 0;
-  //FILE* nodeFile = fopen("recNodes.top","w");
+//  FILE* nodeFile = 0;
+  FILE* nodeFile = fopen("recNodes.top","w");
   int nodeCount = 1;
   if(nodeFile) fprintf(nodeFile, "Nodes recNodes\n");
-  FILE* elemFile = 0;
-  //FILE* elemFile = fopen("recElems.top","w");
+//  FILE* elemFile = 0;
+  FILE* elemFile = fopen("recElems.top","w");
   int elemCount = 1;
   if(elemFile) fprintf(elemFile, "Elements recSurface using recNodes\n");
   // -----------------------------------------------
