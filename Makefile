@@ -13,7 +13,6 @@ default_target: all
 
 # Remove some rules from gmake that .SUFFIXES does not remove.
 SUFFIXES =
-	     SparseGridCore.o \
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 
@@ -40,10 +39,10 @@ RM = /usr/local/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/local/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_SOURCE_DIR = /lustre/home/boumosle/Arthur.d/CODES/ToMergeFluid.d
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_BINARY_DIR = /lustre/home/boumosle/Arthur.d/CODES/ToMergeFluid.d
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -111,9 +110,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles/progress.make
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Arthur.d/CODES/ToMergeFluid.d/CMakeFiles /lustre/home/boumosle/Arthur.d/CODES/ToMergeFluid.d/CMakeFiles/progress.make
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Arthur.d/CODES/ToMergeFluid.d/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -1394,6 +1393,30 @@ SmagorinskyLESTerm.C.s:
 	$(MAKE) -f CMakeFiles/FluidBase.dir/build.make CMakeFiles/FluidBase.dir/SmagorinskyLESTerm.C.s
 .PHONY : SmagorinskyLESTerm.C.s
 
+SparseGridCore.o: SparseGridCore.C.o
+.PHONY : SparseGridCore.o
+
+# target to build an object file
+SparseGridCore.C.o:
+	$(MAKE) -f CMakeFiles/FluidBase.dir/build.make CMakeFiles/FluidBase.dir/SparseGridCore.C.o
+.PHONY : SparseGridCore.C.o
+
+SparseGridCore.i: SparseGridCore.C.i
+.PHONY : SparseGridCore.i
+
+# target to preprocess a source file
+SparseGridCore.C.i:
+	$(MAKE) -f CMakeFiles/FluidBase.dir/build.make CMakeFiles/FluidBase.dir/SparseGridCore.C.i
+.PHONY : SparseGridCore.C.i
+
+SparseGridCore.s: SparseGridCore.C.s
+.PHONY : SparseGridCore.s
+
+# target to generate assembly for a file
+SparseGridCore.C.s:
+	$(MAKE) -f CMakeFiles/FluidBase.dir/build.make CMakeFiles/FluidBase.dir/SparseGridCore.C.s
+.PHONY : SparseGridCore.C.s
+
 StructExc.o: StructExc.C.o
 .PHONY : StructExc.o
 
@@ -2255,6 +2278,9 @@ help:
 	@echo "... SmagorinskyLESTerm.o"
 	@echo "... SmagorinskyLESTerm.i"
 	@echo "... SmagorinskyLESTerm.s"
+	@echo "... SparseGridCore.o"
+	@echo "... SparseGridCore.i"
+	@echo "... SparseGridCore.s"
 	@echo "... StructExc.o"
 	@echo "... StructExc.i"
 	@echo "... StructExc.s"
