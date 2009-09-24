@@ -667,7 +667,9 @@ public:
   double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]); }
   double computeSoundSpeed(double density, double entropy, double phi = 0.0) 
     { double pressure = entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
-      return sqrt((omegap1*pressure - computeFrho(density) + density*computeFrhop(density))/density); }
+      double c2 = (omegap1*pressure - computeFrho(density) + density*computeFrhop(density))/density;
+      if(c2>0) return sqrt(c2);
+      return 0.0; }
   double computeEntropy(double density, double pressure, double phi = 0.0)
     { return (pressure - A1*exp(-R1r/density) - A2*exp(-R2r/density))/pow(density,omegap1); }
   double computeIsentropicPressure(double entropy, double density, double phi = 0.0)
