@@ -55,6 +55,7 @@ class ElemSet;
 class GeoState;
 class BinFileHandler;
 class TimeLowMachPrec;
+class LevelSetStructure;
 
 struct Vec3D;
 
@@ -610,6 +611,11 @@ public:
 			       SVec<double,dim> &fluxes);
 
   template<int dim>
+  void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
+                               Vec<double> &normalVel, LevelSetStructure &LSS,  SVec<double,dim> &V,
+                               double *Ub, SVec<double,dim> &fluxes);
+
+  template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				 Vec<double> &normalVel, SVec<double,dim> &V,
 				 SVec<double,1> &Phi, Vec<double> &PhiF);
@@ -1002,6 +1008,9 @@ public:
 			       SVec<double,dim> &,  
                                SVec<double,dim> &, Vec<double> &);
 
+  template<int dim>
+  void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &, 
+			       SVec<double,dim> &, SVec<double,dim> &);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
 				 SVec<double,dim> &, SVec<double,1> &, Vec<double> &);

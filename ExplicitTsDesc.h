@@ -25,6 +25,7 @@ private:
   DistSVec<double,dim> Ubc;
   DistSVec<double,dim> ratioTimesU;
   bool RK4;
+  bool FE; //forward Euler
 
 public:
 
@@ -37,6 +38,7 @@ private:
 
   virtual void computeRKFourthOrder(DistSVec<double,dim>&);
   virtual void computeRKSecondOrder(DistSVec<double,dim>&);
+  virtual void computeForwardEuler(DistSVec<double,dim>&);
 
   virtual void computeRKUpdate(DistSVec<double,dim>&, DistSVec<double,dim>&);
 

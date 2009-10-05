@@ -854,7 +854,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
                                            ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes); 
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, V, fluxes); 
 
   return ierr;
 

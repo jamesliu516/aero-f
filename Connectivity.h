@@ -58,6 +58,7 @@ public:
   ~Connectivity();
 
   int *operator[](int i);
+  const int *operator[](int i) const;
   int csize();
   int numConnect(); // Total number of connections
   int num(int) const;
@@ -105,6 +106,9 @@ Connectivity::num(int n) const { return (n >= size) ? 0 : pointer[n+1] - pointer
 
 inline int *
 Connectivity::operator[](int i) { return target +pointer[i] ; }
+
+inline const int *
+Connectivity::operator[](int i) const { return target +pointer[i] ; }
 
 inline int
 Connectivity::numConnect() { return numtarget; }

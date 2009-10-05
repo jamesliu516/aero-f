@@ -25,7 +25,6 @@ using std::min;
 #define PrecScalar double
 #endif
 
-#include "Operators.h"
 
 //------------------------------------------------------------------------------
 
@@ -108,10 +107,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   frequencyLS = ioData.mf.frequency;
   interfaceTypeFF = ioData.mf.interfaceType;
 
+  fprintf(stderr,"structure = %d.\n", this->domain->getStrCommunicator());
 //------------- For Fluid-Structure Interaction -------------------------
   if(ioData.embeddedStructure.mode>=0) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator());
-    //dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getEmbedCommunicator());
 
     //for updating phase change
     Weights  = new DistVec<double>(this->getVecInfo());
@@ -590,7 +589,7 @@ void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, Dis
     computeForceLoad(this->Wstarij, this->Wstarji);
 
   else if (pressureChoice==1) {
-    // -------------- construct Wij, Wji from U. Then use them for force calculation. -------------
+    // construct Wij, Wji from U. Then use them for force calculation. 
     DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
     DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
     DistSVec<double,dim> VV(this->getVecInfo());
@@ -623,7 +622,6 @@ void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, Dis
     delete Wij;
     delete Wji;
   }
-//-----------------------------------------------------------------------------------------------
 
   F[0] = F[1] = F[2] = 0.0;
   for (int i=0; i<numStructNodes; i++) {
@@ -649,7 +647,7 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
       computeForceLoad(this->Wstarij, this->Wstarji);
     
     else if (pressureChoice==1) {
-      // -------------- construct Wij, Wji from U. Then use them for force calculation. -------------
+      // construct Wij, Wji from U. Then use them for force calculation. 
       DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
       DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
       DistSVec<double,dim> VV(this->getVecInfo());
@@ -683,8 +681,6 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
       delete Wji;
 
     }
-//-----------------------------------------------------------------------------------------------
-
 
     // Now "accumulate" the force for the embedded structure
     SVec<double,3> v(numStructNodes, Fs);

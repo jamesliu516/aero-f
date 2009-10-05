@@ -4407,6 +4407,49 @@ double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, con
 
 void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
                                         SVec<double,3> &X, double (*Fs)[3], int sizeFs,
+                                        LevelSetStructure &LSS, Vec<double> &pstarij, 
+                                        Vec<double> &pstarji, double pInfty)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  bool* masterFlag = edges.getMasterFlag();
+  int (*ptr)[2];
+  int i,j;
+  ptr = edges.getPtr();
+  bool iActive, jActive, intersect;
+  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
+
+  for (int l=0; l<edges.size(); l++) {
+    if (!masterFlag[l]) continue;
+    i = ptr[l][0];
+    j = ptr[l][1];
+    iActive = LSS.isActive(0,i);
+    jActive = LSS.isActive(0,j);
+    intersect = LSS.edgeIntersectsStructure(0,i,j);
+
+    if (!iActive && !jActive) continue; //both inside structure
+    if (iActive && jActive && !intersect) continue; //both outside, no "double intersections".
+
+    // now (i,j) must intersect the structure.
+    LevelSetResult lsRes;
+    Vec3D flocal;
+    if (iActive) {
+      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
+      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+    }
+    if (jActive) {
+      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
+      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+    }
+    sendLocalForce(flocal, lsRes, Fs);
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
+/* ignore "double intersections"
+void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
+                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                         LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -4440,7 +4483,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     sendLocalForce(flocal, lsRes, Fs);
   }
 }
-
+*/
 //-----------------------------------------------------------------------------------------------
 
 void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
@@ -4463,12 +4506,12 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   // for debuging: output the reconstructed surface.
-//  FILE* nodeFile = 0;
-  FILE* nodeFile = fopen("recNodes.top","w");
+  FILE* nodeFile = 0;
+//  FILE* nodeFile = fopen("recNodes.top","w");
   int nodeCount = 1;
   if(nodeFile) fprintf(nodeFile, "Nodes recNodes\n");
-//  FILE* elemFile = 0;
-  FILE* elemFile = fopen("recElems.top","w");
+  FILE* elemFile = 0;
+//  FILE* elemFile = fopen("recElems.top","w");
   int elemCount = 1;
   if(elemFile) fprintf(elemFile, "Elements recSurface using recNodes\n");
   // -----------------------------------------------
@@ -4773,6 +4816,19 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
     Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
   }
   */
+}
+
+//-----------------------------------------------------------------------------------------------
+
+int SubDomain::findFarfieldNode()
+{
+  for (int i=0; i<faces.size(); i++) {
+    Face &curFace = faces[i];
+    if (curFace.getCode() == BC_OUTLET_MOVING || curFace.getCode() == BC_OUTLET_FIXED || 
+        curFace.getCode() == BC_INLET_MOVING || curFace.getCode() == BC_INLET_FIXED) 
+      return curFace[0];
+  }
+  return -1;
 }
 
 //-----------------------------------------------------------------------------------------------

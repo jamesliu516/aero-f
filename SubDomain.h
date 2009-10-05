@@ -1082,6 +1082,7 @@ public:
 
   EdgeSet &getEdges() { return edges; }
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
+  int findFarfieldNode();
 };
 //------------------------------------------------------------------------------
 

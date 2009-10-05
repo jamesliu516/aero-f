@@ -271,6 +271,9 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
       double locNorms[2];
       matchNodes[iSub]->getDisplacement(algNum, dt, oolscale, oovscale, X.getMasterFlag(iSub), 
 					disp, x0, x, xdot, dx, locNorms);
+
+      fprintf(stderr,"dx: %d %e %e %e\n", 2, dx[1][0], dx[1][1], dx[1][2]);
+
 #pragma omp critical
       norms[0] += locNorms[0];
 #pragma omp critical
@@ -278,7 +281,6 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
     }
 
   }
-
   com->barrier(); //added for timing purposes (otherwise global comm timing can be very long
                   //if waiting for another cpu.
   com->globalSum(2, norms);

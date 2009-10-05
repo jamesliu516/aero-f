@@ -32,6 +32,8 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
   DistVec<double> p3;
   DistVec<double> p4;
 
+  bool FE;
+
  public:
   ExplicitStructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitStructLevelSetTsDesc();
@@ -44,6 +46,7 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
 
 // for solving the total system in one block (U and Phi at the same time)
   void solveNLAllFE(DistSVec<double,dim> &U);
+  void solveNLAllRK2(DistSVec<double,dim> &U);
 //  void solveNLAllRK2(DistSVec<double,dim> &U);
 
 // for solving the total system in two blocks (U first, Phi second)
