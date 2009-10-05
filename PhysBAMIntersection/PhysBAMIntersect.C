@@ -541,7 +541,7 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface()
       map<iipair, ibpair>::iterator it = edgeMap.find(ep[i].first);
       if(it != edgeMap.end()) { // we found this edge
          if(it->second.second == ep[i].second.second)
-           {com->fprintf(stderr,"triangulated surface is not closed. exit.\n"); return false;}
+           {com->fprintf(stderr,"ERROR: surface is not closed or a triangle orientation problem. exit.\n"); return false;}
          else {
              int oTriangle = it->second.first;
              int n1 = it->second.second ? ep[i].first.first : ep[i].first.second;
@@ -631,7 +631,7 @@ DistPhysBAMIntersector::buildSolidNormals() {
      getInterface().Intersect(xyz, edgeRes,getTolerance());
 //JTG:     assert(false);
      if(edgeRes(1).y.triangleID < 0)
-       com->fprintf(stderr, "ERROR: OPEN SURFACE\n");
+       com->fprintf(stderr, "WARNING: OPEN SURFACE\n");
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
   } else
     com->fprintf(stderr, "All triangles are degenerate!!\n");
@@ -737,8 +737,8 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     exit(-1);
   }
   //get current struct coordinates.
-  double alpha = (dts - dtfLeft + dtf)/dts;
-  //double alpha = (dts - dtfLeft + dtf/2.0)/dts;
+  double alpha = 1.0;
+  //double alpha = (dts - dtfLeft + dtf)/dts;
   for (int i=0; i<length_solids_particle_list; i++) 
     solids_particle_list[i] = (1.0-alpha)*solids_particle_list_n[i] + alpha*solids_particle_list_nPlus1[i];
 
@@ -752,15 +752,15 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
-  //debug.
-  int iHere = 1;
-  //int iHere = 253;
+  // -------------  debug  -------------------------------
+/*  int iHere = 2;
   double xHere[3];
   xHere[0] = physInterface->triangulated_surface->particles.X(iHere)(1);
   xHere[1] = physInterface->triangulated_surface->particles.X(iHere)(2);
   xHere[2] = physInterface->triangulated_surface->particles.X(iHere)(3);
   com->fprintf(stderr,"xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
-
+*/  // ------------------------------------------------------
+ 
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->reset();
     intersector[i]->getClosestTriangles((*X)(i), boxMin(i), boxMax(i), tId(i), distance(i));

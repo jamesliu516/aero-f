@@ -17,7 +17,11 @@ ExplicitTsDesc<dim>::ExplicitTsDesc(IoData& ioData, GeoSource& geoSource, Domain
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
   
   if(ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_4) RK4 = true;
-  else RK4 = false;
+  else {
+    RK4 = false;
+    if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
+    else FE = false;
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -36,8 +40,9 @@ int ExplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
 
   double t0 = this->timer->getTime();
 
-  if (RK4) computeRKFourthOrder(U);
-  else computeRKSecondOrder(U);
+  if (RK4) computeRKFourthOrder(U);   // Runge-Kutta 4
+  else if(FE) computeForwardEuler(U); // Forward Euler
+  else computeRKSecondOrder(U);       // Runge-Kutta 2 
 
   int ierr = checkSolution(U);  // checking solution for negative pressure or density
   if (ierr > 0) exit(1);
@@ -95,8 +100,7 @@ void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
   this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
 
   computeRKUpdate(U, k1);
-// KW: use Forward Euler
-/* 
+ 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
 
   U0 = ratioTimesU - k1;
@@ -105,12 +109,24 @@ void ExplicitTsDesc<dim>::computeRKSecondOrder(DistSVec<double,dim>& U)
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
 
   U = ratioTimesU - 1.0/2.0 * (k1 + k2);
-*/
+
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+  this->spaceOp->applyBCsToSolutionVector(U);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ExplicitTsDesc<dim>::computeForwardEuler(DistSVec<double,dim>& U)
+{
+  this->domain->computePrdtWCtrlVolRatio(ratioTimesU, U, *this->A, *this->geoState);
+
+  computeRKUpdate(U, k1);
 
   U = ratioTimesU - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);
-
 
 }
 

@@ -68,6 +68,8 @@ class LevelSetStructure {
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
     Vec3D totalForce;
+
+    virtual void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&) = 0;
 };
 
 class DistLevelSetStructure {

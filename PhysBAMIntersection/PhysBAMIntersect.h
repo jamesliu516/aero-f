@@ -144,6 +144,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     bool isActive(double t, int n) const;
     bool wasActive(double t, int n) const;
     bool edgeIntersectsStructure(double t, int ni, int nj) const;
+    void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
 };
 

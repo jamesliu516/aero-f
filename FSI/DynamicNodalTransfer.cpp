@@ -28,7 +28,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
   dts /= tScale;
   com.barrier();
-  com.fprintf(stderr,"dt = %e\n", dts);
+  com.fprintf(stderr,"dts = %e\n", dts);
  
 }
 
@@ -44,7 +44,7 @@ DynamicNodalTransfer::sendForce() {
   std::pair<double *, int> embedded = structure.getTargetData();
   double *embeddedData = embedded.first;
   int length = embedded.second;
-  Communication::Window<double> window(com, length, embeddedData);
+  Communication::Window<double> window(com, 3*length*sizeof(double), embeddedData); 
   window.fence(true);
   window.accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
   window.fence(false);
@@ -94,7 +94,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
   com.fprintf(stderr,"Structure Information read from inputfile ...\n");
   com.fprintf(stderr,"mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
-  
+  fprintf(stderr,"strCom = %d.\n", &strCom); 
   // defaults
   nNodes = 0;
   X = 0;
@@ -248,8 +248,6 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         U[i][2] = time*dz;
       }
   }
-//    Communication::Window<double> win2(*intracom, 3*nNodes, (double *)data);
-  std::cout << "Sending a displacement to fluid ";
   for(int i = 0; i < com.size(); ++i) {
     std::cout << i;
     window->put((double *)U, 0, 3*nNodes, i, 0);

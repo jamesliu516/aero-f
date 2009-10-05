@@ -92,7 +92,9 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
+  /** for embedded method: send force (if it>0) and send receive disp (from Struct). */
   dts = probDesc->computePositionVector(&lastIt, it, t);
+
   if (lastIt)
     probDesc->outputPositionVectorToDisk();
 

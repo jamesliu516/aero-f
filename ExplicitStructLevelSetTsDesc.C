@@ -30,6 +30,9 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 {
   timeType = ioData.ts.expl.type;
 
+  if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
+  else FE = false;
+
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) {
     MeshMotionHandler *_mmh = 0;
@@ -49,14 +52,19 @@ ExplicitStructLevelSetTsDesc<dim>::~ExplicitStructLevelSetTsDesc()
 
 template<int dim>
 int ExplicitStructLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
-// the key player.
-{solveNLSystemOneBlock(U);} //let's just do a Forward Euler for now.
+{solveNLSystemOneBlock(U);} //so far only consider one system to solve (there is no level-set)
 
 //-----------------------------------------------------------------------------
 
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
-{solveNLAllFE(U);} // Forward Euler.
+{
+  if(!FE && this->TYPE==1) {
+    //this->com->fprintf(stderr,"Using Runge-Kutta 2.\n");
+    solveNLAllRK2(U);
+  } else
+    solveNLAllFE(U); 
+} 
 
 //------------------------------------------------------------------------------
 
@@ -70,7 +78,9 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   if(this->LS) 
     this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
 
-  if(this->TYPE==1 && this->mmh) { //recompute intersections and update phase change.
+  //----------------------------------------------------
+  if(this->TYPE==1 && this->mmh) { 
+    //recompute intersections and update phase change.
 
     if (this->Weights && this->VWeights)
       if (this->phaseChangeChoice==0)
@@ -88,16 +98,18 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     if (this->Weights && this->VWeights)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS);
   }
+  //----------------------------------------------------
 
   computeRKUpdate(U, k1, 1);  
 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-
   this->timer->addFluidSolutionTime(t0);
 
-  if (this->TYPE==2) {
+  //----------------------------------------------------
+  if (this->TYPE==2) { 
+    // fluid-shell-fluid
     if(this->LS) {
       this->spaceOp->storePreviousPrimitive(U0, this->Vg, this->Phi,
                                             this->Vgf, this->Vgfweight);
@@ -128,11 +140,60 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
       this->boundaryFlux  = *this->tmpDistSVec;
       this->interfaceFlux = *this->tmpDistSVec2;
     }
-  } else { //fluid-fullbody
+  } 
+  //--------------------------------------------------
+
+  else { //fluid-fullbody
     U = U0;
     checkSolution(U);
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
+{
+
+  double t0 = this->timer->getTime();
+  DistSVec<double,dim> Ubc(this->getVecInfo());
+
+  //recompute Intersections and updatePhaseChange
+  if(this->TYPE==1 && this->mmh) {
+    // 1. compute weights
+    if (this->Weights && this->VWeights)
+      if (this->phaseChangeChoice==0)
+        this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                       *this->VWeights, this->distLSS);
+      else if (this->phaseChangeChoice==1)
+        this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                       *this->Wstarji, *this->Weights, *this->VWeights,
+                                                       this->distLSS);
+    // 2. get dts (mmh->update(...) does nothing but return dts)
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    
+    // 3. recompute intersections
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+
+    // 4. update phase change
+    if (this->Weights && this->VWeights)
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS);
+  }
+
+  computeRKUpdate(U, k1, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k2, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+
+  U = U - 1.0/2.0 * (k1 + k2);
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
+  checkSolution(U);
+  this->timer->addFluidSolutionTime(t0);
 }
 
 //-----------------------------------------------------------------------------
