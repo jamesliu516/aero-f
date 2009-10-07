@@ -33,6 +33,9 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
   else FE = false;
 
+  for(int i=0; i<dim; i++)
+    vfar[i] = 0.0;
+ 
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) {
     MeshMotionHandler *_mmh = 0;
@@ -71,7 +74,6 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,di
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
 {
-
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
@@ -96,7 +98,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
 
     if (this->Weights && this->VWeights)
-      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS);
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
   }
   //----------------------------------------------------
 
@@ -105,6 +107,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  this->spaceOp->applyBCsToSolutionVector(U0);
   this->timer->addFluidSolutionTime(t0);
 
   //----------------------------------------------------
@@ -178,7 +181,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
 
     // 4. update phase change
     if (this->Weights && this->VWeights)
-      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS);
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
   }
 
   computeRKUpdate(U, k1, 1);
@@ -191,6 +194,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
 
   U = U - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+  this->spaceOp->applyBCsToSolutionVector(U);
 
   checkSolution(U);
   this->timer->addFluidSolutionTime(t0);
@@ -202,6 +206,13 @@ template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
 {
+  if(it==1) {//set vfar
+    DistSVec<double,dim> Vlocal(Ulocal);
+    this->varFcn->conservativeToPrimitive(Ulocal, Vlocal); 
+    for(int iDim=0; iDim<dim; iDim++)
+      vfar[iDim] = Vlocal(0)[0][iDim];
+  }
+
   // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
   if (this->TYPE==2) {
     DistVec<double> nodeTagCopy(this->getVecInfo());
@@ -225,8 +236,9 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
     
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   dU, this->riemann,it);
+                                   dU, this->riemann, it);
     this->timeState->multiplyByTimeStep(dU);
+    this->timeState->multiplyByPreconditioner(Ulocal,dU);
   }
 }
 

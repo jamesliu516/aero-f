@@ -33,7 +33,7 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
   DistVec<double> p4;
 
   bool FE;
-
+  double vfar[dim]; //farfield state
  public:
   ExplicitStructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitStructLevelSetTsDesc();

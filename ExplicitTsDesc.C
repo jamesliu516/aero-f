@@ -124,6 +124,7 @@ void ExplicitTsDesc<dim>::computeForwardEuler(DistSVec<double,dim>& U)
 
   computeRKUpdate(U, k1);
 
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U = ratioTimesU - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U);

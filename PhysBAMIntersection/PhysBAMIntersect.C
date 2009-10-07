@@ -753,13 +753,16 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
   // -------------  debug  -------------------------------
-/*  int iHere = 2;
-  double xHere[3];
+  int iHere = 2;
+  Vec3D xHere;
   xHere[0] = physInterface->triangulated_surface->particles.X(iHere)(1);
   xHere[1] = physInterface->triangulated_surface->particles.X(iHere)(2);
   xHere[2] = physInterface->triangulated_surface->particles.X(iHere)(3);
-  com->fprintf(stderr,"xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
-*/  // ------------------------------------------------------
+  if(xHere.norm()<0.5) {
+    com->fprintf(stderr,"Hooray!! xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
+    exit(-1);
+  }
+  // ------------------------------------------------------
  
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->reset();

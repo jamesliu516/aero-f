@@ -456,13 +456,8 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
     double flux[dim];
     for (int l=0; l<numNodes(); ++l) {
       if(!LSS.isActive(0.0, nodeNum(l))) continue;
-/*      fprintf(stderr," - - \n");
-      fprintf(stderr," node = %d \n", nodeNum(l)+1);
-      fprintf(stderr,"normal = %e %e %e\n", getNormal(normals,l)[0], getNormal(normals,l)[1], getNormal(normals,l)[2]);
-      fprintf(stderr,"V = %e %e %e %e %e\n", V[nodeNum(l)][0], V[nodeNum(l)][1], V[nodeNum(l)][2]);
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux);
-      fprintf(stderr," ^_^ \n");*/
       for (int k=0; k<dim; ++k){
         fluxes[ nodeNum(l) ][k] += flux[k];
       }

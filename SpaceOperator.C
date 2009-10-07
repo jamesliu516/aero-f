@@ -1783,9 +1783,11 @@ template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistSVec<double,dim> &U,
                              DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                             DistLevelSetStructure *distLSS)
+                             DistLevelSetStructure *distLSS, double* vfar)
 {
   SubDomain **subD = domain->getSubDomain();
+  int count = 0;
+
 #pragma omp parallel for
   for (int iSub=0; iSub<domain->getNumLocSub(); iSub++) {
     int* locToGlobNodeMap = subD[iSub]->getNodeMap();
@@ -1799,9 +1801,13 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
       bool iWasActive = LSS.wasActive(0.0, i);
       if (iIsActive==iWasActive) //no phase change
         continue;
-      if (!iIsActive) //changed from active to inactive -- nothing needs to be done.
+      if (!iIsActive) {//changed from active to inactive -- reset to farfield state.
+        for(int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = vfar[iDim];
         continue;
+      }
 
+      count++;
       if (subWeights[i]<=0.0) {
         fprintf(stderr,"Failed in updating the phase change at node %d.\n", locToGlobNodeMap[i]+1);
         exit(-1);
@@ -1812,6 +1818,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     }
   }
 
+  com->globalSum(1, &count);
+  com->fprintf(stderr,"# of phaseChange: %d\n", count);
   varFcn->primitiveToConservative(V, U);
 }
 
@@ -2357,7 +2365,8 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
                                           double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
                                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
 {
-  double pressInfty = iod->bc.inlet.pressure;
+  double pressInfty = iod->aero.pressure;
+
   if (forceApp==1 || forceApp==2)
     domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
                                     sizeFs, distLSS, Wstarij, Wstarji, pressInfty);
