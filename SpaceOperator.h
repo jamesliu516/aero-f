@@ -179,7 +179,7 @@ public:
   void updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                         DistLevelSetStructure *distLSS);
+                         DistLevelSetStructure *distLSS, double* vfar);
   void updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij, 
                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
                          DistVec<int> &nodeTag0, DistVec<int> &nodeTag);  //for FS interface 

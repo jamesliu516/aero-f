@@ -71,7 +71,7 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 {
   if(F.size() != fs.size())
     F.resize(fs.size());
-  F = fScale * fs;
+  F = fs;
 }
 
 //------------------------------------------------------------------------------
@@ -219,9 +219,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
      DistSVec<double,3> Y(*di);
      Y = Y0;
 
-     fprintf(stderr,"EmbeddedStructure::sendDisplacement is started.\n");
      structExc->getDisplacement(Y0, Y, Ydot, V);
-     fprintf(stderr,"EmbeddedStructure::sendDisplacement is good. norm of disp = %e.\n", V.norm());
   }
   if(com.cpuNum()>0) return; // only proc. #1 will send.
 
@@ -264,18 +262,20 @@ EmbeddedStructure::processReceivedForce()
 { 
   if(coupled) {
     DistSVec<double,3> f(*di, F);
+//    fprintf(stderr,"f(0)[1] = %e %e %e\n", f(0)[1][0], f(0)[1][1], f(0)[1][2]);
+//    fprintf(stderr,"norm of force (to send): %e\n", f.norm());
     structExc->sendForce(f);
   }
 
   if(com.cpuNum()>0) return;
-
   double fx=0, fy=0, fz=0; //write the total froce.
   for(int i = 0; i < nNodes; ++i) {
     fx += F[i][0];  
     fy += F[i][1]; 
     fz += F[i][2];
   }
-  std::cout << "Total force: " << fx << " " << fy << " " << fz << std::endl;
+  std::cout << "Total force (before sending): " << fx << " " << fy << " " << fz << std::endl;
+
 }
 
 //------------------------------------------------------------------------------

@@ -354,8 +354,10 @@ void StructExc::sendForce(DistSVec<double,3> &F)
   }
 
   com->globalSum(1, &norm);
+  norm = sqrt(norm);
 
   com->printf(7, "Sent fluid force=%e to the structure\n", norm);
+  com->fprintf(stderr, "Sent fluid force=%e to the structure\n", norm);
 
 }
 
