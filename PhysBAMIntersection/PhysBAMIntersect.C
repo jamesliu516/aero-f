@@ -333,7 +333,6 @@ int PhysBAMIntersectorConstructor::print() {
 DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   com = IntersectionFactory::getCommunicator();
   tolerance = tol;
-// JTG:  fprintf(stderr,"tolerance = %e.\n", tolerance);
   insidePointTol = 1.0e-4;
   physInterface = 0;
   triNorms = 0;
@@ -502,11 +501,11 @@ void DistPhysBAMIntersector::getBoundingBox() {
   zMin = zMax = solids_particle_list[0][2];
   for(int i = 1; i < length_solids_particle_list; ++i) {
     xMin = std::min(xMin, solids_particle_list[i][0]);
-    xMax = std::min(xMax, solids_particle_list[i][0]);
-    yMin = std::min(yMin, solids_particle_list[i][0]);
-    yMax = std::max(yMax, solids_particle_list[i][0]);
-    zMin = std::max(zMin, solids_particle_list[i][0]);
-    zMax = std::max(zMax, solids_particle_list[i][0]);
+    xMax = std::max(xMax, solids_particle_list[i][0]);
+    yMin = std::min(yMin, solids_particle_list[i][1]);
+    yMax = std::max(yMax, solids_particle_list[i][1]);
+    zMin = std::min(zMin, solids_particle_list[i][2]);
+    zMax = std::max(zMax, solids_particle_list[i][2]);
   }
 }
 
@@ -749,19 +748,22 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   DistVec<int> tId(X->info());
   
   updatePhysBAMInterface(solids_particle_list, length_solids_particle_list);
+  getBoundingBox();
   buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
   // -------------  debug  -------------------------------
-  int iHere = 2;
-  Vec3D xHere;
-  xHere[0] = physInterface->triangulated_surface->particles.X(iHere)(1);
-  xHere[1] = physInterface->triangulated_surface->particles.X(iHere)(2);
-  xHere[2] = physInterface->triangulated_surface->particles.X(iHere)(3);
-  if(xHere.norm()<0.5) {
-    com->fprintf(stderr,"Hooray!! xHere = %e %e %e\n", xHere[0], xHere[1], xHere[2]);
-    exit(-1);
+  double x_min, x_max;
+  x_min = 10.0;
+  x_max = -10.0;
+
+  for(int i=1; i<=length_solids_particle_list; i++) {
+    double xHere = physInterface->triangulated_surface->particles.X(i)(1);
+    if(xHere>0.0 && xHere<x_min)  x_min = xHere;
+    if(xHere<0.0 && xHere>x_max)  x_max = xHere;
   }
+
+  com->fprintf(stderr,"DEBUG: x_min = %e,  x_max = %e.\n", x_min, x_max);
   // ------------------------------------------------------
  
   for(int i = 0; i < numLocSub; ++i) {
@@ -773,7 +775,8 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->finishNodeStatus(*(domain->getSubDomain()[i]), (*X)(i));
     intersector[i]->findIntersections((*X)(i));
   }
-
+  
+//  com->fprintf(stderr,"Done with Recompute Intersections.\n");
 }
 
 //----------------------------------------------------------------------------
@@ -936,12 +939,14 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
          status[0] = INSIDE;
        } else {
 //         fprintf(stderr, "This subdomain is inside the structure\n");
-         status[0] = OUTSIDE;
+         status[0] = INSIDE; //TODO: this is not perfect
+         //status[0] = OUTSIDE;
        }
      } else {
 //       fprintf(stderr, "This subdomain is trivially inside the structure\n");
        status[0] = OUTSIDE;
      }
+
   }
 }
 
@@ -1048,13 +1053,21 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
       }
   }
 
+
   //debug only: Plot the first layer of inside nodes.
-/*  int (*ptr)[2] = edges.getPtr();
-  FILE* firstLayer = fopen("firstLayer.top","w");
-  fprintf(firstLayer, "Nodes InsideNodes\n");
+/*  int myCPU = distIntersector.com->cpuNum();
+  int (*ptr)[2] = edges.getPtr();
+  char fileName[50] = "firstLayera.top";
+  char nodesName[50] = "a";
+
+  fileName[10] += myCPU;
+  nodesName[0] += myCPU;
+
+  FILE* firstLayer = fopen(fileName,"w");
+  fprintf(firstLayer, "Nodes InsideNodes%s\n", nodesName);
   for (int i=0; i<sub.numNodes(); i++)
     if (status[i]==OUTSIDE) fprintf(firstLayer,"%d %e %e %e\n", i+1, X[i][0], X[i][1], X[i][2]);
-  fprintf(firstLayer, "Elements FirstLayer using InsideNodes\n");
+  fprintf(firstLayer, "Elements FirstLayer%s using InsideNodes%s\n", nodesName, nodesName);
   for (int l=0; l<edges.size(); l++){
     int x1 = ptr[l][0], x2 = ptr[l][1];
     if (status[x1]!=OUTSIDE || status[x2]!=OUTSIDE) continue;

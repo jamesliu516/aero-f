@@ -334,8 +334,8 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       unitNormal = getNormal(normals,l)/(getNormal(normals,l).norm());
       wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
       riemann.computeFSIRiemannSolution(V[k], wallVel, -1.0*unitNormal, varFcn, Wstar, k); //<! "k" is passed in for updating phase-change, which is used only under the embedded framework. 
-/*
-      if(code==BC_ADIABATIC_WALL_MOVING) {//Kevin's debug 
+
+/*      if(code==BC_ADIABATIC_WALL_MOVING) {//Kevin's debug 
         fprintf(stderr,"** Solving a FS Riemann problem at moving wall.\n");
         fprintf(stderr,"   Inputs : V[%d] = %e %e %e %e %e.  wallVel = %e %e %e.\n", 
                            k+1, V[k][0], V[k][1], V[k][2], V[k][3], V[k][4], wallVel[0], wallVel[1], wallVel[2]);

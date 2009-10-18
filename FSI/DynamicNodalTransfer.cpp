@@ -12,6 +12,7 @@
 #include <StructExc.h>
 #include <DistVector.h>
 #include <list>
+#include <map>
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc): com(c) , F(1), 
@@ -145,7 +146,17 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   F = new (com) double[nNodes][3];
 
   fclose(nodeFile);
-    
+   
+
+  //for 2-D simulation only: pairing nodes in cross-section direction
+  double pairTol = 1.0e-6;
+  for (int i=0; i<nNodes; i++) 
+    for(int j=i; j<nNodes; j++)
+      if(std::abs(X[i][0]+X[j][0])<pairTol &&
+         std::abs(X[i][1]-X[j][1])<pairTol &&
+         std::abs(X[i][2]-X[j][2])<pairTol)
+        pairing[i] = j;
+
 
   if(coupled) {
     MatchNodeSet **mns = new MatchNodeSet *[1];
@@ -261,6 +272,17 @@ void
 EmbeddedStructure::processReceivedForce()
 { 
   if(coupled) {
+
+    // averaging the force on paired nodes 
+    std::map<int,int>::iterator it;
+    for(it=pairing.begin(); it!=pairing.end(); it++) {
+      double Fave;
+      for(int iDim=0; iDim<3; iDim++) {
+        Fave = 0.5*(F[it->first][iDim] + F[it->second][iDim]);
+        F[it->first][iDim] = F[it->second][iDim] = Fave;
+      }
+    } 
+
     DistSVec<double,3> f(*di, F);
 //    fprintf(stderr,"f(0)[1] = %e %e %e\n", f(0)[1][0], f(0)[1][1], f(0)[1][2]);
 //    fprintf(stderr,"norm of force (to send): %e\n", f.norm());

@@ -1786,7 +1786,6 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistLevelSetStructure *distLSS, double* vfar)
 {
   SubDomain **subD = domain->getSubDomain();
-  int count = 0;
 
 #pragma omp parallel for
   for (int iSub=0; iSub<domain->getNumLocSub(); iSub++) {
@@ -1807,9 +1806,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
         continue;
       }
 
-      count++;
       if (subWeights[i]<=0.0) {
-        fprintf(stderr,"Failed in updating the phase change at node %d.\n", locToGlobNodeMap[i]+1);
+        fprintf(stderr,"Failed in updating the phase change at node %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, iWasActive, iIsActive, subWeights[i]);
         exit(-1);
       }  
      
@@ -1817,9 +1815,6 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
         subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
     }
   }
-
-  com->globalSum(1, &count);
-  com->fprintf(stderr,"# of phaseChange: %d\n", count);
   varFcn->primitiveToConservative(V, U);
 }
 

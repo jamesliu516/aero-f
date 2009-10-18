@@ -33,9 +33,13 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
   else FE = false;
 
+  double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
-    vfar[i] = 0.0;
- 
+    vfar[i] =Vin[i];
+  sleep(1);
+  fprintf(stderr,"on Proc %d, vfar is set to %e %e %e %e %e\n", this->com->cpuNum(), vfar[0], vfar[1], vfar[2], vfar[3], vfar[4]);
+  sleep(1);
+   
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) {
     MeshMotionHandler *_mmh = 0;
@@ -206,13 +210,16 @@ template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
 {
-  if(it==1) {//set vfar
+/*  if(it==1) {//set vfar
     DistSVec<double,dim> Vlocal(Ulocal);
     this->varFcn->conservativeToPrimitive(Ulocal, Vlocal); 
     for(int iDim=0; iDim<dim; iDim++)
       vfar[iDim] = Vlocal(0)[0][iDim];
+    sleep(1);
+    fprintf(stderr,"on Proc %d, vfar is set to %e %e %e %e %e\n", this->com->cpuNum(), vfar[0], vfar[1], vfar[2], vfar[3], vfar[4]);
+    sleep(1);
   }
-
+*/
   // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
   if (this->TYPE==2) {
     DistVec<double> nodeTagCopy(this->getVecInfo());

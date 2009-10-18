@@ -10,6 +10,7 @@
 #include<Vector.h>
 #include<Communicator.h>
 #include <DistInfo.h>
+#include <map>
 
 using std::pair;
 
@@ -39,9 +40,10 @@ class EmbeddedStructure {
   double (*X)[3]; //original node coordinates
   double (*U)[3]; //displacement
   double (*F)[3]; //force (received from fluid).
+  std::map<int,int> pairing;
 
   DistInfo *di;
-
+  
 public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc);
   ~EmbeddedStructure();
