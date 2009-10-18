@@ -273,7 +273,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //Kevin's debug: use const extrapolation for nodes close to interface.
-/*  for (int l=0; l<edges.size(); ++l) {
+  for (int l=0; l<edges.size(); ++l) {
     if (!edgeFlag[l]) continue;
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
@@ -282,7 +282,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
       for (int k=0; k<dim; ++k)
         ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
   }
-*/
+
 }
 
 //------------------------------------------------------------------------------
@@ -4818,48 +4818,48 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
     j = edgePtr[l][1];
 
     if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
-      if (LSS.isActive(0.0,i)) {// need to prepare for node j.
+      if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
-          if(Wstarij[l][0]>1.0e-8 && Wstarij[l][4]>1.0e-8) //use Wstarij.
+          if(Wstarij[l][0]>1.0e-8) //use Wstarij.
             for(k=0; k<5; k++)
               VWeights[j][k] = Wstarij[l][k];
           else { 
-            fprintf(stderr,"Have to use nodal values for Node %d.\n", locToGlobNodeMap[j]+1);
+            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[j][k] = V[i][k];
           }
         }else{
           Weights[j] += 1.0;
-          if(Wstarij[l][0]>1.0e-8 && Wstarij[l][4]>1.0e-8)//use Wstarij
+          if(Wstarij[l][0]>1.0e-8)//use Wstarij
             for(k=0; k<5; k++)
               VWeights[j][k] += Wstarij[l][k];
           else {
-            fprintf(stderr,"Have to use nodal values for Node %d.\n", locToGlobNodeMap[j]+1);
+            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[j][k] += V[i][k];
           }
         }
       }
  
-      if (LSS.isActive(0.0,j)) {//need to preapre for node i.
+      if (LSS.isActive(0.0,j)) {// add Wstarji on node i
         if(Weights[i]<1.e-6) {
           Weights[i] = 1.0;
-          if(Wstarji[l][0]>1.0e-8 && Wstarji[l][4]>1.0e-8) //use Wstarji.
+          if(Wstarji[l][0]>1.0e-8) //use Wstarji.
             for(k=0; k<5; k++)
               VWeights[i][k] = Wstarji[l][k];
           else {
-            fprintf(stderr,"Have to use nodal values for Node %d.\n", locToGlobNodeMap[i]+1);
+            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[i][k] = V[j][k];
           }
         }else{
           Weights[i] += 1.0;
-          if(Wstarji[l][0]>1.0e-8 && Wstarji[l][4]>1.0e-8)//use Wstarji.
+          if(Wstarji[l][0]>1.0e-8)//use Wstarji.
             for(k=0; k<5; k++)
               VWeights[i][k] += Wstarji[l][k];
           else {
-            fprintf(stderr,"Have to use nodal values for Node %d.\n", locToGlobNodeMap[i]+1);
+            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[i][k] += V[j][k];
           }
@@ -4869,7 +4869,6 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
     }
 
   }
-
 }
 
 //--------------------------------------------------------------------------
