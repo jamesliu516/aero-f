@@ -504,7 +504,7 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOfWeights(DistSVec<double,3> &
   if (typeGradient == SchemeData::LEAST_SQUARES) {
 //Remark: Error mesage for pointers
     if (dR == 0) {
-      fprintf(stderr, "*** Error: Varible dR does not exist!\n");
+      fprintf(stderr, "*** Error: Variable dR does not exist!\n");
       exit(1);
     }
 
@@ -514,15 +514,15 @@ void DistNodalGrad<dim, Scalar>::computeDerivativeOfWeights(DistSVec<double,3> &
   else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL) {
 //Remark: Error mesage for pointers
     if (dwii == 0) {
-      fprintf(stderr, "*** Error: Varible dwii does not exist!\n");
+      fprintf(stderr, "*** Error: Variable dwii does not exist!\n");
       exit(1);
     }
     if (dwij == 0) {
-      fprintf(stderr, "*** Error: Varible dwij does not exist!\n");
+      fprintf(stderr, "*** Error: Variable dwij does not exist!\n");
       exit(1);
     }
     if (dwji == 0) {
-      fprintf(stderr, "*** Error: Varible dwji does not exist!\n");
+      fprintf(stderr, "*** Error: Variable dwji does not exist!\n");
       exit(1);
     }
 
@@ -564,15 +564,15 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 
 //Remark: Error mesage for pointers
   if (dddx == 0) {
-    fprintf(stderr, "*** Error: Varible dddx does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dddx does not exist!\n");
     exit(1);
   }
   if (dddy == 0) {
-    fprintf(stderr, "*** Error: Varible dddy does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dddy does not exist!\n");
     exit(1);
   }
   if (dddz == 0) {
-    fprintf(stderr, "*** Error: Varible dddz does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dddz does not exist!\n");
     exit(1);
   }
 
@@ -621,8 +621,8 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::computeT(int config, DistSVec<double,3> &X,
-                DistVec<double> &ctrlVol, DistSVec<Scalar2,dim> &V,
-                DistSVec<Scalar2,dim> &V1, DistSVec<Scalar2,dim> &V2)
+                DistVec<double> &ctrlVol, DistSVec<Scalar2,dim> &Vx,
+                DistSVec<Scalar2,dim> &Vy, DistSVec<Scalar2,dim> &Vz)
 {
 
   if (config != lastConfig) {
@@ -630,10 +630,14 @@ void DistNodalGrad<dim, Scalar>::computeT(int config, DistSVec<double,3> &X,
     lastConfig = config;
   }
 
-  if (typeGradient == SchemeData::LEAST_SQUARES)
-    domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);
+  if (typeGradient == SchemeData::LEAST_SQUARES){
+    Communicator* com = domain->getCommunicator();
+    com->fprintf(stderr," *** Error : The transpose of the Jacobian is not supported for Least Squares gradients types\n");
+    exit(-1);
+    //domain->computeGradientsLeastSquares(X, *R, Vx, *ddx, *ddy, *ddz); buggish routine
+   }
   else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
-    domain->computeGradientsGalerkinT(ctrlVol, *wii, *wij, *wji, V, V1, V2, *ddx, *ddy, *ddz);
+    domain->computeGradientsGalerkinT(ctrlVol, *wii, *wij, *wji, Vx, Vy, Vz, *ddx, *ddy, *ddz);
 
   if (tag) {
 
@@ -706,15 +710,15 @@ void DistNodalGrad<dim, Scalar>::limitDerivative(RecFcn *recFcn, DistSVec<double
   if (ltdmd) {
     //Remark: Error mesage for pointers
      if (dVmin == 0) {
-       fprintf(stderr, "*** Error: Varible dVmin does not exist!\n");
+       fprintf(stderr, "*** Error: Variable dVmin does not exist!\n");
        exit(1);
      }
      if (dVmax == 0) {
-       fprintf(stderr, "*** Error: Varible dVmax does not exist!\n");
+       fprintf(stderr, "*** Error: Variable dVmax does not exist!\n");
        exit(1);
      }
      if (dphi == 0) {
-       fprintf(stderr, "*** Error: Varible dphi does not exist!\n");
+       fprintf(stderr, "*** Error: Variable dphi does not exist!\n");
       exit(1);
     }
 
