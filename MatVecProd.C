@@ -216,16 +216,17 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  
-  if (fdOrder == 1) {
 
+  this->com->fprintf(stderr,"Order %d FD\n",fdOrder);
+  if (fdOrder == 1) {
+    
     prod = (1.0/eps) * (Fepstmp - F);
  
   }
   else if (fdOrder == 2) {
 
     Qepstmp = Q - eps * p;
-
+    
     Qepstmp.pad(Qeps);
 
     if(Phi)
@@ -240,7 +241,11 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
     Feps.strip(Ftmp);
 
-    prod = (1.0/eps) * (Fepstmp - Ftmp);
+    //----------------------------
+    // UH + DA (08/18/2010): Correction
+    //----------------------------
+    //prod = (1.0/eps) * (Fepstmp - Ftmp);
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
 
   }
 

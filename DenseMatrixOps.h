@@ -774,6 +774,15 @@ public:
 			    Scalar2 (*c)[6], int j) {
     DENSEMATRIXTIMESVECTOR6(=, a[k], b[i], c[j]);
   }
+ 
+  template<class Scalar2>
+  static void applyTransToVector(Scalar (*a)[36], int k, Scalar2 (*b)[6], int i,
+                            Scalar2 (*c)[6], int j) {
+    fprintf(stderr, " *** Warning: applyTransToVector routine is not optimized for dim of 6\n");
+    exit(-1);
+  }
+  
+
 
   static void applyTransToVector(Scalar (*a)[36], int k, double (*b)[6], int i,
                                  double (*c)[6], int j) {
@@ -834,6 +843,14 @@ public:
 			    Scalar2 (*c)[7], int j) {
     DENSEMATRIXTIMESVECTOR7(=, a[k], b[i], c[j]);
   }
+
+  template<class Scalar2>
+  static void applyTransToVector(Scalar (*a)[49], int k, Scalar2 (*b)[7], int i,
+                            Scalar2 (*c)[7], int j) {
+    fprintf(stderr, " *** Warning: applyTransToVector routine is not optimized for dim of 7\n");
+    exit(-1);
+  }
+
 
   static void applyTransToVector(Scalar (*a)[49], int k, double (*b)[7], int i,
                                  double (*c)[7], int j) {
