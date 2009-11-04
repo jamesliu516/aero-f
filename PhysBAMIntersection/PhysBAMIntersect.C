@@ -1091,7 +1091,6 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
   const double TOL = 1.0e-3;
   int MAX_ITER = 50;
   int max_iter = 0;
-
   double maxEdgeSize = 0;
   for (int l=0; l<edges.size(); l++) {
     int p = ptr[l][0], q = ptr[l][1];

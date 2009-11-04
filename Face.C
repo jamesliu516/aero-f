@@ -342,7 +342,8 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         fprintf(stderr,"   Outputs: Wstar = %e %e %e %e %e.\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
       }
 */
-      fluxFcn[BC_INTERNAL]->compute(0.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), V[k], Wstar, flux);
+//      fluxFcn[BC_INTERNAL]->compute(0.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), V[k], Wstar, flux);
+        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), Wstar, Ub, flux);
       for (int i=0; i<dim; ++i)
         fluxes[k][i] += flux[i];
     }
