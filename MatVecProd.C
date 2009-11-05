@@ -45,7 +45,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   recFcnCon = 0;
   Rn = 0;
   Phi = 0;
-	Riemann = 0;
+  Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
     recFcnCon = new RecFcnConstant<dim>;
@@ -60,7 +60,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   if (fdsa)
     fdOrder = ioData.sa.mvpfdOrdersa; 
   else
-    fdOrder = ioData.sa.mvpfdOrdera; 
+    fdOrder = ioData.ts.implicit.fdOrder; 
 
 }
 
