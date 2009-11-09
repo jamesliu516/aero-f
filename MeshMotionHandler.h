@@ -321,6 +321,8 @@ protected:
   Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
   Vec3D *structVel;      //<! velocity of struct nodes.
 
+  int it0;            //<! restart timestep
+
   DynamicNodalTransfer *dynNodalTransfer; 
   DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).
 

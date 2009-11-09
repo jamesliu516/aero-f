@@ -50,6 +50,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   fsiPosition = 0.0;
   fsiNormal = 0.0;
   fsiVelocity = 0.0;
+  interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -107,7 +108,6 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   frequencyLS = ioData.mf.frequency;
   interfaceTypeFF = ioData.mf.interfaceType;
 
-  fprintf(stderr,"structure = %d.\n", this->domain->getStrCommunicator());
 //------------- For Fluid-Structure Interaction -------------------------
   if(ioData.embeddedStructure.mode>=0) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator());
@@ -153,7 +153,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   if (TYPE==1) {
     this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-    this->distLSS->initialize(this->domain,*this->X);
+    this->distLSS->initialize(this->domain,*this->X, interpolatedNormal);
   } else if (TYPE==2) {
     // load the FS interface.
     if (ioData.mf.initialConditions.nplanes != 1) {
@@ -171,7 +171,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
     this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, nodeTag, ioData);
     nodeTag0 = nodeTag;
-    this->distLSS->initialize(this->domain,*this->X);
+    this->distLSS->initialize(this->domain,*this->X, interpolatedNormal);
 
     if(LS) LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
   }

@@ -2875,6 +2875,7 @@ void StructureIntersect::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 0);
   libraryName = 0;
   intersectorName = 0;
+  normal = FACET;
   forceApproach = 0;
   pressureChoice = 0;
   phaseChangeChoice = 0;
@@ -2882,6 +2883,8 @@ void StructureIntersect::setup(const char *name) {
   new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
   new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
+  new ClassToken<StructureIntersect> (ca, "normal", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::normal), 2,
+                                      "Facet", 0, "Interpolated", 1);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
   new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
   new ClassInt<StructureIntersect>(ca, "phaseChangeChoice", this, &StructureIntersect::phaseChangeChoice);
