@@ -1612,6 +1612,7 @@ struct StructureIntersect {
   ParseTree tree;
   const char *intersectorName;
   const char *libraryName;
+  enum Normal {FACET = 0, INTERPOLATED = 1} normal;
   int forceApproach;
   int pressureChoice;
   int phaseChangeChoice;

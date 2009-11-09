@@ -1425,6 +1425,7 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   dynNodalTransfer = dnTran;
   distLSS = distlss;
   dts = 0.0;
+  it0 = iod.restart.iteration; //restart time-step
 
   // TODO: In future the following information should be obtained from the structure codes.
   Vec<Vec3D> &solidX0 = distLSS->getStructPosition_0();
@@ -1474,7 +1475,7 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   int numStructNodes = distLSS->getNumStructNodes();
 
-  if(it>0)
+  if(it>0 && it!=it0)
     dynNodalTransfer->sendForce(); //send force to structure
 
   SVec<double,3> structU(numStructNodes);
@@ -1548,9 +1549,12 @@ double RbmExtractor::update(bool *lastIt, int it,double t,
 
 }
 
+//------------------------------------------------------------------------------
+
 double RbmExtractor::updateStep2(bool *lastIt, int it,double t,
 			    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   return update(lastIt, it, t, Xdot, X);
 }
+
 //------------------------------------------------------------------------------

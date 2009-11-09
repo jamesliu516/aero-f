@@ -50,6 +50,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec3D *solids_particle_list_n;
     Vec3D *solids_particle_list_nPlus1;
     Vec3D *solidVel;
+    Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
     Vec<Vec3D> *solidX;
     Vec<Vec3D> *solidXn;
@@ -72,6 +73,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void buildSolidNormals();
     void getBoundingBox();
   public:
+    bool interpolatedNormal;
     DistPhysBAMIntersector(double tol);
     void init(std::string structureFileName, std::string structureFileName);
 
@@ -80,7 +82,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X);
+    void initialize(Domain *, DistSVec<double,3> &X, bool interpNormal);
     void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes);
     void updatePhysBAMInterface(Vec3D *particles, int size);
     void recompute(double dtf, double dtfLeft, double dts);
@@ -89,6 +91,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
 
     PhysBAMInterface<double> &getInterface() { return *physInterface; }
     const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
+    const Vec3D &getNodalNorm(int i) const {if (!nodalNormal) {fprintf(stderr,"ERROR: nodal normal not initialized!\n");exit(-1);} return nodalNormal[i];}
     const Vec3D getInsidePoint() const { return insidePoint; }
 
     Vec<Vec3D> &getStructPosition() { return *solidX; }

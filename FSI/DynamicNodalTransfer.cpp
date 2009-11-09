@@ -95,7 +95,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
   com.fprintf(stderr,"Structure Information read from inputfile ...\n");
   com.fprintf(stderr,"mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
-  fprintf(stderr,"strCom = %d.\n", &strCom); 
   // defaults
   nNodes = 0;
   X = 0;

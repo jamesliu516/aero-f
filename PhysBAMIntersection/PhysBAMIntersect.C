@@ -44,23 +44,13 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
       std::string solidSurface2 = (restartStructureFile) ? restartStructureFile : "";
       inter->init(solidSurface, solidSurface2);
       
-/*
-      if (restartStructureFile) {
-        std::string solidSurface2 = restartStructureFile;
-        inter->init(solidSurface, solidSurface2);
-      } else {
-        std::string solidSurface2 = "";
-        fprintf(stderr,"Hooray.\n");
-        inter->init(solidSurface, solidSurface2);
-      } 
-*/
       return inter;
     }
 
     int print();
 
     void init(ParseTree &dataTree) {
-        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 3, 0);
+        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 4, 0);
         new ClassStr<PhysBAMIntersectorConstructor>(ca, "structureFile", this, &PhysBAMIntersectorConstructor::structureFile);
         new ClassStr<PhysBAMIntersectorConstructor>(ca, "restartStructureFile", this, &PhysBAMIntersectorConstructor::restartStructureFile);
         new ClassDouble<PhysBAMIntersectorConstructor>(ca, "tolerance", this, &PhysBAMIntersectorConstructor::tolIntersect);
@@ -337,6 +327,8 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   physInterface = 0;
   triNorms = 0;
   triSize = 0;
+  interpolatedNormal = false;
+  nodalNormal = 0;
 }
 
 //----------------------------------------------------------------------------
@@ -565,6 +557,13 @@ void
 DistPhysBAMIntersector::buildSolidNormals() {
   if(!triNorms) triNorms = new Vec3D[length_triangle_list];
   if(!triSize)  triSize = new double[length_triangle_list];
+  if(interpolatedNormal) {
+    if(!nodalNormal)
+      nodalNormal = new Vec3D[length_triangle_list];
+    for(int i=0; i<length_triangle_list; i++)
+      nodalNormal[i] = 0.0;
+  }
+
   // Also look to determine a point inside the solid but away from the structure.
   double nrmMax = 0;
   int trMaxNorm = -1;
@@ -593,14 +592,28 @@ DistPhysBAMIntersector::buildSolidNormals() {
 
     // now calculate the normal.
     triNorms[iTriangle] = Vec3D(dx2, dy2, dz2)^Vec3D(dx3,dy3,dz3);
+    
+    if(interpolatedNormal){ // compute nodal normal (weighted by area)
+      nodalNormal[n1] += triNorms[iTriangle];
+      nodalNormal[n2] += triNorms[iTriangle];
+      nodalNormal[n3] += triNorms[iTriangle];
+    }
+
     double nrm = triNorms[iTriangle].norm();
     if(nrm > nrmMax) {
       nrmMax = nrm;
       trMaxNorm = iTriangle;
     }
+    // normalize the normal.
     if(nrm != 0)
        triNorms[iTriangle] /= nrm;
   }
+
+  if(interpolatedNormal) //normalize nodal normals.
+    for(int i=0; i<length_triangle_list; i++)
+      nodalNormal[i] /= nodalNormal[i].norm();
+
+  // find an inside point
   if(trMaxNorm >= 0) {
     int n1 = triangle_list[trMaxNorm][0];
     int n2 = triangle_list[trMaxNorm][1];
@@ -628,7 +641,6 @@ DistPhysBAMIntersector::buildSolidNormals() {
      xyz(2)[2] = p2[1];
      xyz(2)[3] = p2[2];
      getInterface().Intersect(xyz, edgeRes,getTolerance());
-//JTG:     assert(false);
      if(edgeRes(1).y.triangleID < 0)
        com->fprintf(stderr, "WARNING: OPEN SURFACE\n");
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
@@ -663,17 +675,16 @@ DistPhysBAMIntersector::initializePhysBAM() {
   physbam_triangulated_surface.Update_Triangle_List();
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
-  // Compute the normals of each of the structural triangles
-  buildSolidNormals();
 }
 
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
+DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interpNormal) {
   this->X = &X;
   domain = d;
+  interpolatedNormal = interpNormal;
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
   pseudoPhi = new DistVec<double>(X.info());
@@ -684,6 +695,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
   DistVec<double> distance(X.info());
   DistVec<int> tId(X.info());
 
+  buildSolidNormals();
   d->findNodeBoundingBoxes(X,boxMin,boxMax);
 
   for(int i = 0; i < numLocSub; ++i) {
@@ -701,7 +713,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X) {
 void
 DistPhysBAMIntersector::updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) {
 
-  com->fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
+//  com->fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
   if(nNodes!=length_solids_particle_list) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
     exit(-1);
@@ -730,7 +742,7 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
 void
 DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 
-  com->fprintf(stderr,"Recompute intersections.\n");
+//  com->fprintf(stderr,"Recompute intersections.\n");
   if (dtfLeft<-1.0e-8) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -752,20 +764,6 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
 
-  // -------------  debug  -------------------------------
-  double x_min, x_max;
-  x_min = 10.0;
-  x_max = -10.0;
-
-  for(int i=1; i<=length_solids_particle_list; i++) {
-    double xHere = physInterface->triangulated_surface->particles.X(i)(1);
-    if(xHere>0.0 && xHere<x_min)  x_min = xHere;
-    if(xHere<0.0 && xHere>x_max)  x_max = xHere;
-  }
-
-  com->fprintf(stderr,"DEBUG: x_min = %e,  x_max = %e.\n", x_min, x_max);
-  // ------------------------------------------------------
- 
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i]->reset();
     intersector[i]->getClosestTriangles((*X)(i), boxMin(i), boxMax(i), tId(i), distance(i));
@@ -1170,7 +1168,6 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     fprintf(stderr,"ERROR: intersection between %d and %d can not be detected.\n", ni, nj);
 
   int trueTriangleID = result.triangleID-1;
-  Vec3D nrm = distIntersector.getSurfaceNorm(trueTriangleID);
 
   LevelSetResult lsRes;
   lsRes.alpha = alpha0;
@@ -1180,10 +1177,18 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   lsRes.trNodes[0] = distIntersector.triangle_list[trueTriangleID][0];
   lsRes.trNodes[1] = distIntersector.triangle_list[trueTriangleID][1];
   lsRes.trNodes[2] = distIntersector.triangle_list[trueTriangleID][2];
-  lsRes.gradPhi = nrm;
   lsRes.normVel = lsRes.xi[0]*distIntersector.solidVel[lsRes.trNodes[0]]
                 + lsRes.xi[1]*distIntersector.solidVel[lsRes.trNodes[1]]
                 + lsRes.xi[2]*distIntersector.solidVel[lsRes.trNodes[2]]; 
+
+  if(!distIntersector.interpolatedNormal)
+    lsRes.gradPhi = distIntersector.getSurfaceNorm(trueTriangleID);
+  else { //use nodal normals.
+    Vec3D ns0 = distIntersector.getNodalNorm(lsRes.trNodes[0]);
+    Vec3D ns1 = distIntersector.getNodalNorm(lsRes.trNodes[1]);
+    Vec3D ns2 = distIntersector.getNodalNorm(lsRes.trNodes[2]);
+    lsRes.gradPhi = lsRes.xi[0]*ns0 + lsRes.xi[1]*ns1 + lsRes.xi[2]*ns2;
+  }
 
   return lsRes;
 }

@@ -36,9 +36,6 @@ ExplicitStructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i];
-  sleep(1);
-  fprintf(stderr,"on Proc %d, vfar is set to %e %e %e %e %e\n", this->com->cpuNum(), vfar[0], vfar[1], vfar[2], vfar[3], vfar[4]);
-  sleep(1);
    
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) {
