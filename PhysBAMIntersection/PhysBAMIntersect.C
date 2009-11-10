@@ -1188,6 +1188,7 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     Vec3D ns1 = distIntersector.getNodalNorm(lsRes.trNodes[1]);
     Vec3D ns2 = distIntersector.getNodalNorm(lsRes.trNodes[2]);
     lsRes.gradPhi = lsRes.xi[0]*ns0 + lsRes.xi[1]*ns1 + lsRes.xi[2]*ns2;
+    lsRes.gradPhi /= lsRes.gradPhi.norm();
   }
 
   return lsRes;
