@@ -2919,8 +2919,10 @@ void StructureIntersect::activate() {
 
 void EmbeddedStructureInfo::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 0);
-  mode = -1;  // -1 means "no embedded structure".
-  coupled = 0;
+  type = NONE;
+  dim2Treatment = NO;
+  forcedMotionMode = HEAVING;
+
   tMax = 1.0e-6;
   dt = 1.0e-6;
   omega = 1000.0;
@@ -2929,8 +2931,14 @@ void EmbeddedStructureInfo::setup(const char *name) {
 
   new ClassStr<EmbeddedStructureInfo>(ca, "meshFile", this, &EmbeddedStructureInfo::surfaceMeshFile);
   new ClassStr<EmbeddedStructureInfo>(ca, "matcherFile", this, &EmbeddedStructureInfo::matcherFile);
-  new ClassInt<EmbeddedStructureInfo>(ca, "mode", this, &EmbeddedStructureInfo::mode);
-  new ClassInt<EmbeddedStructureInfo>(ca, "coupled", this, &EmbeddedStructureInfo::coupled);
+
+  new ClassToken<EmbeddedStructureInfo> (ca, "type", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::type), 4,
+                                      "ForcedMotion", 0, "OneWayCoupling", 1, "TwoWayCoupling", 2, "None", 3);
+  new ClassToken<EmbeddedStructureInfo> (ca, "dim2Treatment", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::dim2Treatment), 2,
+                                      "No", 0, "Yes", 1);
+  new ClassToken<EmbeddedStructureInfo> (ca, "forcedMotionMode", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::forcedMotionMode), 3,
+                                      "Heaving", 0, "ConstantVelocityHeaving", 1);
+
   new ClassDouble<EmbeddedStructureInfo>(ca, "maxTime", this, &EmbeddedStructureInfo::tMax);
   new ClassDouble<EmbeddedStructureInfo>(ca, "timeStep", this, &EmbeddedStructureInfo::dt);
   new ClassDouble<EmbeddedStructureInfo>(ca, "frequency", this, &EmbeddedStructureInfo::omega);

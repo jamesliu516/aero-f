@@ -109,7 +109,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   interfaceTypeFF = ioData.mf.interfaceType;
 
 //------------- For Fluid-Structure Interaction -------------------------
-  if(ioData.embeddedStructure.mode>=0) {
+  if(ioData.embeddedStructure.type != EmbeddedStructureInfo::NONE) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator());
 
     //for updating phase change

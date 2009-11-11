@@ -83,8 +83,23 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
                                              tScale(iod.ref.rv.time)
 {
   // read the input.
-  mode = iod.embeddedStructure.mode;
-  coupled = iod.embeddedStructure.coupled;
+  coupled = ((iod.embeddedStructure.type == EmbeddedStructureInfo::TWOWAY) ||
+             (iod.embeddedStructure.type == EmbeddedStructureInfo::ONEWAY)) ? true : false;
+
+  // ---- for 2-way coupling only -----
+  dim2Treatment = (iod.embeddedStructure.dim2Treatment == EmbeddedStructureInfo::YES) ? true : false;
+
+  // ---- for 1-way coupling (not forced-motion) only -----
+  oneWayCoupling = (iod.embeddedStructure.type == EmbeddedStructureInfo::ONEWAY) ? true : false;
+
+  // ---- for forced-motion only ------
+  if (iod.embeddedStructure.forcedMotionMode == EmbeddedStructureInfo::HEAVING)
+    mode = 1;
+  else if (iod.embeddedStructure.forcedMotionMode == EmbeddedStructureInfo::CONSTHEAVING)
+    mode = 2;
+  else 
+    mode = 1;
+
   tMax = iod.embeddedStructure.tMax;
   dt = iod.embeddedStructure.dt;
   omega = iod.embeddedStructure.omega;
@@ -92,9 +107,13 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   dy = iod.embeddedStructure.dy;
   dz = iod.embeddedStructure.dz;
   t0= iod.embeddedStructure.t0;
+  // ----------------------------------
 
-  com.fprintf(stderr,"Structure Information read from inputfile ...\n");
-  com.fprintf(stderr,"mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
+  com.fprintf(stderr,"*** Embedded structure information read from inputfile ***\n");
+  com.fprintf(stderr,"  coupled = %d,  dim2Treatment = %d, oneWayCoupling = %d\n", coupled, dim2Treatment, oneWayCoupling);
+  if(!coupled)
+    com.fprintf(stderr,"  (forced motion) mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
+
   // defaults
   nNodes = 0;
   X = 0;
@@ -148,14 +167,15 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
    
 
   //for 2-D simulation only: pairing nodes in cross-section direction
-  double pairTol = 1.0e-6;
-  for (int i=0; i<nNodes; i++) 
-    for(int j=i; j<nNodes; j++)
-      if(std::abs(X[i][0]+X[j][0])<pairTol &&
-         std::abs(X[i][1]-X[j][1])<pairTol &&
-         std::abs(X[i][2]-X[j][2])<pairTol)
-        pairing[i] = j;
-
+  if(dim2Treatment) {
+    double pairTol = 1.0e-6;
+    for (int i=0; i<nNodes; i++) 
+      for(int j=i; j<nNodes; j++)
+        if(std::abs(X[i][0]+X[j][0])<pairTol &&
+           std::abs(X[i][1]-X[j][1])<pairTol &&
+           std::abs(X[i][2]-X[j][2])<pairTol)
+          pairing[i] = j;
+  }
 
   if(coupled) {
     MatchNodeSet **mns = new MatchNodeSet *[1];
@@ -237,13 +257,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   if(!coupled) {
     double time = t0 + dt*(double)it;
     
-    if(mode==0)
-      for(int i = 0; i < nNodes; ++i) {
-        U[i][0] = (1-cos(omega*time))*dx;
-        U[i][1] = (1-cos(omega*time))*dy;
-        U[i][2] = (X[i][1]*X[i][1])*(1-cos(omega*time))*dz;
-      }
-    else if (mode==1) //heaving
+    if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = (1-cos(omega*time))*dx;
         U[i][1] = (1-cos(omega*time))*dy;
@@ -272,19 +286,22 @@ EmbeddedStructure::processReceivedForce()
 { 
   if(coupled) {
 
-    // averaging the force on paired nodes 
-    std::map<int,int>::iterator it;
-    for(it=pairing.begin(); it!=pairing.end(); it++) {
-      double Fave;
-      for(int iDim=0; iDim<3; iDim++) {
-        Fave = 0.5*(F[it->first][iDim] + F[it->second][iDim]);
-        F[it->first][iDim] = F[it->second][iDim] = Fave;
+    if(dim2Treatment) { // averaging the force on paired nodes
+      std::map<int,int>::iterator it;
+      for(it=pairing.begin(); it!=pairing.end(); it++) {
+        double Fave;
+        for(int iDim=0; iDim<3; iDim++) {
+          Fave = 0.5*(F[it->first][iDim] + F[it->second][iDim]);
+          F[it->first][iDim] = F[it->second][iDim] = Fave;
+        }
       }
     } 
 
     DistSVec<double,3> f(*di, F);
-//    fprintf(stderr,"f(0)[1] = %e %e %e\n", f(0)[1][0], f(0)[1][1], f(0)[1][2]);
-//    fprintf(stderr,"norm of force (to send): %e\n", f.norm());
+  
+    if(oneWayCoupling) // send a 0 force to structure
+      f = 0.0;
+
     structExc->sendForce(f);
   }
 

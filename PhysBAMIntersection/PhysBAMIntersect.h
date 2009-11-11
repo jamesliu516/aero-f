@@ -11,14 +11,6 @@
 #include <PhysBAM_Geometry/Topology_Based_Geometry/TRIANGULATED_SURFACE.h>
 #include <Vector.h>
 
-/*#include "LevelSet/LevelSetStructure.h"
-#include "LevelSet/IntersectionFactory.h"
-#include "PHYSBAM_INTERFACE.h"
-#include "Particles/SOLIDS_PARTICLE.h"
-#include "Grids/TRIANGLE_MESH.h"
-#include "Geometry/TRIANGULATED_SURFACE.h"
-#include <Vector.h>
-*/
 using std::pair;
 using std::map;
 using PhysBAM::PhysBAMInterface;
@@ -32,6 +24,7 @@ class Communicator;
 class PhysBAMIntersector;
 class SubDomain;
 class EdgeSet;
+class Timer;
 template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
@@ -44,6 +37,9 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     int length_solids_particle_list, length_triangle_list;
     int (*triangle_list)[3];
     double xMin, xMax, yMin, yMax, zMin, zMax;
+
+    Timer *timer;
+    double totalTime;
 
     Vec3D *solids_particle_list;
     Vec3D *solids_particle_list0;

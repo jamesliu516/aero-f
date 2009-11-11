@@ -34,7 +34,7 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     PhysBAMIntersectorConstructor() {
       structureFile = 0;
       restartStructureFile = 0;
-      tolIntersect = 1e-3;
+      tolIntersect = 0.0;
     }
 
     DistLevelSetStructure *getIntersector(IntersectProblemData&) {
@@ -329,6 +329,7 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   triSize = 0;
   interpolatedNormal = false;
   nodalNormal = 0;
+  totalTime = 0.0;
 }
 
 //----------------------------------------------------------------------------
@@ -684,6 +685,7 @@ void
 DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interpNormal) {
   this->X = &X;
   domain = d;
+  timer = d->getTimer();
   interpolatedNormal = interpNormal;
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
@@ -742,7 +744,7 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
 void
 DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 
-//  com->fprintf(stderr,"Recompute intersections.\n");
+  double time = timer->getTime();
   if (dtfLeft<-1.0e-8) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -774,7 +776,11 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->findIntersections((*X)(i));
   }
   
-//  com->fprintf(stderr,"Done with Recompute Intersections.\n");
+  time = timer->getTime() - time;
+  com->globalMax(1,&time);
+  totalTime += time;
+  com->fprintf(stderr,"Total Time for Recompute: %e\n", totalTime);
+  
 }
 
 //----------------------------------------------------------------------------

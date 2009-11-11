@@ -1631,8 +1631,9 @@ struct EmbeddedStructureInfo {
   const char *surfaceMeshFile;
   const char *matcherFile;
 
-  int mode;
-  int coupled;
+  enum Type {FORCED = 0, ONEWAY = 1, TWOWAY = 2, NONE = 3} type;
+  enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
+  enum ForcedMotionMode {HEAVING = 0, CONSTHEAVING = 1} forcedMotionMode;
   double tMax;
   double dt; 
   double omega;
