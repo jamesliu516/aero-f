@@ -27,8 +27,11 @@ class EmbeddedStructure {
   const char *meshFile;
   const char *matcherFile;
  
+  bool coupled;
+  bool dim2Treatment;
+  bool oneWayCoupling;
   int mode;
-  int coupled;
+  
   double tScale;
   double dt, tMax;
   double omega;
