@@ -16,7 +16,7 @@
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc): com(c) , F(1), 
-                           fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength),
+                           fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength), UScale(iod.ref.rv.tvelocity),
                            tScale(iod.ref.rv.time), structure(iod,c,sc)
 
 {
@@ -45,24 +45,37 @@ DynamicNodalTransfer::sendForce() {
   std::pair<double *, int> embedded = structure.getTargetData();
   double *embeddedData = embedded.first;
   int length = embedded.second;
+
   Communication::Window<double> window(com, 3*length*sizeof(double), embeddedData); 
   window.fence(true);
   window.accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
   window.fence(false);
+
   structure.processReceivedForce();
+
 }
 
 //------------------------------------------------------------------------------
 
 void
-DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU) {
-  Communication::Window<double> window(com, 3*structU.size()*sizeof(double), (double *)structU.data());
+DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot) {
+  double UandUdot[2*structU.size()*3];
+  Communication::Window<double> window(com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
+
   window.fence(true);
   structure.sendDisplacement(&window);
   window.fence(false);
 
+  for(int i=0; i<structU.size(); i++) 
+    for(int j=0; j<3; j++) {
+      structU[i][j] = UandUdot[i*3+j];
+      structUdot[i][j] = UandUdot[(structU.size()+i)*3+j];
+    }
+
   com.fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
+
   structU = 1.0/XScale*structU;
+  structUdot = 1.0/UScale*structUdot;
 }
 
 //------------------------------------------------------------------------------
@@ -80,7 +93,8 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom) : com(comm), 
                                              meshFile(iod.embeddedStructure.surfaceMeshFile),
                                              matcherFile(iod.embeddedStructure.matcherFile),
-                                             tScale(iod.ref.rv.time)
+                                             tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
+                                             UScale(iod.ref.rv.tvelocity)
 {
   // read the input.
   coupled = ((iod.embeddedStructure.type == EmbeddedStructureInfo::TWOWAY) ||
@@ -118,6 +132,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   nNodes = 0;
   X = 0;
   U = 0;
+  Udot = 0;
+  UandUdot = 0;
   F = 0;
   it = 0;
   structExc = 0;
@@ -161,6 +177,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   if(count!=nNodes) {fprintf(stderr,"WRONG!!\n"); exit(-1);}
 
   U = new (com) double[nNodes][3];
+  Udot = new (com) double[nNodes][3];
+  UandUdot = new (com) double[nNodes*2][3];
   F = new (com) double[nNodes][3];
 
   fclose(nodeFile);
@@ -206,6 +224,8 @@ EmbeddedStructure::~EmbeddedStructure()
 {
   if(X) delete[] X;
   if(U) delete[] U;
+  if(Udot) delete[] Udot;
+  if(UandUdot) delete[] UandUdot;
   if(F) delete[] F;
   if(structExc) delete structExc;  
 }
@@ -228,7 +248,6 @@ void
 EmbeddedStructure::sendTimeStep(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
-//  Communication::Window<double> win0(com, 1, &dt);
 {
   for(int i = 0; i < com.size(); ++i) {
     std::cout << "Sending the timestep (" << dt << ") to fluid " << i << std::endl;
@@ -245,11 +264,13 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   if(coupled) {
      DistSVec<double,3> Y0(*di, X);
      DistSVec<double,3> V(*di, U);
-     DistSVec<double,3> Ydot(*di);
+     DistSVec<double,3> Ydot(*di, Udot);
      DistSVec<double,3> Y(*di);
      Y = Y0;
 
      structExc->getDisplacement(Y0, Y, Ydot, V);
+     V = XScale*V;
+     Ydot = UScale*Ydot;
   }
   if(com.cpuNum()>0) return; // only proc. #1 will send.
 
@@ -261,22 +282,30 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = (1-cos(omega*time))*dx;
         U[i][1] = (1-cos(omega*time))*dy;
-        U[i][2] = (1-cos(omega*time))*dz; 
+        U[i][2] = (1-cos(omega*time))*dz;
+        Udot[i][0] = dx*omega*sin(omega*time);
+        Udot[i][1] = dy*omega*sin(omega*time); 
+        Udot[i][2] = dz*omega*sin(omega*time); 
       }
     else if (mode==2) //heaving with a constant velocity (in this case dx dy dz are velocity
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = time*dx;
         U[i][1] = time*dy;
         U[i][2] = time*dz;
+        Udot[i][0] = dx;
+        Udot[i][1] = dy;
+        Udot[i][2] = dz;
       }
   }
-  for(int i = 0; i < com.size(); ++i) {
-    std::cout << i;
-    window->put((double *)U, 0, 3*nNodes, i, 0);
-    if(i!=com.size()-1) std::cout << ", ";
-   }
-  std::cout << std::endl;
 
+  for(int i=0; i<nNodes; i++)
+    for(int j=0; j<3; j++) {
+      UandUdot[i][j] = U[i][j];
+      UandUdot[(i+nNodes)][j] = Udot[i][j];
+    }
+
+  for(int i = 0; i < com.size(); ++i) 
+    window->put((double*)UandUdot, 0, 2*3*nNodes, i, 0);
 }
 
 //------------------------------------------------------------------------------
