@@ -107,8 +107,7 @@ CXX       = g++
 #include default.defs
 #include nivation.defs
 
-#usescalapack = false
-usescalapack = true
+usescalapack = false
 ifeq ($(usescalapack),true)
   SFLAGS       = -DDO_SCALAPACK
 else
@@ -117,36 +116,6 @@ endif
 
 
 host := $(shell hostname -s)
-ifeq ($(host), frontend-0)
-  host = nivation
-  CXX = g++
-endif
-
-ifeq ($(host), nivation)
-  host = nivation
-  CXX = g++
-endif
-
-ifeq ($(host), regelation)
-  host = 64bit
-  CXX = g++
-endif
-
-ifeq ($(findstring nas-0-, $(host)), nas-0-)
-  host = nivation
-  CXX = g++
-endif
-
-ifeq ($(findstring compute-2-, $(host)), compute-2-)
-  host = 64bit
-  CXX = g++
-endif
-
-ifeq ($(host), thunderbird)
-  host = thunderbird
-  CXX = CC
-endif
-
 
 # Look for machine-specific definitions
 #finddefs = $(shell ls $(host).defs)
@@ -166,19 +135,14 @@ endif
 # search for arpack directory and make appropriate definitons
 findarpack = $(shell ls $(ARPACKLIB))
 
-ifeq ($(findstring $(ARPACKLIB), $(findarpack)), $(ARPACKLIB))
-  DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float -DDO_MODAL
-else
-  ARPACKLIB = 
-  DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
-endif
+ARPACKLIB = 
+DFLAGS = -DF_NEEDS_UNDSC -DTYPE_PREC=float
 
 DYNLINKFLAGS = -rdynamic --export-dynamic
 
-MPIFLAG = -DUSE_MPI -DMPI_NO_CPPBIND \
+MPIFLAG = -DUSE_MPI -DMPI_NO_CPPBIND -DMPICH_IGNORE_CXX_SEEK \
           -DUSE_STDARG -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDARG_H=1 \
           -DUSE_STDARG=1 -DMALLOC_RET_VOID=1 -DHAVE_MPI_CPP -fexceptions \
-          #-I/opt/mpich/myrinet/gnu/include/mpi2c++ -fexceptions -I/opt/mpich/myrinet/gnu/include
 
 OMPFLAG   = $(OMPFLAGS) #-mp
 CCFLAGS   = $(CXXFLAGS)

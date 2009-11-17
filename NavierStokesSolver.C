@@ -93,6 +93,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
 
   if (ioData.problem.alltype == ProblemData::_SPARSEGRIDGEN_){
+    fprintf(stdout, "*** Warning: Generating a sparse grid\n");
     SparseGridGeneratorDesc sgDesc(ioData);
     sgDesc.tabulate(ioData);
   }

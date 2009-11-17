@@ -313,10 +313,14 @@ void SparseGrid::scale(const double *subGrid, double *scaledCoord, const int op)
 
   if(op==0)
     for(int i=0; i<dim; i++)
-      scaledCoord[i] = subGrid[i]*(range[i][1]-range[i][0])+range[i][0];
+      if(range[i][1]>range[i][0])
+        scaledCoord[i] = subGrid[i]*(range[i][1]-range[i][0])+range[i][0];
+      else scaledCoord[i] = range[i][0];
   else if(op==1)
     for(int i=0; i<dim; i++)
-      scaledCoord[i] = (subGrid[i]-range[i][0])/(range[i][1]-range[i][0]);
+      if(range[i][1]>range[i][0])
+        scaledCoord[i] = (subGrid[i]-range[i][0])/(range[i][1]-range[i][0]);
+      else scaledCoord[i] = 0.0;
 
 }
 
@@ -346,8 +350,9 @@ void SparseGrid::evaluatePreviousInterpolation(double **subGrid,
   double temp[out];
   for(int iPts=0; iPts<nPointsSubGrid; iPts++){
     singleInterpolation(subGrid[iPts], temp);
-    for(int iout=0; iout<out; iout++) 
+    for(int iout=0; iout<out; iout++) {
       surplus[nPoints+iPts][iout] -= temp[iout];
+    }
   }
 
 }
@@ -404,6 +409,7 @@ bool SparseGrid::checkAccuracy(){
 
   double temp;
   double maxsurplus[out];
+  for(int iout=0; iout<out; iout++) maxsurplus[iout] = 0.0;
   for(int iout=0; iout<out; iout++){
     for(int iactiveErr=0; iactiveErr<activeHeapError.size(); iactiveErr++){
       if(active[activeHeapError[iactiveErr]]){
@@ -466,6 +472,7 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
   
       nCumulatedPointsDim[idim] = nPointsDim[idim];
       nPointsSubGrid *= nPointsDim[idim];
+      if(idim>0) nCumulatedPointsDim[idim] *= nCumulatedPointsDim[idim-1];
     }
 
     // interpolation: value of the basis function at the considered subgrid (basisFnVal)
@@ -565,7 +572,7 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
       }
       range[idim][0] /= refIn[idim]; // min of range
       range[idim][1] /= refIn[idim]; // max of range
-      fprintf(stdout, "# SparseGrid::range = [ %e %e ]\n", range[idim][0], range[idim][1]);
+      //fprintf(stdout, "# SparseGrid::range = [ %e %e ]\n", range[idim][0], range[idim][1]);
     }
 
   if(refOut)
@@ -943,7 +950,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
       fprintf(stdout, "\n");
       fprintf(stdout, "# surpluses are:");
       for(int iout = 0; iout<out; iout++){
-        for(int kk = 0; kk<nSubGrids; kk++)
+        for(int kk = 0; kk<nPoints; kk++)
           fprintf(stdout, "  %e", surplus[kk][iout]);
         fprintf(stdout, "\n#               ");
       }

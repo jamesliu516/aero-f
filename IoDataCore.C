@@ -706,7 +706,7 @@ FluidModelData::FluidModelData()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                   
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
                                                                                                   
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
@@ -1388,6 +1388,9 @@ SparseGridData::SparseGridData()
   range1min = 0.0; range1max = 1.0;
   range2min = 0.0; range2max = 1.0;
   range3min = 0.0; range3max = 1.0;
+  range4min = 0.0; range4max = 1.0;
+  range5min = 0.0; range5max = 1.0;
+  range6min = 0.0; range6max = 1.0;
 
   range = 0;
 
@@ -1401,7 +1404,7 @@ SparseGridData::SparseGridData()
 void SparseGridData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 15, father);
+  ClassAssigner *ca = new ClassAssigner(name, 20, father);
 
   new ClassInt<SparseGridData>
     (ca, "Verbose", this, &SparseGridData::verbose);
@@ -1425,6 +1428,18 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
     (ca, "Output3Minimum", this, &SparseGridData::range3min);
   new ClassDouble<SparseGridData>
     (ca, "Output3Maximum", this, &SparseGridData::range3max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output4Minimum", this, &SparseGridData::range4min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output4Maximum", this, &SparseGridData::range4max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output5Minimum", this, &SparseGridData::range5min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output5Maximum", this, &SparseGridData::range5max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output6Minimum", this, &SparseGridData::range6min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output6Maximum", this, &SparseGridData::range6max);
   new ClassInt<SparseGridData>
     (ca, "NumberOfOutputs", this, &SparseGridData::numOutputs);
   new ClassInt<SparseGridData>
@@ -4532,7 +4547,19 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   }
 
   typedef double Range[2];
-  sparseGrid.range = new Range[sparseGrid.numOutputs];
+  sparseGrid.range = new Range[sparseGrid.numInputs];
+  if(sparseGrid.numInputs > 5){
+    sparseGrid.range[5][0] = sparseGrid.range6min;
+    sparseGrid.range[5][1] = sparseGrid.range6max;
+  }
+  if(sparseGrid.numInputs > 4){
+    sparseGrid.range[4][0] = sparseGrid.range5min;
+    sparseGrid.range[4][1] = sparseGrid.range5max;
+  }
+  if(sparseGrid.numInputs > 3){
+    sparseGrid.range[3][0] = sparseGrid.range4min;
+    sparseGrid.range[3][1] = sparseGrid.range4max;
+  }
   if(sparseGrid.numInputs > 2){
     sparseGrid.range[2][0] = sparseGrid.range3min;
     sparseGrid.range[2][1] = sparseGrid.range3max;

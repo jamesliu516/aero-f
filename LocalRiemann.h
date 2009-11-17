@@ -2,8 +2,9 @@
 #define _LOCAL_RIEMANN_H
 
 #include <LinkF77.h>
-#include <SparseGrid.h>
+//#include <SparseGrid.h>
 #include <IoData.h>
+#include <assert.h>
 
 class VarFcn;
 
@@ -51,7 +52,7 @@ protected:
 public:
   LocalRiemann() {densityRef=1.63;}
   LocalRiemann(VarFcn *vf) {vf_ = vf; densityRef=1.63;}
-  ~LocalRiemann() {delete vf_;}
+  ~LocalRiemann() {vf_=0;}
 
   void setReferenceDensity(const double density){ densityRef=density; }
 
@@ -70,7 +71,7 @@ public:
   void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
   void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
 protected:
-  virtual void solve2x2System(double *mat, double *rhs, double *res);
+  virtual bool solve2x2System(double *mat, double *rhs, double *res);
 
   // functions used to determine the Riemann invariants as needed
   // in Quartapelle's algorithm to compute the solution of the Riemann problem
@@ -83,7 +84,7 @@ protected:
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
                    double &du, double &dp,
-                   MultiFluidData::RiemannComputation type = MultiFluidData::RK2);
+                   MultiFluidData::RiemannComputation type = MultiFluidData::RK2, int flag = 0);
   void rarefactionJWL2ndOrder(double phi,
                    double v1, double u1, double p1, 
                    double v,  double &u, double &p, 
@@ -108,7 +109,7 @@ protected:
                    double gam, double gam1, double pref, double c1, 
                    double v1, double u1, double p1,
                    double v, double &u, double &p,
-                   double &du, double &dp);
+                   double &du, double &dp, int flag = 0);
 
 
   // function used for the multiphase flow algorithm to update
@@ -126,18 +127,20 @@ inline
 void LocalRiemann::rarefactionJWL(double phi,
                    double v1, double u1, double p1,
                    double v,  double &u, double &p,
-                   double &du, double &dp, MultiFluidData::RiemannComputation type){
+                   double &du, double &dp, 
+                   MultiFluidData::RiemannComputation type, int flag){
 
+  //fprintf(stdout, "*** rarefactionJWL %e %e %e %e\n",1.0/v1,u1,p1,1.0/v);
   double entropy = vf_->computeEntropy(1.0/v1,p1, phi);
   double in[2] = {1.0/v1, entropy};
   double res1[1] = {0.0};
-  if(type == MultiFluidData::FE)
+  if(type == MultiFluidData::FE){
     riemannInvariantGeneral1stOrder(in,res1,&phi);
-  else if(type == MultiFluidData::RK2)
+  }else if(type == MultiFluidData::RK2){
     riemannInvariantGeneral2ndOrder(in,res1,&phi);
-  else if(type == MultiFluidData::TABULATION)
+  }else if(type == MultiFluidData::TABULATION){
     riemannInvariantGeneralTabulation(in,res1);
-
+  }
   in[0] = 1.0/v;
   double res2[1] = {0.0};
   if(type == MultiFluidData::FE)
@@ -149,10 +152,11 @@ void LocalRiemann::rarefactionJWL(double phi,
 
   u = u1 - phi*(res2[0]-res1[0]);
   p = vf_->computeIsentropicPressure(entropy, 1.0/v, phi);
+  //fprintf(stdout, "*** rarefactionJWL2 %e %e %e %e\n", u1, res2[0], res1[0], p);
   double c = vf_->computeSoundSpeed(1.0/v, entropy, phi);
   du = -phi*c/v;
   dp = -c*c/(v*v);
-  //fprintf(stderr, "*** rarefactionJWL returns u=%e, p=%e, du=%e, dp=%e\n", u,p,du,dp);
+  if (flag>0 && c<= 0.0) fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e\n", c,u,p,du,dp);
 
 }
 
@@ -165,19 +169,26 @@ void LocalRiemann::riemannInvariantGeneral1stOrder(double *in, double *res,
 // in contains density and pressure
 // res is the output result and contains the variation of velocity
   res[0] = 0.0;
-  int N  = 2000;
+  int N  = 5000;
   double density = densityRef; double entropy = in[1];
+  //fprintf(stdout, "densityRef = %e and entropy = %e\n", densityRef, entropy);
   double ddensity = (in[0] - densityRef)/N;
   double c = vf_->computeSoundSpeed(density,entropy,*phi);
 
   bool continueCondition = true;
+  int it=0;
   while(continueCondition){
     res[0] -= c/density*ddensity;
     density  += ddensity;
+    if(ddensity>0.0) density = density>in[0] ? in[0] : density;
+    else             density = density<in[0] ? in[0] : density;
+    //fprintf(stdout, "densityRef = %e and entropy = %e - density = %e\n", densityRef, entropy, density);
     c = vf_->computeSoundSpeed(density,entropy,*phi);
     if(ddensity>0.0)
       continueCondition = (density<in[0]-ddensity/2.0);
     else continueCondition = (density>in[0]-ddensity/2.0);
+    it++;
+    if(it==N) break;
   }
 
 }
@@ -190,17 +201,33 @@ void LocalRiemann::riemannInvariantGeneral2ndOrder(double *in, double *res,
 // in contains density and entropy
 // res is the output result and contains the variation of velocity
   res[0] = 0.0;
-  int N  = 500;
+  int N  = 20000;
   double density = densityRef; double entropy = in[1];
   double ddensity = (in[0] - densityRef)/N;
   double c = vf_->computeSoundSpeed(density,entropy,*phi);
+  //fprintf(stdout, "riemannInvariantGeneral2ndOrder-- %e %e %e %e\n", density, entropy, in[0], ddensity);
 
   bool continueCondition = true;
+  int it=0;
   while(continueCondition){
+    density += 0.5*ddensity;
+    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    res[0] -= c/density*ddensity;
+    density += 0.5*ddensity;
+
+    if(ddensity>0.0)
+      continueCondition = (density<in[0]-ddensity/2.0);
+    else continueCondition = (density>in[0]-ddensity/2.0);
+    it++;
+    if(it==N) break;
+
+    /* RK-type
     //advance by first half density-step
     res[0] -= c/density*ddensity/2.0;
 
     density += ddensity;
+    if(ddensity>0.0) density = density>in[0] ? in[0] : density;
+    else             density = density<in[0] ? in[0] : density;
     //advance by second half density-step
     c = vf_->computeSoundSpeed(density,entropy,*phi);
     res[0] -= c/density*ddensity/2.0;
@@ -208,6 +235,9 @@ void LocalRiemann::riemannInvariantGeneral2ndOrder(double *in, double *res,
     if(ddensity>0.0)
       continueCondition = (density<in[0]-ddensity/4.0);
     else continueCondition = (density>in[0]-ddensity/4.0);
+    fprintf(stdout, "adim = %e %e %e %e\n", density, ddensity, c, res[0]);
+    it++;
+    if(it==N) break;*/
   }
 
 }
@@ -324,15 +354,26 @@ void LocalRiemann::rarefactionGAS(double phi,
                    double gam, double gam1, double pref, double c1,
                    double v1, double u1, double p1,
                    double v, double &u, double &p,
-                   double &du, double &dp){
-  p  = (p1+pref)*pow(v1/v,gam)-pref;
-  double V[5] = {1.0/v, u, 0.0, 0.0, p};
-  //double c = vf_->computeSoundSpeed(V,phi);
-  double c = sqrt(gam*(p+pref)*v);
+                   double &du, double &dp, int flag){
+
+  double ppref  = (p1+pref)*pow(v1/v,gam);
+  p = ppref - pref;
+  double c = sqrt(gam*ppref*v);
+
   u  = u1 - phi*2.0/gam1*(c1 - c);
 
   dp = -c*c/(v*v);
   du = -phi*c/v;
+
+  if(flag>0){
+    fprintf(stdout, "%e %e %e %e %e %e %e %e %e\n", phi,gam,gam1,pref,c1,1.0/v1,u1,p1,1.0/v);
+    fprintf(stdout, "p = %e\n", p);
+    fprintf(stdout, "c = %e\n", c);
+    fprintf(stdout, "u = %e\n", u);
+    fprintf(stdout, "dp = %e\n", dp);
+    fprintf(stdout, "du = %e\n", du);
+    exit(1);
+  }
 }
 inline
 void LocalRiemann::shockGAS(double phi, double gamogam1,
@@ -398,18 +439,20 @@ void LocalRiemann::updatePhaseChangingNodeValues(
 }
 //----------------------------------------------------------------------------
 inline
-void LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
+bool LocalRiemann::solve2x2System(double *mat, double *rhs, double *res)
 {
   double determinant = mat[0]*mat[3]-mat[1]*mat[2];
   double eps = 1.0e-15;
-  double norm = 1.0;
+  double norm = fmax(fabs(mat[0])+fabs(mat[2]), fabs(mat[1])+fabs(mat[3]));
   if(fabs(determinant)>eps*norm){
     res[0] = ( mat[3]*rhs[0]-mat[1]*rhs[1])/determinant;
     res[1] = (-mat[2]*rhs[0]+mat[0]*rhs[1])/determinant;
+    return true;
   }else{
     fprintf(stdout, "zero-determinant (mat = [%e , %e ; %e , %e] = %e)\n", mat[0],mat[3],mat[1],mat[2],determinant);
     res[0] = 0.0;
     res[1] = 0.0;
+    return false;
   }
 
 }
