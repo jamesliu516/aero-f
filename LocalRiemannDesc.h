@@ -1201,7 +1201,13 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     double pbar = p + pref;
     pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
-    if (pi>p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
+    if (pi>p*(1.0+1e-8)) {
+      fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); 
+      fprintf(stderr,"ui = %e, u = %e ==> rarefaction.\n", ui, u);
+      fprintf(stderr,"p = %e, pref = %e, rho = %e, gamma = %e\n", p, pref, rho, gamma);
+      fprintf(stderr,"pi = %e, rhoi = %e\n", pi, rhoi);
+      exit(-1);
+    }
   }
   else{ // shock
 /*    double temp = 2.0/((gamma+1)*rho*(ui-u)*(ui-u));
@@ -1213,7 +1219,13 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     double pstarbar = pi + pref;
     double pbar = p + pref;
     rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
-    if (pi<p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
+    if (pi<p*(1.0-1e-8)) {
+      fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); 
+      fprintf(stderr,"ui = %e, u = %e ==> shock.\n", ui, u);
+      fprintf(stderr,"p = %e, pref = %e, rho = %e, gamma = %e\n", p, pref, rho, gamma);
+      fprintf(stderr,"pi = %e, rhoi = %e\n", pi, rhoi);
+      exit(-1);
+    }
   }
 }
 

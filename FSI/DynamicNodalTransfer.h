@@ -33,6 +33,9 @@ class EmbeddedStructure {
   int mode;
   
   double tScale;
+  double XScale;
+  double UScale;
+
   double dt, tMax;
   double omega;
   double dx, dy, dz;
@@ -42,6 +45,8 @@ class EmbeddedStructure {
   int nNodes;
   double (*X)[3]; //original node coordinates
   double (*U)[3]; //displacement
+  double (*Udot)[3]; //velocity
+  double (*UandUdot)[3]; //displacement and velocity (TODO: this is redundant)
   double (*F)[3]; //force (received from fluid).
   std::map<int,int> pairing;
 
@@ -62,9 +67,10 @@ public:
  *
  */
 class DynamicNodalTransfer {
-        const double fScale; //reference force
-        const double XScale; //reference length
-        const double tScale; //reference time
+        const double fScale; //scaling factor for force
+        const double XScale; //scaling factor for length
+        const double tScale; //scaling factor for time
+        const double UScale; //scaling factor for velocity
 
 	Communicator &com;
         EmbeddedStructure structure;
@@ -78,7 +84,7 @@ public:
 	/** routine to send the force to the structure. On output, f has been dimensionalized. */
 	void sendForce();
         /** routine to receive the displacement of the structure.*/
-	void getDisplacement(SVec<double,3>& structU);
+	void getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot);
 
         double getStructureTimeStep() {return dts;}
 

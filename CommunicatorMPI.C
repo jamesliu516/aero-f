@@ -292,7 +292,7 @@ void operator delete(void *p, Communicator &) {
 void* operator new[](size_t size, Communicator &) {
 	void *a;
 #ifdef USE_MPI
-	MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
+        MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
 #else // USE_MPI
 	a = malloc(size);
 #endif // USE_MPI

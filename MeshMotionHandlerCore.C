@@ -1475,18 +1475,19 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 
   int numStructNodes = distLSS->getNumStructNodes();
 
-  if(it>0 && it!=it0)
+  if(it>0 && it>it0)
     dynNodalTransfer->sendForce(); //send force to structure
 
-  SVec<double,3> structU(numStructNodes);
-  dynNodalTransfer->getDisplacement(structU); //receive displacement from structure.
+  SVec<double,3> structU(numStructNodes); //structure displacement
+  SVec<double,3> structUdot(numStructNodes); //structure velocity
+  dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
   // update X and Velocity
   if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
   for (int i=0; i<numStructNodes; i++) {
     structXn[i] = structXnPlus1[i];
     structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-    structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
   }
 
   distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
