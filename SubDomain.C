@@ -215,12 +215,13 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 }
 
 //------------------------------------------------------------------------------
-// least square gradient involving only nodes of same fluid (multiphase flow)
+// least square gradient involving only nodes of same fluid (multiphase flow and FSI)
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 const FluidTypeCriterion &Phi, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-                SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
+                SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
+                bool linRecFSI = true)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -272,16 +273,16 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     }
   }
 
-//Kevin's debug: use const extrapolation for nodes close to interface.
-  for (int l=0; l<edges.size(); ++l) {
-    if (!edgeFlag[l]) continue;
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+//KW: set gradients = 0 for cells near interface.
+  if(!linRecFSI)  
+    for (int l=0; l<edges.size(); ++l) {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
 
-    if (!Phi.isSameFluid(i,j))
-      for (int k=0; k<dim; ++k)
-        ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
-  }
+      if (!Phi.isSameFluid(i,j))
+        for (int k=0; k<dim; ++k)
+          ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
+    }
 
 }
 
@@ -844,7 +845,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-                                       LevelSetStructure &LSS,
+                                       LevelSetStructure &LSS, bool linRecAtInterface,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
@@ -852,7 +853,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
-                                           ngrad, egrad, fluxes, it,
+                                           linRecAtInterface, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, V, fluxes); 
 

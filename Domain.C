@@ -199,7 +199,7 @@ void Domain::computeDerivativeOfGradientsLeastSquares(DistSVec<double,3> &X, Dis
 }
 
 //------------------------------------------------------------------------------
-// least square gradient involving only nodes of same fluid (multiphase flow)
+// least square gradient involving only nodes of same fluid (multiphase flow and FSI)
 template<int dim, class Scalar>
 void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistFluidTypeCriterion &Phi,
@@ -207,13 +207,14 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &var,
                                           DistSVec<Scalar,dim> &ddx,
                                           DistSVec<Scalar,dim> &ddy,
-                                          DistSVec<Scalar,dim> &ddz)
+                                          DistSVec<Scalar,dim> &ddz,
+                                          bool linFSI = true)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeGradientsLeastSquares(X(iSub), Phi(iSub), R(iSub), var(iSub),
-                                                  ddx(iSub), ddy(iSub), ddz(iSub));
+                                                  ddx(iSub), ddy(iSub), ddz(iSub), linFSI);
 
   CommPattern<Scalar> *vPat = getCommPat(var);
   assemble(vPat, ddx);
@@ -885,7 +886,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
-                                     DistLevelSetStructure *LSS,
+                                     DistLevelSetStructure *LSS, bool linRecAtInterface,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -907,8 +908,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                             X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                             ngrad(iSub),
+                                             X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub), 
+                                             linRecAtInterface, ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -949,7 +950,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                     ngrad(iSub),
+                                     linRecAtInterface, ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }

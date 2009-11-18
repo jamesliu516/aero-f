@@ -319,7 +319,8 @@ public:
   void computeGradientsLeastSquares(SVec<double,3> &, const FluidTypeCriterion &,
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
-                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &);
+                                    SVec<Scalar,dim> &, SVec<Scalar,dim> &,
+                                    bool linRecFSI);
 
 
   template<int dim, class Scalar>
@@ -372,7 +373,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, 
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim>

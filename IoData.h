@@ -1613,6 +1613,7 @@ struct StructureIntersect {
   const char *intersectorName;
   const char *libraryName;
   enum Normal {FACET = 0, INTERPOLATED = 1} normal;
+  enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   int forceApproach;
   int pressureChoice;
   int phaseChangeChoice;

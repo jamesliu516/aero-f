@@ -1496,7 +1496,7 @@ template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
-                                         DistSVec<double,dim> &R,
+                                         bool linRecAtInterface, DistSVec<double,dim> &R,
                                          DistExactRiemannSolver<dim> *riemann, int it)
 {
   R = 0.0;
@@ -1511,7 +1511,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     DistFluidTypeFromIntersect dffi(*LSS);
     DistFluidTypeCriterion &dftc = dffi;
     ngrad->compute(geoState->getConfig(), X, ctrlVol,
-        dftc, *V);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+        dftc, *V, linRecAtInterface);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
     timer->addNodalGradTime(t0);
   }
   if (xpol) //boundary condition using xpol = extrapolation
@@ -1525,7 +1525,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, *ngrad, egrad,
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, *ngrad, egrad,
                                   R, it, failsafe,rshift);
 
   if (use_modal == false)  {
