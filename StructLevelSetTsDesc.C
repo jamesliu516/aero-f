@@ -51,6 +51,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   fsiNormal = 0.0;
   fsiVelocity = 0.0;
   interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
+  linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -491,7 +492,7 @@ double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   if (TYPE==2) 
     this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTagCopy, *this->R, this->riemann, 0);
   else 
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, *this->R, this->riemann, 0);
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, 0);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
   double res = 0.0;

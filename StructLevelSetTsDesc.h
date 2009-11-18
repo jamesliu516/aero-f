@@ -35,6 +35,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int numStructNodes;
   int numStructElems;
   bool interpolatedNormal;
+  bool linRecAtInterface;
 
   // coefficients for piston simulations.
   Vec3D fsiPosition;

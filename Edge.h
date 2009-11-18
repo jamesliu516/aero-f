@@ -100,7 +100,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              bool, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 

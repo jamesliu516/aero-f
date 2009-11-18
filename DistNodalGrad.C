@@ -592,12 +592,12 @@ template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistFluidTypeCriterion &crit,
-                                 DistSVec<Scalar2, dim> &V)
+                                 DistSVec<Scalar2, dim> &V, bool linFSI)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
   domain->computeWeightsLeastSquares(X, crit, *R);
-  domain->computeGradientsLeastSquares(X, crit, *R, V, *ddx, *ddy, *ddz);
+  domain->computeGradientsLeastSquares(X, crit, *R, V, *ddx, *ddy, *ddz, linFSI);
 
 }
 

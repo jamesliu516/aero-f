@@ -273,7 +273,7 @@ public:
   void computeGradientsLeastSquares(DistSVec<double,3> &, DistFluidTypeCriterion &,
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
-                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &);
+                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &,
@@ -423,7 +423,7 @@ public:
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
-                               DistLevelSetStructure *,
+                               DistLevelSetStructure *, bool,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 

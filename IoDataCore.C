@@ -2876,6 +2876,7 @@ void StructureIntersect::setup(const char *name) {
   libraryName = 0;
   intersectorName = 0;
   normal = FACET;
+  reconstruct = CONSTANT;
   forceApproach = 0;
   pressureChoice = 0;
   phaseChangeChoice = 0;
@@ -2885,6 +2886,8 @@ void StructureIntersect::setup(const char *name) {
   new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
   new ClassToken<StructureIntersect> (ca, "normal", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::normal), 2,
                                       "Facet", 0, "Interpolated", 1);
+  new ClassToken<StructureIntersect> (ca, "reconstruction", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::reconstruct), 2,
+                                      "Constant", 0, "Linear", 1);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
   new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
   new ClassInt<StructureIntersect>(ca, "phaseChangeChoice", this, &StructureIntersect::phaseChangeChoice);
@@ -2919,6 +2922,10 @@ void StructureIntersect::activate() {
 
 void EmbeddedStructureInfo::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 0);
+
+  surfaceMeshFile = "";
+  matcherFile = "";
+
   type = NONE;
   dim2Treatment = NO;
   forcedMotionMode = HEAVING;

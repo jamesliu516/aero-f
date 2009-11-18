@@ -116,7 +116,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
   tMax = iod.embeddedStructure.tMax;
   dt = iod.embeddedStructure.dt;
-  omega = iod.embeddedStructure.omega;
+  omega = 2.0*acos(-1.0)*iod.embeddedStructure.omega;
   dx = iod.embeddedStructure.dx;
   dy = iod.embeddedStructure.dy;
   dz = iod.embeddedStructure.dz;
