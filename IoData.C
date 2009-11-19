@@ -1,0 +1,48 @@
+#include <IoData.h>
+
+#include <parser/Assigner.h>
+
+//------------------------------------------------------------------------------
+
+template<class GenericKrylov>
+NewtonData<GenericKrylov>::NewtonData()
+{
+
+  failsafe = NO;
+  maxIts = 1;
+  eps = 1.e-2;
+  epsAlt = 0.0;
+}
+
+//------------------------------------------------------------------------------
+
+template<class GenericKrylov>
+void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassToken<NewtonData>
+    (ca, "FailSafe", this, reinterpret_cast<int NewtonData::*>(&NewtonData::failsafe), 3,
+     "Off", 0, "On", 1, "AlwaysOn", 2);
+  new ClassInt<NewtonData>(ca, "MaxIts", this, &NewtonData::maxIts);
+  new ClassDouble<NewtonData>(ca, "Eps", this, &NewtonData::eps);
+  new ClassDouble<NewtonData>(ca, "EpsAlt", this, &NewtonData::epsAlt);
+
+  ksp.setup("LinearSolver", ca);
+
+}
+
+
+//------------------------------------------------------------------------------
+
+template<class DataType>
+void ObjectMap<DataType>::setup(const char *name, ClassAssigner *p)  {
+
+  SysMapObj<DataType> *smo = new SysMapObj<DataType>(name, &dataMap);
+
+  if (p) p->addSmb(name, smo);
+  else addSysSymbol(name, smo);
+
+}
+
