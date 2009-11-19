@@ -38,6 +38,7 @@ public:
   double force;
   double energy;
   double power;
+  double entropy;
 
   double tlength;
   double tvelocity;

@@ -7,6 +7,7 @@
 #include <ImplicitSegTsDesc.h>
 #include <ImplicitLevelSetTsDesc.h>
 #include <ExplicitLevelSetTsDesc.h>
+#include <SparseGridGeneratorDesc.h>
 
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
@@ -91,7 +92,11 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 
   Communicator* com = domain.getCommunicator();
 
-  if (ioData.eqs.numPhase == 1){
+  if (ioData.problem.alltype == ProblemData::_SPARSEGRIDGEN_){
+    SparseGridGeneratorDesc sgDesc(ioData);
+    sgDesc.tabulate(ioData);
+  }
+  else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)
       startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {
