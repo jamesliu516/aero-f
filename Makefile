@@ -16,6 +16,9 @@ SUFFIXES =
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 
+# Produce verbose output by default.
+VERBOSE = 1
+
 # Suppress display of executed commands.
 $(VERBOSE).SILENT:
 
@@ -39,10 +42,10 @@ RM = /usr/local/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/local/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_SOURCE_DIR = /lustre/home/avery/projects/debugfluid/Fluid
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_BINARY_DIR = /lustre/home/avery/projects/debugfluid/Fluid
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -110,9 +113,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles/progress.make
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles/progress.make
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -203,6 +206,19 @@ fluid: cmake_check_build_system
 fluid/fast:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/build
 .PHONY : fluid/fast
+
+#=============================================================================
+# Target rules for targets named fluidlib
+
+# Build rule for target.
+fluidlib: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 fluidlib
+.PHONY : fluidlib
+
+# fast build rule for target.
+fluidlib/fast:
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/build
+.PHONY : fluidlib/fast
 
 #=============================================================================
 # Target rules for targets named loader
@@ -1111,6 +1127,7 @@ Main.o: Main.C.o
 # target to build an object file
 Main.C.o:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/Main.C.o
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/Main.C.o
 .PHONY : Main.C.o
 
 Main.i: Main.C.i
@@ -1119,6 +1136,7 @@ Main.i: Main.C.i
 # target to preprocess a source file
 Main.C.i:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/Main.C.i
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/Main.C.i
 .PHONY : Main.C.i
 
 Main.s: Main.C.s
@@ -1127,6 +1145,7 @@ Main.s: Main.C.s
 # target to generate assembly for a file
 Main.C.s:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/Main.C.s
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/Main.C.s
 .PHONY : Main.C.s
 
 MatchNodeCore.o: MatchNodeCore.C.o
@@ -1951,6 +1970,7 @@ hgidentity.o: hgidentity.C.o
 # target to build an object file
 hgidentity.C.o:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/hgidentity.C.o
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/hgidentity.C.o
 .PHONY : hgidentity.C.o
 
 hgidentity.i: hgidentity.C.i
@@ -1959,6 +1979,7 @@ hgidentity.i: hgidentity.C.i
 # target to preprocess a source file
 hgidentity.C.i:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/hgidentity.C.i
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/hgidentity.C.i
 .PHONY : hgidentity.C.i
 
 hgidentity.s: hgidentity.C.s
@@ -1967,6 +1988,7 @@ hgidentity.s: hgidentity.C.s
 # target to generate assembly for a file
 hgidentity.C.s:
 	$(MAKE) -f CMakeFiles/fluid.dir/build.make CMakeFiles/fluid.dir/hgidentity.C.s
+	$(MAKE) -f CMakeFiles/fluidlib.dir/build.make CMakeFiles/fluidlib.dir/hgidentity.C.s
 .PHONY : hgidentity.C.s
 
 parser/AssignerCore.o: parser/AssignerCore.C.o
@@ -2101,6 +2123,7 @@ help:
 	@echo "... Utils"
 	@echo "... edit_cache"
 	@echo "... fluid"
+	@echo "... fluidlib"
 	@echo "... install"
 	@echo "... install/local"
 	@echo "... install/strip"

@@ -52,6 +52,7 @@ private:
 
   int maxItsNewton;
   double epsNewton;
+  double epsAltNewton;
 
   DefoMeshMotionData::Element typeElement;
 
@@ -99,6 +100,7 @@ public:
   void resetFixesTag() { return;}
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }
+  double getEpsAltNewton() const { return epsAltNewton; }
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   
   void setup(DistSVec<double,3> &X);

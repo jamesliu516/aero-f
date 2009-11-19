@@ -593,11 +593,10 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     // suspecting memory leak
 
     //com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %20.12e and %20.12e (%20.12e)\n", it, dX.norm(), Xdot.norm(), X.norm());
-    com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e \n", it, dX.norm(), Xdot.norm());
+    com->fprintf(stdout, "... It %5d: Received Incr. Disp. and Vel. ==> %e and %e (%e) \n", it, dX.norm(), Xdot.norm(), X0.norm());
 
     mms->applyProjector(Xdot); //HB: make sure Xdot satisfies the sliding conditions
     mms->solve(dX, X); //HB: the sliding conditions are also applied to dX inside the solve method
-
   }
 
   if (algNum == 1)

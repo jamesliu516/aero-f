@@ -121,3 +121,4 @@ Taylor2<Scalar, nvar> operator*(const Taylor2<Scalar, nvar> &a, const Taylor2<Sc
 
 
 #endif
+

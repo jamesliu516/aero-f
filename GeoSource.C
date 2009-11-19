@@ -57,7 +57,7 @@ GeoSource::GeoSource(IoData &ioData)
 
   oolscale = 1.0 / ioData.ref.rv.tlength;
 
-  clus_bconds = 0; // PJSA
+  clus_bconds = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -81,7 +81,7 @@ GeoSource::~GeoSource()
       if (matchNodes[iSub]) delete matchNodes[iSub];
     delete [] matchNodes;
   }
-  if(clus_bconds) delete clus_bconds; // PJSA
+  if(clus_bconds) delete clus_bconds;
 }
 
 //------------------------------------------------------------------------------
@@ -316,7 +316,7 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   // read the offset for the TOC
   BinFileHandler::OffType tocOffset[3];
   geoFile.read(tocOffset, 3);
-  // PJSA: read start of BCs
+  // read start of BCs
   BinFileHandler::OffType startOfBCsLoc;
   geoFile.read(&startOfBCsLoc, 1);
 
@@ -336,7 +336,7 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   geoFile.seek(tocOffset[2]);
   faces->read(geoFile, numFaceRanges, faceRanges, locToGlobFaceMap);
 
-  // PJSA: read the boundary conditions for the entire cluster if necessary
+  // read the boundary conditions for the entire cluster if necessary
   geoFile.seek(startOfBCsLoc);
   if(!clus_bconds) {
     clus_bconds = new BCondSet();
@@ -420,7 +420,7 @@ SubDomain *GeoSource::getSubDomain(int iSub)
 				 locToGlobNodeMap, locToGlobFaceMap, locToGlobElemMap, 
 				 numRanges, ranges);
 
-  // PJSA: get the local subdomain boundary conditions from the cluster boundary conditions
+  // get the local subdomain boundary conditions from the cluster boundary conditions
   distributeBCs(sub, clusToLocNodeMap);
 
   if (nodeRanges) delete [] nodeRanges;

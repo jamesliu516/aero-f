@@ -1099,6 +1099,7 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
+  double epsAlt;
 
   GenericKrylov ksp;
 
