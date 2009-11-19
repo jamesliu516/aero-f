@@ -202,7 +202,8 @@ struct ProblemData {
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21} alltype;
+		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+                  _SPARSEGRIDGEN_ = 22} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec; 
@@ -785,11 +786,39 @@ struct InitialConditionsData {
 };
 
 //------------------------------------------------------------------------------
-                                                                                              
+
+struct SparseGridData {
+
+  int verbose;
+
+  int minPoints;
+  int maxPoints;
+  double relAccuracy;
+  double absAccuracy;
+  double dimAdaptDegree;
+
+  double range1min, range1max;
+  double range2min, range2max;
+  double range3min, range3max;
+  typedef double Range[2];
+  Range *range;
+
+  int numOutputs;
+  int numInputs;
+
+  SparseGridData();
+  ~SparseGridData() {}
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
   enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
+  enum RiemannComputation {FE = 0, RK2 = 1, TABULATION = 2} riemannComputation;
   int bandlevel;
   int subIt;
   double cfl;
@@ -805,6 +834,8 @@ struct MultiFluidData {
   FluidModelData fluidModel;
   FluidModelData fluidModel2;
   InitialConditionsData initialConditions;
+
+  SparseGridData sparseGrid;
 
 
   MultiFluidData();
@@ -1642,6 +1673,7 @@ public:
   void nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic);
   void nonDimensionalizeFluidModel(FluidModelData &fm);
   int checkInputValuesInitializeMulti();
+  int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
 
 };   
 

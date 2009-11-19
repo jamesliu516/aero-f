@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
-  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   Vgf = 0;
   Vgfweight = 0;
