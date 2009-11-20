@@ -133,7 +133,6 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
   //it is assumed that in most practical cases (to date) there would be only one sliding plane,
   //and this sliding plane would also be the symmetry plane so that the plane normal wouldn't be
   // affected by the rotation of the fluid mesh around the symmetry plane normal ...
-  else X += dX; // PJSA FIX
 
   ns->solve(X);
 
