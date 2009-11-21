@@ -106,7 +106,7 @@ void JacobiPrec<Scalar,dim, Scalar2>::apply(DistSVec<Scalar2,dim> &y, DistSVec<S
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->addRcvData(*vPat, x.subData(iSub));
 
-  //PJSA FIX (moved this to operator to maintain symmetry for Cg, see StiffMatrix.C)  
+  //PJSA (moved this to operator, see StiffMatrix.C)  
   //if(BCs) BCs->applyPD(x); //HB: x <- P.x (need to take care of x<-D.x ...)
 }
 
@@ -331,9 +331,10 @@ IdentityPrec<dim,Scalar2>::apply(DistSVec<Scalar2,dim> &x, DistSVec<Scalar2,dim>
 
   Ix = x; 
 
-  if(BCs) {
-    BCs->applyPD(Ix); 
-  }
+  //PJSA (moved this to operator, see StiffMatrix.C)
+  //if(BCs) {
+  //  BCs->applyPD(Ix); 
+  //}
 
 }
 

@@ -76,7 +76,7 @@ void StiffMat<Scalar,dim>::apply(DistSVec<double,dim> &x, DistSVec<double,dim> &
 #endif
   int iSub;
 
-  // PJSA FIX (moved from preconditioner to maintain symmetry of operator, so Cg can still be used, see KspPrec.C)
+  // PJSA (moved from preconditioner, see KspPrec.C)
   if(BCs) BCs->applyPD(x);
   
 #pragma omp parallel for
