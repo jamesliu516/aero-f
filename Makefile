@@ -42,10 +42,10 @@ RM = /usr/local/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/local/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_SOURCE_DIR = /lustre/home/avery/projects/debugfluid/Fluid
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /lustre/home/boumosle/Hg-Codes.d/Fluid
+CMAKE_BINARY_DIR = /lustre/home/avery/projects/debugfluid/Fluid
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -113,9 +113,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles/progress.make
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles/progress.make
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/boumosle/Hg-Codes.d/Fluid/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /lustre/home/avery/projects/debugfluid/Fluid/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
