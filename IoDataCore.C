@@ -1906,6 +1906,7 @@ ImplicitData::ImplicitData()
   coupling = WEAK;
   mvp = H1;
   jacobian = APPROXIMATE;
+  fdOrder = FIRST_ORDER;
   //normals = AUTO;
   //velocities = AUTO_VEL;
 
@@ -1916,7 +1917,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
   
   new ClassToken<ImplicitData>
     (ca, "Type", this, 
@@ -1944,6 +1945,13 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "FluxJacobian", this, 
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
+
+  new ClassToken<ImplicitData>
+    (ca, "FiniteDifferenceOrder", this,
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::startup), 2,
+      "FirstOrder", 0, "SecondOrder", 1);
+
+
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this, 

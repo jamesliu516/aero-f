@@ -2,6 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <algorithm>
+#include <cstdlib>
 using std::sort;
 
 
@@ -966,6 +967,7 @@ void ModalSolver<dim>::preProcess()  {
                                                         
   if (ioData->linearizedData.domain == LinearizedData::FREQUENCY)  {
     HOpC = new MatVecProdH2<bcomp,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+
                                                         
     pcComplex = new IluPrec<bcomp ,dim, bcomp>(pcData, &domain);
    if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -1478,15 +1480,19 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
   // loop over modes
   bcomp oneReal(1.0, 0.0);
   bcomp oneImag(0.0, 1.0);
+  bcomp zeroComp(0.0,0.0);
   bcomp kImag(0.0, kFreq);
                                                         
   DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
-  DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
+  //DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
   Vec3D x0(0.0, 0.0, 0.0);
                                                         
   Vec<double> modalF(nStrMode);
+
   rhs = oneReal*DX[0] + kImag*DE[0];
+
+
   t0 = modalTimer->getTime();
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
     kspCompGcr->setup(1, 40, rhs);
@@ -1504,7 +1510,7 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
                                                         
     // form rhs
     rhs = -oneReal*DX[iMode] - kImag*DE[iMode];
-                                                        
+    HOpC->applyT(rhs, delW);                                                      
     // solve
     com->fprintf(stderr, " ... Solving for mode %d, w/rhs norm %e\n", iMode+1, rhs.norm());
                                                         
@@ -1548,7 +1554,7 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
                                                                
   DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
-  DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
+  //DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> prevWtemp(domain.getNodeDistInfo());
   Vec3D x0(0.0, 0.0, 0.0);
                                                                
