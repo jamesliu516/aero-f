@@ -917,8 +917,8 @@ LocalRiemann()
     fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
 
     tabulation = new SparseGrid;
-    tabulation->readFromFile();
-    tabulation->scaleGrid(refIn, refOut);
+    tabulation->readFromFile(refIn, refOut);
+    //tabulation->scaleGrid(refIn, refOut);
   }else if(riemannComputationType == MultiFluidData::TABULATION5){
 
     double *refIn = new double[5]; double *refOut = new double[2];
@@ -933,8 +933,8 @@ LocalRiemann()
     refOut[1] = iod.ref.rv.density;
     //fprintf(stdout, "adim SparseGrid %e %e %e %e %e %e %e\n", refIn[0],refIn[1],refIn[2],refIn[3],refIn[4],refOut[0],refOut[1]);
     tabulation = new SparseGrid;
-    tabulation->readFromFile();
-    tabulation->scaleGrid(refIn, refOut);
+    tabulation->readFromFile(refIn, refOut);
+    //tabulation->scaleGrid(refIn, refOut);
   }
 }
 

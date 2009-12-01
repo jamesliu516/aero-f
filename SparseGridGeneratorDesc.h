@@ -69,8 +69,9 @@ public:
       double *parameters = new double;
       parameters[0] = 1.0;
       if(true){
-        SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters);
-        sparseGrid.scaleGrid(refIn, refOut); // division operation
+        SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
+        //SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters);
+        //sparseGrid.scaleGrid(refIn, refOut); // division operation
         fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 2\n");
         //sparseGrid.tabulate(functionTest);
         //sparseGrid.tabulate(&SparseGridGeneratorDesc::memberFunctionTest,*this);
@@ -80,8 +81,9 @@ public:
       fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 3\n");
 
       SparseGrid sparseGridCopy;
-      sparseGridCopy.readFromFile();
-      sparseGridCopy.scaleGrid(refIn, refOut);
+      sparseGridCopy.readFromFile(refIn, refOut);
+      //sparseGridCopy.readFromFile();
+      //sparseGridCopy.scaleGrid(refIn, refOut);
       int numTest = 10;
       double **output = new double *[numTest+1];
       double **coord = new double *[numTest+1];
@@ -118,7 +120,6 @@ public:
       lriemannGasJwl->setReferenceDensity(ioData.eqs.fluidModel2.jwlModel.rhoref);
       double *parameters = new double;
       parameters[0] = 1.0;
-      SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters);
       //double *refIn = new double[5]; double *refOut = new double[1]; // 1output
       double *refIn = new double[5]; double *refOut = new double[2]; // 2outputs
       refIn[0] = ioData.ref.rv.density;
@@ -129,6 +130,7 @@ public:
       refOut[0] = ioData.ref.rv.density;
       refOut[1] = ioData.ref.rv.density; // 2outputs
       fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
+      SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
 
 
       /*double *testcoord = new double[6];
@@ -144,14 +146,14 @@ public:
 
 
       if(true){
-        sparseGrid.scaleGrid(refIn, refOut); // division operation
         sparseGrid.tabulate(&LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl);
         sparseGrid.printToFile(refIn, refOut); // multiplication operation
       }
 
       SparseGrid sparseGridCopy;
-      sparseGridCopy.readFromFile();
-      sparseGridCopy.scaleGrid(refIn, refOut);
+      sparseGridCopy.readFromFile(refIn, refOut);
+      //sparseGridCopy.readFromFile();
+      //sparseGridCopy.scaleGrid(refIn, refOut);
       // Testing the grid randomly
       int numTest = 50;
       double **output = new double *[numTest];
