@@ -88,10 +88,11 @@ void SparseGrid::initialize(FnType fn){
   nSubGrids = 1;
   for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
 
-  double firstPoint[dim]; double res[out];
+  double firstPoint[dim]; double scaledCoord[dim]; double res[out];
   for(int idim=0; idim<dim; idim++) 
-    firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
-  fn(firstPoint,res,parameters);
+    firstPoint[idim] = 0.5;
+  scale(firstPoint,scaledCoord, 0);
+  fn(scaledCoord,res,parameters);
   for(int iout=0; iout<out; iout++){
     surplus[0][iout] = res[iout];
     fnmin[iout]      = res[iout];
@@ -174,7 +175,7 @@ void SparseGrid::test(FnType fn){
   Coord firstPoint; double res;
   for(int idim=0; idim<dim; idim++) 
     firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
-  fn(firstPoint[0],firstPoint[1],0.0,res);
+  evaluateFunction(firstPoint[0],firstPoint[1],0.0,res,fn);
   for(int iout=0; iout<out; iout++) surplus[0][iout] = res;
   
   for(int iPts=0; iPts<nPoints; iPts++)

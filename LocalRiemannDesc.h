@@ -914,8 +914,7 @@ LocalRiemann()
     fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
 
     tabulation = new SparseGrid;
-    tabulation->readFromFile();
-    tabulation->scaleGrid(refIn, refOut);
+    tabulation->readFromFile(refIn, refOut);
   }
 }
 

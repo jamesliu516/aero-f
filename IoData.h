@@ -796,14 +796,15 @@ struct SparseGridData {
   double absAccuracy;
   double dimAdaptDegree;
 
-  double range1min, range1max;
-  double range2min, range2max;
-  double range3min, range3max;
-  double range4min, range4max;
-  double range5min, range5max;
-  double range6min, range6max;
+  double range1min, range1max, mapBaseValue1;
+  double range2min, range2max, mapBaseValue2;
+  double range3min, range3max, mapBaseValue3;
+  double range4min, range4max, mapBaseValue4;
+  double range5min, range5max, mapBaseValue5;
+  double range6min, range6max, mapBaseValue6;
   typedef double Range[2];
   Range *range;
+  double *mapBaseValue;
 
   int numOutputs;
   int numInputs;
