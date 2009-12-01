@@ -138,7 +138,7 @@ void LocalRiemann::rarefactionJWL(double phi,
     riemannInvariantGeneral1stOrder(in,res1,&phi);
   }else if(type == MultiFluidData::RK2){
     riemannInvariantGeneral2ndOrder(in,res1,&phi);
-  }else if(type == MultiFluidData::TABULATION){
+  }else if(type == MultiFluidData::TABULATION2){
     riemannInvariantGeneralTabulation(in,res1);
   }
   in[0] = 1.0/v;
@@ -147,7 +147,7 @@ void LocalRiemann::rarefactionJWL(double phi,
     riemannInvariantGeneral1stOrder(in,res2,&phi);
   else if(type == MultiFluidData::RK2)
     riemannInvariantGeneral2ndOrder(in,res2,&phi);
-  else if(type == MultiFluidData::TABULATION)
+  else if(type == MultiFluidData::TABULATION2)
     riemannInvariantGeneralTabulation(in,res2);
 
   u = u1 - phi*(res2[0]-res1[0]);

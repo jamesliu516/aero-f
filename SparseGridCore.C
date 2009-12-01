@@ -322,6 +322,14 @@ void SparseGrid::scale(const double *subGrid, double *scaledCoord, const int op)
         scaledCoord[i] = (subGrid[i]-range[i][0])/(range[i][1]-range[i][0]);
       else scaledCoord[i] = 0.0;
 
+  /*fprintf(stdout, "SparseGrid scaling: (");
+  for(int i=0; i<dim; i++)
+    fprintf(stdout, "%e ", subGrid[i]);
+  fprintf(stdout, ") -> (");
+  for(int i=0; i<dim; i++)
+    fprintf(stdout, "%e ", scaledCoord[i]);
+  fprintf(stdout, ")\n");
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -588,6 +596,11 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
         surplus[iPts][iout] /= refOut[iout];
       }
   }
+
+  fprintf(stdout, "SparseGrid range = ");
+  for(int idim=0; idim<dim; idim++)
+    fprintf(stdout, "[%e %e] ", range[idim][0],range[idim][1]);
+  fprintf(stdout, "\n");
 
 }
 

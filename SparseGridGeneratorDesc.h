@@ -119,13 +119,15 @@ public:
       double *parameters = new double;
       parameters[0] = 1.0;
       SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters);
-      double *refIn = new double[5]; double *refOut = new double[1];
+      //double *refIn = new double[5]; double *refOut = new double[1]; // 1output
+      double *refIn = new double[5]; double *refOut = new double[2]; // 2outputs
       refIn[0] = ioData.ref.rv.density;
       refIn[1] = ioData.ref.rv.pressure;
       refIn[2] = ioData.ref.rv.density;
       refIn[3] = ioData.ref.rv.pressure;
       refIn[4] = ioData.ref.rv.velocity;
       refOut[0] = ioData.ref.rv.density;
+      refOut[1] = ioData.ref.rv.density; // 2outputs
       fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
 
 
@@ -155,7 +157,8 @@ public:
       double **output = new double *[numTest];
       double **coord = new double *[numTest];
       for(int iTest=0; iTest<numTest; iTest++){
-        output[iTest] = new double[1];
+        //output[iTest] = new double[1]; // 1output
+        output[iTest] = new double[2]; // 2outputs
         coord[iTest]  = new double[5];
       }
       for(int iTest=0; iTest<numTest; iTest++){
@@ -167,8 +170,10 @@ public:
       double *exact = new double;
       for(int iTest=0; iTest<numTest; iTest++){
         lriemannGasJwl->eriemanngj_wrapper(coord[iTest],exact,parameters);
-        fprintf(stdout, "interpolation/exact output is %e/%e and relative error is %e\n", 
-                output[iTest][0], exact[0], (exact[0]-output[iTest][0])/exact[0]);
+        //fprintf(stdout, "interpolation/exact output is %e/%e and relative error is %e\n", 
+        //        output[iTest][0], exact[0], (exact[0]-output[iTest][0])/exact[0]);  // 1output
+        fprintf(stdout, "interpolation/exact output is (%e/%e, %e/%e) and relative error is (%e, %e)\n", 
+                output[iTest][0], exact[0], output[iTest][1], exact[1], (exact[0]-output[iTest][0])/exact[0], (exact[1]-output[iTest][1])/exact[1]); // 2outputs
       }
       /*coord[0][0] = 6.6e-1;
       coord[0][1] = 2.65e-2;
@@ -195,7 +200,8 @@ public:
       output = new double *[numTest];
       coord = new double *[numTest];
       for(int iTest=0; iTest<numTest; iTest++){
-        output[iTest] = new double[1];
+        //output[iTest] = new double[1]; // 1output
+        output[iTest] = new double[2]; // 2outputs
         coord[iTest]  = new double[5];
       }
       int nIntervals = 5;
@@ -227,11 +233,13 @@ public:
       sparseGridCopy.interpolate(numTest, coord, output);
       double **exactt = new double *[numTest];
       for(int iTest=0; iTest<numTest; iTest++){
-        exactt[iTest] = new double[1];
+        //exactt[iTest] = new double[1]; // 1output
+        exactt[iTest] = new double[2]; // 1output
         lriemannGasJwl->eriemanngj_wrapper(coord[iTest],exactt[iTest],parameters);
       }
       for(int iTest=0; iTest<numTest; iTest++)
-        fprintf(stdout, "%d %e %e %e %e %e %e %e %e\n", iTest, coord[iTest][0], coord[iTest][1], coord[iTest][2], coord[iTest][3], coord[iTest][4], output[iTest][0], exactt[iTest][0], (exactt[iTest][0]-output[iTest][0])/exactt[iTest][0]);
+        //fprintf(stdout, "%d %e %e %e %e %e %e %e %e\n", iTest, coord[iTest][0], coord[iTest][1], coord[iTest][2], coord[iTest][3], coord[iTest][4], output[iTest][0], exactt[iTest][0], (exactt[iTest][0]-output[iTest][0])/exactt[iTest][0]); // 1output
+        fprintf(stdout, "%d %e %e %e %e %e (%e,%e) (%e,%e) (%e,%e)\n", iTest, coord[iTest][0], coord[iTest][1], coord[iTest][2], coord[iTest][3], coord[iTest][4], output[iTest][0], output[iTest][1], exactt[iTest][0], exactt[iTest][1], (exactt[iTest][0]-output[iTest][0])/exactt[iTest][0],(exactt[iTest][1]-output[iTest][1])/exactt[iTest][1]); // 2outputs
       
       for(int iTest=0; iTest<numTest; iTest++){
         delete [] output[iTest];
@@ -290,7 +298,7 @@ public:
       }
       delete [] exacttt; delete [] output; delete [] coord;
       }
-      if(true){
+      if(false){
       fprintf(stdout, "\n\n... Testing the grid points and the missing grid points ...\n");
       int coef[5] = {1,0,1,0,0};
       for(int testnumber=0; testnumber<13; testnumber++){

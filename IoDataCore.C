@@ -1491,8 +1491,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
              "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 3,
-             "FirstOrder", 0, "SecondOrder", 1, "Tabulation", 2);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 4,
+             "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
+             "TabulationRiemannProblem", 3);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);

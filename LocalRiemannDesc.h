@@ -5,7 +5,7 @@
 #include <VarFcn.h>
 #include "IoData.h"
 #include "SparseGrid.h"
-#include <math.h>
+#include <cmath>
 
 //----------------------------------------------------------------------------
 
@@ -881,6 +881,9 @@ public:
   void eriemanngj_wrapper(double *in, double *res, double *phi);
 
 private:
+  bool eriemanngj_selector(double rhol, double ul, double pl, 
+                           double rhor, double ur, double pr, 
+                           double &pi, double &ui, double &rhoil, double &rhoir);
   bool eriemanngj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
                   double &pi, double &ui, double &rhoil, double &rhoir);
@@ -905,7 +908,7 @@ LocalRiemann()
 {
   vf_ = vf;
   riemannComputationType = iod.mf.riemannComputation;
-  if(riemannComputationType == MultiFluidData::TABULATION){
+  if(riemannComputationType == MultiFluidData::TABULATION2){
     double *refIn = new double[2]; double *refOut = new double[1];
     refIn[0] = iod.ref.rv.density;
     //refIn[1] = iod.ref.rv.entropy;
@@ -913,6 +916,22 @@ LocalRiemann()
     refOut[0] = iod.ref.rv.velocity;
     fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
 
+    tabulation = new SparseGrid;
+    tabulation->readFromFile();
+    tabulation->scaleGrid(refIn, refOut);
+  }else if(riemannComputationType == MultiFluidData::TABULATION5){
+
+    double *refIn = new double[5]; double *refOut = new double[2];
+
+    refIn[0] = iod.ref.rv.density;
+    refIn[1] = iod.ref.rv.pressure;
+    refIn[2] = iod.ref.rv.density;
+    refIn[3] = iod.ref.rv.pressure;
+    refIn[4] = iod.ref.rv.velocity;
+
+    refOut[0] = iod.ref.rv.density;
+    refOut[1] = iod.ref.rv.density;
+    //fprintf(stdout, "adim SparseGrid %e %e %e %e %e %e %e\n", refIn[0],refIn[1],refIn[2],refIn[3],refIn[4],refOut[0],refOut[1]);
     tabulation = new SparseGrid;
     tabulation->readFromFile();
     tabulation->scaleGrid(refIn, refOut);
@@ -950,7 +969,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, Phij);
     P_1  = vf_->getPressure(Vi, Phii);
 
-    eriemanngj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
     epsi = 1;
     epsj = -1;
 
@@ -974,7 +993,7 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, Phii);
     P_1  = vf_->getPressure(Vj, Phij);
 
-    eriemanngj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
     epsi = -1;
     epsj = 1;
 
@@ -1014,7 +1033,53 @@ void LocalRiemannGfmparGasJWL::eriemanngj_wrapper(double *in, double *res, doubl
 {
 
   double dummy1, dummy2, dummy3;
-  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, dummy3, res[0]);
+  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1]);
+
+}
+
+//----------------------------------------------------------------------------
+inline
+bool LocalRiemannGfmparGasJWL::eriemanngj_selector(double rhol, double ul, double pl, 
+                                                   double rhor, double ur, double pr, 
+                                                   double &pi, double &ui,  
+                                                   double &rhoil, double &rhoir)
+{
+
+  if(riemannComputationType==MultiFluidData::TABULATION5){
+    double *in  = new double[5]; in[0]=rhol;in[1]=pl;in[2]=rhor;in[3]=pr;in[4]=ur-ul;
+    double *res = new double[2]; res[0]=0.0;res[1]=0.0;
+    tabulation->interpolate(1,&in,&res);
+    rhoil = fmax(res[0],0.0); rhoir = fmax(res[1],0.0);
+    double d[2]; //dummy variable
+    double uir, pir, uil, pil;
+
+    double omegal = vf_->getOmega();
+    double omp1ooml = (omegal+1.0)/omegal;
+    double frhol = vf_->computeFrho(rhol,-1.0);
+    double gamr = vf_->getGamma();
+    double prefr = vf_->getPressureConstant();
+    double gam1r = vf_->getGamma()-1.0;
+    double gamogam1r = gamr/gam1r;
+    double Vr[5] = { rhor, ur, 0.0, 0.0, pr };
+    double cr = vf_->computeSoundSpeed(Vr,1.0);
+
+    if( rhoil > rhol){
+      double frhoil  = vf_->computeFrho(rhoil,-1.0);
+      double frhopil = vf_->computeFrhop(rhoil,-1.0);
+      shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1]);
+    }else
+      rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1], riemannComputationType,1);
+    if( rhoir > rhor)
+      shockGAS(1.0, gamogam1r, prefr, 1.0/rhor, ur, pr, 1.0/rhoir, uir, pir, d[0], d[1]);
+    else
+      rarefactionGAS(1.0, gamr, gam1r, prefr, cr, 1.0/rhor, ur, pr, 1.0/rhoir, uir, pir, d[0], d[1]);
+
+    ui = 0.5*(uil+uir);
+    pi = 0.5*(pil+pir);
+    // not checking for vacuum!
+  }
+  else
+    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir);
 
 }
 
@@ -1042,8 +1107,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double eps = 1.e-6;
   int MaxIts = 400;
   int it = 0;
-  double relaxationFactorJwl = 0.5; // must be between 0 and 1
-  double relaxationFactorGas = 0.5; // must be between 0 and 1
+  double relaxationFactorJwl = 0.85; // must be between 0 and 1
+  double relaxationFactorGas = 0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
@@ -1069,9 +1134,11 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
   double vacuumValues[6]; /* rhoil, uil, pil, rhoir, uir, pir */
   if(vacuum(rhol,ul,pl,rhor,ur,pr,vacuumValues)){
-    fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", vacuumValues[0], vacuumValues[3]);
-    fprintf(stdout, "uil_vac   = %e and uir_vac   = %e\n", vacuumValues[1], vacuumValues[4]);
-    fprintf(stdout, "pil_vac   = %e and pir_vac   = %e\n", vacuumValues[2], vacuumValues[5]);
+    if(verbose>-1){
+      fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", vacuumValues[0], vacuumValues[3]);
+      fprintf(stdout, "uil_vac   = %e and uir_vac   = %e\n", vacuumValues[1], vacuumValues[4]);
+      fprintf(stdout, "pil_vac   = %e and pir_vac   = %e\n", vacuumValues[2], vacuumValues[5]);
+    }
     rhoil = vacuumValues[0];
     rhoir = vacuumValues[3];
     ui    = 0.5*(vacuumValues[1]+vacuumValues[4]);
@@ -1212,10 +1279,10 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   pi    = 0.5*(pil+pir);
 
   if(convergence){
-    fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
+    if(verbose>-1) fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
   }else{
-    fprintf(stdout, "riemann solver did not converged\n");
-    fprintf(stdout, "Warning: solution will be state given by vacuum\n");
+    if(verbose>-1) fprintf(stdout, "riemann solver did not converged\n");
+    if(verbose>-1) fprintf(stdout, "Warning: solution will be state given by vacuum\n");
     rhoil = vacuumValues[0];
     rhoir = vacuumValues[3];
     uil   = vacuumValues[1];
@@ -1224,7 +1291,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     pir   = vacuumValues[5];
     ui    = 0.5*(uil+uir);
     pi    = 0.5*(pil+pir);
-    fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
+    if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
   }
 
   if(verbose>-1){
@@ -1264,7 +1331,7 @@ bool LocalRiemannGfmparGasJWL::vacuum(const double rhol, const double ul, const 
 // WARNING: not done because it would be too costly. Way things are computed
 //          defines a zero sg-density for JWL-density above max3
 
-  fprintf(stdout, "min1 = %e - min2 = %e\n", min1, min2);
+  //fprintf(stdout, "min1 = %e - min2 = %e\n", min1, min2);
 
 // compute SG-density corresponding to JWL-density-bound = max(0,min1,min2)
   double rhoil_vac, rhoir_vac;
@@ -1281,14 +1348,14 @@ bool LocalRiemannGfmparGasJWL::vacuum(const double rhol, const double ul, const 
     rhoil_vac = min1>min2 ? min1 : min2;
     rhoir_vac = min1>min2 ? pressureEqGasDensity(rhor,pr,rhol,pl,rhoil_vac) : 1.0e-14;
   }
-  fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", rhoil_vac, rhoir_vac);
+  //fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", rhoil_vac, rhoir_vac);
 
   double uil,pil,duil,dpil,uir,pir,duir,dpir;
   rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil_vac, uil, pil, duil, dpil);
   double Vr[5] = { rhor, ur, 0.0, 0.0, pr};
   double cr = vf_->computeSoundSpeed(Vr,1.0);
   rarefactionGAS(1.0, vf_->getGamma(), vf_->getGamma()-1.0, vf_->getPressureConstant(), cr, 1.0/rhor, ur, pr, 1.0/rhoir_vac, uir, pir, duir, dpir);
-  fprintf(stdout, "uil_vac = %e and uir_vac = %e\n", uil,uir);
+  //fprintf(stdout, "uil_vac = %e and uir_vac = %e\n", uil,uir);
 
   vacuumValues[0] = rhoil_vac;
   vacuumValues[1] = uil;
