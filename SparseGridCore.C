@@ -41,6 +41,8 @@ SparseGrid::SparseGrid(){
   fnmin = 0;
   fnmax = 0;
 
+  logMap = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -67,12 +69,16 @@ SparseGrid::~SparseGrid(){
   }
   delete [] fnmin;
   delete [] fnmax;
+  
+  for(int i=0; i<dim; i++) delete logMap[i];
+  delete [] logMap;
 
 }
 
 //------------------------------------------------------------------------------
 
-SparseGrid::SparseGrid(SparseGridData &data, double *param){
+SparseGrid::SparseGrid(SparseGridData &data, double *param, 
+                       const double *refIn, const double *refOut){
 
   parameters = param;
 
@@ -84,10 +90,18 @@ SparseGrid::SparseGrid(SparseGridData &data, double *param){
   minPoints = data.minPoints;
   absAccuracy = data.absAccuracy;
   relAccuracy = data.relAccuracy;
+  
+  logMap = new LogarithmicMapping *[dim];
   range = new Range[dim];
   for(int idim=0; idim<dim; idim++){
+  	if(data.mapBaseValue[idim] > 1.0)
+  	  logMap[idim] = new LogarithmicMapping(data.mapBaseValue[idim]);
+    else
+  	  logMap[idim] = 0;
+  	
     range[idim][0] = data.range[idim][0];
     range[idim][1] = data.range[idim][1];
+    // WARNING: logMap is applied later, in scaleGrid(...)
   }
   dimAdaptDegree = data.dimAdaptDegree;
 
@@ -114,6 +128,9 @@ SparseGrid::SparseGrid(SparseGridData &data, double *param){
   
   fnmin = new double[out];
   fnmax = new double[out];
+  
+  scaleGrid(refIn, refOut);
+
 }
 
 //------------------------------------------------------------------------------
@@ -311,7 +328,22 @@ void SparseGrid::tensorize(double **res, double ** coordDim,
 
 void SparseGrid::scale(const double *subGrid, double *scaledCoord, const int op) const{
 
-  if(op==0)
+  if(op==0) // from SparseGrid scale (0,1) to physical non-dimensional scale
+    for(int i=0; i<dim; i++){
+      scaledCoord[i] = subGrid[i]*(range[i][1]-range[i][0])+range[i][0];
+      if(logMap[i]) scaledCoord[i] = logMap[i]->invMap(scaledCoord[i]);
+    }
+  else if(op==1) // from log scale (rangemin,rangemax) to SparseGrid scale (0,1)
+    for(int i=0; i<dim; i++)
+      scaledCoord[i] = (subGrid[i]-range[i][0])/(range[i][1]-range[i][0]);
+  else if(op==2) // from non-dimensional physical scale to SparseGrid scale (0,1)
+    for(int i=0; i<dim; i++){
+      double temp = subGrid[i];
+      if(logMap[i]) temp = logMap[i]->map(subGrid[i]);
+      scaledCoord[i] = (temp-range[i][0])/(range[i][1]-range[i][0]);
+    }
+    
+  /*if(op==0)
     for(int i=0; i<dim; i++)
       if(range[i][1]>range[i][0])
         scaledCoord[i] = subGrid[i]*(range[i][1]-range[i][0])+range[i][0];
@@ -321,15 +353,7 @@ void SparseGrid::scale(const double *subGrid, double *scaledCoord, const int op)
       if(range[i][1]>range[i][0])
         scaledCoord[i] = (subGrid[i]-range[i][0])/(range[i][1]-range[i][0]);
       else scaledCoord[i] = 0.0;
-
-  /*fprintf(stdout, "SparseGrid scaling: (");
-  for(int i=0; i<dim; i++)
-    fprintf(stdout, "%e ", subGrid[i]);
-  fprintf(stdout, ") -> (");
-  for(int i=0; i<dim; i++)
-    fprintf(stdout, "%e ", scaledCoord[i]);
-  fprintf(stdout, ")\n");
-*/
+  */
 }
 
 //------------------------------------------------------------------------------
@@ -534,7 +558,7 @@ void SparseGrid::interpolate(const int numRes, double **coord, double **res){
   double scaledCoord[dim];
   for(int iPts=0; iPts<numRes; iPts++){
     //fprintf(stdout, "# SparseGrid::interpolate using coord (%e %e)\n", coord[iPts][0], coord[iPts][1]);
-    scale(coord[iPts],scaledCoord, 1);
+    scale(coord[iPts],scaledCoord, 2);
     if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
     singleInterpolation(scaledCoord, res[iPts]);
   }
@@ -582,6 +606,18 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
       range[idim][1] /= refIn[idim]; // max of range
       //fprintf(stdout, "# SparseGrid::range = [ %e %e ]\n", range[idim][0], range[idim][1]);
     }
+    
+  for(int idim=0; idim<dim; idim++){
+  	if(logMap[idim]){
+  	  fprintf(stdout, "logMap for dim %d\n", idim);
+      if(range[idim][0] <= 0.0){
+        fprintf(stdout, "*** Error: SparseGrid is being remapped (log)\n");
+        exit(1);
+      }
+      range[idim][0] = logMap[idim]->map(range[idim][0]);
+      range[idim][1] = logMap[idim]->map(range[idim][1]);
+  	}
+  }
 
   if(refOut)
     if(refOut[0]>0) absAccuracy /= refOut[0];
@@ -637,16 +673,33 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
 
   // characteristics used to create the sparse grid
   fprintf(fpSPARSEGRID, "%d %d\n", dim, out);
+  
+  for(int idim=0; idim<dim; idim++){
+  	if(logMap[idim])
+      fprintf(fpSPARSEGRID, "%e ", logMap[idim]->invMap(1.0));
+    else
+      fprintf(fpSPARSEGRID, "%e ", 0.0);
+  }
+  fprintf(fpSPARSEGRID, "\n");
+  
   fprintf(fpSPARSEGRID, "%d %d\n", minPoints, maxPoints);
   if(refOut)
     fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", refOut[0]*absAccuracy, relAccuracy, dimAdaptDegree);
   else
     fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", absAccuracy, relAccuracy, dimAdaptDegree);
   for(int idim=0; idim<dim; idim++){
+  	double temp[2];
+  	if(logMap[idim]){
+      temp[0] = logMap[idim]->invMap(range[idim][0]);
+      temp[1] = logMap[idim]->invMap(range[idim][1]);
+  	}else{
+      temp[0] = range[idim][0];
+      temp[1] = range[idim][1];
+  	}
     if(refIn)
-      fprintf(fpSPARSEGRID, "%.12e %.12e ", range[idim][0]*refIn[idim], range[idim][1]*refIn[idim]);
+      fprintf(fpSPARSEGRID, "%.12e %.12e ", temp[0]*refIn[idim], temp[1]*refIn[idim]);
     else
-      fprintf(fpSPARSEGRID, "%.12e %.12e ", range[idim][0], range[idim][1]);
+      fprintf(fpSPARSEGRID, "%.12e %.12e ", temp[0], temp[1]);
   }
   fprintf(fpSPARSEGRID, "\n");
 
@@ -676,7 +729,7 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
 
 //------------------------------------------------------------------------------
 
-void SparseGrid::readFromFile(){
+void SparseGrid::readFromFile(const double *refIn, const double *refOut){
 
   char mystring [100];
   FILE *fpSPARSEGRID = fopen("SparseGrid", "r");
@@ -690,12 +743,33 @@ void SparseGrid::readFromFile(){
 
   // characteristics used to create the sparse grid
   fscanf(fpSPARSEGRID, "%d %d\n", &dim, &out);
+  
+  if(logMap)
+    for(int idim=0; idim<dim; idim++)
+      delete logMap[idim];
+  delete [] logMap;
+  	
+  logMap = new LogarithmicMapping *[dim];
+  for(int idim=0; idim<dim; idim++){
+  	double temp;
+  	fscanf(fpSPARSEGRID, "%lf ", &temp); 
+  	if(temp > 0.0)
+      logMap[idim] = new LogarithmicMapping(temp);
+    else if(temp == 0.0)
+      logMap[idim] = 0;
+    else{
+      fprintf(stdout, "*** Error: negative base for logarithmic mapping\n");
+      exit(1);
+    }
+  }
 
   fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
   fscanf(fpSPARSEGRID, "%lf %lf %lf", &absAccuracy, &relAccuracy, &dimAdaptDegree);
+  delete [] range;
   range = new Range[dim];
   for(int idim=0; idim<dim; idim++)
     fscanf(fpSPARSEGRID, "%lf %lf ", &(range[idim][0]), &(range[idim][1]));
+  // WARNING: just like for constructor, logMap is applied later, in scaleGrid(...)
 
   // the sparse grid data
   fscanf(fpSPARSEGRID, "%d", &nSubGrids);
@@ -719,6 +793,8 @@ void SparseGrid::readFromFile(){
   //fill in the rest
   sizeSurplus = nPoints;
   sizeMultiIndex = nSubGrids;
+  
+  scaleGrid(refIn, refOut);
 
 }
 
@@ -1011,7 +1087,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
     fprintf(stdout, "### singleInterpolation -- nSubGrids = %d\n", nSubGrids);
     for(int subGrid=0; subGrid<nSubGrids; subGrid++){
       for(int debugDim=0; debugDim<dim; debugDim++)
-      fprintf(stdout, "###      for multiIndex[%d][%d] = %d\n", subGrid, debugDim, multiIndex[subGrid][debugDim]);
+        if(verbose>4) fprintf(stdout, "###      for multiIndex[%d][%d] = %d\n", subGrid, debugDim, multiIndex[subGrid][debugDim]);
     }
   }
 

@@ -6,6 +6,7 @@ COMMENTS on Sparse Grids.
 Clenshaw-Curtis grid
 multilinear functions
 dimensional adaptivity
+linear and/or logarithmic mappings
 
 Here, sparse grids are used to tabulate some target functions
 with multilinear basis functions. Dimension adaptivity is
@@ -40,6 +41,7 @@ online
 ------------------------------------------------------------------------------*/
 
 #include "IoData.h"
+#include <cmath>
 
 //------------------------------------------------------------------------------
 
@@ -120,6 +122,18 @@ class SparseGrid {
                           // (same indexation as multiIndex and
                           // points to multiIndex)
                           // first the forward indices and then the backward ones
+                          
+  class LogarithmicMapping{
+  	int base_;
+  	
+  public:
+    LogarithmicMapping(double base){ base_ = base; }
+    ~LogarithmicMapping()          { }
+    
+    double map(double value)   { return log(value)/log(base_); }
+    double invMap(double value){ return pow(base_,value);      }
+  };
+  LogarithmicMapping **logMap;
 
 protected:
   //Adapter function object in order to tabulate member functions of a class
@@ -144,25 +158,23 @@ protected:
 public:
   SparseGrid();
   ~SparseGrid();
-  SparseGrid(SparseGridData &data, double *param);
+  SparseGrid(SparseGridData &data, double *param,
+             const double *refIn, const double *refOut);
 
-  // one of the two following functions in order to create a tabulation
+  // use one of the two following functions in order to create a tabulation
   // choice depends if it is a member function of a class or not
   template<typename T>
   void tabulate(void (T::*fn)(double *, double *, double *), T &object);
   
   template<typename FnType>
   void tabulate(FnType fn);
-  
-  // scales inputs and outputs
-  void scaleGrid(const double *refIn, const double *refOut);
 
   // prints the tabulation in an ASCII file
   // which can be later read by readFromFile()
   void printToFile(const double *refIn, const double *refOut) const;
 
   // functions to perform interpolation on sparse grid
-  void readFromFile();
+  void readFromFile(const double *refIn, const double *refOut);
   void interpolate(const int numRes, double **coord, double **res);
 
   // test function for debugging
@@ -172,6 +184,9 @@ public:
 private:
   SparseGrid(const SparseGrid &sparseGrid); // to prevent copying such objects
   SparseGrid& operator=(const SparseGrid &sparseGrid);
+  
+  // scales inputs and outputs
+  void scaleGrid(const double *refIn, const double *refOut);
 
   template<typename FnType>
   void initialize(FnType fn);
