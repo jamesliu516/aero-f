@@ -1,7 +1,5 @@
 #include "SparseGrid.h"
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 
 //------------------------------------------------------------------------------
@@ -133,6 +131,23 @@ SparseGrid::SparseGrid(SparseGridData &data, double *param,
 
 }
 
+//------------------------------------------------------------------------------
+
+void SparseGrid::newParameters(SparseGridData &data, double *param){
+
+  parameters = param;
+
+  dim = data.numInputs;
+  out = data.numOutputs;
+  verbose = data.verbose;
+
+  maxPoints = data.maxPoints;
+  minPoints = data.minPoints;
+  absAccuracy = data.absAccuracy;
+  relAccuracy = data.relAccuracy;
+  
+}
+  
 //------------------------------------------------------------------------------
 
 int SparseGrid::currentSubGrid(bool &adaptivity){
@@ -557,7 +572,6 @@ void SparseGrid::interpolate(const int numRes, double **coord, double **res){
 
   double scaledCoord[dim];
   for(int iPts=0; iPts<numRes; iPts++){
-    //fprintf(stdout, "# SparseGrid::interpolate using coord (%e %e)\n", coord[iPts][0], coord[iPts][1]);
     scale(coord[iPts],scaledCoord, 2);
     if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
     singleInterpolation(scaledCoord, res[iPts]);
@@ -596,6 +610,13 @@ void SparseGrid::closestPointInRange(double *coord){
 
 void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
 
+  if(refOut && out>1){
+  	fprintf(stdout, "*** Warning: it is not recommended to create SparseGrids with more than 1 output and with output scaling factors\n");
+  	fprintf(stdout, "***        : if each dimension represents a different physical quantity,\n");
+  	fprintf(stdout, "***        : it is not obvious how to treat each one w.r.t. the others\n");
+  	fprintf(stdout, "***        : in particular, what does the scalar absolute accuracy mean?\n");
+  }
+  
   if(refIn && range)
     for(int idim=0; idim<dim; idim++){
       if(refIn[idim] == 0.0){
@@ -604,7 +625,6 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
       }
       range[idim][0] /= refIn[idim]; // min of range
       range[idim][1] /= refIn[idim]; // max of range
-      //fprintf(stdout, "# SparseGrid::range = [ %e %e ]\n", range[idim][0], range[idim][1]);
     }
     
   for(int idim=0; idim<dim; idim++){
@@ -619,18 +639,35 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
   	}
   }
 
-  if(refOut)
+  if(refOut){
     if(refOut[0]>0) absAccuracy /= refOut[0];
 
-  if(refOut && surplus){
-    for(int iPts=0; iPts<nPoints; iPts++)
-      for(int iout=0; iout<out; iout++){
-        if(refOut[iout] == 0.0){
-          fprintf(stdout, "*** Error: SparseGrid is being rescaled with factor 0!\n");
-          exit(1);
+    if(surplus){
+      for(int iPts=0; iPts<nPoints; iPts++){
+        for(int iout=0; iout<out; iout++){
+          if(refOut[iout] == 0.0){
+            fprintf(stdout, "*** Error: SparseGrid is being rescaled with factor 0!\n");
+            exit(1);
+          }
+          surplus[iPts][iout] /= refOut[iout];
         }
-        surplus[iPts][iout] /= refOut[iout];
       }
+    }
+    
+    if(error){
+      for(int subGrid=0; subGrid<nSubGrids; subGrid++)
+      	for(int iout=0; iout<out; iout++)
+      	  error[subGrid][iout]/= refOut[iout];
+    }
+    
+    if(fnmax)
+      for(int iout=0; iout<out; iout++)
+        fnmax[iout] /= refOut[iout];
+        
+    if(fnmin)
+      for(int iout=0; iout<out; iout++)
+        fnmin[iout] /= refOut[iout];
+        
   }
 
   fprintf(stdout, "SparseGrid range = ");
@@ -642,29 +679,42 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
 
 //------------------------------------------------------------------------------
 
-void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
+void SparseGrid::printToFile(const double *refIn, const double *refOut, const char *filename) const{
 
   // first check scaling values are strictly positive!
+  double *refIn_ = new double[dim];
+  for(int idim=0; idim<dim; idim++)
+    refIn_[idim] = 1.0;
+    
   if(refIn){
-    for(int idim=0; idim<dim; idim++)
+    for(int idim=0; idim<dim; idim++){
       if(refIn[idim]<=0.0){
         fprintf(stderr, "*** Error: Sparse Grid file was not written!\n");
         return;
       }
+      refIn_[idim] = refIn[idim];
+    }
   }
+  
+  double *refOut_ = new double[out];
+  for(int iout=0; iout<out; iout++)
+    refOut_[iout] = 1.0;
+  
   if(refOut){
-    for(int iout=0; iout<out; iout++)
+    for(int iout=0; iout<out; iout++){
       if(refOut[iout]<=0.0){
         fprintf(stderr, "*** Error: Sparse Grid file was not written!\n");
         return;
       }
+      refOut_[iout] = refOut[iout];
+    }
   }
 
   // print to file the number of subgrids and the corresponding multiIndex array
   //           and the number of points and the surpluses.
-  FILE *fpSPARSEGRID = fopen("SparseGrid", "w");
+  FILE *fpSPARSEGRID = fopen(filename, "w");
   if (!fpSPARSEGRID){
-    fprintf(stderr, "*** Error: could not open 'SparseGrid' file\n");
+    fprintf(stderr, "*** Error: could not open SparseGrid file\n");
     exit(1);
   }
 
@@ -683,10 +733,7 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
   fprintf(fpSPARSEGRID, "\n");
   
   fprintf(fpSPARSEGRID, "%d %d\n", minPoints, maxPoints);
-  if(refOut)
-    fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", refOut[0]*absAccuracy, relAccuracy, dimAdaptDegree);
-  else
-    fprintf(fpSPARSEGRID, "%.12e %.12e %.12e\n", absAccuracy, relAccuracy, dimAdaptDegree);
+  fprintf(fpSPARSEGRID, "%.15e %.15e %.15e %d\n", refOut_[0]*absAccuracy, relAccuracy, dimAdaptDegree, nAdaptivePoints);
   for(int idim=0; idim<dim; idim++){
   	double temp[2];
   	if(logMap[idim]){
@@ -696,10 +743,8 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
       temp[0] = range[idim][0];
       temp[1] = range[idim][1];
   	}
-    if(refIn)
-      fprintf(fpSPARSEGRID, "%.12e %.12e ", temp[0]*refIn[idim], temp[1]*refIn[idim]);
-    else
-      fprintf(fpSPARSEGRID, "%.12e %.12e ", temp[0], temp[1]);
+
+    fprintf(fpSPARSEGRID, "%.15e %.15e ", temp[0]*refIn_[idim], temp[1]*refIn_[idim]);
   }
   fprintf(fpSPARSEGRID, "\n");
 
@@ -714,12 +759,44 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
   fprintf(fpSPARSEGRID, "%d\n", nPoints);
   for(int ipts=0; ipts<nPoints; ipts++){
     for(int iout=0; iout<out; iout++){
-      if(refOut)
-        fprintf(fpSPARSEGRID, "%.12e ", surplus[ipts][iout]*refOut[iout]);
-      else
-        fprintf(fpSPARSEGRID, "%.12e ", surplus[ipts][iout]);
+      fprintf(fpSPARSEGRID, "%.15e ", surplus[ipts][iout]*refOut_[iout]);
     }
     fprintf(fpSPARSEGRID, "\n"); 
+  }
+  
+  // the data to later increase the number of points
+  for(int iout=0; iout<out; iout++)
+    fprintf(fpSPARSEGRID, "%.15e ", fnmin[iout]*refOut_[iout]);
+  fprintf(fpSPARSEGRID, "\n");
+  for(int iout=0; iout<out; iout++)
+    fprintf(fpSPARSEGRID, "%.15e ", fnmax[iout]*refOut_[iout]);
+  fprintf(fpSPARSEGRID, "\n");
+  
+  // error
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	for(int iout=0; iout<out; iout++){
+      fprintf(fpSPARSEGRID, "%.15e ", error[isubgrid][iout]*refOut_[iout]);
+  	}
+  	fprintf(fpSPARSEGRID, "\n");
+  }
+  
+  // active - activeError - activeCost
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	fprintf(fpSPARSEGRID, "%d %.15e %.15e\n", active[isubgrid], activeError[isubgrid], activeCost[isubgrid]);
+  }
+  
+  // activeHeapError
+  activeHeapError.printToFile(fpSPARSEGRID);
+  // activeHeapCost
+  activeHeapCost.printToFile(fpSPARSEGRID);
+  
+  // neighbour
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	for(int idim=0; idim<dim; idim++) // forward neighbour
+      fprintf(fpSPARSEGRID, "%d ", neighbour[isubgrid][idim]);
+    for(int idim=0; idim<dim; idim++) // backward neighbour
+      fprintf(fpSPARSEGRID, "%d ", neighbour[isubgrid][idim+dim]);
+  	fprintf(fpSPARSEGRID, "\n");
   }
   
   fflush(fpSPARSEGRID);
@@ -729,12 +806,12 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut) const{
 
 //------------------------------------------------------------------------------
 
-void SparseGrid::readFromFile(const double *refIn, const double *refOut){
+void SparseGrid::readFromFile(const double *refIn, const double *refOut, const char* filename){
 
   char mystring [100];
-  FILE *fpSPARSEGRID = fopen("SparseGrid", "r");
+  FILE *fpSPARSEGRID = fopen(filename, "r");
   if (!fpSPARSEGRID){
-    fprintf(stderr, "*** Error: could not open 'SparseGrid' file to read\n");
+    fprintf(stderr, "*** Error: could not open SparseGrid file '%s' to read\n", filename);
     exit(1);
   }
 
@@ -764,7 +841,7 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut){
   }
 
   fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
-  fscanf(fpSPARSEGRID, "%lf %lf %lf", &absAccuracy, &relAccuracy, &dimAdaptDegree);
+  fscanf(fpSPARSEGRID, "%lf %lf %lf %d", &absAccuracy, &relAccuracy, &dimAdaptDegree, &nAdaptivePoints);
   delete [] range;
   range = new Range[dim];
   for(int idim=0; idim<dim; idim++)
@@ -788,6 +865,49 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut){
       fscanf(fpSPARSEGRID, "%lf ", &(surplus[ipts][iout]));
   }
 
+  // the data to later increase the number of points
+  delete [] fnmin; delete [] fnmax;
+  fnmin = new double[out];
+  fnmax = new double[out];
+  for(int iout=0; iout<out; iout++)
+    fscanf(fpSPARSEGRID, "%lf ", &(fnmin[iout]));
+  for(int iout=0; iout<out; iout++)
+    fscanf(fpSPARSEGRID, "%lf ", &(fnmax[iout]));
+    
+  // error
+  error = new double *[nSubGrids];
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	error[isubgrid] = new double[out];
+  	for(int iout=0; iout<out; iout++){
+      fscanf(fpSPARSEGRID, "%lf ", &(error[isubgrid][iout]));
+  	}
+  }
+  
+  // active - activeError - activeCost
+  active      = new bool[nSubGrids];
+  activeError = new double[nSubGrids];
+  activeCost  = new double[nSubGrids];
+  int intToBool;
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	fscanf(fpSPARSEGRID, "%d %lf %lf", &intToBool, &(activeError[isubgrid]), &(activeCost[isubgrid]));
+  	active[isubgrid] = intToBool;
+  }
+  
+  // activeHeapError
+  activeHeapError.readFromFile(fpSPARSEGRID);
+  // activeHeapCost
+  activeHeapCost.readFromFile(fpSPARSEGRID);
+  
+  // neighbour
+  neighbour = new int *[nSubGrids];
+  for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
+  	neighbour[isubgrid] = new int[2*dim];
+  	for(int idim=0; idim<dim; idim++) // forward neighbour
+      fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim]));
+    for(int idim=0; idim<dim; idim++) // backward neighbour
+      fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim+dim]));
+  }
+  
   fclose(fpSPARSEGRID);
 
   //fill in the rest
@@ -981,6 +1101,28 @@ int SparseGrid::Heap::pop(const double *value){
   return res;
 
 
+}
+
+//------------------------------------------------------------------------------
+
+void SparseGrid::Heap::printToFile(FILE *file) const{
+
+  fprintf(file, "%d\n", numElem_);
+  for(int ielem=0; ielem<numElem_; ielem++){
+  	fprintf(file, "%d\n", elem_[ielem]);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void SparseGrid::Heap::readFromFile(FILE *file){
+	
+  fscanf(file, "%d", &numElem_);
+  size_ = numElem_;
+  elem_ = new int[numElem_];
+  for(int ielem=0; ielem<numElem_; ielem++){
+    fscanf(file, "%d", &(elem_[ielem]));
+  }
 }
 
 //------------------------------------------------------------------------------

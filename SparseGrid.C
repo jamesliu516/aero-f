@@ -7,20 +7,21 @@
 
 template<typename T>
 void SparseGrid::tabulate(void (T::*fn)(double *, double *, double *), 
-                          T &object){
+                          T &object, bool restart){
 
-    tabulate(Functor<T>(fn,object));
+    tabulate(Functor<T>(fn,object), restart);
 
 }
 
 //------------------------------------------------------------------------------
 
 template<typename FnType>
-void SparseGrid::tabulate(FnType fn){
+void SparseGrid::tabulate(FnType fn, bool restart){
 
   messages(1);
-      
-  initialize(fn);
+
+  if(!restart)
+    initialize(fn);
 
   bool success = false;
   bool adaptivity = false;
@@ -166,10 +167,10 @@ template<typename FnType>
 void SparseGrid::test(FnType fn){
 
 
-/*
+
   // to test evaluatePreviousInterpolation and evaluateFunctionOnGrid
   //initialize
-  nPoints   = 1;
+/*  nPoints   = 1;
   nSubGrids = 1;
   for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
   Coord firstPoint; double res;
