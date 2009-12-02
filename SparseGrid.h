@@ -6,7 +6,7 @@ COMMENTS on Sparse Grids.
 Clenshaw-Curtis grid
 multilinear functions
 dimensional adaptivity
-linear and/or logarithmic mappings
+linear and logarithmic mappings
 
 Here, sparse grids are used to tabulate some target functions
 with multilinear basis functions. Dimension adaptivity is
@@ -42,6 +42,8 @@ online
 
 #include "IoData.h"
 #include <cmath>
+#include <stdio.h>
+#include <stdlib.h>
 
 //------------------------------------------------------------------------------
 
@@ -105,6 +107,8 @@ class SparseGrid {
                                              // the rest was already sorted
     void insert(const int newElem, const double *value);
     int  pop(const double *value);
+    void printToFile(FILE *file) const;
+    void readFromFile(FILE *file);
   };
 
   Heap activeHeapError;   // heap that contains the indices of the active subgrids
@@ -160,21 +164,23 @@ public:
   ~SparseGrid();
   SparseGrid(SparseGridData &data, double *param,
              const double *refIn, const double *refOut);
+             
+  void newParameters(SparseGridData &data, double *param);
 
   // use one of the two following functions in order to create a tabulation
   // choice depends if it is a member function of a class or not
   template<typename T>
-  void tabulate(void (T::*fn)(double *, double *, double *), T &object);
+  void tabulate(void (T::*fn)(double *, double *, double *), T &object, bool restart=false);
   
   template<typename FnType>
-  void tabulate(FnType fn);
+  void tabulate(FnType fn, bool restart=false);
 
   // prints the tabulation in an ASCII file
   // which can be later read by readFromFile()
-  void printToFile(const double *refIn, const double *refOut) const;
+  void printToFile(const double *refIn, const double *refOut, const char *filename) const;
 
   // functions to perform interpolation on sparse grid
-  void readFromFile(const double *refIn, const double *refOut);
+  void readFromFile(const double *refIn, const double *refOut, const char *filename);
   void interpolate(const int numRes, double **coord, double **res);
 
   // test function for debugging
