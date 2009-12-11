@@ -2944,7 +2944,7 @@ void EmbeddedStructureInfo::setup(const char *name) {
   new ClassToken<EmbeddedStructureInfo> (ca, "dim2Treatment", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::dim2Treatment), 2,
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedStructureInfo> (ca, "forcedMotionMode", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::forcedMotionMode), 3,
-                                      "Heaving", 0, "ConstantVelocityHeaving", 1);
+                                      "Heaving", 0, "ConstantVelocityHeaving", 1, "Other", 2);
 
   new ClassDouble<EmbeddedStructureInfo>(ca, "maxTime", this, &EmbeddedStructureInfo::tMax);
   new ClassDouble<EmbeddedStructureInfo>(ca, "timeStep", this, &EmbeddedStructureInfo::dt);

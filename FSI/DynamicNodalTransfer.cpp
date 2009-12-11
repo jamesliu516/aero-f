@@ -112,7 +112,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   else if (iod.embeddedStructure.forcedMotionMode == EmbeddedStructureInfo::CONSTHEAVING)
     mode = 2;
   else 
-    mode = 1;
+    mode = 99; //for debugging use.
 
   tMax = iod.embeddedStructure.tMax;
   dt = iod.embeddedStructure.dt;
@@ -295,6 +295,17 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         Udot[i][0] = dx;
         Udot[i][1] = dy;
         Udot[i][2] = dz;
+      }
+    else if (mode==99) // for debugging use.
+      for(int i=0; i < nNodes; ++i) { // expand / shrink the structure in y-z plane w.r.t. the origin
+        double cosTheta = X[i][1]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+        double sinTheta = X[i][2]/sqrt(X[i][1]*X[i][1]+X[i][2]*X[i][2]);
+        U[i][0] = 0.0;
+        U[i][1] = dy*time*cosTheta;
+        U[i][2] = dz*time*sinTheta;
+        Udot[i][0] = 0.0;
+        Udot[i][1] = dy*cosTheta;
+        Udot[i][2] = dz*sinTheta;
       }
   }
 
