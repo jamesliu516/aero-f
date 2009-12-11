@@ -975,14 +975,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   if (RR) delete(RR); // delete temp residual
 
-// subdomain communication for riemann update values (cf ExactRiemannSolver.h)
-  if(it == 1){
-    DistSVec<double,dim> *rupdate = riemann.getRiemannUpdate();
-    DistVec<double> *weight= riemann.getRiemannWeight();
-    assemble(vecPat,*rupdate);
-    assemble(volPat,*weight);
-  }
-
 }
 
 //------------------------------------------------------------------------------
@@ -1082,15 +1074,6 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
   timer->addFiniteVolumeTermTime(t0);
 
   if (RR) delete(RR); // delete temp residual
-
-// subdomain communication for riemann update values (cf ExactRiemannSolver.h)
-  if(it == 1){
-    DistSVec<double,dim> *rupdate = riemann.getRiemannUpdate();
-    DistVec<double> *weight= riemann.getRiemannWeight();
-    assemble(vecPat,*rupdate);
-    assemble(volPat,*weight);
-  }
-
 }
 
 //------------------------------------------------------------------------------
@@ -3598,6 +3581,7 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
   }
+#pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
       Fs[is][0] += subFs[0][is][0];

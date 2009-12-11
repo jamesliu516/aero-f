@@ -4508,10 +4508,17 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   // for debuging: output the reconstructed surface.
   FILE* nodeFile = 0;
 //  FILE* nodeFile = fopen("recNodes.top","w");
+//  char nodeFileName[10] = "recNodes0";
+//  nodeFileName[8] += globSubNum;
+//  FILE* nodeFile = fopen(nodeFileName,"w");
   int nodeCount = 1;
   if(nodeFile) fprintf(nodeFile, "Nodes recNodes\n");
+
   FILE* elemFile = 0;
 //  FILE* elemFile = fopen("recElems.top","w");
+//  char elemFileName[10] = "recElems0";
+//  elemFileName[8] += globSubNum;
+//  FILE* elemFile = fopen(elemFileName,"w");
   int elemCount = 1;
   if(elemFile) fprintf(elemFile, "Elements recSurface using recNodes\n");
   // -----------------------------------------------
@@ -4549,10 +4556,10 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-        if (pStar[k]<1.0e-8) {
+//        if (pStar[k]<1.0e-8) {
 //          fprintf(stderr,"WARNING: Got a triangle. pStar = %e. \n", pStar[k]);
-          pStar[k] = pInfty;
-        }
+//          pStar[k] = pInfty;
+//        }
         pStar[k] -= pInfty;
       }
 
@@ -4609,9 +4616,9 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
         pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-        if (pStar[k]<1e-8) {
+//        if (pStar[k]<1e-8) {
 //          fprintf(stderr,"WARNING: Got a quad. pStar = %e. \n", pStar[k]);
-          pStar[k] = pInfty;}
+//          pStar[k] = pInfty;}
         pStar[k] -= pInfty;
       }
       // check if intersection point is really on surface.

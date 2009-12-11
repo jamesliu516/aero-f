@@ -642,9 +642,13 @@ DistPhysBAMIntersector::buildSolidNormals() {
      xyz(2)[2] = p2[1];
      xyz(2)[3] = p2[2];
      getInterface().Intersect(xyz, edgeRes,getTolerance());
-     if(edgeRes(1).y.triangleID < 0)
+     if(edgeRes(1).y.triangleID < 0) {
        com->fprintf(stderr, "WARNING: OPEN SURFACE\n");
+       fprintf(stderr,"p1 = %e %e %e, p2 = %e %e %e, tol = %e\n", p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], getTolerance());
+     }
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
+
+//     insidePoint = Vec3D(0.0,0.0,0.0);
   } else
     com->fprintf(stderr, "All triangles are degenerate!!\n");
 }
