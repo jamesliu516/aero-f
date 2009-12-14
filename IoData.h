@@ -118,6 +118,7 @@ struct TransientData {
   const char *tempnormalderivative;
   const char *surfaceheatflux;
   const char *heatfluxes;
+  const char *sparseGrid;
 
   int frequency;
   double x0, y0, z0;

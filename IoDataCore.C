@@ -191,6 +191,7 @@ TransientData::TransientData()
   tempnormalderivative = "";
   surfaceheatflux = "";
   heatfluxes = "";
+  sparseGrid = "";
 
   frequency = 0;
   length = 1.0;
@@ -207,7 +208,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 76, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 77, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -294,6 +295,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
+  new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
 
 }
 

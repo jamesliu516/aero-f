@@ -4,16 +4,40 @@
 #include <LocalRiemann.h>
 #include <VarFcn.h>
 #include "IoData.h"
-#include "SparseGrid.h"
+#include "SparseGridCluster.h"
 #include <cmath>
 
 //----------------------------------------------------------------------------
+// First the derived classes of LocalRiemannGfmp (no exact Riemann problem)
+// Second the derived classes of LocalRiemannGfmpar (with exact Riemann prob)
+//----------------------------------------------------------------------------
 
-class LocalRiemannGfmpGasGas : public LocalRiemann {
+extern "C" {
+  void F77NAME(eriemanngw) (const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&, const double&, const double &,
+                            const double &, const double&, const double&,
+                            const double &, const double&);
+  void F77NAME(eriemanngg) (const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&, const double&, const double &,
+                            const double &, const double&, const double&,
+                            const double &, const double&);
+  void F77NAME(eriemannww) (const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&, const double&, const double&,
+                            const double&);
+};
+
+//----------------------------------------------------------------------------
+
+class LocalRiemannGfmpGasGas : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpGasGas(VarFcn *vf);
-  ~LocalRiemannGfmpGasGas();
+  LocalRiemannGfmpGasGas(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  ~LocalRiemannGfmpGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi,
@@ -21,15 +45,9 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+private:
+  LocalRiemannGfmpGasGas();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmpGasGas::LocalRiemannGfmpGasGas(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -59,11 +77,11 @@ void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmpTaitTait : public LocalRiemann {
+class LocalRiemannGfmpTaitTait : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpTaitTait(VarFcn *vf);
-  ~LocalRiemannGfmpTaitTait();
+  LocalRiemannGfmpTaitTait(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  ~LocalRiemannGfmpTaitTait() { vf_ = 0; }
 
 void computeRiemannSolution(double *Vi, double *Vj,
                             double Phii, double Phij, double *nphi,
@@ -71,15 +89,9 @@ void computeRiemannSolution(double *Vi, double *Vj,
                             double *rupdatei, double *rupdatej, 
                             double &weighti, double &weightj,
                             double dx[3], int it);
+private:
+  LocalRiemannGfmpTaitTait();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmpTaitTait::LocalRiemannGfmpTaitTait(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -134,11 +146,11 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmpJWLJWL : public LocalRiemann {
+class LocalRiemannGfmpJWLJWL : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpJWLJWL(VarFcn *vf);
-  ~LocalRiemannGfmpJWLJWL();
+  LocalRiemannGfmpJWLJWL(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  ~LocalRiemannGfmpJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi,
@@ -146,15 +158,9 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+private:
+  LocalRiemannGfmpJWLJWL();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmpJWLJWL::LocalRiemannGfmpJWLJWL(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -184,11 +190,11 @@ void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmpGasJWL : public LocalRiemann {
+class LocalRiemannGfmpGasJWL : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpGasJWL(VarFcn *vf);
-  ~LocalRiemannGfmpGasJWL();
+  LocalRiemannGfmpGasJWL(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  ~LocalRiemannGfmpGasJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi,
@@ -196,15 +202,9 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+private:
+  LocalRiemannGfmpGasJWL();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmpGasJWL::LocalRiemannGfmpGasJWL(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -239,34 +239,31 @@ void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmparGasGas : public LocalRiemann {
+class LocalRiemannGfmparGasGas : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasGas(VarFcn *vf);
-  ~LocalRiemannGfmparGasGas();
+  LocalRiemannGfmparGasGas(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
-void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej, 
-                            double &weighti, double &weightj,
-                            double dx[3], int it);
-void eriemann(double rhol, double ul, double pl, 
-              double rhor, double ur, double pr, 
-              double &pi, double &ui, double &rhoil, double &rhoir){
-  F77NAME(eriemanngg)(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,vf_->getGammabis(),
-             vf_->getPressureConstantbis(), vf_->getGamma(), vf_->getPressureConstant()); 
-}
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              double Phii, double Phij, double *nphi,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj,
+                              double dx[3], int it);
 
+  void eriemann(double rhol, double ul, double pl, 
+                double rhor, double ur, double pr, 
+                double &pi, double &ui, double &rhoil, double &rhoir){
+                  F77NAME(eriemanngg)(
+                        rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,
+                        vf_->getGammabis(), vf_->getPressureConstantbis(), 
+                        vf_->getGamma(), vf_->getPressureConstant()); 
+  }
+
+private:
+  LocalRiemannGfmparGasGas();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmparGasGas::LocalRiemannGfmparGasGas(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -363,27 +360,22 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmparGasTait: public LocalRiemann {
+class LocalRiemannGfmparGasTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasTait(VarFcn *vf);
-  ~LocalRiemannGfmparGasTait();
+  LocalRiemannGfmparGasTait(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  ~LocalRiemannGfmparGasTait() { vf_ = 0; }
 
-void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej, 
-                            double &weighti, double &weightj, 
-                            double dx[3], int it);
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              double Phii, double Phij, double *nphi,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj, 
+                              double dx[3], int it);
+
+private:
+  LocalRiemannGfmparGasTait();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmparGasTait::LocalRiemannGfmparGasTait(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -484,27 +476,22 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmparTaitTait: public LocalRiemann {
+class LocalRiemannGfmparTaitTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparTaitTait(VarFcn *vf);
-  ~LocalRiemannGfmparTaitTait();
+  LocalRiemannGfmparTaitTait(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
-void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej, 
-                            double &weighti, double &weightj,
-                            double dx[3], int it);
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              double Phii, double Phij, double *nphi,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj,
+                              double dx[3], int it);
+
+private:
+  LocalRiemannGfmparTaitTait();
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmparTaitTait::LocalRiemannGfmparTaitTait(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -612,37 +599,30 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmparJWLJWL : public LocalRiemann {
+class LocalRiemannGfmparJWLJWL : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparJWLJWL(VarFcn *vf);
-  ~LocalRiemannGfmparJWLJWL();
+  LocalRiemannGfmparJWLJWL(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  ~LocalRiemannGfmparJWLJWL() { vf_ = 0; }
 
-void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
-                            double *rupdatei, double *rupdatej, 
-                            double &weighti, double &weightj,
-                            double dx[3], int it);
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              double Phii, double Phij, double *nphi,
+                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj,
+                              double dx[3], int it);
 
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){ 
-    /*eriemannjj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir);*/ }
+    eriemannjj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir); }
 
 private:
+  LocalRiemannGfmparJWLJWL();
   void eriemannjj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
                   double &pi, double &ui, double &rhoil, double &rhoir);
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmparJWLJWL::LocalRiemannGfmparJWLJWL(VarFcn *vf) : LocalRiemann()
-{
-  vf_ = vf;
-}
 
 //----------------------------------------------------------------------------
 
@@ -780,7 +760,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
       //fprintf(stdout, "leftraref\n");
-      rarefactionJWL2ndOrder(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil);
+      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, 
+                     MultiFluidData::RK2, 1);
     }
   //compute right term (shock or rarefaction)
     if( vir < vr){
@@ -791,7 +772,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
     }
     else{
       //fprintf(stdout, "rightraref\n");
-      rarefactionJWL2ndOrder(1.0, vr, ur, pr, vir, uir, pir, duir, dpir);
+      rarefactionJWL(1.0, vr, ur, pr, vir, uir, pir, duir, dpir, 
+                     MultiFluidData::RK2, 1);
     }
 
     //fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
@@ -859,14 +841,19 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-class LocalRiemannGfmparGasJWL : public LocalRiemann {
+class LocalRiemannGfmparGasJWL : public LocalRiemannGfmpar {
 
-  MultiFluidData::RiemannComputation riemannComputationType;
-  SparseGrid *tabulation;
+private:
+  MultiFluidData::RiemannComputation riemannComputationType_;
+  SparseGridCluster *sgCluster_;
 
 public:
-  LocalRiemannGfmparGasJWL(VarFcn *vf, IoData &iod);
-  ~LocalRiemannGfmparGasJWL(){ delete tabulation; }
+  LocalRiemannGfmparGasJWL(VarFcn *vf, SparseGridCluster *sgCluster, 
+                           IoData &iod) : LocalRiemannGfmpar(vf) {
+    riemannComputationType_ = iod.mf.riemannComputation;
+    sgCluster_ = sgCluster;
+  }
+  ~LocalRiemannGfmparGasJWL(){ vf_ = 0; sgCluster_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi,
@@ -877,10 +864,17 @@ public:
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
-    /*eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir);*/ }
-  void eriemanngj_wrapper(double *in, double *res, double *phi);
+    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir); }
+  void eriemanngj_wrapper(double *in, double *res, double *para);
+  void riemannInvariantGeneral1stOrder_wrapper(
+                double *in, double *res, double *para);
+  void riemannInvariantGeneral2ndOrder_wrapper(
+                double *in, double *res, double *para);
 
 private:
+  LocalRiemannGfmparGasJWL();
+
+protected:
   bool eriemanngj_selector(double rhol, double ul, double pl, 
                            double rhor, double ur, double pr, 
                            double &pi, double &ui, double &rhoil, double &rhoir);
@@ -892,51 +886,17 @@ private:
   bool vacuum(const double rhol, const double ul, const double pl,
               const double rhor, const double ur, const double pr,
               double vacuumValues[6]);
-  double jwlZeroSoundSpeedJwlDensity(const double density, const double pressure);
-  double sgZeroDensityPJwlDensity(const double density, const double pressure,
+  double jwlZeroSoundSpeedJwlDensity(const double density, 
+                                     const double pressure);
+  double sgZeroDensityPJwlDensity(const double density, 
+                                  const double pressure,
                                   const double rho_c0);
-  double pressureEqGasDensity(const double gasDensity, const double gasPressure,
-                              const double jwlDensity, const double jwlPressure,
+  double pressureEqGasDensity(const double gasDensity, 
+                              const double gasPressure,
+                              const double jwlDensity, 
+                              const double jwlPressure,
                               const double interfacialJwlDensity);
 };
-
-//----------------------------------------------------------------------------
-
-inline
-LocalRiemannGfmparGasJWL::LocalRiemannGfmparGasJWL(VarFcn *vf, IoData &iod) : 
-LocalRiemann()
-{
-  vf_ = vf;
-  riemannComputationType = iod.mf.riemannComputation;
-  if(riemannComputationType == MultiFluidData::TABULATION2){
-    double *refIn = new double[2]; double *refOut = new double[1];
-    refIn[0] = iod.ref.rv.density;
-    //refIn[1] = iod.ref.rv.entropy;
-    refIn[1] = pow(iod.ref.rv.density,-iod.eqs.fluidModel2.jwlModel.omega)*iod.ref.rv.velocity*iod.ref.rv.velocity;
-    refOut[0] = iod.ref.rv.velocity;
-    fprintf(stdout, "adim SparseGrid %e %e %e\n", refIn[0], refIn[1], refOut[0]);
-
-    tabulation = new SparseGrid;
-    tabulation->readFromFile(refIn, refOut);
-    //tabulation->scaleGrid(refIn, refOut);
-  }else if(riemannComputationType == MultiFluidData::TABULATION5){
-
-    double *refIn = new double[5]; double *refOut = new double[2];
-
-    refIn[0] = iod.ref.rv.density;
-    refIn[1] = iod.ref.rv.pressure;
-    refIn[2] = iod.ref.rv.density;
-    refIn[3] = iod.ref.rv.pressure;
-    refIn[4] = iod.ref.rv.velocity;
-
-    refOut[0] = iod.ref.rv.density;
-    refOut[1] = iod.ref.rv.density;
-    //fprintf(stdout, "adim SparseGrid %e %e %e %e %e %e %e\n", refIn[0],refIn[1],refIn[2],refIn[3],refIn[4],refOut[0],refOut[1]);
-    tabulation = new SparseGrid;
-    tabulation->readFromFile(refIn, refOut);
-    //tabulation->scaleGrid(refIn, refOut);
-  }
-}
 
 //----------------------------------------------------------------------------
 
@@ -1029,26 +989,28 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 
 //----------------------------------------------------------------------------
 inline
-void LocalRiemannGfmparGasJWL::eriemanngj_wrapper(double *in, double *res, double *phi)
+void LocalRiemannGfmparGasJWL::eriemanngj_wrapper(
+                               double *in, double *res, double *para)
 {
 
-  double dummy1, dummy2, dummy3;
+  double dummy1, dummy2;
   eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1]);
 
 }
 
 //----------------------------------------------------------------------------
 inline
-bool LocalRiemannGfmparGasJWL::eriemanngj_selector(double rhol, double ul, double pl, 
-                                                   double rhor, double ur, double pr, 
-                                                   double &pi, double &ui,  
-                                                   double &rhoil, double &rhoir)
+bool LocalRiemannGfmparGasJWL::eriemanngj_selector(
+                               double rhol, double ul, double pl, 
+                               double rhor, double ur, double pr, 
+                               double &pi, double &ui,  
+                               double &rhoil, double &rhoir)
 {
 
-  if(riemannComputationType==MultiFluidData::TABULATION5){
+  if(riemannComputationType_==MultiFluidData::TABULATION5){
     double *in  = new double[5]; in[0]=rhol;in[1]=pl;in[2]=rhor;in[3]=pr;in[4]=ur-ul;
     double *res = new double[2]; res[0]=0.0;res[1]=0.0;
-    tabulation->interpolate(1,&in,&res);
+    sgCluster_->interpolate(1,&in,&res);
     rhoil = fmax(res[0],0.0); rhoir = fmax(res[1],0.0);
     double d[2]; //dummy variable
     double uir, pir, uil, pil;
@@ -1068,7 +1030,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj_selector(double rhol, double ul, doubl
       double frhopil = vf_->computeFrhop(rhoil,-1.0);
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1]);
     }else
-      rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1], riemannComputationType,1);
+      rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1], riemannComputationType_,1);
     if( rhoir > rhor)
       shockGAS(1.0, gamogam1r, prefr, 1.0/rhor, ur, pr, 1.0/rhoir, uir, pir, d[0], d[1]);
     else
@@ -1159,7 +1121,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
       if(verbose>0) fprintf(stdout, "rarefactionJWL\n");
-      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType,1);
+      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,1);
     }
   //compute right GAS-term (shock or rarefaction)
     if( vir < vr){
@@ -1268,7 +1230,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     frhoil  = vf_->computeFrho(1.0/vil,-1.0);
     frhopil = vf_->computeFrhop(1.0/vil,-1.0);
     shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
-  }else rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType,0);
+  }else rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,0);
   
   if( vir < vr) shockGAS(1.0, gamogam1r, prefr, vr, ur, pr, vir, uir, pir, duir, dpir);
   else rarefactionGAS(1.0, gamr, gam1r, prefr, cr, vr, ur, pr, vir, uir, pir, duir, dpir);
@@ -1494,10 +1456,30 @@ inline
 void LocalRiemannGfmparGasJWL::riemannInvariantGeneralTabulation(double *in, 
                                                                  double *res){
   //fprintf(stdout, "in-value = %e %e\n", in[0],in[1]);
-  tabulation->interpolate(1,&in,&res);
+  sgCluster_->interpolate(1,&in,&res);
 
 }
 
 //----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparGasJWL::riemannInvariantGeneral1stOrder_wrapper(
+                double *in, double *res, double *para){
+
+  fprintf(stdout, "in[0] = %e\n", in[0]);
+  fprintf(stdout, "in[1] = %e\n", in[1]);
+  fprintf(stdout, "para[1] = %e\n", para[1]);
+  double locin[3] = {in[0], in[1], para[1]};
+  riemannInvariantGeneral1stOrder(locin, res, &(para[0]));
+
+}
+//----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper(
+                double *in, double *res, double *para){
+
+  double locin[3] = {in[0], in[1], para[1]};
+  riemannInvariantGeneral2ndOrder(locin, res, &(para[0]));
+
+}
 
 #endif
