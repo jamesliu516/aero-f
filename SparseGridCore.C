@@ -1,5 +1,5 @@
 #include "SparseGrid.h"
-#include <math.h>
+#include <cmath>
 
 
 //------------------------------------------------------------------------------
@@ -202,7 +202,7 @@ bool SparseGrid::admissible(const int currentMultiIndex,
     backwardOfCurrent = neighbour[currentMultiIndex][dim+idim];
     if(backwardOfCurrent<0){ // already at lowest level in direction idim
       if(multiIndex[currentMultiIndex][idim]!=0){
-        fprintf(stdout, "*** Error: contradiction detected (no backward neighbours but not at lowest level...\n");
+        fprintf(stdout, "*** Error: contradiction detected (no backward neighbours but not at lowest level) ...\n");
         exit(1);
       }
       continue;
@@ -473,17 +473,16 @@ bool SparseGrid::checkAccuracy(){
     }
   }
 
-  double absAcc = 0.0;
-  double relAcc = 0.0;
+  actualAbsAcc = 0.0;
+  actualRelAcc = 0.0;
   for(int iout=0; iout<out; iout++){
-    if(absAcc<maxsurplus[iout]) absAcc = maxsurplus[iout];
+    if(actualAbsAcc<maxsurplus[iout]) actualAbsAcc = maxsurplus[iout];
     if(fnmax[iout]>fnmin[iout])
-      if(relAcc<maxsurplus[iout]/(fnmax[iout]-fnmin[iout])) 
-        relAcc = maxsurplus[iout]/(fnmax[iout]-fnmin[iout]);
+      if(actualRelAcc<maxsurplus[iout]/(fnmax[iout]-fnmin[iout])) 
+        actualRelAcc = maxsurplus[iout]/(fnmax[iout]-fnmin[iout]);
   }
 
-
-  if(absAcc<=absAccuracy || relAcc<=relAccuracy){
+  if(actualAbsAcc<=absAccuracy || actualRelAcc<=relAccuracy){
     messages(7);
     return true;
   }
@@ -568,6 +567,16 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
 
 //------------------------------------------------------------------------------
 
+bool SparseGrid::contains(double *coord){
+
+  for(int idim=0; idim<dim; idim++)
+    if(coord[idim] < range[idim][0] || coord[idim] > range[idim][1])
+      return false;
+  return true;
+}
+
+//------------------------------------------------------------------------------
+
 void SparseGrid::interpolate(const int numRes, double **coord, double **res){
 
   double scaledCoord[dim];
@@ -608,8 +617,9 @@ void SparseGrid::closestPointInRange(double *coord){
 // SparseGrid::print and read sparse grid in a file
 //------------------------------------------------------------------------------
 
-void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
+void SparseGrid::scaleGrid(const double *refIn, const double *refOut, int outputRangeFlag){
 
+  if(false)
   if(refOut && out>1){
   	fprintf(stdout, "*** Warning: it is not recommended to create SparseGrids with more than 1 output and with output scaling factors\n");
   	fprintf(stdout, "***        : if each dimension represents a different physical quantity,\n");
@@ -670,10 +680,12 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut){
         
   }
 
-  fprintf(stdout, "SparseGrid range = ");
+  if(outputRangeFlag==0){
+  fprintf(stdout, "%d SparseGrid range = ", outputRangeFlag);
   for(int idim=0; idim<dim; idim++)
     fprintf(stdout, "[%e %e] ", range[idim][0],range[idim][1]);
   fprintf(stdout, "\n");
+  }
 
 }
 
@@ -734,6 +746,7 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut, const ch
   
   fprintf(fpSPARSEGRID, "%d %d\n", minPoints, maxPoints);
   fprintf(fpSPARSEGRID, "%.15e %.15e %.15e %d\n", refOut_[0]*absAccuracy, relAccuracy, dimAdaptDegree, nAdaptivePoints);
+  fprintf(fpSPARSEGRID, "%.15e %.15e\n", actualAbsAcc, actualRelAcc);
   for(int idim=0; idim<dim; idim++){
   	double temp[2];
   	if(logMap[idim]){
@@ -806,7 +819,8 @@ void SparseGrid::printToFile(const double *refIn, const double *refOut, const ch
 
 //------------------------------------------------------------------------------
 
-void SparseGrid::readFromFile(const double *refIn, const double *refOut, const char* filename){
+void SparseGrid::readFromFile(const double *refIn, const double *refOut, 
+                              const char* filename, int outputRangeFlag){
 
   char mystring [100];
   FILE *fpSPARSEGRID = fopen(filename, "r");
@@ -842,6 +856,7 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut, const c
 
   fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
   fscanf(fpSPARSEGRID, "%lf %lf %lf %d", &absAccuracy, &relAccuracy, &dimAdaptDegree, &nAdaptivePoints);
+  fscanf(fpSPARSEGRID, "%lf %lf", &actualAbsAcc, &actualRelAcc);
   delete [] range;
   range = new Range[dim];
   for(int idim=0; idim<dim; idim++)
@@ -914,7 +929,7 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut, const c
   sizeSurplus = nPoints;
   sizeMultiIndex = nSubGrids;
   
-  scaleGrid(refIn, refOut);
+  scaleGrid(refIn, refOut, outputRangeFlag);
 
 }
 
@@ -1138,10 +1153,11 @@ void SparseGrid::messages(const int flag, const int arg) const{
   	fprintf(stdout, "# number of subgrids = %d\n", nSubGrids);
   	fprintf(stdout, "# number of points   = %d\n", nPoints);
   	fprintf(stdout, "# max number of points   = %d\n", maxPoints);
+  	fprintf(stdout, "# relative and absolute accuracy = %e %e\n", actualRelAcc, actualAbsAcc);
   	fprintf(stdout, "###########################################\n");
   }
   
-  if(verbose==0) return;
+  if(flag==1 && verbose>0){
 
   if(flag==1){
     fprintf(stdout, "###########################################\n");
@@ -1221,7 +1237,8 @@ void SparseGrid::messages(const int flag, const int arg) const{
   }
 
   if(flag==7){
-    fprintf(stdout, "# desired absolute accuracy %e has been reached\n", absAccuracy);
+    fprintf(stdout, "#    desired absolute accuracy (%e < %e) has been reached\n", actualAbsAcc, absAccuracy);
+    fprintf(stdout, "# or desired relative accuracy (%e < %e) has been reached\n", actualRelAcc, relAccuracy);
     fprintf(stdout, "###########################################\n");
   }
 
@@ -1242,6 +1259,7 @@ void SparseGrid::messages(const int flag, const int arg) const{
     for(int idim=0; idim<dim; idim++)
       fprintf(stdout, "# range[%d] is [%e %e]\n", idim, range[idim][0], range[idim][1]);
     fprintf(stdout, "###########################################\n");
+  }
   }
   
 }
