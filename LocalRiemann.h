@@ -194,7 +194,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
 // res is the output result and contains the variation of velocity
 // integrates an ODE with second order integration (Mid-Point Rule)
   res[0] = 0.0;
-  int N  = 20000;
+  int N  = 2000;
   double density = in[2]; double entropy = in[1];
   double ddensity = (in[0] - in[2])/N;
   double c = vf_->computeSoundSpeed(density,entropy,*phi);
