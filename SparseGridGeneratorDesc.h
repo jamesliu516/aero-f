@@ -95,7 +95,6 @@ public:
       refOut[1] = ioData.ref.rv.density; // 2outputs
       fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
 
-
 /*
       SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
       if(true){

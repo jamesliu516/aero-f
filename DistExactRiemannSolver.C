@@ -36,7 +36,7 @@ DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
     refOut[0] = ioData.ref.rv.velocity;
 
     tabulationC = new SparseGridCluster;
-    tabulationC->readFromFile(32,refIn, refOut, "SparseGridClusterRiemannInvariant", dom->getCommunicator()->cpuNum());
+    tabulationC->readFromFile(1,refIn, refOut, "SparseGridClusterRiemannInvariant", dom->getCommunicator()->cpuNum());
 
   }else if(ioData.mf.riemannComputation == MultiFluidData::TABULATION5){
 
@@ -50,7 +50,7 @@ DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
     refOut[1] = ioData.ref.rv.density;
 
     tabulationC = new SparseGridCluster;
-    tabulationC->readFromFile(32,refIn, refOut, "SparseGridClusterRiemannSolution", dom->getCommunicator()->cpuNum());
+    tabulationC->readFromFile(62,refIn, refOut, "SparseGridClusterRiemannSolution", dom->getCommunicator()->cpuNum());
   }else{
     tabulationC = 0;
   }
