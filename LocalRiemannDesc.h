@@ -849,8 +849,9 @@ private:
 
 public:
   LocalRiemannGfmparGasJWL(VarFcn *vf, SparseGridCluster *sgCluster, 
-                           IoData &iod) : LocalRiemannGfmpar(vf) {
-    riemannComputationType_ = iod.mf.riemannComputation;
+                           MultiFluidData::RiemannComputation riemannComputation) : 
+  LocalRiemannGfmpar(vf) {
+    riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
   ~LocalRiemannGfmparGasJWL(){ vf_ = 0; sgCluster_ = 0; }

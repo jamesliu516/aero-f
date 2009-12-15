@@ -15,6 +15,7 @@
 
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
+extern void startSparseGridGeneration(IoData &, Domain &);
 int interruptCode = 0;
 
 int  atexit(void (*function)(void)) { exit(-1);}
@@ -59,23 +60,27 @@ int main(int argc, char **argv)
   ioData.readCmdLine(argc, argv);
   ioData.readCmdFile();
 
-  // obtain problem geometry
-  GeoSource geoSource(ioData);
-  geoSource.readConnectivityInfo(com);
-  domain.getGeometry(geoSource, ioData);
-  domain.numberEdges();
-  domain.setNodeType(ioData);
-  domain.setFaceToElementConnectivity();
-  domain.makeRotationOwnership(ioData);
-  domain.setInletNodes(ioData);
+  if (ioData.problem.alltype==ProblemData::_SPARSEGRIDGEN_){
+    startSparseGridGeneration(ioData,domain);
+  }else{
+    // obtain problem geometry
+    GeoSource geoSource(ioData);
+    geoSource.readConnectivityInfo(com);
+    domain.getGeometry(geoSource, ioData);
+    domain.numberEdges();
+    domain.setNodeType(ioData);
+    domain.setFaceToElementConnectivity();
+    domain.makeRotationOwnership(ioData);
+    domain.setInletNodes(ioData);
 
-  domain.printElementStatistics();
+    domain.printElementStatistics();
 
-  // choose between linearized and nonlinear fluid problems
-  if (ioData.problem.type[ProblemData::LINEARIZED])
-    startModalSolver(com, ioData, domain);
-  else
-    startNavierStokesSolver(ioData, geoSource, domain);
+    // choose between linearized and nonlinear fluid problems
+    if (ioData.problem.type[ProblemData::LINEARIZED])
+      startModalSolver(com, ioData, domain);
+    else
+      startNavierStokesSolver(ioData, geoSource, domain);
+  }
 
 #ifndef CREATE_DSO
   closeCommunication();

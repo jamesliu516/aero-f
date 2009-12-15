@@ -2,6 +2,7 @@
 #define SPARSEGRIDCLUSTER_H_
 
 class SparseGrid;
+class Communicator;
 struct SparseGridData;
 
 class SparseGridCluster
@@ -19,7 +20,8 @@ public:
   void generate(SparseGridData &data, double *param,
                 void (T::*fn)(double *, double *, double *), T &object,
                 const char *filename,
-                const double *refIn, const double *refOut);
+                const double *refIn, const double *refOut,
+                const Communicator *com);
 
   void readFromFile(const int numFiles, const double *refIn, const double *refOut, 
                     const char *filename, int outputRangeFlag=0);
