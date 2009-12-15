@@ -1109,6 +1109,8 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
   double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
 
+  //---------------------------------------------------------------
+
   double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
@@ -1120,11 +1122,37 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf); //caution: U_i will not be modified!
 
-  Wstar[0]  = R_i;                     Wstar[dim]    = Wstar[0];
-  Wstar[1]  = vti[0]+U_i*nphi[0];      Wstar[dim+1]  = Wstar[1];
-  Wstar[2]  = vti[1]+U_i*nphi[1];      Wstar[dim+2]  = Wstar[2];
-  Wstar[3]  = vti[2]+U_i*nphi[2];      Wstar[dim+3]  = Wstar[3];
-  Wstar[4]  = P_i;                     Wstar[dim+4]  = Wstar[4];
+  Wstar[0]  = R_i;                     
+  Wstar[1]  = vti[0]+U_i*nphi[0];      
+  Wstar[2]  = vti[1]+U_i*nphi[1];      
+  Wstar[3]  = vti[2]+U_i*nphi[2];      
+  Wstar[4]  = P_i;                     
+
+  //---------------------------------------------------------------
+
+  double Vi0[dim];
+  for(int i=0; i<dim; i++) 
+    Vi0[i] = Vi[dim+i];
+
+  vni = Vi0[1]*nphi[0]+Vi0[2]*nphi[1]+Vi0[3]*nphi[2];
+  vti[0] = Vi0[1] - vni*nphi[0];
+  vti[1] = Vi0[2] - vni*nphi[1];
+  vti[2] = Vi0[3] - vni*nphi[2];
+
+  R_1 = Vi0[0];
+  U_1 = vni;
+  P_1 = vf->getPressure(Vi0);
+ 
+  // U_i is the same.
+  eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf); //caution: U_i will not be modified!
+  
+  Wstar[dim]    = R_i;
+  Wstar[dim+1]  = vti[0]+U_i*nphi[0];
+  Wstar[dim+2]  = vti[1]+U_i*nphi[1];
+  Wstar[dim+3]  = vti[2]+U_i*nphi[2];
+  Wstar[dim+4]  = P_i;
+
+  //-----------------------------------------------------------------
 
   if(it==1){
     weightj += 1.0;
