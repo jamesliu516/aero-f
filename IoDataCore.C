@@ -191,7 +191,7 @@ TransientData::TransientData()
   tempnormalderivative = "";
   surfaceheatflux = "";
   heatfluxes = "";
-  sparseGrid = "";
+  sparseGrid = "SparseGrid";
 
   frequency = 0;
   length = 1.0;
@@ -3275,6 +3275,11 @@ void IoData::resetInputValues()
       exit(1);
     }
   }
+
+  // Sparse Grid Generation does not call the flow solver
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+    problem.mode = ProblemData::DIMENSIONAL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3283,7 +3288,12 @@ int IoData::checkFileNames()
 {
 
   int error = 0;
+
+  // no input files for Sparse Grid generation, hence no check
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+    return 0;
   
+  // flow solver requires input files, hence check
   if (strcmp(input.connectivity, "") == 0) {
     com->fprintf(stderr, "*** Error: no global file given\n");
     ++error;
@@ -3349,6 +3359,14 @@ int IoData::checkInputValues()
 {
 
   int error = 0;
+  // no need for all input values for Sparse Grid generation
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
+    eqs.fluidModel  =  mf.fluidModel;
+    eqs.fluidModel2 =  mf.fluidModel2;
+    return checkInputValuesSparseGrid(mf.sparseGrid);
+  }
+    
+  // input values for flow solver
   error += checkInputValuesMulti_step1();
   error += checkInputValuesEssentialBC();
   error += checkInputValuesStateEquation();
@@ -3362,7 +3380,6 @@ int IoData::checkInputValues()
   checkInputValuesDefaultOutlet();
 
   checkInputValuesMulti_step2();
-  error += checkInputValuesSparseGrid(mf.sparseGrid);
                                                                                                   
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;

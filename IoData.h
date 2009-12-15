@@ -118,7 +118,6 @@ struct TransientData {
   const char *tempnormalderivative;
   const char *surfaceheatflux;
   const char *heatfluxes;
-  const char *sparseGrid;
 
   const char *sparseGrid;
 

@@ -2,6 +2,7 @@
 
 #include "SparseGrid.h"
 #include "IoData.h"
+#include "Communicator.h"
 #include <cstring>
 #include <cstdio>
 #include <cmath>
@@ -10,7 +11,8 @@ template<typename T>
 void SparseGridCluster::generate(SparseGridData &data, double *param,
                                  void (T::*fn)(double *, double *, double *), T &object,
                                  const char *filename,
-                                 const double *refIn, const double *refOut)
+                                 const double *refIn, const double *refOut,
+                                 const Communicator *com)
 {
   dim_ = data.numInputs;
 
@@ -35,7 +37,6 @@ void SparseGridCluster::generate(SparseGridData &data, double *param,
     }
   }
   
-  sparseGrids_ = new SparseGrid [numSparseGrids_];
   SparseGridData subData(data); // check what it copies since default copy constructor
   int filenameLength = strlen(filename);
   char ifilename[filenameLength+10];
@@ -43,9 +44,47 @@ void SparseGridCluster::generate(SparseGridData &data, double *param,
   int *index = new int[dim_];
   for(int idim=0; idim<dim_; idim++)
     index[idim] = 0;
-  index[0] = -1;
 
-  for(int igrid=0; igrid<numSparseGrids_; igrid++){
+  int sgPerCpu = numSparseGrids_/com->size();
+  fprintf(stdout, "%d cpus for %d sparse grids => %d ratio\n", com->size(), numSparseGrids_, sgPerCpu);
+  for(int k=0; k<sgPerCpu+1; k++){
+    int igrid = com->cpuNum() + k*com->size();
+    if(igrid>=numSparseGrids_) break;
+    fprintf(stdout, "taking care of sparse grid # %d\n", igrid);
+    int moveForward = 0;
+    if(k==0) moveForward = com->cpuNum();
+    else     moveForward = com->size();
+
+    for(int move=0; move<moveForward; move++){
+      index[0]++;
+      for(int idim=0; idim<dim_; idim++)
+        if(index[idim]==nGridsDim[idim]){
+          index[idim+1]++;
+          index[idim] = 0;
+        }
+    }
+
+    fprintf(stdout, "index = [ ");
+    for(int idim=0; idim<dim_; idim++)
+      fprintf(stdout, "%d ", index[idim]);
+    fprintf(stdout, "]\n");
+
+    fprintf(stdout, "subData.range = ");
+    for(int idim=0; idim<dim_; idim++){
+      subData.range[idim][0] = coordDim[idim][index[idim]];
+      subData.range[idim][1] = coordDim[idim][index[idim]+1];
+      fprintf(stdout, "[%e %e] ", subData.range[idim][0],subData.range[idim][1]);
+    }
+    fprintf(stdout, "\n");
+
+    SparseGrid sparseGrid(subData,param,refIn,refOut);
+    sparseGrid.tabulate(fn, object);
+    sprintf(ifilename, "%s%d", filename, igrid+1);
+    sparseGrid.printToFile(refIn, refOut, ifilename);
+  }
+
+
+  /*for(int igrid=0; igrid<numSparseGrids_; igrid++){
     index[0]++;
     for(int idim=0; idim<dim_; idim++)
       if(index[idim]==nGridsDim[idim]){
@@ -62,6 +101,6 @@ void SparseGridCluster::generate(SparseGridData &data, double *param,
     sparseGrids_[igrid].tabulate(fn, object);
     sprintf(ifilename, "%s%d", filename, igrid+1);
     sparseGrids_[igrid].printToFile(refIn, refOut, ifilename);
-  }
+  }*/
   
 }

@@ -175,7 +175,6 @@ void SparseGrid::test(void (T::*fn)(double *, double *, double *), T &object,
 template<typename FnType>
 void SparseGrid::test(FnType fn, int type, int *number, double *param){
 	
-  fprintf(stdout, "youhou, testing\n");
   if(nPoints == 0) return;
   int numTestPoints = 0;
   int *numPointsDim = new int[dim];
