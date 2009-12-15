@@ -494,6 +494,14 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   if (steady)
     dt = 0.0;
 
+  /* KW: Summary for algNum == 6 (A6)
+    if (it==0) 
+      dt = 0.5*dt;
+    if (it>it0)
+      strExc->sendForce(F); 
+    return dt;
+  */
+
   if (algNum == 6 && it == 0)
     dt *= 0.5;
   if ((algNum == 20 || algNum == 21) && it == 0) 
@@ -543,6 +551,19 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   int algNum = strExc->getAlgorithmNumber();
   double dt = strExc->getTimeStep();
 
+
+  /* KW: Summary for algNum == 6 (A6)
+    if(it==0)
+      dt = 0.5*dt;
+    if(it>it0 && steady) {
+      strExc->negotiateStopping(lastIt);
+      if (*lastIt)
+        return 0.0;
+    }
+    if(it==it0 || !*lastIt)
+      strExc->getDisplacement(X0, X, Xdot, dX); //NOTE: dx = dx + 0.5*dt*xdot
+    return dt;
+  */
 
   if (algNum == 6 && it == 0) 
     dt *= 0.5;

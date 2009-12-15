@@ -579,12 +579,6 @@ void StructLevelSetTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, Dist
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
-  //debug: output norm(Fs);
-/*  double sum = 0.0;
-  for(int i=0; i<numStructNodes; i++)
-    sum += Fs[i][0]*Fs[i][0] + Fs[i][1]*Fs[i][1] + Fs[i][2]*Fs[i][2];
-  fprintf(stderr,"norm(Fs) = %e.\n", sum);
-*/
 }
 
 //-------------------------------------------------------------------------------

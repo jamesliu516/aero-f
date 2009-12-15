@@ -3548,9 +3548,9 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
   }
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
-      Fs[is][0] += subFs[0][is][0];
-      Fs[is][1] += subFs[0][is][1];
-      Fs[is][2] += subFs[0][is][2];
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
     }
 }
 
@@ -3584,9 +3584,9 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
 #pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
-      Fs[is][0] += subFs[0][is][0];
-      Fs[is][1] += subFs[0][is][1];
-      Fs[is][2] += subFs[0][is][2];
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
     }
 }
 
