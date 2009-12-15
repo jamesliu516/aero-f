@@ -42,8 +42,7 @@ online
 
 #include "IoData.h"
 #include <cmath>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------------
 
@@ -72,6 +71,10 @@ class SparseGrid {
   Range *range;           // range of the tabulation (min and max in each dir)
   double dimAdaptDegree;  // degree of dimensional adaptivity
 
+// useful informattion
+  double actualAbsAcc;
+  double actualRelAcc;
+  
 // data structures necessary to construct a sparse grid
 
   double *fnmin;          // minimum values of the interpolation
@@ -164,8 +167,11 @@ public:
   ~SparseGrid();
   SparseGrid(SparseGridData &data, double *param,
              const double *refIn, const double *refOut);
+  void initialize(SparseGridData &data, double *param,
+                  const double *refIn, const double *refOut);
              
   void newParameters(SparseGridData &data, double *param);
+  int getDim() const { return dim; } 
 
   // use one of the two following functions in order to create a tabulation
   // choice depends if it is a member function of a class or not
@@ -180,19 +186,23 @@ public:
   void printToFile(const double *refIn, const double *refOut, const char *filename) const;
 
   // functions to perform interpolation on sparse grid
-  void readFromFile(const double *refIn, const double *refOut, const char *filename);
+  void readFromFile(const double *refIn, const double *refOut, const char *filename, int outputRangeFlag=0);
+  bool contains(double *coord);
   void interpolate(const int numRes, double **coord, double **res);
 
   // test function for debugging
+  template<typename T>
+  void test(void (T::*fn)(double *, double *, double *), T &object,
+            int type, int *number, double *param);
   template<typename FnType>
-  void test(FnType fn);
+  void test(FnType fn, int type, int *number, double *param);
 
 private:
   SparseGrid(const SparseGrid &sparseGrid); // to prevent copying such objects
   SparseGrid& operator=(const SparseGrid &sparseGrid);
   
   // scales inputs and outputs
-  void scaleGrid(const double *refIn, const double *refOut);
+  void scaleGrid(const double *refIn, const double *refOut, int outputRangeFlag=0);
 
   template<typename FnType>
   void initialize(FnType fn);
@@ -227,7 +237,6 @@ private:
   void resizeMultiIndex();
   
 };
-
 //------------------------------------------------------------------------------
 #ifdef TEMPLATE_FIX
 #include "SparseGrid.C"
