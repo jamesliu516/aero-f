@@ -333,7 +333,12 @@ public:
 
   double update(bool *lastIt, int it, double t, DistSVec<double,3> &Xdot, DistSVec<double,3> &X) {return dts;}
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); //<! just get dt.
+  void step1ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step1ForC0FEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   /** get displacement and pass it to distLSS.  send force to structure. */
 
   int getAlgNum()  { return 0; }

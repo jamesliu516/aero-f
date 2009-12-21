@@ -23,11 +23,12 @@ class StructExc;
 class EmbeddedStructure {
   Communicator &com;
   StructExc* structExc;
-
+  
   const char *meshFile;
   const char *matcherFile;
  
   bool coupled;
+  int algNum;
   bool dim2Treatment;
   bool oneWayCoupling;
   int mode;
@@ -56,6 +57,8 @@ public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc);
   ~EmbeddedStructure();
 
+  int getAlgorithmNumber() {return algNum;}
+  int numStructNodes() {return nNodes;}
   pair<double*, int> getTargetData();
   void sendTimeStep(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
@@ -71,6 +74,7 @@ class DynamicNodalTransfer {
         const double XScale; //scaling factor for length
         const double tScale; //scaling factor for time
         const double UScale; //scaling factor for velocity
+        int algNum;
 
 	Communicator &com;
         EmbeddedStructure structure;
@@ -80,6 +84,8 @@ class DynamicNodalTransfer {
 public:
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &);
 	~DynamicNodalTransfer();
+
+        int getAlgorithmNumber() {return algNum;}
 
 	/** routine to send the force to the structure. On output, f has been dimensionalized. */
 	void sendForce();

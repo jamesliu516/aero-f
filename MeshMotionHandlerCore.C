@@ -494,22 +494,19 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   if (steady)
     dt = 0.0;
 
-  /* KW: Summary for algNum == 6 (A6)
-    if (it==0) 
-      dt = 0.5*dt;
-    if (it>it0)
-      strExc->sendForce(F); 
-    return dt;
-  */
-
   if (algNum == 6 && it == 0)
     dt *= 0.5;
-  if ((algNum == 20 || algNum == 21) && it == 0) 
+  if ((algNum == 20 || algNum == 21) && it == 0)
     dt *= 0.5;
 
-  if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
+  if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
     if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
+    else if(it!=1){strExc->sendForce(F);}
+  }
+  else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    else if(it==it0) {strExc->sendForce(F);}
     else if(it!=1){strExc->sendForce(F);}
   }
   else if (algNum == 8) {
@@ -526,7 +523,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
 
-  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
   //com->fprintf(stderr, "Aero F sent Force norm = %e\n", F.norm());
@@ -552,25 +549,17 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   double dt = strExc->getTimeStep();
 
 
-  /* KW: Summary for algNum == 6 (A6)
-    if(it==0)
-      dt = 0.5*dt;
-    if(it>it0 && steady) {
-      strExc->negotiateStopping(lastIt);
-      if (*lastIt)
-        return 0.0;
-    }
-    if(it==it0 || !*lastIt)
-      strExc->getDisplacement(X0, X, Xdot, dX); //NOTE: dx = dx + 0.5*dt*xdot
-    return dt;
-  */
-
-  if (algNum == 6 && it == 0) 
+  if (algNum == 6 && it == 0)
     dt *= 0.5;
-  if ((algNum == 20 || algNum == 21) && it == 0) 
+  if ((algNum == 20 || algNum == 21) && it == 0)
     dt *= 0.5;
 
-  if (algNum == 20 || algNum == 21){
+  if (algNum == 20){
+    if(it==0){ strExc->sendForce(F);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else return 0.0; // last iteration!
+  }
+  else if (algNum == 21){
     if(it==0){ strExc->sendForce(F);}
     else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
     else return 0.0; // last iteration!
@@ -605,8 +594,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //  return 0.0;
     //}
   }
-
-  timer->removeForceAndDispComm(t0); // do not count the communication time with the 
+  timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
   if (algNum != 10 || it == it0)  {
@@ -1480,8 +1468,107 @@ EmbeddedMeshMotionHandler::~EmbeddedMeshMotionHandler()
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  dts = dynNodalTransfer->getStructureTimeStep();
+  if(!dynNodalTransfer) {
+    fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
+    exit(-1);
+  }
+  int algNum = dynNodalTransfer->getAlgorithmNumber();
+  switch (algNum) {
+    case 6: //A6 with FEM
+      step1ForA6(lastIt,it,t,Xdot,X);
+      break;
+    case 20: //C0 with FEM
+      step1ForC0FEM(lastIt,it,t,Xdot,X);
+      break;
+    case 21: //C0 with XFEM
+      step1ForC0XFEM(lastIt,it,t,Xdot,X);
+      break;
+  }
+
   return dts;
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  dts = dynNodalTransfer->getStructureTimeStep();
+
+  if (it==0)
+    dts *= 0.5;
+
+  // send force
+  if (it>0 && it>it0)
+    dynNodalTransfer->sendForce(); //send force to structure
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  int numStructNodes = distLSS->getNumStructNodes();
+  dts = dynNodalTransfer->getStructureTimeStep();
+
+  if (it==0) {
+    dts *= 0.5;
+
+    //get displacement.
+    SVec<double,3> structU(numStructNodes); //structure displacement
+    SVec<double,3> structUdot(numStructNodes); //structure velocity
+    dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
+
+    // update X and Velocity
+    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    for (int i=0; i<numStructNodes; i++) {
+      structXn[i] = structXnPlus1[i];
+      structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
+      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    }
+
+    distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    X = X0;
+  } 
+
+  else if (it>1 && it>it0)
+    dynNodalTransfer->sendForce(); //send force to structure
+
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  int numStructNodes = distLSS->getNumStructNodes();
+  dts = dynNodalTransfer->getStructureTimeStep();
+
+  if (it==0) {
+    dts *= 0.5;
+
+    //get displacement.
+    SVec<double,3> structU(numStructNodes); //structure displacement
+    SVec<double,3> structUdot(numStructNodes); //structure velocity
+    dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
+
+    // update X and Velocity
+    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    for (int i=0; i<numStructNodes; i++) {
+      structXn[i] = structXnPlus1[i];
+      structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
+      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    }
+
+    distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    X = X0;
+  }
+
+  else if (it>1 || it==it0)
+    dynNodalTransfer->sendForce(); //send force to structure
+
 }
 
 //------------------------------------------------------------------------------
@@ -1494,28 +1581,85 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     exit(-1);
   }
 
-  int numStructNodes = distLSS->getNumStructNodes();
+  int algNum = dynNodalTransfer->getAlgorithmNumber();
 
-  if(it>0 && it>it0)
-    dynNodalTransfer->sendForce(); //send force to structure
-
-  SVec<double,3> structU(numStructNodes); //structure displacement
-  SVec<double,3> structUdot(numStructNodes); //structure velocity
-  dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
-
-  // update X and Velocity
-  if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
-  for (int i=0; i<numStructNodes; i++) {
-    structXn[i] = structXnPlus1[i];
-    structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-    structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+  switch (algNum) {
+    case 6: //A6 with FEM
+      step2ForA6(lastIt,it,t,Xdot,X);
+      break;
+    case 20: //C0 with FEM
+      step2ForC0(lastIt,it,t,Xdot,X);
+      break;
+    case 21: //C0 with XFEM
+      step2ForC0(lastIt,it,t,Xdot,X);
+      break;
   }
 
-  distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
-
-  X = X0;
- 
   return dts;
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  int numStructNodes = distLSS->getNumStructNodes();
+  dts = dynNodalTransfer->getStructureTimeStep();
+
+  if(it==0)
+    dts *= 0.5;
+
+  // get displacement
+  if(it==it0 || !*lastIt) {
+    SVec<double,3> structU(numStructNodes); //structure displacement
+    SVec<double,3> structUdot(numStructNodes); //structure velocity
+    dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
+
+    // update X and Velocity
+    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    for (int i=0; i<numStructNodes; i++) {
+      structXn[i] = structXnPlus1[i];
+      structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
+      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    }
+
+    distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    X = X0;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  int numStructNodes = distLSS->getNumStructNodes();
+  dts = dynNodalTransfer->getStructureTimeStep();
+
+  if(it==0) {
+    dts *= 0.5;
+    dynNodalTransfer->sendForce(); //send force to structure
+  } 
+  else if (!*lastIt) { //get displacement
+    SVec<double,3> structU(numStructNodes); //structure displacement
+    SVec<double,3> structUdot(numStructNodes); //structure velocity
+    dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
+
+    // update X and Velocity
+    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    for (int i=0; i<numStructNodes; i++) {
+      structXn[i] = structXnPlus1[i];
+      structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
+      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    }
+
+    distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    X = X0;
+  } 
+  else // last iteration
+    dts = 0.0; 
 }
 
 //------------------------------------------------------------------------------

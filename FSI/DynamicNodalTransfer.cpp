@@ -27,10 +27,10 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   window.fence(false);
 }
 
+  algNum = structure.getAlgorithmNumber();
   dts /= tScale;
   com.barrier();
   com.fprintf(stderr,"dts = %e\n", dts);
- 
 }
 
 //------------------------------------------------------------------------------
@@ -46,6 +46,7 @@ DynamicNodalTransfer::sendForce() {
   double *embeddedData = embedded.first;
   int length = embedded.second;
 
+  com.barrier();
   Communication::Window<double> window(com, 3*length*sizeof(double), embeddedData); 
   window.fence(true);
   window.accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
@@ -83,8 +84,10 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& s
 void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
-  if(F.size() != fs.size())
+  if(F.size() != fs.size()) {
+    fprintf(stderr,"force vector resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
+  }
   F = fs;
 }
 
@@ -137,6 +140,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   F = 0;
   it = 0;
   structExc = 0;
+  algNum = -1;
 
   // load structure nodes (from file).
   FILE *nodeFile = 0;
@@ -214,6 +218,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
     di->setLen(0,nNodes);
     di->finalize(false);
+  
+    algNum = structExc->getAlgorithmNumber();
   }
 
 }
@@ -352,7 +358,7 @@ EmbeddedStructure::processReceivedForce()
     fy += F[i][1]; 
     fz += F[i][2];
   }
-  std::cout << "Total force (before sending): " << fx << " " << fy << " " << fz << std::endl;
+  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
 
 }
 
