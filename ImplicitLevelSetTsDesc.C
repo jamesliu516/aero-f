@@ -36,7 +36,8 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   failSafeNewton = implicitData.newton.failsafe;
   maxItsNewton = implicitData.newton.maxIts;
   epsNewton = implicitData.newton.eps;
-  epsAltNewton = implicitData.newton.epsAlt;
+  epsAbsResNewton = implicitData.newton.epsAbsRes;
+  epsAbsIncNewton = implicitData.newton.epsAbsInc;
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)

@@ -30,7 +30,7 @@ protected:
   int failSafeNewton;
   int maxItsNewton;
   double epsNewton;
-  double epsAltNewton;
+  double epsAbsResNewton, epsAbsIncNewton;
 
   DistSVec<bool,2> *tag;
 
@@ -63,7 +63,8 @@ public:
 
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }
-  double getEpsAltNewton() const { return epsAltNewton; }
+  double getEpsAbsResNewton() const { return epsAbsResNewton; }
+  double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
 
 };
 

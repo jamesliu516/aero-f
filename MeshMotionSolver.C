@@ -39,7 +39,8 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   if (data.element == DefoMeshMotionData::TORSIONAL_SPRINGS || data.element == DefoMeshMotionData::BALL_VERTEX)
     maxItsNewton = 1;
   epsNewton = data.newton.eps;
-  epsAltNewton = data.newton.epsAlt;
+  epsAbsResNewton = data.newton.epsAbsRes;
+  epsAbsIncNewton = data.newton.epsAbsInc;
 
   timer = domain->getTimer();
 
