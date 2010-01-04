@@ -30,6 +30,7 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
      "Off", 0, "On", 1, "AlwaysOn", 2);
   new ClassInt<NewtonData>(ca, "MaxIts", this, &NewtonData::maxIts);
   new ClassDouble<NewtonData>(ca, "Eps", this, &NewtonData::eps);
+  new ClassDouble<NewtonData>(ca, "EpsRelRes", this, &NewtonData::eps);
   new ClassDouble<NewtonData>(ca, "EpsAbsRes", this, &NewtonData::epsAbsRes);
   new ClassDouble<NewtonData>(ca, "EpsAbsInc", this, &NewtonData::epsAbsInc);
 
