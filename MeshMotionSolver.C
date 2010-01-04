@@ -178,13 +178,16 @@ void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X,
   // PJSA FIX 
   if (it == 0 && !(typeElement == DefoMeshMotionData::NON_LINEAR_FE 
       || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
+      mvp->BCs = 0;
       mvp->apply(*dX0, *F0);
+      mvp->BCs = meshMotionBCs;
       F += *F0;
       X += *dX0;
     }
 
   // PJSA FIX
   if(meshMotionBCs) meshMotionBCs->applyPD(F);
+
 }
 
 //------------------------------------------------------------------------------

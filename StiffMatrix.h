@@ -18,11 +18,12 @@ class StiffMat : public DistMat<Scalar,dim> {
 #endif
 
   int **ndType;
-  BCApplier* BCs; //HB
+//  BCApplier* BCs; //HB
 
   SparseMat<Scalar,dim> **A;
 
 public:
+  BCApplier* BCs; //PJSA
   
   StiffMat(Domain *, int **, MemoryPool *, BCApplier*);
   ~StiffMat();
