@@ -2045,7 +2045,6 @@ DGCLData::DGCLData()
 
   normals = AUTO;
   velocities = AUTO_VEL;
-  volumes = AUTO_VOL;
 
 }
 
@@ -2054,7 +2053,7 @@ DGCLData::DGCLData()
 void DGCLData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
 
   new ClassToken<DGCLData>
     (ca, "Normals", this,
@@ -2069,11 +2068,6 @@ void DGCLData::setup(const char *name, ClassAssigner *father)
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
      "RK2Gcl", 7);
-
-  new ClassToken<DGCLData>
-    (ca, "Volumes", this,
-     reinterpret_cast<int DGCLData::*>(&DGCLData::volumes), 1,
-     "RK2Gcl", 1);
 
 }
 
