@@ -713,7 +713,7 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
-  new ClassDouble<FluidModelData>(ca, "Pmin", this, &FluidModelData::pmin);
+  new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
                                                                                                   
   gasModel.setup("GasModel", ca);
   jwlModel.setup("JWLModel", ca);
@@ -1492,7 +1492,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              &MultiFluidData::subIt);
   new ClassDouble<MultiFluidData>(ca, "Cfl", this,
              &MultiFluidData::cfl);
-  new ClassInt<MultiFluidData>(ca, "Frequency", this,
+  new ClassInt<MultiFluidData>(ca, "LevelSetReinitializationFrequency", this,
              &MultiFluidData::frequency);
   new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
              &MultiFluidData::eps);
