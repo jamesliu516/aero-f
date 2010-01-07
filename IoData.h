@@ -1206,7 +1206,6 @@ struct DGCLData{
   enum Velocities {AUTO_VEL = 0, IMPLICIT_BACKWARD_EULER_VEL = 1, IMPLICIT_THREE_POINT_BDF_VEL = 2,
                    IMPLICIT_IMPOSED_VEL = 3, IMPLICIT_IMPOSED_BACKWARD_EULER_VEL = 4,
                    IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL = 5, IMPLICIT_ZERO = 6, EXPLICIT_RK2_VEL = 7} velocities;
-  enum Volumes {AUTO_VOL = 0, EXPLICIT_RK2_VOL = 1} volumes;
 
   DGCLData();
   ~DGCLData() {}
