@@ -28,7 +28,6 @@ GeoData::GeoData(IoData &ioData)
   use_save = false;
   typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
   typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
-  typeVolumeChanges = DGCLData::AUTO_VOL;
 
   if (ioData.problem.type[ProblemData::ACCELERATED] ||
       ioData.problem.type[ProblemData::AERO] ||
