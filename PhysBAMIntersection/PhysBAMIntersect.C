@@ -96,7 +96,7 @@ public:
   double minDist; //!< Signed distance to the surface
   Vec3D x;
 
-  static const int maxNPairs = 32;
+  static const int maxNPairs = 100;
 
   bool isConsistant, isPositive;
   int nPairs;
@@ -560,8 +560,8 @@ DistPhysBAMIntersector::buildSolidNormals() {
   if(!triSize)  triSize = new double[length_triangle_list];
   if(interpolatedNormal) {
     if(!nodalNormal)
-      nodalNormal = new Vec3D[length_triangle_list];
-    for(int i=0; i<length_triangle_list; i++)
+      nodalNormal = new Vec3D[length_solids_particle_list];
+    for(int i=0; i<length_solids_particle_list; i++)
       nodalNormal[i] = 0.0;
   }
 
@@ -606,13 +606,14 @@ DistPhysBAMIntersector::buildSolidNormals() {
       trMaxNorm = iTriangle;
     }
     // normalize the normal.
-    if(nrm != 0)
+    if(nrm > 0.0)
        triNorms[iTriangle] /= nrm;
   }
 
   if(interpolatedNormal) //normalize nodal normals.
-    for(int i=0; i<length_triangle_list; i++)
+    for(int i=0; i<length_solids_particle_list; i++) {
       nodalNormal[i] /= nodalNormal[i].norm();
+    }
 
   // find an inside point
   if(trMaxNorm >= 0) {
