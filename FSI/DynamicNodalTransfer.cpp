@@ -140,7 +140,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   F = 0;
   it = 0;
   structExc = 0;
-  algNum = -1;
+  algNum = 6; //the default is A6. For 2-way coupling, algNum will be modified by the info from structure.
 
   // load structure nodes (from file).
   FILE *nodeFile = 0;
