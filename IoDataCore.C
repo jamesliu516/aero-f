@@ -133,6 +133,7 @@ TransientData::TransientData()
   tavpressure = "";
   hydrostaticpressure = "";
   hydrodynamicpressure = "";
+  pressurecoefficient = "";
   temperature = "";
   tavtemperature = "";
   totalpressure = "";
@@ -207,7 +208,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)  
-  ClassAssigner *ca = new ClassAssigner(name, 76, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 77, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -224,6 +225,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "DeltaPressure", this, &TransientData::diffpressure);
   new ClassStr<TransientData>(ca, "HydroStaticPressure", this, &TransientData::hydrostaticpressure);
   new ClassStr<TransientData>(ca, "HydroDynamicPressure", this, &TransientData::hydrodynamicpressure);
+  new ClassStr<TransientData>(ca, "PressureCoefficient", this, &TransientData::pressurecoefficient);
   new ClassStr<TransientData>(ca, "TavPressure", this, &TransientData::tavpressure);
   new ClassStr<TransientData>(ca, "Temperature", this, &TransientData::temperature);
   new ClassStr<TransientData>(ca, "TavTemperature", this, &TransientData::tavtemperature);
@@ -399,14 +401,15 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
   
   new ClassToken<ProblemData>
     (ca, "Type", this, 
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 22, 
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 23, 
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3, 
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8, 
      "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11, 
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
-     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21);
+     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
+     "SparseGridGeneration", 22);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this, 
@@ -705,12 +708,12 @@ FluidModelData::FluidModelData()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                   
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
                                                                                                   
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
-  new ClassDouble<FluidModelData>(ca, "Pmin", this, &FluidModelData::pmin);
+  new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
                                                                                                   
   gasModel.setup("GasModel", ca);
   jwlModel.setup("JWLModel", ca);
@@ -1359,11 +1362,11 @@ InitialConditionsData::InitialConditionsData()
 }
                                                                                                         
 //------------------------------------------------------------------------------
-                                                                                                        
+
 void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
                                                                                                         
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
   s1.setup("Sphere1", ca);
   s2.setup("Sphere2", ca);
@@ -1372,13 +1375,76 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 }
 
 //------------------------------------------------------------------------------
-                                                                                                        
+
+SparseGridData::SparseGridData()
+{
+  verbose = 0;
+
+  minPoints = 100;
+  maxPoints = 100;
+  relAccuracy = 1.e-3;
+  absAccuracy = 1.e-1;
+
+  dimAdaptDegree = 0.0;
+
+  range1min = 0.0; range1max = 1.0;
+  range2min = 0.0; range2max = 1.0;
+  range3min = 0.0; range3max = 1.0;
+
+  range = 0;
+
+  numOutputs = 1;
+  numInputs  = 2;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SparseGridData::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+
+  new ClassInt<SparseGridData>
+    (ca, "Verbose", this, &SparseGridData::verbose);
+  new ClassInt<SparseGridData>
+    (ca, "MinimumNumberOfPoints", this, &SparseGridData::minPoints);
+  new ClassInt<SparseGridData>
+    (ca, "MaximumNumberOfPoints", this, &SparseGridData::maxPoints);
+  new ClassDouble<SparseGridData>
+    (ca, "RelativeAccuracy", this, &SparseGridData::relAccuracy);
+  new ClassDouble<SparseGridData>
+    (ca, "AbsoluteAccuracy", this, &SparseGridData::absAccuracy);
+  new ClassDouble<SparseGridData>
+    (ca, "Output1Minimum", this, &SparseGridData::range1min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output1Maximum", this, &SparseGridData::range1max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output2Minimum", this, &SparseGridData::range2min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output2Maximum", this, &SparseGridData::range2max);
+  new ClassDouble<SparseGridData>
+    (ca, "Output3Minimum", this, &SparseGridData::range3min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output3Maximum", this, &SparseGridData::range3max);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfOutputs", this, &SparseGridData::numOutputs);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfInputs",  this, &SparseGridData::numInputs);
+  new ClassDouble<SparseGridData>
+    (ca, "DimAdaptDegree", this, &SparseGridData::dimAdaptDegree);
+
+}
+
+//------------------------------------------------------------------------------
+
 MultiFluidData::MultiFluidData()
 {
 
   method = GHOSTFLUID_FOR_POOR;
   problem = BUBBLE; //hidden
   typePhaseChange = RIEMANN_SOLUTION; //hidden
+  riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
   bandlevel = 3;
@@ -1415,6 +1481,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   new ClassToken<MultiFluidData>(ca, "PhaseChange", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
              "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
+  new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 3,
+             "FirstOrder", 0, "SecondOrder", 1, "Tabulation", 2);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
@@ -1427,7 +1496,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              &MultiFluidData::subIt);
   new ClassDouble<MultiFluidData>(ca, "Cfl", this,
              &MultiFluidData::cfl);
-  new ClassInt<MultiFluidData>(ca, "Frequency", this,
+  new ClassInt<MultiFluidData>(ca, "LevelSetReinitializationFrequency", this,
              &MultiFluidData::frequency);
   new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
              &MultiFluidData::eps);
@@ -1446,10 +1515,10 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   fluidModel.setup("FluidModel", ca);
   fluidModel2.setup("FluidModel2", ca);
   initialConditions.setup("InitialConditions", ca);
+  sparseGrid.setup("SparseGrid",ca);
 
   new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
   new ClassDouble<MultiFluidData>(ca, "Pinit", this, &MultiFluidData::Pinit);
-
 }
 
 //------------------------------------------------------------------------------
@@ -1728,8 +1797,9 @@ void ExplicitData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ExplicitData>
     (ca, "Type", this,
-     reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 4,
-     "RungeKutta4", 0, "RungeKutta2", 1, "ForwardEuler", 2, "OneBlockRK2", 3);
+     reinterpret_cast<int ExplicitData::*>(&ExplicitData::type), 5,
+     "RungeKutta4", 0, "RungeKutta2", 1, "ForwardEuler", 2, 
+     "OneBlockRK2", 3, "OneBlockRK2bis", 4);
 
 }
 
@@ -1842,6 +1912,7 @@ ImplicitData::ImplicitData()
   coupling = WEAK;
   mvp = H1;
   jacobian = APPROXIMATE;
+  fdOrder = FIRST_ORDER;
   //normals = AUTO;
   //velocities = AUTO_VEL;
 
@@ -1852,7 +1923,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
   
   new ClassToken<ImplicitData>
     (ca, "Type", this, 
@@ -1880,6 +1951,13 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "FluxJacobian", this, 
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
+
+  new ClassToken<ImplicitData>
+    (ca, "FiniteDifferenceOrder", this,
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::startup), 2,
+      "FirstOrder", 0, "SecondOrder", 1);
+
+
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this, 
@@ -1973,7 +2051,6 @@ DGCLData::DGCLData()
 
   normals = AUTO;
   velocities = AUTO_VEL;
-  volumes = AUTO_VOL;
 
 }
 
@@ -1982,7 +2059,7 @@ DGCLData::DGCLData()
 void DGCLData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
 
   new ClassToken<DGCLData>
     (ca, "Normals", this,
@@ -1997,11 +2074,6 @@ void DGCLData::setup(const char *name, ClassAssigner *father)
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
      "RK2Gcl", 7);
-
-  new ClassToken<DGCLData>
-    (ca, "Volumes", this,
-     reinterpret_cast<int DGCLData::*>(&DGCLData::volumes), 1,
-     "RK2Gcl", 1);
 
 }
 
@@ -3257,6 +3329,7 @@ int IoData::checkInputValues()
   checkInputValuesDefaultOutlet();
 
   checkInputValuesMulti_step2();
+  error += checkInputValuesSparseGrid(mf.sparseGrid);
                                                                                                   
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -4033,6 +4106,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tvelocity = velocity / aero.displacementScaling;
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
+      ref.rv.entropy = pow(ref.rv.density,1.0-gamma)*velocity*velocity;
 
 // Included (MB)
       ref.rv.dvelocitydMach = dvelocitydMach;
@@ -4078,7 +4152,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tvelocity = velocity / aero.displacementScaling;
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
-
+      ref.rv.entropy = pow(ref.rv.density,-omegajwl)*velocity*velocity;
 
       eqs.fluidModel.jwlModel.A1     /= ref.rv.pressure;
       eqs.fluidModel.jwlModel.A2     /= ref.rv.pressure;
@@ -4117,8 +4191,10 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.force = ref.density * velocity*velocity * ref.length*ref.length;
       ref.rv.energy = ref.density * velocity*velocity * ref.length*ref.length*ref.length;
       ref.rv.power = ref.density * velocity*velocity*velocity * ref.length*ref.length;
+      ref.rv.entropy = pow(ref.rv.density,1.0-bwater)*velocity*velocity;
+
       ref.rv.tvelocity = velocity / aero.displacementScaling;
-                                                                                                        
+
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
                                                                                                         
@@ -4443,3 +4519,47 @@ for(int j = 1; j < 8*sizeof(int); j++) {
 
 }  
 
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
+
+  int error = 0;
+
+  if(sparseGrid.minPoints > sparseGrid.maxPoints){
+    com->fprintf(stderr, "*** Error: sparse grid has incorrect number of points\n");
+    error++;
+  }
+
+  if(sparseGrid.relAccuracy <= 0.0 || sparseGrid.absAccuracy <= 0.0){
+    com->fprintf(stderr, "*** Error: sparse grid has incorrect accuracy specification(s)\n");
+    error++;
+  }
+
+  if(sparseGrid.dimAdaptDegree<0.0 || sparseGrid.dimAdaptDegree>1.0){
+    com->fprintf(stderr, "*** Error: sparse grid must have a dimension adaptivity degree between 0 and 1\n");
+    error++;
+  }
+
+  if(sparseGrid.numOutputs <= 0 || sparseGrid.numInputs <= 0){
+    com->fprintf(stderr, "*** Error: sparse grid must have positive numbers of inputs and outputs\n");
+    error++;
+  }
+
+  typedef double Range[2];
+  sparseGrid.range = new Range[sparseGrid.numInputs];
+  if(sparseGrid.numInputs > 2){
+    sparseGrid.range[2][0] = sparseGrid.range3min;
+    sparseGrid.range[2][1] = sparseGrid.range3max;
+  }
+  if(sparseGrid.numInputs > 1){
+    sparseGrid.range[1][0] = sparseGrid.range2min;
+    sparseGrid.range[1][1] = sparseGrid.range2max;
+  }
+  if(sparseGrid.numInputs > 0){
+    sparseGrid.range[0][0] = sparseGrid.range1min;
+    sparseGrid.range[0][1] = sparseGrid.range1max;
+  }
+
+  return error;
+
+}

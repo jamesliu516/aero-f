@@ -143,8 +143,8 @@ public:
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
-                         DistVec<double> &Phi,
-                         DistSVec<double,dim> *Vgf, DistVec<double> *weight);
+                         DistVec<double> &Phi, DistSVec<double,dim> *Vgf, 
+                         DistVec<double> *weight, DistSVec<double,3> &X);
   void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,

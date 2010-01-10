@@ -75,6 +75,9 @@ void StiffMat<Scalar,dim>::apply(DistSVec<double,dim> &x, DistSVec<double,dim> &
   fprintf(stderr," -> in StiffMat::apply, CPU %d, GET IN\n",this->com->cpuNum());
 #endif
   int iSub;
+
+  // PJSA (moved from preconditioner, see KspPrec.C)
+  if(BCs) BCs->applyPD(x);
   
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {

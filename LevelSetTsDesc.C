@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
-  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   Vgf = 0;
   Vgfweight = 0;
@@ -283,7 +283,6 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
   this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   if (*lastIt) {

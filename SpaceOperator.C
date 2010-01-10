@@ -1498,15 +1498,16 @@ double SpaceOperator<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<d
 template<int dim>
 void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U, 
                                 DistSVec<double,dim> &Vg, DistVec<double> &Phi,
-                                DistSVec<double,dim> *Vgf, DistVec<double> *weight)
+                                DistSVec<double,dim> *Vgf, DistVec<double> *weight,
+                                DistSVec<double,3> &X)
 {
 
   varFcn->conservativeToPrimitive(U, Vg, &Phi);
   //if(riemann->RiemannUpdatePhase())
     //nothing to do, everything has been done when computing the fluxes
   if(Vgf && weight){
-    //domain->storePrimitive(Vg,*Vgf,*weight,Phi);
-    storeGhost(Vg,Phi,*Vgf,*weight);
+    domain->storePrimitive(Vg,*Vgf,*weight,Phi,X);
+    //storeGhost(Vg,Phi,*Vgf,*weight);
   }
 
 }
@@ -1891,6 +1892,7 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
     distNodalGrad->limit(recFcn, X, ctrlVol, V2);
   }
 
+
   if (use_modal)  {
     DistVec<double> unitCtrlVol(domain->getNodeDistInfo());
     unitCtrlVol = 1.0;
@@ -1947,12 +1949,11 @@ void SpaceOperator<dim>::applyH2T(DistSVec<double,3> &X,
   int numLocSub = p.numLocSub();
   DistNodalGrad<dim, Scalar2> *distNodalGrad = getDistNodalGrad(p);
 
-  domain->computeMatVecProdH2T(recFcn, X, ctrlVol, H2, aij, aji, bij, bji, p,  prod, prod2, prod3, prod4);
-
+  domain->computeMatVecProdH2T(recFcn, X, ctrlVol, H2, aij, aji, bij, bji, p,  prod2, prod, prod3, prod4);
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     distNodalGrad->computeT(geoState->getConfig(), X, ctrlVol, prod, prod3, prod4);
-
   domain->computeMatVecProdH2Tb(recFcn, X, ctrlVol, H2, *distNodalGrad, p, prod, prod2);
+  
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -1960,6 +1961,7 @@ void SpaceOperator<dim>::applyH2T(DistSVec<double,3> &X,
     double (*locV)[dim] = V->subData(iSub);
     Scalar2 (*locp)[dim] = prod.subData(iSub);
 
+    // prod corresponds to zu in the Fortran code
     for (int i=0; i<p.subSize(iSub); ++i)
       varFcn->multiplyBydVdUT(locV[i], locp[i], locp[i]);
 
