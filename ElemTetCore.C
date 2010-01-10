@@ -1534,8 +1534,8 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
   }else if(fabs(phi[1])<tol1){
     //
     double temp = y3sq - K*K/y2sq;
-    //if(fabs(temp-phi[2]*phi[2])<tol2*tol2) return false;
-		assert(temp-phi[2]*phi[2]!=0.0);
+    if(fabs(temp-phi[2]*phi[2])<tol2*tol2) return false;
+		//assert(temp-phi[2]*phi[2]!=0.0);
     double Z3sq = phi[2]*phi[2]*orthogonal*orthogonal/(temp*(temp-phi[2]*phi[2]));
     if(Z3sq<0.0) return false;
 
@@ -1573,8 +1573,8 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
   }else if(fabs(phi[2])<tol2){
     //
     double temp = y2sq - K*K/y3sq;
-    //if(fabs(temp-phi[1]*phi[1])<tol1*tol1) return false;
-    assert(temp-phi[1]*phi[1]!=0.0);
+    if(fabs(temp-phi[1]*phi[1])<tol1*tol1) return false;
+    //assert(temp-phi[1]*phi[1]!=0.0);
     double Z2sq = phi[1]*phi[1]*orthogonal*orthogonal/(temp*(temp-phi[1]*phi[1]));
     if(Z2sq<0.0) return false;
 
