@@ -10,7 +10,8 @@
 //------------------------------------------------------------------------------
 template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
-                                            Vec<double> &_weight, VarFcn *vf):
+                                            Vec<double> &_weight, VarFcn *vf,
+                                            SparseGridCluster *sgCluster):
                                             rupdate(_rupdate), weight(_weight)
 {
 
@@ -48,7 +49,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
       lriemann = new LocalRiemannGfmparGasTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparGasJWL(vf,iod);
+      lriemann = new LocalRiemannGfmparGasJWL(vf,sgCluster,iod.mf.riemannComputation);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
       lriemann = new LocalRiemannGfmparJWLJWL(vf);
@@ -79,7 +80,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 {
 
   lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,
-          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],dx,iteration);
+          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
+          dx,iteration);
 
 }
 //------------------------------------------------------------------------------

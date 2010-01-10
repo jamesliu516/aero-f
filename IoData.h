@@ -120,6 +120,8 @@ struct TransientData {
   const char *surfaceheatflux;
   const char *heatfluxes;
 
+  const char *sparseGrid;
+
   int frequency;
   double x0, y0, z0;
   double length;
@@ -797,11 +799,16 @@ struct SparseGridData {
   double absAccuracy;
   double dimAdaptDegree;
 
-  double range1min, range1max;
-  double range2min, range2max;
-  double range3min, range3max;
+  double range1min, range1max, mapBaseValue1; int numDomainDim1;
+  double range2min, range2max, mapBaseValue2; int numDomainDim2;
+  double range3min, range3max, mapBaseValue3; int numDomainDim3;
+  double range4min, range4max, mapBaseValue4; int numDomainDim4;
+  double range5min, range5max, mapBaseValue5; int numDomainDim5;
+  double range6min, range6max, mapBaseValue6; int numDomainDim6;
   typedef double Range[2];
   Range *range;
+  double *mapBaseValue;
+  int *numDomainDim;
 
   int numOutputs;
   int numInputs;
@@ -818,7 +825,7 @@ struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
   enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
-  enum RiemannComputation {FE = 0, RK2 = 1, TABULATION = 2} riemannComputation;
+  enum RiemannComputation {FE = 0, RK2 = 1, TABULATION2 = 2, TABULATION5 = 3} riemannComputation;
   int bandlevel;
   int subIt;
   double cfl;
