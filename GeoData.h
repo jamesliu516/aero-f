@@ -11,7 +11,6 @@ public:
 
   DGCLData::Normals typeNormals;
   DGCLData::Velocities typeVelocities;
-  DGCLData::Volumes typeVolumeChanges;
 
   int config;
 

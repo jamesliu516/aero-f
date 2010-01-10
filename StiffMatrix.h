@@ -32,7 +32,7 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void applyLS(DistSVec<double,dim> &, DistSVec<double,dim> &) {};
+  void applyLS(DistSVec<double,dim> &, DistSVec<double,dim> &) { }
 
 };
 

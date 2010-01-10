@@ -76,6 +76,7 @@ class BCApplier {
 
     void setDofType(MatchNodeSet** matchNodes=0);
     void print();
+
 };
 
 #ifdef TEMPLATE_FIX

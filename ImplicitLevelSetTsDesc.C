@@ -36,6 +36,7 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   failSafeNewton = implicitData.newton.failsafe;
   maxItsNewton = implicitData.newton.maxIts;
   epsNewton = implicitData.newton.eps;
+  epsAltNewton = implicitData.newton.epsAlt;
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)
@@ -180,7 +181,7 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, 
-                                          this->Vgfweight);
+                                          this->Vgfweight, *this->X);
 
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);

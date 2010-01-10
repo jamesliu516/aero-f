@@ -40,7 +40,6 @@ KspSolver(KspData &data, MatVecProdOp *mvp, PrecOp *pc, IoOp *io)
       exit(1);
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -171,6 +170,7 @@ template<class VecType, class MatVecProdOp, class PrecOp, class IoOp>
 int 
 CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solve(VecType &f, VecType &x)
 {
+  int typePrec = 1;
 
   this->mvpOp->apply(x, Ap);
   r = f - Ap;
@@ -184,8 +184,10 @@ CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solve(VecType &f, VecType &x)
   }
 
   if (res <= target) return 0;
+  double initial = res;
 
-  this->pcOp->apply(r, p);
+  if(typePrec) this->pcOp->apply(r, p);
+  else p = r;
  
   this->mvpOp->apply(p, Ap);
 
@@ -202,7 +204,8 @@ CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solve(VecType &f, VecType &x)
   int iter;
   for (iter = 1; iter < this->maxits && (res > target); ++iter) {
 
-    this->pcOp->apply(r, y);
+    if(typePrec) this->pcOp->apply(r, y);
+    else y = r;
 
     double alpha = Ap * y / pAp;
     p = y - alpha * p;
@@ -223,7 +226,7 @@ CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solve(VecType &f, VecType &x)
   this->ioOp->printf(5, "Cg solver: its=%d, res=%.2e, target=%.2e\n", iter, res, target);
   if (iter == this->maxits) {
     this->ioOp->printf(1, "*** Warning: Cg solver reached %d its", this->maxits);
-    this->ioOp->printf(1, " (res=%.2e, target=%.2e)\n", res, target);
+    this->ioOp->printf(1, " (Residual: initial=%.2e, res=%.2e, target=%.2e)\n", initial, res, target);
   }
 
   return iter;
@@ -327,6 +330,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 {
 
   int typePrec = 2;
+  //int typePrec = 0;
   double beta, l2res, target;
 
   int iter = 0;

@@ -10,12 +10,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <iostream>
+#include <LinkF77.h>
 const double ElemTet::third = 1.0/3.0;
 const double ElemTet::fourth = 1.0/4.0;
 const double ElemTet::sixth = 1.0/6.0;
 const int ElemTet::edgeEndTet[6][2]  = { {0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3} };
 const int ElemTet::edgeFaceTet[6][2] = { {0,1}, {2,0}, {1,2}, {0,3}, {3,1}, {2,3} };
 const int ElemTet::faceDefTet[4][3]  = { {0,1,2}, {0,3,1}, {0,2,3}, {1,3,2} };
+
+extern "C" {
+  void F77NAME(dgeev)(const char &, const char &, const int &, double *, const int &,
+             double *, double *, double *, const int &, double *, 
+             const int &, double *, const int &, int &);
+}
 
 //------------------------------------------------------------------------------
 
@@ -1086,7 +1094,9 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
              invSqrS2_9.d(i,j+6) = invSqrS2_9.d(j+6, i) = 0;
              invSqrS2_9.d(i+3,j+6) = invSqrS2_9.d(j+6, i+3) = 0;
              invSqrS2_9.d(i+6,j+6) = invSqrS2_9.d(j+6, i+6) = 0;
-             
+             // PJSA FIX: the following also need to be initialized
+             invSqrS2_9.d(i+6,j) = invSqrS2_9.d(j, i+6) = 0.0;
+             invSqrS2_9.d(i+6,j+3) = invSqrS2_9.d(j+3, i+6) = 0.0;
            }
      }
      //return invSqrS2_9;
@@ -1159,6 +1169,7 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
   // Now double K, as the Taylor object stores half of the second derivative
   for(int i = 0; i < 12*12; ++i)
     Kspace[i] *= 2.0;
+
 }
 //------------------------------------------------------------------------------
 

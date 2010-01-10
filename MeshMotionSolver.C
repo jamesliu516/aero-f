@@ -39,6 +39,7 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   if (data.element == DefoMeshMotionData::TORSIONAL_SPRINGS || data.element == DefoMeshMotionData::BALL_VERTEX)
     maxItsNewton = 1;
   epsNewton = data.newton.eps;
+  epsAltNewton = data.newton.epsAlt;
 
   timer = domain->getTimer();
 
@@ -163,17 +164,26 @@ void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
 void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X, 
 					  DistSVec<double,3> &F) 
 {
-
   DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
+
+  // PJSA FIX
+  if(it == 0 && (typeElement == DefoMeshMotionData::NON_LINEAR_FE 
+     || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) {
+    X += *dX0; 
+  }
 
   domain->computeStiffAndForce(typeElement, X, F, *mvp, _pc, volStiff);
 
-  if (it == 0) {// compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb] 
-    mvp->apply(*dX0, *F0);
-    F += *F0;
-    X += *dX0;
-  }
+  // PJSA FIX 
+  if (it == 0 && !(typeElement == DefoMeshMotionData::NON_LINEAR_FE 
+      || typeElement == DefoMeshMotionData::NL_BALL_VERTEX)) { // compute F0 <- F0 + [Kib*dXb,0] & X <- X + [0,dXb]
+      mvp->apply(*dX0, *F0);
+      F += *F0;
+      X += *dX0;
+    }
 
+  // PJSA FIX
+  if(meshMotionBCs) meshMotionBCs->applyPD(F);
 }
 
 //------------------------------------------------------------------------------
@@ -212,6 +222,10 @@ int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs,
   ksp->setup(it, maxItsNewton, rhs);
 
   int lits = ksp->solve(rhs, dX);
+
+  // PJSA FIX (note rhs has already been projected in computeFunction)
+  if(meshMotionBCs) meshMotionBCs->applyPD(dX);
+
   timer->addMeshKspTime(t0);
   
   return lits;

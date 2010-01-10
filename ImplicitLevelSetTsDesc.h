@@ -42,6 +42,7 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   int failSafeNewton;
   int maxItsNewton;
   double epsNewton;
+  double epsAltNewton;
 
 
  public:
@@ -50,6 +51,7 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   
   int getMaxItsNewton() const { return maxItsNewton; }
   double getEpsNewton() const { return epsNewton; }
+  double getEpsAltNewton() const { return epsAltNewton; }
 
   //-- functions for solving Euler equations
   int solveNonLinearSystem(DistSVec<double,dim> &);

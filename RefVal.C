@@ -26,6 +26,7 @@ RefVal::RefVal()
   force = 1.0;
   energy = 1.0;
   power = 1.0;
+  entropy = 1.0;
 
   tlength = 1.0;
   tvelocity = 1.0;
@@ -59,6 +60,7 @@ RefVal::RefVal(IoData &ioData)
     force = 1.0;
     energy = 1.0;
     power = 1.0;
+    entropy = 1.0;
 
     tlength = 1.0;
     tvelocity = 1.0;
@@ -81,9 +83,33 @@ RefVal::RefVal(IoData &ioData)
       velocity = mach * sqrt(gam * (ioData.ref.pressure + Pstiff) / density);
       pressure = density * velocity*velocity;
       temperature = gam*(gam - 1.0) * mach*mach * (ioData.ref.pressure + Pstiff)/(density*R);
+      entropy = pow(density,1.0-gam)*velocity*velocity;
 // Included (MB)
       dvelocitydMach = sqrt(gam * ioData.ref.pressure / density);
       dtimedMach = - length / (velocity * velocity) * dvelocitydMach;
+    }
+    else if(ioData.eqs.fluidModel.fluid == FluidModelData::JWL){
+      double omegajwl  = ioData.eqs.fluidModel.jwlModel.omega;
+      double A1jwl     = ioData.eqs.fluidModel.jwlModel.A1;
+      double A2jwl     = ioData.eqs.fluidModel.jwlModel.A2;
+      double R1jwl     = ioData.eqs.fluidModel.jwlModel.R1;
+      double R2jwl     = ioData.eqs.fluidModel.jwlModel.R2;
+      double rhorefjwl = ioData.eqs.fluidModel.jwlModel.rhoref;
+      mach = ioData.ref.mach;
+      density = ioData.ref.density;
+      double frhoref   = A1jwl*(1-omegajwl*density/(R1jwl*rhorefjwl))*exp(-R1jwl*rhorefjwl/density) +
+                         A2jwl*(1-omegajwl*density/(R2jwl*rhorefjwl))*exp(-R2jwl*rhorefjwl/density);
+      double frhorefp  = A1jwl*(-omegajwl/(R1jwl*rhorefjwl) + (1.0-omegajwl*density/(R1jwl*rhorefjwl))*R1jwl*rhorefjwl/(density*density))
+                          *exp(-R1jwl*rhorefjwl/density)
+                       + A2jwl*(-omegajwl/(R2jwl*rhorefjwl) + (1.0-omegajwl*density/(R2jwl*rhorefjwl))*R2jwl*rhorefjwl/(density*density))
+                          *exp(-R2jwl*rhorefjwl/density);
+      velocity = mach * sqrt(((omegajwl+1.0)*ioData.ref.pressure - frhoref + density*frhorefp)/density);
+      pressure = density * velocity*velocity;
+      temperature = omegajwl*(omegajwl + 1.0) * mach*mach * ((omegajwl+1.0)*ioData.ref.pressure - frhoref + density*frhorefp);
+      entropy = pow(density,-omegajwl)*velocity*velocity;
+// Included (MB)
+      dvelocitydMach = 1.0;
+      dtimedMach = 1.0;
     }
     else if(ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
       double Cv = ioData.eqs.fluidModel.liquidModel.Cv;
@@ -94,6 +120,7 @@ RefVal::RefVal(IoData &ioData)
       velocity = mach * sqrt(awater*bwater*pow(density, bwater - 1.0));
       pressure = density * velocity*velocity;
       temperature = velocity*velocity/Cv;
+      entropy = pow(density,1.0-bwater)*velocity*velocity;
     }
 
     length = ioData.ref.length;
@@ -136,6 +163,7 @@ void RefVal::rstVar(IoData &ioData)
     force = 1.0;
     energy = 1.0;
     power = 1.0;
+    entropy = 1.0;
 
     tlength = 1.0;
     tvelocity = 1.0;
