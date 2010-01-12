@@ -1150,7 +1150,7 @@ struct ImplicitData {
   enum Coupling {WEAK = 0, STRONG = 1} coupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
-  enum FiniteDifferenceOrder {FIRST_ORDER = 0, SECOND_ORDER = 1} fdOrder; 
+  enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   NewtonData<KspFluidData> newton;
 
   ImplicitData();
