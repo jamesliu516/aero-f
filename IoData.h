@@ -1150,7 +1150,7 @@ struct ImplicitData {
   enum Coupling {WEAK = 0, STRONG = 1} coupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
-
+  enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   NewtonData<KspFluidData> newton;
 
   ImplicitData();
@@ -1206,7 +1206,6 @@ struct DGCLData{
   enum Velocities {AUTO_VEL = 0, IMPLICIT_BACKWARD_EULER_VEL = 1, IMPLICIT_THREE_POINT_BDF_VEL = 2,
                    IMPLICIT_IMPOSED_VEL = 3, IMPLICIT_IMPOSED_BACKWARD_EULER_VEL = 4,
                    IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL = 5, IMPLICIT_ZERO = 6, EXPLICIT_RK2_VEL = 7} velocities;
-  enum Volumes {AUTO_VOL = 0, EXPLICIT_RK2_VOL = 1} volumes;
 
   DGCLData();
   ~DGCLData() {}
