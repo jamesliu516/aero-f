@@ -28,7 +28,6 @@ GeoData::GeoData(IoData &ioData)
   use_save = false;
   typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
   typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
-  typeVolumeChanges = DGCLData::AUTO_VOL;
 
   if (ioData.problem.type[ProblemData::ACCELERATED] ||
       ioData.problem.type[ProblemData::AERO] ||
@@ -38,57 +37,63 @@ GeoData::GeoData(IoData &ioData)
     if (ioData.ts.type == TsData::IMPLICIT) {
       use_n = true;
       if (ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF)
-	use_nm1 = true;
+        use_nm1 = true;
       if (ioData.ts.implicit.type == ImplicitData::FOUR_POINT_BDF) {
-	use_nm1 = true;
-	use_nm2 = true;
+        use_nm1 = true;
+        use_nm2 = true;
       }
       
       //Choice of Normals
       if (ioData.dgcl.normals == DGCLData::AUTO) {
-	if (ioData.ts.implicit.type == ImplicitData::BACKWARD_EULER ||
-	    ioData.ts.implicit.type == ImplicitData::CRANK_NICOLSON)
-	  typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
-	else if (ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF)
-	  typeNormals = DGCLData::IMPLICIT_SECOND_ORDER_GCL;
-	else if (ioData.ts.implicit.type == ImplicitData::FOUR_POINT_BDF)
-	  typeNormals = DGCLData::IMPLICIT_THIRD_ORDER_EZGCL;
+        if (ioData.ts.implicit.type == ImplicitData::BACKWARD_EULER ||
+            ioData.ts.implicit.type == ImplicitData::CRANK_NICOLSON)
+          typeNormals = DGCLData::IMPLICIT_FIRST_ORDER_GCL;
+        else if (ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF)
+          typeNormals = DGCLData::IMPLICIT_SECOND_ORDER_GCL;
+        else if (ioData.ts.implicit.type == ImplicitData::FOUR_POINT_BDF)
+          typeNormals = DGCLData::IMPLICIT_THIRD_ORDER_EZGCL;
       }
       else
-	typeNormals = ioData.dgcl.normals;    
+        typeNormals = ioData.dgcl.normals;    
       
       //Choice of Velocities
       if (ioData.dgcl.velocities == DGCLData::AUTO_VEL)
-	typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+        typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
       else
-	typeVelocities = ioData.dgcl.velocities;
+        typeVelocities = ioData.dgcl.velocities;
     }
 
     //FOR EXPLICIT SCHEMES
     else if (ioData.ts.type == TsData::EXPLICIT) {
       use_n = true;
-      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
-	use_save = true;
+      if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis)
+        use_save = true;
 
       //Choice of Normals
       if (ioData.dgcl.normals == DGCLData::AUTO) {
-        if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
-	  typeNormals = DGCLData::EXPLICIT_RK2;
+        if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
+            ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
+            ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis)
+          typeNormals = DGCLData::EXPLICIT_RK2;
         else
-	  typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
+          typeNormals = DGCLData::IMPLICIT_LATEST_CFG;
       }
       else
-	typeNormals = ioData.dgcl.normals;
+        typeNormals = ioData.dgcl.normals;
 
       //Choice of Velocities
       if (ioData.dgcl.velocities == DGCLData::AUTO_VEL) {
-	if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2)
-	  typeVelocities = DGCLData::EXPLICIT_RK2_VEL;
-	else
-	  typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
+        if (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
+            ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
+            ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis)
+          typeVelocities = DGCLData::EXPLICIT_RK2_VEL;
+        else
+          typeVelocities = DGCLData::IMPLICIT_BACKWARD_EULER_VEL;
       }
       else
-	typeVelocities = ioData.dgcl.velocities;
+        typeVelocities = ioData.dgcl.velocities;
     }
 
   }

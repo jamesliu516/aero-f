@@ -713,7 +713,7 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
-  new ClassDouble<FluidModelData>(ca, "Pmin", this, &FluidModelData::pmin);
+  new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
                                                                                                   
   gasModel.setup("GasModel", ca);
   jwlModel.setup("JWLModel", ca);
@@ -1385,7 +1385,7 @@ SparseGridData::SparseGridData()
   relAccuracy = 1.e-3;
   absAccuracy = 1.e-1;
 
-  dimAdaptDegree = 0.7;
+  dimAdaptDegree = 0.0;
 
   range1min = 0.0; range1max = 1.0;
   range2min = 0.0; range2max = 1.0;
@@ -1492,7 +1492,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              &MultiFluidData::subIt);
   new ClassDouble<MultiFluidData>(ca, "Cfl", this,
              &MultiFluidData::cfl);
-  new ClassInt<MultiFluidData>(ca, "Frequency", this,
+  new ClassInt<MultiFluidData>(ca, "LevelSetReinitializationFrequency", this,
              &MultiFluidData::frequency);
   new ClassDouble<MultiFluidData>(ca, "Epsilon", this,
              &MultiFluidData::eps);
@@ -1906,6 +1906,7 @@ ImplicitData::ImplicitData()
   coupling = WEAK;
   mvp = H1;
   jacobian = APPROXIMATE;
+  fdOrder = FIRST_ORDER;
   //normals = AUTO;
   //velocities = AUTO_VEL;
 
@@ -1916,7 +1917,7 @@ ImplicitData::ImplicitData()
 void ImplicitData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
   
   new ClassToken<ImplicitData>
     (ca, "Type", this, 
@@ -1944,6 +1945,13 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
     (ca, "FluxJacobian", this, 
      reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
      "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
+
+  new ClassToken<ImplicitData>
+    (ca, "FiniteDifferenceOrder", this,
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::startup), 2,
+      "FirstOrder", 0, "SecondOrder", 1);
+
+
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this, 
@@ -2037,7 +2045,6 @@ DGCLData::DGCLData()
 
   normals = AUTO;
   velocities = AUTO_VEL;
-  volumes = AUTO_VOL;
 
 }
 
@@ -2046,7 +2053,7 @@ DGCLData::DGCLData()
 void DGCLData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
 
   new ClassToken<DGCLData>
     (ca, "Normals", this,
@@ -2061,11 +2068,6 @@ void DGCLData::setup(const char *name, ClassAssigner *father)
      "BackwardEuler", 1, "ThreePointBackwardDifference", 2, "Imposed", 3,
      "ImposedBackwardEuler", 4, "ImposedThreePointBackwardDifference", 5,
      "RK2Gcl", 7);
-
-  new ClassToken<DGCLData>
-    (ca, "Volumes", this,
-     reinterpret_cast<int DGCLData::*>(&DGCLData::volumes), 1,
-     "RK2Gcl", 1);
 
 }
 
