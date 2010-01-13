@@ -136,6 +136,7 @@ ADD_LIBRARY(FluidBase
              StructExc.C 
              SubDomainCore.C 
              SparseGridCore.C
+             SparseGridClusterCore.C
              TimeData.C 
              Timer.C 
              TsInput.C 

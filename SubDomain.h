@@ -815,6 +815,8 @@ public:
   template<int dim>
   void checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                     SVec<double,dim> &Update, Vec<double> &Weight);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,

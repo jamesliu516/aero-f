@@ -497,9 +497,14 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   if ((algNum == 20 || algNum == 21) && it == 0) 
     dt *= 0.5;
 
-  if (algNum == 20 ||  algNum == 21){ // RK2-CD algorithm with FEM(20)/XFEM(21)
+  if (algNum == 20 ){ // RK2-CD algorithm with FEM(20)
     if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
     else if(it==it0) {/*nothing to do*/}
+    else if(it!=1){strExc->sendForce(F);}
+  }
+  else if (algNum == 21 ){ // RK2-CD algorithm with XFEM(21)
+    if(it==0) {strExc->getDisplacement(X0,X,Xdot,dX);} //for proper restart
+    else if(it==it0) {strExc->sendForce(F);}
     else if(it!=1){strExc->sendForce(F);}
   }
   else if (algNum == 8) {
@@ -547,7 +552,12 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
   if ((algNum == 20 || algNum == 21) && it == 0) 
     dt *= 0.5;
 
-  if (algNum == 20 || algNum == 21){
+  if (algNum == 20){
+    if(it==0){ strExc->sendForce(F);}
+    else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
+    else return 0.0; // last iteration!
+  }
+  else if (algNum == 21){
     if(it==0){ strExc->sendForce(F);}
     else if(!*lastIt) {strExc->getDisplacement(X0, X, Xdot, dX);}
     else return 0.0; // last iteration!
@@ -582,6 +592,7 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //  return 0.0;
     //}
   }
+  timer->removeForceAndDispComm(t0);
 
   timer->removeForceAndDispComm(t0); // do not count the communication time with the 
                                      // structure in the mesh solution

@@ -192,6 +192,7 @@ TransientData::TransientData()
   tempnormalderivative = "";
   surfaceheatflux = "";
   heatfluxes = "";
+  sparseGrid = "SparseGrid";
 
   frequency = 0;
   length = 1.0;
@@ -296,6 +297,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "TemperatureNormalDerivative", this, &TransientData::tempnormalderivative);
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
+  new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
 
 }
 
@@ -1387,11 +1389,16 @@ SparseGridData::SparseGridData()
 
   dimAdaptDegree = 0.0;
 
-  range1min = 0.0; range1max = 1.0;
-  range2min = 0.0; range2max = 1.0;
-  range3min = 0.0; range3max = 1.0;
+  range1min = 0.0; range1max = 1.0; mapBaseValue1 = 0.0; numDomainDim1 = 1;
+  range2min = 0.0; range2max = 1.0; mapBaseValue2 = 0.0; numDomainDim2 = 1;
+  range3min = 0.0; range3max = 1.0; mapBaseValue3 = 0.0; numDomainDim3 = 1;
+  range4min = 0.0; range4max = 1.0; mapBaseValue4 = 0.0; numDomainDim4 = 1;
+  range5min = 0.0; range5max = 1.0; mapBaseValue5 = 0.0; numDomainDim5 = 1;
+  range6min = 0.0; range6max = 1.0; mapBaseValue6 = 0.0; numDomainDim6 = 1;
 
   range = 0;
+  mapBaseValue = 0;
+  numDomainDim = 0;
 
   numOutputs = 1;
   numInputs  = 2;
@@ -1403,7 +1410,7 @@ SparseGridData::SparseGridData()
 void SparseGridData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 14, father);
+  ClassAssigner *ca = new ClassAssigner(name, 32, father);
 
   new ClassInt<SparseGridData>
     (ca, "Verbose", this, &SparseGridData::verbose);
@@ -1420,13 +1427,49 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SparseGridData>
     (ca, "Output1Maximum", this, &SparseGridData::range1max);
   new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase1", this, &SparseGridData::mapBaseValue1);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains1", this, &SparseGridData::numDomainDim1);
+  new ClassDouble<SparseGridData>
     (ca, "Output2Minimum", this, &SparseGridData::range2min);
   new ClassDouble<SparseGridData>
     (ca, "Output2Maximum", this, &SparseGridData::range2max);
   new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase2", this, &SparseGridData::mapBaseValue2);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains2", this, &SparseGridData::numDomainDim2);
+  new ClassDouble<SparseGridData>
     (ca, "Output3Minimum", this, &SparseGridData::range3min);
   new ClassDouble<SparseGridData>
     (ca, "Output3Maximum", this, &SparseGridData::range3max);
+  new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase3", this, &SparseGridData::mapBaseValue3);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains3", this, &SparseGridData::numDomainDim3);
+  new ClassDouble<SparseGridData>
+    (ca, "Output4Minimum", this, &SparseGridData::range4min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output4Maximum", this, &SparseGridData::range4max);
+  new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase4", this, &SparseGridData::mapBaseValue4);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains4", this, &SparseGridData::numDomainDim4);
+  new ClassDouble<SparseGridData>
+    (ca, "Output5Minimum", this, &SparseGridData::range5min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output5Maximum", this, &SparseGridData::range5max);
+  new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase5", this, &SparseGridData::mapBaseValue5);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains5", this, &SparseGridData::numDomainDim5);
+  new ClassDouble<SparseGridData>
+    (ca, "Output6Minimum", this, &SparseGridData::range6min);
+  new ClassDouble<SparseGridData>
+    (ca, "Output6Maximum", this, &SparseGridData::range6max);
+  new ClassDouble<SparseGridData>
+    (ca, "LogarithmMappingBase6", this, &SparseGridData::mapBaseValue6);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfDomains6", this, &SparseGridData::numDomainDim6);
   new ClassInt<SparseGridData>
     (ca, "NumberOfOutputs", this, &SparseGridData::numOutputs);
   new ClassInt<SparseGridData>
@@ -1458,6 +1501,10 @@ MultiFluidData::MultiFluidData()
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
 
+  // for buckling of cylinder
+  Prate = -1.0;
+  Pinit = -1.0;
+
 }
                                                                                                         
 //------------------------------------------------------------------------------
@@ -1478,8 +1525,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::typePhaseChange), 3,
              "None", 0, "RiemannSolution", 1, "Extrapolation", 2);
   new ClassToken<MultiFluidData>(ca, "RiemannComputation", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 3,
-             "FirstOrder", 0, "SecondOrder", 1, "Tabulation", 2);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::riemannComputation), 4,
+             "FirstOrder", 0, "SecondOrder", 1, "TabulationRiemannInvariant", 2,
+             "TabulationRiemannProblem", 3);
   new ClassToken<MultiFluidData>(ca, "FictitiousTimeStepping", this,
 		         reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::localtime),2,
              "Global", 0, "Local", 1);
@@ -1512,7 +1560,9 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   fluidModel2.setup("FluidModel2", ca);
   initialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
-                                                                                                        
+
+  new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
+  new ClassDouble<MultiFluidData>(ca, "Pinit", this, &MultiFluidData::Pinit);
 }
 
 //------------------------------------------------------------------------------
@@ -3236,6 +3286,11 @@ void IoData::resetInputValues()
       exit(1);
     }
   }
+
+  // Sparse Grid Generation does not call the flow solver
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+    problem.mode = ProblemData::DIMENSIONAL;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3244,7 +3299,12 @@ int IoData::checkFileNames()
 {
 
   int error = 0;
+
+  // no input files for Sparse Grid generation, hence no check
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+    return 0;
   
+  // flow solver requires input files, hence check
   if (strcmp(input.connectivity, "") == 0) {
     com->fprintf(stderr, "*** Error: no global file given\n");
     ++error;
@@ -3310,6 +3370,14 @@ int IoData::checkInputValues()
 {
 
   int error = 0;
+  // no need for all input values for Sparse Grid generation
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
+    eqs.fluidModel  =  mf.fluidModel;
+    eqs.fluidModel2 =  mf.fluidModel2;
+    return checkInputValuesSparseGrid(mf.sparseGrid);
+  }
+    
+  // input values for flow solver
   error += checkInputValuesMulti_step1();
   error += checkInputValuesEssentialBC();
   error += checkInputValuesStateEquation();
@@ -3433,6 +3501,8 @@ void IoData::checkInputValuesMulti_step2(){
       nonDimensionalizeFluidModel(mf.fluidModel2);
 
     }
+    mf.Pinit /= ref.rv.pressure;
+    mf.Prate /= ref.rv.pressure/ref.rv.time;
 
   }    
 }
@@ -4186,6 +4256,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.entropy = pow(ref.rv.density,1.0-bwater)*velocity*velocity;
 
       ref.rv.tvelocity = velocity / aero.displacementScaling;
+
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
                                                                                                         
@@ -4538,17 +4609,50 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 
   typedef double Range[2];
   sparseGrid.range = new Range[sparseGrid.numInputs];
+  sparseGrid.mapBaseValue = new double[sparseGrid.numInputs];
+  sparseGrid.numDomainDim = new int[sparseGrid.numInputs];
+  if(sparseGrid.numInputs > 5){
+    sparseGrid.range[5][0] = sparseGrid.range6min;
+    sparseGrid.range[5][1] = sparseGrid.range6max;
+    sparseGrid.mapBaseValue[5] = sparseGrid.mapBaseValue6;
+    sparseGrid.numDomainDim[5] = sparseGrid.numDomainDim6;
+  }
+  if(sparseGrid.numInputs > 4){
+    sparseGrid.range[4][0] = sparseGrid.range5min;
+    sparseGrid.range[4][1] = sparseGrid.range5max;
+    sparseGrid.mapBaseValue[4] = sparseGrid.mapBaseValue5;
+    sparseGrid.numDomainDim[4] = sparseGrid.numDomainDim5;
+  }
+  if(sparseGrid.numInputs > 3){
+    sparseGrid.range[3][0] = sparseGrid.range4min;
+    sparseGrid.range[3][1] = sparseGrid.range4max;
+    sparseGrid.mapBaseValue[3] = sparseGrid.mapBaseValue4;
+    sparseGrid.numDomainDim[3] = sparseGrid.numDomainDim4;
+  }
   if(sparseGrid.numInputs > 2){
     sparseGrid.range[2][0] = sparseGrid.range3min;
     sparseGrid.range[2][1] = sparseGrid.range3max;
+    sparseGrid.mapBaseValue[2] = sparseGrid.mapBaseValue3;
+    sparseGrid.numDomainDim[2] = sparseGrid.numDomainDim3;
   }
   if(sparseGrid.numInputs > 1){
     sparseGrid.range[1][0] = sparseGrid.range2min;
     sparseGrid.range[1][1] = sparseGrid.range2max;
+    sparseGrid.mapBaseValue[1] = sparseGrid.mapBaseValue2;
+    sparseGrid.numDomainDim[1] = sparseGrid.numDomainDim2;
   }
   if(sparseGrid.numInputs > 0){
     sparseGrid.range[0][0] = sparseGrid.range1min;
     sparseGrid.range[0][1] = sparseGrid.range1max;
+    sparseGrid.mapBaseValue[0] = sparseGrid.mapBaseValue1;
+    sparseGrid.numDomainDim[0] = sparseGrid.numDomainDim1;
+  }
+
+  for(int i=0; i<sparseGrid.numInputs; i++){
+    if(sparseGrid.range[i][0] > sparseGrid.range[i][1]){
+      com->fprintf(stderr, "*** Error: sparse grid must have increasing range for input %d\n", i);
+      error++;
+    }
   }
 
   return error;

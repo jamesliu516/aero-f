@@ -4,6 +4,7 @@
 class IoData;
 class LocalRiemann;
 class VarFcn;
+class SparseGridCluster;
 
 template<class Scalar, int dim> class SVec;
 
@@ -13,14 +14,15 @@ template<int dim>
 class ExactRiemannSolver{
 
   LocalRiemann *lriemann;
-	
+
   int iteration;
   SVec<double,dim>  &rupdate;
   Vec<double>       &weight;
 
   public:
 
-  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, VarFcn *);
+  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
+                     VarFcn *, SparseGridCluster *);
   ~ExactRiemannSolver();
 
 

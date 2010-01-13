@@ -92,11 +92,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 
   Communicator* com = domain.getCommunicator();
 
-  if (ioData.problem.alltype == ProblemData::_SPARSEGRIDGEN_){
-    SparseGridGeneratorDesc sgDesc(ioData);
-    sgDesc.tabulate(ioData);
-  }
-  else if (ioData.eqs.numPhase == 1){
+  if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER)
       startNavierStokesCoupledSolver<5>(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {
@@ -133,10 +129,23 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
       exit(1);
     }
   }
-  else if (ioData.eqs.numPhase == 2)
+  else if (ioData.eqs.numPhase == 2){
     startLevelSetSolver<5>(ioData, geoSource, domain);
-  else
+  }else
     com->fprintf(stderr, "*** Error: wrong number of phases\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+void startSparseGridGeneration(IoData &ioData, Domain &domain)
+{
+
+  Communicator* com = domain.getCommunicator();
+
+  fprintf(stdout, "*** Warning: Generating a sparse grid\n");
+  SparseGridGeneratorDesc sgDesc(ioData, com);
+  sgDesc.tabulate(ioData);
 
 }
 

@@ -1,26 +1,26 @@
-#include <SparseGrid.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "SparseGrid.h"
+#include <cmath>
+#include <cstdlib>
 
 //------------------------------------------------------------------------------
 
 template<typename T>
 void SparseGrid::tabulate(void (T::*fn)(double *, double *, double *), 
-                          T &object){
+                          T &object, bool restart){
 
-    tabulate(Functor<T>(fn,object));
+    tabulate(Functor<T>(fn,object), restart);
 
 }
 
 //------------------------------------------------------------------------------
 
 template<typename FnType>
-void SparseGrid::tabulate(FnType fn){
+void SparseGrid::tabulate(FnType fn, bool restart){
 
   messages(1);
-      
-  initialize(fn);
+
+  if(!restart)
+    initialize(fn);
 
   bool success = false;
   bool adaptivity = false;
@@ -88,10 +88,11 @@ void SparseGrid::initialize(FnType fn){
   nSubGrids = 1;
   for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
 
-  double firstPoint[dim]; double res[out];
+  double firstPoint[dim]; double scaledCoord[dim]; double res[out];
   for(int idim=0; idim<dim; idim++) 
-    firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
-  fn(firstPoint,res,parameters);
+    firstPoint[idim] = 0.5;
+  scale(firstPoint,scaledCoord, 0);
+  fn(scaledCoord,res,parameters);
   for(int iout=0; iout<out; iout++){
     surplus[0][iout] = res[iout];
     fnmin[iout]      = res[iout];
@@ -161,132 +162,110 @@ void SparseGrid::evaluateFunctionOnGrid(double **subGrid,
 
 //------------------------------------------------------------------------------
 
+template<typename T>
+void SparseGrid::test(void (T::*fn)(double *, double *, double *), T &object,
+                      int type, int *number, double *param){
+
+    test(Functor<T>(fn,object), type, number, param);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<typename FnType>
-void SparseGrid::test(FnType fn){
-
-
-/*
-  // to test evaluatePreviousInterpolation and evaluateFunctionOnGrid
-  //initialize
-  nPoints   = 1;
-  nSubGrids = 1;
-  for(int idim=0; idim<dim; idim++) multiIndex[0][idim] = 0; 
-  Coord firstPoint; double res;
-  for(int idim=0; idim<dim; idim++) 
-    firstPoint[idim] = 0.5*(range[idim][0]+range[idim][1]);
-  fn(firstPoint[0],firstPoint[1],0.0,res);
-  for(int iout=0; iout<out; iout++) surplus[0][iout] = res;
+void SparseGrid::test(FnType fn, int type, int *number, double *param){
+	
+  if(nPoints == 0) return;
+  int numTestPoints = 0;
+  int *numPointsDim = new int[dim];
+  int *numCumPointsDim = new int[dim];
+  double **coordDim = new double *[dim];
   
-  for(int iPts=0; iPts<nPoints; iPts++)
-    for(int iout=0; iout<out; iout++)
-      fprintf(stderr, "## initialization -- surplus[%d] = %e\n", iPts, surplus[iPts][iout]);
+  switch(type){
+//0 single point testing is done by the user from outside this class
 
-  //new subgrid to consider
-  //multiIndex[1][0]=0; multiIndex[1][1]=0;
-  multiIndex[1][0]=1; multiIndex[1][1]=1;
-  multiIndex[2][0]=1; multiIndex[2][1]=2;
+//1 random testing in the domain ('number' random values in each dimension):
+    case 1:{
+      numTestPoints = static_cast<int>(pow(number[0],dim));
+      for(int idim=0; idim<dim; idim++){
+      	numPointsDim[idim] = number[0];
+        coordDim[idim] = new double[number[0]];
+        numCumPointsDim[idim] = static_cast<int>(pow(number[0],idim+1));
+      }
+      for(int i=0; i<number[0]; i++)
+      	for(int idim=0; idim<dim; idim++)
+          coordDim[idim][i] = range[idim][0] + static_cast<double>(rand())/RAND_MAX * (range[idim][1]-range[idim][0]);
+       break;
+    }
 
-  int nPointsSubGrid;
-  Coord * subGrid = generateSubGrid(1,nPointsSubGrid);
-  evaluateFunctionOnGrid(subGrid, nPointsSubGrid, fn);
-  for(int iPts=nPoints; iPts<nPoints+nPointsSubGrid; iPts++)
-    for(int iout=0; iout<out; iout++)
-      fprintf(stderr, "## after function evaluation -- surplus[%d] = %e\n", iPts, surplus[iPts][iout]);
-  evaluatePreviousInterpolation(subGrid, nPointsSubGrid);
+//2 linear testing in the domain ('number' evenly spaces between values in each dimension):
+    case 2:{
+      numTestPoints = static_cast<int>(pow(number[0],dim));
+      double spacing[dim];
+      for(int idim=0; idim<dim; idim++){
+      	numPointsDim[idim] = number[0];
+        coordDim[idim] = new double[number[0]];
+        spacing[idim] = (range[idim][1]-range[idim][0])/number[0];
+        numCumPointsDim[idim] = static_cast<int>(pow(number[0],idim+1));
+        for(int i=0; i<number[0]; i++)
+          coordDim[idim][i] = range[idim][0] + 0.5*spacing[idim] + i*spacing[idim];
+      }
+      break;
+    }
+    
+//3 grid testing:
+    case 3:{
+      numTestPoints = 1;
+      for(int idim=0; idim<dim; idim++){
+      	double spacing = (range[idim][1]-range[idim][0])*pow(2, -number[idim]);
+      	
+      	if(number[idim] == 0) numPointsDim[idim] = 1;
+      	else                  numPointsDim[idim] = static_cast<int>(pow(2,number[idim])+1);
+      	numTestPoints *= numPointsDim[idim];
+      	numCumPointsDim[idim] = numTestPoints;
+      	
+      	coordDim[idim] = new double[numPointsDim[idim]];
+      	
+      	if(numPointsDim[idim] == 1) coordDim[idim][0] = 0.5*(range[idim][0]+range[idim][1]);
+      	else{
+          coordDim[idim][0] = range[idim][0];
+          for(int i=1; i<numPointsDim[idim]-1; i++)
+            coordDim[idim][i] = coordDim[idim][i-1] + spacing;
+          coordDim[idim][numPointsDim[idim]-1] = range[idim][1];
+      	}
+      }
+      break;
+    }
+    // coordinates in each dimension have been set up.
+  }
 
-  for(int iPts=nPoints; iPts<nPoints+nPointsSubGrid; iPts++)
-    for(int iout=0; iout<out; iout++)
-      fprintf(stderr, "## after interpolation -- surplus[%d] = %e\n", iPts, surplus[iPts][iout]);
-
-  nPoints += nPointsSubGrid;
-  nSubGrids++;
-
-  subGrid = generateSubGrid(2,nPointsSubGrid);
-  evaluateFunctionOnGrid(subGrid, nPointsSubGrid, fn);
-  for(int iPts=nPoints; iPts<nPoints+nPointsSubGrid; iPts++)
-    for(int iout=0; iout<out; iout++)
-      fprintf(stderr, "## after function evaluation -- surplus[%d] = %e\n", iPts, surplus[iPts][iout]);
-  evaluatePreviousInterpolation(subGrid, nPointsSubGrid);
-
-  for(int iPts=nPoints; iPts<nPoints+nPointsSubGrid; iPts++)
-    for(int iout=0; iout<out; iout++)
-      fprintf(stderr, "## after interpolation -- surplus[%d] = %e\n", iPts, surplus[iPts][iout]);
-*/
-
-  // to test generateSubGrid and tensorize
-/*
-  assert(dim==4 && out==1);
-
-  multiIndex[0][0]=1; multiIndex[0][1]=1; multiIndex[0][2] = 3; multiIndex[0][3] = 2;
-  multiIndex[1][0]=1; multiIndex[1][1]=2; multiIndex[1][2] = 0; multiIndex[1][3] = 2;
-  nSubGrids = 2;
-  int nPointsSubGrid;
-  Coord * subGrid0 = generateSubGrid(0,nPointsSubGrid);
-  fprintf(stderr, "number of points in subgrid0 is %d\n", nPointsSubGrid);
-  for(int nPts = 0; nPts<nPointsSubGrid; nPts++)
-    fprintf(stderr, "coord[%d] = (%e %e %e %e)\n",nPts, subGrid0[nPts][0], subGrid0[nPts][1], subGrid0[nPts][2], subGrid0[nPts][3]);
-  Coord * subGrid1 = generateSubGrid(1,nPointsSubGrid);
-  fprintf(stderr, "number of points in subgrid1 is %d\n", nPointsSubGrid);
-  for(int nPts = 0; nPts<nPointsSubGrid; nPts++)
-    fprintf(stderr, "coord[%d] = (%e %e %e)\n",nPts, subGrid1[nPts][0], subGrid1[nPts][1], subGrid1[nPts][2], subGrid1[nPts][3]);
-*/
-
-
-  // to test heap class
-  /*nSubGrids = 8;
-  multiIndex[0][0]=0; multiIndex[0][1]=0;
-  multiIndex[1][0]=1; multiIndex[1][1]=0;
-  multiIndex[2][0]=0; multiIndex[2][1]=1;
-  multiIndex[3][0]=0; multiIndex[3][1]=2;
-  multiIndex[4][0]=1; multiIndex[4][1]=1;
-  multiIndex[5][0]=0; multiIndex[5][1]=3;
-  multiIndex[6][0]=2; multiIndex[6][1]=0;
-  multiIndex[7][0]=7; multiIndex[7][1]=7;
-  for(int toto=0; toto<8; toto++)
-    fprintf(stderr, "multiIndex[%d]= %d, %d\n", toto, multiIndex[toto][0], multiIndex[toto][1]);
-
-  activeError[0] = 0.1;
-  activeError[1] = 0.2;
-  activeError[2] = 0.3;
-  activeError[3] = 0.4;
-  activeError[4] = 0.5;
-  activeError[5] = 0.6;
-  activeError[6] = 0.7;
-  activeError[7] = 0.8;
-  activeError[8] = 0.9;
-
-  activeHeapError.insert(0,activeError);
-  activeHeapError.insert(1,activeError);
-  activeHeapError.insert(2,activeError);
-  activeHeapError.insert(3,activeError);
-  activeHeapError.insert(4,activeError);
-  activeHeapError.insert(5,activeError);
-  activeHeapError.insert(6,activeError);
-  activeHeapError.insert(7,activeError);
-
-  fprintf(stderr, "\n");
-  for(int toto=0; toto<activeHeapError.size(); toto++)
-    fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
+  double **coord = new double *[numTestPoints];
+  for(int i=0; i<numTestPoints; i++)
+    coord[i] = new double[dim];
+  tensorize(coord,coordDim,numPointsDim,numCumPointsDim);
   
-  int popped = activeHeapError.pop(activeError);
-  fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
-  fprintf(stderr, "\n");
-  for(int toto=0; toto<activeHeapError.size(); toto++)
-    fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
-  popped = activeHeapError.pop(activeError);
-  fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
-  fprintf(stderr, "\n");
-  for(int toto=0; toto<activeHeapError.size(); toto++)
-    fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
-  popped = activeHeapError.pop(activeError);
-  fprintf(stderr, "retrieved element %d with multiIndex %d %d\n", popped, multiIndex[popped][0],multiIndex[popped][1]);
-  fprintf(stderr, "\n");
-  for(int toto=0; toto<activeHeapError.size(); toto++)
-    fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
+  // computing results with present tabulation and comparing with exact results.
+  double **exact  = new double *[numTestPoints];
+  double **tabul  = new double *[numTestPoints];
+  for(int i=0; i<numTestPoints; i++){
+    exact[i]  = new double[out];
+    tabul[i]  = new double[out];
+  }
 
-  activeHeapError.insert(1,activeError);
-  fprintf(stderr, "\n");
-  for(int toto=0; toto<activeHeapError.size(); toto++)
-    fprintf(stderr, "element %d of the heap points to %d-th entry of the multiIndex\n", toto, activeHeapError[toto]);
-  */
+  for(int i=0; i<numTestPoints; i++){
+  	fn(coord[i],exact[i],param);
+  }
+
+  interpolate(numTestPoints,coord,tabul);
+  
+  // print to screen results
+  for(int i=0; i<numTestPoints; i++){
+  	fprintf(stdout, "test point %d ( ", i);
+  	for(int idim=0; idim<dim; idim++)
+  	  fprintf(stdout, "%e ", coord[i][idim]);
+  	fflush(stdout);
+  	fprintf(stdout, ") \n    -- exact = %e -- approx = %e (err = %e)\n", exact[i][0], tabul[i][0], (exact[i][0] - tabul[i][0])/exact[i][0]);
+  fprintf(stdout, "\n");
+  }
+
 }
