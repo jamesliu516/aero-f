@@ -2,6 +2,8 @@
 
 #include <parser/Assigner.h>
 
+#include<limits>
+
 //------------------------------------------------------------------------------
 
 template<class GenericKrylov>
@@ -11,7 +13,8 @@ NewtonData<GenericKrylov>::NewtonData()
   failsafe = NO;
   maxIts = 1;
   eps = 1.e-2;
-  epsAlt = 0.0;
+  epsAbsRes = std::numeric_limits<double>::epsilon();
+  epsAbsInc = std::numeric_limits<double>::epsilon();
 }
 
 //------------------------------------------------------------------------------
@@ -27,7 +30,9 @@ void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
      "Off", 0, "On", 1, "AlwaysOn", 2);
   new ClassInt<NewtonData>(ca, "MaxIts", this, &NewtonData::maxIts);
   new ClassDouble<NewtonData>(ca, "Eps", this, &NewtonData::eps);
-  new ClassDouble<NewtonData>(ca, "EpsAlt", this, &NewtonData::epsAlt);
+  //new ClassDouble<NewtonData>(ca, "EpsRelRes", this, &NewtonData::eps);
+  new ClassDouble<NewtonData>(ca, "EpsAbsRes", this, &NewtonData::epsAbsRes);
+  new ClassDouble<NewtonData>(ca, "EpsAbsInc", this, &NewtonData::epsAbsInc);
 
   ksp.setup("LinearSolver", ca);
 

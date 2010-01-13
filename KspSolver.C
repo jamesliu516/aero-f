@@ -331,7 +331,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
 
   int typePrec = 2;
   //int typePrec = 0;
-  double beta, l2res, target;
+  double beta, l2res, target, res0;
 
   int iter = 0;
   int exitLoop = 0;
@@ -346,7 +346,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecTyp
     beta = r.norm();
 
     if (iter == 0) {
-      target = this->eps * b.norm(); // beta;
+      target = this->eps * (res0 = b.norm()); // beta;
       if (this->output) this->ioOp->fprintf(this->output, "Gmres(%d) iterations:\n", numVec);
       if (this->output) this->ioOp->fprintf(this->output, "  %d %e %e (%e)\n", 0, beta, target, this->eps);
     } 
@@ -438,7 +438,7 @@ target);
   this->ioOp->printf(5, "Gmres(%d) solver: its=%d, res=%.2e, target=%.2e\n", numVec, iter, l2res, target);
   if (iter == this->maxits && l2res > target) {
     this->ioOp->printf(1, "*** Warning: Gmres(%d) solver reached %d its", numVec, this->maxits);
-    this->ioOp->printf(1, " (res=%.2e, target=%.2e, ratio = %.2e)\n", l2res, target, l2res/target);
+    this->ioOp->printf(1, " (initial=%.2e, res=%.2e, target=%.2e, ratio = %.2e)\n", res0, l2res, target, l2res/target);
   }
 
   return iter;
