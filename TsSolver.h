@@ -129,7 +129,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
     dts = probDesc->computePositionVector(&lastIt, it, t);
-
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
   }
   return 0;

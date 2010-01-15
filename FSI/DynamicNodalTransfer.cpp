@@ -21,16 +21,24 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
 {
   com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
+
 {  Communication::Window<double> window(com, 1, &dts);
   window.fence(true);
   structure.sendTimeStep(&window);
   window.fence(false);
 }
 
+{  Communication::Window<double> window2(com, 1, &tMax);
+  window2.fence(true);
+  structure.sendMaxTime(&window2);
+  window2.fence(false);
+}
+
   algNum = structure.getAlgorithmNumber();
   dts /= tScale;
+  tMax /= tScale;
   com.barrier();
-  com.fprintf(stderr,"dts = %e\n", dts);
+  com.fprintf(stderr,"dts = %e, tMax = %e\n", dts, tMax);
 }
 
 //------------------------------------------------------------------------------
@@ -210,7 +218,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     structExc->getInfo();
     dt = tScale*structExc->getTimeStep();
     tMax = tScale*structExc->getMaxTime();
-
+//    tMax = 0.02402e-6; //TODO: FIX THIS
 
     int *locToGlob = new int[1];
     locToGlob[0] = 0;
@@ -254,10 +262,24 @@ void
 EmbeddedStructure::sendTimeStep(Communication::Window<double> *window)
 {
   if(com.cpuNum()>0) return; // only proc #1 sends the time.
+  std::cout << "Sending the timestep (" << dt << ") to fluid " << std::endl;
 {
   for(int i = 0; i < com.size(); ++i) {
-    std::cout << "Sending the timestep (" << dt << ") to fluid " << i << std::endl;
     window->put(&dt, 0, 1, i, 0);
+  }
+}
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::sendMaxTime(Communication::Window<double> *window)
+{
+  if(com.cpuNum()>0) return; // only proc #1 sends the time.
+  std::cout << "Sending the max time (" << tMax << ") to fluid " << std::endl;
+{
+  for(int i = 0; i < com.size(); ++i) {
+    window->put(&tMax, 0, 1, i, 0);
   }
 }
 }

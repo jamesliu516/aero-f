@@ -329,7 +329,8 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   triSize = 0;
   interpolatedNormal = false;
   nodalNormal = 0;
-  totalTime = 0.0;
+  recomputeTime = 0.0;
+  initTime = 0.0;
 }
 
 //----------------------------------------------------------------------------
@@ -343,6 +344,7 @@ DistPhysBAMIntersector::operator()(int subNum) const {
 * \param dataTree the data read from the input file for this intersector.
 */
 void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartSolidSurface) {
+  double t0 = timer->getTime();
   // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
@@ -484,6 +486,9 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
 
   getBoundingBox();
   initializePhysBAM();
+
+  initTime = timer->getTime() - t0;
+  com->globalMax(1,&initTime);
 }
 
 //----------------------------------------------------------------------------
@@ -780,11 +785,12 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->finishNodeStatus(*(domain->getSubDomain()[i]), (*X)(i));
     intersector[i]->findIntersections((*X)(i));
   }
-  
+ 
+  timer->addIntersectorRecomputeTime(time); 
   time = timer->getTime() - time;
   com->globalMax(1,&time);
-  totalTime += time;
-  com->fprintf(stderr,"Total Time for Recompute: %e\n", totalTime);
+  recomputeTime += time;
+  com->fprintf(stderr,"*** Intersector: Time for init / recompute: %e / %e \n", initTime, recomputeTime);
   
 }
 

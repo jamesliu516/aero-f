@@ -39,7 +39,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     double xMin, xMax, yMin, yMax, zMin, zMax;
 
     Timer *timer;
-    double totalTime;
+    double recomputeTime;
+    double initTime;
 
     Vec3D *solids_particle_list;
     Vec3D *solids_particle_list0;

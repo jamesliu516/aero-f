@@ -1465,6 +1465,18 @@ EmbeddedMeshMotionHandler::~EmbeddedMeshMotionHandler()
 
 //------------------------------------------------------------------------------
 
+void EmbeddedMeshMotionHandler::setup(double *maxTime)
+{
+  if(!dynNodalTransfer) {
+    fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
+    exit(-1);
+  }
+
+  *maxTime = dynNodalTransfer->getStructureMaxTime();
+
+}
+//------------------------------------------------------------------------------
+
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
@@ -1658,7 +1670,7 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
 
     X = X0;
   } 
-  else // last iteration
+  else // last iteration 
     dts = 0.0; 
 }
 
