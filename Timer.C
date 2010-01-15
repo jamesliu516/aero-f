@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 42;
+  numTimings = 43;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -660,6 +660,18 @@ double Timer::addLSKspTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addIntersectorRecomputeTime(double t0)
+{
+  double t = getTime() - t0;
+  
+  counter[Xrecomp]++;
+  data[Xrecomp] += t;
+
+  return t;
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -717,6 +729,9 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);
+  com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
+	       tmin[Xrecomp], tmax[Xrecomp], tavg[Xrecomp], 
+	       counter[Xrecomp]);
   com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fvTerm], tmax[fvTerm], tavg[fvTerm], 
 	       counter[fvTerm]);

@@ -344,7 +344,6 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
 {
 
   double dt = 0.0;
-
   if (mmh) {
     double t0 = timer->getTime();
     dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs);

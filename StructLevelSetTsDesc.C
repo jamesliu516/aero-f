@@ -153,6 +153,14 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   if (TYPE==1) {
     this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
+
+    EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
+    
+    if(_mmh) {
+      double *tmax = &(this->data)->maxTime;
+      _mmh->setup(tmax); //obtain maxTime from structure
+    }
+
     this->distLSS->initialize(this->domain,*this->X, interpolatedNormal);
 
     //compute force

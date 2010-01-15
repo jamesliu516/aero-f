@@ -331,6 +331,7 @@ public:
   EmbeddedMeshMotionHandler(IoData &, Domain *, DynamicNodalTransfer *, DistLevelSetStructure *);
   ~EmbeddedMeshMotionHandler();
 
+  void setup(double *);
   double update(bool *lastIt, int it, double t, DistSVec<double,3> &Xdot, DistSVec<double,3> &X) {return dts;}
   double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); //<! just get dt.
   void step1ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 

@@ -61,6 +61,7 @@ public:
   int numStructNodes() {return nNodes;}
   pair<double*, int> getTargetData();
   void sendTimeStep(Communication::Window<double> *window);
+  void sendMaxTime(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
   void processReceivedForce();
 };
@@ -81,6 +82,7 @@ class DynamicNodalTransfer {
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
+        double tMax;
 public:
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &);
 	~DynamicNodalTransfer();
@@ -93,6 +95,7 @@ public:
 	void getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot);
 
         double getStructureTimeStep() {return dts;}
+        double getStructureMaxTime() {return tMax;}
 
         void updateOutputToStructure(double  dt, double dtLeft, SVec<double,3> &Fs);
 };

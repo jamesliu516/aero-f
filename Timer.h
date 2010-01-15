@@ -19,7 +19,7 @@ class Timer {
     comm, localCom, globalCom, interCom,
     io, binread, binwrite,
     levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
-    timeStep
+    timeStep, Xrecomp
   };
 
   int numTimings;
@@ -86,6 +86,9 @@ public:
   double addLSNodalWeightsAndGradTime(double);
   double addLSFiniteVolumeTermTime(double);
   double addLSKspTime(double);
+
+  // Intersector Timer Functions
+  double addIntersectorRecomputeTime(double);
 
   void print(Timer *, FILE * = stdout);
 
