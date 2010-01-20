@@ -569,7 +569,7 @@ void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, i
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::outputPositionVectorToDisk()
+void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 {
 
   *X = *Xs;
@@ -580,6 +580,9 @@ void TsDesc<dim>::outputPositionVectorToDisk()
   }
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
+
+  if(mmh->getAlgNum() == 1)
+    output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
 
   timer->setRunTime();
   if (com->getMaxVerbose() >= 2)

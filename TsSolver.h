@@ -98,7 +98,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   dts = probDesc->computePositionVector(&lastIt, it, t);
 
   if (lastIt)
-    probDesc->outputPositionVectorToDisk();
+    probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {
 
