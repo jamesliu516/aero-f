@@ -217,7 +217,6 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Feps.strip(Fepstmp);
 
-  this->com->fprintf(stderr,"Order %d FD\n",fdOrder);
   if (fdOrder == 1) {
     
     prod = (1.0/eps) * (Fepstmp - F);
