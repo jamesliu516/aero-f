@@ -121,7 +121,7 @@ public:
   virtual void outputForces(IoData &, bool*, int, int, int, double, double, 
 		    DistSVec<double,dim> &);
 
-  void outputPositionVectorToDisk();
+  void outputPositionVectorToDisk(DistSVec<double,dim> &U);
   virtual void resetOutputToStructure(DistSVec<double,dim> &);
   virtual void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
