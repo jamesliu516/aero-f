@@ -10,6 +10,7 @@
 #include<Vector.h>
 #include<Communicator.h>
 #include <DistInfo.h>
+#include <Timer.h>
 #include <map>
 
 using std::pair;
@@ -22,6 +23,7 @@ class StructExc;
  */
 class EmbeddedStructure {
   Communicator &com;
+  Timer *timer;
   StructExc* structExc;
   
   const char *meshFile;
@@ -54,7 +56,7 @@ class EmbeddedStructure {
   DistInfo *di;
   
 public:
-  EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc);
+  EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
 
   int getAlgorithmNumber() {return algNum;}
@@ -78,13 +80,14 @@ class DynamicNodalTransfer {
         int algNum;
 
 	Communicator &com;
+        Timer *timer;
         EmbeddedStructure structure;
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
         double tMax;
 public:
-	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &);
+	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &, Timer *);
 	~DynamicNodalTransfer();
 
         int getAlgorithmNumber() {return algNum;}

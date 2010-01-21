@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 43;
+  numTimings = 45;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -672,6 +672,30 @@ double Timer::addIntersectorRecomputeTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addEmbedPhaseChangeTime(double t0)
+{
+  double t = getTime() - t0;
+
+  counter[embedPhaseChange]++;
+  data[embedPhaseChange] += t;
+
+  return t;
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addEmbedComTime(double t0)
+{
+  double t = getTime() - t0;
+
+  counter[embedCom]++;
+  data[embedCom] += t;
+
+  return t;
+}
+
+//------------------------------------------------------------------------------
 // note: the timings of both fluid and mesh parts contain their communication
 void Timer::print(Timer *str, FILE *fp)
 {
@@ -729,9 +753,6 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "  Nodal Weights and Gradients : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[nodalGrad], tmax[nodalGrad], tavg[nodalGrad], 
 	       counter[nodalGrad]);
-  com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[Xrecomp], tmax[Xrecomp], tavg[Xrecomp], 
-	       counter[Xrecomp]);
   com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[fvTerm], tmax[fvTerm], tavg[fvTerm], 
 	       counter[fvTerm]);
@@ -822,6 +843,18 @@ void Timer::print(Timer *str, FILE *fp)
                tmin[romTimeInteg], tmax[romTimeInteg], tavg[romTimeInteg], counter[romTimeInteg]);
     com->fprintf(fp, "\n");
   }
+
+  com->fprintf(fp, "Eulerian FSI\n");
+  com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
+	       tmin[Xrecomp], tmax[Xrecomp], tavg[Xrecomp], 
+	       counter[Xrecomp]);
+  com->fprintf(fp, "  Phase-Change Update         : %10.2f %10.2f %10.2f %9d\n", 
+	       tmin[embedPhaseChange], tmax[embedPhaseChange], tavg[embedPhaseChange], 
+	       counter[embedPhaseChange]);
+  com->fprintf(fp, "  RMA Com (for Embedded FSI)  : %10.2f %10.2f %10.2f %9d\n", 
+	       tmin[embedCom], tmax[embedCom], tavg[embedCom], 
+	       counter[embedCom]);
+  com->fprintf(fp,"\n");
 
   com->fprintf(fp, "Communication/Synchronization : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[comm], tmax[comm], tavg[comm]);

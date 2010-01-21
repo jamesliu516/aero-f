@@ -15,11 +15,12 @@
 #include <map>
 //------------------------------------------------------------------------------
 
-DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc): com(c) , F(1), 
+DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1), 
                            fScale(iod.ref.rv.tforce), XScale(iod.ref.rv.tlength), UScale(iod.ref.rv.tvelocity),
-                           tScale(iod.ref.rv.time), structure(iod,c,sc)
+                           tScale(iod.ref.rv.time), structure(iod,c,sc,tim)
 
 {
+  timer = tim;
   com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
 
 {  Communication::Window<double> window(com, 1, &dts);
@@ -50,24 +51,28 @@ DynamicNodalTransfer::~DynamicNodalTransfer() {
 
 void
 DynamicNodalTransfer::sendForce() {
+
   std::pair<double *, int> embedded = structure.getTargetData();
   double *embeddedData = embedded.first;
   int length = embedded.second;
 
   com.barrier();
+  double t0 = timer->getTime();
   Communication::Window<double> window(com, 3*length*sizeof(double), embeddedData); 
   window.fence(true);
   window.accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
   window.fence(false);
+  timer->addEmbedComTime(t0);
 
   structure.processReceivedForce();
-
+  
 }
 
 //------------------------------------------------------------------------------
 
 void
 DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot) {
+
   double UandUdot[2*structU.size()*3];
   Communication::Window<double> window(com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
 
@@ -80,11 +85,11 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& s
       structU[i][j] = UandUdot[i*3+j];
       structUdot[i][j] = UandUdot[(structU.size()+i)*3+j];
     }
-
-  com.fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
+//  com.fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
 
   structU = 1.0/XScale*structU;
   structUdot = 1.0/UScale*structUdot;
+
 }
 
 //------------------------------------------------------------------------------
@@ -93,7 +98,7 @@ void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
   if(F.size() != fs.size()) {
-    fprintf(stderr,"force vector resized (from %d to %d)!\n", F.size(), fs.size());
+//    fprintf(stderr,"force vector resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
   }
   F = fs;
@@ -101,12 +106,14 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 //------------------------------------------------------------------------------
 
-EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom) : com(comm), 
+EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
                                              meshFile(iod.embeddedStructure.surfaceMeshFile),
                                              matcherFile(iod.embeddedStructure.matcherFile),
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
                                              UScale(iod.ref.rv.tvelocity)
 {
+  timer = tim;
+
   // read the input.
   coupled = ((iod.embeddedStructure.type == EmbeddedStructureInfo::TWOWAY) ||
              (iod.embeddedStructure.type == EmbeddedStructureInfo::ONEWAY)) ? true : false;
@@ -343,8 +350,10 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       UandUdot[(i+nNodes)][j] = Udot[i][j];
     }
 
+  double t0 = timer->getTime();
   for(int i = 0; i < com.size(); ++i) 
     window->put((double*)UandUdot, 0, 2*3*nNodes, i, 0);
+  timer->addEmbedComTime(t0);
 }
 
 //------------------------------------------------------------------------------
@@ -380,7 +389,7 @@ EmbeddedStructure::processReceivedForce()
     fy += F[i][1]; 
     fz += F[i][2];
   }
-  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
+//  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
 
 }
 

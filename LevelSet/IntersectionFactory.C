@@ -19,7 +19,7 @@ IntersectorConstructor *lastI = 0;
 
 IntersectorConstructor *
 IntersectionFactory::registerClass(std::string name, IntersectorConstructor *o) {
-  std::cout << "Registering Intersector " << name << " at " << o << std::endl;
+//  std::cout << "Registering Intersector " << name << " at " << o << std::endl;
   o->print();
   lastI = o;
   allIntersectors[name] = o;
