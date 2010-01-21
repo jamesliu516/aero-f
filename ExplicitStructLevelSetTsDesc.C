@@ -84,7 +84,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   //----------------------------------------------------
   if(this->TYPE==1 && this->mmh) { 
     //recompute intersections and update phase change.
-
+    double tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       if (this->phaseChangeChoice==0)
         this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
@@ -93,13 +93,16 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
         this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij, 
                                                        *this->Wstarji, *this->Weights, *this->VWeights,
                                                        this->distLSS);
+    this->timer->addEmbedPhaseChangeTime(tw);
 
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
 
+    tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    this->timer->addEmbedPhaseChangeTime(tw);
   }
   //----------------------------------------------------
 
@@ -109,7 +112,6 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->spaceOp->applyBCsToSolutionVector(U0);
-  this->timer->addFluidSolutionTime(t0);
 
   //----------------------------------------------------
   if (this->TYPE==2) { 
@@ -151,6 +153,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     U = U0;
     checkSolution(U);
   }
+  this->timer->addFluidSolutionTime(t0);
 
 }
 
@@ -166,6 +169,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
   //recompute Intersections and updatePhaseChange
   if(this->TYPE==1 && this->mmh) {
     // 1. compute weights
+    double tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       if (this->phaseChangeChoice==0)
         this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
@@ -174,6 +178,8 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
         this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
                                                        *this->Wstarji, *this->Weights, *this->VWeights,
                                                        this->distLSS);
+    this->timer->addEmbedPhaseChangeTime(tw);
+
     // 2. get dts (mmh->update(...) does nothing but return dts)
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     
@@ -181,8 +187,10 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
 
     // 4. update phase change
+    tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    this->timer->addEmbedPhaseChangeTime(tw);
   }
 
   computeRKUpdate(U, k1, 1);

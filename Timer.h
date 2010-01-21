@@ -19,7 +19,7 @@ class Timer {
     comm, localCom, globalCom, interCom,
     io, binread, binwrite,
     levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
-    timeStep, Xrecomp
+    timeStep, Xrecomp, embedPhaseChange, embedCom
   };
 
   int numTimings;
@@ -87,8 +87,10 @@ public:
   double addLSFiniteVolumeTermTime(double);
   double addLSKspTime(double);
 
-  // Intersector Timer Functions
+  // Embedded FSI Timer Functions
   double addIntersectorRecomputeTime(double);
+  double addEmbedPhaseChangeTime(double);
+  double addEmbedComTime(double);
 
   void print(Timer *, FILE * = stdout);
 

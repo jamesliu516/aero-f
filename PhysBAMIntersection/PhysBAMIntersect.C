@@ -790,7 +790,7 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   time = timer->getTime() - time;
   com->globalMax(1,&time);
   recomputeTime += time;
-  com->fprintf(stderr,"*** Intersector: Time for init / recompute: %e / %e \n", initTime, recomputeTime);
+//  com->fprintf(stderr,"*** Intersector: Time for init / recompute: %e / %e \n", initTime, recomputeTime);
   
 }
 
