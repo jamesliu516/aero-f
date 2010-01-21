@@ -791,6 +791,11 @@ struct InitialConditionsData {
 
 struct SparseGridData {
 
+  // to use already created sparse grids
+  const char *tabulationFileName;
+  int numberOfTabulations;
+
+  // to generate sparse grids
   int verbose;
 
   int minPoints;

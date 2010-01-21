@@ -1380,6 +1380,9 @@ void InitialConditionsData::setup(const char *name, ClassAssigner *father)
 
 SparseGridData::SparseGridData()
 {
+  tabulationFileName = "";
+  numberOfTabulations = 0;
+
   verbose = 0;
 
   minPoints = 100;
@@ -1410,8 +1413,12 @@ SparseGridData::SparseGridData()
 void SparseGridData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 32, father);
+  ClassAssigner *ca = new ClassAssigner(name, 34, father);
 
+  new ClassStr<SparseGridData>
+    (ca, "FileName", this, &SparseGridData::tabulationFileName);
+  new ClassInt<SparseGridData>
+    (ca, "NumberOfFiles", this, &SparseGridData::numberOfTabulations);
   new ClassInt<SparseGridData>
     (ca, "Verbose", this, &SparseGridData::verbose);
   new ClassInt<SparseGridData>
