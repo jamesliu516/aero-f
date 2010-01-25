@@ -40,11 +40,18 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   tMax /= tScale;
   com.barrier();
   com.fprintf(stderr,"dts = %e, tMax = %e\n", dts, tMax);
+
+  winForce = 0;
+  winDisp  = 0;
+  UandUdot = 0;
 }
 
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::~DynamicNodalTransfer() {
+  if(winForce) delete winForce;
+  if(winDisp) delete winDisp;
+  if(UandUdot) delete[] UandUdot;
 }
 
 //------------------------------------------------------------------------------
@@ -58,10 +65,12 @@ DynamicNodalTransfer::sendForce() {
 
   com.barrier();
   double t0 = timer->getTime();
-  Communication::Window<double> window(com, 3*length*sizeof(double), embeddedData); 
-  window.fence(true);
-  window.accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
-  window.fence(false);
+  
+  if(!winForce) winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
+    //(KW) WARNING: if "length" changes, winForce needs to be re-initialized !! 
+  winForce->fence(true);
+  winForce->accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
+  winForce->fence(false);
   timer->addEmbedComTime(t0);
 
   structure.processReceivedForce();
@@ -73,12 +82,15 @@ DynamicNodalTransfer::sendForce() {
 void
 DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot) {
 
-  double UandUdot[2*structU.size()*3];
-  Communication::Window<double> window(com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
+  if(!UandUdot) 
+    UandUdot = new double[2*structU.size()*3];
 
-  window.fence(true);
-  structure.sendDisplacement(&window);
-  window.fence(false);
+  if(!winDisp) winDisp = new  Communication::Window<double> (com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
+    //(KW) WARNING: if "structU.size" changes, UandUdot and winDisp needs to be re-initialized !! 
+
+  winDisp->fence(true);
+  structure.sendDisplacement(winDisp);
+  winDisp->fence(false);
 
   for(int i=0; i<structU.size(); i++) 
     for(int j=0; j<3; j++) {
