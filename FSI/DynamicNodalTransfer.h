@@ -83,6 +83,10 @@ class DynamicNodalTransfer {
         Timer *timer;
         EmbeddedStructure structure;
 
+        Communication::Window<double> *winForce;
+        Communication::Window<double> *winDisp;
+        double *UandUdot;
+
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
         double tMax;
