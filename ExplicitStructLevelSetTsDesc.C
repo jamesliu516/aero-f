@@ -94,15 +94,21 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
                                                        *this->Wstarji, *this->Weights, *this->VWeights,
                                                        this->distLSS);
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+
 
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
+    tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
+    this->timer->addIntersectionTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
 
     tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
   }
   //----------------------------------------------------
 
@@ -179,18 +185,23 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
                                                        *this->Wstarji, *this->Weights, *this->VWeights,
                                                        this->distLSS);
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
 
     // 2. get dts (mmh->update(...) does nothing but return dts)
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     
     // 3. recompute intersections
+    tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    this->timer->addIntersectionTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
 
     // 4. update phase change
     tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
   }
 
   computeRKUpdate(U, k1, 1);

@@ -661,12 +661,13 @@ double Timer::addLSKspTime(double t0)
 
 //------------------------------------------------------------------------------
 
-double Timer::addIntersectorRecomputeTime(double t0)
+double Timer::addIntersectionTime(double t0)
 {
   double t = getTime() - t0;
   
-  counter[Xrecomp]++;
-  data[Xrecomp] += t;
+  counter[intersect]++;
+  data[intersect] += t;
+  data[eulerFSI] += t;
 
   return t;
 }
@@ -679,12 +680,13 @@ double Timer::addEmbedPhaseChangeTime(double t0)
 
   counter[embedPhaseChange]++;
   data[embedPhaseChange] += t;
+  data[eulerFSI] += t;
 
   return t;
 }
 
 //------------------------------------------------------------------------------
-
+/*
 double Timer::addEmbedComTime(double t0)
 {
   double t = getTime() - t0;
@@ -693,6 +695,19 @@ double Timer::addEmbedComTime(double t0)
   data[embedCom] += t;
 
   return t;
+}
+*/
+//------------------------------------------------------------------------------
+
+double Timer::removeIntersAndPhaseChange(double t0)
+{
+
+  double t = getTime() - t0;
+
+  data[fluid] -= t;
+
+  return t;
+
 }
 
 //------------------------------------------------------------------------------
@@ -789,18 +804,22 @@ void Timer::print(Timer *str, FILE *fp)
                counter[structUpd]);
   }
   com->fprintf(fp, "\n");
-  com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
-	       tmin[mesh], tmax[mesh], tavg[mesh]);
-  com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
-               tmin[meshAssembly], tmax[meshAssembly], tavg[meshAssembly], 
-	       counter[meshAssembly]);
-  com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup], 
-		       counter[meshPrecSetup]);
-  com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[meshKsp], tmax[meshKsp], tavg[meshKsp], 
-	       counter[meshKsp]);
-  com->fprintf(fp, "\n");
+
+  // Output Mesh solution time (except for Euler FSI)
+  if(ioData->strucIntersect.intersectorName == 0) {
+    com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
+                 tmin[mesh], tmax[mesh], tavg[mesh]);
+    com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
+                 tmin[meshAssembly], tmax[meshAssembly], tavg[meshAssembly], 
+                 counter[meshAssembly]);
+    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
+                 tmin[meshPrecSetup], tmax[meshPrecSetup], tavg[meshPrecSetup], 
+	         counter[meshPrecSetup]);
+    com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", 
+                 tmin[meshKsp], tmax[meshKsp], tavg[meshKsp], 
+	         counter[meshKsp]);
+    com->fprintf(fp, "\n");
+  }
 
   // Output Level-Set Timers
   if (ioData->eqs.numPhase == 2) {
@@ -844,17 +863,14 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "\n");
   }
 
-  com->fprintf(fp, "Eulerian FSI\n");
-  com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[Xrecomp], tmax[Xrecomp], tavg[Xrecomp], 
-	       counter[Xrecomp]);
-  com->fprintf(fp, "  Phase-Change Update         : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[embedPhaseChange], tmax[embedPhaseChange], tavg[embedPhaseChange], 
-	       counter[embedPhaseChange]);
-  com->fprintf(fp, "  RMA Com (for Embedded FSI)  : %10.2f %10.2f %10.2f %9d\n", 
-	       tmin[embedCom], tmax[embedCom], tavg[embedCom], 
-	       counter[embedCom]);
-  com->fprintf(fp,"\n");
+  if (ioData->strucIntersect.intersectorName != 0) {
+    com->fprintf(fp, "Eulerian FSI                  : %10.2f %10.2f %10.2f         -\n",
+                 tmin[eulerFSI], tmax[eulerFSI], tavg[eulerFSI]);
+    com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
+  	         tmin[intersect], tmax[intersect], tavg[intersect], 
+  	         counter[intersect]);
+    com->fprintf(fp,"\n");
+  }
 
   com->fprintf(fp, "Communication/Synchronization : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[comm], tmax[comm], tavg[comm]);
