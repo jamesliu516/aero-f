@@ -71,7 +71,7 @@ DynamicNodalTransfer::sendForce() {
   winForce->fence(true);
   winForce->accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
   winForce->fence(false);
-  timer->addEmbedComTime(t0);
+  timer->addInterComTime(t0);
 
   structure.processReceivedForce();
   
@@ -365,7 +365,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   double t0 = timer->getTime();
   for(int i = 0; i < com.size(); ++i) 
     window->put((double*)UandUdot, 0, 2*3*nNodes, i, 0);
-  timer->addEmbedComTime(t0);
+  timer->addInterComTime(t0);
 }
 
 //------------------------------------------------------------------------------

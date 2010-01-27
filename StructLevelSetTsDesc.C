@@ -136,6 +136,7 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
 
+  if (dynNodalTransfer) delete dynNodalTransfer;
   if (Fs) delete[] Fs;
 
   if (LS) delete LS;
@@ -199,9 +200,10 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
     delete Wji;
 
     // Now "accumulate" the force for the embedded structure
-    SVec<double,3> v(numStructNodes, Fs);
-    dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
-
+    if(dynNodalTransfer){
+      SVec<double,3> v(numStructNodes, Fs);
+      dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
+    }
 
   } else if (TYPE==2) {
     // load the FS interface.

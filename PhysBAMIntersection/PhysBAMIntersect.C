@@ -786,7 +786,7 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->findIntersections((*X)(i));
   }
  
-  timer->addIntersectorRecomputeTime(time); 
+//  timer->addIntersectorRecomputeTime(time); 
   time = timer->getTime() - time;
   com->globalMax(1,&time);
   recomputeTime += time;
