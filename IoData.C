@@ -23,7 +23,7 @@ template<class GenericKrylov>
 void NewtonData<GenericKrylov>::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<NewtonData>
     (ca, "FailSafe", this, reinterpret_cast<int NewtonData::*>(&NewtonData::failsafe), 3,
