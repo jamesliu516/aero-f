@@ -53,6 +53,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
   linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
 
+  if (ioData.strucIntersect.riemannNormal==StructureIntersect::FLUID) 
+    riemannNormal = 1;
+  else if (ioData.strucIntersect.riemannNormal==StructureIntersect::STRUCTURE)
+    riemannNormal = 0;
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);

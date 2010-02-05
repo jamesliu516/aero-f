@@ -34,7 +34,7 @@ class PhysBAMIntersectorConstructor : public IntersectorConstructor {
     PhysBAMIntersectorConstructor() {
       structureFile = 0;
       restartStructureFile = 0;
-      tolIntersect = 0.0;
+      tolIntersect = 1.0e-4;
     }
 
     DistLevelSetStructure *getIntersector(IntersectProblemData&) {
@@ -928,6 +928,7 @@ void PhysBAMIntersector::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> d
 void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
 {
   if(nFirstLayer == 0) {
+
      ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
      edgeRes(1).x[1] = 1;
      edgeRes(1).x[2] = 2;
@@ -940,9 +941,11 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
      xyz(2)[1] = insidePoint[0];
      xyz(2)[2] = insidePoint[1];
      xyz(2)[3] = insidePoint[2];
-//     fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
-//           X[0][0], X[0][1], X[0][2],
-//           insidePoint[0], insidePoint[1], insidePoint[2]);
+
+/*       fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
+             X[0][0], X[0][1], X[0][2],
+             insidePoint[0], insidePoint[1], insidePoint[2]);
+*/
      double thickness = std::max(distIntersector.insidePointTol, distIntersector.getTolerance());
 //     fprintf(stderr,"For subdomain %d: tol = %e.\n", globIndex, thickness);
      distIntersector.getInterface().Intersect(xyz, edgeRes, thickness);
@@ -950,15 +953,15 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
        Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
        const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
        if(edgeVec*trNorm < 0) {
-//         fprintf(stderr, "This subdomain is outside the structure\n");
+ //        if(globIndex==198)fprintf(stderr, "This subdomain is outside the structure\n");
          status[0] = INSIDE;
        } else {
-//         fprintf(stderr, "This subdomain is inside the structure\n");
+//         if(globIndex==198)fprintf(stderr, "This subdomain is inside the structure\n");
          status[0] = INSIDE; //TODO: this is not perfect
          //status[0] = OUTSIDE;
        }
      } else {
-//       fprintf(stderr, "This subdomain is trivially inside the structure\n");
+//       if(globIndex==198)fprintf(stderr, "This subdomain is trivially inside the structure\n");
        status[0] = OUTSIDE;
      }
 

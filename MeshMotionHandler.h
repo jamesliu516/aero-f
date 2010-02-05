@@ -322,7 +322,8 @@ protected:
   Vec3D *structVel;      //<! velocity of struct nodes.
 
   int it0;            //<! restart timestep
-
+  int structVelocity; //<! 0: use the velocity received by structure;  1: compute by finite-difference.
+  
   DynamicNodalTransfer *dynNodalTransfer; 
   DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).
 

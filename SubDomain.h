@@ -373,7 +373,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, 
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, int, 
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim>

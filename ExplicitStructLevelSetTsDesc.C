@@ -56,7 +56,10 @@ ExplicitStructLevelSetTsDesc<dim>::~ExplicitStructLevelSetTsDesc()
 
 template<int dim>
 int ExplicitStructLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
-{solveNLSystemOneBlock(U);} //so far only consider one system to solve (there is no level-set)
+{
+  solveNLSystemOneBlock(U);
+  return 1;
+} //so far only consider one system to solve (there is no level-set)
 
 //-----------------------------------------------------------------------------
 
@@ -259,7 +262,7 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
     
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, dU, this->riemann, it);
+                                   this->linRecAtInterface, dU, this->riemann, this->riemannNormal, it);
     this->timeState->multiplyByTimeStep(dU);
     this->timeState->multiplyByPreconditioner(Ulocal,dU);
   }

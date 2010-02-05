@@ -2877,6 +2877,7 @@ void StructureIntersect::setup(const char *name) {
   intersectorName = 0;
   normal = FACET;
   reconstruct = CONSTANT;
+  riemannNormal = STRUCTURE;
   forceApproach = 0;
   pressureChoice = 0;
   phaseChangeChoice = 0;
@@ -2888,6 +2889,8 @@ void StructureIntersect::setup(const char *name) {
                                       "Facet", 0, "Interpolated", 1);
   new ClassToken<StructureIntersect> (ca, "reconstruction", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
+  new ClassToken<StructureIntersect> (ca, "riemannNormal", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::riemannNormal), 2,
+                                      "Structure", 0, "Fluid", 1);
   new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
   new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
   new ClassInt<StructureIntersect>(ca, "phaseChangeChoice", this, &StructureIntersect::phaseChangeChoice);
@@ -2929,6 +2932,7 @@ void EmbeddedStructureInfo::setup(const char *name) {
   type = NONE;
   dim2Treatment = NO;
   forcedMotionMode = HEAVING;
+  structVelocity = COMPUTED_BY_STRUCTURE;
 
   tMax = 1.0e-6;
   dt = 1.0e-6;
@@ -2941,6 +2945,8 @@ void EmbeddedStructureInfo::setup(const char *name) {
 
   new ClassToken<EmbeddedStructureInfo> (ca, "type", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::type), 4,
                                       "ForcedMotion", 0, "OneWayCoupling", 1, "TwoWayCoupling", 2, "None", 3);
+  new ClassToken<EmbeddedStructureInfo> (ca, "structureVelocity", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::structVelocity), 2,
+                                      "ComputedByStructure", 0, "FiniteDifference", 1);
   new ClassToken<EmbeddedStructureInfo> (ca, "dim2Treatment", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::dim2Treatment), 2,
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedStructureInfo> (ca, "forcedMotionMode", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::forcedMotionMode), 3,

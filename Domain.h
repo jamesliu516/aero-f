@@ -423,7 +423,7 @@ public:
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
-                               DistLevelSetStructure *, bool,
+                               DistLevelSetStructure *, bool, int,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
