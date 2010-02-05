@@ -845,7 +845,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-                                       LevelSetStructure &LSS, bool linRecAtInterface,
+                                       LevelSetStructure &LSS, bool linRecAtInterface, int Nriemann,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
@@ -853,7 +853,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
-                                           linRecAtInterface, ngrad, egrad, fluxes, it,
+                                           linRecAtInterface, Nriemann, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, V, fluxes); 
 
@@ -4826,7 +4826,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<5; k++)
               VWeights[j][k] = Wstarij[l][k];
           else { 
-            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[j][k] = V[i][k];
           }
@@ -4836,7 +4836,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<5; k++)
               VWeights[j][k] += Wstarij[l][k];
           else {
-            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[j]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[j][k] += V[i][k];
           }
@@ -4850,7 +4850,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<5; k++)
               VWeights[i][k] = Wstarji[l][k];
           else {
-            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[i][k] = V[j][k];
           }
@@ -4860,7 +4860,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
             for(k=0; k<5; k++)
               VWeights[i][k] += Wstarji[l][k];
           else {
-            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
+//            fprintf(stderr,"Storing weights for Node %d: have to use nodal state for edge (%d->%d) .\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1);
             for(k=0; k<5; k++)
               VWeights[i][k] += V[j][k];
           }

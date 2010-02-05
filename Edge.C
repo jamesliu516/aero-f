@@ -507,7 +507,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, SVec<double,dim>& Wstarij, 
                                      SVec<double,dim>& Wstarji, LevelSetStructure &LSS,
-                                     bool linRecAtInterface, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                     bool linRecAtInterface, int Nriemann, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
@@ -532,6 +532,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     Wstarij = 0.0;
     Wstarji = 0.0;
   }
+
+  Vec3D normalDir; //normal direction fed to the Riemann solver. Related to the choice of "Nriemann".
 
   int ierr=0;
   riemann.reset(it);
@@ -620,7 +622,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{// interface
       if (iIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-        riemann.computeFSIRiemannSolution(Vi,res.normVel,res.gradPhi,varFcn,Wstar,j);
+        normalDir = (Nriemann) ? -1.0/(normal[l].norm())*normal[l] : res.gradPhi;
+        riemann.computeFSIRiemannSolution(Vi,res.normVel,normalDir,varFcn,Wstar,j);
 
         if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k]; 
@@ -631,8 +634,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
       if (jIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+        normalDir = (Nriemann) ? 1.0/(normal[l].norm())*normal[l] : res.gradPhi;
         riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
-
+        
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         if (masterFlag[l]) {

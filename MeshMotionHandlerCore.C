@@ -1435,6 +1435,19 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   distLSS = distlss;
   dts = 0.0;
   it0 = iod.restart.iteration; //restart time-step
+ 
+  switch (iod.embeddedStructure.structVelocity){
+    case EmbeddedStructureInfo::FINITE_DIFFERENCE:
+      structVelocity = 1;
+      break;
+    case EmbeddedStructureInfo::COMPUTED_BY_STRUCTURE:
+      structVelocity = 0;
+      break;
+    default:
+      fprintf(stderr,"ERROR! structure velocity option is not recongnized!\n");
+      exit(-1);
+      break;
+  }
 
   // TODO: In future the following information should be obtained from the structure codes.
   Vec<Vec3D> &solidX0 = distLSS->getStructPosition_0();
@@ -1536,8 +1549,17 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+//      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
     }
+
+    if (structVelocity==0)
+      for (int i=0; i<numStructNodes; i++) 
+        structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    else if (structVelocity==1)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    else
+      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
 
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
 
@@ -1570,8 +1592,17 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+//      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
     }
+
+    if (structVelocity==0)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    else if (structVelocity==1)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    else
+      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
 
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
 
@@ -1632,8 +1663,17 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+//      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
     }
+
+    if (structVelocity==0)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    else if (structVelocity==1)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    else
+      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
 
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
 
@@ -1663,8 +1703,17 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
-      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+//      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
     }
+
+    if (structVelocity==0)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    else if (structVelocity==1)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    else
+      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
 
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
 

@@ -34,8 +34,9 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double (*Fs)[3]; //force distribution on the structure surfac3
   int numStructNodes;
   int numStructElems;
-  bool interpolatedNormal;
+  bool interpolatedNormal; 
   bool linRecAtInterface;
+  int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
 
   // coefficients for piston simulations.
   Vec3D fsiPosition;

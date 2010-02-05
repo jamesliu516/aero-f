@@ -394,6 +394,10 @@ EmbeddedStructure::processReceivedForce()
     structExc->sendForce(f);
   }
 
+  //for(int i=0; i<nNodes; ++i)
+    //fprintf(stderr,"%d %e %e %e\n", i+1, F[i][0], F[i][1], F[i][2]);
+
+
   if(com.cpuNum()>0) return;
   double fx=0, fy=0, fz=0; //write the total froce.
   for(int i = 0; i < nNodes; ++i) {

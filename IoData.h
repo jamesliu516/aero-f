@@ -1614,6 +1614,7 @@ struct StructureIntersect {
   const char *libraryName;
   enum Normal {FACET = 0, INTERPOLATED = 1} normal;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
   int forceApproach;
   int pressureChoice;
   int phaseChangeChoice;
@@ -1633,6 +1634,7 @@ struct EmbeddedStructureInfo {
   const char *matcherFile;
 
   enum Type {FORCED = 0, ONEWAY = 1, TWOWAY = 2, NONE = 3} type;
+  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum ForcedMotionMode {HEAVING = 0, CONSTHEAVING = 1, OTHER = 2} forcedMotionMode;
   double tMax;

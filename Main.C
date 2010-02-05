@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 
   Domain domain;
   Timer *timer = domain.getTimer();
-  fprintf(stderr,"TIMER::START TIME: %lf\n",timer->getTime());
+//  fprintf(stderr,"TIMER::START TIME: %lf\n",timer->getTime());
 
   Communicator *com = domain.getCommunicator();
   IntersectionFactory::setCommunicator(com);

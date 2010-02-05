@@ -886,7 +886,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
-                                     DistLevelSetStructure *LSS, bool linRecAtInterface,
+                                     DistLevelSetStructure *LSS, bool linRecAtInterface, int Nriemann,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
@@ -909,7 +909,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub), 
-                                             linRecAtInterface, ngrad(iSub),
+                                             linRecAtInterface, Nriemann, ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -950,7 +950,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                     linRecAtInterface, ngrad(iSub),
+                                     linRecAtInterface, Nriemann, ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }

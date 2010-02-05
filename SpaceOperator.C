@@ -1497,7 +1497,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int it)
+                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, int it)
 {
   R = 0.0;
   //DistVec<double> Phi = *(LSS->getPhilevelPointer());
@@ -1525,7 +1525,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, *ngrad, egrad,
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, Nriemann, *ngrad, egrad,
                                   R, it, failsafe,rshift);
 
   if (use_modal == false)  {
@@ -1807,7 +1807,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
       }
 
       if (subWeights[i]<=0.0) {
-        fprintf(stderr,"Failed in updating the phase change at node %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, iWasActive, iIsActive, subWeights[i]);
+        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), iWasActive, iIsActive, subWeights[i]);
         exit(-1);
       }  
      
