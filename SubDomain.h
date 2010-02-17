@@ -340,7 +340,6 @@ public:
   template<int dim>
 //  void computeMultiDimLimiter(RecFcnLtdMultiDim<dim> *, SVec<double,3> &, Vec<double> &,
   void computeMultiDimLimiter(RecLimiter *, SVec<double,3> &, Vec<double> &,
-
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			      SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &,
 			      SVec<double,dim> &);
@@ -838,8 +837,9 @@ public:
 
   template<int dim>
   void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                      Vec<double> &weight, FluidTypeCriterion &Phi);
-
+                      Vec<double> &weight, FluidTypeCriterion &Phi,
+                      SVec<double,3> &X);
+                      
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
@@ -885,6 +885,8 @@ public:
   template<int dim>
   void checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                     SVec<double,dim> &Update, Vec<double> &Weight);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,

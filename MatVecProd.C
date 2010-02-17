@@ -45,7 +45,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   recFcnCon = 0;
   Rn = 0;
   Phi = 0;
-	Riemann = 0;
+  Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
     recFcnCon = new RecFcnConstant<dim>;
@@ -60,7 +60,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   if (fdsa)
     fdOrder = ioData.sa.mvpfdOrdersa; 
   else
-    fdOrder = ioData.sa.mvpfdOrdera; 
+    fdOrder = ioData.ts.implicit.fdOrder; 
 
 }
 
@@ -216,16 +216,16 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
-  
-  if (fdOrder == 1) {
 
+  if (fdOrder == 1) {
+    
     prod = (1.0/eps) * (Fepstmp - F);
  
   }
   else if (fdOrder == 2) {
 
     Qepstmp = Q - eps * p;
-
+    
     Qepstmp.pad(Qeps);
 
     if(Phi)
@@ -240,7 +240,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
     Feps.strip(Ftmp);
 
-    prod = (1.0/eps) * (Fepstmp - Ftmp);
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
 
   }
 

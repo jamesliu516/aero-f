@@ -65,7 +65,6 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
-  riemann = new DistExactRiemannSolver<dim>(ioData, domain);
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
@@ -231,11 +230,12 @@ createMeshMotionHandler(IoData &ioData, GeoSource &geoSource, MemoryPool *mp)
     // if C0 and RK2 then RK2DGCL is needed!
     if(_mmh->getAlgNum() == 20 || _mmh->getAlgNum() == 21){
       if(ioData.ts.type == TsData::EXPLICIT &&
-           ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2){
+         (ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2 ||
+          ioData.ts.expl.type == ExplicitData::ONE_BLOCK_RK2bis )){
         if(!(ioData.dgcl.normals    == DGCLData::EXPLICIT_RK2 &&
-             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL &&
-             ioData.dgcl.volumes    == DGCLData::EXPLICIT_RK2_VOL)){
-          com->fprintf(stderr, "***Error: Computation of the normals, velocities or volumes (%d,%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities, ioData.dgcl.volumes);
+             ioData.dgcl.velocities == DGCLData::EXPLICIT_RK2_VEL)){
+          com->fprintf(stderr, "***Error: Computation of the normals or velocities (%d,%d)\n", ioData.dgcl.normals, ioData.dgcl.velocities);
           com->fprintf(stderr, "***       is not consistent with Aeroelastic algorithm\n");
           exit(1);
         }
@@ -573,7 +573,7 @@ void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, i
 //------------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::outputPositionVectorToDisk()
+void TsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 {
 
   *X = *Xs;
@@ -584,6 +584,9 @@ void TsDesc<dim>::outputPositionVectorToDisk()
   }
 
   domain->writeVectorToFile(restart->positions[0], 0, 0.0, *Xs, &(refVal->tlength));
+
+  if(mmh->getAlgNum() == 1)
+    output->writeDisplacementVectorToDisk(1, 1.0, *X, U); 
 
   timer->setRunTime();
   if (com->getMaxVerbose() >= 2)

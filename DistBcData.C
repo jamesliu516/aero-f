@@ -1485,9 +1485,39 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
     }
   }
   if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
-    this->com->fprintf(stdout, "a shocktube problem is not possible in this configuration\n");
-    this->com->fprintf(stdout, "that is, between fluidModel1 = Gas and fluidModel2 = JWL\n");
-    exit(1);
+
+
+     // for shock tube type of computation
+// fluidModel1(SG)  is on the left/inlet 
+// fluidModel2(JWL) is on the right/outlet
+    double Voutlet[5] = {iod.bc.outlet.density, 0, 0, 0, iod.bc.outlet.pressure};
+    if(iod.bc.outlet.mach >= 0.0){
+      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / vf->computeSoundSpeed(Voutlet,-1.0);
+    }else{
+      velout2 = iod.bc.outlet.velocity*iod.bc.outlet.velocity;
+    }
+    velout = sqrt(velout2);
+    // for boundary conditions of shocktube problems
+    // make sure input file is consistent ( Outlet and FluidModel2 with PlaneData and FluidModel2)
+    this->Uout[0] = iod.bc.outlet.density;
+    this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
+    this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
+    this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
+    this->Uout[4] = vf->computeRhoEpsilon(Voutlet,-1.0) + 0.5 * this->Uout[0] * velout2;
+  
+#pragma omp parallel for
+    for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+      double (*uout)[dim]  = this->Ufarout.subData(iSub);
+  
+      for(int inode = 0; inode<this->Unode.subSize(iSub); inode++){
+        uout[inode][0] = this->Uout[0];
+        uout[inode][1] = this->Uout[1];
+        uout[inode][2] = this->Uout[2];
+        uout[inode][3] = this->Uout[3];
+        uout[inode][4] = this->Uout[4];
+      }
+    }
+    // End shocktube setup
   }
 
 }

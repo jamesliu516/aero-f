@@ -710,20 +710,21 @@ template<class Scalar, int dim>
 inline
 void RecFcn::computeT(double *dx, Scalar *pi, Scalar *pj,
              double *aij, double *aji, double *bij, double *bji, int i,
-             int j, Scalar *p1, Scalar *p2, Scalar *p3, Scalar *p4,
-             Scalar *p5, Scalar *p6, Scalar *p7, Scalar *p8)
+             int j, Scalar *zu_is1, Scalar *zu_is2, Scalar *zgx_is1, Scalar *zgx_is2,
+             Scalar *zgy_is1, Scalar *zgy_is2, Scalar *zgz_is1, Scalar *zgz_is2)
 {
 
+    // Same notations as in the Fortran code
 #pragma ivdep
   for (int k=0; k<dim; ++k) {
-    p1[k] = pj[k] - aij[k]*pj[k] + aji[k]*pi[k];
-    p2[k] = pi[k] - aji[k]*pi[k] + aij[k]*pj[k];
-    p3[k] =  bij[k] * pj[k] * dx[0];
-    p4[k] = -bji[k] * pi[k] * dx[0];
-    p5[k] =  bij[k] * pj[k] * dx[1];
-    p6[k] = -bji[k] * pi[k] * dx[1];
-    p7[k] =  bij[k] * pj[k] * dx[2];
-    p8[k] = -bji[k] * pi[k] * dx[2];
+    zu_is1[k] = pj[k] - aij[k]*pj[k] + aji[k]*pi[k];
+    zu_is2[k] = pi[k] - aji[k]*pi[k] + aij[k]*pj[k];
+    zgx_is1[k] =  bij[k] * pj[k] * dx[0];
+    zgx_is2[k] = -bji[k] * pi[k] * dx[0];
+    zgy_is1[k] =  bij[k] * pj[k] * dx[1];
+    zgy_is2[k] = -bji[k] * pi[k] * dx[1];
+    zgz_is1[k] =  bij[k] * pj[k] * dx[2];
+    zgz_is2[k] = -bji[k] * pi[k] * dx[2];
   }
 
 }
@@ -738,8 +739,9 @@ void RecFcn::computeTb(SVec<Scalar,dim> &p,
 {
 
 #pragma ivdep
-  for (int k=0; k<dim; ++k)
+  for (int k=0; k<dim; ++k){
     p1[k] = p[i][k] + (dpdx[i][k] + dpdy[i][k] + dpdz[i][k]);
+ }
 }
 
 //------------------------------------------------------------------------------

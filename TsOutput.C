@@ -1841,6 +1841,21 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsOutput<dim>::writeDisplacementVectorToDisk(int step, double tag, 
+                      DistSVec<double,3> &X, DistSVec<double,dim> &U){
+
+  if(vectors[PostFcn:: DISPLACEMENT]){
+    if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+    postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(PostFcn::DISPLACEMENT), X, U, *Qv);
+    domain->writeVectorToFile(vectors[PostFcn::DISPLACEMENT], 1, 1.0, *Qv, &(vscale[PostFcn::DISPLACEMENT]));
+  }
+
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X, 
 					     DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {

@@ -162,8 +162,8 @@ public:
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
-                         DistVec<double> &Phi,
-                         DistSVec<double,dim> *Vgf, DistVec<double> *weight);
+                         DistVec<double> &Phi, DistSVec<double,dim> *Vgf, 
+                         DistVec<double> *weight, DistSVec<double,3> &X);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistLevelSetStructure *distLSS);

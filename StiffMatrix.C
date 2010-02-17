@@ -75,12 +75,15 @@ void StiffMat<Scalar,dim>::apply(DistSVec<double,dim> &x, DistSVec<double,dim> &
   fprintf(stderr," -> in StiffMat::apply, CPU %d, GET IN\n",this->com->cpuNum());
 #endif
   int iSub;
+
+  // PJSA (moved from preconditioner, see KspPrec.C)
+  DistSVec<double,dim> x_copy(x);
+  if(BCs) BCs->applyPD(x_copy);
   
 #pragma omp parallel for
   for (iSub = 0; iSub < this->numLocSub; ++iSub) {
     int* subNdType = (ndType) ? ndType[iSub] : 0;
-    A[iSub]->apply(x(iSub), Ax(iSub), subNdType);
-    //A[iSub]->apply(x(iSub), Ax(iSub), ndType[iSub]);
+    A[iSub]->apply(x_copy(iSub), Ax(iSub), subNdType);
     this->subDomain[iSub]->sndData(*this->vecPat, Ax.subData(iSub));
   }
 

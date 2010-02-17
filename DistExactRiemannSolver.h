@@ -4,6 +4,9 @@
 
 class IoData;
 class Domain;
+class Communicator;
+class SparseGridCluster;
+
 
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class ExactRiemannSolver;
@@ -25,9 +28,10 @@ class DistExactRiemannSolver {
 
   ExactRiemannSolver<dim> **subExactRiemannSolver;
 
+  SparseGridCluster *tabulationC;
 
 public:
-  DistExactRiemannSolver(IoData &iod, Domain *dom);
+  DistExactRiemannSolver(IoData &iod, Domain *dom, VarFcn *vf);
   ~DistExactRiemannSolver();
 
   bool DoUpdatePhase() { return updatePhase; }

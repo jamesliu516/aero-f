@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   LS = new LevelSet(ioData, this->domain);
-  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   Vgf = 0;
   Vgfweight = 0;
@@ -61,6 +61,10 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   frequencyLS = ioData.mf.frequency;
   interfaceType = ioData.mf.interfaceType;
+
+  Prate = ioData.mf.Prate;
+  Pinit = ioData.mf.Pinit;
+  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 }
 
 //------------------------------------------------------------------------------
@@ -278,7 +282,6 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi);
   this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   if (*lastIt) {
@@ -332,6 +335,23 @@ void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
     _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &Phi);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+{
+  if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
+
+  if(t>tmax && t-dt>tmax) {this->com->fprintf(stdout, "max pressure reached\n"); return true;} // max pressure was reached, so now we solve
+  else{ // max pressure not reached, so we do not solve and we increase pressure and let structure react
+    this->com->fprintf(stdout, "about to increase pressure to value of %e\n", Pinit+t*Prate);
+    this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U);
+    return false;
+  }
+
 
 }
 

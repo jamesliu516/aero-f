@@ -2696,6 +2696,7 @@ void Domain::writeVectorToFile(const char *prefix, int step, double tag,
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->template openFileForWriting<Scalar,dim>(prefix, step);
+
   if (step == 0)
     com->barrier();
 
@@ -3217,12 +3218,13 @@ void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, Dist
 //------------------------------------------------------------------------------
 template<int dim>
 void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                            DistVec<double> &weight, DistFluidTypeCriterion &Phi)
+                            DistVec<double> &weight, DistFluidTypeCriterion &Phi,
+                            DistSVec<double,3> &X)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),Phi(iSub));
+    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),Phi(iSub),X(iSub));
   }
 
   assemble(vecPat, Vgf);
@@ -3412,6 +3414,15 @@ void Domain::checkWeights(DistVec<double> &Phi, DistVec<double> &Phin,
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->checkWeights(Phi(iSub),Phin(iSub),Update(iSub),Weight(iSub));
+
+}
+//-------------------------------------------------------------------------------
+template<int dim>
+void Domain::IncreasePressure(double p, VarFcn *vf,  DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->IncreasePressure(p,vf,U(iSub));
 
 }
 //-------------------------------------------------------------------------------

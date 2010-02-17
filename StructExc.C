@@ -351,6 +351,7 @@ void StructExc::sendForce(DistSVec<double,3> &F)
 
   }
 
+  com->barrier();
   com->globalSum(1, &norm);
   norm = sqrt(norm);
 
@@ -386,6 +387,7 @@ void StructExc::sendHeatPower(DistVec<double>& P)
     strCom->waitForAllReq();
   }
 
+  com->barrier();
   com->globalSum(1, &norm);
 
   com->printf(7, "Sent fluid heat power=%e to the structure\n", norm);
@@ -455,6 +457,7 @@ void StructExc::getMdStrDisp(int id, DistSVec<double,3> &X0,
 
   }
 
+  com->barrier();
   com->globalSum(2, norms);
 
   com->fprintf(stdout, "Received disp=%e and vel=%e from the structure \n", norms[0], norms[1]);

@@ -18,11 +18,12 @@ class StiffMat : public DistMat<Scalar,dim> {
 #endif
 
   int **ndType;
-  BCApplier* BCs; //HB
+//  BCApplier* BCs; //HB
 
   SparseMat<Scalar,dim> **A;
 
 public:
+  BCApplier* BCs; //PJSA
   
   StiffMat(Domain *, int **, MemoryPool *, BCApplier*);
   ~StiffMat();
@@ -32,7 +33,7 @@ public:
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void applyLS(DistSVec<double,dim> &, DistSVec<double,dim> &) {};
+  void applyLS(DistSVec<double,dim> &, DistSVec<double,dim> &) { }
 
 };
 

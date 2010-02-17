@@ -59,7 +59,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     riemannNormal = 0;
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
-  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain);
+  riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
   distLSS = 0;
 
   const char *intersectorName = ioData.strucIntersect.intersectorName;
@@ -518,7 +518,7 @@ void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int i
 //------------------------------------------------------------------------------
 
 template<int dim>
-void StructLevelSetTsDesc<dim>::outputPositionVectorToDisk()
+void StructLevelSetTsDesc<dim>::outputPositionVectorToDisk(DistSVec<double,dim> &U)
 {}
 
 //------------------------------------------------------------------------------

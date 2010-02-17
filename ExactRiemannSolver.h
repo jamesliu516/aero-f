@@ -4,6 +4,7 @@
 class IoData;
 class LocalRiemann;
 class VarFcn;
+class SparseGridCluster;
 
 template<class Scalar, int dim> class SVec;
 
@@ -22,7 +23,8 @@ class ExactRiemannSolver{
 
   public:
 
-  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &);
+  ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
+                     VarFcn *, SparseGridCluster *);
   ~ExactRiemannSolver();
 
 
@@ -33,7 +35,7 @@ class ExactRiemannSolver{
   void computeRiemannSolution(double *Vi, double *Vj,
                               double Phii, double Phij, double *nphi, VarFcn *vf,
                               int &epsi, int &epsj, double *Wi, double *Wj,
-                              int i, int j);
+                              int i, int j, double dx[3]);
 
   // for structure-fluid "half-Riemann" problem
   void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
