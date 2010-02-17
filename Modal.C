@@ -2,6 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <algorithm>
+#include <cstdlib>
 using std::sort;
 
 
@@ -857,7 +858,6 @@ ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, 
       // compute new delWRom
       delWnm1Rom = delWRom;
       delWRom = rhs + rhsTemp;
-
       // project soltn into full space
       delWFull = 0.0;
       for (i = 0; i < nPodVecs; ++i)
@@ -967,6 +967,7 @@ void ModalSolver<dim>::preProcess()  {
                                                         
   if (ioData->linearizedData.domain == LinearizedData::FREQUENCY)  {
     HOpC = new MatVecProdH2<bcomp,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+
                                                         
     pcComplex = new IluPrec<bcomp ,dim, bcomp>(pcData, &domain);
    if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -1304,7 +1305,6 @@ void ModalSolver<dim>::computeModalDisp(double sdt, DistSVec<double, 3> &xPos, D
   postOp->computeForceDerivs(xPos, Uref, delW, modalF, mX);
   modalF += refModalF;
   modalF *= ioData->ref.rv.force;
-
   // form struct rhs and solve u dof
   double sdt2 = sdt*sdt;
   double prevU, prevY;
@@ -1480,15 +1480,19 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
   // loop over modes
   bcomp oneReal(1.0, 0.0);
   bcomp oneImag(0.0, 1.0);
+  bcomp zeroComp(0.0,0.0);
   bcomp kImag(0.0, kFreq);
                                                         
   DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
-  DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
+  //DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
   Vec3D x0(0.0, 0.0, 0.0);
                                                         
   Vec<double> modalF(nStrMode);
+
   rhs = oneReal*DX[0] + kImag*DE[0];
+
+
   t0 = modalTimer->getTime();
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
     kspCompGcr->setup(1, 40, rhs);
@@ -1506,7 +1510,7 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
                                                         
     // form rhs
     rhs = -oneReal*DX[iMode] - kImag*DE[iMode];
-                                                        
+    HOpC->applyT(rhs, delW);                                                      
     // solve
     com->fprintf(stderr, " ... Solving for mode %d, w/rhs norm %e\n", iMode+1, rhs.norm());
                                                         
@@ -1550,7 +1554,7 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
                                                                
   DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
-  DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
+  //DistSVec<double, dim> delWReal(domain.getNodeDistInfo());
   DistSVec<bcomp, dim> prevWtemp(domain.getNodeDistInfo());
   Vec3D x0(0.0, 0.0, 0.0);
                                                                
@@ -2519,8 +2523,9 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
   double invDt = -1.0/ioData->ref.rv.time;
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
-    tmpVec = DE[iVec] * invDt;
-    tmpVec2 = DX[iVec];
+    //tmpVec = DE[iVec];
+    tmpVec = DE[iVec] * invDt; 
+    tmpVec2 = DX[iVec] ; 
     tmpVec /= controlVol;
     tmpVec2 /= controlVol;
  
@@ -2545,14 +2550,14 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
     for (jVec = 0; jVec < nPodVecs; jVec++)
       sysVals[iVec*sysSize+jVec] = romOperator[iVec][jVec];
     for (jVec = 0; jVec < nStrMode; jVec++)
-      sysVals[iVec*sysSize + nPodVecs + jVec] = outRom[iVec][jVec];
+      sysVals[iVec*sysSize + nPodVecs + jVec] = outRom[iVec][jVec];  
   }
 
   // populate 1,2 and 3,2 block
 
   for (iVec = 0; iVec < nStrMode; iVec++)  {
     for (jVec = 0; jVec < nPodVecs; jVec++)
-      sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = -ecVecs[iVec][jVec];
+      sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = ecVecs[iVec][jVec];
     for (jVec = 0; jVec < nStrMode; jVec++) {
       if (jVec == iVec)
         sysVals[sysSize*nPodVecs + iVec*sysSize + nPodVecs+nStrMode + jVec] = 1.0;
@@ -2582,9 +2587,10 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
   com->fprintf(romFP, "%d %d\n", nPodVecs, nStrMode);
   for (iVec = 0; iVec < sysSize; iVec++)  {
-    for (jVec = 0; jVec < sysSize; jVec++)
+    for (jVec = 0; jVec < sysSize; jVec++){
       com->fprintf(romFP, "%.16e ", sysVals[jVec*sysSize+iVec]);
-    com->fprintf(romFP, "\n");
+   }       
+   com->fprintf(romFP, "\n");
   }
 
   delete[] romFile;

@@ -10,7 +10,8 @@
 //------------------------------------------------------------------------------
 template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
-                                            Vec<double> &_weight):
+                                            Vec<double> &_weight, VarFcn *vf,
+                                            SparseGridCluster *sgCluster):
                                             rupdate(_rupdate), weight(_weight)
 {
 
@@ -27,16 +28,16 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
     if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      lriemann = new LocalRiemannGfmpGasGas();
+      lriemann = new LocalRiemannGfmpGasGas(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
             iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      lriemann = new LocalRiemannGfmpTaitTait();
+      lriemann = new LocalRiemannGfmpTaitTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmpJWLJWL();
+      lriemann = new LocalRiemannGfmpJWLJWL(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmpGasJWL();
+      lriemann = new LocalRiemannGfmpGasJWL(vf);
     else{
       fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
       exit(1);
@@ -44,22 +45,22 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
     if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      lriemann = new LocalRiemannGfmparGasGas();
+      lriemann = new LocalRiemannGfmparGasGas(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
             iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      lriemann = new LocalRiemannGfmparGasTait();
+      lriemann = new LocalRiemannGfmparGasTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
             iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      lriemann = new LocalRiemannGfmparTaitTait();
+      lriemann = new LocalRiemannGfmparTaitTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      lriemann = new LocalRiemannGfmparGasTait();
+      lriemann = new LocalRiemannGfmparGasTait(vf);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparGasJWL();
+      lriemann = new LocalRiemannGfmparGasJWL(vf,sgCluster,iod.mf.riemannComputation);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparJWLJWL();
+      lriemann = new LocalRiemannGfmparJWLJWL(vf);
     else{
       fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
       exit(1);
@@ -83,11 +84,13 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 template<int dim>
 void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
       double Phii, double Phij, double *nphi, VarFcn *vf,
-      int &epsi, int &epsj, double *Wi, double *Wj, int i, int j)
+      int &epsi, int &epsj, double *Wi, double *Wj, int i, int j,
+      double dx[3])
 {
 
-  lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,vf,
-          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j], iteration);
+  lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,
+          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
+          dx,iteration);
 
 }
 //------------------------------------------------------------------------------

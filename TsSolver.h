@@ -96,7 +96,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   dts = probDesc->computePositionVector(&lastIt, it, t);
 
   if (lastIt)
-    probDesc->outputPositionVectorToDisk();
+    probDesc->outputPositionVectorToDisk(U);
 
   while (!lastIt) {
     probDesc->resetOutputToStructure(U);
@@ -118,7 +118,11 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // compute control volumes and velocities
       probDesc->computeMeshMetrics();
       // Fluid Solution
-      itNl += probDesc->solveNonLinearSystem(U);
+      bool solveOrNot = probDesc->IncreasePressure(dt,t,U);
+      if(solveOrNot){
+        //fprintf(stdout, "No increase in pressure\n");
+        itNl += probDesc->solveNonLinearSystem(U);
+      }
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);
       probDesc->updateStateVectors(U, it);

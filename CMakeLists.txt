@@ -144,6 +144,8 @@ ADD_LIBRARY(FluidBase
              DynamicLESTerm.C 
              StructExc.C 
              SubDomainCore.C 
+             SparseGridCore.C
+             SparseGridClusterCore.C
              TimeData.C 
              Timer.C 
              TsInput.C 
@@ -158,7 +160,6 @@ ADD_LIBRARY(FluidBase
              BlockAlloc.C 
              LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
-             Operators.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -340,7 +341,7 @@ IF(MPI_FOUND)
   SET(INC_DIR ${INC_DIR} ${MPI_INCLUDE_PATH})
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
-  IF(!USE_SCALAPACK)
+  IF(NOT USE_SCALAPACK)
     ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)

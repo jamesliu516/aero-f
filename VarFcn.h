@@ -323,6 +323,18 @@ public:
   virtual double getR2rbis() {
         fprintf(stderr, "*** Warning: getR2rbis Function not defined\n");
         return 0.0;}
+  virtual double computeExponentials(const double density, const double phi = 0.0) const{
+        fprintf(stderr, "*** Warning: computeExponentials Function not defined\n");
+        return 0.0;}
+  virtual double computeDerivativeOfExponentials(const double density, const double phi = 0.0) const{
+        fprintf(stderr, "*** Warning: computeDerivativeOfExponentials Function not defined\n");
+        return 0.0;}
+  virtual double computeExponentials2(const double density, const double phi = 0.0) const{
+        fprintf(stderr, "*** Warning: computeExponentials2 Function not defined\n");
+        return 0.0;}
+  virtual double computeDerivativeOfExponentials2(const double density, const double phi = 0.0) const{
+        fprintf(stderr, "*** Warning: computeDerivativeOfExponentials2 Function not defined\n");
+        return 0.0;}
         
   virtual Vec3D getVelocity(double *V) { return Vec3D(V[1], V[2], V[3]); }
   virtual double getDensity(double *V) { return V[0]; }
@@ -350,6 +362,9 @@ public:
   virtual double computeMachNumber(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeWtMachNumber(double *V, double phi = 0.0) {return 0.0;}
   virtual double computeSoundSpeed(double *V, double phi = 0.0) {return 0.0;}
+  virtual double computeSoundSpeed(double density, double entropy, double phi = 0.0) {return 0.0;}
+  virtual double computeEntropy(double density, double pressure, double phi = 0.0){ return 0.0; }
+  virtual double computeIsentropicPressure(double entropy, double density, double phi = 0.0){ return 0.0; }
   virtual double computeTotalPressure(double machr, double* V, double phi = 0.0) {return 0.0;}
                                                                      
   virtual double getTurbulentNuTilde(double *V) { return 0.0; }
@@ -406,8 +421,8 @@ public:
   }
   virtual double computePressureCoefficient(double *V, double pinfty, 
                                             double mach, bool dimFlag, double phi = 0.0) { 
-     fprintf(stderr, "... WARNING: computePressureCoefficient is only implemented for Perfect Gas Flows\n"); 
-     return 0.0; 
+     fprintf(stderr, "... ERROR: computePressureCoefficient is only implemented for Perfect Gas Simulations. Exiting.\n"); 
+     exit(-1);
   }
                                                                     
 };
@@ -468,6 +483,14 @@ public:
          //return sqrt((v1*v1+v2*v2+v3*v3) * V[0] / (gam * (V[4]+Pstiff)));
   }
   double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt(gam * (V[4]+Pstiff) / V[0]); }
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) 
+    { double c2 = gam * entropy*pow(density,gam-1.0);
+      if(c2>0) return sqrt(c2);
+      return 0.0; }
+  double computeEntropy(double density, double pressure, double phi = 0.0)
+    { return (pressure+Pstiff)/pow(density,gam); }
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0)
+    { return entropy*pow(density,gam)-Pstiff; }
   double computeTotalPressure(double machr, double* V, double phi = 0.0) {
     double mach = computeMachNumber(V);
     double machr2 = machr*machr;
@@ -573,6 +596,10 @@ public:
   }
   double computeRhoEpsilon(double *V, double phi = 0.0) { return V[0] * Cv * V[4]; }
   double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt(alpha_water * beta_water * pow(V[0], beta_water - 1.0)); }
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) 
+    { double c2 = alpha_water * beta_water * pow(density, beta_water - 1.0);
+      if (c2>0) return sqrt(c2);
+      return 0.0; }
   double computeMachNumber(double *V, double phi = 0.0) {
         double c=sqrt(alpha_water * beta_water *pow(V[0], beta_water - 1.0));
         double u=sqrt(V[1]*V[1] + V[2]*V[2] + V[3]*V[3]);
@@ -633,6 +660,20 @@ public:
   double getR1r()         {return R1r;}
   double getR2r()         {return R2r;}
   
+  double computeExponentials(const double density, const double phi = 0.0) const{
+    return A1*exp(-R1r/density) + A2*exp(-R2r/density);
+  }
+  double computeDerivativeOfExponentials(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    return R1r*invrho2*A1*exp(-R1r/density) + R2r*invrho2*A2*exp(-R2r/density);
+  }
+  double computeExponentials2(const double density, const double phi = 0.0) const{
+    return (A1*R1r*exp(-R1r/density) + A2*R1r*exp(-R2r/density))/(density*density);
+  }
+  double computeDerivativeOfExponentials2(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    return (R1r*A1*(R1r-2.0*density)*exp(-R1r/density) + R2r*A2*(R2r-2.0*density)*exp(-R2r/density))*invrho2*invrho2;
+  }
   double computeFrho(double *V, double phi = 0.0) {
     return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
          + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
@@ -661,6 +702,15 @@ public:
   }
   double computeRhoEpsilon(double *V, double phi = 0.0) { return invomega * (V[4]-computeFrho(V)); }
   double computeSoundSpeed(double *V, double phi = 0.0) { return sqrt((omegap1*V[4] - computeFrho(V) + V[0]*computeFrhop(V))/V[0]); }
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) 
+    { double pressure = entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
+      double c2 = (omegap1*pressure - computeFrho(density) + density*computeFrhop(density))/density;
+      if(c2>0) return sqrt(c2);
+      return 0.0; }
+  double computeEntropy(double density, double pressure, double phi = 0.0)
+    { return (pressure - A1*exp(-R1r/density) - A2*exp(-R2r/density))/pow(density,omegap1); }
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0)
+    { return entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density); }
   double computeMachNumber(double *V, double phi = 0.0) {
     double c=computeSoundSpeed(V);
     double u=sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]));
@@ -748,7 +798,7 @@ class VarFcnGasInGas : public VarFcn {
   double computeRhoEpsilon(double *V, double phi = 0.0) { 
     if (phi>=0.0) return invgam1*(V[4]+gam*Pstiff); 
     else         return invgamp1*(V[4]+gamp*Pstiffp); }
-     
+
   double computeSoundSpeed(double *V, double phi = 0.0) { 
     if (phi>=0.0){
       if(gam * (V[4]+Pstiff) / V[0]<0.0) 
@@ -761,7 +811,28 @@ class VarFcnGasInGas : public VarFcn {
       return sqrt(gamp * (V[4]+Pstiffp) / V[0]);
     }
   }
-    
+
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) { 
+    double c2 = 0.0;
+    if (phi>=0.0)
+      c2 = gam * entropy*pow(density,gam-1.0);
+    else
+      c2 = gamp * entropy*pow(density,gamp-1.0);
+    if(c2>0) return sqrt(c2);
+    return 0.0;
+  }
+
+  double computeEntropy(double density, double pressure, double phi = 0.0){
+    if(phi>=0.0)
+      return (pressure+Pstiff)/pow(density,gam);
+    else
+      return (pressure+Pstiffp)/pow(density,gamp);
+  }
+
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0){
+    if(phi>=0.0) return entropy*pow(density,gam)-Pstiff;
+    return entropy*pow(density,gamp)-Pstiffp;}
+
   double computeMachNumber(double *V, double phi = 0.0) { 
     if (phi>=0.0) return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)));
     else         return sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gamp * (V[4]+Pstiffp))); }
@@ -864,6 +935,13 @@ public:
   double computeSoundSpeed(double *V, double phi = 0.0) { 
     if (phi>=0.0) return sqrt(alpha_water * beta_water * pow(V[0], beta_water - 1.0));
     return  sqrt(alpha_waterbis * beta_waterbis * pow(V[0], beta_waterbis - 1.0)); }
+    
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) { 
+    double c2 = 0.0;
+    if (phi>=0.0) c2 = alpha_water * beta_water * pow(density, beta_water - 1.0);
+    else c2 = alpha_waterbis * beta_waterbis * pow(density, beta_waterbis - 1.0);
+    if (c2>0.0) return sqrt(c2);
+    return 0.0; }
     
   double computeMachNumber(double *V, double phi = 0.0) {
     double c, u;
@@ -975,6 +1053,23 @@ public:
       fprintf(stdout, "c2_air = %e - P = %e - rho = %e\n", gam * (V[4]+Pstiff) / V[0], V[4], V[0]);
     return sqrt(gam * (V[4]+Pstiff) / V[0]);}
     
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) {
+    double c2 = 0.0;
+    if (phi>=0.0)
+      c2 = alpha_water * beta_water * pow(density, beta_water - 1.0);
+    else c2 = gam * entropy*pow(density,gam-1.0);
+    if (c2>0.0) return sqrt(c2);
+    return 0.0; }
+
+  double computeEntropy(double density, double pressure, double phi = 0.0){
+    if(phi>=0.0) return 0.0;
+    return (pressure+Pstiff)/pow(density,gam);}
+
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0){
+    if(phi>=0.0) return Pref_water + alpha_water * pow(density, beta_water);
+    return entropy*pow(density,gam)-Pstiff;
+  }
+
   double computeMachNumber(double *V, double phi = 0.0) {
     double c, u;
     if (phi>=0.0) c=sqrt(alpha_water * beta_water *pow(V[0], beta_water - 1.0));
@@ -1062,6 +1157,20 @@ class VarFcnJWLInGas : public VarFcn {
   double getR1r()         {return R1r;}
   double getR2r()         {return R2r;}
 
+  double computeExponentials(const double density, const double phi = 0.0) const{
+    return A1*exp(-R1r/density) + A2*exp(-R2r/density);
+  }
+  double computeDerivativeOfExponentials(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    return R1r*invrho2*A1*exp(-R1r/density) + R2r*invrho2*A2*exp(-R2r/density);
+  }
+  double computeExponentials2(const double density, const double phi = 0.0) const{
+    return (A1*R1r*exp(-R1r/density) + A2*R2r*exp(-R2r/density))/(density*density);
+  }
+  double computeDerivativeOfExponentials2(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    return (R1r*A1*(R1r-2.0*density)*exp(-R1r/density) + R2r*A2*(R2r-2.0*density)*exp(-R2r/density))*invrho2*invrho2;
+  }
   double computeFrho(double *V, double phi = 0.0) {
     return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
          + A2*(1.0-omega*V[0]/R2r)*exp(-R2r/V[0]);
@@ -1116,6 +1225,30 @@ class VarFcnJWLInGas : public VarFcn {
       }
       return sqrt((omegap1*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
     }
+  }
+
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) { 
+    double c2 = 0.0;
+    if (phi>=0.0){
+      //fprintf(stderr, "gas side=%e\n", gam * entropy*pow(density,gam-1.0));
+      c2 = gam * entropy*pow(density,gam-1.0);
+    }else{
+      double pressure = entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
+      //fprintf(stderr, "jwl side=%e (pressure = %e)\n", (omegap1*pressure - computeFrho(density,phi) + density*computeFrhop(density,phi))/density, pressure);
+      c2 = (omegap1*pressure - computeFrho(density,phi) + density*computeFrhop(density,phi))/density;
+    }
+    if (c2>0.0) return sqrt(c2);
+    return 0.0;
+  }
+
+  double computeEntropy(double density, double pressure, double phi = 0.0){
+    if(phi>=0.0) return (pressure+Pstiff)/pow(density,gam);
+    return (pressure - A1*exp(-R1r/density) - A2*exp(-R2r/density))/pow(density,omegap1);
+  }
+
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0){
+    if(phi>=0.0) return entropy*pow(density,gam)-Pstiff;
+    return entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
   }
     
   double computeMachNumber(double *V, double phi = 0.0) { 
@@ -1210,6 +1343,32 @@ class VarFcnJWLInJWL : public VarFcn {
   double getR1rbis()         {return R1rp;}
   double getR2rbis()         {return R2rp;}
 
+  double computeExponentials(const double density, const double phi = 0.0) const{
+    if(phi>=0.0)
+      return A1*exp(-R1r/density) + A2*exp(-R2r/density);
+    else
+      return A1p*exp(-R1rp/density) + A2p*exp(-R2rp/density);
+  }
+  double computeDerivativeOfExponentials(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    if(phi>=0.0)
+      return R1r*invrho2*A1*exp(-R1r/density) + R2r*invrho2*A2*exp(-R2r/density);
+    else
+      return R1rp*invrho2*A1p*exp(-R1rp/density) + R2rp*invrho2*A2p*exp(-R2rp/density);
+  }
+  double computeExponentials2(const double density, const double phi = 0.0) const{
+    if(phi>=0.0)
+      return (A1*R1r*exp(-R1r/density) + A2*R1r*exp(-R2r/density))/(density*density);
+    else
+      return (A1p*R1rp*exp(-R1rp/density) + A2p*R1rp*exp(-R2rp/density))/(density*density);
+  }
+  double computeDerivativeOfExponentials2(const double density, const double phi = 0.0) const{
+    double invrho2 = 1.0/(density*density);
+    if(phi>=0.0)
+      return (R1r*A1*(R1r-2.0*density)*exp(-R1r/density) + R2r*A2*(R2r-2.0*density)*exp(-R2r/density))*invrho2*invrho2;
+    else
+      return (R1rp*A1p*(R1rp-2.0*density)*exp(-R1rp/density) + R2rp*A2p*(R2rp-2.0*density)*exp(-R2rp/density))*invrho2*invrho2;
+  }
   double computeFrho(double *V, double phi = 0.0) {
     if(phi>=0.0)
       return A1*(1.0-omega*V[0]/R1r)*exp(-R1r/V[0])
@@ -1270,6 +1429,29 @@ class VarFcnJWLInJWL : public VarFcn {
       return sqrt((omegap1 *V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
     else
       return sqrt((omegap1p*V[4] - computeFrho(V,phi) + V[0]*computeFrhop(V,phi))/V[0]);
+  }
+    
+  double computeSoundSpeed(double density, double entropy, double phi = 0.0) { 
+    double c2 = 0.0;
+    if (phi>=0.0){
+      double pressure = entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
+      c2 = (omegap1 *pressure - computeFrho(density,phi) + density*computeFrhop(density,phi))/density;
+    }else{
+      double pressure = entropy*pow(density,omegap1p)+A1p*exp(-R1rp/density)+A2p*exp(-R2rp/density);
+      c2 = (omegap1p*pressure - computeFrho(density,phi) + density*computeFrhop(density,phi))/density;
+    }
+    if(c2>0.0) return sqrt(c2);
+    return 0.0;
+  }
+
+  double computeEntropy(double density, double pressure, double phi = 0.0){
+    if(phi>=0.0) return (pressure - A1*exp(-R1r/density) - A2*exp(-R2r/density))/pow(density,omegap1);
+    return (pressure - A1p*exp(-R1rp/density) - A2p*exp(-R2rp/density))/pow(density,omegap1p);
+  }
+
+  double computeIsentropicPressure(double entropy, double density, double phi = 0.0){
+    if(phi>=0.0) return entropy*pow(density,omegap1)+A1*exp(-R1r/density)+A2*exp(-R2r/density);
+    return entropy*pow(density,omegap1p)+A1p*exp(-R1rp/density)+A2p*exp(-R2rp/density);
   }
     
   double computeMachNumber(double *V, double phi = 0.0) { 

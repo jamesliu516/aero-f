@@ -511,6 +511,7 @@ void SubDomain::computeGradientsGalerkinT(Vec<double> &ctrlVol,
 
     }
   }
+
 }
 
 
@@ -1002,7 +1003,7 @@ void SubDomain::recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet)
   inletNodes.recomputeResidual(F,Finlet);
 }
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 template<int dim>
 void SubDomain::computeRealFluidResidual(SVec<double, dim> &F, SVec<double,dim> &Freal, LevelSetStructure &lss)
@@ -2527,8 +2528,8 @@ void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
       DenseMatrixOp<Scalar1,dim,dim*dim>::applyToVector(a, numNodes + 2*l + 1, pij, 0, tmpj, 0);
 
       VectorOp<Scalar2,dim>::sum(tmpi, 0, tmpj, 0, tmp, 0);
-      VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i);
-      VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j);
+      VectorOp<Scalar2,dim>::add(tmp, 0, prod.v, i); 
+      VectorOp<Scalar2,dim>::sub(tmp, 0, prod.v, j); 
     }
   }
 
@@ -2589,23 +2590,24 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
                 Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
                 SVec<double,dim> &aij, SVec<double,dim> &aji,
                 SVec<double,dim> &bij, SVec<double,dim> &bji,
-                SVec<Scalar2,dim> &p, SVec<Scalar2,dim> &prod,
-                SVec<Scalar2,dim> &prod2, SVec<Scalar2,dim> &prod3,
-                SVec<Scalar2,dim> &prod4) {
+                SVec<Scalar2,dim> &p, SVec<Scalar2,dim> &zu,
+                SVec<Scalar2,dim> &zgx, SVec<Scalar2,dim> &zgy,
+                SVec<Scalar2,dim> &zgz) {
   int i, j, l, k;
 
-  Scalar2 p1[1][dim], p2[1][dim], p3[1][dim], p4[1][dim];
-  Scalar2 p5[1][dim], p6[1][dim], p7[1][dim], p8[1][dim];
+  // Same notations as in the Fortran code
+  Scalar2 zu_is1[1][dim], zu_is2[1][dim], zgx_is1[1][dim], zgx_is2[1][dim];
+  Scalar2 zgy_is1[1][dim], zgy_is2[1][dim], zgz_is1[1][dim], zgz_is2[1][dim];
   //Scalar2 tmp[1][dim];
   Scalar2 tmpi[1][dim], tmpj[1][dim];
   Scalar2 tmp1[1][dim];
   Scalar1 (*a)[dim*dim] = A.data();
 
 
-  prod = (Scalar2)0.0;
-  prod2 = (Scalar2)0.0;
-  prod3 = (Scalar2)0.0;
-  prod4 = (Scalar2)0.0;
+  zu = (Scalar2)0.0;
+  zgx = (Scalar2)0.0;
+  zgy = (Scalar2)0.0;
+  zgz = (Scalar2)0.0;
 
   int numNodes = nodes.size();
   int numEdges = edges.size();
@@ -2624,23 +2626,28 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
     for (k=0; k<dim; ++k)
       tmp1[0][k] = p[i][k] - p[j][k];
 
-    DenseMatrixOp<Scalar1,dim, dim*dim>::applyToVector(a, numNodes + 2*l, tmp1, 0, tmpi, 0);
-    DenseMatrixOp<Scalar1,dim, dim*dim>::applyToVector(a, numNodes + 2*l + 1, tmp1, 0, tmpj, 0);
+    DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransToVector(a, numNodes + 2*l, tmp1, 0, tmpi, 0);
+    DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransToVector(a, numNodes + 2*l + 1, tmp1, 0, tmpj, 0);
+    // These routines do not exist anymore
     //denseMatrixTransTimesVector(a, numNodes + 2*l, tmp1, 0, tmpi, 0);
     //denseMatrixTransTimesVector(a, numNodes + 2*l + 1, tmp1, 0, tmpj, 0);
 
     recFcn->template computeT<Scalar2, dim> (dx, tmpi[0], tmpj[0], aij[l], aji[l], bij[l], bji[l], i,
-                j, p1[0], p2[0], p3[0], p4[0], p5[0], p6[0], p7[0], p8[0]);
+                j, zu_is1[0], zu_is2[0], zgx_is1[0], zgx_is2[0], zgy_is1[0], zgy_is2[0], zgz_is1[0], zgz_is2[0]);
 
-    VectorOp<Scalar2,dim>::add(p1, 0, prod2.v, i);
-    VectorOp<Scalar2,dim>::add(p2, 0, prod2.v, j);
-    VectorOp<Scalar2,dim>::add(p3, 0, prod.v, i);
-    VectorOp<Scalar2,dim>::add(p4, 0, prod.v, j);
-    VectorOp<Scalar2,dim>::add(p5, 0, prod3.v, i);
-    VectorOp<Scalar2,dim>::add(p6, 0, prod3.v, j);
-    VectorOp<Scalar2,dim>::add(p7, 0, prod4.v, i);
-    VectorOp<Scalar2,dim>::add(p8, 0, prod4.v, j);
+
+    VectorOp<Scalar2,dim>::add(zu_is1, 0, zu.v, i);
+    VectorOp<Scalar2,dim>::add(zu_is2, 0, zu.v, j);
+    VectorOp<Scalar2,dim>::add(zgx_is1, 0, zgx.v, i);
+    VectorOp<Scalar2,dim>::add(zgx_is2, 0, zgx.v, j);
+    VectorOp<Scalar2,dim>::add(zgy_is1, 0, zgy.v, i);
+    VectorOp<Scalar2,dim>::add(zgy_is2, 0, zgy.v, j);
+    VectorOp<Scalar2,dim>::add(zgz_is1, 0, zgz.v, i);
+    VectorOp<Scalar2,dim>::add(zgz_is2, 0, zgz.v, j);
+
+
 /*
+    // These routines do not exist anymore
     addVector(p1, 0, prod2.v, i);
     addVector(p2, 0, prod2.v, j);
     addVector(p3, 0, prod.v, i);
@@ -2651,9 +2658,10 @@ void SubDomain::computeMatVecProdH2T(RecFcn *recFcn, SVec<double,3> &X,
     addVector(p8, 0, prod4.v, j);
 */
   }
-
   for (i=0; i<numNodes; ++i)
-    DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransAndAddToVector(a, i, p.v, i, prod2.v, i);
+    DenseMatrixOp<Scalar1,dim, dim*dim>::applyTransAndAddToVector(a, i, p.v, i, zu.v, i);
+
+    // This routine does not exist anymore
     //addDenseMatrixTransTimesVector(a, i, p.v, i, prod2.v, i);
 
 }
@@ -2664,7 +2672,7 @@ template<class Scalar1, class Scalar2, int dim>
 void SubDomain::computeMatVecProdH2Tb(RecFcn *recFcn, SVec<double,3> &X,
                 Vec<double> &ctrlVol, GenMat<Scalar1,dim> &A,
                 NodalGrad<dim, Scalar2> &dpdxj, SVec<Scalar2,dim> &p,
-                SVec<Scalar2,dim> &prod, SVec<Scalar2,dim> &prod2)  {
+                SVec<Scalar2,dim> &prod, SVec<Scalar2,dim> &zu)  {
 
   int i, l;
   Scalar2 p1[1][dim];
@@ -2683,7 +2691,7 @@ void SubDomain::computeMatVecProdH2Tb(RecFcn *recFcn, SVec<double,3> &X,
   for (l=0; l<numNodes; ++l) {
 
     i = l;
-    recFcn->computeTb(prod2, dpdx, dpdy, dpdz, i, p1[0]);
+    recFcn->computeTb(zu, dpdx, dpdy, dpdz, i, p1[0]);
     VectorOp<Scalar2,dim>::add(p1, 0, prod.v, i);
     //addVector(p1, 0, prod.v, i);
   }
@@ -3528,7 +3536,7 @@ void SubDomain::computeNodalHeatPower(PostFcn* postFcn, BcData<dim>& bcData,
     faces[i].computeNodalHeatPower(elems, postFcn, X, d2wall, Vwall[i], V, P);
 
 }
- 
+
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeNodalHeatFluxRelatedValues(PostFcn* postFcn, BcData<dim>& bcData,
@@ -4719,7 +4727,8 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                               Vec<double> &weight, FluidTypeCriterion &Phi)
+                               Vec<double> &weight, FluidTypeCriterion &Phi,
+                               SVec<double,3> &X)
 {
 
   int i, j, k;
@@ -4731,8 +4740,11 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
+/*
+// OPTION 1 : simple arithmetic mean extrapolation
 //    if(Phi[i]*Phi[j]<=0.0){ //at interface
     if(!Phi.isSameFluid(i,j)){ //at interface
+
       if(weight[i]<1.e-6){
         weight[i] = 1.0;
         for(k=0; k<5; k++)
@@ -4753,13 +4765,43 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
           Vgf[j][k] += Vg[i][k];
       }
     }
+    
+*/
+
+// OPTION 2 : selective averaged extrapolation (based on direction of the flow)
+
+//    if(Phi[i]*Phi[j]<=0.0){ //at interface
+    if(!Phi.isSameFluid(i,j)){ //at interface
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+      double normUi2 = Vg[i][1]*Vg[i][1]+Vg[i][2]*Vg[i][2]+Vg[i][3]*Vg[i][3];
+      double normUj2 = Vg[j][1]*Vg[j][1]+Vg[j][2]*Vg[j][2]+Vg[j][3]*Vg[j][3];
+      double udotdx = 0.0;
+
+      if(normdx2*normUj2 > 0.0)
+        udotdx = -(dx[0]*Vg[j][1]+dx[1]*Vg[j][2]+dx[2]*Vg[j][3])/sqrt(normdx2*normUj2);
+      if(udotdx > 0.0){
+        weight[i] += udotdx;
+        for(k=0; k<5; k++)
+          Vgf[i][k] += udotdx*Vg[j][k];
+      }
+
+      if(normdx2*normUi2 > 0.0)
+        udotdx = (dx[0]*Vg[i][1]+dx[1]*Vg[i][2]+dx[2]*Vg[i][3])/sqrt(normdx2*normUi2);
+      if(udotdx > 0.0){
+        weight[j] += udotdx;
+        for(k=0; k<5; k++)
+          Vgf[j][k] += udotdx*Vg[i][k];
+      }
+    }
+   
 
   }
 
 }
 
 //--------------------------------------------------------------------------
-
+    
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
@@ -4800,6 +4842,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
   } 
 
 }
+
 
 //--------------------------------------------------------------------------
 
@@ -5023,6 +5066,34 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                       " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
                       globSubNum,Weight[i],Phin[i],Phi[i]);
       Phi[i] = Phin[i];
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
+
+  double rhoe, ptemp;
+  if(vf->getType() != VarFcn::GASINGAS && vf->getType() != VarFcn::GASINLIQUID){
+    fprintf(stdout, "*** Error : Increasing pressure for this case is not possible right now...\n");
+    exit(1);
+  }
+
+  double gam = vf->getGamma();
+  double ps  = vf->getPressureConstant();
+
+  double rhovel2 = U[0][1] * U[0][1] + U[0][2] * U[0][2] + U[0][3] * U[0][3];
+  rhoe = (p+gam*ps)/(gam-1.0) + 0.5 * rhovel2;
+
+// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
+// are updated. It is assumed that the input and output states are uniform!
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == 0)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        U[nodeNums[iNode]][4] = rhoe;
     }
   }
 

@@ -357,7 +357,9 @@ public:
 
   template<int dim>
   void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                              DistVec<double> &weight, DistFluidTypeCriterion &Phi);
+                      DistVec<double> &weight, DistFluidTypeCriterion &Phi,
+                      DistSVec<double,3> &X);
+                           
   template<int dim>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
@@ -391,6 +393,8 @@ public:
   void getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi);
   template<int dim>
   void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U);
 
   // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 

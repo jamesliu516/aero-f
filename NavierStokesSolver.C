@@ -1,6 +1,7 @@
 #include <IoData.h>
 #include <Domain.h>
 #include "Solvers/Solvers.h"
+#include <SparseGridGeneratorDesc.h>
 
 //-----------------------------------------------------------------------------
 
@@ -50,10 +51,23 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
       exit(1);
     }
   }
-  else if (ioData.eqs.numPhase == 2)
+  else if (ioData.eqs.numPhase == 2){
     LevelSetSolver<5>::solve(ioData, geoSource, domain);
-  else
+  }else
     com->fprintf(stderr, "*** Error: wrong number of phases\n");
+
+}
+
+//------------------------------------------------------------------------------
+
+void startSparseGridGeneration(IoData &ioData, Domain &domain)
+{
+
+  Communicator* com = domain.getCommunicator();
+
+  fprintf(stdout, "*** Warning: Generating a sparse grid\n");
+  SparseGridGeneratorDesc sgDesc(ioData, com);
+  sgDesc.tabulate(ioData);
 
 }
 

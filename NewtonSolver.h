@@ -69,10 +69,13 @@ int
 NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q )
 {
   double res, target;
+  double qnorm;
 
   int fsIt = 0;
   int maxIts = probDesc->getMaxItsNewton();
   double eps = probDesc->getEpsNewton();
+  double epsAbsRes = probDesc->getEpsAbsResNewton();
+  double epsAbsInc = probDesc->getEpsAbsIncNewton();
 
   double res0, res2=0.0;
   int it;
@@ -94,6 +97,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     }
 
     if (res == 0.0 || res <= target) break;
+    if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
 

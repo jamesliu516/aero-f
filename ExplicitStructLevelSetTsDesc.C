@@ -127,7 +127,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     // fluid-shell-fluid
     if(this->LS) {
       this->spaceOp->storePreviousPrimitive(U0, this->Vg, this->Phi,
-                                            this->Vgf, this->Vgfweight);
+                                            this->Vgf, this->Vgfweight, *this->X);
       t0 = this->timer->getTime();
   
       computeRKUpdateLS(this->Phi, p1, U);

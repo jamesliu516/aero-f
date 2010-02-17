@@ -10,12 +10,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <iostream>
+#include <LinkF77.h>
 const double ElemTet::third = 1.0/3.0;
 const double ElemTet::fourth = 1.0/4.0;
 const double ElemTet::sixth = 1.0/6.0;
 const int ElemTet::edgeEndTet[6][2]  = { {0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3} };
 const int ElemTet::edgeFaceTet[6][2] = { {0,1}, {2,0}, {1,2}, {0,3}, {3,1}, {2,3} };
 const int ElemTet::faceDefTet[4][3]  = { {0,1,2}, {0,3,1}, {0,2,3}, {1,3,2} };
+
+extern "C" {
+  void F77NAME(dgeev)(const char &, const char &, const int &, double *, const int &,
+             double *, double *, double *, const int &, double *, 
+             const int &, double *, const int &, int &);
+}
 
 //------------------------------------------------------------------------------
 
@@ -1086,7 +1094,9 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
              invSqrS2_9.d(i,j+6) = invSqrS2_9.d(j+6, i) = 0;
              invSqrS2_9.d(i+3,j+6) = invSqrS2_9.d(j+6, i+3) = 0;
              invSqrS2_9.d(i+6,j+6) = invSqrS2_9.d(j+6, i+6) = 0;
-             
+             // PJSA FIX: the following also need to be initialized
+             invSqrS2_9.d(i+6,j) = invSqrS2_9.d(j, i+6) = 0.0;
+             invSqrS2_9.d(i+6,j+3) = invSqrS2_9.d(j+3, i+6) = 0.0;
            }
      }
      //return invSqrS2_9;
@@ -1159,6 +1169,7 @@ void ElemTet::computeStiffAndForceBallVertex(double *force, double *Kspace,
   // Now double K, as the Taylor object stores half of the second derivative
   for(int i = 0; i < 12*12; ++i)
     Kspace[i] *= 2.0;
+
 }
 //------------------------------------------------------------------------------
 
@@ -1523,8 +1534,8 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
   }else if(fabs(phi[1])<tol1){
     //
     double temp = y3sq - K*K/y2sq;
-    //if(fabs(temp-phi[2]*phi[2])<tol2*tol2) return false;
-		assert(temp-phi[2]*phi[2]!=0.0);
+    if(fabs(temp-phi[2]*phi[2])<tol2*tol2) return false;
+		//assert(temp-phi[2]*phi[2]!=0.0);
     double Z3sq = phi[2]*phi[2]*orthogonal*orthogonal/(temp*(temp-phi[2]*phi[2]));
     if(Z3sq<0.0) return false;
 
@@ -1562,8 +1573,8 @@ bool ElemTet::computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
   }else if(fabs(phi[2])<tol2){
     //
     double temp = y2sq - K*K/y3sq;
-    //if(fabs(temp-phi[1]*phi[1])<tol1*tol1) return false;
-    assert(temp-phi[1]*phi[1]!=0.0);
+    if(fabs(temp-phi[1]*phi[1])<tol1*tol1) return false;
+    //assert(temp-phi[1]*phi[1]!=0.0);
     double Z2sq = phi[1]*phi[1]*orthogonal*orthogonal/(temp*(temp-phi[1]*phi[1]));
     if(Z2sq<0.0) return false;
 

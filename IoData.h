@@ -149,6 +149,8 @@ struct TransientData {
   const char *surfaceheatflux;
   const char *heatfluxes;
 
+  const char *sparseGrid;
+
   int frequency;
   double x0, y0, z0;
   double length;
@@ -233,7 +235,8 @@ struct ProblemData {
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21} alltype;
+		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+                  _SPARSEGRIDGEN_ = 22} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -818,10 +821,48 @@ struct InitialConditionsData {
 
 //------------------------------------------------------------------------------
 
+struct SparseGridData {
+
+  // to use already created sparse grids
+  const char *tabulationFileName;
+  int numberOfTabulations;
+
+  // to generate sparse grids
+  int verbose;
+
+  int minPoints;
+  int maxPoints;
+  double relAccuracy;
+  double absAccuracy;
+  double dimAdaptDegree;
+
+  double range1min, range1max, mapBaseValue1; int numDomainDim1;
+  double range2min, range2max, mapBaseValue2; int numDomainDim2;
+  double range3min, range3max, mapBaseValue3; int numDomainDim3;
+  double range4min, range4max, mapBaseValue4; int numDomainDim4;
+  double range5min, range5max, mapBaseValue5; int numDomainDim5;
+  double range6min, range6max, mapBaseValue6; int numDomainDim6;
+  typedef double Range[2];
+  Range *range;
+  double *mapBaseValue;
+  int *numDomainDim;
+
+  int numOutputs;
+  int numInputs;
+
+  SparseGridData();
+  ~SparseGridData() {}
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct MultiFluidData {
   enum Method {NONE = 0, GHOSTFLUID_FOR_POOR = 1, GHOSTFLUID_WITH_RIEMANN} method;
   enum FictitiousTime {GLOBAL = 0, LOCAL = 1} localtime;
   enum InterfaceTracking {LINEAR = 0, GRADIENT = 1, HERMITE = 2} typeTracking;
+  enum RiemannComputation {FE = 0, RK2 = 1, TABULATION2 = 2, TABULATION5 = 3} riemannComputation;
   int bandlevel;
   int subIt;
   double cfl;
@@ -834,9 +875,13 @@ struct MultiFluidData {
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
 
+  double Prate, Pinit;
+
   FluidModelData fluidModel;
   FluidModelData fluidModel2;
   InitialConditionsData initialConditions;
+
+  SparseGridData sparseGrid;
 
 
   MultiFluidData();
@@ -1060,7 +1105,7 @@ struct SchemesData {
 struct ExplicitData {
 
 //time-integration scheme used
-  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1, FORWARD_EULER = 2, ONE_BLOCK_RK2 = 3} type;
+  enum Type {RUNGE_KUTTA_4 = 0, RUNGE_KUTTA_2 = 1, FORWARD_EULER = 2, ONE_BLOCK_RK2 = 3, ONE_BLOCK_RK2bis = 4} type;
 
   ExplicitData();
   ~ExplicitData() {}
@@ -1131,6 +1176,7 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
+  double epsAbsRes, epsAbsInc;
 
   GenericKrylov ksp;
 
@@ -1150,7 +1196,7 @@ struct ImplicitData {
   enum Coupling {WEAK = 0, STRONG = 1} coupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
-
+  enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   NewtonData<KspFluidData> newton;
 
   ImplicitData();
@@ -1206,7 +1252,6 @@ struct DGCLData{
   enum Velocities {AUTO_VEL = 0, IMPLICIT_BACKWARD_EULER_VEL = 1, IMPLICIT_THREE_POINT_BDF_VEL = 2,
                    IMPLICIT_IMPOSED_VEL = 3, IMPLICIT_IMPOSED_BACKWARD_EULER_VEL = 4,
                    IMPLICIT_IMPOSED_THREE_POINT_BDF_VEL = 5, IMPLICIT_ZERO = 6, EXPLICIT_RK2_VEL = 7} velocities;
-  enum Volumes {AUTO_VOL = 0, EXPLICIT_RK2_VOL = 1} volumes;
 
   DGCLData();
   ~DGCLData() {}
@@ -1721,6 +1766,7 @@ public:
   void nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic);
   void nonDimensionalizeFluidModel(FluidModelData &fm);
   int checkInputValuesInitializeMulti();
+  int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
 
 };
 

@@ -20,6 +20,8 @@ ImplicitTsDesc<dim>::ImplicitTsDesc(IoData &ioData, GeoSource &geoSource, Domain
   failSafeNewton = ioData.ts.implicit.newton.failsafe;
   maxItsNewton = ioData.ts.implicit.newton.maxIts;
   epsNewton = ioData.ts.implicit.newton.eps;  
+  epsAbsResNewton = ioData.ts.implicit.newton.epsAbsRes;
+  epsAbsIncNewton = ioData.ts.implicit.newton.epsAbsInc;
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   ns = new NewtonSolver<ImplicitTsDesc<dim> >(this);

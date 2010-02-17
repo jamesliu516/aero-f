@@ -144,6 +144,8 @@ public:
   void writeConservationErrors(IoData &iod, int it, double t, 
                                double *totqty, double *f1qty, double *f2qty,
                                double *toterr, double *f1err, double *f2err);
+  void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
+                                     DistSVec<double,dim> &U);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
