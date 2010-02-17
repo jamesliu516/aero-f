@@ -2,7 +2,7 @@
  * DynamicNodalTransfer.cpp
  *
  *  Created on: May 12, 2009
- *      Author: michel
+ *      Author: michel, kevin
  */
 #include <iostream>
 #include <FSI/DynamicNodalTransfer.h>
@@ -394,9 +394,6 @@ EmbeddedStructure::processReceivedForce()
     structExc->sendForce(f);
   }
 
-  //for(int i=0; i<nNodes; ++i)
-    //fprintf(stderr,"%d %e %e %e\n", i+1, F[i][0], F[i][1], F[i][2]);
-
 
   if(com.cpuNum()>0) return;
   double fx=0, fy=0, fz=0; //write the total froce.
@@ -405,6 +402,11 @@ EmbeddedStructure::processReceivedForce()
     fy += F[i][1]; 
     fz += F[i][2];
   }
+/*
+  for(int i=0; i<nNodes; ++i) 
+    fprintf(stderr,"%d %e %e %e\n", i+1, F[i][0], F[i][1], F[i][2]);
+  sleep(2);
+*/
 //  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
 
 }

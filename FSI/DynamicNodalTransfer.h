@@ -2,7 +2,7 @@
  * DynamicNodalTransfer.h
  *
  *  Created on: May 12, 2009
- *      Author: Michel Lesoinne
+ *      Author: Michel Lesoinne, Kevin Wang
  */
 
 #ifndef DYNAMICNODALTRANSFER_H_
