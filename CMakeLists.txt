@@ -117,9 +117,9 @@ ADD_LIBRARY(FluidBase
              FluxFcnDesc.C 
              FluxFcnDescPerfectGas.C 
              FluxFcnDescWaterCompressible.C 
-             FluxFcnDescGasInGas.C 
-             FluxFcnDescLiquidInLiquid.C 
-             FluxFcnDescGasInLiquid.C 
+             FluxFcnDescGasInGas.C
+             FluxFcnDescLiquidInLiquid.C
+             FluxFcnDescGasInLiquid.C
              FluxFcnDescJWLInGas.C
              FluxFcnDescJWL.C
              GeoData.C 
@@ -151,7 +151,6 @@ ADD_LIBRARY(FluidBase
              TsInput.C 
              TsParameters.C 
              TsRestartCore.C 
-             VarFcn.C 
              VMSLESTerm.C 
              DynamicVMSTerm.C 
              WallFcnCore.C 

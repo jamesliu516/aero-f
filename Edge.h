@@ -77,7 +77,7 @@ public:
                        Vec<double> &, TimeLowMachPrec &);
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<double> &, int);
+                       TimeLowMachPrec &, Vec<int> &, int);
 
   template<int dim>
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
@@ -87,7 +87,7 @@ public:
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, Vec<double> &,
+                              SVec<double,dim>&, Vec<int> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int,
@@ -108,7 +108,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              Vec<double>&, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              Vec<int>&, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -133,13 +133,13 @@ public:
                                        NodalGrad<dim> &, NodalGrad<1> &,
                                        SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<double> &);
+                                       Vec<int> &);
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &,
                                NodalGrad<dim> &, NodalGrad<1> &,
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
-                               Vec<double> &, int * );
+                               Vec<int> &, int * );
 
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
@@ -175,7 +175,7 @@ public:
   int checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf,
 			       int *locToGlobNodeMap, int failsafe, SVec<int,2> &tag,
                                double *originalVi = 0, double *originalVj = 0,
-                               double phii = 1.0, double phij = 1.0);
+                               int IDi = 0, int IDj = 0);
   void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&,
                                        const double, const double, const double,
                                        const double, const double, const double);

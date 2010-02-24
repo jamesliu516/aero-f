@@ -7,13 +7,12 @@
 
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
-
   Communicator* com = domain.getCommunicator();
   if (ioData.strucIntersect.intersectorName != 0) {
     com->fprintf(stderr, "*** NOTE: Running an Embedded Fluid-Structure simulation\n");
     StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
   } else if (ioData.eqs.numPhase == 1){
-    if (ioData.eqs.type == EquationsData::EULER)
+    if (ioData.eqs.type == EquationsData::EULER) 
       NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {
       if (ioData.eqs.tc.type == TurbulenceClosureData::NONE ||

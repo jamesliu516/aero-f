@@ -40,7 +40,7 @@ public:
   ~LocalRiemannGfmpGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -53,13 +53,13 @@ private:
 
 inline
 void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
-    double Phii, double Phij, double *nphi,
+    int IDi, int IDj, double *nphi,
     int &epsi, int &epsj, double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
 
-  if(Phii>=0.0){
+  if(IDi==fluid1){
     epsi =  1;
     epsj = -1;
   }else{
@@ -84,7 +84,7 @@ public:
   ~LocalRiemannGfmpTaitTait() { vf_ = 0; }
 
 void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
+                            int IDi, int IDj, double *nphi,
                             int &epsi, int &epsj, double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej, 
                             double &weighti, double &weightj,
@@ -97,7 +97,7 @@ private:
 
 inline
 void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
-    double Phii, double Phij, double *nphi,
+    int IDi, int IDj, double *nphi,
     int &epsi, int &epsj, double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -108,16 +108,16 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[i] = Vi[i];
   }
 
-  double a1 = vf_->getAlphaWater();
-  double b1 = vf_->getBetaWater();
-  double p1 = vf_->getPrefWater();
-  double a2 = vf_->getAlphaWaterbis();
-  double b2 = vf_->getBetaWaterbis();
-  double p2 = vf_->getPrefWaterbis();
+  double a1 = vf_->getAlphaWater(this->fluid1);
+  double b1 = vf_->getBetaWater(this->fluid1);
+  double p1 = vf_->getPrefWater(this->fluid1);
+  double a2 = vf_->getAlphaWater(this->fluid2);
+  double b2 = vf_->getBetaWater(this->fluid2);
+  double p2 = vf_->getPrefWater(this->fluid2);
 
   double temp = 0;
 	
-  if(Phii>=0.0){
+  if(IDi==fluid1){
     epsi =  1;
     epsj = -1;
     temp = p2+a2*pow(Vj[0],b2);
@@ -153,7 +153,7 @@ public:
   ~LocalRiemannGfmpJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -166,13 +166,13 @@ private:
 
 inline
 void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
-    double Phii, double Phij, double *nphi,
+    int IDi, int IDj, double *nphi,
     int &epsi, int &epsj, double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
 
-  if(Phii>=0.0){
+  if(IDi==fluid1){
     epsi =  1;
     epsj = -1;
   }else{
@@ -197,7 +197,7 @@ public:
   ~LocalRiemannGfmpGasJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -210,13 +210,13 @@ private:
 
 inline
 void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
-    double Phii, double Phij, double *nphi,
+    int IDi, int IDj, double *nphi,
     int &epsi, int &epsj, double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
 
-  if(Phii>=0.0){
+  if(IDi==fluid1){
     epsi =  1;
     epsj = -1;
   }else{
@@ -246,7 +246,7 @@ public:
   ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -255,10 +255,10 @@ public:
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
-                  F77NAME(eriemanngg)(
-                        rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,
-                        vf_->getGammabis(), vf_->getPressureConstantbis(), 
-                        vf_->getGamma(), vf_->getPressureConstant()); 
+
+  F77NAME(eriemanngg)(  rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,
+                        vf_->getGamma(fluid2), vf_->getPressureConstant(fluid2), 
+                        vf_->getGamma(fluid1), vf_->getPressureConstant(fluid1)); 
   }
 
 private:
@@ -269,7 +269,7 @@ private:
 
 inline
 void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
-	 	double Phii, double Phij, double *nphi,
+	 	int IDi, int IDj, double *nphi,
 		int &epsi, int &epsj,	double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, 
                 double &weighti, double &weightj,
@@ -280,24 +280,24 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
   double P_1, P_2, U_1, U_2, R_1, R_2;
   double P_i, U_i, R_i1, R_i2;
 
-  double gam1  = vf_->getGamma();
-  double pref1 = vf_->getPressureConstant();
-  double gam2  = vf_->getGammabis();
-  double pref2 = vf_->getPressureConstantbis();
+  double gam1  = vf_->getGamma(fluid1);
+  double pref1 = vf_->getPressureConstant(fluid1);
+  double gam2  = vf_->getGamma(fluid2);
+  double pref2 = vf_->getPressureConstant(fluid2);
 
   double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
   double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (Phii >= 0.0) {
+  if (IDi==fluid1) {
 
     // cell i is fluid1
     // cell j is fluid2
     R_2  = Vj[0];     R_1 = Vi[0];
     U_2  = vnj;       U_1 = vni;
-    P_2  = vf_->getPressure(Vj, Phij);
-    P_1  = vf_->getPressure(Vi, Phii);
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
     epsi = 1;
@@ -320,8 +320,8 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     // cell j is fluid1
     R_2  = Vi[0];     R_1  = Vj[0];
     U_2  = vni;       U_1  = vnj;
-    P_2  = vf_->getPressure(Vi, Phii);
-    P_1  = vf_->getPressure(Vj, Phij);
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
     epsi = -1;
@@ -367,7 +367,7 @@ public:
   ~LocalRiemannGfmparGasTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj, 
@@ -381,17 +381,17 @@ private:
 
 inline
 void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
-	  double Phii, double Phij, double *nphi,
+	  int IDi, int IDj, double *nphi,
 	  int &epsi, int &epsj, double *Wi, double *Wj,
           double *rupdatei, double *rupdatej, double &weighti, double &weightj,
           double dx[3], int it)
 {
   int dim = 5;
 
-  double alpha   = vf_->getAlphaWater();
-  double beta    = vf_->getBetaWater();
-  double pref    = vf_->getPrefWater();
-  double gam     = vf_->getGamma();
+  double alpha   = vf_->getAlphaWater(fluid1);
+  double beta    = vf_->getBetaWater(fluid1);
+  double pref    = vf_->getPrefWater(fluid1);
+  double gam     = vf_->getGamma(fluid2);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir;
@@ -401,13 +401,13 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (Phii >= 0.0) {
+  if (IDi==fluid1) {
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
     U_g  = vnj;       U_w  = vni;
-    P_g  = vf_->getPressure(Vj, Phij);
-    P_w  = vf_->getPressure(Vi, Phii);
+    P_g  = vf_->getPressure(Vj, IDj);
+    P_w  = vf_->getPressure(Vi, IDi);
 
     F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
     epsi = 1;
@@ -418,8 +418,8 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
     Wi[4]  = P_i;                     Wi[dim+4]  = Wi[4];
-    T_w  = vf_->computeTemperature(Wi, Phij);
-    //T_w  = vf_->computeTemperature(Vi, Phii);
+    T_w  = vf_->computeTemperature(Wi, IDj); //KW: need an explanation
+    //T_w  = vf_->computeTemperature(Vi, IDi);
     Wi[4]  = T_w;                     Wi[dim+4]  = Wi[4];
 
     Wj[0]  = R_il;                      Wj[dim]    = Wj[0];
@@ -433,8 +433,8 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     // cell i is gas
     R_g  = Vi[0];     R_w  = Vj[0];
     U_g  = vni;       U_w  = vnj;
-    P_g  = vf_->getPressure(Vi, Phii);
-    P_w  = vf_->getPressure(Vj, Phij);
+    P_g  = vf_->getPressure(Vi, IDi);
+    P_w  = vf_->getPressure(Vj, IDj);
 
     F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
     epsi = -1;
@@ -451,8 +451,8 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
     Wj[4]  = P_i;                     Wj[dim+4]  = Wj[4];
-    T_w  = vf_->computeTemperature(Wj, Phii);
-    //T_w  = vf_->computeTemperature(Vj, Phij);
+    T_w  = vf_->computeTemperature(Wj, IDi);
+    //T_w  = vf_->computeTemperature(Vj, IDj);
     Wj[4]  = T_w;                     Wj[dim+4]  = Wj[4];
 
   }
@@ -483,7 +483,7 @@ public:
   ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -497,7 +497,7 @@ private:
 
 inline
 void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
-    double Phii, double Phij, double *nphi,
+    int IDi, int IDj, double *nphi,
     int &epsi, int &epsj, double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -505,12 +505,12 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 
   int dim = 5;
 
-  double alpha1   = vf_->getAlphaWater();
-  double beta1    = vf_->getBetaWater();
-  double pref1    = vf_->getPrefWater();
-  double alpha2   = vf_->getAlphaWaterbis();
-  double beta2    = vf_->getBetaWaterbis();
-  double pref2    = vf_->getPrefWaterbis();
+  double alpha1   = vf_->getAlphaWater(fluid1);
+  double beta1    = vf_->getBetaWater(fluid1);
+  double pref1    = vf_->getPrefWater(fluid1);
+  double alpha2   = vf_->getAlphaWater(fluid2);
+  double beta2    = vf_->getBetaWater(fluid2);
+  double pref2    = vf_->getPrefWater(fluid2);
 
   //double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_1, P_2, R_1, R_2, U_1, U_2, T_1, T_2;
@@ -521,15 +521,15 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
   
-  if (Phii >= 0.0) {
+  if (IDi==fluid1) {
     // cell j is tait2
     // cell i is tait1
     R_1  = Vi[0];     R_2  = Vj[0];
     U_1  = vni;       U_2  = vnj;
-    P_1  = vf_->getPressure(Vi, Phii);
-    P_2  = vf_->getPressure(Vj, Phij);
-    T_1  = vf_->computeTemperature(Vi, Phii);
-    T_2  = vf_->computeTemperature(Vj, Phij);
+    P_1  = vf_->getPressure(Vi, IDi);
+    P_2  = vf_->getPressure(Vj, IDj);
+    T_1  = vf_->computeTemperature(Vi, IDi);
+    T_2  = vf_->computeTemperature(Vj, IDj);
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1);
@@ -555,10 +555,10 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     // cell i is tait2
     R_1  = Vj[0];     R_2  = Vi[0];
     U_1  = vnj;       U_2  = vni;
-    P_1  = vf_->getPressure(Vj, Phij);
-    P_2  = vf_->getPressure(Vi, Phii);
-    T_1  = vf_->computeTemperature(Vj, Phij);
-    T_2  = vf_->computeTemperature(Vi, Phii);
+    P_1  = vf_->getPressure(Vj, IDj);
+    P_2  = vf_->getPressure(Vi, IDi);
+    T_1  = vf_->computeTemperature(Vj, IDj);
+    T_2  = vf_->computeTemperature(Vi, IDi);
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1);
@@ -606,7 +606,7 @@ public:
   ~LocalRiemannGfmparJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -628,7 +628,7 @@ private:
 
 inline
 void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
-	 	double Phii, double Phij, double *nphi,
+	 	int IDi, int IDj, double *nphi,
 		int &epsi, int &epsj,	double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
@@ -646,14 +646,14 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (Phii >= 0.0) {
+  if (IDi==fluid1) {
 
     // cell i is fluid1
     // cell j is fluid2
     R_2  = Vj[0];     R_1 = Vi[0];
     U_2  = vnj;       U_1 = vni;
-    P_2  = vf_->getPressure(Vj, Phij);
-    P_1  = vf_->getPressure(Vi, Phii);
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
 
     eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
 
@@ -677,8 +677,8 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     // cell j is fluid1
     R_2  = Vi[0];     R_1  = Vj[0];
     U_2  = vni;       U_1  = vnj;
-    P_2  = vf_->getPressure(Vi, Phii);
-    P_1  = vf_->getPressure(Vj, Phij);
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
 
     eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
 
@@ -736,16 +736,16 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   double vr  = 1.0/rhor;
   double vil = vl;
   double vir = vr;
-  double omegal = vf_->getOmegabis();
-  double omegar = vf_->getOmega();
+  double omegal = vf_->getOmega(fluid2);
+  double omegar = vf_->getOmega(fluid1);
   double omp1ooml = (omegal+1.0)/omegal;
   double omp1oomr = (omegar+1.0)/omegar;
-  double frhol = vf_->computeFrho(1.0/vl,-1.0);
-  double frhor = vf_->computeFrho(1.0/vr,-1.0);
+  double frhol = vf_->computeFrho(1.0/vl,fluid2);
+  double frhor = vf_->computeFrho(1.0/vr,fluid2);
   double frhoil = frhol;
   double frhoir = frhor;
-  double frhopil = vf_->computeFrhop(1.0/vl,1.0);
-  double frhopir = vf_->computeFrhop(1.0/vr,1.0);
+  double frhopil = vf_->computeFrhop(1.0/vl,fluid1);
+  double frhopir = vf_->computeFrhop(1.0/vr,fluid1);
 //check vacuum ?
 
 //start newton iteration loop
@@ -755,8 +755,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   //compute left  term (shock or rarefaction)
     if( vil < vl){
       //fprintf(stdout, "leftshock\n");
-      frhoil  = vf_->computeFrho(1.0/vil,-1.0);
-      frhopil = vf_->computeFrhop(1.0/vil,-1.0);
+      frhoil  = vf_->computeFrho(1.0/vil,fluid2);
+      frhopil = vf_->computeFrhop(1.0/vil,fluid2);
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
       //fprintf(stdout, "leftraref\n");
@@ -766,8 +766,8 @@ void LocalRiemannGfmparJWLJWL::eriemannjj(double rhol, double ul, double pl,
   //compute right term (shock or rarefaction)
     if( vir < vr){
       //fprintf(stdout, "rightshock\n");
-      frhoir  = vf_->computeFrho(1.0/vir,1.0);
-      frhopir = vf_->computeFrhop(1.0/vir,1.0);
+      frhoir  = vf_->computeFrho(1.0/vir,fluid1);
+      frhopir = vf_->computeFrhop(1.0/vir,fluid1);
       shockJWL(1.0, omegar, omp1oomr, frhor, frhoir, frhopir, vr, ur, pr, vir, uir, pir, duir, dpir);
     }
     else{
@@ -857,7 +857,7 @@ public:
   ~LocalRiemannGfmparGasJWL(){ vf_ = 0; sgCluster_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
-                              double Phii, double Phij, double *nphi,
+                              int IDi, int IDj, double *nphi,
                               int &epsi, int &epsj, double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -903,7 +903,7 @@ protected:
 
 inline
 void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
-	 	double Phii, double Phij, double *nphi,
+	 	int IDi, int IDj, double *nphi,
 		int &epsi, int &epsj,	double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
@@ -921,14 +921,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (Phii >= 0.0) {
+  if (IDi==fluid1) {
 
     // cell i is fluid1
     // cell j is fluid2
     R_2  = Vj[0];     R_1 = Vi[0];
     U_2  = vnj;       U_1 = vni;
-    P_2  = vf_->getPressure(Vj, Phij);
-    P_1  = vf_->getPressure(Vi, Phii);
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
 
     eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
     epsi = 1;
@@ -951,8 +951,8 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     // cell j is fluid1
     R_2  = Vi[0];     R_1  = Vj[0];
     U_2  = vni;       U_1  = vnj;
-    P_2  = vf_->getPressure(Vi, Phii);
-    P_1  = vf_->getPressure(Vj, Phij);
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
 
     eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
     epsi = -1;
@@ -1016,19 +1016,19 @@ bool LocalRiemannGfmparGasJWL::eriemanngj_selector(
     double d[2]; //dummy variable
     double uir, pir, uil, pil;
 
-    double omegal = vf_->getOmega();
+    double omegal = vf_->getOmega(fluid2);
     double omp1ooml = (omegal+1.0)/omegal;
-    double frhol = vf_->computeFrho(rhol,-1.0);
-    double gamr = vf_->getGamma();
-    double prefr = vf_->getPressureConstant();
-    double gam1r = vf_->getGamma()-1.0;
+    double frhol = vf_->computeFrho(rhol,fluid2);
+    double gamr = vf_->getGamma(fluid1);
+    double prefr = vf_->getPressureConstant(fluid1);
+    double gam1r = vf_->getGamma(fluid1)-1.0;
     double gamogam1r = gamr/gam1r;
     double Vr[5] = { rhor, ur, 0.0, 0.0, pr };
-    double cr = vf_->computeSoundSpeed(Vr,1.0);
+    double cr = vf_->computeSoundSpeed(Vr,fluid1);
 
     if( rhoil > rhol){
-      double frhoil  = vf_->computeFrho(rhoil,-1.0);
-      double frhopil = vf_->computeFrhop(rhoil,-1.0);
+      double frhoil  = vf_->computeFrho(rhoil,fluid2);
+      double frhopil = vf_->computeFrhop(rhoil,fluid2);
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1]);
     }else
       rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1], riemannComputationType_,1);
@@ -1079,19 +1079,19 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double vil = vl;
   double vir = vr;
 
-  double omegal = vf_->getOmega();
+  double omegal = vf_->getOmega(fluid2);
   double omp1ooml = (omegal+1.0)/omegal;
-  double frhol = vf_->computeFrho(1.0/vl,-1.0);
+  double frhol = vf_->computeFrho(1.0/vl,fluid2);
   double frhoil = frhol;
-  double frhopil = vf_->computeFrhop(1.0/vl,1.0);
+  double frhopil = vf_->computeFrhop(1.0/vl,fluid1);
 
 
-  double gamr = vf_->getGamma();
-  double prefr = vf_->getPressureConstant();
-  double gam1r = vf_->getGamma()-1.0;
+  double gamr = vf_->getGamma(fluid1);
+  double prefr = vf_->getPressureConstant(fluid1);
+  double gam1r = vf_->getGamma(fluid1)-1.0;
   double gamogam1r = gamr/gam1r;
   double Vr[5] = { 1.0/vr, ur, 0.0, 0.0, pr };
-  double cr = vf_->computeSoundSpeed(Vr,1.0);
+  double cr = vf_->computeSoundSpeed(Vr,fluid1);
 
 //check vacuum
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
@@ -1117,8 +1117,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   //compute left  JWL-term (shock or rarefaction)
     if( vil < vl){
       if(verbose>0) fprintf(stdout, "shockJWL\n");
-      frhoil  = vf_->computeFrho(1.0/vil,-1.0);
-      frhopil = vf_->computeFrhop(1.0/vil,-1.0);
+      frhoil  = vf_->computeFrho(1.0/vil,fluid2);
+      frhopil = vf_->computeFrhop(1.0/vil,fluid2);
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
       if(verbose>0) fprintf(stdout, "rarefactionJWL\n");
@@ -1228,8 +1228,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   }//end newton iteration loop
 
   if( vil < vl){
-    frhoil  = vf_->computeFrho(1.0/vil,-1.0);
-    frhopil = vf_->computeFrhop(1.0/vil,-1.0);
+    frhoil  = vf_->computeFrho(1.0/vil,fluid2);
+    frhopil = vf_->computeFrhop(1.0/vil,fluid2);
     shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
   }else rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,0);
   
@@ -1316,8 +1316,8 @@ bool LocalRiemannGfmparGasJWL::vacuum(const double rhol, const double ul, const 
   double uil,pil,duil,dpil,uir,pir,duir,dpir;
   rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil_vac, uil, pil, duil, dpil);
   double Vr[5] = { rhor, ur, 0.0, 0.0, pr};
-  double cr = vf_->computeSoundSpeed(Vr,1.0);
-  rarefactionGAS(1.0, vf_->getGamma(), vf_->getGamma()-1.0, vf_->getPressureConstant(), cr, 1.0/rhor, ur, pr, 1.0/rhoir_vac, uir, pir, duir, dpir);
+  double cr = vf_->computeSoundSpeed(Vr,fluid1);
+  rarefactionGAS(1.0, vf_->getGamma(fluid1), vf_->getGamma(fluid1)-1.0, vf_->getPressureConstant(fluid1), cr, 1.0/rhor, ur, pr, 1.0/rhoir_vac, uir, pir, duir, dpir);
   //fprintf(stdout, "uil_vac = %e and uir_vac = %e\n", uil,uir);
 
   vacuumValues[0] = rhoil_vac;
@@ -1341,7 +1341,7 @@ double LocalRiemannGfmparGasJWL::jwlZeroSoundSpeedJwlDensity(const double densit
     int it = 0, maxIt = 100;
     double relaxation = 1.0;
 
-    double entropy = vf_->computeEntropy(density,pressure,-1.0);
+    double entropy = vf_->computeEntropy(density,pressure,fluid2);
 
     double xn = density;
     double xnm1 = xn;
@@ -1351,9 +1351,9 @@ double LocalRiemannGfmparGasJWL::jwlZeroSoundSpeedJwlDensity(const double densit
                              // so we use this lowerBound to reduce the search domain.
 
     while(!convergence){
-        fn = (vf_->getOmega()+1.0)*entropy*pow(xn,vf_->getOmega()) + vf_->computeExponentials2(xn);
+        fn = (vf_->getOmega(fluid1)+1.0)*entropy*pow(xn,vf_->getOmega(fluid1)) + vf_->computeExponentials2(xn,fluid2);
         if(fn<0.0) lowerBound = xn;
-        dfn = entropy*(vf_->getOmega()+1.0)*vf_->getOmega()*pow(xn,vf_->getOmega()-1) + vf_->computeDerivativeOfExponentials2(xn);
+        dfn = entropy*(vf_->getOmega(fluid1)+1.0)*vf_->getOmega(fluid1)*pow(xn,vf_->getOmega(fluid1)-1) + vf_->computeDerivativeOfExponentials2(xn,fluid2);
         //fprintf(stdout, "xn = %e - fn = %e - dfn = %e\n", xn, fn, dfn);
         if(dfn!=0) dx = -relaxation*fn/dfn;
         else{ dx = -0.75*dx; continue; }
@@ -1391,11 +1391,11 @@ double LocalRiemannGfmparGasJWL::pressureEqGasDensity(const double gasDensity, c
                                                       const double interfacialJwlDensity)
 {
   if(interfacialJwlDensity == 0)
-    return gasDensity/pow(1+gasPressure/vf_->getPressureConstant(),1.0/vf_->getGamma());
+    return gasDensity/pow(1+gasPressure/vf_->getPressureConstant(fluid1),1.0/vf_->getGamma(fluid1));
 
-  double jwlEntropy = vf_->computeEntropy(jwlDensity, jwlPressure, -1.0);
-  double gasEntropy = vf_->computeEntropy(gasDensity, gasPressure, 1.0);
-  return pow((jwlEntropy*pow(interfacialJwlDensity,vf_->getOmega()+1.0)+vf_->computeExponentials(interfacialJwlDensity)+vf_->getPressureConstant())/gasEntropy,1.0/vf_->getGamma());
+  double jwlEntropy = vf_->computeEntropy(jwlDensity, jwlPressure, fluid2);
+  double gasEntropy = vf_->computeEntropy(gasDensity, gasPressure, fluid1);
+  return pow((jwlEntropy*pow(interfacialJwlDensity,vf_->getOmega(fluid1)+1.0)+vf_->computeExponentials(interfacialJwlDensity,fluid2)+vf_->getPressureConstant(fluid1))/gasEntropy,1.0/vf_->getGamma(fluid1));
 
 }
 
@@ -1407,9 +1407,9 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
 
   int verbose=0;
   if(verbose>0) fprintf(stdout, "sgZeroDensityPJwlDensity - density=%e and pressure=%e and rho_c0=%e\n", density, pressure, rho_c0);
-  double entropy = vf_->computeEntropy(density,pressure,-1.0);
+  double entropy = vf_->computeEntropy(density,pressure,fluid2);
 
-  double fn = entropy*pow(rho_c0>0.0 ? rho_c0 : 1.e-14,vf_->getOmega()+1.0) + vf_->computeExponentials(rho_c0>0.0 ? rho_c0 : 1.e-14) + vf_->getPressureConstant();
+  double fn = entropy*pow(rho_c0>0.0 ? rho_c0 : 1.e-14,vf_->getOmega(fluid1)+1.0) + vf_->computeExponentials(rho_c0>0.0 ? rho_c0 : 1.e-14,fluid2) + vf_->getPressureConstant(fluid1);
   if(verbose>0) fprintf(stdout, "sgZeroDensityPJwlDensity - fn(max(rho_c0,0)) = %e\n", fn);
   if(fn>0.0) return -1.0;
 
@@ -1424,8 +1424,8 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
   double dx=0, dfn;
 
   while(!convergence){
-    fn = entropy*pow(xn,vf_->getOmega()+1.0) + vf_->computeExponentials(xn) + vf_->getPressureConstant();
-    dfn = entropy*(vf_->getOmega()+1.0)*pow(xn,vf_->getOmega()) + vf_->computeDerivativeOfExponentials(xn);
+    fn = entropy*pow(xn,vf_->getOmega(fluid1)+1.0) + vf_->computeExponentials(xn,fluid2) + vf_->getPressureConstant(fluid1);
+    dfn = entropy*(vf_->getOmega(fluid1)+1.0)*pow(xn,vf_->getOmega(fluid1)) + vf_->computeDerivativeOfExponentials(xn,fluid2);
     //fprintf(stdout, "it = %d - xn = %e - fn = %e - dfn = %e\n", it, xn, fn, dfn);
     if(dfn>0) dx = -relaxation*fn/dfn;
     
@@ -1488,8 +1488,8 @@ void LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper(
 class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
-  LocalRiemannFluidStructure() : LocalRiemann() {}
-  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf) {}
+  LocalRiemannFluidStructure() : LocalRiemann() {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf) {fluid1 = fluid2 = 0;}
   virtual ~LocalRiemannFluidStructure() { vf_ = 0; }
 
 void computeRiemannSolution(double *Vi, double *Vstar,
@@ -1676,7 +1676,7 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int tag) //Caution: "ui" will not be modified!
 {
-
+/*
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
 
@@ -1706,6 +1706,7 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
     if (pi<p) {fprintf(stderr,"ERROR: Wrong solution to FS Riemann problem. Aborting.\n"); exit(-1);}
   }
+*/
 }
 
 //----------------------------------------------------------------------------

@@ -36,7 +36,7 @@ public:
     com = comm;
     varFcn = createVarFcn(ioData);
     lriemannGasJwl = new LocalRiemannGfmparGasJWL(varFcn, NULL, MultiFluidData::RK2);
-
+/* TODO: to be fixed!
     if(varFcn->getType() == VarFcn::GAS) com->fprintf(stdout, "GAS VarFcn\n");
     else if(varFcn->getType() == VarFcn::LIQUID) com->fprintf(stdout, "LIQUID VarFcn\n");
     else if(varFcn->getType() == VarFcn::JWL) com->fprintf(stdout, "JWL VarFcn\n");
@@ -46,7 +46,7 @@ public:
     else if(varFcn->getType() == VarFcn::JWLINGAS) com->fprintf(stdout, "JWLINGAS VarFcn\n");
     else if(varFcn->getType() == VarFcn::JWLINJWL) com->fprintf(stdout, "JWLINJWL VarFcn\n");
     else com->fprintf(stdout, "no Type for VarFcn\n");
-  }
+*/  }
 
   ~SparseGridGeneratorDesc(){
     delete varFcn;
@@ -129,7 +129,7 @@ public:
 
   VarFcn *createVarFcn(IoData &ioData){
     VarFcn *vf = 0;
-    if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
+/*    if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
       vf = new VarFcnJWLEuler3D(ioData);
     }else if(ioData.mf.riemannComputation == MultiFluidData::TABULATION5){
       vf = new VarFcnJWLInGasEuler3D(ioData);
@@ -139,6 +139,7 @@ public:
       com->fprintf(stdout, "*** Error: no valid choice for the VarFcn\n");
       exit(1);
     }
+*/ //TODO: NEED TO BE FIXED!!!
     return vf;
   }
     

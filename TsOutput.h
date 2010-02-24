@@ -124,22 +124,22 @@ public:
   void closeAsciiFiles();
   void writeForcesToDisk(bool, int, int, int, double, double, double*, 
 			 DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<double> * = 0); 
+                         DistVec<int> * = 0); 
   void writeForcesToDisk(DistExactRiemannSolver<dim>&, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<double> * = 0);
+                         DistVec<int> * = 0);
   void writeHydroForcesToDisk(bool, int, int, int, double, double, double*, 
 			 DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<double> * = 0);
+                         DistVec<int> * = 0);
   void writeLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<double> * = 0);
+                         DistVec<int> * = 0);
   void writeHydroLiftsToDisk(IoData &, bool, int, int, int, double, double, double*,
                          DistSVec<double,3> &, DistSVec<double,dim> &,
-                         DistVec<double> * = 0);
+                         DistVec<int> * = 0);
   void writeHeatFluxesToDisk(bool, int, int, int, double, double,
-                                      double* , DistSVec<double,3> &, DistSVec<double,dim> &,
-                                      DistVec<double> * = 0);
+                             double* , DistSVec<double,3> &, DistSVec<double,dim> &,
+                             DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeConservationErrors(IoData &iod, int it, double t, 
                                double *totqty, double *f1qty, double *f2qty,
@@ -151,10 +151,10 @@ public:
 
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistVec<double> &);
+                                DistVec<double> &, DistVec<int> &);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
-                                DistVec<double> &);
+                                DistVec<double> &, DistVec<int> &);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

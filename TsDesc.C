@@ -1,7 +1,6 @@
 #include <TsDesc.h>
 #include <math.h>
 #include <RefVal.h>
-#include <VarFcnDesc.h>
 #include <GeoSource.h>
 #include <DistBcData.h>
 // TODO Remove MLX #include "Ghost/DistEulerStructGhostFluid.h"
@@ -22,17 +21,19 @@ extern int interruptCode;
 //------------------------------------------------------------------------------
 
 template<int dim>
-TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom)
+TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom), 
+                                                                         fluidId(dom->getNodeDistInfo())
 {
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
   Xs = new DistSVec<double,3>(getVecInfo());
-
+  
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
   Rreal = new DistSVec<double,dim>(getVecInfo());
   timer = domain->getTimer();
+  fluidId = 0;
   com = domain->getCommunicator();
 
   problemType = ioData.problem.type;
@@ -42,10 +43,9 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   refVal = new RefVal(ioData.ref.rv);
 
-  varFcn = createVarFcn(ioData);
+  varFcn = new VarFcn(ioData);
 
   input = new TsInput(ioData);
-
   geoState = new DistGeoState(ioData, domain);
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
@@ -136,7 +136,9 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
 {
 
   VarFcn *vf = 0;
-
+  fprintf(stderr,"ERROR: obsolete function createVarFcn(...) called!\n");
+  exit(-1);
+/*
   if (ioData.eqs.numPhase == 1 ){
     if(ioData.eqs.fluidModel.fluid == FluidModelData::GAS) {
       if (ioData.eqs.type == EquationsData::NAVIER_STOKES &&
@@ -177,7 +179,7 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
     com->fprintf(stderr, "*** Error: no valid choice for varFcn\n");
     exit(1);
   }
-
+*/
   return vf;
 
 }
@@ -294,10 +296,12 @@ double TsDesc<dim>::recomputeResidual(DistSVec<double,dim> &F, DistSVec<double,d
 template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
-
+  geoState->setup2(timeState->getData());
   geoState->setup2(timeState->getData());
 
+  geoState->setup2(timeState->getData());
   timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
+  geoState->setup2(timeState->getData());
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
@@ -520,7 +524,6 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
   }
-
 }
 
 //------------------------------------------------------------------------------

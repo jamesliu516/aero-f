@@ -112,7 +112,9 @@ void FluxFcnFD<dim>::computeJacobian(double length, double irey, double *normal,
   }
 
   if (type == CONSERVATIVE)
-    vf->postMultiplyBydVdU(VL, dfdVL, jacL, dflag);
+    //TODO: dflag not needed?
+    //vf->postMultiplyBydVdU(VL, dfdVL, jacL, dflag);
+    vf->postMultiplyBydVdU(VL, dfdVL, jacL);
   else{
     for (k=0; k<dim*dim; ++k) 
       jacL[k] = dfdVL[k];

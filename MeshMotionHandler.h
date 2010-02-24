@@ -49,7 +49,7 @@ public:
   void computeInterfaceWork(double, PostOperator<dim>*, DistSVec<double,3>&, 
 			    DistSVec<double,dim>&, DistSVec<double,3>&,
 			    DistSVec<double,dim>&, double*,
-			    DistVec<double> * = 0, DistVec<double> * = 0);
+			    DistVec<int> * = 0, DistVec<int> * = 0);
 
   virtual int getAlgNum()  { return 0; }
 
@@ -142,16 +142,16 @@ public:
 
   template<int dim>
   void setup(int *, double *, PostOperator<dim>*, DistSVec<double,3>&, 
-             DistSVec<double,dim>&, DistVec<double> * = 0);
+             DistSVec<double,dim>&, DistVec<int> * = 0);
 
   template<int dim>
   void resetOutputToStructure(PostOperator<dim>*, DistSVec<double,3>&,
-                              DistSVec<double,dim>&, DistVec<double> * = 0);
+                              DistSVec<double,dim>&, DistVec<int> * = 0);
 
   template<int dim>
   void updateOutputToStructure(double, double, PostOperator<dim>*,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistVec<double> * = 0);
+                               DistVec<int> * = 0);
 
   int getModalMotion(DistSVec<double,3> &);
 

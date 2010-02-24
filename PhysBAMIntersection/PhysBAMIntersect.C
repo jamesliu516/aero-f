@@ -331,6 +331,8 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   nodalNormal = 0;
   recomputeTime = 0.0;
   initTime = 0.0;
+  status = 0;
+  status0 = 0;
 }
 
 //----------------------------------------------------------------------------
@@ -344,7 +346,9 @@ DistPhysBAMIntersector::operator()(int subNum) const {
 * \param dataTree the data read from the input file for this intersector.
 */
 void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartSolidSurface) {
+
   double t0 = timer->getTime();
+
   // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
@@ -701,6 +705,9 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interp
   intersector = new PhysBAMIntersector*[numLocSub];
   pseudoPhi = new DistVec<double>(X.info());
 
+  status = new DistVec<int>(domain->getNodeDistInfo());  
+  status0 = new DistVec<int>(domain->getNodeDistInfo());  
+
   // for getClosestTriangles
   DistSVec<double,3> boxMax(X.info());
   DistSVec<double,3> boxMin(X.info());
@@ -711,7 +718,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interp
   d->findNodeBoundingBoxes(X,boxMin,boxMax);
 
   for(int i = 0; i < numLocSub; ++i) {
-    intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), *this);
+    intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), *this);
     intersector[i]->getClosestTriangles(X(i), boxMin(i), boxMax(i), tId(i), distance(i));
     intersector[i]->computeFirstLayerNodeStatus(tId(i), distance(i));
     intersector[i]->fixUntouchedSubDomain(X(i));
@@ -797,9 +804,9 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 //----------------------------------------------------------------------------
 
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
-                    DistPhysBAMIntersector &distInt) :
- distIntersector(distInt), status(sub.numNodes()), status0(sub.numNodes()),
- edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
+                    Vec<int> &stat, Vec<int> &stat0, DistPhysBAMIntersector &distInt) :
+                      distIntersector(distInt), status(stat), status0(stat0),
+                      edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 

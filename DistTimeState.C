@@ -460,11 +460,11 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,
-                                           DistSVec<double,dim> &U, DistVec<double> &Phi)
+                                           DistSVec<double,dim> &U, DistVec<int> &fluidId)
 {
-  varFcn->conservativeToPrimitive(U, *V, &Phi);
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, Phi);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId);
                                                                                                          
   double dt_glob;
   if (data->dt_imposed > 0.0)
@@ -549,9 +549,9 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
                                        DistSVec<double,dim> &U)
 {
   if(tprec.timePreconditioner()){
-    if(varFcn->getType() == VarFcn::GAS)
+    if(varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
       addToJacobianGasPrec(ctrlVol, A, U);
-    else if(varFcn->getType() == VarFcn::LIQUID)
+    else if(varFcn->getType() == VarFcnBase::TAIT)
       addToJacobianLiquidPrec(ctrlVol, A, U);
     else{
       fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
@@ -810,9 +810,9 @@ template<int dim>
 void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, DistSVec<double,dim>& dU)
 {
   if (tprec.timePreconditioner()){
-    if (varFcn->getType() == VarFcn::GAS )
+    if (varFcn->getType() == VarFcnBase::PERFECTGAS || varFcn->getType() == VarFcnBase::STIFFENEDGAS)
       multiplyByPreconditionerPerfectGas(U0,dU);
-    else if (varFcn->getType() == VarFcn::LIQUID)
+    else if (varFcn->getType() == VarFcnBase::TAIT)
       multiplyByPreconditionerLiquid(U0,dU);
     else{
       fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
@@ -987,8 +987,8 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
-                                DistVec<double> &Phi1, DistVec<double> &Phi2,
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
+                                DistVec<int> &fluidId1,
                                 DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
                                 DistExactRiemannSolver<dim> *riemann)
 {
@@ -999,8 +999,9 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
     exit(1);
   }
   if (data->use_nm1) {
-    varFcn->conservativeToPrimitive(*Un, *V, &Phi1);
-    varFcn->updatePhaseChange(*V, *Unm1, Phi, Phi1, Vgf, Vgfweight, riemann);
+    varFcn->conservativeToPrimitive(*Un, *V, &fluidId1);
+    //TODO: to be fixed!!
+    //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidId1, Vgf, Vgfweight, riemann);
     data->exist_nm1 = true;
   }
   *Un = Q;

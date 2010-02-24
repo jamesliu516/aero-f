@@ -181,11 +181,12 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
-    this->spaceOp->storePreviousPrimitive(U, this->Vg, this->Phi, this->Vgf, 
+    this->spaceOp->storePreviousPrimitive(U, this->Vg, this->fluidId, this->Vgf, 
                                           this->Vgfweight, *this->X);
 
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);
+    (this->fluidSelector).getFluidId(this->fluidId,this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
 
     this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi, this->LS->Phin,
@@ -210,7 +211,7 @@ void ImplicitLevelSetTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
   this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, F, this->riemann, it+1);
+  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, this->fluidId, F, this->riemann, it+1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->spaceOp->applyBCsToResidual(Q, F);
 }
@@ -221,7 +222,7 @@ template<int dim>
 void ImplicitLevelSetTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
                                             DistSVec<double,dim> &rhs)
 {
-  this->spaceOp->recomputeRHS(*this->X, Q, this->Phi, rhs);
+  this->spaceOp->recomputeRHS(*this->X, Q, this->fluidId, rhs);
 }
 
 //------------------------------------------------------------------------------
@@ -236,7 +237,7 @@ int ImplicitLevelSetTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
   if (!this->tag)
     this->tag = new DistSVec<bool,2>(this->getVecInfo());
 
-  this->domain->checkFailSafe(this->varFcn, U, *this->tag, &(this->Phi));
+  this->domain->checkFailSafe(this->varFcn, U, *this->tag, &(this->fluidId));
   this->spaceOp->fix(*this->tag);
 
   return 1;
@@ -257,7 +258,7 @@ template<int dim>
 void ImplicitLevelSetTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q,
                                                          DistSVec<double,dim> &F)
 {
-  this->mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->riemann, F);
+  this->mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->fluidId, this->riemann, F);
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -274,7 +275,7 @@ void ImplicitLevelSetTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd || mvph2) {
 
-      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->PhiV, this->riemann);
+      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidId, this->riemann);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->spaceOp->applyBCsToJacobian(Q, *_pc);
     }
@@ -344,7 +345,7 @@ void ImplicitLevelSetTsDesc<dim>::computeJacobianLS(int it,
 {
 
   mvpLS->evaluateLS(it, *this->X, *this->A, this->Phi, this->LS->Phin, 
-		    this->LS->Phinm1, this->LS->Phinm2, U, PhiF);
+		    this->LS->Phinm1, this->LS->Phinm2, U, PhiF, this->fluidId);
 
 }
 //------------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 #define _FLUX_FCN_DESC_LIQUID_IN_LIQUID_H_
 
 #include <FluxFcnDesc.h>
-#include <VarFcnDesc.h>
 
 class IoData;
 //------------------------------------------------------------------------------
@@ -12,7 +11,7 @@ class FluxFcnLiquidInLiquidFDJacRoeEuler3D : public FluxFcnFDJacRoeEuler3D {
 public:
 
   FluxFcnLiquidInLiquidFDJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeEuler3D(ioData, gg, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnFDJacRoeEuler3D(ioData, gg, 0, tp) {}
   ~FluxFcnLiquidInLiquidFDJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -30,7 +29,7 @@ class FluxFcnLiquidInLiquidApprJacRoeEuler3D : public FluxFcnApprJacRoeEuler3D {
 public:
 
   FluxFcnLiquidInLiquidApprJacRoeEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, 0, tp) {}
   ~FluxFcnLiquidInLiquidApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -49,7 +48,7 @@ class FluxFcnLiquidInLiquidExactJacRoeEuler3D : public FluxFcnExactJacRoeEuler3D
 public:
 
   FluxFcnLiquidInLiquidExactJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnExactJacRoeEuler3D(gg, new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnExactJacRoeEuler3D(gg, 0, tp) {}
   ~FluxFcnLiquidInLiquidExactJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -71,7 +70,7 @@ class FluxFcnLiquidInLiquidWallEuler3D : public FluxFcnWallEuler3D {
 
 public:
   FluxFcnLiquidInLiquidWallEuler3D(IoData &ioData, Type tp=CONSERVATIVE) :
-    FluxFcnWallEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnWallEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidWallEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -89,7 +88,7 @@ class FluxFcnLiquidInLiquidGhidagliaEuler3D : public FluxFcnGhidagliaEuler3D {
 public:
 
   FluxFcnLiquidInLiquidGhidagliaEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnGhidagliaEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnGhidagliaEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidGhidagliaEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -107,7 +106,7 @@ class FluxFcnLiquidInLiquidInflowEuler3D : public FluxFcnInflowEuler3D {
 public:
 
   FluxFcnLiquidInLiquidInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInflowEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnInflowEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -125,7 +124,7 @@ class FluxFcnLiquidInLiquidOutflowEuler3D : public FluxFcnOutflowEuler3D {
 public:
 
   FluxFcnLiquidInLiquidOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnOutflowEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -143,7 +142,7 @@ class FluxFcnLiquidInLiquidInternalInflowEuler3D : public FluxFcnInternalInflowE
 public:
 
   FluxFcnLiquidInLiquidInternalInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalInflowEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnInternalInflowEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidInternalInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -162,7 +161,7 @@ class FluxFcnLiquidInLiquidInternalOutflowEuler3D : public FluxFcnInternalOutflo
 public:
 
   FluxFcnLiquidInLiquidInternalOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalOutflowEuler3D(new VarFcnLiquidInLiquidEuler3D(ioData), tp) {}
+    FluxFcnInternalOutflowEuler3D(0, tp) {}
   ~FluxFcnLiquidInLiquidInternalOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);

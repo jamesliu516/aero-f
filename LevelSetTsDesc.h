@@ -10,6 +10,7 @@
 struct DistInfo;
 
 class GeoSource;
+class FluidSelector;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
 
@@ -21,6 +22,7 @@ template<int dim>
 class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
+  FluidSelector fluidSelector;
   LevelSet *LS;
   DistExactRiemannSolver<dim> *riemann;
   DistVec<double> Phi;           //conservative variables

@@ -81,8 +81,6 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
-  if(this->LS) 
-    this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
 
   //----------------------------------------------------
   if(this->TYPE==1 && this->mmh) { 
@@ -125,36 +123,11 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   //----------------------------------------------------
   if (this->TYPE==2) { 
     // fluid-shell-fluid
-    if(this->LS) {
-      this->spaceOp->storePreviousPrimitive(U0, this->Vg, this->Phi,
-                                            this->Vgf, this->Vgfweight, *this->X);
-      t0 = this->timer->getTime();
-  
-      computeRKUpdateLS(this->Phi, p1, U);
-      this->Phi = this->Phi - p1;
-
-      this->timer->addLevelSetSolutionTime(t0);
-
-      U = U0;
-      this->updateFSInterface();
-      this->updateNodeTag();
-      // Riemann overwrite using the value of Phi_{n+1}
-      this->spaceOp->updatePhaseChange(this->Vg, U, this->Phi,
-                                       this->LS->Phin, this->Vgf,
-                                       this->Vgfweight, this->riemann);
-    } else {
-      U = U0;
-      this->updateFSInterface();
-      this->updateNodeTag();
-      this->spaceOp->updatePhaseChange(*this->X, U, *this->Wstarij, *this->Wstarji, this->distLSS, this->nodeTag0, this->nodeTag);
-    }
-
+    U = U0;
+    this->updateFSInterface();
+    this->updateNodeTag();
+    this->spaceOp->updatePhaseChange(*this->X, U, *this->Wstarij, *this->Wstarji, this->distLSS, this->nodeTag0, this->nodeTag);
     checkSolution(U);
-
-    if(this->LS) {
-      this->boundaryFlux  = *this->tmpDistSVec;
-      this->interfaceFlux = *this->tmpDistSVec2;
-    }
   } 
   //--------------------------------------------------
 
@@ -239,23 +212,11 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
     sleep(1);
   }
 */
-  // manually cast DistVec<int> to DistVec<double>. TODO: should avoid doing this.
   if (this->TYPE==2) {
-    DistVec<double> nodeTagCopy(this->getVecInfo());
-#pragma omp parallel for
-    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      Vec<double> &subTagCopy = nodeTagCopy(iSub);
-      Vec<int> &subTag = this->nodeTag(iSub);
-      for (int iNode=0; iNode<subTag.size(); iNode++) subTagCopy[iNode] = (double)subTag[iNode];
-    }
 
-    if(this->LS) {
-      *this->tmpDistSVec  = 0.0;
-      *this->tmpDistSVec2 = 0.0;
-    }
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   nodeTagCopy, dU, this->riemann,it);
+                                   this->nodeTag, dU, this->riemann,it);
     this->timeState->multiplyByTimeStep(dU);
 
   } else {

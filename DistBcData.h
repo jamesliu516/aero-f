@@ -63,17 +63,21 @@ protected:
   double vref;
 
 // Included (MB)
+  //for steady sensitivity analysis
   DistSVec<double,3> *dXdot;
   DistVec<double> *dTemp;
-  double dUin[dim], dVin[dim];
-  double dUout[dim], dVout[dim];
   DistSVec<double,dim> *dUface;
   DistSVec<double,dim> *dUnode;
   DistSVec<double,dim> *dUinletnode;
   DistSVec<double,dim> *dUfarin;
   DistSVec<double,dim> *dUfarout;
+  double dUin[dim], dVin[dim];
+  double dUout[dim], dVout[dim];
+
+  // only used for sensitivity analsysis ???
   DistSVec<double,dim> *dUfaceSA;
   DistSVec<double,dim> *dUnodeSA;
+
   double dtrefdMach;
   double dvrefdMach;
 

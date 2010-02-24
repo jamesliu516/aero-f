@@ -84,7 +84,7 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
-               DistFluidTypeCriterion &, DistSVec<Scalar2,dim> &, bool linFSI = true);
+               DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true);
 
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 

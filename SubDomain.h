@@ -207,7 +207,7 @@ public:
   void computeSmoothedSensor(SVec<double,3>&, Vec<double>&, SVec<double,3>&);
   void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<double,6> &);
-  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const FluidTypeCriterion &,
+  void computeWeightsLeastSquaresEdgePart(SVec<double,3> &, const Vec<int> &,
 					  SVec<int,1> &, SVec<double,6> &);
   void computeWeightsLeastSquaresNodePart(SVec<int,1> &, SVec<double,6> &);
   void computeWeightsGalerkin(SVec<double,3> &, SVec<double,3> &,
@@ -307,7 +307,7 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<double> &);
+                       TimeLowMachPrec &, Vec<int> &);
 
 
   template<int dim, class Scalar>
@@ -316,7 +316,7 @@ public:
 				    SVec<Scalar,dim> &, SVec<Scalar,dim> &);
 
   template<int dim, class Scalar>
-  void computeGradientsLeastSquares(SVec<double,3> &, const FluidTypeCriterion &,
+  void computeGradientsLeastSquares(SVec<double,3> &, const Vec<int> &,
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
@@ -362,7 +362,7 @@ public:
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
-                              SVec<double,3>&, SVec<double,dim>&, Vec<double> &,
+                              SVec<double,3>&, SVec<double,dim>&, Vec<int> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<1>&,
                               SVec<double,dim>&, int, SVec<double,dim> *,
@@ -379,7 +379,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, Vec<double> &,
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, Vec<int> &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
  template<int dim>
@@ -407,12 +407,12 @@ public:
                                        NodalGrad<dim> &, NodalGrad<1> &,
                                        SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<double> &, CommPattern<double> *);
+                                       Vec<int> &, CommPattern<double> *);
   template<int dim>
   void recomputeRHS(VarFcn*, SVec<double,dim>& ,SVec<double,dim>& , Extrapolation<dim>*,
                                         BcData<dim>&, GeoState&, SVec<double,3> &);
   template<int dim>
-  void recomputeRHS(VarFcn*, SVec<double,dim>& ,Vec<double> &, SVec<double,dim>&,
+  void recomputeRHS(VarFcn*, SVec<double,dim>& ,Vec<int> &, SVec<double,dim>&,
                     Extrapolation<dim>*, BcData<dim>&, GeoState&, SVec<double,3> &);
 
   template<int dim>
@@ -674,7 +674,7 @@ public:
   template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-				 Vec<double> &, Vec<double> &);
+				 Vec<double> &, Vec<double> &, Vec<int> &);
 
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -781,14 +781,14 @@ public:
   int checkSolution(VarFcn *, SVec<double,dim> &, Vec<int> &);
 
   template<int dim>
-  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<double> &, Vec<double> &);
+  int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<int> &, Vec<int> &);
 
   template<int dim>
   void restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi,
                         SVec<double,dim> &restriction, int sign);
 
   template<int dim>
-  void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<double> * = 0);
+  void checkFailSafe(VarFcn*, SVec<double,dim>&, SVec<bool,2>&, Vec<int> * = 0);
 
   template<int dim, int neq>
   int clipSolution(TsData::Clipping, BcsWallData::Integration, VarFcn*,
@@ -837,7 +837,7 @@ public:
 
   template<int dim>
   void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                      Vec<double> &weight, FluidTypeCriterion &Phi,
+                      Vec<double> &weight, Vec<int> &fluidId,
                       SVec<double,3> &X);
                       
   template<int dim>

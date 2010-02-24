@@ -72,7 +72,7 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
         Ubc[node][j]=0.0;
 
   }else{
-    vf->extrapolateBoundaryPrimitive(unb, cb, Vfar, Vinter, Vextra);
+    vf->extrapolatePrimitive(unb, cb, Vfar, Vinter, Vextra);
     //vf->extrapolateBoundaryCharacteristic(n,unb,cb,Vfar,dV);
     //for (int idim=0; idim<dim; idim++){
     //  Vextra[idim] = Vfar[idim]+dV[idim];
@@ -92,7 +92,7 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
 //------------------------------------------------------------------------------
 template<int dim>
 void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
-                                double* Ub, double* Ufar, double phi, double* Vinter1,
+                                double* Ub, double* Ufar, int fluidId, double* Vinter1,
 				double* Vinter2, int* tet, int* mask,
 				SVec<double,dim> &Ubc, SVec<double,3> &X, int i,
                                 int *locToGlobNodeMap)
@@ -106,8 +106,8 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
   double Vextra[dim];
   double dV[dim];
 
-  vf->conservativeToPrimitive(Ufar,Vfar, phi);
-  double cb = vf->computeSoundSpeed(Vfar, phi);
+  vf->conservativeToPrimitive(Ufar,Vfar, fluidId);
+  double cb = vf->computeSoundSpeed(Vfar, fluidId);
   double unb = Vfar[1]*n[0] + Vfar[2]*n[1] + Vfar[3]*n[2];
 
   chooseExtrapolation(dim, unb, tet, mask, Vinter1, Vinter2, Vinter);
@@ -123,14 +123,14 @@ void InletNode::computeZeroExtrapolation(VarFcn* vf, bool flag, Vec3D& normal,
       for(int j = 0;  j<dim; j++)
         Ubc[node][j]=0.0;
   }else{
-    vf->extrapolateBoundaryPrimitive(unb, cb, Vfar, Vinter, Vextra, phi);
-    //vf->extrapolateBoundaryCharacteristic(n,unb,cb,Vfar,dV,phi);
+    vf->extrapolatePrimitive(unb, cb, Vfar, Vinter, Vextra, fluidId);
+    //vf->extrapolateBoundaryCharacteristic(n,unb,cb,Vfar,dV,fluidId);
     //for (int idim=0; idim<dim; idim++)
     //  Vextra[idim] = Vfar[idim]+dV[idim];
     if(!locToGlobNodeMap){
-      vf->primitiveToConservative(Vextra, Ubc[i], phi);
+      vf->primitiveToConservative(Vextra, Ubc[i], fluidId);
     }else{
-       vf->primitiveToConservative(Vextra, Ubc[node], phi);
+       vf->primitiveToConservative(Vextra, Ubc[node], fluidId);
     }
   }
 }
@@ -192,7 +192,7 @@ void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, ElemSet &e
 //------------------------------------------------------------------------------
 template<int dim>
 void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, ElemSet &elems, SVec<double,dim>&V,
-                                Vec<double> &Phi, BcData<dim>& bcData, GeoState& geoState,
+                                Vec<int> &fluidId, BcData<dim>& bcData, GeoState& geoState,
                                 SVec<double,dim>& rhs, SVec<double,3>& X, int* locToGlobNodeMap)
 {
 // This routine is for LevelSet method
@@ -214,7 +214,7 @@ void InletNodeSet::recomputeRHS(VarFcn* vf, Extrapolation<dim>* xpol, ElemSet &e
   for ( int i=0; i<numInletNodes; i++){
     node = inletNodes[i].getNodeNum();
     xpol->computeFaceInterpolation(i, master, node, elems, Ufar, V, Vinter1, Vinter2, LinTet, locToGlobNodeMap, X);
-    inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], Phi[node], Vinter1, 
+    inletNodes[i].computeZeroExtrapolation(vf, master, n[i], Ub[i], Ufar[node], fluidId[node], Vinter1, 
 					   Vinter2, LinTet, maskLinear, rhs, X, i, locToGlobNodeMap);
     inletNodes[i].computeDifference(vf, V, rhs);
   }

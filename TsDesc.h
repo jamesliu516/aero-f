@@ -64,7 +64,7 @@ protected:
   DistSVec<double,dim> *R;
   DistSVec<double,dim> *Rinlet;
   DistSVec<double,dim> *Rreal;
-
+  DistVec<int> fluidId; //material Id. = 0 for single-phase flow.
   RefVal *refVal;
   VarFcn *varFcn;
 

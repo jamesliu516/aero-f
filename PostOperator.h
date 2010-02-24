@@ -91,19 +91,19 @@ public:
 
   void computeNodalForce(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			 DistVec<double> &, DistSVec<double,3> &,
-			 DistVec<double> * = 0);
+			 DistVec<int> * = 0);
 
   void computeNodalHeatPower(DistSVec<double,3> &, DistSVec<double,dim> &, 
 			     DistVec<double> &);
   void computeNodalHeatFluxRelatedValues(DistSVec<double,3> &, DistSVec<double,dim> &,
                                                DistVec<double> &, bool includeKappa);
   void computeForceAndMoment(Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
-                             DistVec<double> *,
+                             DistVec<int> *,
 			     Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0, 
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
   void computeForceAndMoment(DistExactRiemannSolver<dim>&, 
                              Vec3D &, DistSVec<double,3> &, DistSVec<double,dim> &,
-                             DistVec<double> *,
+                             DistVec<int> *,
                              Vec3D *, Vec3D *, Vec3D *, Vec3D *, int = 0,
                              VecSet< DistSVec<double,3> > *mX = 0, Vec<double> *genCF = 0);
 
@@ -117,16 +117,17 @@ public:
                              DistVec<double> &, DistTimeState<dim> *);
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
                              DistSVec<double,dim> &, DistVec<double> &,
-                             DistVec<double> &, DistTimeState<dim> *, DistVec<double> &);
+                             DistVec<double> &, DistTimeState<dim> *,
+                             DistVec<double> &, DistVec<int> &);
    void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
                              DistSVec<double,dim> &, DistVec<double> &,
-                             DistVec<double> &);
+                             DistVec<double> &, DistVec<int> &);
 
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistSVec<double,3> &);
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
-                             DistSVec<double,dim> &, DistSVec<double,3> &, DistVec<double> &);
+                             DistSVec<double,dim> &, DistSVec<double,3> &, DistVec<int> &);
   void computeForceDerivs(DistSVec<double,3> &, DistSVec<double,dim> &,
                           DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);
 

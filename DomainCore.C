@@ -97,7 +97,6 @@ Domain::Domain()
   embedCom = allCom[EMBED_ID];
 
   meshMotionBCs = 0; //HB
-
 }
 
 //------------------------------------------------------------------------------
@@ -1107,7 +1106,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
-void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistFluidTypeCriterion &ft,
+void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
                                         DistSVec<double,6> &R)
 {
 
@@ -1117,7 +1116,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistFluidTy
 
 #pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), ft(iSub), (*count)(iSub), R(iSub));
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub));
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }

@@ -37,11 +37,16 @@ public:
   virtual void evaluateLS(int, DistSVec<double,3> &, DistVec<double> &,
                           DistVec<double> &, DistVec<double> &, DistVec<double> &,
                           DistVec<double> &, DistSVec<double,dim> &,
-                          DistVec<double> &) { };
+                          DistVec<double> &, DistVec<int> &) { };
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
-			                  DistSVec<double,dim> &, DistVec<double> &,
+                        DistSVec<double,dim> &, DistVec<double> &,
                         DistExactRiemannSolver<dim> *,  
-                        DistSVec<double,dim> &)  { };
+                        DistSVec<double,dim> &)  {fprintf(stderr,"Not implemented!\n");};
+
+  virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+                        DistSVec<double,dim> &, DistVec<double> &, DistVec<int> &,
+                        DistExactRiemannSolver<dim> *,  
+                        DistSVec<double,dim> &)  {fprintf(stderr,"Not implemented!\n");};
 
   virtual void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
@@ -85,6 +90,7 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   DistSVec<double,neq> F;
 
   DistVec<double> *Phi;
+  DistVec<int> *fluidId;
   DistExactRiemannSolver<dim> *Riemann;
 
   Communicator *com;
@@ -110,7 +116,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                     DistSVec<double,dim> &, DistVec<double> &,
+                     DistSVec<double,dim> &, DistVec<double> &, DistVec<int> &,
                      DistExactRiemannSolver<dim> *, 
                      DistSVec<double,dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -160,7 +166,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistVec<double> &,
+                DistSVec<double,dim> &, DistVec<double> &, DistVec<int> &,
                 DistExactRiemannSolver<dim> *, 
                 DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &);
@@ -244,7 +250,9 @@ public:
                 DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
+                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, DistVec<int> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
 
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
@@ -321,11 +329,12 @@ public:
                                                                                                                       
   GenMat<Scalar,neq> &operator() (int i) { return *A[i]; }
                                                                                                                       
-  void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
                 DistSVec<double,dim> &, DistSVec<double,dim> &) { };
   void evaluateLS(int, DistSVec<double,3> &, DistVec<double> &,
                 DistVec<double> &, DistVec<double> &, DistVec<double> &,
-                DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
+                DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &,
+                DistVec<int> &);
                                                                                                                       
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &) { };
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) { };

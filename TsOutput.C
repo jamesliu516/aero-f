@@ -1183,7 +1183,7 @@ template<int dim>
 void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
                                       bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
 				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1218,9 +1218,9 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 
   if (forces || tavforces)  {
     Vec3D rVec = x0;
-    // if single-phase flow -- Phi is a null pointer
-    // if multi-phase flow  -- Phi points to a DistVec<double>
-    postOp->computeForceAndMoment(riemann, rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+    // if single-phase flow -- fluidId is a null pointer
+    // if multi-phase flow  -- fluidId points to a DistVec<int>
+    postOp->computeForceAndMoment(riemann, rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
     if(mX != 0) 
       com->globalSum(GF.size(), GF.data());
 
@@ -1318,7 +1318,7 @@ void TsOutput<dim>::writeForcesToDisk(DistExactRiemannSolver<dim> &riemann,
 template<int dim>
 void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
 				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1353,9 +1353,9 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
 
   if (forces || tavforces)  {
     Vec3D rVec = x0;
-    // if single-phase flow -- Phi is a null pointer
-    // if multi-phase flow  -- Phi points to a DistVec<double>
-    postOp->computeForceAndMoment(rVec, X, U, Phi, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
+    // if single-phase flow -- fluidId is a null pointer
+    // if multi-phase flow  -- fluidId points to a DistVec<int>
+    postOp->computeForceAndMoment(rVec, X, U, fluidId, Fi, Mi, Fv, Mv, 0, mX, mX ? &GF: 0);    
     if(mX != 0) 
       com->globalSum(GF.size(), GF.data());
 
@@ -1468,7 +1468,7 @@ void TsOutput<dim>::writeDerivativeOfForcesToDisk(int it, int actvar, Vec3D & F,
 template<int dim>
 void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
 				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1484,12 +1484,12 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 
   double time = refVal->time * t;
 
-  // if single-phase flow -- Phi is a null pointer
-  // if multi-phase flow  -- Phi points to a DistVec<double>
+  // if single-phase flow -- fluidId is a null pointer
+  // if multi-phase flow  -- fluidId points to a DistVec<int>
   if (hydrostaticforces)
-    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, fluidId, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamicforces)
-    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, fluidId, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticForces[0]) {
@@ -1564,7 +1564,7 @@ void TsOutput<dim>::writeHydroForcesToDisk(bool lastIt, int it, int itSc, int it
 template<int dim>
 void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu, 
 				      double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
 {
 
 // This routine outputs both the non-averaged and time-averaged values of the lift and drag 
@@ -1593,10 +1593,10 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
     del_t = 0.0;
   }
 
-  // if single-phase flow -- Phi is a null pointer
-  // if multi-phase flow  -- Phi points to a DistVec<double>
+  // if single-phase flow -- fluidId is a null pointer
+  // if multi-phase flow  -- fluidId points to a DistVec<int>
   if (lift || tavlift)
-    postOp->computeForceAndMoment(x0, X, U, Phi, Fi, Mi, Fv, Mv);    
+    postOp->computeForceAndMoment(x0, X, U, fluidId, Fi, Mi, Fv, Mv);    
 
   double time = refVal->time * t;
 
@@ -1660,7 +1660,7 @@ void TsOutput<dim>::writeLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc,
 template<int dim>
 void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
 {
 
   int nSurfs = postOp->getNumSurf();
@@ -1676,12 +1676,12 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
 
   double time = refVal->time * t;
 
-  // if single-phase flow -- Phi is a null pointer
-  // if multi-phase flow  -- Phi points to a DistVec<double>
+  // if single-phase flow -- fluidId is a null pointer
+  // if multi-phase flow  -- fluidId  points to a DistVec<int>
   if (hydrostaticlift)
-    postOp->computeForceAndMoment(x0, X, U, Phi, FiS, MiS, FvS, MvS, 1);
+    postOp->computeForceAndMoment(x0, X, U, fluidId, FiS, MiS, FvS, MvS, 1);
   if (hydrodynamiclift)
-    postOp->computeForceAndMoment(x0, X, U, Phi, FiD, MiD, FvD, MvD, 2);
+    postOp->computeForceAndMoment(x0, X, U, fluidId, FiD, MiD, FvD, MvD, 2);
 
   int iSurf;
   if (fpHydroStaticLift[0]) {
@@ -1760,7 +1760,8 @@ void TsOutput<dim>::writeHydroLiftsToDisk(IoData &iod, bool lastIt, int it, int 
 template<int dim>
   void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistVec<double> *Phi)
+                                      DistVec<int> *fluidId)
+//TODO: fluidId (previous Phi) is not used!
 {
   int nSurfs = postOp->getNumSurfHF();
 
@@ -1925,7 +1926,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
-                                             DistTimeState<dim> *timeState, DistVec<double> &Phi)
+                                             DistTimeState<dim> *timeState, DistVec<double> &Phi,
+                                             DistVec<int> &fluidId)
 {
 
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
@@ -1948,7 +1950,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (scalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, Phi);
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, Phi, fluidId);
         DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
         domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
       }
@@ -2024,7 +2026,7 @@ template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, 
                                              DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U,
-                                             DistVec<double> &Phi)
+                                             DistVec<double> &Phi, DistVec<int> &fluidId)
 {
                                                                                                       
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
@@ -2047,7 +2049,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (scalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, *Qs, Phi);
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, *Qs, Phi, fluidId);
         DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
         domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
       }
@@ -2060,7 +2062,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
           postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
         }
         else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, Phi);
+          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
         domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
       }
     }

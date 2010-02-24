@@ -11,15 +11,22 @@ class LocalRiemann {
 
 protected:
   VarFcn *vf_;
-
+  int fluid1, fluid2;  //             fluid1 ~ phi>0           fluid2 ~ phi<0
+                       //          ~ "outside" ~ "right"    ~ "inside" ~ "left"
+                       // GasGas            Gas1                    Gas2
+                       // GasTait           Tait                    Gas
+                       // TaitTait          Tait1                   Tait2	 
+                       // JWLJWL            JWL1                    JWL2
+                       // GasJWL            Gas                     JWL
+                       // FluidStruct       Gas                     N/A
 public:
-  LocalRiemann()           { vf_ = 0; }
-  LocalRiemann(VarFcn *vf) { vf_ = vf; }
-  virtual ~LocalRiemann()  { vf_ = 0; }
+  LocalRiemann()           { vf_ = 0; fluid1 = 0; fluid2 = 1;}
+  LocalRiemann(VarFcn *vf) { vf_ = vf; fluid1 = 0; fluid2 = 1;}
+  virtual ~LocalRiemann()  { vf_ = 0; fluid1 = 0; fluid2 = 1;}
 
   // multiphase Riemann problem
   virtual void computeRiemannSolution(double *Vi, double *Vj,
-                            double Phii, double Phij, double *nphi,
+                            int IDi, int IDj, double *nphi,
                             int &epsi, int &epsj, double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj, 
@@ -130,7 +137,8 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
                    double &du, double &dp, 
                    MultiFluidData::RiemannComputation type, int flag){
 
-  double entropy = vf_->computeEntropy(1.0/v1,p1, phi);
+  int myFluidId = (phi>0) ? fluid1 : fluid2;
+  double entropy = vf_->computeEntropy(1.0/v1,p1, myFluidId);
   double *in = 0;
   double res1[1] = {0.0};
   if(type == MultiFluidData::FE){
@@ -154,8 +162,8 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
   }
 
   u = u1 - phi*(res2[0]-res1[0]);
-  p = vf_->computeIsentropicPressure(entropy, 1.0/v, phi);
-  double c = vf_->computeSoundSpeed(1.0/v, entropy, phi);
+  p = vf_->computeIsentropicPressure(entropy, 1.0/v, myFluidId);
+  double c = vf_->computeSoundSpeed(1.0/v, entropy, myFluidId);
   du = -phi*c/v;
   dp = -c*c/(v*v);
   if (flag>0 && c<= 0.0) fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e\n", c,u,p,du,dp);
@@ -171,11 +179,12 @@ void LocalRiemannGfmpar::riemannInvariantGeneral1stOrder(double *in, double *res
 // res is the output result and contains the variation of velocity
 // integrates an ODE with first order integration
 
+  int myFluidId = (phi>0) ? fluid1 : fluid2;
   res[0] = 0.0;
   int N  = 5000;
   double density = in[2]; double entropy = in[1];
   double ddensity = (in[0] - in[2])/N;
-  double c = vf_->computeSoundSpeed(density,entropy,*phi);
+  double c = vf_->computeSoundSpeed(density,entropy,myFluidId);
 
   bool continueCondition = true;
   int it=0;
@@ -184,7 +193,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral1stOrder(double *in, double *res
     density  += ddensity;
     if(ddensity>0.0) density = density>in[0] ? in[0] : density;
     else             density = density<in[0] ? in[0] : density;
-    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
     if(ddensity>0.0)
       continueCondition = (density<in[0]-ddensity/2.0);
     else continueCondition = (density>in[0]-ddensity/2.0);
@@ -202,17 +211,18 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
 // in contains density and entropy and density
 // res is the output result and contains the variation of velocity
 // integrates an ODE with second order integration (Mid-Point Rule)
+  int myFluidId = (phi>0) ? fluid1 : fluid2;
   res[0] = 0.0;
   int N  = 2000;
   double density = in[2]; double entropy = in[1];
   double ddensity = (in[0] - in[2])/N;
-  double c = vf_->computeSoundSpeed(density,entropy,*phi);
+  double c = vf_->computeSoundSpeed(density,entropy,myFluidId);
 
   bool continueCondition = true;
   int it=0;
   while(continueCondition){
     density += 0.5*ddensity;
-    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
     res[0] -= c/density*ddensity;
     density += 0.5*ddensity;
 
@@ -230,7 +240,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
     if(ddensity>0.0) density = density>in[0] ? in[0] : density;
     else             density = density<in[0] ? in[0] : density;
     //advance by second half density-step
-    c = vf_->computeSoundSpeed(density,entropy,*phi);
+    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
     res[0] -= c/density*ddensity/2.0;
 
     if(ddensity>0.0)
