@@ -106,7 +106,7 @@ void EdgeSet::updateLength(SVec<double,3>& X)
 int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarFcn *vf, 
 				int *locToGlobNodeMap, int failsafe, SVec<int,2>& tag,
                                 double *originalVi, double *originalVj,
-                                double phii, double phij)
+                                int IDi, int IDj)
 {
 
   double rho = 0.0;
@@ -129,32 +129,30 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
   int ierr = 0;
 
   rho = vf->getDensity(Vi);
-  p   = vf->checkPressure(Vi,phii);
-
-
+  p   = vf->checkPressure(Vi,IDi);
 
   if (rho <= 0.0) {
     if(!failsafe){
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
+          rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
       ++ierr;
     }
     else {
-      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-           rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
+           rho, locToGlobNodeMap[i]+1, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
       tag[i][0] = 1;
       ++ierr;
     }
   }
   if (p <= 0.0) {
     if(!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
+             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
       ++ierr;
     }
     else {
-     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, phii, locToGlobNodeMap[j]+1, phij);
+     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
+             p, locToGlobNodeMap[i]+1 , rho, locToGlobNodeMap[i]+1, IDi, locToGlobNodeMap[j]+1, IDj);
      tag[i][0] = 1;
       ++ierr;
     }
@@ -163,30 +161,30 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
 
   rho = vf->getDensity(Vj);
-  p   = vf->checkPressure(Vj,phij);
+  p   = vf->checkPressure(Vj,IDj);
 
   if (rho <= 0.0) {
     if(!failsafe){
-      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      fprintf(stderr, "*** Error: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
+          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
       ++ierr;
     }
     else {
-      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%e) -> %d(%e)\n",
-          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      fprintf(stderr, "*** Warning: negative density (%e) for node %d after reconstruction on edge %d(%d) -> %d(%d)\n",
+          rho, locToGlobNodeMap[j]+1, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
       tag[j][0] = 1;
       ++ierr;
     }
   }
   if (p <= 0.0) {
     if(!failsafe) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
+             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
       ++ierr;
     }
     else {
-     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%e) -> %d(%e)\n",
-             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, phij, locToGlobNodeMap[i]+1, phii);
+     fprintf(stderr, "*** Warning: negative pressure (%e) for node %d (rho = %e) after reconstruction on edge %d(%d) -> %d(%d)\n",
+             p, locToGlobNodeMap[j]+1 , rho, locToGlobNodeMap[j]+1, IDj, locToGlobNodeMap[i]+1, IDi);
      tag[j][0] = 1;
       ++ierr;
     }

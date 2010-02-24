@@ -2,7 +2,6 @@
 #define _FLUX_FCN_DESC_H_
 
 #include <FluxFcn.h>
-#include <VarFcnDesc.h>
 #include <IoData.h>
 #include <LowMachPrec.h>
 
@@ -792,5 +791,4 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-
 #endif

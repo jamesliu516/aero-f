@@ -579,7 +579,7 @@ public:
   template<int dim>
   void computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normal, Vec<double> &normalVel,
 		       SVec<double,dim> &V, Vec<double> &dt, 
-		       TimeLowMachPrec &tprec, Vec<double> &Phi);
+		       TimeLowMachPrec &tprec, Vec<int> &fluidId);
 
   template<int dim>
   void computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
@@ -601,13 +601,13 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
-			       double *Ub, Vec<double> &Phi, 
+			       double *Ub, Vec<int> &fluidId, 
 			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
-			       double *Ub, Vec<double> &Phi, 
+			       double *Ub, Vec<int> &fluidId, 
 			       SVec<double,dim> &fluxes);
 
   template<int dim>
@@ -633,13 +633,13 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 				       Vec<double> &normalVel, SVec<double,dim> &V, 
-				       double *Ub, GenMat<Scalar,neq> &A, Vec<double> &Phi);
+				       double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				       Vec<double> &normalVel, SVec<double,dim> &V,
-				       double *Ub, GenMat<Scalar,neq> &A, Vec<double> &Phi,
-                                       int* nodeType);
+				       double *Ub, GenMat<Scalar,neq> &A, 
+                                       Vec<int> &fluidId, int* nodeType);
 
   template<int dim, class Scalar>
   void computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normal,
@@ -983,7 +983,7 @@ public:
 
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<double> &);
+                       TimeLowMachPrec &, Vec<int> &);
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, 
 		       SVec<double,3> &, SVec<double,dim> &, Vec<double> &,
@@ -1000,13 +1000,13 @@ public:
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
-			       SVec<double,dim> &, Vec<double> &, 
+			       SVec<double,dim> &, Vec<int> &, 
                                SVec<double,dim> &, SVec<double,dim> *);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &,  
-                               SVec<double,dim> &, Vec<double> &);
+                               SVec<double,dim> &, Vec<int> &);
 
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &, 
@@ -1031,12 +1031,12 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 				       SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<double> &);
+                                       Vec<int> &);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
-                                       SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<double> &, int*);
+                                       SVec<double,dim> &, GenMat<Scalar,neq> &, 
+                                       Vec<int> &, int*);
 
   template<int dim, class Scalar>
   void computeJacobianFiniteVolumeTermLS(GeoState &, 

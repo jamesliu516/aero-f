@@ -13,7 +13,6 @@ using std::sort;
 #include <VectorSet.h>
 #include <MatVecProd.h>
 #include <Timer.h>
-#include <VarFcnDesc.h>
 #include <DistBcData.h>
 #include <DistGeoState.h>
 #include <DistTimeState.h>
@@ -342,7 +341,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   double t0;
 
   DistSVec<double,dim> FF(domain.getNodeDistInfo());
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
   spaceOp->computeResidual(Xref, controlVol, Uref, FF, tState);
 
   // basic initializations
@@ -641,7 +640,7 @@ void
 ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ecMat, VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs, int nSteps, int nPodVecs, double *delU, double *delY, double sdt)  {
 
 #ifdef DO_MODAL
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
 
   // basic initializations
   DistSVec<double,3> deltmp(domain.getNodeDistInfo());
@@ -913,7 +912,7 @@ template<int dim>
 void ModalSolver<dim>::preProcess()  {
 
   // setup solvers
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcn(*ioData); //TODO: check this (and several others)! 
   geoState = new DistGeoState(*ioData, &domain);
   geoState->setup1(tInput->positions, &Xref, &controlVol);
   bcData = new DistBcDataEuler<dim>(*ioData, varFcn, &domain, Xref);
@@ -1223,7 +1222,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
   DistSVec<double,dim> FF(domain.getNodeDistInfo());
 
   // Allocate ROM operators
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcnSGEuler(ioData->eqs.fluidModel); 
   MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
   onlyHOp->evalH(0, Xref, controlVol, Uref);
 
@@ -2433,7 +2432,7 @@ template<int dim>
 void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs)  {
 
   // Allocate ROM operators
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
   MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
   onlyHOp->evalH(0, Xref, controlVol, Uref);
 
@@ -2488,7 +2487,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
                        VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs)  {
 
   // Allocate ROM operators
-  VarFcn *varFcn = new VarFcnPerfectGasEuler3D(*ioData); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
   MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
   onlyHOp->evalH(0, Xref, controlVol, Uref);
 

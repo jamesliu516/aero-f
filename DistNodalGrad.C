@@ -591,13 +591,13 @@ void DistNodalGrad<dim, Scalar>::computeDerivative(int configSA, DistSVec<double
 template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
-                                 DistVec<double> &ctrlVol, DistFluidTypeCriterion &crit,
+                                 DistVec<double> &ctrlVol, DistVec<int> &fluidId,
                                  DistSVec<Scalar2, dim> &V, bool linFSI)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  domain->computeWeightsLeastSquares(X, crit, *R);
-  domain->computeGradientsLeastSquares(X, crit, *R, V, *ddx, *ddy, *ddz, linFSI);
+  domain->computeWeightsLeastSquares(X, fluidId, *R);
+  domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI);
 
 }
 

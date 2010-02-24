@@ -5,9 +5,9 @@
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescPerfectGas.h>
 #include <FluxFcnDescJWL.h>
-#include <FluxFcnDescGasInGas.h>
-#include <FluxFcnDescLiquidInLiquid.h>
-#include <FluxFcnDescGasInLiquid.h>
+//#include <FluxFcnDescGasInGas.h>
+//#include <FluxFcnDescLiquidInLiquid.h>
+//#include <FluxFcnDescGasInLiquid.h>
 #include <FemEquationTermDesc.h>
 #include <DistTimeState.h>
 #include <GeoSource.h>

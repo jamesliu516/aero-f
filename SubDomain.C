@@ -11,9 +11,9 @@ using std::max;
 
 #include <FluxFcnDescPerfectGas.h>
 #include <FluxFcnDescWaterCompressible.h>
-#include <FluxFcnDescGasInGas.h>
-#include <FluxFcnDescLiquidInLiquid.h>
-#include <FluxFcnDescGasInLiquid.h>
+//#include <FluxFcnDescGasInGas.h>
+//#include <FluxFcnDescLiquidInLiquid.h>
+//#include <FluxFcnDescGasInLiquid.h>
 #include <RecFcn.h>
 #include <MacroCell.h>
 #include <VMSLESTerm.h>
@@ -93,13 +93,13 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
                                 SVec<double,dim> &V, Vec<double> &dt,
 				Vec<double> &idti, Vec<double> &idtv,
                                 TimeLowMachPrec &tprec,
-				Vec<double> &Phi)
+				Vec<int> &fluidId)
 {
 
   dt = 0.0;
 
-  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi, globSubNum);
-  faces.computeTimeStep(varFcn, geoState, V, dt, tprec, Phi);
+  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum);
+  faces.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId);
 
 }
 
@@ -218,7 +218,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
 // least square gradient involving only nodes of same fluid (multiphase flow and FSI)
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
-                const FluidTypeCriterion &Phi, SVec<double,6> &R,
+                const Vec<int> &fluidId, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
                 bool linRecFSI = true)  {
@@ -237,8 +237,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    //if( !(Phi[i]*Phi[j]>0.0)) continue;
-    if(!Phi.isSameFluid(i,j)) continue;
+    if(fluidId[i]!=fluidId[j]) continue;
 
     double Wi[3], Wj[3];
     Scalar deltaVar;
@@ -279,7 +278,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
 
-      if (!Phi.isSameFluid(i,j))
+      if (fluidId[i]!=fluidId[j])
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
     }
@@ -819,7 +818,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
-                                       Vec<double> &Phi,
+                                       Vec<int> &fluidId,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        NodalGrad<1>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
@@ -828,11 +827,11 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, Phi,
+                                           recFcn, elems, geoState, X, V, fluidId,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            interfaceFlux, tag, failsafe, rshift);
 
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, Phi, fluxes, bcFlux);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, bcFlux);
 
   return ierr;
 
@@ -870,17 +869,17 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-                                       LevelSetStructure &LSS, Vec<double> &nodeTag,
+                                       LevelSetStructure &LSS, Vec<int> &fluidId,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, nodeTag,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, fluidId,
                                            ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, nodeTag, fluxes); 
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes); 
   return ierr;
 
 }
@@ -987,11 +986,11 @@ void SubDomain::recomputeRHS(VarFcn* vf, SVec<double,dim>& V, SVec<double,dim>& 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::recomputeRHS(VarFcn* vf, SVec<double,dim>& V, Vec<double> &Phi,
+void SubDomain::recomputeRHS(VarFcn* vf, SVec<double,dim>& V, Vec<int> &fluidId,
                             SVec<double,dim>& rhs, Extrapolation<dim>* xpol,
                             BcData<dim>& bcData, GeoState& geoState, SVec<double,3> &X)
 {
-  inletNodes.recomputeRHS(vf, xpol, elems, V, Phi, bcData, geoState, rhs, X, locToGlobNodeMap);
+  inletNodes.recomputeRHS(vf, xpol, elems, V, fluidId, bcData, geoState, rhs, X, locToGlobNodeMap);
 }
 
 //------------------------------------------------------------------------------
@@ -1035,14 +1034,14 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                                 NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
                                                 SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                                Vec<double> &Phi, CommPattern<double>* flag)
+                                                Vec<int> &fluidId, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidId);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, Phi, nodeType);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, Phi, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidId, nodeType);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
   }
 
   for (int i=0; i<ctrlVol.size(); ++i) {
@@ -3757,8 +3756,10 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 					  SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q)
 {
+  double phi = 1.0;
+  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], 1.0);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi, fluidId);
 }
 
 //------------------------------------------------------------------------------
@@ -3779,10 +3780,11 @@ SubDomain::computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType t
 template<int dim>
 void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &Q, int dir)
 {
-
+  double phi = 1.0;
+  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
     if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
-      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], 1.0);
+      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], phi, fluidId);
       Q[i] *= X[i][dir];
     }
   }
@@ -3794,11 +3796,11 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 template<int dim>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-					  Vec<double> &Q, Vec<double> &Phi)
+					  Vec<double> &Q, Vec<double> &phi, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], Phi[i]);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i], fluidId[i]);
 
 }
 
@@ -3918,7 +3920,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 template<int dim>
-int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &nodeTag)
+int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &fluidId)
 {
 
   int ierr = 0;
@@ -3926,9 +3928,9 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &node
   for (int i=0; i<U.size(); ++i) {
 
     double V[dim];
-    varFcn->conservativeToPrimitive(U[i], V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->checkPressure(V, (double)nodeTag[i]);
+    varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
+    double rho = varFcn->getDensity(V, fluidId[i]);
+    double p = varFcn->checkPressure(V, fluidId[i]);
 
     if (rho <= 0.0) {
       fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
@@ -3950,7 +3952,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &node
 
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,dim> &U,
-                             Vec<double> &Phi, Vec<double> &Phin)
+                             Vec<int> &fluidId, Vec<int> &fluidIdn)
 {
   int ierr = 0;
   int numclipping= 0;
@@ -3968,16 +3970,16 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d (%e - %e)\n",
-              U[i][0], locToGlobNodeMap[i] + 1, Phi[i], Phin[i]);
+        fprintf(stderr, "*** Error: negative density (%e) for node %d (%d - %d)\n",
+              U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
         ++ierr;
       }
 
-      varFcn->conservativeToPrimitive(U[i], V, Phi[i]);
-      p = varFcn->checkPressure(V, Phi[i]);
+      varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
+      p = varFcn->checkPressure(V, fluidId[i]);
       if (p < 0.0) {
-        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (%e - %e)\n",
-              p, locToGlobNodeMap[i] + 1,Phi[i], Phin[i]);
+        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (%d - %d)\n",
+              p, locToGlobNodeMap[i] + 1,fluidId[i], fluidIdn[i]);
        ++ierr;
       }
     }
@@ -3986,12 +3988,12 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%e (previously %e)\n",
-              U[i][0], locToGlobNodeMap[i] + 1, Phi[i], Phin[i]);
+        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%d (previously %d)\n",
+              U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
         ++ierr;
       }
 
-      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, Phi[i]);
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
     }
     //if (numclipping > 0) fprintf(stdout, "*** Warning: %d pressure clippings in subDomain %d\n", numclipping, globSubNum);
   }
@@ -4126,7 +4128,7 @@ int SubDomain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wty
 
 template<int dim>
 void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U,
-                  SVec<bool,2>& tag, Vec<double> *Phi)
+                  SVec<bool,2>& tag, Vec<int> *fluidId)
 {
 
   for (int i=0; i<U.size(); ++i) {
@@ -4134,14 +4136,14 @@ void SubDomain::checkFailSafe(VarFcn* varFcn, SVec<double,dim>& U,
     tag[i][1] = false;
     double V[dim];
     double rho, p;
-    if(!Phi){
+    if(!fluidId){
       varFcn->conservativeToPrimitive(U[i], V);
       rho = varFcn->getDensity(V);
       p = varFcn->getPressure(V);
     }else{
-      varFcn->conservativeToPrimitive(U[i], V, (*Phi)[i]);
-      rho = varFcn->getDensity(V);
-      p = varFcn->getPressure(V, (*Phi)[i]);
+      varFcn->conservativeToPrimitive(U[i], V, (*fluidId)[i]);
+      rho = varFcn->getDensity(V,(*fluidId)[i]);
+      p = varFcn->getPressure(V, (*fluidId)[i]);
     }
     if (rho <= 0.0 || p <= 0.0)
       tag[i][0] = true;
@@ -4727,7 +4729,7 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
 //--------------------------------------------------------------------------
 template<int dim>
 void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                               Vec<double> &weight, FluidTypeCriterion &Phi,
+                               Vec<double> &weight, Vec<int> &fluidId,
                                SVec<double,3> &X)
 {
 
@@ -4743,7 +4745,7 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
 /*
 // OPTION 1 : simple arithmetic mean extrapolation
 //    if(Phi[i]*Phi[j]<=0.0){ //at interface
-    if(!Phi.isSameFluid(i,j)){ //at interface
+    if(fluidId[i]!=fluidId[j]){ //at interface
 
       if(weight[i]<1.e-6){
         weight[i] = 1.0;
@@ -4771,7 +4773,7 @@ void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
 // OPTION 2 : selective averaged extrapolation (based on direction of the flow)
 
 //    if(Phi[i]*Phi[j]<=0.0){ //at interface
-    if(!Phi.isSameFluid(i,j)){ //at interface
+    if(fluidId[i]!=fluidId[j]){ //at interface
       double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
       double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
       double normUi2 = Vg[i][1]*Vg[i][1]+Vg[i][2]*Vg[i][2]+Vg[i][3]*Vg[i][3];
@@ -5075,7 +5077,7 @@ template<int dim>
 void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
 
   double rhoe, ptemp;
-  if(vf->getType() != VarFcn::GASINGAS && vf->getType() != VarFcn::GASINLIQUID){
+  if(0/*vf->getType() != VarFcn::GASINGAS && vf->getType() != VarFcn::GASINLIQUID*/){ //TODO: to be fixed!!!
     fprintf(stdout, "*** Error : Increasing pressure for this case is not possible right now...\n");
     exit(1);
   }

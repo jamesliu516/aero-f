@@ -2,7 +2,6 @@
 #define _FLUX_FCN_DESC_JWL_IN_GAS_H_
 
 #include <FluxFcnDesc.h>
-#include <VarFcnDesc.h>
 
 class IoData;
 //------------------------------------------------------------------------------
@@ -12,7 +11,7 @@ class FluxFcnJWLInGasFDJacRoeEuler3D : public FluxFcnFDJacRoeEuler3D {
 public:
 
   FluxFcnJWLInGasFDJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeEuler3D(ioData, gg, new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnFDJacRoeEuler3D(ioData, gg, 0, tp) {}
   ~FluxFcnJWLInGasFDJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -30,7 +29,7 @@ class FluxFcnJWLInGasApprJacRoeEuler3D : public FluxFcnApprJacRoeEuler3D {
 public:
 
   FluxFcnJWLInGasApprJacRoeEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, 0, tp) {}
   ~FluxFcnJWLInGasApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -49,7 +48,7 @@ class FluxFcnJWLInGasExactJacRoeEuler3D : public FluxFcnExactJacRoeEuler3D {
 public:
 
   FluxFcnJWLInGasExactJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnExactJacRoeEuler3D(gg, new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnExactJacRoeEuler3D(gg, 0, tp) {}
   ~FluxFcnJWLInGasExactJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -68,7 +67,7 @@ class FluxFcnJWLInGasVanLeerEuler3D : public FluxFcnVanLeerEuler3D {
 public:
 
   FluxFcnJWLInGasVanLeerEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnVanLeerEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnVanLeerEuler3D(0, tp) {}
   ~FluxFcnJWLInGasVanLeerEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -86,7 +85,7 @@ class FluxFcnJWLInGasWallEuler3D : public FluxFcnWallEuler3D {
 
 public:
   FluxFcnJWLInGasWallEuler3D(IoData &ioData, Type tp=CONSERVATIVE) :
-    FluxFcnWallEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnWallEuler3D(0, tp) {}
   ~FluxFcnJWLInGasWallEuler3D() {}
   
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -104,7 +103,7 @@ class FluxFcnJWLInGasGhidagliaEuler3D : public FluxFcnGhidagliaEuler3D {
 public:
 
   FluxFcnJWLInGasGhidagliaEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnGhidagliaEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnGhidagliaEuler3D(0, tp) {}
   ~FluxFcnJWLInGasGhidagliaEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -122,7 +121,7 @@ class FluxFcnJWLInGasInflowEuler3D : public FluxFcnInflowEuler3D {
 public:
 
   FluxFcnJWLInGasInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInflowEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnInflowEuler3D(0, tp) {}
   ~FluxFcnJWLInGasInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -140,7 +139,7 @@ class FluxFcnJWLInGasInternalInflowEuler3D : public FluxFcnInternalInflowEuler3D
 public:
 
   FluxFcnJWLInGasInternalInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalInflowEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnInternalInflowEuler3D(0, tp) {}
   ~FluxFcnJWLInGasInternalInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -159,7 +158,7 @@ class FluxFcnJWLInGasOutflowEuler3D : public FluxFcnOutflowEuler3D {
 public:
 
   FluxFcnJWLInGasOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnOutflowEuler3D(0, tp) {}
   ~FluxFcnJWLInGasOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -177,7 +176,7 @@ class FluxFcnJWLInGasInternalOutflowEuler3D : public FluxFcnInternalOutflowEuler
 public:
 
   FluxFcnJWLInGasInternalOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalOutflowEuler3D(new VarFcnJWLInGasEuler3D(ioData), tp) {}
+    FluxFcnInternalOutflowEuler3D(0, tp) {}
   ~FluxFcnJWLInGasInternalOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);

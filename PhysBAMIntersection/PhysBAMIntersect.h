@@ -53,6 +53,9 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec<Vec3D> *solidXn;
     Vec<Vec3D> *solidX0;
 
+    DistVec<int> *status;
+    DistVec<int> *status0;
+
     Vec3D *triNorms;
     double *triSize;
     Communicator *com;
@@ -94,6 +97,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition() { return *solidX; }
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
+    DistVec<int> &getStatus() { return *status; }
     int getNumStructNodes () { return length_solids_particle_list; }
 };
 
@@ -111,8 +115,8 @@ class PhysBAMIntersector : public LevelSetStructure {
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
     DistPhysBAMIntersector &distIntersector;
-    Vec<int> status; //<! Whether a node is inside the fluid domain or not
-    Vec<int> status0; //<! status at the previous time-step.
+    Vec<int> &status; //<! Whether a node is inside the fluid domain or not
+    Vec<int> &status0; //<! status at the previous time-step.
     EdgeSet &edges;
     int nFirstLayer;
 
@@ -124,7 +128,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
 
   public:
-    PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, DistPhysBAMIntersector &);
+    PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistPhysBAMIntersector &);
     void reset(); //<! set status0=status and reset status and nFirstLayer.
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure

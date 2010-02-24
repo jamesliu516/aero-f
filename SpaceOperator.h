@@ -6,6 +6,7 @@
 typedef std::complex<double> bcomp;
 
 class VarFcn;
+class FluidSelector;
 class BcFcn;
 class RecFcn;
 class FluxFcn;
@@ -70,6 +71,7 @@ private:
   RecFcn *recFcnLS;
   DistNodalGrad<dim, double> *ngrad;
   DistNodalGrad<1, double> *ngradLS;
+  FluidSelector *fluidSelector;
   DistNodalGrad<dim, bcomp> *compNodalGrad;
 
   DistEdgeGrad<dim> *egrad;
@@ -141,7 +143,7 @@ public:
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &,
+                       DistVec<int> &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it,
                        DistSVec<double,dim> * = 0,
                        DistSVec<double,dim> * = 0);
@@ -155,14 +157,14 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
-                       DistVec<double> &, DistSVec<double,dim> &,
+                       DistVec<int> &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it = 0);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
 
   void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
-                         DistVec<double> &Phi, DistSVec<double,dim> *Vgf, 
+                         DistVec<int> &fluidId, DistSVec<double,dim> *Vgf, 
                          DistVec<double> *weight, DistSVec<double,3> &X);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -191,7 +193,7 @@ public:
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
                                      DistSVec<double,dim> &);
   void recomputeRHS(DistSVec<double,3> &, DistSVec<double,dim> &,
-                    DistVec<double> &, DistSVec<double,dim> &);
+                    DistVec<int> &, DistSVec<double,dim> &);
 
 
   void computePostOpDVMS(DistSVec<double,3> &, DistVec<double> &,
@@ -206,7 +208,7 @@ public:
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                       DistVec<double> &, DistExactRiemannSolver<dim> *);
+                       DistVec<int> &, DistExactRiemannSolver<dim> *);
 
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);

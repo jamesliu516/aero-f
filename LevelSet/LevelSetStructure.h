@@ -85,6 +85,8 @@ class DistLevelSetStructure {
     virtual Vec3D getTotalForce(const double pref);
 
     virtual DistVec<double> &getPhi();
+    virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
+
     virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;
     virtual void recompute(double dtf, double dtfLeft, double dts) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;

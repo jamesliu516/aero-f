@@ -2,7 +2,7 @@
 #define _FLUX_FCN_DESC_PERFECT_GAS_H_
 
 #include <FluxFcnDesc.h>
-#include <VarFcnDesc.h>
+#include <VarFcn.h>
 
 class IoData;
 //------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ class FluxFcnPerfectGasFDJacRoeEuler3D : public FluxFcnFDJacRoeEuler3D {
 public:
 
   FluxFcnPerfectGasFDJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeEuler3D(ioData, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnFDJacRoeEuler3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -30,7 +30,7 @@ class FluxFcnPerfectGasApprJacRoeEuler3D : public FluxFcnApprJacRoeEuler3D {
 public:
 
   FluxFcnPerfectGasApprJacRoeEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnApprJacRoeEuler3D(ioData, rs, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -49,7 +49,7 @@ class FluxFcnPerfectGasExactJacRoeEuler3D : public FluxFcnExactJacRoeEuler3D {
 public:
 
   FluxFcnPerfectGasExactJacRoeEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnExactJacRoeEuler3D(gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnExactJacRoeEuler3D(gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasExactJacRoeEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -68,7 +68,7 @@ class FluxFcnPerfectGasFDJacHLLEEuler3D : public FluxFcnFDJacHLLEEuler3D {
 public:
 
   FluxFcnPerfectGasFDJacHLLEEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacHLLEEuler3D(ioData, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnFDJacHLLEEuler3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacHLLEEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -86,7 +86,7 @@ class FluxFcnPerfectGasApprJacHLLEEuler3D : public FluxFcnApprJacHLLEEuler3D {
 public:
 
   FluxFcnPerfectGasApprJacHLLEEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacHLLEEuler3D(ioData, rs, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnApprJacHLLEEuler3D(ioData, rs, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacHLLEEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -105,7 +105,7 @@ class FluxFcnPerfectGasFDJacHLLCEuler3D : public FluxFcnFDJacHLLCEuler3D {
 public:
 
   FluxFcnPerfectGasFDJacHLLCEuler3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacHLLCEuler3D(ioData, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnFDJacHLLCEuler3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacHLLCEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -123,7 +123,7 @@ class FluxFcnPerfectGasApprJacHLLCEuler3D : public FluxFcnApprJacHLLCEuler3D {
 public:
 
   FluxFcnPerfectGasApprJacHLLCEuler3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacHLLCEuler3D(ioData, rs, gg, new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnApprJacHLLCEuler3D(ioData, rs, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacHLLCEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -141,7 +141,7 @@ class FluxFcnPerfectGasVanLeerEuler3D : public FluxFcnVanLeerEuler3D {
 public:
 
   FluxFcnPerfectGasVanLeerEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnVanLeerEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnVanLeerEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasVanLeerEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -159,7 +159,7 @@ class FluxFcnPerfectGasWallEuler3D : public FluxFcnWallEuler3D {
 
 public:
   FluxFcnPerfectGasWallEuler3D(IoData &ioData, Type tp=CONSERVATIVE) :
-    FluxFcnWallEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnWallEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasWallEuler3D() {}
   
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -177,7 +177,7 @@ class FluxFcnPerfectGasGhidagliaEuler3D : public FluxFcnGhidagliaEuler3D {
 public:
 
   FluxFcnPerfectGasGhidagliaEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnGhidagliaEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnGhidagliaEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasGhidagliaEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -195,7 +195,7 @@ class FluxFcnPerfectGasInflowEuler3D : public FluxFcnInflowEuler3D {
 public:
 
   FluxFcnPerfectGasInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnInflowEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -213,7 +213,7 @@ class FluxFcnPerfectGasInternalInflowEuler3D : public FluxFcnInternalInflowEuler
 public:
 
   FluxFcnPerfectGasInternalInflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalInflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnInternalInflowEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -232,7 +232,7 @@ class FluxFcnPerfectGasOutflowEuler3D : public FluxFcnOutflowEuler3D {
 public:
 
   FluxFcnPerfectGasOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnOutflowEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -250,7 +250,7 @@ class FluxFcnPerfectGasInternalOutflowEuler3D : public FluxFcnInternalOutflowEul
 public:
 
   FluxFcnPerfectGasInternalOutflowEuler3D(IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnInternalOutflowEuler3D(new VarFcnPerfectGasEuler3D(ioData), tp) {}
+    FluxFcnInternalOutflowEuler3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowEuler3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -286,7 +286,7 @@ class FluxFcnPerfectGasFDJacRoeSA3D : public FluxFcnFDJacRoeSA3D {
  public:
   
   FluxFcnPerfectGasFDJacRoeSA3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeSA3D(ioData, gg, new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnFDJacRoeSA3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -304,7 +304,7 @@ class FluxFcnPerfectGasApprJacRoeSA3D : public FluxFcnApprJacRoeSA3D {
 public:
 
   FluxFcnPerfectGasApprJacRoeSA3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) : 
-    FluxFcnApprJacRoeSA3D(ioData, rs,gg, new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnApprJacRoeSA3D(ioData, rs,gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacRoeSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -323,7 +323,7 @@ class FluxFcnPerfectGasExactJacRoeSA3D : public FluxFcnExactJacRoeSA3D {
 public:
 
   FluxFcnPerfectGasExactJacRoeSA3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnExactJacRoeSA3D(gg, new VarFcnPerfectGasSA3D(ioData), tp) { }
+    FluxFcnExactJacRoeSA3D(gg, new VarFcn(ioData), tp) { }
   ~FluxFcnPerfectGasExactJacRoeSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -342,7 +342,7 @@ class FluxFcnPerfectGasFDJacHLLESA3D : public FluxFcnFDJacHLLESA3D {
  public:
 
   FluxFcnPerfectGasFDJacHLLESA3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-  FluxFcnFDJacHLLESA3D(ioData, gg, new VarFcnPerfectGasSA3D(ioData), tp) {}
+  FluxFcnFDJacHLLESA3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacHLLESA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -360,7 +360,7 @@ class FluxFcnPerfectGasApprJacHLLESA3D : public FluxFcnApprJacHLLESA3D {
 public:
 
   FluxFcnPerfectGasApprJacHLLESA3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-  FluxFcnApprJacHLLESA3D(ioData, rs,gg, new VarFcnPerfectGasSA3D(ioData), tp) {}
+  FluxFcnApprJacHLLESA3D(ioData, rs,gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasApprJacHLLESA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -379,7 +379,7 @@ class FluxFcnPerfectGasWallSA3D : public FluxFcnWallSA3D {
 public:
 
   FluxFcnPerfectGasWallSA3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnWallSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnWallSA3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasWallSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -398,7 +398,7 @@ class FluxFcnPerfectGasOutflowSA3D : public FluxFcnOutflowSA3D {
 public:
 
   FluxFcnPerfectGasOutflowSA3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnOutflowSA3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -416,7 +416,7 @@ class FluxFcnPerfectGasInternalInflowSA3D : public FluxFcnInternalInflowSA3D {
 public:
 
   FluxFcnPerfectGasInternalInflowSA3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInternalInflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnInternalInflowSA3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -435,7 +435,7 @@ class FluxFcnPerfectGasInternalOutflowSA3D : public FluxFcnInternalOutflowSA3D {
 public:
 
   FluxFcnPerfectGasInternalOutflowSA3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInternalOutflowSA3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnInternalOutflowSA3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowSA3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -455,8 +455,8 @@ public:
 
   //FluxFcnPerfectGasRoeSAturb3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
   FluxFcnPerfectGasRoeSAturb3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnRoeSAturb3D(ioData, gg, new VarFcnPerfectGasSA3D(ioData), tp) {}
-    //FluxFcnRoeSAturb3D(gg, new VarFcnPerfectGasSA3D(ioData), tp) { }
+    FluxFcnRoeSAturb3D(ioData, gg, new VarFcn(ioData), tp) {}
+    //FluxFcnRoeSAturb3D(gg, new VarFcn(ioData), tp) { }
   ~FluxFcnPerfectGasRoeSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -474,7 +474,7 @@ class FluxFcnPerfectGasWallSAturb3D : public FluxFcnWallSAturb3D {
 
 public:
   FluxFcnPerfectGasWallSAturb3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnWallSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnWallSAturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasWallSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -492,7 +492,7 @@ class FluxFcnPerfectGasOutflowSAturb3D : public FluxFcnOutflowSAturb3D {
 
 public:
   FluxFcnPerfectGasOutflowSAturb3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnOutflowSAturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -510,7 +510,7 @@ class FluxFcnPerfectGasInternalInflowSAturb3D : public FluxFcnInternalInflowSAtu
 
 public:
   FluxFcnPerfectGasInternalInflowSAturb3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInternalInflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnInternalInflowSAturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalInflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -528,7 +528,7 @@ class FluxFcnPerfectGasInternalOutflowSAturb3D : public FluxFcnInternalOutflowSA
 
 public:
   FluxFcnPerfectGasInternalOutflowSAturb3D(IoData  &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnInternalOutflowSAturb3D(new VarFcnPerfectGasSA3D(ioData), tp) {}
+    FluxFcnInternalOutflowSAturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasInternalOutflowSAturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -547,7 +547,7 @@ class FluxFcnPerfectGasFDJacRoeKE3D : public FluxFcnFDJacRoeKE3D{
 public:
 
   FluxFcnPerfectGasFDJacRoeKE3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacRoeKE3D(ioData, gg, new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnFDJacRoeKE3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacRoeKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -564,7 +564,7 @@ class FluxFcnPerfectGasApprJacRoeKE3D : public FluxFcnApprJacRoeKE3D {
 
 public:
   FluxFcnPerfectGasApprJacRoeKE3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacRoeKE3D(ioData, rs, gg, new VarFcnPerfectGasKE3D(ioData), tp) { }
+    FluxFcnApprJacRoeKE3D(ioData, rs, gg, new VarFcn(ioData), tp) { }
   ~FluxFcnPerfectGasApprJacRoeKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -583,7 +583,7 @@ class FluxFcnPerfectGasFDJacHLLEKE3D : public FluxFcnFDJacHLLEKE3D{
 public:
 
   FluxFcnPerfectGasFDJacHLLEKE3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnFDJacHLLEKE3D(ioData, gg, new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnFDJacHLLEKE3D(ioData, gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasFDJacHLLEKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -602,7 +602,7 @@ class FluxFcnPerfectGasApprJacHLLEKE3D : public FluxFcnApprJacHLLEKE3D {
 
 public:
   FluxFcnPerfectGasApprJacHLLEKE3D(int rs, double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnApprJacHLLEKE3D(ioData, rs, gg, new VarFcnPerfectGasKE3D(ioData), tp) { }
+    FluxFcnApprJacHLLEKE3D(ioData, rs, gg, new VarFcn(ioData), tp) { }
   ~FluxFcnPerfectGasApprJacHLLEKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -620,7 +620,7 @@ class FluxFcnPerfectGasExactJacRoeKE3D : public FluxFcnExactJacRoeKE3D {
 
 public:
   FluxFcnPerfectGasExactJacRoeKE3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnExactJacRoeKE3D(gg, new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnExactJacRoeKE3D(gg, new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasExactJacRoeKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -639,7 +639,7 @@ class FluxFcnPerfectGasWallKE3D : public FluxFcnWallKE3D {
 public:
 
   FluxFcnPerfectGasWallKE3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnWallKE3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnWallKE3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasWallKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -658,7 +658,7 @@ class FluxFcnPerfectGasOutflowKE3D : public FluxFcnOutflowKE3D {
 public:
 
   FluxFcnPerfectGasOutflowKE3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowKE3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnOutflowKE3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowKE3D() {}
 
   void compute(double, double, double *, double, double *, double *, double *, int);
@@ -675,9 +675,9 @@ class FluxFcnPerfectGasRoeKEturb3D : public FluxFcnRoeKEturb3D {
 
 public:
   FluxFcnPerfectGasRoeKEturb3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnRoeKEturb3D(ioData, gg, new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnRoeKEturb3D(ioData, gg, new VarFcn(ioData), tp) {}
   //FluxFcnPerfectGasRoeKEturb3D(double gg, IoData &ioData, Type tp = CONSERVATIVE) :
-  //  FluxFcnRoeKEturb3D(gg, new VarFcnPerfectGasKE3D(ioData), tp) { }
+  //  FluxFcnRoeKEturb3D(gg, new VarFcn(ioData), tp) { }
   ~FluxFcnPerfectGasRoeKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -696,7 +696,7 @@ class FluxFcnPerfectGasWallKEturb3D : public FluxFcnWallKEturb3D {
 public:
 
   FluxFcnPerfectGasWallKEturb3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnWallKEturb3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnWallKEturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasWallKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}
@@ -715,7 +715,7 @@ class FluxFcnPerfectGasOutflowKEturb3D : public FluxFcnOutflowKEturb3D{
 public:
 
   FluxFcnPerfectGasOutflowKEturb3D(IoData &ioData, Type tp = CONSERVATIVE) :
-    FluxFcnOutflowKEturb3D(new VarFcnPerfectGasKE3D(ioData), tp) {}
+    FluxFcnOutflowKEturb3D(new VarFcn(ioData), tp) {}
   ~FluxFcnPerfectGasOutflowKEturb3D() {}
 
   void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, int flag) {}

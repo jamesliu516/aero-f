@@ -93,8 +93,7 @@ public:
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
-  void update(DistSVec<double,dim> &Q, DistVec<double> &Phi,
-              DistVec<double> &Phi1, DistVec<double> &Phi2,
+  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> &fluidId1, 
               DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
               DistExactRiemannSolver<dim> *riemann);
 
@@ -103,7 +102,7 @@ public:
   double computeTimeStep(double, double*, int*, DistGeoState &, 
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   double computeTimeStep(double, double*, int*, DistGeoState &,
-                         DistVec<double> &, DistSVec<double,dim> &, DistVec<double> &);
+                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &);
 
   void computeCoefficients(double);
 

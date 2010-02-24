@@ -184,10 +184,10 @@ PostOperator<dim>::~PostOperator()
 template<int dim>
 void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
 					  DistVec<double> &Pin, DistSVec<double,3> &F,
-					  DistVec<double> *Phi)
+					  DistVec<int> *fluidId)
 {
 
-  varFcn->conservativeToPrimitive(U,*V,Phi);
+  varFcn->conservativeToPrimitive(U,*V,fluidId);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -197,7 +197,8 @@ void PostOperator<dim>::computeNodalForce(DistSVec<double,3> &X, DistSVec<double
 
 }
 
-//------------------------------------------------------------------------------// the nodal force F is *** NOT *** assembled
+//------------------------------------------------------------------------------
+// the nodal force F is *** NOT *** assembled
 
 // Included (MB)
 template<int dim>
@@ -279,13 +280,13 @@ void PostOperator<dim>::computeDerivativeOfNodalHeatPower(DistSVec<double,3>& X,
 template<int dim>
 void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X, 
 					      DistSVec<double,dim> &U, 
-                                              DistVec<double> *Phi, Vec3D *Fi, 
+                                              DistVec<int> *fluidId, Vec3D *Fi, 
 					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
-// Phi must be a null pointer for single-phase flow
-// Phi points to a DistVec<double> for multi-phase flow
+// fluidId must be a null pointer for single-phase flow
+// fluidId points to a DistVec<int> for multi-phase flow
   int iSurf;
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     Fi[iSurf] = 0.0;
@@ -294,7 +295,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
     Mv[iSurf] = 0.0;
   }
 
-  varFcn->conservativeToPrimitive(U, *V, Phi);
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -396,13 +397,13 @@ template<int dim>
 void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&riemann,
                                               Vec3D &x0, DistSVec<double,3> &X, 
 					      DistSVec<double,dim> &U, 
-                                              DistVec<double> *Phi, Vec3D *Fi, 
+                                              DistVec<int> *fluidId, Vec3D *Fi, 
 					      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro, 
                                               VecSet< DistSVec<double,3> > *mX, Vec<double> *genCF)
 {
 
-// Phi must be a null pointer for single-phase flow
-// Phi points to a DistVec<double> for multi-phase flow
+// fluidId must be a null pointer for single-phase flow
+// fluidId points to a DistVec<int> for multi-phase flow
   int iSurf;
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
     Fi[iSurf] = 0.0;
@@ -411,7 +412,7 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&rieman
     Mv[iSurf] = 0.0;
   }
 
-  varFcn->conservativeToPrimitive(U, *V, Phi);
+  varFcn->conservativeToPrimitive(U, *V, fluidId);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -944,7 +945,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistVec<double>& A,
                                               DistVec<double>& Q,
                                               DistTimeState<dim> *timeState,
-                                              DistVec<double>& Phi)
+                                              DistVec<double>& Phi,
+                                              DistVec<int>& fluidId)
 {
   int iSub;
 
@@ -1114,7 +1116,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   else if (type == PostFcn::PHILEVEL_STRUCTURE) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
 
@@ -1134,7 +1136,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
                                               DistSVec<double,dim>& U,
                                               DistVec<double>& Q,
-                                              DistVec<double>& Phi)
+                                              DistVec<double>& Phi,
+                                              DistVec<int>& fluidId)
 {
 
   int iSub;
@@ -1153,7 +1156,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     }
                                                                                               
                                                                                               
-  varFcn->conservativeToPrimitive(U, *V, &Phi);
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       //varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
@@ -1202,10 +1205,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double (*u)[dim] = U.subData(iSub);
       double (*t3)[3] = tmp3.subData(iSub);
       double (*x)[3] = X.subData(iSub);
-      double *phi = Phi.subData(iSub);
+      int *id = fluidId.subData(iSub);
       for (int i=0; i<tmp3.subSize(iSub); ++i) {
         double v[dim];
-        varFcn->conservativeToPrimitive(u[i], v, phi[i]);
+        varFcn->conservativeToPrimitive(u[i], v, id[i]);
         t3[i][0] = v[1];
         t3[i][1] = v[2];
         t3[i][2] = v[3];
@@ -1241,8 +1244,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   } else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &Phi(iSub));
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub));
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &fluidId(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
                                                                                               
@@ -1325,7 +1328,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistSVec<double,3> &X,
                                               DistSVec<double,dim> &U,
                                               DistSVec<double,3> &Q,
-                                              DistVec<double> &Phi)
+                                              DistVec<int> &fluidId)
 {
                                                                                                                                                                                              
   int iSub;
@@ -1335,11 +1338,11 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     for (iSub=0; iSub<numLocSub; ++iSub) {
       double (*u)[dim] = U.subData(iSub);
       double (*q)[3] = Q.subData(iSub);
-      double (*phi) = Phi.subData(iSub);
+      int (*fId) = fluidId.subData(iSub);
                                                                                                                                                                                              
       for (int i=0; i<Q.subSize(iSub); ++i) {
         double v[dim];
-        varFcn->conservativeToPrimitive(u[i], v, phi[i]);
+        varFcn->conservativeToPrimitive(u[i], v, fId[i]);
         Vec3D vel = varFcn->getVelocity(v);
         q[i][0] = vel[0];
         q[i][1] = vel[1];

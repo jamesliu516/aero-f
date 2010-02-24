@@ -90,9 +90,9 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
     }
 
 
-  if(vf->getType()==VarFcn::GAS || vf->getType()==VarFcn::GASINGAS)
+  if(vf->getType()==VarFcnBase::STIFFENEDGAS || vf->getType()==VarFcnBase::PERFECTGAS)
     boundaryFluid = GAS;
-  else if (vf->getType()==VarFcn::JWL)
+  else if (vf->getType()==VarFcnBase::JWL)
     boundaryFluid = JWL;
   else
     boundaryFluid = TAIT;
@@ -1102,12 +1102,15 @@ template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn *vf,
                                 DistSVec<double,3> &X)
 {
+  //TODO: get fluidId through IoData
+  // e.g. int Liq1 = iod.blabla1, Liq2 = iod.blabla2.
+  int liq1 = 0, liq2 = 1;
 
   // flow properties
-  double a = vf->getAlphaWater();
-  double b = vf->getBetaWater();
-  double c = vf->getCv();
-  double P = vf->getPrefWater();
+  double a = vf->getAlphaWater(liq1);
+  double b = vf->getBetaWater(liq1);
+  double c = vf->getCv(liq1);
+  double P = vf->getPrefWater(liq1);
   double coeff = (b-1.0)/(a*b);
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
@@ -1174,9 +1177,9 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
   }
 
 
-  a = vf->getAlphaWaterbis();
-  b = vf->getBetaWaterbis();
-  c = vf->getCvbis();
+  a = vf->getAlphaWater(liq2);
+  b = vf->getBetaWater(liq2);
+  c = vf->getCv(liq2);
 
   if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
 
@@ -1220,12 +1223,15 @@ template<int dim>
 void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *vf,
 				DistSVec<double,3> &X)
 {
+  //TODO: get fluidId through IoData
+  // e.g. int liq = iod.blabla1, Liq2 = iod.blabla2.
+  int gas = 0, liq = 1; //TODO: caution! should it be gas = 1, liq = 0 ?
 
   // flow properties
-  double a = vf->getAlphaWater();
-  double b = vf->getBetaWater();
-  double c = vf->getCv();
-  double P = vf->getPrefWater();
+  double a = vf->getAlphaWater(liq);
+  double b = vf->getBetaWater(liq);
+  double c = vf->getCv(liq);
+  double P = vf->getPrefWater(liq);
   double coeff = (b-1.0)/(a*b);
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
@@ -1490,9 +1496,11 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
      // for shock tube type of computation
 // fluidModel1(SG)  is on the left/inlet 
 // fluidModel2(JWL) is on the right/outlet
+    //TODO: get fluidId through IoData!
+    int gas = 0, jwl = 1;
     double Voutlet[5] = {iod.bc.outlet.density, 0, 0, 0, iod.bc.outlet.pressure};
     if(iod.bc.outlet.mach >= 0.0){
-      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / vf->computeSoundSpeed(Voutlet,-1.0);
+      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / vf->computeSoundSpeed(Voutlet,jwl);
     }else{
       velout2 = iod.bc.outlet.velocity*iod.bc.outlet.velocity;
     }
@@ -1503,7 +1511,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
     this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
     this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
     this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
-    this->Uout[4] = vf->computeRhoEpsilon(Voutlet,-1.0) + 0.5 * this->Uout[0] * velout2;
+    this->Uout[4] = vf->computeRhoEpsilon(Voutlet,jwl) + 0.5 * this->Uout[0] * velout2;
   
 #pragma omp parallel for
     for(int iSub = 0; iSub<this->numLocSub; ++iSub) {

@@ -22,7 +22,7 @@ PostFcn::PostFcn(VarFcn *vf)
 
 //------------------------------------------------------------------------------
 
-double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
+double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
 {
 
   fprintf(stderr, "*** Warning: computeNodeScalarQuantity not defined\n");
@@ -128,7 +128,7 @@ void PostFcnEuler::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
+double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
 {
 
   double q = 0.0;
@@ -137,21 +137,21 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   if (type == DENSITY)
     q = varFcn->getDensity(V);
   else if (type == MACH)
-    q = varFcn->computeMachNumber(V, phi);
+    q = varFcn->computeMachNumber(V, fluidId);
   else if (type == WTMACH)
-    q = varFcn->computeWtMachNumber(V, phi);
+    q = varFcn->computeWtMachNumber(V, fluidId);
   else if (type == SPEED)
     q = sqrt(varFcn->computeU2(V));
   else if (type == WTSPEED)
     q = sqrt(varFcn->computeWtU2(V));
   else if (type == PRESSURE)
-    q = varFcn->getPressure(V, phi);
+    q = varFcn->getPressure(V, fluidId);
   else if (type == DIFFPRESSURE)
-    q = varFcn->getPressure(V, phi)-pinfty;
+    q = varFcn->getPressure(V, fluidId)-pinfty;
   else if (type == TEMPERATURE)
-    q = varFcn->computeTemperature(V, phi);
+    q = varFcn->computeTemperature(V, fluidId);
   else if (type == TOTPRESSURE)
-    q = varFcn->computeTotalPressure(mach, V, phi);
+    q = varFcn->computeTotalPressure(mach, V, fluidId);
   else if (type == NUT_TURB)
     q = varFcn->getTurbulentNuTilde(V);
   else if (type == K_TURB)
@@ -161,13 +161,13 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if(type == HYDROSTATICPRESSURE)
     q = varFcn->hydrostaticPressure(V[0],X);
   else if(type == HYDRODYNAMICPRESSURE)
-    q = varFcn->hydrodynamicPressure(V,X,phi);
+    q = varFcn->hydrodynamicPressure(V,X,fluidId);
   else if(type == PRESSURECOEFFICIENT)
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag);
   else if(type == PHILEVEL)
     q = phi/varFcn->getDensity(V);
   else if(type == PHILEVEL_STRUCTURE)
-    q = phi;  //NOTE: In this case phi stores the distance to the structure. 
+    q = phi;  //NOTE: In this case fluidId stores the distance to the structure. 
 
 // Included (MB)
   else if (type == VELOCITY_NORM)
@@ -1072,7 +1072,7 @@ void PostFcnSA::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
+double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
 {
 
   double q = 0.0;
@@ -1125,7 +1125,7 @@ PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(io
 //------------------------------------------------------------------------------
 
                                                                                                 
-double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
+double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
 {
 
   double q = 0.0;
@@ -1185,7 +1185,7 @@ void PostFcnKE::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi)
+double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
 {
 
   double q = 0.0;

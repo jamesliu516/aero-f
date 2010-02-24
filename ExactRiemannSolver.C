@@ -83,12 +83,12 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
-      double Phii, double Phij, double *nphi, VarFcn *vf,
+      int IDi, int IDj, double *nphi, VarFcn *vf,
       int &epsi, int &epsj, double *Wi, double *Wj, int i, int j,
       double dx[3])
 {
 
-  lriemann->computeRiemannSolution(Vi,Vj,Phii,Phij,nphi,
+  lriemann->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,
           epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
           dx,iteration);
 

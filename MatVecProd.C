@@ -8,9 +8,9 @@
 #include <FluxFcnDescWaterCompressible.h>
 #include <FluxFcnDescPerfectGas.h>
 #include <FluxFcnDescJWL.h>
-#include <FluxFcnDescLiquidInLiquid.h>
-#include <FluxFcnDescGasInGas.h>
-#include <FluxFcnDescGasInLiquid.h>
+//#include <FluxFcnDescLiquidInLiquid.h>
+//#include <FluxFcnDescGasInGas.h>
+//#include <FluxFcnDescGasInLiquid.h>
 #include <DistTimeState.h>
 #include <DistGeoState.h>
 #include <SpaceOperator.h>
@@ -45,6 +45,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
   recFcnCon = 0;
   Rn = 0;
   Phi = 0;
+  fluidId = 0;
   Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
@@ -165,7 +166,7 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
                                  DistSVec<double,dim> &q, DistVec<double> &phi,
-                                 DistExactRiemannSolver<dim> *riemann,
+                                 DistVec<int> &fluidId_, DistExactRiemannSolver<dim> *riemann,
                                  DistSVec<double,dim> &f)
 {
   
@@ -173,10 +174,11 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   ctrlVol = &cv;
   Qeps = q;
   Phi = &phi;
-	Riemann = riemann;
+  fluidId = &fluidId_;
+  Riemann = riemann;
                                                                                                                  
   if (recFcnCon) {
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann, 0);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, riemann, 0);
                                                                                                                  
     if (timeState)
       timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -206,7 +208,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp.pad(Qeps);
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, Riemann, 0);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -229,7 +231,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Qepstmp.pad(Qeps);
 
     if(Phi)
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, Riemann, 0);
     else
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -581,12 +583,12 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistVec<double> &Phi,
+                                            DistSVec<double,dim> &Q, DistVec<double> &Phi, DistVec<int> &fluidId,
                                             DistExactRiemannSolver<dim> *riemann,
                                             DistSVec<double,dim> &F)
 {
 
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, Phi, riemann);
+  spaceOp->computeJacobian(X, ctrlVol, Q, *this, fluidId, riemann);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
@@ -1490,7 +1492,8 @@ template<class Scalar,int dim, int neq>
 void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, DistVec<double> &cv,
                                                       DistVec<double> &q,  DistVec<double> &qn,
                                                       DistVec<double> &qnm1, DistVec<double> &qnm2,
-						      DistSVec<double,dim> &u, DistVec<double> &f)
+						      DistSVec<double,dim> &u, DistVec<double> &f,
+                                                      DistVec<int> &fluidId)
 {
                                                                                                                     
   X = &x;

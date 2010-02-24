@@ -53,7 +53,7 @@ class InletNode {
 					 double*, int*, int*,  SVec<double,dim>&,
 					 SVec<double,3>&, int, int* =0);
         template<int dim>
-        void computeZeroExtrapolation(VarFcn*, bool, Vec3D&, double*, double*, double, double*,
+        void computeZeroExtrapolation(VarFcn*, bool, Vec3D&, double*, double*, int, double*,
                                          double*, int*, int*,  SVec<double,dim>&,
                                          SVec<double,3>&, int, int* =0);
 	
@@ -92,7 +92,7 @@ class InletNodeSet {
 			  BcData<dim>& , GeoState&, SVec<double,dim>&, SVec<double,3>&, int *);
         template<int dim>
         void recomputeRHS(VarFcn*, Extrapolation<dim>*, ElemSet &, SVec<double,dim>&,
-                          Vec<double> &, BcData<dim>& , GeoState&, SVec<double,dim>&,
+                          Vec<int> &, BcData<dim>& , GeoState&, SVec<double,dim>&,
                           SVec<double,3>&, int *);
         template<int dim>
         void recomputeResidual(SVec<double,dim> &F, SVec<double,dim> &Finlet);

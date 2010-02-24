@@ -42,7 +42,6 @@ TsSolver<ProblemDescriptor>::TsSolver(ProblemDescriptor *prbd)
 template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::solve(IoData &ioData)
 {
-
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
   // initialize solutions and geometry
@@ -80,7 +79,6 @@ template<class ProblemDescriptor>
 int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType &U,
                                          IoData &ioData)
 {
-
   bool lastIt = false;
 
   // dts is structural time step

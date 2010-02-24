@@ -168,20 +168,11 @@ void roejacexact3D(int type, double gamma, VarFcn* varFcn, FluxFcn::Type typeJac
   double dfdVL[dim2], dfdVR[dim2];
   double n[3] = {normal[0], normal[1], normal[2]};
   
-  if (varFcn->getType() == VarFcn::GAS){ // || varFcn->getType() == VarFcn::GASINGAS){
+  if (/*varFcn->getType() == VarFcn::GAS*/1){ // || varFcn->getType() == VarFcn::GASINGAS){
     F77NAME(roejac5)(type, gamma, varFcn->getGamma(), varFcn->getPressureConstant(), n, normalVel, VL, VR, dfdVL);
     n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
     F77NAME(roejac5)(type, gamma, varFcn->getGamma(), varFcn->getPressureConstant(), n, -normalVel, VR, VL, dfdVR);
-
-  } else if(varFcn->getType() == VarFcn::LIQUID || varFcn->getType() == VarFcn::LIQUIDINLIQUID){
-/*
-     F77NAME(roejacwaterdissprim)(type, gamma, varFcn->getCv(), varFcn->getPrefWater(), varFcn->getAlphaWater(),
-                                                      varFcn->getBetaWater(), n, normalVel, VL, VR, dfdVL);
-     n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
-     F77NAME(roejacwaterdissprim)(type, gamma, varFcn->getCv(), varFcn->getPrefWater(), varFcn->getAlphaWater(),
-                                                      varFcn->getBetaWater(), n, -normalVel, VR, VL, dfdVR);
-*/
-  }
+  } 
   
   
   int k;
@@ -190,12 +181,8 @@ void roejacexact3D(int type, double gamma, VarFcn* varFcn, FluxFcn::Type typeJac
 
   if (type == 1 || type == 2) {
     double f1;
-    if(varFcn->getType() == VarFcn::GAS) // || varFcn->getType() == VarFcn::GASINGAS)
+    if(/*varFcn->getType() == VarFcn::GAS*/1) // || varFcn->getType() == VarFcn::GASINGAS)
       F77NAME(roeflux1)(gamma, varFcn->getGamma(), varFcn->getPressureConstant(), normal, normalVel, VL, VR, &f1,1.0,1.0,0.0,0.0,0);
-    else if (varFcn->getType() == VarFcn::LIQUID || varFcn->getType() == VarFcn::LIQUIDINLIQUID){
-      //F77NAME(roeflux1water)(gamma, varFcn->getCv(), varFcn->getPrefWater(), varFcn->getAlphaWater(),
-	//	      varFcn->getBetaWater(), normal, normalVel, VL, VR, &f1);
-    }
 
 
     if (type == 1) {
@@ -282,7 +269,6 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
   const int dim2 = dim*dim;
   double dflag = static_cast<double>(flag);
 
-
   double dfdVL[dim2], dfdVR[dim2];
   double dfdUL[dim2], dfdUR[dim2];
   double n[3] = {normal[0], normal[1], normal[2]};
@@ -292,8 +278,8 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
   F77NAME(roejac6)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, shockreducer, irey, length, prec);
 
   if (type == 1 || type == 2) {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, (dflag>=0) ? 0 : 1);;
 
     double f1;
     F77NAME(roeflux1)(gamma, vfgam, vfp, n, normalVel, VL, VR, &f1, betaRef,k1,cmach,irey,prec);
@@ -352,8 +338,8 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
         dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
       }
     }
-    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, dflag);
-    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, dflag);
+    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, (dflag>=0) ? 0 : 1);
   }
 
   int k;
@@ -365,8 +351,8 @@ void roejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doubl
     }
   }
   else {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, (dflag>=0) ? 0 : 1);
   }
 
 }
@@ -893,8 +879,8 @@ void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doub
   F77NAME(hllejac)(type, gamma, vfgam, vfp, n, normalVel, VR, VL, dfdUR,2, betaRef, k1, cmach, irey, prec);
 
   if (type == 1 || type == 2) {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, dfdVL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, dfdVR, (dflag>=0) ? 0 : 1);
 
     double f1;
     F77NAME(hlleflux1)(gamma, vfgam, vfp, n, normalVel, VL, VR, &f1, betaRef,k1,cmach,irey,prec);
@@ -954,8 +940,8 @@ void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doub
         dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
       }
     }
-    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, dflag);
-    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, dflag);
+    varFcn->postMultiplyBydVdU(VL, dfdVL, dfdUL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydVdU(VR, dfdVR, dfdUR, (dflag>=0) ? 0 : 1);
   }
 
   int k;
@@ -967,8 +953,8 @@ void hllejacappr3Dgas(int type, double gamma, VarFcn* varFcn, double vfgam, doub
     }
   }
   else {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, (dflag>=0) ? 0 : 1);
   }
 
 }
@@ -1165,9 +1151,9 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
   if(flag==1){
     gam = varFcn->getGamma();
     pstiff = varFcn->getPressureConstant();
-  }else{
+  }else{/*
     gam = varFcn->getGammabis();
-    pstiff = varFcn->getPressureConstantbis();
+    pstiff = varFcn->getPressureConstantbis();*/
   }
   gam1 = gam - 1.0; 
   invgam1 = 1.0 / gam1;
@@ -1178,7 +1164,7 @@ void influx3D(int type, VarFcn* varFcn, double* normal,
   double nVel = normalVel * ooS;
 
   double Vb[dim];
-  varFcn->conservativeToPrimitive(Ub, Vb, dflag);
+  varFcn->conservativeToPrimitive(Ub, Vb, (dflag>=0) ? 0 : 1);
  
   double rho, u, v, w, p, nut, eps, k;
   
@@ -1253,9 +1239,9 @@ void influx3DDerivative(int type, VarFcn* varFcn, double* normal, double* dNorma
   if(flag==1){
     gam = varFcn->getGamma();
     pstiff = varFcn->getPressureConstant();
-  }else{
+  }else{/*
     gam = varFcn->getGammabis();
-    pstiff = varFcn->getPressureConstantbis();
+    pstiff = varFcn->getPressureConstantbis();*/
   }
   gam1 = gam - 1.0; 
   invgam1 = 1.0 / gam1;
@@ -1273,10 +1259,10 @@ void influx3DDerivative(int type, VarFcn* varFcn, double* normal, double* dNorma
   double dnVel = dNormalVel * ooS + normalVel * dooS;
 
   double Vb[dim];
-  varFcn->conservativeToPrimitive(Ub, Vb, dflag);
+  varFcn->conservativeToPrimitive(Ub, Vb, (dflag>=0) ? 0 : 1);
 
   double dVb[dim];
-  varFcn->conservativeToPrimitiveDerivative(Ub, dUb, Vb, dVb, dflag);
+  varFcn->conservativeToPrimitiveDerivative(Ub, dUb, Vb, dVb, (dflag>=0) ? 0 : 1);
 
   double rho, u, v, w, p, nut, eps, k;
   double drho, du, dv, dw, dp, dnut, deps, dk;
@@ -1395,9 +1381,9 @@ void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac,
   if(flag==1){
     gam = varFcn->getGamma();
     pstiff = varFcn->getPressureConstant();
-  }else{
+  }else{/*
     gam = varFcn->getGammabis();
-    pstiff = varFcn->getPressureConstantbis();
+    pstiff = varFcn->getPressureConstantbis();*/
   }
   gam1 = gam - 1.0;
   invgam1 = 1.0 / gam1;
@@ -1408,7 +1394,7 @@ void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac,
   double nVel = normalVel * ooS;
 
   double Vb[dim];
-  varFcn->conservativeToPrimitive(Ub, Vb, dflag);
+  varFcn->conservativeToPrimitive(Ub, Vb, (dflag>=0) ? 0 : 1);
   double rho, u, v, w, p;
 
   if(V[1]*n[0]+V[2]*n[1]+V[3]*n[2]<= 0.0){
@@ -1478,7 +1464,7 @@ void jacinflux3D(int type, VarFcn* varFcn, FluxFcn::Type typeJac,
 
 
   if (typeJac == FluxFcn::CONSERVATIVE)
-    varFcn->postMultiplyBydVdU(V, dfdV, jac, dflag);
+    varFcn->postMultiplyBydVdU(V, dfdV, jac, (dflag>=0) ? 0 : 1);
   else
     for (j=0; j<dim*dim; ++j)
       jac[j] = dfdV[j]; 
@@ -2263,8 +2249,8 @@ void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, doub
     }
   }
   else {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, (dflag>=0) ? 0 : 1);
   }
 
 }
@@ -2674,8 +2660,8 @@ void roejacappr3Djwl(int type, double gamma, VarFcn* varFcn, double omega,
     }
   }
   else {
-    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, dflag);
-    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, dflag);
+    varFcn->postMultiplyBydUdV(VL, dfdUL, jacL, (dflag>=0) ? 0 : 1);
+    varFcn->postMultiplyBydUdV(VR, dfdUR, jacR, (dflag>=0) ? 0 : 1);
   }
 
 }
