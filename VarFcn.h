@@ -36,6 +36,8 @@ using std::endl;
 //--------------------------------------------------------------------------
 class VarFcn {
 
+friend class FluxFcn;
+
 private:
   int numPhases;
   VarFcnBase **varFcn;

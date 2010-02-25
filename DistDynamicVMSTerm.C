@@ -8,7 +8,7 @@
 #include <Domain.h>
 #include <DistEdgeGrad.h>
 #include <DistNodalGrad.h>
-#include <FluxFcnDesc.h>
+#include <FluxFcn.h>
 #include <RecFcnDesc.h>
 #include <DynamicVMSTerm.h>
 

@@ -9,11 +9,7 @@ using std::min;
 
 #include <Edge.h>
 #include <BcDef.h>
-#include <FluxFcnDescPerfectGas.h>
-#include <FluxFcnDescWaterCompressible.h>
-//#include <FluxFcnDescGasInGas.h>
-//#include <FluxFcnDescLiquidInLiquid.h>
-//#include <FluxFcnDescGasInLiquid.h>
+#include <FluxFcn.h>
 #include <RecFcn.h>
 #include <NodalGrad.h>
 #include <EdgeGrad.h>

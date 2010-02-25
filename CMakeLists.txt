@@ -115,13 +115,9 @@ ADD_LIBRARY(FluidBase
              ElemTetCore.C 
              FemEquationTermDesc.C 
              FluxFcnDesc.C 
-             FluxFcnDescPerfectGas.C 
-             FluxFcnDescWaterCompressible.C 
-             FluxFcnDescGasInGas.C
-             FluxFcnDescLiquidInLiquid.C
-             FluxFcnDescGasInLiquid.C
-             FluxFcnDescJWLInGas.C
-             FluxFcnDescJWL.C
+             FluxFcnDescSG.C 
+             FluxFcnDescTait.C 
+             FluxFcnDescJwl.C
              GeoData.C 
              GeoSource.C 
              GeoState.C 
