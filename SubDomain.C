@@ -9,11 +9,7 @@ using std::min;
 using std::max;
 #endif
 
-#include <FluxFcnDescPerfectGas.h>
-#include <FluxFcnDescWaterCompressible.h>
-//#include <FluxFcnDescGasInGas.h>
-//#include <FluxFcnDescLiquidInLiquid.h>
-//#include <FluxFcnDescGasInLiquid.h>
+#include <FluxFcn.h>
 #include <RecFcn.h>
 #include <MacroCell.h>
 #include <VMSLESTerm.h>

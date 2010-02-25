@@ -1,6 +1,7 @@
 #ifndef _LOCAL_RIEMANN_DESC_H
 #define _LOCAL_RIEMANN_DESC_H
 
+#include "LinkF77.h"
 #include <LocalRiemann.h>
 #include <VarFcn.h>
 #include "IoData.h"
@@ -10,6 +11,7 @@
 //----------------------------------------------------------------------------
 // First the derived classes of LocalRiemannGfmp (no exact Riemann problem)
 // Second the derived classes of LocalRiemannGfmpar (with exact Riemann prob)
+// Third the derived classes of LocalRiemannFluidStructure
 //----------------------------------------------------------------------------
 
 extern "C" {

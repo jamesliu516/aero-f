@@ -2,12 +2,7 @@
 
 #include <BcFcn.h>
 #include <BcDef.h>
-#include <FluxFcnDescWaterCompressible.h>
-#include <FluxFcnDescPerfectGas.h>
-#include <FluxFcnDescJWL.h>
-//#include <FluxFcnDescGasInGas.h>
-//#include <FluxFcnDescLiquidInLiquid.h>
-//#include <FluxFcnDescGasInLiquid.h>
+#include <FluxFcn.h>
 #include <FemEquationTermDesc.h>
 #include <DistTimeState.h>
 #include <GeoSource.h>
@@ -110,98 +105,21 @@ createSpaceOperator1(IoData &ioData, SpaceOperator<dim> *spo)
 
   FluxFcn **ff1 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   ff1 -= BC_MIN_CODE;
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+    fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
 
-  //for a perfect gas:
-  if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
-      if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
-        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
-          ff1[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowEuler3D(ioData);
-          ff1[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowEuler3D(ioData);
-        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
-          ff1[BC_OUTLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData);
-          ff1[BC_OUTLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData);
-        }
-      }
-      else if (ioData.bc.outlet.type == BcsFreeStreamData::INTERNAL){
-        ff1[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData);
-        ff1[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowEuler3D(ioData);
-      }
-      if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
-        if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
-          ff1[BC_INLET_MOVING] = new FluxFcnPerfectGasInflowEuler3D(ioData);
-          ff1[BC_INLET_FIXED] = new FluxFcnPerfectGasInflowEuler3D(ioData);
-        }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
-          ff1[BC_INLET_MOVING] = new FluxFcnPerfectGasGhidagliaEuler3D(ioData);
-          ff1[BC_INLET_FIXED]  = new FluxFcnPerfectGasGhidagliaEuler3D(ioData);
-        }
-      }
-      else if (ioData.bc.inlet.type == BcsFreeStreamData::INTERNAL) {
-        ff1[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData);
-        ff1[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowEuler3D(ioData);
-      }
-
-      ff1[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallEuler3D(ioData);
-      ff1[BC_SYMMETRY] = new FluxFcnPerfectGasWallEuler3D(ioData);
-
-      ff1[BC_INTERNAL] = new FluxFcnPerfectGasApprJacRoeEuler3D(0, gamma, ioData);
-
-  }//for compressible water
-  else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
-      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
-        ff1[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData);
-        ff1[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleOutflowEuler3D(ioData);
-      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
-        ff1[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData);
-        ff1[BC_OUTLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData);
-      }
-    }
-    else if (ioData.bc.outlet.type == BcsFreeStreamData::INTERNAL){
-      ff1[BC_OUTLET_MOVING] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData);
-      ff1[BC_OUTLET_FIXED] = new FluxFcnWaterCompressibleInternalOutflowEuler3D(ioData);
-    }
-    if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
-      if (ioData.schemes.bc.type == BoundarySchemeData::STEGER_WARMING){
-        ff1[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInflowEuler3D(ioData);
-        ff1[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInflowEuler3D(ioData);
-      }else if (ioData.schemes.bc.type == BoundarySchemeData::GHIDAGLIA){
-        ff1[BC_INLET_MOVING] = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData);
-        ff1[BC_INLET_FIXED]  = new FluxFcnWaterCompressibleGhidagliaEuler3D(ioData);
-      }
-    }
-    else if (ioData.bc.inlet.type == BcsFreeStreamData::INTERNAL){
-      ff1[BC_INLET_MOVING] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData);
-      ff1[BC_INLET_FIXED] = new FluxFcnWaterCompressibleInternalInflowEuler3D(ioData);
-    }
-    ff1[BC_INTERNAL] = new FluxFcnWaterCompressibleApprJacRoeEuler3D(0, gamma, ioData);
-
-    ff1[BC_ADIABATIC_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-    ff1[BC_ADIABATIC_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-    ff1[BC_SLIP_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-    ff1[BC_SLIP_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-    ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-    ff1[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnWaterCompressibleWallEuler3D(ioData);
-  }
-  else if (ioData.eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    ff1[BC_OUTLET_MOVING] = new FluxFcnJWLGhidagliaEuler3D(ioData);
-    ff1[BC_OUTLET_FIXED]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
-    ff1[BC_INLET_MOVING]  = new FluxFcnJWLGhidagliaEuler3D(ioData);
-    ff1[BC_INLET_FIXED]   = new FluxFcnJWLGhidagliaEuler3D(ioData);
-
-    ff1[BC_INTERNAL] = new FluxFcnJWLApprJacRoeEuler3D(0, gamma, ioData);
-
-    ff1[BC_ADIABATIC_WALL_MOVING]  = new FluxFcnJWLWallEuler3D(ioData);
-    ff1[BC_ADIABATIC_WALL_FIXED]   = new FluxFcnJWLWallEuler3D(ioData);
-    ff1[BC_SLIP_WALL_MOVING]       = new FluxFcnJWLWallEuler3D(ioData);
-    ff1[BC_SLIP_WALL_FIXED]        = new FluxFcnJWLWallEuler3D(ioData);
-    ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnJWLWallEuler3D(ioData);
-    ff1[BC_ISOTHERMAL_WALL_FIXED]  = new FluxFcnJWLWallEuler3D(ioData);
-  }
+  ff1[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,1);
+  ff1[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,this->varFcn,1);
+  ff1[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,1);
+  ff1[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,1);
+  ff1[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,this->varFcn,1);
+  ff1[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,this->varFcn,1);
+  ff1[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,this->varFcn,1);
+  ff1[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,this->varFcn,1);
+  ff1[BC_SLIP_WALL_FIXED] = new FluxFcn(0,BC_SLIP_WALL_FIXED,ioData,this->varFcn,1);
+  ff1[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcn(0,BC_ISOTHERMAL_WALL_MOVING,ioData,this->varFcn,1);
+  ff1[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcn(0,BC_ISOTHERMAL_WALL_FIXED,ioData,this->varFcn,1);
+  ff1[BC_INTERNAL] = new FluxFcn(0,BC_INTERNAL,ioData,this->varFcn,1);
 
   BcFcn *bf1 = 0;
   if (ioData.bc.wall.integration != BcsWallData::WALL_FUNCTION)
@@ -236,88 +154,44 @@ createSpaceOperator2(IoData &ioData, SpaceOperator<dim> *spo)
 
   FluxFcn** ff2 = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1];
   ff2 -= BC_MIN_CODE;
+  if(BC_MAX_CODE-BC_MIN_CODE+1 < 12)
+    fprintf(stderr,"Be prepared to see a segmentation fault shortly...\n");
+
+  ff2[BC_SYMMETRY] = new FluxFcn(0,BC_SYMMETRY,ioData,this->varFcn,2);
+  ff2[BC_OUTLET_MOVING] = new FluxFcn(0,BC_OUTLET_MOVING,ioData,this->varFcn,2);
+  ff2[BC_OUTLET_FIXED] = new FluxFcn(0,BC_OUTLET_FIXED,ioData,this->varFcn,2);
+  ff2[BC_INLET_MOVING] = new FluxFcn(0,BC_INLET_MOVING,ioData,this->varFcn,2);
+  ff2[BC_INLET_FIXED] = new FluxFcn(0,BC_INLET_FIXED,ioData,this->varFcn,2);
+  ff2[BC_ADIABATIC_WALL_MOVING] = new FluxFcn(0,BC_ADIABATIC_WALL_MOVING,ioData,this->varFcn,2);
+  ff2[BC_ADIABATIC_WALL_FIXED] = new FluxFcn(0,BC_ADIABATIC_WALL_FIXED,ioData,this->varFcn,2);
+  ff2[BC_SLIP_WALL_MOVING] = new FluxFcn(0,BC_SLIP_WALL_MOVING,ioData,this->varFcn,2);
+  ff2[BC_SLIP_WALL_FIXED] = new FluxFcn(0,BC_SLIP_WALL_FIXED,ioData,this->varFcn,2);
+  ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcn(0,BC_ISOTHERMAL_WALL_MOVING,ioData,this->varFcn,2);
+  ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcn(0,BC_ISOTHERMAL_WALL_FIXED,ioData,this->varFcn,2);
+  ff2[BC_INTERNAL] = new FluxFcn(0,BC_INTERNAL,ioData,this->varFcn,2);
+
   BcFcn* bf2 = 0;
   FemEquationTerm* fet2 = 0;
-                                                                                                      
-  //for GAS
-  if (ioData.eqs.fluidModel.fluid == FluidModelData::GAS){
-    if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS) {
-      if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
-        ff2[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-        ff2[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-      }
-      else {
-        ff2[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowSAturb3D(ioData);
-        ff2[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowSAturb3D(ioData);
-      }
-      if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
-        ff2[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-        ff2[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-      }
-      else {
-        ff2[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowSAturb3D(ioData);
-        ff2[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowSAturb3D(ioData);
-      }
-      ff2[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, ioData);
-      ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallSAturb3D(ioData);
+
+  switch(ioData.eqs.tc.tm.type){
+    case TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS:
       bf2 = new BcFcnSAturb;
       fet2 = new FemEquationTermSAturb(ioData, this->varFcn);
-    }
-    else if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
-      if (ioData.bc.outlet.type == BcsFreeStreamData::EXTERNAL) {
-	ff2[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-	ff2[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-      }
-      else {
-	ff2[BC_OUTLET_MOVING] = new FluxFcnPerfectGasInternalOutflowSAturb3D(ioData);
-	ff2[BC_OUTLET_FIXED] = new FluxFcnPerfectGasInternalOutflowSAturb3D(ioData);
-      }
-      if (ioData.bc.inlet.type == BcsFreeStreamData::EXTERNAL) {
-	ff2[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-	ff2[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowSAturb3D(ioData);
-      }
-      else {
-	ff2[BC_INLET_MOVING] = new FluxFcnPerfectGasInternalInflowSAturb3D(ioData);
-	ff2[BC_INLET_FIXED] = new FluxFcnPerfectGasInternalInflowSAturb3D(ioData);
-      }
-      ff2[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallSAturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeSAturb3D(gamma, ioData);
-      ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallSAturb3D(ioData);
+      break;
+    case TurbulenceModelData::ONE_EQUATION_DES:
       bf2 = new BcFcnSAturb;
       fet2 = new FemEquationTermDESturb(ioData, this->varFcn);
-    }
-    else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
-      ff2[BC_OUTLET_MOVING] = new FluxFcnPerfectGasOutflowKEturb3D(ioData);
-      ff2[BC_OUTLET_FIXED] = new FluxFcnPerfectGasOutflowKEturb3D(ioData);
-      ff2[BC_INLET_MOVING] = new FluxFcnPerfectGasOutflowKEturb3D(ioData);
-      ff2[BC_INLET_FIXED] = new FluxFcnPerfectGasOutflowKEturb3D(ioData);
-      ff2[BC_ADIABATIC_WALL_MOVING] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_ADIABATIC_WALL_FIXED] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_SLIP_WALL_MOVING] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_SLIP_WALL_FIXED] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_MOVING] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_ISOTHERMAL_WALL_FIXED] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_SYMMETRY] = new FluxFcnPerfectGasWallKEturb3D(ioData);
-      ff2[BC_INTERNAL] = new FluxFcnPerfectGasRoeKEturb3D(gamma, ioData);
+      break;
+    case TurbulenceModelData::TWO_EQUATION_KE:
       bf2 = new BcFcnKEturb;
       fet2 = new FemEquationTermKEturb(ioData, this->varFcn);
-    }
-  }else{
-    this->com->printf(6, "Exiting: No turbulence model for liquid or multiphase simulations\n");
-    exit(1);
+      break;
+    default:
+      fprintf(stderr,"Error: Seg. solver not implemented for this type of simulation!\n");
+      exit(1);
+      break;
   }
-  
+
   spo2->setFluxFcn(ff2);
   spo2->setBcFcn(bf2);
   spo2->setFemEquationTerm(fet2);
