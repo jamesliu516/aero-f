@@ -66,7 +66,7 @@ int ExplicitStructLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
 {
-  if(!FE && this->TYPE==1) {
+  if(!FE && this->numFluid==1) {
     //this->com->fprintf(stderr,"Using Runge-Kutta 2.\n");
     solveNLAllRK2(U);
   } else
@@ -83,7 +83,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
   //----------------------------------------------------
-  if(this->TYPE==1 && this->mmh) { 
+  if(this->numFluid==1 && this->mmh) { 
     //recompute intersections and update phase change.
     double tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
@@ -121,7 +121,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   this->spaceOp->applyBCsToSolutionVector(U0);
 
   //----------------------------------------------------
-  if (this->TYPE==2) { 
+  if (this->numFluid==2) { 
     // fluid-shell-fluid
     U = U0;
     this->updateFSInterface();
@@ -149,7 +149,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
   //recompute Intersections and updatePhaseChange
-  if(this->TYPE==1 && this->mmh) {
+  if(this->numFluid==1 && this->mmh) {
     // 1. compute weights
     double tw = this->timer->getTime();
     if (this->Weights && this->VWeights)
@@ -212,7 +212,7 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
     sleep(1);
   }
 */
-  if (this->TYPE==2) {
+  if (this->numFluid==2) {
 
     this->spaceOp->applyBCsToSolutionVector(Ulocal);
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
@@ -236,7 +236,7 @@ template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
                                   DistVec<double> &dPhi, DistSVec<double,dim> &U)
 {
-  if (this->TYPE!=2) {
+  if (this->numFluid!=2) {
     fprintf(stderr,"in ExplicitStructLevelSetTsDesc::computeRKUpdateLS, shouldn't call me! abort.\n");
     exit(-1);
   }

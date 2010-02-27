@@ -34,7 +34,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
   Phi(this->getVecInfo()), Vg(this->getVecInfo()), Vtemp(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
-  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
+  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),numFluid(ioData.eqs.numPhase)
 {
 
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -43,8 +43,8 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   phaseChangeChoice = ioData.strucIntersect.phaseChangeChoice;
 
   this->postOp->setForceGenerator(this);
-  if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (TYPE==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
+  if (numFluid==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
   timeStep = 0.0;
   fsiPosition = 0.0;
@@ -156,7 +156,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 {
   this->geoState->setup2(this->timeState->getData());
 
-  if (TYPE==1) {
+  if (numFluid==1) {
     this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
 
     EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
@@ -208,7 +208,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
       dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
     }
 
-  } else if (TYPE==2) {
+  } else if (numFluid==2) {
     // load the FS interface.
     if (ioData.mf.initialConditions.nplanes != 1) {
       fprintf(stderr,"number of planes != 1! Abort...\n"); exit(-1);}
@@ -235,7 +235,7 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if (TYPE==2) {
+  if (numFluid==2) {
 
     double t0 = this->timer->getTime();
     this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
@@ -290,7 +290,7 @@ template<int dim>
 int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if (TYPE==2) {
+  if (numFluid==2) {
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
   } else ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
 
@@ -383,7 +383,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    if (TYPE==2) {
+    if (numFluid==2) {
       this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
@@ -395,7 +395,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
       this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     }
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    if (TYPE==2) this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    if (numFluid==2) this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
     else this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
@@ -416,7 +416,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  if (TYPE==2) {
+  if (numFluid==2) {
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
@@ -425,7 +425,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   } 
-  else { //TYPE == 1
+  else { //numFluid == 1
 
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
@@ -473,7 +473,7 @@ void StructLevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  if (TYPE==2) 
+  if (numFluid==2) 
     this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTag, *this->R, this->riemann, 0);
   else 
     this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, 0);
@@ -515,7 +515,7 @@ void StructLevelSetTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim>
 template<int dim>
 void StructLevelSetTsDesc<dim>::updateFSInterface()
 {
-  if (TYPE!=2) {
+  if (numFluid!=2) {
     fprintf(stderr,"In StructLevelSetTsDesc::updateFSInterface: Shouldn't call me! Abort.\n");
     exit(-1);
   }
@@ -531,7 +531,7 @@ void StructLevelSetTsDesc<dim>::updateFSInterface()
 template<int dim>
 void StructLevelSetTsDesc<dim>::updateNodeTag() //for piston only.
 {
-  if (TYPE!=2) {
+  if (numFluid!=2) {
     fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n");
     exit(-1);
   }
