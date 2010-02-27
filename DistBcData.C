@@ -53,7 +53,7 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
     this->dUnodeSA = 0;
   }
 
-
+  //KW: "insensitive" Euler starts here.
   this->numLocSub = domain->getNumLocSub();
   this->subDomain = domain->getSubDomain();
   this->com = domain->getCommunicator();
