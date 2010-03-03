@@ -43,6 +43,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   DistSVec<double,dim> k4;
 
   DistVec<double> Phi0;
+  DistVec<int> fluidId0;
   DistVec<double> p1;
   DistVec<double> p2;
   DistVec<double> p3;
@@ -79,7 +80,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
   void computeRKUpdate(DistSVec<double,dim>& Ulocal, 
                        DistSVec<double,dim>& dU, int it);
-  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<double>& dPhi, 
+  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<int> &localFluidId, DistVec<double>& dPhi, 
                          DistSVec<double,dim>& U);
 
 };

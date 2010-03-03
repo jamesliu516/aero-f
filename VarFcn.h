@@ -242,10 +242,12 @@ VarFcn::VarFcn(IoData &iod){
   varFcn = new VarFcnBase *[numPhases];
   for(int iPhase = 0; iPhase < numPhases; iPhase++) varFcn[iPhase] = 0;
 
-  if(numPhases>0)
+  if(numPhases>0){
     varFcn[0] = createVarFcnBase(iod, iod.eqs.fluidModel);
-  if(numPhases>1)
+  }
+  if(numPhases>1){
     varFcn[1] = createVarFcnBase(iod, iod.eqs.fluidModel2);
+  }
   if(numPhases>2){
     fprintf(stderr,"You've been chosen to implement the constructor of VarFcn for n(>2) phase flow!\n");
     exit(-1);
@@ -280,11 +282,15 @@ VarFcnBase *VarFcn::createVarFcnBase(IoData &iod, FluidModelData &fluidModel) {
     else
       vf_ = new VarFcnSGEuler(fluidModel);
   }
-  else if(fluidModel.fluid == FluidModelData::LIQUID)
+  else if(fluidModel.fluid == FluidModelData::LIQUID){
     vf_ = new VarFcnTait(fluidModel);
-  else if(iod.eqs.fluidModel.fluid == FluidModelData::JWL)
+  }else if(fluidModel.fluid == FluidModelData::JWL){
     vf_ = new VarFcnJwl(fluidModel);
-
+  }else{
+    fprintf(stdout, "No VarFcn created\n");
+    fflush(stdout);
+    exit(1);
+  }
   return vf_;
 }
 
@@ -315,8 +321,11 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int    *loctag   = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i)
+      for (int i=0; i<U.subSize(iSub); ++i){
         varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
+        //fprintf(stdout, "vf[%d] -> U = (%e %e %e %e %e) into V = (%e %e %e %e %e)\n", loctag[i],u[i][0],u[i][1],u[i][2],u[i][3],u[i][4],v[i][0],v[i][1],v[i][2],v[i][3],v[i][4]);
+        //fflush(stdout);
+      }
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitive(u[i], v[i]);

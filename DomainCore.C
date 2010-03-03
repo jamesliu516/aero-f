@@ -1294,6 +1294,15 @@ void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctr
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
 
+void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub));
+
+}
+
+//------------------------------------------------------------------------------
 void Domain::setPhiForFluid1(DistVec<double> &Phi)
 {
 

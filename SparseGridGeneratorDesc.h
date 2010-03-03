@@ -36,17 +36,7 @@ public:
     com = comm;
     varFcn = createVarFcn(ioData);
     lriemannGasJwl = new LocalRiemannGfmparGasJWL(varFcn, NULL, MultiFluidData::RK2);
-/* TODO: to be fixed!
-    if(varFcn->getType() == VarFcn::GAS) com->fprintf(stdout, "GAS VarFcn\n");
-    else if(varFcn->getType() == VarFcn::LIQUID) com->fprintf(stdout, "LIQUID VarFcn\n");
-    else if(varFcn->getType() == VarFcn::JWL) com->fprintf(stdout, "JWL VarFcn\n");
-    else if(varFcn->getType() == VarFcn::GASINGAS) com->fprintf(stdout, "GASINGAS VarFcn\n");
-    else if(varFcn->getType() == VarFcn::GASINLIQUID) com->fprintf(stdout, "GASINLIQUID VarFcn\n");
-    else if(varFcn->getType() == VarFcn::LIQUIDINLIQUID) com->fprintf(stdout, "LIQUIDINLIQUID VarFcn\n");
-    else if(varFcn->getType() == VarFcn::JWLINGAS) com->fprintf(stdout, "JWLINGAS VarFcn\n");
-    else if(varFcn->getType() == VarFcn::JWLINJWL) com->fprintf(stdout, "JWLINJWL VarFcn\n");
-    else com->fprintf(stdout, "no Type for VarFcn\n");
-*/  }
+  }
 
   ~SparseGridGeneratorDesc(){
     delete varFcn;
@@ -71,7 +61,7 @@ public:
       parameters[0] = 1.0;
       parameters[1] = ioData.eqs.fluidModel.jwlModel.rhoref;
 
-      if(false){
+      if(true){
         SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
         com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 2\n");
         //sparseGrid.tabulate(functionTest);
@@ -99,7 +89,7 @@ public:
       refOut[1] = ioData.ref.rv.density; // 2outputs
       com->fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
 
-/*
+///*
       SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
       if(true){
         sparseGrid.tabulate(&LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl);
@@ -114,7 +104,7 @@ public:
 
       if(true)
         sparseGridCopy.test(&LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl,2,&numTest, parameters);
-*/
+//*/
 
       SparseGridCluster sgCluster;
       sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
@@ -129,17 +119,26 @@ public:
 
   VarFcn *createVarFcn(IoData &ioData){
     VarFcn *vf = 0;
-/*    if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
-      vf = new VarFcnJWLEuler3D(ioData);
+    if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
+      //vf = new VarFcnJWLEuler3D(ioData);
+      vf = new VarFcn(ioData);
+      if(vf->getType(0) != VarFcnBase::JWL){
+        fprintf(stdout, "*** Error: a JWL EOS is needed for this tabulation\n"); 
+        exit(1);
+      }
     }else if(ioData.mf.riemannComputation == MultiFluidData::TABULATION5){
-      vf = new VarFcnJWLInGasEuler3D(ioData);
+      //vf = new VarFcnJWLInGasEuler3D(ioData);
+      vf = new VarFcn(ioData);
+      if((vf->getType(0) != VarFcnBase::PERFECTGAS && vf->getType(0) != VarFcnBase::STIFFENEDGAS) || vf->getType(1) != VarFcnBase::JWL){
+        fprintf(stdout, "*** Error: a SG EOS AND  a JWL EOS are needed for this tabulation\n"); 
+        exit(1);
+      }
     }
 
     if(!vf){
       com->fprintf(stdout, "*** Error: no valid choice for the VarFcn\n");
       exit(1);
     }
-*/ //TODO: NEED TO BE FIXED!!!
     return vf;
   }
     

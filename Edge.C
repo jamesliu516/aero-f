@@ -442,12 +442,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
 
     if (fluidId[i]==fluidId[j]) { 	// same fluid
-      if (fluidId[i]==0)  {  //TODO: to be fixed!
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, 1);
-      }
-      if (fluidId[j]==1)  {  //TODO: to be fixed
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, -1);
-      }
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
@@ -467,14 +462,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       for (int k=0; k<3; k++)
         gradphi[k] /= normgradphi;
 
-      int epsi = 0;
-      int epsj = 0;
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                    epsi,epsj,Wi,Wj,i,j,dx);
+                                    Wi,Wj,i,j,dx);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Vi, Wi, fluxi, epsi);
+                                    Vi, Wi, fluxi, fluidId[i]);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Wj, Vj, fluxj, epsj);
+                                    Wj, Vj, fluxj, fluidId[j]);
       for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
@@ -829,7 +822,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       } else {double tempVi[dim*2]; recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, tempVi, Vj);}
     }
 
-/*    if ((fluidId[i]*fluidId[j])>0)
+/*    if (fluidId[i]==fluidId[j])
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
     else for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
 */
@@ -846,8 +839,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
 
     if (fluidId[i]==fluidId[j]) {  // same fluid
-      if (fluidId[i]==fluid2) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, 1);
-      if (fluidId[i]==fluid1) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, -1);
+      //if (fluidId[i]==fluid2) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, 1);
+      //if (fluidId[i]==fluid1) fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, -1);
+      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
@@ -1222,12 +1216,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
 
     if (fluidId[i]==fluidId[j]) {
-       if (fluidId[i]==0){
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
-       }
-       if (fluidId[i]==1){
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
-       }
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
     } else {
       //ngradLS returns nodal gradients of phi
       gphii[0] = dPdx[i][0];
@@ -1249,12 +1238,10 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
         Vj[k+5] = Vj[k];
       }
 
-      int epsi = 0;
-      int epsj = 0;
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                     epsi,epsj,Wi,Wj,i,j,dx);
-      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, epsi);
-      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, epsj);
+                                     Wi,Wj,i,j,dx);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, fluidId[i]);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, fluidId[j]);
 
     }
 
@@ -1304,6 +1291,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   Scalar *Aji;
 
   double dfdUi[neq*neq], dfdUj[neq*neq];
+  double dfdUk[neq*neq], dfdUl[neq*neq];
+  double Vi[2*dim], Vj[2*dim];
+  double Wi[2*dim], Wj[2*dim];
   bool atInleti, atInletj;
   double length;
 
@@ -1318,13 +1308,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
   VarFcn *varFcn;
 
-  double alpha, beta, pref, gam;
-  double R_g,U_g,P_g;
-  double R_w,U_w,P_w, T_w;
-  double P_i,U_i,R_il,R_ir;
-  double Vwater[dim];
-  double Vgas[dim];
-  double dfdUk[neq*neq], dfdUl[neq*neq];
 
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
@@ -1335,19 +1318,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     double gradphi[3];
     double gphii[3];
     double gphij[3];
-    //ngradLS returns nodal gradients of phi
-    gphii[0] = dPdx[i][0];
-    gphii[1] = dPdy[i][0];
-    gphii[2] = dPdz[i][0];
-    gphij[0] = dPdx[j][0];
-    gphij[1] = dPdy[j][0];
-    gphij[2] = dPdz[j][0];
-    for (k=0; k<3; k++)
-      gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-    double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
-    for (k=0; k<3; k++)
-      gradphi[k] /= normgradphi;
-
 
     if(nodeType[i] == BC_INLET_FIXED || nodeType[i] == BC_OUTLET_FIXED ||
        nodeType[i] == BC_INLET_MOVING ||nodeType[i] == BC_OUTLET_MOVING)
@@ -1362,28 +1332,32 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       atInletj = false;
 
     if (fluidId[i]==fluidId[j]) {
-       if (fluidId[i]==0)
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
-       if (fluidId[i]==1)
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
     } else {
-       varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
-       if (0/*varFcn->getType() == VarFcn::GASINLIQUID*/) {  //TODO: to be fixed!!!
-				 fprintf(stdout, "Big Error here\n");
-         //RiemannJacobianGasTait(i,j,V,Phi[i],Phi[j],gradphi,normal[l],normalVel[l],varFcn,fluxFcn,dfdUi,dfdUj);
-       }
-       else{
-        if (fluidId[i]==0)
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
-        else
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
+      //ngradLS returns nodal gradients of phi
+      gphii[0] = dPdx[i][0];
+      gphii[1] = dPdy[i][0];
+      gphii[2] = dPdz[i][0];
+      gphij[0] = dPdx[j][0];
+      gphij[1] = dPdy[j][0];
+      gphij[2] = dPdz[j][0];
+      for (k=0; k<3; k++)
+        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+      double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+      for (k=0; k<3; k++)
+        gradphi[k] /= normgradphi;
 
-        if (fluidId[j]==0)
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, 1);
-        else
-         fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, -1);
-
-       }
+      for(k=0; k<5; k++){
+        Vi[k] = V[i][k];
+        Vj[k] = V[j][k];
+        Vi[k+5] = Vi[k];
+        Vj[k+5] = Vj[k];
+      }
+      varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
+      riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
+                                     Wi,Wj,i,j,dx);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, fluidId[i]);
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, fluidId[j]);
     }
 
 /* first case: the two nodes are interior nodes

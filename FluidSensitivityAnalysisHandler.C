@@ -368,7 +368,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
   }
 
 // initialize boundary condition fluxes
-  this->bcData->initialize(ioData, this->varFcn, *this->X);
+  this->bcData->initialize(ioData, *this->X);
 
 }
 
@@ -974,7 +974,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
   if ( ioData.sa.scFlag == SensitivityAnalysis::SEMIANALYTICAL ) {
     this->geoState->updateConfigSA();
-    this->bcData->initializeSA(ioData, this->varFcn, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+    this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
   }
 
 }
@@ -993,7 +993,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical(IoData &ioData, DistSVe
     this->geoState->computeDerivatives(X, dXdS, this->bcData->getVelocityVector(), this->bcData->getDerivativeOfVelocityVector(), dAdS);
 
 // Computing the derivatives of the boundary fluxs
-    this->bcData->initializeSA(ioData, this->varFcn, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+    this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
 
 // Computing the partial derivative of the flux with respect to the fsaimization variables
     this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);

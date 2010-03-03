@@ -27,9 +27,10 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistExactRiemannSolver<dim> *riemann;
   DistVec<double> Phi;           //conservative variables
   DistVec<double> PhiV;          //primitive variables
-  DistSVec<double,dim> Vg;       //primitive V for GFMP
-  DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
-  DistVec<double> *Vgfweight;
+  DistSVec<double,dim> V0;
+  //DistSVec<double,dim> Vg;       //primitive V for GFMP
+  //DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
+  //DistVec<double> *Vgfweight;
 
   // multiphase conservation check
   DistSVec<double,dim> boundaryFlux;
@@ -80,6 +81,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+
+ protected:
+  void avoidNewPhaseCreation(DistVec<double> &localPhi);
 
 };
 

@@ -397,12 +397,8 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
-      if (fluidId[nodeNum(l)] >= 0.0) 
-        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
-			       V[nodeNum(l)], Ub, flux, 1);
-      if (fluidId[nodeNum(l)] <  0.0) 
-        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
-			       V[nodeNum(l)], Ub, flux, -1);
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
+                             V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
         fluxes[ nodeNum(l) ][k] += flux[k];
       if(bcFlux)
@@ -428,12 +424,8 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
-      if (fluidId[nodeNum(l)] >= 0.0)
-        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
-                               V[nodeNum(l)], Ub, flux, 1);
-      if (fluidId[nodeNum(l)] <  0.0)
-        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
-                               V[nodeNum(l)], Ub, flux, -1);
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
+                             V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
         fluxes[ nodeNum(l) ][k] += flux[k];
     }

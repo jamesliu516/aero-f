@@ -45,22 +45,22 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
     if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      lriemann = new LocalRiemannGfmparGasGas(vf);
+      lriemann = new LocalRiemannGfmparGasGas(vf, iod.mf.typePhaseChange);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
             iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      lriemann = new LocalRiemannGfmparGasTait(vf);
+      lriemann = new LocalRiemannGfmparGasTait(vf, iod.mf.typePhaseChange);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
             iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      lriemann = new LocalRiemannGfmparTaitTait(vf);
+      lriemann = new LocalRiemannGfmparTaitTait(vf, iod.mf.typePhaseChange);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      lriemann = new LocalRiemannGfmparGasTait(vf);
+      lriemann = new LocalRiemannGfmparGasTait(vf, iod.mf.typePhaseChange);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparGasJWL(vf,sgCluster,iod.mf.riemannComputation);
+      lriemann = new LocalRiemannGfmparGasJWL(vf,sgCluster,iod.mf.riemannComputation,iod.mf.typePhaseChange);
     else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      lriemann = new LocalRiemannGfmparJWLJWL(vf);
+      lriemann = new LocalRiemannGfmparJWLJWL(vf, iod.mf.typePhaseChange);
     else{
       fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
       exit(1);
@@ -82,14 +82,32 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 
 //------------------------------------------------------------------------------
 template<int dim>
+void ExactRiemannSolver<dim>::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
+                                                     SVec<double,3> &X)
+{
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
+                                                Vec<int> &fluidIdn)
+{
+
+  for(int i=0; i<V.size(); i++){
+    lriemann->updatePhaseChange(V[i],fluidId[i],fluidIdn[i],rupdate[i],weight[i]);
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
       int IDi, int IDj, double *nphi, VarFcn *vf,
-      int &epsi, int &epsj, double *Wi, double *Wj, int i, int j,
+      double *Wi, double *Wj, int i, int j,
       double dx[3])
 {
 
   lriemann->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,
-          epsi,epsj,Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
+          Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
           dx,iteration);
 
 }

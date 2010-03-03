@@ -988,8 +988,8 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
-                                DistVec<int> &fluidId1,
-                                DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+                                DistVec<int> *fluidIdnm1,
+                                //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
                                 DistExactRiemannSolver<dim> *riemann)
 {
   data->update();
@@ -999,9 +999,12 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
-    varFcn->conservativeToPrimitive(*Un, *V, &fluidId1);
-    //TODO: to be fixed!!
-    //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidId1, Vgf, Vgfweight, riemann);
+    fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
+    exit(1);
+    varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
+    //TODO: to be fixed for 3pt-BDF!!!
+    //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1, Vgf, Vgfweight, riemann);
+    //riemann->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1);
     data->exist_nm1 = true;
   }
   *Un = Q;

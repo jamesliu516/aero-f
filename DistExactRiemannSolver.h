@@ -15,10 +15,8 @@ template<int dim> class ExactRiemannSolver;
 template<int dim>
 class DistExactRiemannSolver {
 
-  // updatePhase indicates if we should use riemannupdate (cf below)
-  bool updatePhase;
-  bool firstpass;
   int numLocSub;
+  Domain *domain;
 
   DistSVec<double,dim> *riemannupdate;
   DistVec<double> *weight;
@@ -34,9 +32,11 @@ public:
   DistExactRiemannSolver(IoData &iod, Domain *dom, VarFcn *vf);
   ~DistExactRiemannSolver();
 
-  bool DoUpdatePhase() { return updatePhase; }
   DistSVec<double,dim> *getRiemannUpdate() const { return riemannupdate; }
   DistVec<double> *getRiemannWeight() const { return weight; }
+
+  void updatePhaseChange(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistVec<int> &fluidIdn); 
+  void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistSVec<double,3> &X);
 
   ExactRiemannSolver<dim> &operator() (int i) 
     const { return *subExactRiemannSolver[i]; }

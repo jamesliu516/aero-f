@@ -353,11 +353,6 @@ public:
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
 
   template<int dim>
-  void storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                      DistVec<double> &weight, DistVec<int> &fluidId,
-                      DistSVec<double,3> &X);
-                           
-  template<int dim>
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistLevelSetStructure *distLSS);
@@ -390,6 +385,11 @@ public:
   void getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi);
   template<int dim>
   void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
+  void avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin);
+  template<int dim>
+  void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, 
+                              DistSVec<double,3> &X, DistSVec<double,dim> &Vupdate, 
+                              DistVec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U);
 

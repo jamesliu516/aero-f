@@ -13,16 +13,11 @@
 
 template<int dim>
 DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
-                                                    VarFcn *vf)
+                                                    VarFcn *vf) :
+domain(dom)
 {
 
-  updatePhase = false;
-  if(ioData.mf.method          == MultiFluidData::GHOSTFLUID_WITH_RIEMANN &&
-     ioData.mf.typePhaseChange == MultiFluidData::RIEMANN_SOLUTION)
-    updatePhase = true;
-
   numLocSub = dom->getNumLocSub();
-  firstpass= true;
 
   riemannupdate = new DistSVec<double,dim>(dom->getNodeDistInfo());
   weight        = new DistVec<double>(dom->getNodeDistInfo());
@@ -52,7 +47,6 @@ DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
 
     tabulationC = new SparseGridCluster;
     tabulationC->readFromFile(ioData.mf.sparseGrid.numberOfTabulations, refIn, refOut, ioData.mf.sparseGrid.tabulationFileName, dom->getCommunicator()->cpuNum());
-    //tabulationC->readFromFile(62,refIn, refOut, "SparseGridClusterRiemannSolution", dom->getCommunicator()->cpuNum());
   }else{
     tabulationC = 0;
   }
@@ -84,5 +78,25 @@ DistExactRiemannSolver<dim>::~DistExactRiemannSolver()
 
   delete tabulationC;
 
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
+                                               DistVec<int> &fluidId, DistVec<int> &fluidIdn)
+{
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    subExactRiemannSolver[iSub]->updatePhaseChange(V(iSub), fluidId(iSub), fluidIdn(iSub));
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistExactRiemannSolver<dim>::storePreviousPrimitive(DistSVec<double,dim> &V,
+                                                    DistVec<int> &fluidId,
+                                                    DistSVec<double,3> &X)
+{
+  domain->storePreviousPrimitive(V,fluidId,X,*riemannupdate, *weight);
 }
 //------------------------------------------------------------------------------

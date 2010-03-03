@@ -83,10 +83,10 @@ protected:
 
 protected:
 
-  void finalize(VarFcn *, DistSVec<double,3> &);
+  void finalize(DistSVec<double,3> &);
 
 // Included (MB)
-  void finalizeSA(VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &);
+  void finalizeSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
 
 public:
 
@@ -117,8 +117,8 @@ public:
   virtual void computeNodeWallValues(DistSVec<double,3> &) {}
   DistVec<double> &getDerivativeOfTemperatureVector() { return (*dTemp); }
   virtual void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &) {}
-  virtual void initialize(IoData &, VarFcn *, DistSVec<double,3> &) {}
-  virtual void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}
+  virtual void initialize(IoData &, DistSVec<double,3> &) {}
+  virtual void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &) {}
   DistSVec<double,3> &getDerivativeOfVelocityVector() { return *dXdot; }
 
 };
@@ -130,13 +130,13 @@ class DistBcDataEuler : public DistBcData<dim> {
 
 private:
   void setBoundaryConditionsGas(IoData &, DistSVec<double,3> &);
-  void setBoundaryConditionsLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
-  void setBoundaryConditionsJWL(IoData &, VarFcn *, DistSVec<double,3> &);
+  void setBoundaryConditionsLiquid(IoData &, DistSVec<double,3> &);
+  void setBoundaryConditionsJWL(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsGasGas(IoData &, DistSVec<double,3> &);
-  void setBoundaryConditionsLiquidLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
-  void setBoundaryConditionsGasLiquid(IoData &, VarFcn *, DistSVec<double,3> &);
-  void setBoundaryConditionsLiquidGas(IoData &, VarFcn *, DistSVec<double,3> &);
-  void setBoundaryConditionsJWLGas(IoData &, VarFcn *, DistSVec<double,3> &);
+  void setBoundaryConditionsLiquidLiquid(IoData &, DistSVec<double,3> &);
+  void setBoundaryConditionsGasLiquid(IoData &, DistSVec<double,3> &);
+  void setBoundaryConditionsLiquidGas(IoData &, DistSVec<double,3> &);
+  void setBoundaryConditionsJWLGas(IoData &, DistSVec<double,3> &);
 
   void updateFarField(DistSVec<double,3> &);
   void updateFarFieldGas(DistSVec<double,3> &);
@@ -144,8 +144,8 @@ private:
   void updateFarFieldJWL(DistSVec<double,3> &);
 
 // Included (MB)
-  void initialize(IoData &, VarFcn *, DistSVec<double,3> &);
-  void initializeSA(IoData &, VarFcn *, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);
+  void initialize(IoData &, DistSVec<double,3> &);
+  void initializeSA(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double &, double &, double &);
   void setDerivativeOfBoundaryConditionsGas(IoData &, DistSVec<double,3> &, DistSVec<double,3> &, double, double, double);
   void updateFarFieldSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);
   void updateFarFieldGasSA(DistSVec<double,3> &, DistSVec<double,3> &, double &);

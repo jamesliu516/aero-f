@@ -90,6 +90,8 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
     }
 
 
+  // it is assumed that at only fluid can be found at the far-field boundary of an external flow
+  // and it is always the fluid with id=0 (by default)
   if(vf->getType()==VarFcnBase::STIFFENEDGAS || vf->getType()==VarFcnBase::PERFECTGAS)
     boundaryFluid = GAS;
   else if (vf->getType()==VarFcnBase::JWL)
@@ -190,15 +192,15 @@ DistBcData<dim>::~DistBcData()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistBcData<dim>::finalize(VarFcn *varFcn, DistSVec<double,3> &X)
+void DistBcData<dim>::finalize(DistSVec<double,3> &X)
 {
   //assumption : only one phase is found at the far-field boundary
 
   com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
-  varFcn->conservativeToPrimitive(this->Uin, Vin);
-  varFcn->conservativeToPrimitive(this->Uout, Vout);
+  this->vf->conservativeToPrimitive(this->Uin, Vin);
+  this->vf->conservativeToPrimitive(this->Uout, Vout);
 
-  double Pressure = varFcn->getPressure(Vin);
+  double Pressure = this->vf->getPressure(Vin);
   com->printf(2, "Inlet:");
   int k;
   for (k=0; k<dim; ++k)
@@ -221,7 +223,7 @@ void DistBcData<dim>::finalize(VarFcn *varFcn, DistSVec<double,3> &X)
 
 // Included (MB)
 template<int dim>
-void DistBcData<dim>::finalizeSA(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
+void DistBcData<dim>::finalizeSA(DistSVec<double,3> &X, DistSVec<double,3> &dX, double &dMach)
 {
 
 //Remark: Error mesage for pointers
@@ -230,8 +232,8 @@ void DistBcData<dim>::finalizeSA(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec
     exit(1);
   }
 
-  varFcn->conservativeToPrimitiveDerivative(this->Uin, this->dUin, Vin, dVin);
-  varFcn->conservativeToPrimitiveDerivative(this->Uout, this->dUout, Vout, dVout);
+  this->vf->conservativeToPrimitiveDerivative(this->Uin, this->dUin, Vin, dVin);
+  this->vf->conservativeToPrimitiveDerivative(this->Uout, this->dUout, Vout, dVout);
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < this->numLocSub; ++iSub)
@@ -797,14 +799,14 @@ void DistBcDataEuler<dim>::setDerivativeOfBoundaryConditionsGas(IoData &iod,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod,
                                 DistSVec<double,3> &X)
 {
   // flow properties
-  double a = vf->getAlphaWater();
-  double b = vf->getBetaWater();
-  double c = vf->getCv();
-  double P = vf->getPrefWater();
+  double a = this->vf->getAlphaWater();
+  double b = this->vf->getBetaWater();
+  double c = this->vf->getCv();
+  double P = this->vf->getPrefWater();
   double coeff = -(b-1.0)/(a*b);
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
@@ -877,7 +879,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquid(IoData &iod, VarFcn *vf,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsJWL(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsJWL(IoData &iod,
                                 DistSVec<double,3> &X)
 {
 
@@ -1099,18 +1101,15 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod,
                                 DistSVec<double,3> &X)
 {
-  //TODO: get fluidId through IoData
-  // e.g. int Liq1 = iod.blabla1, Liq2 = iod.blabla2.
-  int liq1 = 0, liq2 = 1;
 
-  // flow properties
-  double a = vf->getAlphaWater(liq1);
-  double b = vf->getBetaWater(liq1);
-  double c = vf->getCv(liq1);
-  double P = vf->getPrefWater(liq1);
+  // flow properties for fluid at boundary
+  double a = this->vf->getAlphaWater();
+  double b = this->vf->getBetaWater();
+  double c = this->vf->getCv();
+  double P = this->vf->getPrefWater();
   double coeff = (b-1.0)/(a*b);
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
@@ -1177,15 +1176,17 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
   }
 
 
-  a = vf->getAlphaWater(liq2);
-  b = vf->getBetaWater(liq2);
-  c = vf->getCv(liq2);
 
   if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
+    // for shock tube type of computation
+    // fluidModel1 is on the left/inlet 
+    // fluidModel2 is on the right/outlet
+    // hence, the right/outlet needs to be modified with values for the second EOS!
+    int secondEOS = 1;
+    a = this->vf->getAlphaWater(secondEOS);
+    b = this->vf->getBetaWater(secondEOS);
+    c = this->vf->getCv(secondEOS);
 
-     // for shock tube type of computation
-// fluidModel1 is on the left/inlet 
-// fluidModel2 is on the right/outlet
     if(iod.bc.outlet.mach >= 0.0){
       velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach* a*b*pow(iod.bc.outlet.density, b-1.0);
     }else{
@@ -1220,18 +1221,16 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidLiquid(IoData &iod, VarFcn
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod,
 				DistSVec<double,3> &X)
 {
-  //TODO: get fluidId through IoData
-  // e.g. int liq = iod.blabla1, Liq2 = iod.blabla2.
-  int gas = 0, liq = 1; //TODO: caution! should it be gas = 1, liq = 0 ?
+  int gas = 1, liq = 0;
 
-  // flow properties
-  double a = vf->getAlphaWater(liq);
-  double b = vf->getBetaWater(liq);
-  double c = vf->getCv(liq);
-  double P = vf->getPrefWater(liq);
+  // flow properties for fluid at boundary (ie liquid)
+  double a = this->vf->getAlphaWater(liq);
+  double b = this->vf->getBetaWater(liq);
+  double c = this->vf->getCv(liq);
+  double P = this->vf->getPrefWater(liq);
   double coeff = (b-1.0)/(a*b);
   double rhoin = iod.bc.inlet.density;
   double rhoout = iod.bc.outlet.density;
@@ -1343,7 +1342,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod, VarFcn *v
 
 
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod,
 				DistSVec<double,3> &X)
 {
 
@@ -1422,7 +1421,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsLiquidGas(IoData &iod, VarFcn *v
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
+void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod,
                                 DistSVec<double,3> &X)
 {
 
@@ -1496,11 +1495,10 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
      // for shock tube type of computation
 // fluidModel1(SG)  is on the left/inlet 
 // fluidModel2(JWL) is on the right/outlet
-    //TODO: get fluidId through IoData!
     int gas = 0, jwl = 1;
     double Voutlet[5] = {iod.bc.outlet.density, 0, 0, 0, iod.bc.outlet.pressure};
     if(iod.bc.outlet.mach >= 0.0){
-      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / vf->computeSoundSpeed(Voutlet,jwl);
+      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / this->vf->computeSoundSpeed(Voutlet,jwl);
     }else{
       velout2 = iod.bc.outlet.velocity*iod.bc.outlet.velocity;
     }
@@ -1511,7 +1509,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
     this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
     this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
     this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
-    this->Uout[4] = vf->computeRhoEpsilon(Voutlet,jwl) + 0.5 * this->Uout[0] * velout2;
+    this->Uout[4] = this->vf->computeRhoEpsilon(Voutlet,jwl) + 0.5 * this->Uout[0] * velout2;
   
 #pragma omp parallel for
     for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
@@ -1534,16 +1532,16 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod, VarFcn *vf,
 
 // Included (MB)
 template<int dim>
-void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3> &X)
+void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
 {
 
   if (iod.eqs.numPhase == 1){
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS)
       setBoundaryConditionsGas(iod, X);
     else if(iod.eqs.fluidModel.fluid == FluidModelData::LIQUID)
-      setBoundaryConditionsLiquid(iod, vf, X);
+      setBoundaryConditionsLiquid(iod, X);
     else if(iod.eqs.fluidModel.fluid == FluidModelData::JWL)
-      setBoundaryConditionsJWL(iod, vf, X);
+      setBoundaryConditionsJWL(iod, X);
     
   }else if (iod.eqs.numPhase == 2){
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
@@ -1552,19 +1550,19 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
         iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      setBoundaryConditionsLiquidLiquid(iod, vf, X);
+      setBoundaryConditionsLiquidLiquid(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
         iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
-      setBoundaryConditionsGasLiquid(iod, vf, X);
+      setBoundaryConditionsGasLiquid(iod, X);
 
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
         iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-      setBoundaryConditionsLiquidGas(iod, vf, X);
+      setBoundaryConditionsLiquidGas(iod, X);
 
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
         iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
-      setBoundaryConditionsJWLGas(iod,vf,X);
+      setBoundaryConditionsJWLGas(iod,X);
 
     else{
       fprintf(stderr, "*** Error : no such two-phase simulation is supported by AERO-F\n");
@@ -1574,12 +1572,12 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
   }
 
   if (dim == 5)
-    this->finalize(vf, X);
+    this->finalize(X);
 
   if (dim == 6) {
     this->Uin[5] = this->Uin[0] * iod.bc.inlet.nutilde;
     this->Uout[5] = this->Uout[0] * iod.bc.outlet.nutilde;
-    this->finalize(vf, X);
+    this->finalize(X);
   }
 
   if (dim == 7) {
@@ -1587,7 +1585,7 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
     this->Uin[6] = this->Uin[0] * iod.bc.inlet.eps;
     this->Uout[5] = this->Uout[0] * iod.bc.outlet.kenergy;
     this->Uout[6] = this->Uout[0] * iod.bc.outlet.eps;
-    this->finalize(vf, X);
+    this->finalize(X);
   }
 
 }
@@ -1596,7 +1594,7 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, VarFcn *vf, DistSVec<double,3
 
 // Included (MB)
 template<int dim>
-void DistBcDataEuler<dim>::initializeSA(IoData &iod, VarFcn *vf, DistSVec<double,3> &X, DistSVec<double,3> &dX, double & dM, double & dA, double & dB)
+void DistBcDataEuler<dim>::initializeSA(IoData &iod, DistSVec<double,3> &X, DistSVec<double,3> &dX, double & dM, double & dA, double & dB)
 {
 
   if (iod.eqs.numPhase == 1){
@@ -1613,12 +1611,12 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, VarFcn *vf, DistSVec<double
   }
 
   if (dim == 5)
-    this->finalizeSA(vf,X,dX,dM);
+    this->finalizeSA(X,dX,dM);
 
   if (dim == 6) {
     this->dUin[5] = 0.0;
     this->dUout[5] = 0.0;
-    this->finalizeSA(vf,X,dX,dM);
+    this->finalizeSA(X,dX,dM);
   }
 
   if (dim == 7) {
@@ -1632,7 +1630,7 @@ void DistBcDataEuler<dim>::initializeSA(IoData &iod, VarFcn *vf, DistSVec<double
     this->dUin[6] = 0.0;
     this->dUout[5] = 0.0;
     this->dUout[6] = 0.0;
-    this->finalizeSA(vf,X,dX,dM);
+    this->finalizeSA(X,dX,dM);
   }
 
 }
@@ -1645,7 +1643,7 @@ DistBcDataEuler<dim>::DistBcDataEuler(IoData &iod, VarFcn *vf, Domain *dom, Dist
     DistBcData<dim>(iod, vf, dom)
 {
 
-  initialize(iod, vf, X);
+  initialize(iod, X);
 
 }
 
@@ -1739,7 +1737,7 @@ DistBcDataSA<dim>::DistBcDataSA(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     vec2PatSA = 0;
   }
 
-  this->finalize(vf, X);
+  this->finalize(X);
 
 }
 
@@ -1903,7 +1901,7 @@ DistBcDataKE<dim>::DistBcDataKE(IoData &iod, VarFcn *vf, Domain *dom, DistSVec<d
     }
   }
 
-  this->finalize(vf, X);
+  this->finalize(X);
 
 }
 

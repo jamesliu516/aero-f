@@ -269,6 +269,7 @@ public:
 
   void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi);
+  void avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, SVec<double,dim> &U);
@@ -836,11 +837,6 @@ public:
   void FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level);
 
   template<int dim>
-  void storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                      Vec<double> &weight, Vec<int> &fluidId,
-                      SVec<double,3> &X);
-                      
-  template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
 
@@ -885,6 +881,10 @@ public:
   template<int dim>
   void checkWeights(Vec<double> &Phi, Vec<double> &Phin,
                     SVec<double,dim> &Update, Vec<double> &Weight);
+  template<int dim>
+  void storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, 
+                              SVec<double,3> &X, SVec<double,dim> &Vupdate, 
+                              Vec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U);
 

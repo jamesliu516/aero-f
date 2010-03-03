@@ -43,7 +43,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -56,19 +56,10 @@ private:
 inline
 void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
-    int &epsi, int &epsj, double *Wi, double *Wj,
+    double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
-
-  if(IDi==fluid1){
-    epsi =  1;
-    epsj = -1;
-  }else{
-    epsi = -1;
-    epsj =  1;
-  }
-
 
   for (int i=0; i<10; i++){
     Wi[i] = Vj[i];
@@ -87,7 +78,7 @@ public:
 
 void computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
+                            double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej, 
                             double &weighti, double &weightj,
                             double dx[3], int it);
@@ -100,7 +91,7 @@ private:
 inline
 void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
-    int &epsi, int &epsj, double *Wi, double *Wj,
+    double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
@@ -120,8 +111,6 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
   double temp = 0;
 	
   if(IDi==fluid1){
-    epsi =  1;
-    epsj = -1;
     temp = p2+a2*pow(Vj[0],b2);
     Wi[0] = pow((temp-p1)/a1,1.0/b1);
     temp = p2+a2*pow(Vj[5],b2);
@@ -131,8 +120,6 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     temp = p1+a1*pow(Vi[5],b1);
     Wj[5] = pow((temp-p2)/a2,1.0/b2);
   }else{
-    epsi = -1;
-    epsj =  1;
     temp = p2+a2*pow(Vi[0],b2);
     Wj[0] = pow((temp-p1)/a1,1.0/b1);
     temp = p2+a2*pow(Vi[5],b2);
@@ -156,7 +143,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -169,19 +156,10 @@ private:
 inline
 void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
-    int &epsi, int &epsj, double *Wi, double *Wj,
+    double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
-
-  if(IDi==fluid1){
-    epsi =  1;
-    epsj = -1;
-  }else{
-    epsi = -1;
-    epsj =  1;
-  }
-
 
   for (int i=0; i<10; i++){
     Wi[i] = Vj[i];
@@ -200,7 +178,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -213,19 +191,10 @@ private:
 inline
 void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
-    int &epsi, int &epsj, double *Wi, double *Wj,
+    double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
-
-  if(IDi==fluid1){
-    epsi =  1;
-    epsj = -1;
-  }else{
-    epsi = -1;
-    epsj =  1;
-  }
-
 
   for (int i=0; i<10; i++){
     Wi[i] = Vj[i];
@@ -244,12 +213,12 @@ void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparGasGas : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasGas(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  LocalRiemannGfmparGasGas(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,typePhaseChange) {}
   ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -272,7 +241,7 @@ private:
 inline
 void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
-		int &epsi, int &epsj,	double *Wi, double *Wj,
+		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, 
                 double &weighti, double &weightj,
                 double dx[3], int it)
@@ -302,8 +271,6 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vi, IDi);
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
-    epsi = 1;
-    epsj = -1;
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -326,8 +293,6 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
 
     F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
-    epsi = -1;
-    epsj = 1;
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -365,12 +330,12 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparGasTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasTait(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  LocalRiemannGfmparGasTait(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
   ~LocalRiemannGfmparGasTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj, 
                               double dx[3], int it);
@@ -384,7 +349,7 @@ private:
 inline
 void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 	  int IDi, int IDj, double *nphi,
-	  int &epsi, int &epsj, double *Wi, double *Wj,
+	  double *Wi, double *Wj,
           double *rupdatei, double *rupdatej, double &weighti, double &weightj,
           double dx[3], int it)
 {
@@ -412,8 +377,6 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     P_w  = vf_->getPressure(Vi, IDi);
 
     F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
-    epsi = 1;
-    epsj = -1;
 
     Wi[0]  = R_ir;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -439,8 +402,6 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     P_w  = vf_->getPressure(Vj, IDj);
 
     F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
-    epsi = -1;
-    epsj = 1;
 
     Wi[0]  = R_il;                      Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];        Wi[dim+1]  = Wi[1];
@@ -481,12 +442,12 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparTaitTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparTaitTait(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  LocalRiemannGfmparTaitTait(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
   ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -500,7 +461,7 @@ private:
 inline
 void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
-    int &epsi, int &epsj, double *Wi, double *Wj,
+    double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
 {
@@ -535,8 +496,6 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1);
-    epsi = 1;
-    epsj = -1;
     
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -564,8 +523,6 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     
     F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
                         alpha2,beta2,pref2,alpha1,beta1,pref1);
-    epsi = -1;
-    epsj = 1;
     
     Wi[0]  = R_i2;                      Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];        Wi[dim+1]  = Wi[1];
@@ -604,12 +561,12 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparJWLJWL : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparJWLJWL(VarFcn *vf) : LocalRiemannGfmpar(vf) {}
+  LocalRiemannGfmparJWLJWL(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
   ~LocalRiemannGfmparJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -631,7 +588,7 @@ private:
 inline
 void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
-		int &epsi, int &epsj,	double *Wi, double *Wj,
+		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
 {
@@ -659,9 +616,6 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 
     eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
 
-    epsi = 1;
-    epsj = -1;
-
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
@@ -683,9 +637,6 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
 
     eriemannjj(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1);
-
-    epsi = -1;
-    epsj = 1;
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -851,8 +802,9 @@ private:
 
 public:
   LocalRiemannGfmparGasJWL(VarFcn *vf, SparseGridCluster *sgCluster, 
-                           MultiFluidData::RiemannComputation riemannComputation) : 
-  LocalRiemannGfmpar(vf) {
+                           MultiFluidData::RiemannComputation riemannComputation,
+                           MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
+  LocalRiemannGfmpar(vf, typePhaseChange) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -860,7 +812,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
-                              int &epsi, int &epsj, double *Wi, double *Wj,
+                              double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
@@ -906,12 +858,11 @@ protected:
 inline
 void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
-		int &epsi, int &epsj,	double *Wi, double *Wj,
+		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
 {
 
-  bool computeRiemannSolutionGasJWLimplemented = false;
   int dim = 5;
 	
   double P_1, P_2, U_1, U_2, R_1, R_2;
@@ -933,8 +884,6 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vi, IDi);
 
     eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
-    epsi = 1;
-    epsj = -1;
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -957,8 +906,6 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_1  = vf_->getPressure(Vj, IDj);
 
     eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
-    epsi = -1;
-    epsj = 1;
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -1085,7 +1032,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double omp1ooml = (omegal+1.0)/omegal;
   double frhol = vf_->computeFrho(1.0/vl,fluid2);
   double frhoil = frhol;
-  double frhopil = vf_->computeFrhop(1.0/vl,fluid1);
+  double frhopil = vf_->computeFrhop(1.0/vl,fluid2);
 
 
   double gamr = vf_->getGamma(fluid1);
@@ -1353,9 +1300,9 @@ double LocalRiemannGfmparGasJWL::jwlZeroSoundSpeedJwlDensity(const double densit
                              // so we use this lowerBound to reduce the search domain.
 
     while(!convergence){
-        fn = (vf_->getOmega(fluid1)+1.0)*entropy*pow(xn,vf_->getOmega(fluid1)) + vf_->computeExponentials2(xn,fluid2);
+        fn = (vf_->getOmega(fluid2)+1.0)*entropy*pow(xn,vf_->getOmega(fluid2)) + vf_->computeExponentials2(xn,fluid2);
         if(fn<0.0) lowerBound = xn;
-        dfn = entropy*(vf_->getOmega(fluid1)+1.0)*vf_->getOmega(fluid1)*pow(xn,vf_->getOmega(fluid1)-1) + vf_->computeDerivativeOfExponentials2(xn,fluid2);
+        dfn = entropy*(vf_->getOmega(fluid2)+1.0)*vf_->getOmega(fluid2)*pow(xn,vf_->getOmega(fluid2)-1) + vf_->computeDerivativeOfExponentials2(xn,fluid2);
         //fprintf(stdout, "xn = %e - fn = %e - dfn = %e\n", xn, fn, dfn);
         if(dfn!=0) dx = -relaxation*fn/dfn;
         else{ dx = -0.75*dx; continue; }
@@ -1397,7 +1344,7 @@ double LocalRiemannGfmparGasJWL::pressureEqGasDensity(const double gasDensity, c
 
   double jwlEntropy = vf_->computeEntropy(jwlDensity, jwlPressure, fluid2);
   double gasEntropy = vf_->computeEntropy(gasDensity, gasPressure, fluid1);
-  return pow((jwlEntropy*pow(interfacialJwlDensity,vf_->getOmega(fluid1)+1.0)+vf_->computeExponentials(interfacialJwlDensity,fluid2)+vf_->getPressureConstant(fluid1))/gasEntropy,1.0/vf_->getGamma(fluid1));
+  return pow((jwlEntropy*pow(interfacialJwlDensity,vf_->getOmega(fluid2)+1.0)+vf_->computeExponentials(interfacialJwlDensity,fluid2)+vf_->getPressureConstant(fluid1))/gasEntropy,1.0/vf_->getGamma(fluid1));
 
 }
 
@@ -1411,7 +1358,7 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
   if(verbose>0) fprintf(stdout, "sgZeroDensityPJwlDensity - density=%e and pressure=%e and rho_c0=%e\n", density, pressure, rho_c0);
   double entropy = vf_->computeEntropy(density,pressure,fluid2);
 
-  double fn = entropy*pow(rho_c0>0.0 ? rho_c0 : 1.e-14,vf_->getOmega(fluid1)+1.0) + vf_->computeExponentials(rho_c0>0.0 ? rho_c0 : 1.e-14,fluid2) + vf_->getPressureConstant(fluid1);
+  double fn = entropy*pow(rho_c0>0.0 ? rho_c0 : 1.e-14,vf_->getOmega(fluid2)+1.0) + vf_->computeExponentials(rho_c0>0.0 ? rho_c0 : 1.e-14,fluid2) + vf_->getPressureConstant(fluid1);
   if(verbose>0) fprintf(stdout, "sgZeroDensityPJwlDensity - fn(max(rho_c0,0)) = %e\n", fn);
   if(fn>0.0) return -1.0;
 
@@ -1426,8 +1373,8 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
   double dx=0, dfn;
 
   while(!convergence){
-    fn = entropy*pow(xn,vf_->getOmega(fluid1)+1.0) + vf_->computeExponentials(xn,fluid2) + vf_->getPressureConstant(fluid1);
-    dfn = entropy*(vf_->getOmega(fluid1)+1.0)*pow(xn,vf_->getOmega(fluid1)) + vf_->computeDerivativeOfExponentials(xn,fluid2);
+    fn = entropy*pow(xn,vf_->getOmega(fluid2)+1.0) + vf_->computeExponentials(xn,fluid2) + vf_->getPressureConstant(fluid1);
+    dfn = entropy*(vf_->getOmega(fluid2)+1.0)*pow(xn,vf_->getOmega(fluid2)) + vf_->computeDerivativeOfExponentials(xn,fluid2);
     //fprintf(stdout, "it = %d - xn = %e - fn = %e - dfn = %e\n", it, xn, fn, dfn);
     if(dfn>0) dx = -relaxation*fn/dfn;
     

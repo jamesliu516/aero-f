@@ -4723,83 +4723,7 @@ void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<doubl
 
 }
 //--------------------------------------------------------------------------
-template<int dim>
-void SubDomain::storePrimitive(SVec<double,dim> &Vg, SVec<double,dim> &Vgf,
-                               Vec<double> &weight, Vec<int> &fluidId,
-                               SVec<double,3> &X)
-{
 
-  int i, j, k;
-
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  for (int l=0; l<edges.size(); l++){
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-
-/*
-// OPTION 1 : simple arithmetic mean extrapolation
-//    if(Phi[i]*Phi[j]<=0.0){ //at interface
-    if(fluidId[i]!=fluidId[j]){ //at interface
-
-      if(weight[i]<1.e-6){
-        weight[i] = 1.0;
-        for(k=0; k<5; k++)
-          Vgf[i][k] = Vg[j][k];
-      }else{
-        weight[i] += 1.0;
-        for(k=0; k<5; k++)
-          Vgf[i][k] += Vg[j][k];
-      }
-
-      if(weight[j]<1.e-6){
-        weight[j] = 1.0;
-        for(k=0; k<5; k++)
-          Vgf[j][k] = Vg[i][k];
-      }else{
-        weight[j] += 1.0;
-        for(k=0; k<5; k++)
-          Vgf[j][k] += Vg[i][k];
-      }
-    }
-    
-*/
-
-// OPTION 2 : selective averaged extrapolation (based on direction of the flow)
-
-//    if(Phi[i]*Phi[j]<=0.0){ //at interface
-    if(fluidId[i]!=fluidId[j]){ //at interface
-      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-      double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
-      double normUi2 = Vg[i][1]*Vg[i][1]+Vg[i][2]*Vg[i][2]+Vg[i][3]*Vg[i][3];
-      double normUj2 = Vg[j][1]*Vg[j][1]+Vg[j][2]*Vg[j][2]+Vg[j][3]*Vg[j][3];
-      double udotdx = 0.0;
-
-      if(normdx2*normUj2 > 0.0)
-        udotdx = -(dx[0]*Vg[j][1]+dx[1]*Vg[j][2]+dx[2]*Vg[j][3])/sqrt(normdx2*normUj2);
-      if(udotdx > 0.0){
-        weight[i] += udotdx;
-        for(k=0; k<5; k++)
-          Vgf[i][k] += udotdx*Vg[j][k];
-      }
-
-      if(normdx2*normUi2 > 0.0)
-        udotdx = (dx[0]*Vg[i][1]+dx[1]*Vg[i][2]+dx[2]*Vg[i][3])/sqrt(normdx2*normUi2);
-      if(udotdx > 0.0){
-        weight[j] += udotdx;
-        for(k=0; k<5; k++)
-          Vgf[j][k] += udotdx*Vg[i][k];
-      }
-    }
-   
-
-  }
-
-}
-
-//--------------------------------------------------------------------------
-    
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
@@ -5070,19 +4994,56 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
+void SubDomain::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, 
+                                    SVec<double,3> &X, SVec<double,dim> &Vupdate, 
+                                    Vec<double> &weight){
 
-  double rhoe, ptemp;
-  if(0/*vf->getType() != VarFcn::GASINGAS && vf->getType() != VarFcn::GASINLIQUID*/){ //TODO: to be fixed!!!
-    fprintf(stdout, "*** Error : Increasing pressure for this case is not possible right now...\n");
-    exit(1);
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); l++){
+    i = edgePtr[l][0];
+    j = edgePtr[l][1];
+
+// selective averaged extrapolation (based on direction of the flow)
+
+    if(fluidId[i] != fluidId[j]){ //at interface
+      double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+      double normdx2 = dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2];
+      double normUi2 = V[i][1]*V[i][1]+V[i][2]*V[i][2]+V[i][3]*V[i][3];
+      double normUj2 = V[j][1]*V[j][1]+V[j][2]*V[j][2]+V[j][3]*V[j][3];
+      double udotdx = 0.0;
+
+      if(normdx2*normUj2 > 0.0)
+        udotdx = -(dx[0]*V[j][1]+dx[1]*V[j][2]+dx[2]*V[j][3])/sqrt(normdx2*normUj2);
+      if(udotdx > 0.0){
+        weight[i] += udotdx;
+        for(k=0; k<5; k++)
+          Vupdate[i][k] += udotdx*V[j][k];
+      }
+
+      if(normdx2*normUi2 > 0.0)
+        udotdx = (dx[0]*V[i][1]+dx[1]*V[i][2]+dx[2]*V[i][3])/sqrt(normdx2*normUi2);
+      if(udotdx > 0.0){
+        weight[j] += udotdx;
+        for(k=0; k<5; k++)
+          Vupdate[j][k] += udotdx*V[i][k];
+      }
+    }
+
   }
 
-  double gam = vf->getGamma();
-  double ps  = vf->getPressureConstant();
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
 
-  double rhovel2 = U[0][1] * U[0][1] + U[0][2] * U[0][2] + U[0][3] * U[0][3];
-  rhoe = (p+gam*ps)/(gam-1.0) + 0.5 * rhovel2;
+  double V[dim];
+  vf->conservativeToPrimitive(U[0],V);
+  vf->setPressure(p,V);
+  double rhoe = vf->computeRhoEnergy(V);
 
 // only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
 // are updated. It is assumed that the input and output states are uniform!

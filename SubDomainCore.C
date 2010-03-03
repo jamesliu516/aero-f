@@ -3312,6 +3312,26 @@ void SubDomain::completeRotateSurfaceOwnership(CommPattern<int>&cpat)  {
 //------------------------------------------------------------------------------
 //             LEVEL SET SOLUTION AND REINITIALIZATION                       ---
 //------------------------------------------------------------------------------
+void SubDomain::avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin)
+{
+  if(!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+
+  for(int i=0; i<nodes.size(); i++){
+    if(Phi[i]*Phin[i]<0.0){
+      // check if node i HAD a neighbour with a different levelset sign
+      bool diffNeigh = false;
+      for(int iNeigh=0; iNeigh<NodeToNode->num(i); iNeigh++)
+        if(Phin[i]*Phin[(*NodeToNode)[i][iNeigh]]<0.0){
+          diffNeigh = true;
+          break;
+        }
+      if(!diffNeigh) {Phi[i] = Phin[i]; fprintf(stdout, "node %d has levelset clipped to avoid phase creation\n", locToGlobNodeMap[i]+1);}
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
 void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level)
 {
   if(!NodeToNode)

@@ -29,10 +29,10 @@ using std::min;
 template<int dim>
 LevelSetTsDesc<dim>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), Vg(this->getVecInfo()),
+  TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()), //Vg(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase/*should be 2*/) 
+  fluidSelector(ioData.eqs.numPhase/*should be 2*/, ioData, dom) 
 {
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
@@ -40,14 +40,14 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   LS = new LevelSet(ioData, this->domain);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
-  Vgf = 0;
-  Vgfweight = 0;
-  if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
-    Vgf = new DistSVec<double,dim>(this->getVecInfo());
-    Vgfweight = new DistVec<double>(this->getVecInfo());
-    *Vgf =-1.0;
-    *Vgfweight =0.0;
-  }
+  //Vgf = 0;
+  //Vgfweight = 0;
+  //if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
+  //  Vgf = new DistSVec<double,dim>(this->getVecInfo());
+  //  Vgfweight = new DistVec<double>(this->getVecInfo());
+  //  *Vgf =-1.0;
+  //  *Vgfweight =0.0;
+  //}
 
   //multiphase conservation check
   boundaryFlux  = 0.0;
@@ -77,8 +77,8 @@ LevelSetTsDesc<dim>::~LevelSetTsDesc()
 
   if (LS) delete LS;
   if (riemann) delete riemann;
-  if (Vgf) delete Vgf;
-  if (Vgfweight) delete Vgfweight;
+  //if (Vgf) delete Vgf;
+  //if (Vgfweight) delete Vgfweight;
 
   if(tmpDistSVec)  delete tmpDistSVec;
   if(tmpDistSVec2) delete tmpDistSVec2;
@@ -95,11 +95,11 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   // initalize solution
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
-  fluidSelector.getFluidId(this->fluidId, Phi); //update fluidId
+  fluidSelector.initializeFluidIds(Phi, LS->Phinm1, LS->Phinm2); //setup fluidId in fluidSelector
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
-    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, &this->fluidId);
+    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, &(fluidSelector.fluidId));
   
   *this->Xs = *this->X;
 
@@ -118,7 +118,7 @@ double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   int numSubCycles = 1;
   double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, this->fluidId);
+                            &numSubCycles, *this->geoState, *this->A, U, fluidSelector.fluidId);
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -140,11 +140,9 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
   this->geoState->update(*this->X, *this->A);
 
   LS->update(Phi);
+  fluidSelector.update();
   
-  DistVec<int> fluidIdn(this->fluidId), fluidIdnm1(this->fluidId);
-  fluidSelector.getFluidId(fluidIdn, LS->Phin);
-  fluidSelector.getFluidId(fluidIdnm1, LS->Phinm1); 
-  this->timeState->update(U, fluidIdn, fluidIdnm1, Vgf, Vgfweight, riemann);
+  this->timeState->update(U, fluidSelector.fluidIdn, fluidSelector.fluidIdnm1, riemann);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
@@ -159,10 +157,11 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 template<int dim>
 int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
-  DistVec<int> fluidIdn(this->fluidId);
-  fluidSelector.getFluidId(fluidIdn,LS->Phin);
+  //DistVec<int> fluidIdn(this->fluidId);
+  //fluidSelector.getFluidId(fluidIdn,LS->Phin);
 
-  int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, this->fluidId, fluidIdn);
+  //int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, this->fluidId, fluidIdn);
+  int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, fluidSelector.fluidId, fluidSelector.fluidIdn);
 
   return ierr;
 
@@ -255,14 +254,14 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   this->output->openAsciiFiles();
 
   if (it == 0) {
-    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &this->fluidId);
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &this->fluidId);
-    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &this->fluidId);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &this->fluidId);
+    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, this->fluidId);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, (fluidSelector.fluidId));
     this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
-    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &this->fluidId);
+    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
   }
 
 }
@@ -283,11 +282,11 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
                                                                                                       
-  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &this->fluidId);
-  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &this->fluidId);
-  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &this->fluidId);
+  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, this->fluidId);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, fluidSelector.fluidId);
   this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
@@ -306,7 +305,7 @@ void LevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
                                double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = this->timer->getRunTime();
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &this->fluidId);
+  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
 }
 
 //------------------------------------------------------------------------------
@@ -318,7 +317,7 @@ void LevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
-    _mmh->resetOutputToStructure(this->postOp, *this->X, U, &this->fluidId);
+    _mmh->resetOutputToStructure(this->postOp, *this->X, U, &(fluidSelector.fluidId));
 
 }
 
@@ -332,18 +331,18 @@ void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
   this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
   if (this->mmh) {
     double work[2];
-    DistVec<int> fluidIdn(this->fluidId);
-    fluidSelector.getFluidId(fluidIdn, LS->Phin);
+    //DistVec<int> fluidIdn(this->fluidId);
+    //fluidSelector.getFluidId(fluidIdn, LS->Phin);
     this->mmh->computeInterfaceWork(dt, this->postOp, this->geoState->getXn(), 
                                     this->timeState->getUn(), *this->X, U, 
-                                    work, &fluidIdn, &this->fluidId);
+                                    work, &(fluidSelector.fluidIdn), &(fluidSelector.fluidId));
     this->restart->energy[0] += work[0];
     this->restart->energy[1] += work[1];
   }
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
-    _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &this->fluidId);
+    _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &(fluidSelector.fluidId));
 
 }
 
@@ -361,6 +360,16 @@ bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     return false;
   }
 
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void LevelSetTsDesc<dim>::avoidNewPhaseCreation(DistVec<double> &localPhi)
+{
+
+  this->domain->avoidNewPhaseCreation(localPhi, LS->Phin);
 
 }
 

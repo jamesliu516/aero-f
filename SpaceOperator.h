@@ -71,7 +71,6 @@ private:
   RecFcn *recFcnLS;
   DistNodalGrad<dim, double> *ngrad;
   DistNodalGrad<1, double> *ngradLS;
-  FluidSelector *fluidSelector;
   DistNodalGrad<dim, bcomp> *compNodalGrad;
 
   DistEdgeGrad<dim> *egrad;
@@ -161,11 +160,8 @@ public:
                        DistExactRiemannSolver<dim> *, int it = 0);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
-                       DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
+                       DistVec<double> &, DistVec<int> &, DistSVec<double,dim> &,DistVec<double> &);
 
-  void storePreviousPrimitive(DistSVec<double,dim> &U, DistSVec<double,dim> &Vg,
-                         DistVec<int> &fluidId, DistSVec<double,dim> *Vgf, 
-                         DistVec<double> *weight, DistSVec<double,3> &X);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistLevelSetStructure *distLSS);
@@ -174,10 +170,6 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS);
-  void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
-                         DistVec<double> &Phi, DistVec<double> &Phin,
-                         DistSVec<double,dim> *Vgf, DistVec<double> *weight,
-                         DistExactRiemannSolver<dim> *);
   void updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,

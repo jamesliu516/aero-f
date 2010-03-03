@@ -93,8 +93,8 @@ public:
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
-  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> &fluidId1, 
-              DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
+  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
+              //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
               DistExactRiemannSolver<dim> *riemann);
 
   void writeToDisk(char *);

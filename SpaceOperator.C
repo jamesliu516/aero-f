@@ -74,11 +74,6 @@ SpaceOperator<dim>::SpaceOperator(IoData &ioData, VarFcn *vf, DistBcData<dim> *b
 
   ngrad  = new DistNodalGrad<dim, double>(ioData, domain);
 
-  if(ioData.eqs.numPhase>1) //multi-phase flow
-    fluidSelector = new FluidSelector(ioData.eqs.numPhase);
-  else
-    fluidSelector = 0;
-
 // Operators for Level-Set Equation
   recFcnLS = createRecFcnLS(ioData);
   ngradLS = new DistNodalGrad<1, double>(ioData, domain, 1);
@@ -164,7 +159,6 @@ SpaceOperator<dim>::SpaceOperator(const SpaceOperator<dim> &spo, bool typeAlloc)
   recFcnLS = spo.recFcnLS;
   ngrad = spo.ngrad;
   ngradLS = spo.ngradLS;
-  fluidSelector = spo.fluidSelector;
   compNodalGrad = spo.compNodalGrad;
   egrad = spo.egrad;
   xpol = spo.xpol;
@@ -208,7 +202,6 @@ SpaceOperator<dim>::~SpaceOperator()
     if (recFcnLS) delete recFcnLS;
     if (ngrad) delete ngrad;
     if (ngradLS) delete ngradLS;
-    if (fluidSelector) delete fluidSelector;
     if (compNodalGrad) delete compNodalGrad;
     if (egrad) delete egrad;
     if (xpol) delete xpol;
@@ -1128,14 +1121,11 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 template<int dim>
 void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                           DistVec<double> &Phi,  DistSVec<double,dim> &U,
+                                           DistVec<double> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
                                            DistVec<double> &PhiF)
 {
   PhiF = 0.0;
   DistSVec<double,1> PhiS(Phi.info(), reinterpret_cast<double (*)[1]>(Phi.data()));
-  DistVec<int> fluidId(Phi.info());
-  fluidSelector->getFluidId(fluidId,Phi);
-
 
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
@@ -1231,25 +1221,6 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 { return domain->computeRealFluidResidual(F, Freal, dLSS); }
 
 //------------------------------------------------------------------------------
-
-template<int dim>
-void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U,
-                                DistSVec<double,dim> &Vg, DistVec<int> &fluidId,
-                                DistSVec<double,dim> *Vgf, DistVec<double> *weight,
-                                DistSVec<double,3> &X)
-{
-
-  varFcn->conservativeToPrimitive(U, Vg, &fluidId);
-  //if(riemann->RiemannUpdatePhase())
-    //nothing to do, everything has been done when computing the fluxes
-  if(Vgf && weight){
-    domain->storePrimitive(Vg,*Vgf,*weight,fluidId,X);
-    //storeGhost(Vg,Phi,*Vgf,*weight);
-  }
-
-}
-
-//------------------------------------------------------------------------------
 template<int dim>
 void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -1276,40 +1247,6 @@ void SpaceOperator<dim>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,
 }
 
 //------------------------------------------------------------------------------
-
-template<int dim>
-void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &Vg,
-                             DistSVec<double,dim> &U,
-                             DistVec<double> &Phi, DistVec<double> &Phin,
-                             DistSVec<double,dim> *Vgf, DistVec<double> *weight,
-                             DistExactRiemannSolver<dim> *riemann)
-{
-  //TODO: to be fixed
-  /*
-  if (riemann->DoUpdatePhase()){
-    // the solution of the riemann problem is used to replace values of a node
-    // that changed nature (fluid1 to fluid2 or vice versa)
-    // **** GFMPAR-like ****
-    // checkWeights is to suppress 'cavitation'
-    domain->checkWeights(Phi, Phin, *(riemann->getRiemannUpdate()), *(riemann->getRiemannWeight()));
-    varFcn->updatePhaseChange(Vg, U, Phi, Phin, riemann->getRiemannUpdate(), riemann->getRiemannWeight());
-  }
-
-  else if (Vgf && weight)
-    // an extrapolation is used to replace values of a node
-    // that changed nature (fluid1 to fluid2 or vice versa)
-    // **** GFMPAR-variation ****
-    varFcn->updatePhaseChange(Vg, U, Phi, Phin, Vgf, weight);
-
-  else
-    // no solution of the riemann problem was computed and we just use
-    // the values that we have to convert back to conservative variables
-    // **** GFMP-like ****
-    varFcn->primitiveToConservative(Vg, U, &Phi);
-*/
-}
-
-//-----------------------------------------------------------------------------
 
 template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,

@@ -1111,7 +1111,9 @@ void MatVecProdLS<Scalar,dim,neq>::applyLS(DistVec<double> &p, DistVec<double> &
 
   Qeps = (*Q) + eps * p;
 
-  spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *U, Feps);
+  //spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *U, Feps);
+  fprintf(stderr, "*** Error: need to properly call function ::applyLS in MatVecProdLS\n");
+  exit(1);
 
   timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, *Qn, *Qnm1, *Qnm2, Feps);
 
@@ -1137,7 +1139,9 @@ void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, Dis
   Qnm2= &qnm2;
   U = &u;
   F = &f;                                                                                                                    
-  spaceOp->computeResidualLS(*X, *ctrlVol, *Q, *U, *F);
+  //spaceOp->computeResidualLS(*X, *ctrlVol, *Q, *U, *F);
+  fprintf(stderr, "*** Error: need to properly call function ::evaluateLS in MatVecProdLS\n");
+  exit(1);
                                                                                                              
   timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Qn, *Qnm1, *Qnm2, *F);
                                                                                                              

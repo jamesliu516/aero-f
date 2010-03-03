@@ -240,7 +240,7 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philo
     fprintf(stderr,"in ExplicitStructLevelSetTsDesc::computeRKUpdateLS, shouldn't call me! abort.\n");
     exit(-1);
   }
-  this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
+  //this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
   // for RK2 on moving grids
   this->timeState->multiplyByTimeStep(dPhi);
 

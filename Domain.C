@@ -3216,23 +3216,6 @@ void Domain::storeGhost(DistSVec<double,dim> &V, DistSVec<double,dim> &Vgf, Dist
 
 }
 //------------------------------------------------------------------------------
-template<int dim>
-void Domain::storePrimitive(DistSVec<double,dim> &Vg, DistSVec<double,dim> &Vgf,
-                            DistVec<double> &weight, DistVec<int> &fluidId,
-                            DistSVec<double,3> &X)
-{
-  int iSub;
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->storePrimitive(Vg(iSub),Vgf(iSub),weight(iSub),fluidId(iSub),X(iSub));
-  }
-
-  assemble(vecPat, Vgf);
-  assemble(volPat, weight);
-
-}
-
-//------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
@@ -3404,6 +3387,15 @@ void Domain::getSignedDistance(DistSVec<double,dim> &Psi, DistVec<double> &Phi)
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->getSignedDistance(Psi(iSub),Phi(iSub));
+}
+//-------------------------------------------------------------------------------
+template<int dim>
+void Domain::storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, 
+                                    DistSVec<double,3> &X, DistSVec<double,dim> &Vupdate, 
+                                    DistVec<double> &weight){
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->storePreviousPrimitive(V(iSub), fluidId(iSub), X(iSub), Vupdate(iSub), weight(iSub));
 }
 //-------------------------------------------------------------------------------
 template<int dim>

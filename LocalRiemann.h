@@ -22,12 +22,14 @@ protected:
 public:
   LocalRiemann()           { vf_ = 0; fluid1 = 0; fluid2 = 1;}
   LocalRiemann(VarFcn *vf) { vf_ = vf; fluid1 = 0; fluid2 = 1;}
-  virtual ~LocalRiemann()  { vf_ = 0; fluid1 = 0; fluid2 = 1;}
+  virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
+  virtual void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight){}
+  virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
-                            int &epsi, int &epsj, double *Wi, double *Wj,
+                            double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj, 
                             double dx[3], int it) {} 
@@ -53,6 +55,10 @@ public:
   LocalRiemannGfmp(VarFcn *vf) : LocalRiemann(vf) {}
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
+  void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight){/*nothing to do for GFMP*/}
+  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){///*nothing to do for GFMP*/}
+    if(ID != IDn) fprintf(stdout, "node changes phase!\n");
+  }
 };
 
 //----------------------------------------------------------------------------
@@ -60,11 +66,20 @@ public:
 // class used when the exact two-phase Riemann problem is solved
 class LocalRiemannGfmpar : public LocalRiemann {
 
+  MultiFluidData::TypePhaseChange phaseChangeType_;
+
 public:
   LocalRiemannGfmpar() : LocalRiemann() {}
-  LocalRiemannGfmpar(VarFcn *vf) : LocalRiemann(vf) {}
+  LocalRiemannGfmpar(VarFcn *vf, MultiFluidData::TypePhaseChange phaseChangeType) : LocalRiemann(vf), phaseChangeType_(phaseChangeType) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
+  void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight);
+  void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
+    if(ID == IDn) return; /* node does not change phase: nothing to do*/
+    if(weight<=0.0){ fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
+                     exit(1); }
+    for(int k=0; k<5; k++) V[k] = newV[k]/weight;
+  }
 
 protected:
   // following functions used when Riemann problem formulated as a system of nonlinear equations.
@@ -108,6 +123,18 @@ protected:
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
+
+inline
+void LocalRiemannGfmpar::storePreviousPrimitive(double *V, int ID, double *storeV, double &weight)
+{
+  if(phaseChangeType_ == MultiFluidData::RIEMANN_SOLUTION) return;
+  else if(phaseChangeType_ == MultiFluidData::EXTRAPOLATION){
+  }
+  else if(phaseChangeType_ == MultiFluidData::ASIS) return;
+}
+
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 inline
 bool LocalRiemannGfmpar::solve2x2System(double *mat, double *rhs, double *res)
 {
@@ -137,7 +164,7 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
                    double &du, double &dp, 
                    MultiFluidData::RiemannComputation type, int flag){
 
-  int myFluidId = (phi>0) ? fluid1 : fluid2;
+  int myFluidId = (phi>=0) ? fluid1 : fluid2;
   double entropy = vf_->computeEntropy(1.0/v1,p1, myFluidId);
   double *in = 0;
   double res1[1] = {0.0};
@@ -179,7 +206,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral1stOrder(double *in, double *res
 // res is the output result and contains the variation of velocity
 // integrates an ODE with first order integration
 
-  int myFluidId = (phi>0) ? fluid1 : fluid2;
+  int myFluidId = (*phi>=0) ? fluid1 : fluid2;
   res[0] = 0.0;
   int N  = 5000;
   double density = in[2]; double entropy = in[1];
@@ -211,7 +238,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
 // in contains density and entropy and density
 // res is the output result and contains the variation of velocity
 // integrates an ODE with second order integration (Mid-Point Rule)
-  int myFluidId = (phi>0) ? fluid1 : fluid2;
+  int myFluidId = (*phi>=0) ? fluid1 : fluid2;
   res[0] = 0.0;
   int N  = 2000;
   double density = in[2]; double entropy = in[1];
