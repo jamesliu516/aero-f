@@ -32,17 +32,12 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double timeStep;
 
   double (*Fs)[3]; //force distribution on the structure surfac3
+  bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
   int numStructElems;
   bool interpolatedNormal; 
   bool linRecAtInterface;
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
-
-  // coefficients for piston simulations.
-  Vec3D fsiPosition;
-  Vec3D fsiNormal;
-  double fsiVelocity;
-  double pressureRef;
 
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
@@ -127,9 +122,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
   void conservationErrors(DistSVec<double,dim> &U, int it);
-
-  void updateFSInterface();
-  void updateNodeTag();
 
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 

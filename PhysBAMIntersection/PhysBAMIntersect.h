@@ -129,6 +129,7 @@ class PhysBAMIntersector : public LevelSetStructure {
 
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistPhysBAMIntersector &);
+    int numOfFluids() {return distIntersector.numOfFluids();}
     void reset(); //<! set status0=status and reset status and nFirstLayer.
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
@@ -145,8 +146,8 @@ class PhysBAMIntersector : public LevelSetStructure {
 
     LevelSetResult
     getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-    bool isActive(double t, int n) const;
-    bool wasActive(double t, int n) const;
+    bool isActive(double t, int n, int phase = 0) const;
+    bool wasActive(double t, int n, int phase = 0) const;
     bool edgeIntersectsStructure(double t, int ni, int nj) const;
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 

@@ -147,18 +147,18 @@ public:
                        DistExactRiemannSolver<dim> *, int it,
                        DistSVec<double,dim> * = 0,
                        DistSVec<double,dim> * = 0);
-// Kevin's FSI with half-Riemann problems
+// Kevin's FSI with FS Riemann solver
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int, int it = 0);
-// Kevin's FSI with half-Riemann problems (for thin shell problems) 
+// Kevin's FSI with FS Riemann solver (for thin shell problems) 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
-                       DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int it = 0);
+                       bool, DistVec<int> &, DistSVec<double,dim> &,
+                       DistExactRiemannSolver<dim> *, int, int it = 0);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                        DistVec<double> &, DistSVec<double,dim> &,DistVec<double> &);
@@ -168,12 +168,12 @@ public:
                          DistVec<double> *weight, DistSVec<double,3> &X);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                                       DistLevelSetStructure *distLSS);
+                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistLevelSetStructure *distLSS);
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId =  0);
   void updatePhaseChange(DistSVec<double,dim> &Vg, DistSVec<double,dim> &U,
                          DistVec<double> &Phi, DistVec<double> &Phin,
                          DistSVec<double,dim> *Vgf, DistVec<double> *weight,
@@ -181,10 +181,7 @@ public:
   void updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                         DistLevelSetStructure *distLSS, double* vfar);
-  void updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij, 
-                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
-                         DistVec<int> &nodeTag0, DistVec<int> &nodeTag);  //for FS interface 
+                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
  

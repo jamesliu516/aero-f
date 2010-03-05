@@ -66,10 +66,9 @@ int ExplicitStructLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>
 template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
 {
-  if(!FE && this->numFluid==1) {
-    //this->com->fprintf(stderr,"Using Runge-Kutta 2.\n");
+  if(!FE) 
     solveNLAllRK2(U);
-  } else
+  else
     solveNLAllFE(U); 
 } 
 
@@ -82,61 +81,71 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
-  //----------------------------------------------------
-  if(this->numFluid==1 && this->mmh) { 
-    //recompute intersections and update phase change.
+  if(this->mmh) {
+    //store previous states for phase-change update
     double tw = this->timer->getTime();
-    if (this->Weights && this->VWeights)
-      if (this->phaseChangeChoice==0)
-        this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                       *this->VWeights, this->distLSS);
-      else if (this->phaseChangeChoice==1)
-        this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij, 
-                                                       *this->Wstarji, *this->Weights, *this->VWeights,
-                                                       this->distLSS);
+    switch(this->phaseChangeChoice) {
+      case 0:
+        if(this->numFluid==1)
+          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS);
+        else //numFluid>1
+          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+        break;
+      case 1:
+        if(this->numFluid==1)
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                         *this->Wstarji, *this->Weights, *this->VWeights,
+                                                         this->distLSS);
+        else //numFluid>1
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                         *this->Wstarji, *this->Weights, *this->VWeights,
+                                                         this->distLSS, &this->nodeTag);
+        break;
+    }
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
-
+    //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
+    //recompute intersections
     tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); //TODO: should do this only for the unsteady case.
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
+    //update nodeTags (only for numFluid>1)
+    if(this->numFluid>1) {
+      this->nodeTag0 = this->nodeTag;
+      this->nodeTag = this->distLSS->getStatus();
+    }
+
+    //update phase-change
     tw = this->timer->getTime();
-    if (this->Weights && this->VWeights)
+    if(this->numFluid==1)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    else //numFluid>1
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar, &this->nodeTag);
+    
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   }
-  //----------------------------------------------------
 
-  computeRKUpdate(U, k1, 1);  
+  computeRKUpdate(U, k1, 1);
 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  this->spaceOp->applyBCsToSolutionVector(U0);
+  this->spaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
 
-  //----------------------------------------------------
-  if (this->numFluid==2) { 
-    // fluid-shell-fluid
-    U = U0;
-    this->updateFSInterface();
-    this->updateNodeTag();
-    this->spaceOp->updatePhaseChange(*this->X, U, *this->Wstarij, *this->Wstarji, this->distLSS, this->nodeTag0, this->nodeTag);
-    checkSolution(U);
-  } 
-  //--------------------------------------------------
+  U = U0;
+  checkSolution(U);
 
-  else { //fluid-fullbody
-    U = U0;
-    checkSolution(U);
-  }
+
+
   this->timer->addFluidSolutionTime(t0);
-
 }
 
 //------------------------------------------------------------------------------
@@ -148,34 +157,53 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
-  //recompute Intersections and updatePhaseChange
-  if(this->numFluid==1 && this->mmh) {
-    // 1. compute weights
+  if(this->mmh) {
+    //store previous states for phase-change update
     double tw = this->timer->getTime();
-    if (this->Weights && this->VWeights)
-      if (this->phaseChangeChoice==0)
-        this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                       *this->VWeights, this->distLSS);
-      else if (this->phaseChangeChoice==1)
-        this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                       *this->Wstarji, *this->Weights, *this->VWeights,
-                                                       this->distLSS);
+    switch(this->phaseChangeChoice) {
+      case 0:
+        if(this->numFluid==1)
+          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS);
+        else //numFluid>1
+          this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+        break;
+      case 1:
+        if(this->numFluid==1)
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                         *this->Wstarji, *this->Weights, *this->VWeights,
+                                                         this->distLSS);
+        else //numFluid>1
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                         *this->Wstarji, *this->Weights, *this->VWeights,
+                                                         this->distLSS, &this->nodeTag);
+        break;
+    }
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
-    // 2. get dts (mmh->update(...) does nothing but return dts)
+    //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-    
-    // 3. recompute intersections
+
+    //recompute intersections
     tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
 
-    // 4. update phase change
+    //update nodeTags (only for numFluid>1)
+    if(this->numFluid>1) {
+      this->nodeTag0 = this->nodeTag;
+      this->nodeTag = this->distLSS->getStatus();
+    }
+
+    //update phase-change
     tw = this->timer->getTime();
-    if (this->Weights && this->VWeights)
+    if(this->numFluid==1)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    else //numFluid>1
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar, &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
   }
@@ -187,9 +215,9 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
 
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
-
   U = U - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
   this->spaceOp->applyBCsToSolutionVector(U);
 
   checkSolution(U);
@@ -202,31 +230,20 @@ template<int dim>
 void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
 {
-/*  if(it==1) {//set vfar
-    DistSVec<double,dim> Vlocal(Ulocal);
-    this->varFcn->conservativeToPrimitive(Ulocal, Vlocal); 
-    for(int iDim=0; iDim<dim; iDim++)
-      vfar[iDim] = Vlocal(0)[0][iDim];
-    sleep(1);
-    fprintf(stderr,"on Proc %d, vfar is set to %e %e %e %e %e\n", this->com->cpuNum(), vfar[0], vfar[1], vfar[2], vfar[3], vfar[4]);
-    sleep(1);
-  }
-*/
-  if (this->numFluid==2) {
+  this->spaceOp->applyBCsToSolutionVector(Ulocal); //KW: (?)only for Navier-Stokes.
 
-    this->spaceOp->applyBCsToSolutionVector(Ulocal);
-    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->nodeTag, dU, this->riemann,it);
-    this->timeState->multiplyByTimeStep(dU);
-
-  } else {
-    
-    this->spaceOp->applyBCsToSolutionVector(Ulocal);
+  if(this->numFluid==1)  
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                    this->linRecAtInterface, dU, this->riemann, this->riemannNormal, it);
-    this->timeState->multiplyByTimeStep(dU);
+  else //numFluid>1
+    this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, it);
+
+  this->timeState->multiplyByTimeStep(dU);
+  
+  if(this->numFluid==1&&!this->mmh)
     this->timeState->multiplyByPreconditioner(Ulocal,dU);
-  }
+      //KW:This is the TEMPORAL low-mach precondition which is only for steady-state sims.
 }
 
 
