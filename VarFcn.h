@@ -282,7 +282,7 @@ VarFcnBase *VarFcn::createVarFcnBase(IoData &iod, FluidModelData &fluidModel) {
   }
   else if(fluidModel.fluid == FluidModelData::LIQUID)
     vf_ = new VarFcnTait(fluidModel);
-  else if(iod.eqs.fluidModel.fluid == FluidModelData::JWL)
+  else if(fluidModel.fluid == FluidModelData::JWL)
     vf_ = new VarFcnJwl(fluidModel);
 
   return vf_;

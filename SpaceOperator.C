@@ -1020,8 +1020,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 //------------------------------------------------------------------------------
 
+// Kevin's FSI with FS Riemann solver.
 template<int dim>
-// Kevin's FSI with half-Riemann problems.
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
@@ -1037,7 +1037,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
     ngrad->compute(geoState->getConfig(), X, ctrlVol,
-        LSS->getStatus(), *V, linRecAtInterface);  //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+        LSS->getStatus(), *V, linRecAtInterface);  
     timer->addNodalGradTime(t0);
   }
   if (xpol) //boundary condition using xpol = extrapolation
@@ -1048,8 +1048,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad->limit(recFcn, X, ctrlVol, *V);
-  //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
-  //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
+
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, Nriemann, *ngrad, egrad,
                                   R, it, failsafe,rshift);
@@ -1072,25 +1071,25 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 //------------------------------------------------------------------------------
 
+// Kevin's FSI with FS Riemann solver. (for thin shell problems)
 template<int dim>
-// Kevin's FSI with half-Riemann problems. (for thin shell problems)
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
-                                         DistVec<int> &fluidId, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int it)
+                                         bool linRecAtInterface, DistVec<int> &fluidId, 
+                                         DistSVec<double,dim> &R, DistExactRiemannSolver<dim> *riemann, 
+                                         int Nriemann, int it)
 {
   R = 0.0;
-
-  varFcn->conservativeToPrimitive(U, *V, &fluidId);  //need to make sure the ghost states are "valid".
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);  
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
     double t0 = timer->getTime();
     // compute gradient of V using Phi:
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
-    ngrad->compute(geoState->getConfig(), X, ctrlVol, fluidId, *V);
-        //doens't work for fluid-shell-fluid if the two fluids are the same and the shell can crack.
+    ngrad->compute(geoState->getConfig(), X, ctrlVol, 
+                   fluidId, *V, linRecAtInterface);
     timer->addNodalGradTime(t0);
   }
   if (xpol) //boundary condition using xpol = extrapolation
@@ -1102,12 +1101,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
-  //if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
-  //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
-
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, fluidId, *ngrad, egrad,
-                                  R, it, failsafe,rshift);
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, fluidId, Nriemann,
+                                  *ngrad, egrad, R, it, failsafe,rshift);
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
 #pragma omp parallel for
@@ -1253,9 +1249,9 @@ void SpaceOperator<dim>::storePreviousPrimitive(DistSVec<double,dim> &U,
 template<int dim>
 void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistLevelSetStructure *distLSS)
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
-  varFcn->conservativeToPrimitive(U, V);
+  varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0;
   VWeights = 0.0;
   domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS);
@@ -1267,9 +1263,9 @@ void SpaceOperator<dim>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V, 
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistLevelSetStructure *distLSS)
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
-  varFcn->conservativeToPrimitive(U, V);
+  varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0;
   VWeights = 0.0;
   domain->computeRiemannWeightsForEmbeddedStruct(X, V, Wstarij, Wstarji, Weights, VWeights, distLSS);
@@ -1315,7 +1311,8 @@ template<int dim>
 void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistSVec<double,dim> &U,
                              DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                             DistLevelSetStructure *distLSS, double* vfar)
+                             DistLevelSetStructure *distLSS, double* vfar,
+                             DistVec<int> *fluidId)
 {
   SubDomain **subD = domain->getSubDomain();
 
@@ -1327,41 +1324,48 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     Vec<double> &subWeights((*Weights)(iSub));
     SVec<double,dim> &subVWeights((*VWeights)(iSub));
 
-    for (int i=0; i<subV.size(); i++) {
-      bool iIsActive = LSS.isActive(0.0, i);
-      bool iWasActive = LSS.wasActive(0.0, i);
-      if (iIsActive==iWasActive) //no phase change
-        continue;
-      if (!iIsActive) {//changed from active to inactive -- reset to farfield state.
-        for(int iDim=0; iDim<dim; iDim++)
-          subV[i][iDim] = vfar[iDim];
-        continue;
-      }
+    if(distLSS->numOfFluids()==1) 
+      for (int i=0; i<subV.size(); i++) {
+        bool iIsActive = LSS.isActive(0.0, i);
+        bool iWasActive = LSS.wasActive(0.0, i);
+        if (iIsActive==iWasActive) //no phase change
+          continue;
+        if (!iIsActive) {//changed from active to inactive -- reset to farfield state.
+          for(int iDim=0; iDim<dim; iDim++)
+            subV[i][iDim] = vfar[iDim];
+          continue;
+        }
 
-      if (subWeights[i]<=0.0) {
-        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), iWasActive, iIsActive, subWeights[i]);
-        exit(-1);
-      }  
-     
-      for (int iDim=0; iDim<dim; iDim++)
-        subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+        if (subWeights[i]<=0.0) {
+          fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), iWasActive, iIsActive, subWeights[i]);
+          exit(-1);
+        }
+        for (int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+      }
+    else {//numFluid>1
+      Vec<int> &subFluidId((*fluidId)(iSub));
+      for (int i=0; i<subV.size(); i++) {
+        if(LSS.wasActive(0.0, i, subFluidId[i])) //no phase change
+          continue;
+
+        if (subWeights[i]<=0.0) {
+          fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), subFluidId[i], subWeights[i]);
+          exit(-1);
+        }
+
+        //fprintf(stderr,"Node %d(%d): %e %e %e %e %e , %e %e %e %e %e\n", i+1, subFluidId[i], subV[i][0], subV[i][1], subV[i][2], subV[i][3], subV[i][4], subVWeights[i][0] / subWeights[i], subVWeights[i][1] / subWeights[i], subVWeights[i][2] / subWeights[i], subVWeights[i][3] / subWeights[i], subVWeights[i][4] / subWeights[i]);
+
+  
+        for (int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+      }
     }
   }
-  varFcn->primitiveToConservative(V, U);
+  varFcn->primitiveToConservative(V, U, fluidId);
 }
 
 //-----------------------------------------------------------------------------
-
-template<int dim>
-void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                                      DistLevelSetStructure *distLSS,
-                                      DistVec<int> &nodeTag0, DistVec<int> &nodeTag)  //for FS interface
-{
-  domain->updatePhaseChange(X,U,Wstarij,Wstarji,distLSS,nodeTag0,nodeTag);
-}
-
-//------------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar, int neq>
@@ -1893,14 +1897,14 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
                                           double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
                                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
 {
-  double pressInfty = iod->aero.pressure;
+  double pinternal = iod->aero.pressure;
 
   if (forceApp==1 || forceApp==2)
     domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
-                                    sizeFs, distLSS, Wstarij, Wstarji, pressInfty);
+                                    sizeFs, distLSS, Wstarij, Wstarji, pinternal);
   else if (forceApp==3 || forceApp==4)
     domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
-                                         sizeFs, distLSS, Wstarij, Wstarji, pressInfty);
+                                         sizeFs, distLSS, Wstarij, Wstarji, pinternal);
   else {fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); exit(-1);}
 
 }

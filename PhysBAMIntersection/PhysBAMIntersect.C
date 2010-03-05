@@ -321,6 +321,7 @@ int PhysBAMIntersectorConstructor::print() {
 //----------------------------------------------------------------------------
 
 DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
+  this->numFluid = 0;
   com = IntersectionFactory::getCommunicator();
   tolerance = tol;
   insidePointTol = 1.0e-4;
@@ -697,6 +698,10 @@ DistPhysBAMIntersector::initializePhysBAM() {
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
 DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interpNormal) {
+  if(this->numFluid<1) {
+    fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
+    exit(-1);
+  }
   this->X = &X;
   domain = d;
   timer = d->getTimer();
@@ -1223,14 +1228,14 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 
 //----------------------------------------------------------------------------
 
-bool PhysBAMIntersector::isActive(double t, int n) const{
-  return status[n] == INSIDE;
+bool PhysBAMIntersector::isActive(double t, int n, int phase) const{
+  return status[n] == phase;
 }
 
 //----------------------------------------------------------------------------
 
-bool PhysBAMIntersector::wasActive(double t, int n) const{
-  return status0[n] == INSIDE;
+bool PhysBAMIntersector::wasActive(double t, int n, int phase) const{
+  return status0[n] == phase;
 }
 
 //----------------------------------------------------------------------------
