@@ -509,7 +509,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     if (wallRecType==BcsWallData::CONSTANT)
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     else //wallRecType == EXACT_RIEMANN
-      output->writeForcesToDisk(*this->riemann, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+      output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -565,7 +565,7 @@ void TsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, i
   if (wallRecType==BcsWallData::CONSTANT)
     output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   else //wallRecType==EXACT_RIEMANN
-    output->writeForcesToDisk(*this->riemann, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
+    output->writeForcesToDisk(*riemann1, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 }
 
 //------------------------------------------------------------------------------
@@ -638,7 +638,7 @@ double TsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   if (wallRecType==BcsWallData::CONSTANT)
     spaceOp->computeResidual(*X, *A, U, *R, timeState);
   else //wallRecTyp == ExactRiemann
-    spaceOp->computeResidual(this->riemann, *X, *A, U, *R, timeState);
+    spaceOp->computeResidual(riemann1, *X, *A, U, *R, timeState);
     
   spaceOp->applyBCsToResidual(U, *R);
 

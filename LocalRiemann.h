@@ -25,10 +25,10 @@ public:
   virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
-  virtual void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight){}
   virtual void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){}
   virtual void computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
+                            double *initWi, double *initWj,
                             double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj, 
@@ -55,7 +55,6 @@ public:
   LocalRiemannGfmp(VarFcn *vf) : LocalRiemann(vf) {}
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
-  void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight){/*nothing to do for GFMP*/}
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){///*nothing to do for GFMP*/}
     if(ID != IDn) fprintf(stdout, "node changes phase!\n");
   }
@@ -73,7 +72,6 @@ public:
   LocalRiemannGfmpar(VarFcn *vf, MultiFluidData::TypePhaseChange phaseChangeType) : LocalRiemann(vf), phaseChangeType_(phaseChangeType) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
-  void storePreviousPrimitive(double *V, int ID, double *storeV, double &weight);
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
     if(ID == IDn) return; /* node does not change phase: nothing to do*/
     if(weight<=0.0){ fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
@@ -124,17 +122,6 @@ protected:
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-inline
-void LocalRiemannGfmpar::storePreviousPrimitive(double *V, int ID, double *storeV, double &weight)
-{
-  if(phaseChangeType_ == MultiFluidData::RIEMANN_SOLUTION) return;
-  else if(phaseChangeType_ == MultiFluidData::EXTRAPOLATION){
-  }
-  else if(phaseChangeType_ == MultiFluidData::ASIS) return;
-}
-
-//----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
 inline
 bool LocalRiemannGfmpar::solve2x2System(double *mat, double *rhs, double *res)
 {

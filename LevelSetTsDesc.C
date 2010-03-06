@@ -157,10 +157,7 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 template<int dim>
 int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
-  //DistVec<int> fluidIdn(this->fluidId);
-  //fluidSelector.getFluidId(fluidIdn,LS->Phin);
 
-  //int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, this->fluidId, fluidIdn);
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, fluidSelector.fluidId, fluidSelector.fluidIdn);
 
   return ierr;
@@ -331,8 +328,6 @@ void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
   this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
   if (this->mmh) {
     double work[2];
-    //DistVec<int> fluidIdn(this->fluidId);
-    //fluidSelector.getFluidId(fluidIdn, LS->Phin);
     this->mmh->computeInterfaceWork(dt, this->postOp, this->geoState->getXn(), 
                                     this->timeState->getUn(), *this->X, U, 
                                     work, &(fluidSelector.fluidIdn), &(fluidSelector.fluidId));

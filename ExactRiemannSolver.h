@@ -20,10 +20,13 @@ class ExactRiemannSolver{
   int iteration;
   SVec<double,dim>  &rupdate;
   Vec<double>       &weight;
+  SVec<double,dim-2>  &interfacialWi;
+  SVec<double,dim-2>  &interfacialWj;
 
   public:
 
   ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
+                     SVec<double,dim-2> &, SVec<double,dim-2> &,
                      VarFcn *, SparseGridCluster *);
   ~ExactRiemannSolver();
 
@@ -38,7 +41,7 @@ class ExactRiemannSolver{
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi, VarFcn *vf,
                               double *Wi, double *Wj,
-                              int i, int j, double dx[3]);
+                              int i, int j, int edgeNum, double dx[3]);
 
   // for structure-fluid "half-Riemann" problem
   void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
@@ -48,6 +51,7 @@ class ExactRiemannSolver{
 
 
   void reset(int it);
+  void resetInterfacialW(int edgeNum);
 	
 };
 //------------------------------------------------------------------------------

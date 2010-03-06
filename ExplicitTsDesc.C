@@ -143,7 +143,7 @@ void ExplicitTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& U,
   if(this->wallRecType==BcsWallData::CONSTANT) 
     this->spaceOp->computeResidual(*this->X, *this->A, U, dU, this->timeState);
   else
-    this->spaceOp->computeResidual(this->riemann, *this->X, *this->A, U, dU, this->timeState);
+    this->spaceOp->computeResidual(this->riemann1, *this->X, *this->A, U, dU, this->timeState);
 
   this->timeState->multiplyByTimeStep(dU);
   this->timeState->multiplyByPreconditioner(U,dU);

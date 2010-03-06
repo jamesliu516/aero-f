@@ -10,9 +10,12 @@
 //------------------------------------------------------------------------------
 template<int dim>
 ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupdate,
-                                            Vec<double> &_weight, VarFcn *vf,
+                                            Vec<double> &_weight, SVec<double,dim-2> &_interfacialWi,
+                                            SVec<double,dim-2> &_interfacialWj, VarFcn *vf,
                                             SparseGridCluster *sgCluster):
-                                            rupdate(_rupdate), weight(_weight)
+                                            rupdate(_rupdate), weight(_weight),
+                                            interfacialWi(_interfacialWi),
+                                            interfacialWj(_interfacialWj)
 {
 
   iteration = -1;
@@ -82,13 +85,6 @@ ExactRiemannSolver<dim>::~ExactRiemannSolver()
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ExactRiemannSolver<dim>::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
-                                                     SVec<double,3> &X)
-{
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
 void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &fluidId,
                                                 Vec<int> &fluidIdn)
 {
@@ -102,11 +98,11 @@ void ExactRiemannSolver<dim>::updatePhaseChange(SVec<double,dim> &V, Vec<int> &f
 template<int dim>
 void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
       int IDi, int IDj, double *nphi, VarFcn *vf,
-      double *Wi, double *Wj, int i, int j,
+      double *Wi, double *Wj, int i, int j, int edgeNum,
       double dx[3])
 {
 
-  lriemann->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,
+  lriemann->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
           Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
           dx,iteration);
 
@@ -138,6 +134,18 @@ void ExactRiemannSolver<dim>::reset(int it)
   if(iteration==1){
     rupdate = 0.0;
     weight  = 0.0;
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::resetInterfacialW(int edgeNum)
+{
+
+  //dim-2 since interfacialW store only rho, u, p
+  for(int idim=0; idim<dim-2; idim++){
+    interfacialWi[edgeNum][idim] = 0.0;
+    interfacialWj[edgeNum][idim] = 0.0;
   }
 
 }

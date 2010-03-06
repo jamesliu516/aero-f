@@ -3332,6 +3332,23 @@ void SubDomain::avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin)
 
 }
 //------------------------------------------------------------------------------
+void SubDomain::avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin, Vec<double> &weight)
+{
+
+  for(int i=0; i<nodes.size(); i++){
+    if(Phi[i]*Phin[i]<0.0){
+      // check if node i HAD a neighbour with a different levelset sign
+      if(weight[i] <= 0.0){
+        fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset"
+                        " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+                        globSubNum,weight[i],Phin[i],Phi[i]);
+        Phi[i] = Phin[i];
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
 void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level)
 {
   if(!NodeToNode)

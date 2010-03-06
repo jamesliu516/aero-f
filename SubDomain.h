@@ -270,6 +270,7 @@ public:
   void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
                                  SVec<double,3> &X, Vec<double> &Phi);
   void avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin);
+  void avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin, Vec<double> &weight);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, SVec<double,dim> &U);
