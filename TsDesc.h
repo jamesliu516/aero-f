@@ -43,7 +43,7 @@ public:
 
   Timer *timer;
 protected:
-  DistExactRiemannSolver<dim> *riemann;
+  DistExactRiemannSolver<dim> *riemann1;
 
   PosVecType *X;
   VolVecType *A;

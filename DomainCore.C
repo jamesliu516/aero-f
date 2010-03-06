@@ -1303,6 +1303,13 @@ void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin){
 }
 
 //------------------------------------------------------------------------------
+void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin, DistVec<double> &weight){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub));
+}
+//------------------------------------------------------------------------------
 void Domain::setPhiForFluid1(DistVec<double> &Phi)
 {
 

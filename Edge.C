@@ -447,6 +447,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
       }
+      riemann.resetInterfacialW(l);
     }
     else{			// interface
       //ngradLS returns nodal gradients of primitive phi
@@ -463,7 +464,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         gradphi[k] /= normgradphi;
 
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                    Wi,Wj,i,j,dx);
+                                    Wi,Wj,i,j,l,dx);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
                                     Vi, Wi, fluxi, fluidId[i]);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
@@ -1217,6 +1218,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
     if (fluidId[i]==fluidId[j]) {
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
+      riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
       gphii[0] = dPdx[i][0];
@@ -1239,7 +1241,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
 
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                     Wi,Wj,i,j,dx);
+                                     Wi,Wj,i,j,l,dx);
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, fluidId[i]);
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, fluidId[j]);
 
@@ -1333,6 +1335,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
     if (fluidId[i]==fluidId[j]) {
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], V[i], V[j], dfdUi, dfdUj, fluidId[i]);
+      riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
       gphii[0] = dPdx[i][0];
@@ -1355,7 +1358,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       }
       varFcn  = fluxFcn[BC_INTERNAL]->getVarFcn();
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                     Wi,Wj,i,j,dx);
+                                     Wi,Wj,i,j,l,dx);
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wi, dfdUi, dfdUk, fluidId[i]);
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wj, Vj, dfdUl, dfdUj, fluidId[j]);
     }

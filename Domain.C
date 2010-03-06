@@ -3396,6 +3396,10 @@ void Domain::storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluid
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->storePreviousPrimitive(V(iSub), fluidId(iSub), X(iSub), Vupdate(iSub), weight(iSub));
+
+  assemble(vecPat, Vupdate);
+  assemble(volPat, weight);
+
 }
 //-------------------------------------------------------------------------------
 template<int dim>

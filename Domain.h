@@ -386,6 +386,7 @@ public:
   template<int dim>
   void checkWeights(DistVec<double> &Phi, DistVec<double> &Phin, DistSVec<double,dim> &Update, DistVec<double> &Weight);
   void avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin);
+  void avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin, DistVec<double> &weight);
   template<int dim>
   void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, 
                               DistSVec<double,3> &X, DistSVec<double,dim> &Vupdate, 

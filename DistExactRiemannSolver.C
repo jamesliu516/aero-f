@@ -17,10 +17,16 @@ DistExactRiemannSolver<dim>::DistExactRiemannSolver(IoData &ioData, Domain *dom,
 domain(dom)
 {
 
+  phaseChangeType_ = ioData.mf.typePhaseChange;
+  algorithmType_   = ioData.mf.method;
+
   numLocSub = dom->getNumLocSub();
 
   riemannupdate = new DistSVec<double,dim>(dom->getNodeDistInfo());
   weight        = new DistVec<double>(dom->getNodeDistInfo());
+
+  interfacialWi = new DistSVec<double,dim-2>(dom->getEdgeDistInfo());
+  interfacialWj = new DistSVec<double,dim-2>(dom->getEdgeDistInfo());
 
   if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
 
@@ -56,7 +62,7 @@ domain(dom)
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subExactRiemannSolver[iSub] =
       new ExactRiemannSolver<dim>(ioData, (*riemannupdate)(iSub),
-                         	(*weight)(iSub), vf, tabulationC);
+                         	(*weight)(iSub), (*interfacialWi)(iSub), (*interfacialWj)(iSub), vf, tabulationC);
 
 }
 //------------------------------------------------------------------------------
@@ -64,8 +70,10 @@ template<int dim>
 DistExactRiemannSolver<dim>::~DistExactRiemannSolver()
 {
 
-  if (riemannupdate) delete riemannupdate;
-  if (weight) delete weight;
+  delete riemannupdate;
+  delete weight;
+  delete interfacialWi;
+  delete interfacialWj;
 
   if (subExactRiemannSolver) {
 #pragma omp parallel for
@@ -97,6 +105,18 @@ void DistExactRiemannSolver<dim>::storePreviousPrimitive(DistSVec<double,dim> &V
                                                     DistVec<int> &fluidId,
                                                     DistSVec<double,3> &X)
 {
-  domain->storePreviousPrimitive(V,fluidId,X,*riemannupdate, *weight);
+  if(phaseChangeType_ == MultiFluidData::EXTRAPOLATION){
+    *riemannupdate = 0.0;
+    *weight = 0.0;
+    fprintf(stdout, "*** Error: not supposed to be here for GFMP\n");
+    domain->storePreviousPrimitive(V,fluidId,X,*riemannupdate, *weight);
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin)
+{
+  if(algorithmType_ != MultiFluidData::GHOSTFLUID_FOR_POOR)
+    domain->avoidNewPhaseCreation(Phi,Phin,*weight);
 }
 //------------------------------------------------------------------------------

@@ -43,6 +43,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -56,6 +57,7 @@ private:
 inline
 void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
+    double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -78,6 +80,7 @@ public:
 
 void computeRiemannSolution(double *Vi, double *Vj,
                             int IDi, int IDj, double *nphi,
+                            double *initWi, double *initWj,
                             double *Wi, double *Wj,
                             double *rupdatei, double *rupdatej, 
                             double &weighti, double &weightj,
@@ -91,6 +94,7 @@ private:
 inline
 void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
+    double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -143,6 +147,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -156,6 +161,7 @@ private:
 inline
 void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
+    double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -178,6 +184,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -191,6 +198,7 @@ private:
 inline
 void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
+    double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -218,6 +226,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -241,6 +250,7 @@ private:
 inline
 void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
+                double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, 
                 double &weighti, double &weightj,
@@ -335,6 +345,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj, 
@@ -349,6 +360,7 @@ private:
 inline
 void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 	  int IDi, int IDj, double *nphi,
+          double *initWi, double *initWj,
 	  double *Wi, double *Wj,
           double *rupdatei, double *rupdatej, double &weighti, double &weightj,
           double dx[3], int it)
@@ -447,6 +459,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -461,6 +474,7 @@ private:
 inline
 void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     int IDi, int IDj, double *nphi,
+    double *initWi, double *initWj,
     double *Wi, double *Wj,
     double *rupdatei, double *rupdatej, double &weighti, double &weightj,
     double dx[3], int it)
@@ -566,6 +580,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -588,6 +603,7 @@ private:
 inline
 void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
+                double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
@@ -812,6 +828,7 @@ public:
 
   void computeRiemannSolution(double *Vi, double *Vj,
                               int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
                               double *Wi, double *Wj,
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
@@ -819,7 +836,7 @@ public:
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
-    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir); }
+    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,-1.0,-1.0); }
   void eriemanngj_wrapper(double *in, double *res, double *para);
   void riemannInvariantGeneral1stOrder_wrapper(
                 double *in, double *res, double *para);
@@ -832,10 +849,12 @@ private:
 protected:
   bool eriemanngj_selector(double rhol, double ul, double pl, 
                            double rhor, double ur, double pr, 
-                           double &pi, double &ui, double &rhoil, double &rhoir);
+                           double &pi, double &ui, double &rhoil, double &rhoir,
+                           double initrhol, double initrhor);
   bool eriemanngj(double rhol, double ul, double pl, 
                   double rhor, double ur, double pr, 
-                  double &pi, double &ui, double &rhoil, double &rhoir);
+                  double &pi, double &ui, double &rhoil, double &rhoir,
+                  double initrhol, double initrhor);
 
   void riemannInvariantGeneralTabulation(double *in, double *res);
   bool vacuum(const double rhol, const double ul, const double pl,
@@ -858,6 +877,7 @@ protected:
 inline
 void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 	 	int IDi, int IDj, double *nphi,
+                double *initWi, double *initWj,
 		double *Wi, double *Wj,
                 double *rupdatei, double *rupdatej, double &weighti, double &weightj,
                 double dx[3], int it)
@@ -883,7 +903,13 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWj[0],initWi[0]); 
+    initWi[0] = R_i1;
+    initWi[1] = U_i;
+    initWi[2] = P_i;
+    initWj[0] = R_i2;
+    initWj[1] = U_i;
+    initWj[2] = P_i;
 
     Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -905,7 +931,13 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWi[0],initWj[0]); 
+    initWi[0] = R_i2;
+    initWi[1] = U_i;
+    initWi[2] = P_i;
+    initWj[0] = R_i1;
+    initWj[1] = U_i;
+    initWj[2] = P_i;
 
     Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -944,7 +976,7 @@ void LocalRiemannGfmparGasJWL::eriemanngj_wrapper(
 {
 
   double dummy1, dummy2;
-  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1]);
+  eriemanngj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0);
 
 }
 
@@ -954,7 +986,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj_selector(
                                double rhol, double ul, double pl, 
                                double rhor, double ur, double pr, 
                                double &pi, double &ui,  
-                               double &rhoil, double &rhoir)
+                               double &rhoil, double &rhoir,
+                               double initrhol, double initrhor)
 {
 
   if(riemannComputationType_==MultiFluidData::TABULATION5){
@@ -991,7 +1024,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj_selector(
     // not checking for vacuum!
   }
   else
-    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir);
+    eriemanngj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor);
 
 }
 
@@ -1000,7 +1033,8 @@ inline
 bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl, 
                                           double rhor, double ur, double pr, 
                                           double &pi, double &ui,  
-                                          double &rhoil, double &rhoir){
+                                          double &rhoil, double &rhoir,
+                                          double initrhol, double initrhor){
 // left  -- JWL -- phi = -1.0
 // right -- GAS -- phi = +1.0
   int verbose = -1;
@@ -1027,6 +1061,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double vr  = 1.0/rhor;
   double vil = vl;
   double vir = vr;
+  //vil = initrhol>0.0 ? 1.0/initrhol : vl;
+  //vir = initrhor>0.0 ? 1.0/initrhor : vr;
 
   double omegal = vf_->getOmega(fluid2);
   double omp1ooml = (omegal+1.0)/omegal;
@@ -1209,6 +1245,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   if(verbose>-1){
     fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
     fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+    fprintf(stdout, "initrhol, initrhor = %e %e\n", initrhol, initrhor);
     fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
     fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
     fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
