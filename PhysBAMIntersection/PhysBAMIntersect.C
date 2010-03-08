@@ -185,7 +185,6 @@ double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
 
 //----------------------------------------------------------------------------
 
-static int neg = 0, pos = 0;
 void
 ClosestTriangle::checkTriangle(int trId) {
   double dist;
@@ -203,9 +202,7 @@ ClosestTriangle::checkTriangle(int trId) {
       mode = 0;
     }
   }else {
-    if(dist < 0) neg++;
-    else pos++;
-   if(xi1 < -eps)
+    if(xi1 < -eps)
       checkEdge(trId, nd[1], nd[2], nd[0], dist);
     if(xi2 < -eps)
       checkEdge(trId, nd[0], nd[2], nd[1], dist);
@@ -330,8 +327,6 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
   triSize = 0;
   interpolatedNormal = false;
   nodalNormal = 0;
-  recomputeTime = 0.0;
-  initTime = 0.0;
   status = 0;
   status0 = 0;
 }
@@ -348,12 +343,10 @@ DistPhysBAMIntersector::operator()(int subNum) const {
 */
 void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartSolidSurface) {
 
-  double t0 = timer->getTime();
-
   // Read data from the solid surface input file.
   FILE *topFile;
   topFile = fopen(solidSurface.c_str(), "r");
-  if (topFile == NULL) {com->fprintf(stderr, "topFile doesn't exist at all :(\n"); exit(1); }
+  if (topFile == NULL) {com->fprintf(stderr, "Embedded structure surface mesh doesn't exist :(\n"); exit(1); }
 
   // load the nodes and initialize all node-based variables.
 
@@ -383,26 +376,26 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
     ndMax = std::max(num1, ndMax);
     num0 = num1;
   }
-  length_solids_particle_list = ndMax;
+  numStNodes = ndMax;
 
-  // feed data to solids_particle_lists. 
-  solids_particle_list           = new Vec3D[length_solids_particle_list];
-  solids_particle_list0          = new Vec3D[length_solids_particle_list];
-  solids_particle_list_n         = new Vec3D[length_solids_particle_list];
-  solids_particle_list_nPlus1    = new Vec3D[length_solids_particle_list];
-  solidVel                       = new Vec3D[length_solids_particle_list];
-  solidX = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list);
-  solidX0 = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list0);
-  solidXn = new Vec<Vec3D>(length_solids_particle_list, solids_particle_list_n);
+  // feed data to Xss. 
+  Xs      = new Vec3D[numStNodes];
+  Xs0     = new Vec3D[numStNodes];
+  Xs_n    = new Vec3D[numStNodes];
+  Xs_np1  = new Vec3D[numStNodes];
+  Xsdot   = new Vec3D[numStNodes];
+  solidX  = new Vec<Vec3D>(numStNodes, Xs);
+  solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
+  solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
   
   for (it=nodeList.begin(); it!=nodeList.end(); it++) 
-    solids_particle_list[it->first-1] = it->second;
+    Xs[it->first-1] = it->second;
 
-  for (int k=0; k<length_solids_particle_list; k++) {
-    solids_particle_list0[k]          = solids_particle_list[k];
-    solids_particle_list_n[k]         = solids_particle_list[k];
-    solids_particle_list_nPlus1[k]    = solids_particle_list[k];
-    solidVel[k]                       = Vec3D(0.0, 0.0, 0.0);
+  for (int k=0; k<numStNodes; k++) {
+    Xs0[k]    = Xs[k];
+    Xs_n[k]   = Xs[k];
+    Xs_np1[k] = Xs[k];
+    Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
   }
 
   // load the elements.
@@ -429,17 +422,17 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
     elemList2.push_back(node2-1);
     elemList3.push_back(node3-1);
   }
-  length_triangle_list = elemList1.size();
+  numStElems = elemList1.size();
 
-  triangle_list = new int[length_triangle_list][3];
+  stElem = new int[numStElems][3];
   
   it1 = elemList1.begin();
   it2 = elemList2.begin();
   it3 = elemList3.begin();
-  for (int i=0; i<length_triangle_list; i++) {
-    triangle_list[i][0] = *it1;
-    triangle_list[i][1] = *it2;
-    triangle_list[i][2] = *it3;
+  for (int i=0; i<numStElems; i++) {
+    stElem[i][0] = *it1;
+    stElem[i][1] = *it2;
+    stElem[i][2] = *it3;
     it1++;
     it2++;
     it3++;
@@ -466,20 +459,20 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
-    if (ndMax!=length_solids_particle_list) {
+    if (ndMax!=numStNodes) {
       com->fprintf(stderr,"ERROR: number of nodes in restart topFile is wrong.\n");
       exit(1);
     }
 
-    for (int k=0; k<length_solids_particle_list; k++)
-      solids_particle_list[k] = Vec3D(0,0,0);
+    for (int k=0; k<numStNodes; k++)
+      Xs[k] = Vec3D(0,0,0);
     
     for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
-      solids_particle_list[it2->first-1] = it2->second;
+      Xs[it2->first-1] = it2->second;
 
-    for (int k=0; k<length_solids_particle_list; k++) {
-      solids_particle_list_n[k]         = solids_particle_list[k];
-      solids_particle_list_nPlus1[k]    = solids_particle_list[k];
+    for (int k=0; k<numStNodes; k++) {
+      Xs_n[k]         = Xs[k];
+      Xs_np1[k]    = Xs[k];
     }
     fclose(resTopFile);
   }
@@ -491,24 +484,21 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
 
   getBoundingBox();
   initializePhysBAM();
-
-  initTime = timer->getTime() - t0;
-  com->globalMax(1,&initTime);
 }
 
 //----------------------------------------------------------------------------
 
 void DistPhysBAMIntersector::getBoundingBox() {
-  xMin = xMax = solids_particle_list[0][0];
-  yMin = yMax = solids_particle_list[0][1];
-  zMin = zMax = solids_particle_list[0][2];
-  for(int i = 1; i < length_solids_particle_list; ++i) {
-    xMin = std::min(xMin, solids_particle_list[i][0]);
-    xMax = std::max(xMax, solids_particle_list[i][0]);
-    yMin = std::min(yMin, solids_particle_list[i][1]);
-    yMax = std::max(yMax, solids_particle_list[i][1]);
-    zMin = std::min(zMin, solids_particle_list[i][2]);
-    zMax = std::max(zMax, solids_particle_list[i][2]);
+  xMin = xMax = Xs[0][0];
+  yMin = yMax = Xs[0][1];
+  zMin = zMax = Xs[0][2];
+  for(int i = 1; i < numStNodes; ++i) {
+    xMin = std::min(xMin, Xs[i][0]);
+    xMax = std::max(xMax, Xs[i][0]);
+    yMin = std::min(yMin, Xs[i][1]);
+    yMax = std::max(yMax, Xs[i][1]);
+    zMin = std::min(zMin, Xs[i][2]);
+    zMax = std::max(zMax, Xs[i][2]);
   }
 }
 
@@ -527,12 +517,12 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface()
 {
   map<iipair, ibpair> edgeMap;
 
-  for (int iTriangle=0; iTriangle<length_triangle_list; iTriangle++) {
+  for (int iTriangle=0; iTriangle<numStElems; iTriangle++) {
     int from1, to1, from2, to2, from3, to3;
     bool found1, found2, found3;
-    from1 = triangle_list[iTriangle][0];  to1 = triangle_list[iTriangle][1];  found1 = false;
-    from2 = triangle_list[iTriangle][1];  to2 = triangle_list[iTriangle][2];  found2 = false;
-    from3 = triangle_list[iTriangle][2];  to3 = triangle_list[iTriangle][0];  found3 = false;
+    from1 = stElem[iTriangle][0];  to1 = stElem[iTriangle][1];  found1 = false;
+    from2 = stElem[iTriangle][1];  to2 = stElem[iTriangle][2];  found2 = false;
+    from3 = stElem[iTriangle][2];  to3 = stElem[iTriangle][0];  found3 = false;
 
     EdgePair ep[3];
     ep[0] = makeEdgePair(from1, to1, iTriangle);
@@ -548,9 +538,9 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface()
              int oTriangle = it->second.first;
              int n1 = it->second.second ? ep[i].first.first : ep[i].first.second;
              int edgeIndex;
-             if(triangle_list[oTriangle][0] == n1)
+             if(stElem[oTriangle][0] == n1)
                edgeIndex = 0;
-             else if(triangle_list[oTriangle][1] == n1)
+             else if(stElem[oTriangle][1] == n1)
                edgeIndex = 1;
              else
                edgeIndex = 2;
@@ -566,36 +556,36 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface()
 
 void
 DistPhysBAMIntersector::buildSolidNormals() {
-  if(!triNorms) triNorms = new Vec3D[length_triangle_list];
-  if(!triSize)  triSize = new double[length_triangle_list];
+  if(!triNorms) triNorms = new Vec3D[numStElems];
+  if(!triSize)  triSize = new double[numStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
-      nodalNormal = new Vec3D[length_solids_particle_list];
-    for(int i=0; i<length_solids_particle_list; i++)
+      nodalNormal = new Vec3D[numStNodes];
+    for(int i=0; i<numStNodes; i++)
       nodalNormal[i] = 0.0;
   }
 
   // Also look to determine a point inside the solid but away from the structure.
   double nrmMax = 0;
   int trMaxNorm = -1;
-  for (int iTriangle=0; iTriangle<length_triangle_list; iTriangle++) {
-    int n1 = triangle_list[iTriangle][0];
-    int n2 = triangle_list[iTriangle][1];
-    int n3 = triangle_list[iTriangle][2];
-    double x1 = solids_particle_list[n1][0];
-    double y1 = solids_particle_list[n1][1];
-    double z1 = solids_particle_list[n1][2];
-    double dx2 = solids_particle_list[n2][0]-x1;
-    double dy2 = solids_particle_list[n2][1]-y1;
-    double dz2 = solids_particle_list[n2][2]-z1;
-    double dx3 = solids_particle_list[n3][0]-x1;
-    double dy3 = solids_particle_list[n3][1]-y1;
-    double dz3 = solids_particle_list[n3][2]-z1;
+  for (int iTriangle=0; iTriangle<numStElems; iTriangle++) {
+    int n1 = stElem[iTriangle][0];
+    int n2 = stElem[iTriangle][1];
+    int n3 = stElem[iTriangle][2];
+    double x1 = Xs[n1][0];
+    double y1 = Xs[n1][1];
+    double z1 = Xs[n1][2];
+    double dx2 = Xs[n2][0]-x1;
+    double dy2 = Xs[n2][1]-y1;
+    double dz2 = Xs[n2][2]-z1;
+    double dx3 = Xs[n3][0]-x1;
+    double dy3 = Xs[n3][1]-y1;
+    double dz3 = Xs[n3][2]-z1;
 
    // first calculate the "size" of the triangle.
-    double dx23 = solids_particle_list[n3][0] - solids_particle_list[n2][0];
-    double dy23 = solids_particle_list[n3][1] - solids_particle_list[n2][1];
-    double dz23 = solids_particle_list[n3][2] - solids_particle_list[n2][2];
+    double dx23 = Xs[n3][0] - Xs[n2][0];
+    double dy23 = Xs[n3][1] - Xs[n2][1];
+    double dz23 = Xs[n3][2] - Xs[n2][2];
     double size12 = Vec3D(dx2,dy2,dz2).norm();
     double size13 = Vec3D(dx3,dy3,dz3).norm();
     double size23 = Vec3D(dx23,dy23,dz23).norm();
@@ -621,19 +611,19 @@ DistPhysBAMIntersector::buildSolidNormals() {
   }
 
   if(interpolatedNormal) //normalize nodal normals.
-    for(int i=0; i<length_solids_particle_list; i++) {
+    for(int i=0; i<numStNodes; i++) {
       nodalNormal[i] /= nodalNormal[i].norm();
     }
 
   // find an inside point
   if(trMaxNorm >= 0) {
-    int n1 = triangle_list[trMaxNorm][0];
-    int n2 = triangle_list[trMaxNorm][1];
-    int n3 = triangle_list[trMaxNorm][2];
+    int n1 = stElem[trMaxNorm][0];
+    int n2 = stElem[trMaxNorm][1];
+    int n3 = stElem[trMaxNorm][2];
     Vec3D trCenter =
-      Vec3D(solids_particle_list[n1][0]+solids_particle_list[n2][0]+solids_particle_list[n3][0],
-            solids_particle_list[n1][1]+solids_particle_list[n2][1]+solids_particle_list[n3][1],
-            solids_particle_list[n1][2]+solids_particle_list[n2][2]+solids_particle_list[n3][2])/3;
+      Vec3D(Xs[n1][0]+Xs[n2][0]+Xs[n3][0],
+            Xs[n1][1]+Xs[n2][1]+Xs[n3][1],
+            Xs[n1][2]+Xs[n2][2]+Xs[n3][2])/3;
     // offset the center point by a small amount, but bigger than the epsilon used.
      Vec3D p1 = trCenter - 2*tolerance*triNorms[trMaxNorm];
      double maxDist = Vec3D(xMax-xMin, yMax-yMin, zMax-zMin).norm();
@@ -670,21 +660,21 @@ void
 DistPhysBAMIntersector::initializePhysBAM() {
 // Initialize the Particles list
   PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >& physbam_solids_particle=*new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
-  physbam_solids_particle.array_collection.Resize(length_solids_particle_list);
-  for (int i=0; i<length_solids_particle_list; i++) {
-    physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(solids_particle_list[i][0],
-        solids_particle_list[i][1], solids_particle_list[i][2]);
+  physbam_solids_particle.array_collection.Resize(numStNodes);
+  for (int i=0; i<numStNodes; i++) {
+    physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],
+        Xs[i][1], Xs[i][2]);
   }
   // Initialize the Triangle list
-  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > & physbam_triangle_list=*new PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> >();
-  for (int i=0; i<length_triangle_list; i++){
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > & physbam_stElem=*new PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> >();
+  for (int i=0; i<numStElems; i++){
     int nx, ny, nz;
-    nx = triangle_list[i][0] + 1;  ny = triangle_list[i][1] + 1;  nz = triangle_list[i][2] + 1;
-    physbam_triangle_list.Append(PhysBAM::VECTOR<int,3>(nx, ny, nz));
+    nx = stElem[i][0] + 1;  ny = stElem[i][1] + 1;  nz = stElem[i][2] + 1;
+    physbam_stElem.Append(PhysBAM::VECTOR<int,3>(nx, ny, nz));
   }
 
   // Construct TRIANGLE_MESH triangle_mesh.
-  PhysBAM::TRIANGLE_MESH& physbam_triangle_mesh=*new PhysBAM::TRIANGLE_MESH(physbam_solids_particle.array_collection.Size(), physbam_triangle_list);
+  PhysBAM::TRIANGLE_MESH& physbam_triangle_mesh=*new PhysBAM::TRIANGLE_MESH(physbam_solids_particle.array_collection.Size(), physbam_stElem);
   physbam_triangle_mesh.Initialize_Adjacent_Elements();
   // Construct TRIANGULATED_SURFACE.
   PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
@@ -704,7 +694,6 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interp
   }
   this->X = &X;
   domain = d;
-  timer = d->getTimer();
   interpolatedNormal = interpNormal;
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
@@ -735,18 +724,18 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interp
 //----------------------------------------------------------------------------
 
 void
-DistPhysBAMIntersector::updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) {
+DistPhysBAMIntersector::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
 
 //  com->fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
-  if(nNodes!=length_solids_particle_list) {
+  if(nNodes!=numStNodes) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
     exit(-1);
   }
 
   for (int i=0; i<nNodes; i++) {
-    solids_particle_list_n[i] = solids_particle_list_nPlus1[i];
-    solids_particle_list_nPlus1[i] = Xs[i];
-    solidVel[i] = Vs[i];
+    Xs_n[i] = Xs_np1[i];
+    Xs_np1[i] = xs[i];
+    Xsdot[i] = Vs[i];
   }
 }
 
@@ -766,7 +755,6 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
 void
 DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 
-  double time = timer->getTime();
   if (dtfLeft<-1.0e-8) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -774,8 +762,8 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   //get current struct coordinates.
   double alpha = 1.0;
   //double alpha = (dts - dtfLeft + dtf)/dts;
-  for (int i=0; i<length_solids_particle_list; i++) 
-    solids_particle_list[i] = (1.0-alpha)*solids_particle_list_n[i] + alpha*solids_particle_list_nPlus1[i];
+  for (int i=0; i<numStNodes; i++) 
+    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
   // for getClosestTriangles
   DistSVec<double,3> boxMax(X->info());
@@ -783,7 +771,7 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   DistVec<double> distance(X->info());
   DistVec<int> tId(X->info());
   
-  updatePhysBAMInterface(solids_particle_list, length_solids_particle_list);
+  updatePhysBAMInterface(Xs, numStNodes);
   getBoundingBox();
   buildSolidNormals();
   domain->findNodeBoundingBoxes(*X,boxMin,boxMax);
@@ -798,12 +786,6 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
     intersector[i]->findIntersections((*X)(i));
   }
  
-//  timer->addIntersectorRecomputeTime(time); 
-  time = timer->getTime() - time;
-  com->globalMax(1,&time);
-  recomputeTime += time;
-//  com->fprintf(stderr,"*** Intersector: Time for init / recompute: %e / %e \n", initTime, recomputeTime);
-  
 }
 
 //----------------------------------------------------------------------------
@@ -838,12 +820,12 @@ void PhysBAMIntersector::reset()
 * no closest triangle exists
 */
 void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist) {
-  int ntri = distIntersector.length_triangle_list;
+  int ntri = distIntersector.getNumStructElems();
   MyTriangle *myTris = new MyTriangle[ntri];
-  int (*triNodes)[3] = distIntersector.triangle_list;
-  Vec3D *structX = distIntersector.solids_particle_list;
+  int (*triNodes)[3] = distIntersector.stElem;
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
   for(int i = 0; i < ntri; ++i)
-    myTris[i] = MyTriangle(i, *distIntersector.solidX, triNodes[i]);
+    myTris[i] = MyTriangle(i, distIntersector.getStructPosition(), triNodes[i]);
 
   int nClose = 0;
   double maxDist = 0, maxSize = 0;
@@ -851,7 +833,7 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
   int trBased = 0, edgeBased = 0, vertexBased = 0;
 
   KDTree<MyTriangle> structureTree(ntri, myTris);
-  ClosestTriangle closestTriangle(distIntersector.triangle_list, structX, distIntersector.triNorms);
+  ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms);
 
   double maxErr = 0;
   double exactPhi = -1000;
@@ -905,15 +887,6 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
 
   delete [] candidates;
   delete [] myTris;
-//  std::cout << "Close nodes: " << nClose << " Maximum distance: " << maxDist << " Max size: " << maxSize << std::endl;
-//  std::cout << "Neg probs: " << neg << " Pos probs: " << pos << std::endl;
-//  std::cout << "triangle Based: " << trBased << " edge based: " << edgeBased << " vertex based: " << vertexBased << std::endl;
-//  std::cout << "Maximum error: " << maxErr << " exact: " << exactPhi << " numerical: " << numPhi << " node: " << errNode <<
-//  " " << X[errNode][0] << " " << X[errNode][1] << " " << X[errNode][2] << std::endl;
-//  std::cout << "Fluid box: " << boxMin[errNode][0] << " " << boxMin[errNode][1] << " "<< boxMin[errNode][2] << " "
-//  << boxMax[errNode][0] << " " << boxMax[errNode][1] << " "<< boxMax[errNode][2] << std::endl;
-
-//  std::cout << "Max candidates: " << maxCand << " at " << ndMaxCand << std::endl;
 }
 
 //----------------------------------------------------------------------------
@@ -1158,10 +1131,6 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
     fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
                     locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
   }
-
- 
-//  std::cout << "Maximum edge distance: " << maxEdgeSize << std::endl;
-//  fprintf(stderr,"In subdomain %d: maximum iteration: %d. maximum tolerance: %e.\n", globIndex, max_iter, (max_iter+1)*(max_iter+1)*TOL);
 }
 
 //----------------------------------------------------------------------------
@@ -1206,12 +1175,12 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   lsRes.xi[0] = result.zeta[0];
   lsRes.xi[1] = result.zeta[1];
   lsRes.xi[2] = 1-result.zeta[0]-result.zeta[1];
-  lsRes.trNodes[0] = distIntersector.triangle_list[trueTriangleID][0];
-  lsRes.trNodes[1] = distIntersector.triangle_list[trueTriangleID][1];
-  lsRes.trNodes[2] = distIntersector.triangle_list[trueTriangleID][2];
-  lsRes.normVel = lsRes.xi[0]*distIntersector.solidVel[lsRes.trNodes[0]]
-                + lsRes.xi[1]*distIntersector.solidVel[lsRes.trNodes[1]]
-                + lsRes.xi[2]*distIntersector.solidVel[lsRes.trNodes[2]]; 
+  lsRes.trNodes[0] = distIntersector.stElem[trueTriangleID][0];
+  lsRes.trNodes[1] = distIntersector.stElem[trueTriangleID][1];
+  lsRes.trNodes[2] = distIntersector.stElem[trueTriangleID][2];
+  lsRes.normVel = lsRes.xi[0]*distIntersector.Xsdot[lsRes.trNodes[0]]
+                + lsRes.xi[1]*distIntersector.Xsdot[lsRes.trNodes[1]]
+                + lsRes.xi[2]*distIntersector.Xsdot[lsRes.trNodes[2]]; 
 
   if(!distIntersector.interpolatedNormal)
     lsRes.gradPhi = distIntersector.getSurfaceNorm(trueTriangleID);
@@ -1248,12 +1217,12 @@ bool PhysBAMIntersector::edgeIntersectsStructure(double t, int ni, int nj) const
 
 void PhysBAMIntersector::projection(Vec3D x0, int tria, double& xi1, double& xi2, double& dist)
 {
-  int iA = distIntersector.triangle_list[tria][0];
-  int iB = distIntersector.triangle_list[tria][1];
-  int iC = distIntersector.triangle_list[tria][2];
-  Vec3D xA = distIntersector.solids_particle_list[iA];
-  Vec3D xB = distIntersector.solids_particle_list[iB];
-  Vec3D xC = distIntersector.solids_particle_list[iC];
+  int iA = distIntersector.stElem[tria][0];
+  int iB = distIntersector.stElem[tria][1];
+  int iC = distIntersector.stElem[tria][2];
+  Vec3D xA = distIntersector.Xs[iA];
+  Vec3D xB = distIntersector.Xs[iB];
+  Vec3D xC = distIntersector.Xs[iC];
 
   Vec3D ABC = 0.5*(xB-xA)^(xC-xA);
   double areaABC = ABC.norm();

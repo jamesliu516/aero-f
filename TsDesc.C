@@ -65,6 +65,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
+  riemann = new DistExactRiemannSolver<dim>(ioData, domain, varFcn);
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
