@@ -350,7 +350,7 @@ IF(MPI_FOUND)
                           PREFIX ""
                          )
     SET(TARGETS_INST ${TARGETS_INST} fluidlib)
-  ENDIF(!USE_SCALAPACK)
+  ENDIF(NOT USE_SCALAPACK)
 
 ELSE(MPI_FOUND)
   MESSAGE("Only a non-MPI based executable will be compiled")
