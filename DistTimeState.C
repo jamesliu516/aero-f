@@ -211,9 +211,20 @@ void DistTimeState<dim>::setup(const char *name, double *Ucst,
 
 template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
-			       DistSVec<double,3> &X, DistSVec<double,dim> &U)
+			       DistSVec<double,3> &X, DistSVec<double,dim> &U, IoData *iod, DistVec<int> *fluidId)
 {
   *Un = Ufar;
+ 
+  if(fluidId && iod) {
+    if(iod->eqs.numPhase>1)
+      setupUFluidIdInitialConditions(iod->mf.fluidModel2, *fluidId, *(iod->mf.initialConditions.sphere[0]), 1); //TODO: to be fixed
+    if(iod->eqs.numPhase>2){
+      fprintf(stderr,"Trying to setup i.c. for %d phase flow. Check DistTimeState<dim>::setup(...)\n", iod->eqs.numPhase);
+      // first you need to setup fluidModel3 in IoData, then do
+      // setupUFluidIdInitialConditions(iod->mf.fluidModel3, *fluidId, blabla, 3);
+      exit(-1);
+    }
+  }
 
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
@@ -237,6 +248,102 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::setupUFluidIdInitialConditions(FluidModelData &fm, DistVec<int> &fluidId, SphereData &ic, int myId)
+{
+
+  // compute initial state UU 
+  double UU[dim]; //only works for dim = 5.
+  if(fm.fluid == FluidModelData::GAS){
+    double gam = fm.gasModel.specificHeatRatio;
+    double ps = fm.gasModel.pressureConstant;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::JWL){
+    double omega = fm.jwlModel.omega;
+    double A1    = fm.jwlModel.A1;
+    double A2    = fm.jwlModel.A2;
+    double R1    = fm.jwlModel.R1;
+    double R2    = fm.jwlModel.R2;
+    double rhor  = fm.jwlModel.rhoref;
+    double R1r = R1*rhor; double R2r = R2*rhor;
+
+    double rho = ic.density;
+    double p   = ic.pressure;
+
+    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
+    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
+                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
+
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
+
+  }else if(fm.fluid == FluidModelData::LIQUID){
+    double pref  = fm.liquidModel.Pref;
+    double alpha = fm.liquidModel.alpha;
+    double beta  = fm.liquidModel.beta;
+    double cv    = fm.liquidModel.Cv;
+
+    double rho = ic.density;
+    double temperature = ic.temperature;
+    double vel = 0.0;
+    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
+    else vel = ic.velocity;
+    double u   = vel*cos(ic.alpha)*cos(ic.beta);
+    double v   = vel*cos(ic.alpha)*sin(ic.beta);
+    double w   = vel*sin(ic.alpha);
+
+    UU[0] = rho;
+    UU[1] = rho*u;
+    UU[2] = rho*v;
+    UU[3] = rho*w;
+    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
+
+  }
+   
+  // set Un[id==myID] = UU
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    SVec<double,dim> &subUn((*Un)(iSub));
+    Vec<int> &subId(fluidId(iSub));
+
+    for(int i=0; i<subUn.size(); i++) 
+      if(subId[i]==myId)
+        for(int iDim=0; iDim<dim; iDim++)
+          subUn[i][iDim] = UU[iDim];
+  }
+
+//  fprintf(stderr,"U inside 'sphere': %e %e %e %e %e\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
                                DistSVec<double,dim> &Ufar,

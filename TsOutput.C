@@ -1372,10 +1372,10 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
     for (iSurf = 0; iSurf < nSurfs; iSurf++)  {
       Vec3D F = Fi[iSurf] + Fv[iSurf];
       Vec3D M = Mi[iSurf] + Mv[iSurf];
-      if (refVal->mode == RefVal::NON_DIMENSIONAL) {
+      if (refVal->mode == RefVal::NON_DIMENSIONAL) { 
         F *= 2.0 * refVal->length*refVal->length / surface;
         M *= 2.0 * refVal->length*refVal->length*refVal->length / (surface * length);
-      }
+      }//TODO(KW): what does it do? 
       else {
         F *= refVal->force;
         M *= refVal->energy;
@@ -1929,7 +1929,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistTimeState<dim> *timeState, DistVec<double> &Phi,
                                              DistVec<int> &fluidId)
 {
-
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
     int step = 0;
     if (frequency > 0) {
@@ -1978,7 +1977,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
         }
         else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
+          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv, fluidId);
         domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
       }
     }

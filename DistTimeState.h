@@ -82,7 +82,10 @@ public:
 
   void setGlobalTimeStep (double t) { *dt = t; }
 
-  void setup(const char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &);
+  void setup(const char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &, 
+             IoData * = 0, DistVec<int> * = 0); //iod and fluidId needed only for multi-phase flow
+  void setupUFluidIdInitialConditions(FluidModelData &fm, DistVec<int> &fluidId, SphereData &ic, int myId);
+//------ to be removed (or moved) -----
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
              DistSVec<double,dim> &U, IoData &iod);
   void setupUVolumesInitialConditions(IoData &iod);
@@ -92,6 +95,7 @@ public:
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<int> &nodeTag);
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
              DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
+//-------------------------------------
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
