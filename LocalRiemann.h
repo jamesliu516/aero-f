@@ -34,10 +34,11 @@ public:
                             double &weighti, double &weightj, 
                             double dx[3], int it) {} 
 
+  // FS Riemann problem
   virtual void computeRiemannSolution(double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
-                              double &weighti, int it) {} //KW: to be removed
+                              double &weighti, int it, int Id = 0) {} 
   virtual void computeRiemannSolution(int tag, double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,

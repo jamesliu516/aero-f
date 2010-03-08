@@ -28,52 +28,55 @@ class Timer;
 template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
+
+  friend class PhysBAMIntersector;
+
   typedef pair<int, int> iipair;
   typedef pair<int, bool> ibpair;
   typedef pair<iipair, ibpair> EdgePair;
 
   protected:
-  public: // For debugging
-    int length_solids_particle_list, length_triangle_list;
-    int (*triangle_list)[3];
-    double xMin, xMax, yMin, yMax, zMin, zMax;
+    int numStNodes, numStElems;
+    double xMin, xMax, yMin, yMax, zMin, zMax; //a bounding box over the struct body
 
-    Timer *timer;
-    double recomputeTime;
-    double initTime;
+    // struct node coords
+    Vec3D *Xs;
+    Vec3D *Xs0;
+    Vec3D *Xs_n;
+    Vec3D *Xs_np1;
+    Vec<Vec3D> *solidX;   //pointer to Xs
+    Vec<Vec3D> *solidXn;  //pointer to Xs_n
+    Vec<Vec3D> *solidX0;  //pointer to Xs0
 
-    Vec3D *solids_particle_list;
-    Vec3D *solids_particle_list0;
-    Vec3D *solids_particle_list_n;
-    Vec3D *solids_particle_list_nPlus1;
-    Vec3D *solidVel;
+    int (*stElem)[3]; //structure elements (topology)
+
+    Vec3D *Xsdot; //velocity
+
+    DistVec<int> *status;   //node status
+    DistVec<int> *status0;  //previous node status
+
+    double *triSize;
+    Vec3D *triNorms;  
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
-    Vec<Vec3D> *solidX;
-    Vec<Vec3D> *solidXn;
-    Vec<Vec3D> *solidX0;
+    DistSVec<double,3> *X; //pointer to fluid node coords
 
-    DistVec<int> *status;
-    DistVec<int> *status0;
-
-    Vec3D *triNorms;
-    double *triSize;
-    Communicator *com;
-    PhysBAMIntersector **intersector;
-
-    PhysBAMInterface<double> *physInterface;
-    Domain *domain;
-    DistSVec<double,3> *X;
+    // parameters from input
     double tolerance;
     double insidePointTol;
+    Vec3D insidePoint; // A point known to be inside of the closed structural surface.
+    bool interpolatedNormal;
 
-    // A point known to be inside of the closed structural surface.
-    Vec3D insidePoint;
+    // sophisticated stuff...
+    Communicator *com;
+    PhysBAMIntersector **intersector;
+    PhysBAMInterface<double> *physInterface;
+    Domain *domain;
 
     void buildSolidNormals();
     void getBoundingBox();
+
   public:
-    bool interpolatedNormal;
     DistPhysBAMIntersector(double tol);
     void init(std::string structureFileName, std::string structureFileName);
 
@@ -83,7 +86,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void initializePhysBAM();
 
     void initialize(Domain *, DistSVec<double,3> &X, bool interpNormal);
-    void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes);
+    void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
     void updatePhysBAMInterface(Vec3D *particles, int size);
     void recompute(double dtf, double dtfLeft, double dts);
 
@@ -98,7 +101,8 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
-    int getNumStructNodes () { return length_solids_particle_list; }
+    int getNumStructNodes () { return numStNodes; }
+    int getNumStructElems () { return numStElems; }
 };
 
 class PhysBAMIntersector : public LevelSetStructure {
@@ -106,7 +110,6 @@ class PhysBAMIntersector : public LevelSetStructure {
     static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1; //INSIDE: inside real fluid, OUTSIDE: ~~
 
   protected:
-  public: // For debug
 
     int globIndex;
     int *locToGlobNodeMap;
@@ -124,11 +127,10 @@ class PhysBAMIntersector : public LevelSetStructure {
      * send back the signed distance and barycentric coordinates of the projection point. */
     void projection(Vec3D, int, double&, double&, double&);
 
-    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
 
   public:
     PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistPhysBAMIntersector &);
+    int numOfFluids() {return distIntersector.numOfFluids();}
     void reset(); //<! set status0=status and reset status and nFirstLayer.
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
     /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
@@ -142,11 +144,13 @@ class PhysBAMIntersector : public LevelSetStructure {
     /** compute the status (inside / outside) for all the nodes. */
     void findIntersections(SVec<double,3>&X);
     /** find intersections for each edge that has nodes with different statuses */
+    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
+    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
 
     LevelSetResult
     getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-    bool isActive(double t, int n) const;
-    bool wasActive(double t, int n) const;
+    bool isActive(double t, int n, int phase = 0) const;
+    bool wasActive(double t, int n, int phase = 0) const;
     bool edgeIntersectsStructure(double t, int ni, int nj) const;
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 

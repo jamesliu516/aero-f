@@ -58,8 +58,8 @@ class LevelSetStructure {
      * */
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
-    virtual bool isActive(double t, int n) const = 0; //!< Whether this node is active or ghost.
-    virtual bool wasActive(double t, int n) const = 0; //!< Whether this node was active or ghost in the last iteration.
+    virtual bool isActive(double t, int n, int phase = 0) const = 0; //!< Whether this node is active or ghost.
+    virtual bool wasActive(double t, int n, int phase = 0) const = 0; //!< Whether this node was active or ghost in the last iteration.
     virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
 
     /** creates an array of values which are positive inside the fluid and negative outside. */
@@ -68,6 +68,7 @@ class LevelSetStructure {
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
     Vec3D totalForce;
+    virtual int numOfFluids() = 0; 
 
     virtual void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&) = 0;
 };
@@ -76,9 +77,13 @@ class DistLevelSetStructure {
   protected:
     int numLocSub;
     DistVec<double> *pseudoPhi;
+    int numFluid;
+
   public:
     virtual ~DistLevelSetStructure() {}
 
+    int numOfFluids() {return numFluid;}
+    void setNumOfFluids(int nf) {numFluid = nf;}
     virtual void initialize(Domain *, DistSVec<double,3> &X, bool) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
     virtual void clearTotalForce();
