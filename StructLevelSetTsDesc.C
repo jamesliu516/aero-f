@@ -34,7 +34,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
   Phi(this->getVecInfo()), Vg(this->getVecInfo()), Vtemp(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
-  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),TYPE(ioData.eqs.numPhase)
+  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),numFluid(ioData.eqs.numPhase)
 {
 
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -43,13 +43,9 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   phaseChangeChoice = ioData.strucIntersect.phaseChangeChoice;
 
   this->postOp->setForceGenerator(this);
-  if (TYPE==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (TYPE==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
+  if (numFluid==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
-  timeStep = 0.0;
-  fsiPosition = 0.0;
-  fsiNormal = 0.0;
-  fsiVelocity = 0.0;
   interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
   linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
 
@@ -65,16 +61,17 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   const char *intersectorName = ioData.strucIntersect.intersectorName;
   if(intersectorName != 0)
     distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
+  distLSS->setNumOfFluids(numFluid);
 
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   *Wstarij = 0.0;
   *Wstarji = 0.0;
+  nodeTag0 = 0;
+  nodeTag = 0;
 
   Weights = 0;
   VWeights = 0;
-
-  pressureRef = ioData.ref.rv.pressure;
 
 //------ load structure mesh information ----------------------
   numStructNodes = 0;
@@ -84,7 +81,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[numStructNodes][3];
-  } else this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
+  } else 
+    this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
+
+  FsComputed = false;
 //-------------------------------------------------------------
 
 // for FF interface
@@ -154,78 +154,57 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 template<int dim>
 void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
+  distLSS->initialize(this->domain,*this->X, interpolatedNormal);
+  if(this->numFluid>1) //initialize nodeTags for multi-phase flow
+    nodeTag0 = nodeTag = distLSS->getStatus();
+
   this->geoState->setup2(this->timeState->getData());
+  this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), 
+                         *this->X, *U, &ioData, &nodeTag);
+  EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
+  if(_mmh) {
+    double *tmax = &(this->data)->maxTime;
+    _mmh->setup(tmax); //obtain maxTime from structure
+  }
 
-  if (TYPE==1) {
-    this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), *this->X, *U);
-
-    EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
-    
-    if(_mmh) {
-      double *tmax = &(this->data)->maxTime;
-      _mmh->setup(tmax); //obtain maxTime from structure
-    }
-
-    this->distLSS->initialize(this->domain,*this->X, interpolatedNormal);
-
-    //compute force
-    // construct Wij, Wji from U. Then use them for force calculation.
-    DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-    DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-    DistSVec<double,dim> VV(this->getVecInfo());
-    *Wij = 0.0;
-    *Wji = 0.0;
-    this->varFcn->conservativeToPrimitive(*U,VV);
-    SubDomain **subD = this->domain->getSubDomain();
+  //compute force
+  // construct Wij, Wji from U. Then use them for force calculation.
+  DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  DistSVec<double,dim> VV(this->getVecInfo());
+  *Wij = 0.0;
+  *Wji = 0.0;
+  this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
+  SubDomain **subD = this->domain->getSubDomain();
 
 #pragma omp parallel for
-    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      SVec<double,dim> &subWij = (*Wij)(iSub);
-      SVec<double,dim> &subWji = (*Wji)(iSub);
-      SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-      SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-      SVec<double,dim> &subVV = VV(iSub);
-      int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-      if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWij = (*Wij)(iSub);
+    SVec<double,dim> &subWji = (*Wji)(iSub);
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+    if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
 
-      for (int l=0; l<subWij.size(); l++) {
-        int i = ptr[l][0];
-        int j = ptr[l][1];
-        for (int k=0; k<dim; k++) {
-          subWij[l][k] = subVV[i][k];
-          subWji[l][k] = subVV[j][k];
-        }
+    for (int l=0; l<subWij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWij[l][k] = subVV[i][k];
+        subWji[l][k] = subVV[j][k];
       }
     }
+  }
 
-    computeForceLoad(Wij, Wji);
-    delete Wij;
-    delete Wji;
-
-    // Now "accumulate" the force for the embedded structure
-    if(dynNodalTransfer){
-      SVec<double,3> v(numStructNodes, Fs);
-      dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
-    }
-
-  } else if (TYPE==2) {
-    // load the FS interface.
-    if (ioData.mf.initialConditions.nplanes != 1) {
-      fprintf(stderr,"number of planes != 1! Abort...\n"); exit(-1);}
-    fsiPosition[0] = ioData.mf.initialConditions.p1.cen_x;
-    fsiPosition[1] = ioData.mf.initialConditions.p1.cen_y;
-    fsiPosition[2] = ioData.mf.initialConditions.p1.cen_z;
-    fsiNormal[0] = ioData.mf.initialConditions.p1.nx;
-    fsiNormal[1] = ioData.mf.initialConditions.p1.ny;
-    fsiNormal[2] = ioData.mf.initialConditions.p1.nz;
-    fsiNormal /= fsiNormal.norm();
-    fsiVelocity = 10.0; //TODO: should read from the input file.
-
-    fprintf(stderr,"Position = [%e, %e, %e];  Normal = [%e, %e, %e];  Velo = %e.\n", fsiPosition[0], fsiPosition[1], fsiPosition[2], fsiNormal[0], fsiNormal[1], fsiNormal[2], fsiVelocity);
-
-    this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, nodeTag, ioData);
-    nodeTag0 = nodeTag;
-    this->distLSS->initialize(this->domain,*this->X, interpolatedNormal);
+  computeForceLoad(Wij, Wji);
+  delete Wij;
+  delete Wji;
+  FsComputed = true;
+  // Now "accumulate" the force for the embedded structure
+  if(dynNodalTransfer){
+    SVec<double,3> v(numStructNodes, Fs);
+    dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
 }
 
@@ -235,44 +214,32 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if (TYPE==2) {
+  if(!FsComputed) fprintf(stderr,"WARNING: FSI force not computed!\n");
+  FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
 
-    double t0 = this->timer->getTime();
-    this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
-    int numSubCycles = 1;
-    double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                              &numSubCycles, *this->geoState, *this->A, U, nodeTag);
-    if (this->problemType[ProblemData::UNSTEADY])
-      this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
-                        dt*this->refVal->time, numSubCycles);
+  double t0 = this->timer->getTime();
+  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+  int numSubCycles = 1;
 
-    this->timer->addFluidSolutionTime(t0);
-    this->timer->addTimeStepTime(t0);
+  double dt;
+  if(numFluid==1)
+    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                            &numSubCycles, *this->geoState, *this->X, *this->A, U);
+  else //numFLuid>1
+    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                            &numSubCycles, *this->geoState, *this->A, U, nodeTag);
 
-    timeStep = dt;
-    return dt;
+  if (this->problemType[ProblemData::UNSTEADY])
+    this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
+                      dt*this->refVal->time, numSubCycles);
 
-  } else {
+  this->timer->addFluidSolutionTime(t0);
+  this->timer->addTimeStepTime(t0);
 
-    double t0 = this->timer->getTime();
-    this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
-    int numSubCycles = 1;
-    double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                              &numSubCycles, *this->geoState, *this->X, *this->A, U);
+  dtf = dt;
+  dtfLeft = *dtLeft + dt;
 
-    if (this->problemType[ProblemData::UNSTEADY])
-      this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
-                        dt*this->refVal->time, numSubCycles);
-
-    this->timer->addFluidSolutionTime(t0);
-    this->timer->addTimeStepTime(t0);
-
-    dtf = dt;
-    dtfLeft = *dtLeft + dt;
-
-    return dt;
-  }
-
+  return dt;
 }
 
 //---------------------------------------------------------------------------
@@ -281,7 +248,7 @@ template<int dim>
 void StructLevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
-  this->timeState->update(U);
+  this->timeState->update(U); 
 }
 
 //-----------------------------------------------------------------------------
@@ -290,9 +257,10 @@ template<int dim>
 int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 {
   int ierr = 0;
-  if (TYPE==2) {
+  if(numFluid==1)
+    ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
+  else
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
-  } else ierr = this->domain->checkSolution(this->varFcn, U); //also check ghost nodes.
 
   return ierr;
 }
@@ -383,7 +351,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    if (TYPE==2) {
+    if (numFluid==2) {
       this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
@@ -395,8 +363,10 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
       this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     }
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    if (TYPE==2) this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
-    else this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+    if (numFluid==2)  
+      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    else 
+      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
@@ -416,8 +386,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  if (TYPE==2) {
-    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+  if (numFluid==2) {
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
@@ -425,7 +394,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   } 
-  else { //TYPE == 1
+  else { //numFluid == 1
 
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
@@ -453,7 +422,10 @@ void StructLevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int i
                                double t, double dt, DistSVec<double,dim> &U)
 { 
   double cpu = this->timer->getRunTime();
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+  if(this->numFluid==1)
+    this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
+  else
+    this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &this->nodeTag);
 }
 
 //------------------------------------------------------------------------------
@@ -473,14 +445,17 @@ void StructLevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
-  if (TYPE==2) 
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, nodeTag, *this->R, this->riemann, 0);
-  else 
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, 0);
+  if(this->numFluid==1)
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, riemannNormal, 0);
+  else //numFluid>1
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, 0);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
+
   double res = 0.0;
-  res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
+  if(this->numFluid==1)
+    res = this->spaceOp->computeRealFluidResidual(*this->R, *this->Rreal, *distLSS);
+
   return sqrt(res);
 }
 
@@ -513,99 +488,59 @@ void StructLevelSetTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void StructLevelSetTsDesc<dim>::updateFSInterface()
-{
-  if (TYPE!=2) {
-    fprintf(stderr,"In StructLevelSetTsDesc::updateFSInterface: Shouldn't call me! Abort.\n");
-    exit(-1);
-  }
-  if (timeStep<=0.0) {fprintf(stderr,"in StructLevelSetTsDesc, timeStep <= 0.0! Abort...\n"); exit(-1);}
-  double displacement = timeStep*fsiVelocity;
-  fsiPosition += displacement*fsiNormal;
-//  fsiPosition += 0.12; //for debug only.
-  fprintf(stderr,"Interface: [%e %e %e], normal [%e %e %e].\n", fsiPosition[0], fsiPosition[1], fsiPosition[2], fsiNormal[0], fsiNormal[1], fsiNormal[2]);
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void StructLevelSetTsDesc<dim>::updateNodeTag() //for piston only.
-{
-  if (TYPE!=2) {
-    fprintf(stderr,"In StructLevelSetTsDesc::updateNodeTag: Shouldn't call me! Abort.\n");
-    exit(-1);
-  }
-  nodeTag0 = nodeTag;
-  nodeTag = 0;
-
-//  domain->updateNodeTag(*this->X, distLSS, nodeTag0, nodeTag);
-
-  // temporarily.
-#pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-    SVec<double,3> &subX = (*this->X)(iSub);
-    Vec<int> &subNodeTag = nodeTag(iSub);
-    for (int i=0; i<subX.size(); i++) {
-      double scalar = fsiNormal[0]*(subX[i][0] - fsiPosition[0])
-                    + fsiNormal[1]*(subX[i][1] - fsiPosition[1])
-                    + fsiNormal[2]*(subX[i][2] - fsiPosition[2]);
-      subNodeTag[i] = (scalar>0.0) ? -1 : 1;
-    }
-  }
-}
-
-//-------------------------------------------------------------------------------
-
-template<int dim>
 void StructLevelSetTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
-  for (int i=0; i<numStructNodes; i++) Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
+  for (int i=0; i<numStructNodes; i++) 
+    Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  //at this stage Fs is NOT globally assembled!
 }
 
 //-------------------------------------------------------------------------------
 
 template <int dim>
 void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
-                                           double F[3], double M[3]) {
-  if (pressureChoice==0) //(default) use p* in force calculation.
-    computeForceLoad(this->Wstarij, this->Wstarji);
+                                           double F[3], double M[3]) 
+{
+  if (!FsComputed) 
+    if (pressureChoice==0) //(default) use p* in force calculation.
+      computeForceLoad(this->Wstarij, this->Wstarji);
 
-  else if (pressureChoice==1) {
-    // construct Wij, Wji from U. Then use them for force calculation. 
-    DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-    DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-    DistSVec<double,dim> VV(this->getVecInfo());
-    *Wij = 0.0;
-    *Wji = 0.0;
-    this->varFcn->conservativeToPrimitive(U,VV);
-    SubDomain **subD = this->domain->getSubDomain();
+    else if (pressureChoice==1) {
+      // construct Wij, Wji from U. Then use them for force calculation. 
+      DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+      DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+      DistSVec<double,dim> VV(this->getVecInfo());
+      *Wij = 0.0;
+      *Wji = 0.0;
+      this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
+      SubDomain **subD = this->domain->getSubDomain();
 
 #pragma omp parallel for
-    for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-      SVec<double,dim> &subWij = (*Wij)(iSub);
-      SVec<double,dim> &subWji = (*Wji)(iSub);
-      SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-      SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-      SVec<double,dim> &subVV = VV(iSub);
-      int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();    
-      if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
+      for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+        SVec<double,dim> &subWij = (*Wij)(iSub);
+        SVec<double,dim> &subWji = (*Wji)(iSub);
+        SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+        SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+        SVec<double,dim> &subVV = VV(iSub);
+        int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();    
+        if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
+  
+        for (int l=0; l<subWij.size(); l++) {
+          int i = ptr[l][0];
+          int j = ptr[l][1];
+          if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
+            for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
+          if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
+            for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
+        }
+      } 
 
-      for (int l=0; l<subWij.size(); l++) {
-        int i = ptr[l][0];
-        int j = ptr[l][1];
-        if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
-          for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
-        if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
-          for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
-      }
-    } 
-
-    computeForceLoad(Wij, Wji);
-    delete Wij;
-    delete Wji;
-  }
+      computeForceLoad(Wij, Wji);
+      delete Wij;
+      delete Wji;
+    }
 
   F[0] = F[1] = F[2] = 0.0;
   for (int i=0; i<numStructNodes; i++) {
@@ -637,7 +572,7 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
       DistSVec<double,dim> VV(this->getVecInfo());
       *Wij = 0.0;
       *Wji = 0.0;
-      this->varFcn->conservativeToPrimitive(U,VV);
+      this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
       SubDomain **subD = this->domain->getSubDomain();
 
 #pragma omp parallel for
@@ -653,9 +588,9 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
         for (int l=0; l<subWij.size(); l++) {
           int i = ptr[l][0];
           int j = ptr[l][1];
-          if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
+          if (subWstarij[l][0]>1e-10)  
             for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
-          if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
+          if (subWstarji[l][0]>1e-10)  
             for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
         }
       }
@@ -666,6 +601,7 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 
     }
 
+    FsComputed = true; //to avoid redundant computation of Fs.
     // Now "accumulate" the force for the embedded structure
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);

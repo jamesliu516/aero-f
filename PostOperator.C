@@ -964,7 +964,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &fluidId);
       subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub),
                                                  (*geoState)(iSub), X(iSub),
                                                  (*V)(iSub), (*tmp2)(iSub));
@@ -1010,7 +1010,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       double (*x)[3] = X.subData(iSub);
       for (int i=0; i<tmp3.subSize(iSub); ++i) {
         double v[dim];
-        varFcn->conservativeToPrimitive(u[i], v);
+        varFcn->conservativeToPrimitive(u[i], v, fluidId[i]);
         t3[i][0] = v[1];
         t3[i][1] = v[2];
         t3[i][2] = v[3];
@@ -1050,7 +1050,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   else if (type == PostFcn::CSDLES) {
      if(!CsDles) CsDles = new DistVec<double>(domain->getNodeDistInfo());
      *CsDles = 0.0;
-     varFcn->conservativeToPrimitive(U, *V);
+     varFcn->conservativeToPrimitive(U, *V, &fluidId);
      dles->computeCsValue(A, *bcData, X, *V, *CsDles);
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -1079,7 +1079,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   else if (type == PostFcn::MUT_OVER_MU) {
     if(!mutOmu) mutOmu = new DistVec<double>(domain->getNodeDistInfo());
     *mutOmu = 0.0;
-    varFcn->conservativeToPrimitive(U, *V);
+    varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
 
     if(vms) {
@@ -1112,19 +1112,19 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-
+/*
   else if (type == PostFcn::PHILEVEL_STRUCTURE) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
-
+*/
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub));
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub));
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &fluidId);
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
 
@@ -1343,7 +1343,7 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
       for (int i=0; i<Q.subSize(iSub); ++i) {
         double v[dim];
         varFcn->conservativeToPrimitive(u[i], v, fId[i]);
-        Vec3D vel = varFcn->getVelocity(v);
+        Vec3D vel = varFcn->getVelocity(v, fId[i]);
         q[i][0] = vel[0];
         q[i][1] = vel[1];
         q[i][2] = vel[2];
