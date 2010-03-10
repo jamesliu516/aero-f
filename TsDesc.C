@@ -296,6 +296,7 @@ template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
+  geoState->setup2(timeState->getData());
   timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
