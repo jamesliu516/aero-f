@@ -508,17 +508,6 @@ void SpaceOperator<dim>::resetTag()
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void SpaceOperator<dim>::storeGhost(DistSVec<double,dim> &V, DistVec<double> &Phi,
-                       DistSVec<double,dim> &Vgf, DistVec<double> &weight)
-{
-  Vgf = -1.0;
-  weight = 1.0;
-  domain->storeGhost(V,Vgf,Phi);
-}
-
-//------------------------------------------------------------------------------
-
 // Modified (MB)
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -948,7 +937,7 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 template<int dim>
 // Included (MB)
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U, DistVec<double> &Phi,
+                                         DistSVec<double,dim> &U, DistSVec<double,1> &Phi,
                                          DistVec<int> &fluidId, DistSVec<double,dim> &R,
                                          DistExactRiemannSolver<dim> *riemann, int it,
                                          DistSVec<double,dim> *bcFlux,
@@ -956,7 +945,6 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 {
 
   R = 0.0;
-  DistSVec<double,1> PhiS(Phi.info(), reinterpret_cast<double (*)[1]>(Phi.data()));
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
@@ -967,7 +955,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0){
     double t0 = timer->getTime();
-    ngradLS->compute(geoState->getConfig(), X, ctrlVol, PhiS);
+    ngradLS->compute(geoState->getConfig(), X, ctrlVol, Phi);
     timer->addNodalGradTime(t0);
   }
 
@@ -1121,11 +1109,10 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
 template<int dim>
 void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                           DistVec<double> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
-                                           DistVec<double> &PhiF)
+                                           DistSVec<double,1> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
+                                           DistSVec<double,1> &PhiF)
 {
   PhiF = 0.0;
-  DistSVec<double,1> PhiS(Phi.info(), reinterpret_cast<double (*)[1]>(Phi.data()));
 
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
@@ -1136,7 +1123,7 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
   }
 
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
-    ngradLS->compute(geoState->getConfig(), X, ctrlVol, PhiS);
+    ngradLS->compute(geoState->getConfig(), X, ctrlVol, Phi);
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
 
@@ -1144,21 +1131,21 @@ void SpaceOperator<dim>::computeResidualLS(DistSVec<double,3> &X, DistVec<double
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   if (dynamic_cast<RecFcnConstant<1> *>(recFcnLS) == 0)
-    ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
+    ngradLS->limit(recFcnLS, X, ctrlVol, Phi);
 
 
   domain->computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, *bcData, *geoState, X, *V,
-                                    *ngrad, *ngradLS, egrad, PhiS, PhiF);
+                                    *ngrad, *ngradLS, egrad, Phi, PhiF);
 
   if (use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
-      double (*r) = PhiF.subData(iSub);
+      double (*r)[1] = PhiF.subData(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
         double invcv = 1.0 / cv[i];
-        r[i] *= invcv;
+        r[i][0] *= invcv;
       }
     }
   }
@@ -1396,7 +1383,7 @@ void SpaceOperator<dim>::recomputeRHS(DistSVec<double,3> &X, DistSVec<double,dim
 {
 
 #ifdef DOUBLE_CHECK
-  varFcn->conservativeToPrimitive(U, *V, &Phi);
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);
 #endif
 
   if(xpol)

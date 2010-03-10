@@ -142,23 +142,23 @@ ImplicitLevelSetTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &k
 //------------------------------------------------------------------------------
 template<int dim>
 template<int neq>
-KspSolver<DistVec<double>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator, double> *
+KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator, double> *
 ImplicitLevelSetTsDesc<dim>::createKrylovSolverLS(const DistInfo &info, KspData &kspdata,
                                         MatVecProd<dim,neq> *_mvp, KspPrec<neq,double> *_pc,
                                         Communicator *_com)
 {
 
-  KspSolver<DistVec<double>, MatVecProd<dim,neq>,
+  KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
     KspPrec<neq>, Communicator> *_ksp = 0;
 
   if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistVec<double>, MatVecProd<dim,neq>,
+    _ksp = new RichardsonSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistVec<double>, MatVecProd<dim,neq>,
+    _ksp = new CgSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistVec<double>, MatVecProd<dim,neq>,
+    _ksp = new GmresSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
 
   return _ksp;
@@ -332,7 +332,7 @@ int ImplicitLevelSetTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> 
 template<int dim>
 void ImplicitLevelSetTsDesc<dim>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
-                                                    DistVec<double> &PhiF)
+                                                    DistSVec<double,1> &PhiF)
 {
   this->spaceOp->computeResidualLS(*this->X, *this->A, this->Phi, this->fluidSelector.fluidId, U, PhiF);
 
@@ -346,7 +346,7 @@ void ImplicitLevelSetTsDesc<dim>::computeFunctionLS(int it,
 template<int dim>
 void ImplicitLevelSetTsDesc<dim>::computeJacobianLS(int it,
                                                     DistSVec<double,dim> &U,
-                                                    DistVec<double> &PhiF)
+                                                    DistSVec<double,1> &PhiF)
 {
 
   mvpLS->evaluateLS(it, *this->X, *this->A, this->Phi, this->LS->Phin, 
@@ -356,8 +356,8 @@ void ImplicitLevelSetTsDesc<dim>::computeJacobianLS(int it,
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ImplicitLevelSetTsDesc<dim>::solveLinearSystemLS(int it, DistVec<double> &b,
-                                                  DistVec<double> &dQ)
+int ImplicitLevelSetTsDesc<dim>::solveLinearSystemLS(int it, DistSVec<double,1> &b,
+                                                  DistSVec<double,1> &dQ)
 {
 
   double t0 = this->timer->getTime();

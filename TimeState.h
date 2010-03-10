@@ -33,8 +33,8 @@ public:
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
 			  SVec<double,dim> &, SVec<double,dim> &);
   void add_dAW_dtLS(bool *, GeoState &, Vec<double> &, 
-		    Vec<double> &, Vec<double> &, Vec<double> &, 
-		    Vec<double> &, Vec<double> &);
+		    SVec<double,1> &, SVec<double,1> &, SVec<double,1> &, 
+		    SVec<double,1> &, SVec<double,1> &);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,

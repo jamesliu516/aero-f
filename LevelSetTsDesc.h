@@ -25,12 +25,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
   FluidSelector fluidSelector;
   LevelSet *LS;
   DistExactRiemannSolver<dim> *riemann;
-  DistVec<double> Phi;           //conservative variables
-  DistVec<double> PhiV;          //primitive variables
+  DistSVec<double,1> Phi;           //conservative variables
+  DistSVec<double,1> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
-  //DistSVec<double,dim> Vg;       //primitive V for GFMP
-  //DistSVec<double,dim> *Vgf;     //primitive V storage for phase change (if extrapolation)
-  //DistVec<double> *Vgfweight;
 
   // multiphase conservation check
   DistSVec<double,dim> boundaryFlux;
@@ -83,7 +80,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
  protected:
-  void avoidNewPhaseCreation(DistVec<double> &localPhi);
+  void avoidNewPhaseCreation(DistSVec<double,1> &localPhi);
 
 };
 

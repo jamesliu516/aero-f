@@ -40,7 +40,7 @@ LevelSet::~LevelSet()
 
 //---------------------------------------------------------------------------------------------------------
 
-void LevelSet::setupPhiVolumesInitialConditions(IoData &iod, DistVec<double> &Phi){
+void LevelSet::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,1> &Phi){
 
   // loop on all Volumes to setup Phi_0 
   if(!iod.volumes.volumeMap.dataMap.empty()){
@@ -56,7 +56,7 @@ void LevelSet::setupPhiVolumesInitialConditions(IoData &iod, DistVec<double> &Ph
 
 //---------------------------------------------------------------------------------------------------------
 
-void LevelSet::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<double> &Phi){
+void LevelSet::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,1> &Phi){
 
   // Note that Phi was already initialized either to 1.0 everywhere
   // (if there were no volumes specified in the input file)
@@ -77,7 +77,7 @@ void LevelSet::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,
 }
 
 //---------------------------------------------------------------------------------------------------------
-void LevelSet::update(DistVec<double> &Phi)
+void LevelSet::update(DistSVec<double,1> &Phi)
 {
 
   if (data->use_nm2 && data->exist_nm1) {
@@ -95,17 +95,14 @@ void LevelSet::update(DistVec<double> &Phi)
 void LevelSet::writeToDisk(char *name)
 {
 
-  DistSVec<double,1> WritePhi(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phin.data()));
-  domain->writeVectorToFile(name, 0, 0.0, WritePhi);
+  domain->writeVectorToFile(name, 0, 0.0, Phin);
 
   if (data->use_nm1){
-    DistSVec<double,1> WritePhi1(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phinm1.data()));
-    domain->writeVectorToFile(name, 1, 0.0, WritePhi1);
+    domain->writeVectorToFile(name, 1, 0.0, Phinm1);
   }
 
   if (data->use_nm2){
-    DistSVec<double,1> WritePhi2(domain->getNodeDistInfo(), reinterpret_cast<double (*)[1]>(Phinm2.data()));
-    domain->writeVectorToFile(name, 2, 0.0, WritePhi2);
+    domain->writeVectorToFile(name, 2, 0.0, Phinm2);
   }
 
 }

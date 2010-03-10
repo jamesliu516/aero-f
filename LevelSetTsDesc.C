@@ -361,7 +361,7 @@ bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void LevelSetTsDesc<dim>::avoidNewPhaseCreation(DistVec<double> &localPhi)
+void LevelSetTsDesc<dim>::avoidNewPhaseCreation(DistSVec<double,1> &localPhi)
 {
 
   this->domain->avoidNewPhaseCreation(localPhi, LS->Phin);

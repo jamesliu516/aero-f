@@ -160,7 +160,7 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
 //------------------------------------------------------------------------------
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                 DistSVec<double,dim> &q, DistVec<double> &phi,
+                                 DistSVec<double,dim> &q, DistSVec<double,1> &phi,
                                  DistVec<int> &fluidId_, DistExactRiemannSolver<dim> *riemann,
                                  DistSVec<double,dim> &f)
 {
@@ -578,7 +578,7 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistVec<double> &Phi, DistVec<int> &fluidId,
+                                            DistSVec<double,dim> &Q, DistSVec<double,1> &Phi, DistVec<int> &fluidId,
                                             DistExactRiemannSolver<dim> *riemann,
                                             DistSVec<double,dim> &F)
 {
@@ -1125,9 +1125,9 @@ void MatVecProdLS<Scalar,dim,neq>::applyLS(DistVec<double> &p, DistVec<double> &
 
 template<class Scalar,int dim, int neq>
 void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                                      DistVec<double> &q,  DistVec<double> &qn,
-                                                      DistVec<double> &qnm1, DistVec<double> &qnm2,
-						      DistSVec<double,dim> &u, DistVec<double> &f,
+                                                      DistSVec<double,1> &q,  DistSVec<double,1> &qn,
+                                                      DistSVec<double,1> &qnm1, DistSVec<double,1> &qnm2,
+						      DistSVec<double,dim> &u, DistSVec<double,1> &f,
                                                       DistVec<int> &fluidId)
 {
                                                                                                                     
@@ -1161,7 +1161,7 @@ DistMat<Scalar,neq> &MatVecProdLS<Scalar,dim,neq>::operator= (const Scalar x)
 }
 //------------------------------------------------------------------------------
 template<class Scalar,int dim, int neq>
-double MatVecProdLS<Scalar,dim,neq>::computeEpsilon(DistVec<double> &u, DistVec<double> &p)                                                                                                             
+double MatVecProdLS<Scalar,dim,neq>::computeEpsilon(DistSVec<double,1> &u, DistVec<double> &p)                                                                                                             
 {
                                                                                                              
   int iSub, size = 0;
@@ -1186,7 +1186,7 @@ double MatVecProdLS<Scalar,dim,neq>::computeEpsilon(DistVec<double> &u, DistVec<
       if (distInfo.masterFlag[locOffset+i]) {
         for (int j=0; j<1; ++j) {
           ++locsize;
-          loceps += eps0*fabs(u[locOffset+i]) + eps0;
+          loceps += eps0*fabs(u[locOffset+i][0]) + eps0;
         }
       }
                                                                                                              

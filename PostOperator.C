@@ -945,7 +945,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistVec<double>& A,
                                               DistVec<double>& Q,
                                               DistTimeState<dim> *timeState,
-                                              DistVec<double>& Phi,
+                                              DistSVec<double,1>& Phi,
                                               DistVec<int>& fluidId)
 {
   int iSub;
@@ -1136,7 +1136,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
                                               DistSVec<double,dim>& U,
                                               DistVec<double>& Q,
-                                              DistVec<double>& Phi,
+                                              DistSVec<double,1>& Phi,
                                               DistVec<int>& fluidId)
 {
 

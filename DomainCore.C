@@ -1294,7 +1294,7 @@ void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctr
 //         LEVEL SET SOLUTION AND REINITIALIZATION                           --
 //------------------------------------------------------------------------------
 
-void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin){
+void Domain::avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1303,14 +1303,14 @@ void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin){
 }
 
 //------------------------------------------------------------------------------
-void Domain::avoidNewPhaseCreation(DistVec<double> &Phi, DistVec<double> &Phin, DistVec<double> &weight){
+void Domain::avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin, DistVec<double> &weight){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub));
 }
 //------------------------------------------------------------------------------
-void Domain::setPhiForFluid1(DistVec<double> &Phi)
+void Domain::setPhiForFluid1(DistSVec<double,1> &Phi)
 {
 
 #pragma omp parallel for
@@ -1322,7 +1322,7 @@ void Domain::setPhiForFluid1(DistVec<double> &Phi)
 //------------------------------------------------------------------------------
 void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
                                           double zb, double r, double invertGasLiquid,
-                                          DistVec<double> &Phi)
+                                          DistSVec<double,1> &Phi)
 {
 
 #pragma omp parallel for
@@ -1334,7 +1334,7 @@ void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, doub
 //------------------------------------------------------------------------------
 void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
                                           double zb, double r, double invertGasLiquid,
-                                          DistVec<double> &Phi)
+                                          DistSVec<double,1> &Phi)
 {
 
 #pragma omp parallel for
@@ -1345,7 +1345,7 @@ void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, doub
 }
 //------------------------------------------------------------------------------
 void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
-                                DistVec<double> &Phi)
+                                DistSVec<double,1> &Phi)
 {
 
 #pragma omp parallel for
@@ -1356,7 +1356,7 @@ void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
 //------------------------------------------------------------------------------
 void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
                              double z, double radius,
-                             double invertGasLiquid, DistVec<double> &Phi){
+                             double invertGasLiquid, DistSVec<double,1> &Phi){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1367,7 +1367,7 @@ void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
 }
 //------------------------------------------------------------------------------
 
-void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &Phi){
+void Domain::setupPhiVolumesInitialConditions(const int volid, DistSVec<double,1> &Phi){
 
   // It is assumed that the initialization using volumes is only
   // called to distinguish nodes that are separated by a material
@@ -1384,7 +1384,7 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, DistVec<double> &
 //------------------------------------------------------------------------------
 
 void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-               DistSVec<double,3> &X, DistVec<double> &Phi){
+               DistSVec<double,3> &X, DistSVec<double,1> &Phi){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1395,7 +1395,7 @@ void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 //------------------------------------------------------------------------------
 
 void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-               DistSVec<double,3> &X, DistVec<double> &Phi){
+               DistSVec<double,3> &X, DistSVec<double,1> &Phi){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -1404,7 +1404,7 @@ void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
 }
 
 //------------------------------------------------------------------------------
-void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistVec<double> &Phi,
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistSVec<double,1> &Phi,
                                int level)
 {
 
@@ -1448,7 +1448,7 @@ void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
 }
 //------------------------------------------------------------------------------
 
-void Domain::printPhi(DistSVec<double,3> &X, DistVec<double> &Phi, int it)
+void Domain::printPhi(DistSVec<double,3> &X, DistSVec<double,1> &Phi, int it)
 {
   com->barrier();
 #pragma omp parallel for
@@ -1596,7 +1596,7 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
 
 //-------------------------------------------------------------------------------
 
-void Domain::computePrdtPhiCtrlVolRatio(DistVec<double> &ratioTimesPhi, DistVec<double> &Phi, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+void Domain::computePrdtPhiCtrlVolRatio(DistSVec<double,1> &ratioTimesPhi, DistSVec<double,1> &Phi, DistVec<double> &ctrlVol, DistGeoState &geoState) {
 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)

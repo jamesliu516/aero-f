@@ -31,21 +31,21 @@ class NewtonSolver {
 
   ProblemDescriptor *probDesc;
 
-  typedef DistVec<double> VolVecType;
+  typedef DistSVec<double,1> PhiVecType;
   typename ProblemDescriptor::SolVecType F;  // nonlinear function
   typename ProblemDescriptor::SolVecType Finlet;  // nonlinear function at inlet nodes
   typename ProblemDescriptor::SolVecType dQ; // gradient of F
   typename ProblemDescriptor::SolVecType rhs; // right hand side
-  typename ProblemDescriptor::VolVecType dPhi; // 
-  typename ProblemDescriptor::VolVecType PhiF; // 
-  typename ProblemDescriptor::VolVecType rhsPhi; // 
+  typename ProblemDescriptor::PhiVecType dPhi; // 
+  typename ProblemDescriptor::PhiVecType PhiF; // 
+  typename ProblemDescriptor::PhiVecType rhsPhi; // 
 
 public:
 
   NewtonSolver(ProblemDescriptor *);
   ~NewtonSolver() {}
   int solve(typename ProblemDescriptor::SolVecType &);
-  int solveLS(typename ProblemDescriptor::VolVecType &, typename ProblemDescriptor::SolVecType &);
+  int solveLS(typename ProblemDescriptor::PhiVecType &, typename ProblemDescriptor::SolVecType &);
 
 };
 
@@ -145,7 +145,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 //------------------------------------------------------------------------------
 template<class ProblemDescriptor>
 int
-NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::VolVecType &Phi,
+NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::PhiVecType &Phi,
 					 typename ProblemDescriptor::SolVecType &U )
 {
 

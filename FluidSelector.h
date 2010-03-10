@@ -50,7 +50,7 @@ public:
   ~FluidSelector() { delete fluidIdnm1; delete fluidIdnm2; }
 
 
-  void initializeFluidIds(DistVec<double> &Phin, DistVec<double> &Phinm1, DistVec<double> &Phinm2){
+  void initializeFluidIds(DistSVec<double,1> &Phin, DistSVec<double,1> &Phinm1, DistSVec<double,1> &Phinm2){
     getFluidId(Phin);
     fluidIdn = fluidId;
     if(fluidIdnm1) getFluidId(*fluidIdnm1, Phinm1);
@@ -83,7 +83,7 @@ public:
       int     *tag       = fluidId.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
         tag[iNode] = numPhases-1;
-        for(int i=0; i<numPhases-1; i++)
+        for(int i=0; i<dim; i++)
           if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
       }
     }
@@ -122,7 +122,7 @@ public:
     assert(dim==numPhases-1);
     for(int iNode=0; iNode<phi.size(); iNode++){
       tag[iNode] = numPhases-1;
-      for(int i=0; i<numPhases-1; i++)
+      for(int i=0; i<dim; i++)
         if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
     }
   }
@@ -150,7 +150,7 @@ public:
       int     *tag       = Tag.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
         tag[iNode] = numPhases-1;
-        for(int i=0; i<numPhases-1; i++)
+        for(int i=0; i<dim; i++)
           if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
       }
     }

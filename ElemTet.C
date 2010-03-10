@@ -807,7 +807,7 @@ void ElemTet::computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3],
 //--------------- REINITIALIZATION LEVEL SET    --------------------------------
 //------------------------------------------------------------------------------
 template<int dim>
-int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
+int ElemTet::findLSIntersectionPoint(SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4],
@@ -820,9 +820,9 @@ int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
   int negative = 0;
   int zero     = 0;
   for (int i=0; i<4; i++)
-    if (Phi[nodeNum(i)]<0.0)
+    if (Phi[nodeNum(i)][0]<0.0)
       negative++;
-    else if(Phi[nodeNum(i)]>0.0)
+    else if(Phi[nodeNum(i)][0]>0.0)
       positive++;
     else
       zero++;
@@ -848,9 +848,9 @@ int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
     scenario = 0;
   else if(positive==2 && negative==2){
     scenario = 2;
-    if(Phi[nodeNum(0)]*Phi[nodeNum(1)]<0.0){
+    if(Phi[nodeNum(0)][0]*Phi[nodeNum(1)][0]<0.0){
     //swap if need be so that reorder[0] and reorder[1] have same sign
-      if(Phi[nodeNum(0)]*Phi[nodeNum(2)]>0.0){
+      if(Phi[nodeNum(0)][0]*Phi[nodeNum(2)][0]>0.0){
         reorder[1] = 2;
         reorder[2] = 3;
         reorder[3] = 1;
@@ -864,12 +864,12 @@ int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
   else if((positive==1 && negative==3) ||
           (positive==3 && negative==1)){//1-vs-3 case not including zero cases
     scenario = 1;
-    if(positive==1){ // we want to find i such that Phi[nodeNum(i)]>0.0
-      while(!(Phi[nodeNum(tempi)]>0.0))
+    if(positive==1){ // we want to find i such that Phi[nodeNum(i)][0]>0.0
+      while(!(Phi[nodeNum(tempi)][0]>0.0))
         tempi++;
     }
     else if(negative==1){
-      while(!(Phi[nodeNum(tempi)]<0.0))
+      while(!(Phi[nodeNum(tempi)][0]<0.0))
         tempi++;
     }
 
@@ -878,39 +878,39 @@ int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
   else if(zero>0){
     if(zero==1 && (positive==3 || negative==3)){
       scenario = 3;
-      while(Phi[nodeNum(tempi)]!=0.0)
+      while(Phi[nodeNum(tempi)][0]!=0.0)
         tempi++;
     }
     else if(zero==1 && (positive==2 || negative==2)){
       scenario = 4;
       if(positive==1){
-        while(!(Phi[nodeNum(tempi)]>0.0))
+        while(!(Phi[nodeNum(tempi)][0]>0.0))
           tempi++;
       }
       if(negative==1){
-        while(!(Phi[nodeNum(tempi)]<0.0))
+        while(!(Phi[nodeNum(tempi)][0]<0.0))
           tempi++;
       }
-      while(Phi[nodeNum(tempi2)]!=0.0)
+      while(Phi[nodeNum(tempi2)][0]!=0.0)
         tempi2++;
     }
     else if(zero==2 && (positive==2 || negative==2)){
       scenario = 5;
-      while(Phi[nodeNum(tempi)]!=0.0)
+      while(Phi[nodeNum(tempi)][0]!=0.0)
         tempi++;
       tempi2 = tempi+1;
-      while(Phi[nodeNum(tempi2)]!=0.0)
+      while(Phi[nodeNum(tempi2)][0]!=0.0)
         tempi2++;
 			
     }
     else if(zero==2 && (positive==1 && negative==1)){
       scenario = 6;
-      while(!(Phi[nodeNum(tempi)]>0.0))
+      while(!(Phi[nodeNum(tempi)][0]>0.0))
         tempi++;
     }
     else if(zero==3 && (positive==1 || negative==1)){
       scenario = 7;
-      while(Phi[nodeNum(tempi)]==0.0)
+      while(Phi[nodeNum(tempi)][0]==0.0)
         tempi++;
     }
     else{
@@ -1070,7 +1070,7 @@ int ElemTet::findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ElemTet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> &ddx,
+void ElemTet::findLSIntersectionPointLinear(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario)
@@ -1095,10 +1095,10 @@ void ElemTet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> 
   //                                 reorder[1]-reorder[2] in P0
 
     //parametric coordinates of P0, P1, P2, P3
-    ksi[0] = Phi[nodeNum(reorder[1])]/(Phi[nodeNum(reorder[1])]-Phi[nodeNum(reorder[2])]);
-    ksi[1] = Phi[nodeNum(reorder[1])]/(Phi[nodeNum(reorder[1])]-Phi[nodeNum(reorder[3])]);
-    ksi[2] = Phi[nodeNum(reorder[0])]/(Phi[nodeNum(reorder[0])]-Phi[nodeNum(reorder[2])]);
-    ksi[3] = Phi[nodeNum(reorder[0])]/(Phi[nodeNum(reorder[0])]-Phi[nodeNum(reorder[3])]);
+    ksi[0] = Phi[nodeNum(reorder[1])][0]/(Phi[nodeNum(reorder[1])][0]-Phi[nodeNum(reorder[2])][0]);
+    ksi[1] = Phi[nodeNum(reorder[1])][0]/(Phi[nodeNum(reorder[1])][0]-Phi[nodeNum(reorder[3])][0]);
+    ksi[2] = Phi[nodeNum(reorder[0])][0]/(Phi[nodeNum(reorder[0])][0]-Phi[nodeNum(reorder[2])][0]);
+    ksi[3] = Phi[nodeNum(reorder[0])][0]/(Phi[nodeNum(reorder[0])][0]-Phi[nodeNum(reorder[3])][0]);
     P[0] = (1.0-ksi[0])* C1 + ksi[0] * C2;
     P[1] = (1.0-ksi[1])* C1 + ksi[1] * C3;
     P[2] = (1.0-ksi[2])* C0 + ksi[2] * C2;
@@ -1114,9 +1114,9 @@ void ElemTet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> 
   // Note that Pk can be reorder[k] itself (k=0,1,2)
 
     //parametric coordinates of P0, P1, P2 on their edge
-    ksi[0] = Phi[nodeNum(reorder[0])]/(Phi[nodeNum(reorder[0])]-Phi[nodeNum(reorder[1])]);
-    ksi[1] = Phi[nodeNum(reorder[0])]/(Phi[nodeNum(reorder[0])]-Phi[nodeNum(reorder[2])]);
-    ksi[2] = Phi[nodeNum(reorder[0])]/(Phi[nodeNum(reorder[0])]-Phi[nodeNum(reorder[3])]);
+    ksi[0] = Phi[nodeNum(reorder[0])][0]/(Phi[nodeNum(reorder[0])][0]-Phi[nodeNum(reorder[1])][0]);
+    ksi[1] = Phi[nodeNum(reorder[0])][0]/(Phi[nodeNum(reorder[0])][0]-Phi[nodeNum(reorder[2])][0]);
+    ksi[2] = Phi[nodeNum(reorder[0])][0]/(Phi[nodeNum(reorder[0])][0]-Phi[nodeNum(reorder[3])][0]);
 
     //physical coordinates of P0, P1, P2
     P[0] = (1.0-ksi[0]) * C0 + ksi[0] * C1;
@@ -1141,7 +1141,7 @@ void ElemTet::findLSIntersectionPointLinear(Vec<double> &Phi,  SVec<double,dim> 
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ElemTet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+void ElemTet::findLSIntersectionPointGradient(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario)
@@ -1179,8 +1179,8 @@ void ElemTet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim
       dphij[2] = ddz[nodeNum(reorder[j+1])][0];
       gradi = dphii*nedge;
       gradj = dphij*nedge;
-      phii = Phi[nodeNum(reorder[  0])]/gradi;
-      phij = Phi[nodeNum(reorder[j+1])]/gradj;
+      phii = Phi[nodeNum(reorder[  0])][0]/gradi;
+      phij = Phi[nodeNum(reorder[j+1])][0]/gradj;
       P[j] = 0.5*(C[0] + C[j+1] - (phii+phij)*nedge);
     }
 
@@ -1205,8 +1205,8 @@ void ElemTet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim
       dphij[2] = ddz[nodeNum(reorder[j])][0];
       gradi = dphii*nedge;
       gradj = dphij*nedge;
-      phii = Phi[nodeNum(reorder[  0])]/gradi;
-      phij = Phi[nodeNum(reorder[  j])]/gradj;
+      phii = Phi[nodeNum(reorder[  0])][0]/gradi;
+      phij = Phi[nodeNum(reorder[  j])][0]/gradj;
       P[j] = 0.5*(C[0] + C[j] - (phii+phij)*nedge);
     }
     for(int j=2; j<4; j++){
@@ -1219,8 +1219,8 @@ void ElemTet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim
       dphij[2] = ddz[nodeNum(reorder[j])][0];
       gradi = dphii*nedge;
       gradj = dphij*nedge;
-      phii = Phi[nodeNum(reorder[  1])]/gradi;
-      phij = Phi[nodeNum(reorder[  j])]/gradj;
+      phii = Phi[nodeNum(reorder[  1])][0]/gradi;
+      phij = Phi[nodeNum(reorder[  j])][0]/gradj;
       P[j-2] = 0.5*(C[1] + C[j] - (phii+phij)*nedge);
     }
 
@@ -1229,7 +1229,7 @@ void ElemTet::findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim
 }
 //------------------------------------------------------------------------------
 template<int dim>
-int ElemTet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+int ElemTet::findLSIntersectionPointHermite(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario)
@@ -1278,8 +1278,8 @@ int ElemTet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> 
       dphij[2] = ddz[nodeNum(reorder[j+1])][0];
       fp1 = dphii*nedge;
       fp2 = dphij*nedge;
-      f1 = Phi[nodeNum(reorder[  0])];
-      f2 = Phi[nodeNum(reorder[j+1])];
+      f1 = Phi[nodeNum(reorder[  0])][0];
+      f2 = Phi[nodeNum(reorder[j+1])][0];
       //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
       count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
       if(count>1) return 1;
@@ -1307,8 +1307,8 @@ int ElemTet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> 
       dphij[2] = ddz[nodeNum(reorder[j])][0];
       fp1 = dphii*nedge;
       fp2 = dphij*nedge;
-      f1 = Phi[nodeNum(reorder[  0])];
-      f2 = Phi[nodeNum(reorder[  j])];
+      f1 = Phi[nodeNum(reorder[  0])][0];
+      f2 = Phi[nodeNum(reorder[  j])][0];
       //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
       count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
       if(count>1) return 1;
@@ -1324,8 +1324,8 @@ int ElemTet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> 
       dphij[2] = ddz[nodeNum(reorder[j])][0];
       fp1 = dphii*nedge;
       fp2 = dphij*nedge;
-      f1 = Phi[nodeNum(reorder[  1])];
-      f2 = Phi[nodeNum(reorder[  j])];
+      f1 = Phi[nodeNum(reorder[  1])][0];
+      f2 = Phi[nodeNum(reorder[  j])][0];
       //ksi = findRootPolynomialNewtonRaphson(f1,f2,fp1,fp2);
       count = findRootPolynomialLaguerre(f1,f2,fp1,fp2,ksi);
       if(count>1) return 1;
@@ -1340,7 +1340,7 @@ int ElemTet::findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> 
 // PDE resolution for reinitialization of Level set
 
 template<int dim>
-void ElemTet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double,dim> &Psi,
+void ElemTet::computePsiResidual(SVec<double,3> &X, SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                              SVec<double,dim> &ddx, SVec<double,dim> &ddy, 
                              SVec<double,dim> &ddz, Vec<int> &Tag,
                              Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
@@ -1374,7 +1374,7 @@ void ElemTet::computePsiResidual(SVec<double,3> &X, Vec<double> &Phi,SVec<double
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ElemTet::computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+void ElemTet::computePsiResidual0(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                               Vec<double> &w,Vec<double> &beta, 
                               SVec<double,dim> &PsiRes, bool debug)
 {
@@ -1389,7 +1389,7 @@ void ElemTet::computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double
 
   for(int i=0; i<4; i++){
     psi[i] = Psi[nodeNum(i)][0];
-    phi[i] = Phi[nodeNum(i)];
+    phi[i] = Phi[nodeNum(i)][0];
   }
 
   computePsiResidualSubTet(psi,phi,X[nodeNum(0)],X[nodeNum(1)],
@@ -1408,7 +1408,7 @@ void ElemTet::computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double
 
 template<int dim>
 void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
-			     SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+			     SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                              Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
                              bool debug)
 {
@@ -1448,7 +1448,7 @@ void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
   psi[3] = 0.0;
   
   
-  phi[0] = Phi[nodeNum(reorder[0])];
+  phi[0] = Phi[nodeNum(reorder[0])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -1466,7 +1466,7 @@ void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -1483,8 +1483,8 @@ void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
-  phi[1] = Phi[nodeNum(reorder[2])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
+  phi[1] = Phi[nodeNum(reorder[2])][0];
   phi[2] = 0.0;
   phi[3] = 0.0;
 
@@ -1503,9 +1503,9 @@ void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
   psi[2] = Psi[nodeNum(reorder[1])][0];
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
-  phi[1] = Phi[nodeNum(reorder[2])];
-  phi[2] = Phi[nodeNum(reorder[1])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
+  phi[1] = Phi[nodeNum(reorder[2])][0];
+  phi[2] = Phi[nodeNum(reorder[1])][0];
   phi[3] = 0.0;
 
   computePsiResidualSubTet(psi,phi,X[nodeNum(reorder[3])],X[nodeNum(reorder[2])],X[nodeNum(reorder[1])],P[0],locdphi,locw,locbeta,debug);
@@ -1526,7 +1526,7 @@ void ElemTet::computePsiResidual1(int reorder[4], Vec3D P[4],
 
 template<int dim>
 void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
-			     SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+			     SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                              Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
                              bool debug)
 {
@@ -1566,8 +1566,8 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[0])];
-  phi[1] = Phi[nodeNum(reorder[1])];
+  phi[0] = Phi[nodeNum(reorder[0])][0];
+  phi[1] = Phi[nodeNum(reorder[1])][0];
   phi[2] = 0.0;
   phi[3] = 0.0;
 
@@ -1586,7 +1586,7 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[0])];
+  phi[0] = Phi[nodeNum(reorder[0])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -1603,7 +1603,7 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[0])];
+  phi[0] = Phi[nodeNum(reorder[0])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -1621,8 +1621,8 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
-  phi[1] = Phi[nodeNum(reorder[2])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
+  phi[1] = Phi[nodeNum(reorder[2])][0];
   phi[2] = 0.0;
   phi[3] = 0.0;
 
@@ -1641,7 +1641,7 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -1659,7 +1659,7 @@ void ElemTet::computePsiResidual2(int reorder[4], Vec3D P[4],
   psi[2] = 0.0;
   psi[3] = 0.0;
 
-  phi[0] = Phi[nodeNum(reorder[3])];
+  phi[0] = Phi[nodeNum(reorder[3])][0];
   phi[1] = 0.0;
   phi[2] = 0.0;
   phi[3] = 0.0;
@@ -2114,7 +2114,7 @@ template<int dim>
 void ElemTet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                     SVec<double,dim> &ddz,
-                                    Vec<double> &Phi,SVec<double,dim> &Psi)
+                                    SVec<double,dim> &Phi,SVec<double,dim> &Psi)
 {
   if (!(fabs(Tag[nodeNumTet[0]])==1 && fabs(Tag[nodeNumTet[1]])==1 &&
       fabs(Tag[nodeNumTet[2]])==1 && fabs(Tag[nodeNumTet[3]])==1))
@@ -2138,7 +2138,7 @@ template<int dim>
 void ElemTet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                     SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                     SVec<double,dim> &ddz,
-                                    Vec<double> &Phi,SVec<double,dim> &Psi)
+                                    SVec<double,dim> &Phi,SVec<double,dim> &Psi)
 {
   if (!(Tag[nodeNumTet[0]]==-1 || Tag[nodeNumTet[1]]==-1 ||
       Tag[nodeNumTet[2]]==-1 || Tag[nodeNumTet[3]]==-1))
@@ -2153,7 +2153,7 @@ void ElemTet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
 //------------------------------------------------------------------------------
 template<int dim>
 void ElemTet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                    SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi)
+                                    SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi)
 {
   if (!(Tag[nodeNumTet[0]]==level || Tag[nodeNumTet[1]]==level ||
        Tag[nodeNumTet[2]]==level || Tag[nodeNumTet[3]]==level   ) )

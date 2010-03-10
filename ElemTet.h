@@ -157,7 +157,7 @@ public:
 
 // Level Set Reinitialization
   template<int dim>
-  void computePsiResidual(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+  void computePsiResidual(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                           SVec<double,dim> &ddx,SVec<double,dim> &ddy,
                           SVec<double,dim> &ddz, Vec<int> &Tag,
                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
@@ -167,17 +167,17 @@ public:
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                  SVec<double,dim> &ddz,
-                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
 
   template<int dim>
   void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                  SVec<double,dim> &ddz,
-                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
 
   template<int dim>
   void computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi);
 
 
 
@@ -206,38 +206,38 @@ private:
 
 //Level Set Reinitialization
   template<int dim>
-  int findLSIntersectionPoint(Vec<double> &Phi, SVec<double,dim> &ddx,
+  int findLSIntersectionPoint(SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                               SVec<double,dim> &ddy, SVec<double,dim> &ddz,
  			      SVec<double,3> &X,
                               int reorder[4], Vec3D P[4], int typeTracking);
   template<int dim>
-  void findLSIntersectionPointLinear(Vec<double> &Phi, SVec<double,dim> &ddx,
+  void findLSIntersectionPointLinear(SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
-  void findLSIntersectionPointGradient(Vec<double> &Phi,  SVec<double,dim> &ddx,
+  void findLSIntersectionPointGradient(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
-  int findLSIntersectionPointHermite(Vec<double> &Phi,  SVec<double,dim> &ddx,
+  int findLSIntersectionPointHermite(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
 
   template<int dim>
-  void computePsiResidual0(SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+  void computePsiResidual0(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                            Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
   template<int dim>
   void computePsiResidual1(int reorder[4], Vec3D P[4],
-                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                            Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
   template<int dim>
   void computePsiResidual2(int reorder[4], Vec3D P[4],
-                           SVec<double,3> &X,Vec<double> &Phi,SVec<double,dim> &Psi,
+                           SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
                            Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
   template<int dim>

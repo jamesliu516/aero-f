@@ -1926,7 +1926,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
-                                             DistTimeState<dim> *timeState, DistVec<double> &Phi,
+                                             DistTimeState<dim> *timeState, DistSVec<double,1> &Phi,
                                              DistVec<int> &fluidId)
 {
 
@@ -2026,7 +2026,7 @@ template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, 
                                              DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U,
-                                             DistVec<double> &Phi, DistVec<int> &fluidId)
+                                             DistSVec<double,1> &Phi, DistVec<int> &fluidId)
 {
                                                                                                       
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {

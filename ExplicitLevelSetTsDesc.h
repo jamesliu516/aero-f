@@ -42,17 +42,17 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   DistSVec<double,dim> k3;
   DistSVec<double,dim> k4;
 
-  DistVec<double> Phi0;
+  DistSVec<double,1> Phi0;
   DistVec<int> fluidId0;
-  DistVec<double> p1;
-  DistVec<double> p2;
-  DistVec<double> p3;
-  DistVec<double> p4;
+  DistSVec<double,1> p1;
+  DistSVec<double,1> p2;
+  DistSVec<double,1> p3;
+  DistSVec<double,1> p4;
 
 // mesh motion modification for RK2
 // otherwise equal to U and Phi respectively
   DistSVec<double,dim> ratioTimesU;
-  DistVec<double> ratioTimesPhi;
+  DistSVec<double,1> ratioTimesPhi;
 
  public:
   ExplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -80,7 +80,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
   void computeRKUpdate(DistSVec<double,dim>& Ulocal, 
                        DistSVec<double,dim>& dU, int it);
-  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<int> &localFluidId, DistVec<double>& dPhi, 
+  void computeRKUpdateLS(DistSVec<double,1>& Philocal, DistVec<int> &localFluidId, DistSVec<double,1>& dPhi, 
                          DistSVec<double,dim>& U);
 
 };

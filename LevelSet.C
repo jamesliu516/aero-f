@@ -5,7 +5,7 @@
 //-------------------------------------------------------------------------
 template<int dim>
 void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                     DistVec<double> &Phi, IoData &iod)
+                     DistSVec<double,1> &Phi, IoData &iod)
 {
 
   if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
@@ -30,22 +30,19 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,di
   if (name[0] != 0) {
     DistSVec<double,1> ReadPhi(domain->getNodeDistInfo());
     domain->readVectorFromFile(name, 0, 0, ReadPhi);
-    DistVec<double> PhiRead(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi.data()));
-    Phi  = PhiRead;
-    Phin = PhiRead;
+    Phi  = ReadPhi;
+    Phin = ReadPhi;
 
     if (data->use_nm1){
       DistSVec<double,1> ReadPhi1(domain->getNodeDistInfo());
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
-      DistVec<double> PhiRead1(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi1.data()));
-      Phinm1 = PhiRead1;
+      Phinm1 = ReadPhi1;
     }
 
     if (data->use_nm2){
       DistSVec<double,1> ReadPhi2(domain->getNodeDistInfo());
       data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
-      DistVec<double> PhiRead2(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi2.data()));
-      Phinm2 = PhiRead2;
+      Phinm2 = ReadPhi2;
     }
   }
 
@@ -61,117 +58,36 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,di
 
 }
 
-//-------------------------------------------------------------------------
-/*template<int dim>
-void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistVec<double> &Phi,
-		     IoData &iod)
-{
-
-  if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS && 
-     iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-    invertGasLiquid = -1.0;
-  else invertGasLiquid = 1.0;
-
-  double r, xb, yb, zb;
-  xb   = iod.mf.initialConditions.s1.cen_x;
-  yb   = iod.mf.initialConditions.s1.cen_y;
-  zb   = iod.mf.initialConditions.s1.cen_z;
-  r    = iod.mf.initialConditions.s1.radius;
-
-  // CONVENTION: phi >= 0 --- fluid1 --- 'normal' volID
-  //             phi <  0 --- fluid2 --- 'special' volID
-  // Initialization of Phi is done through the use of volumeID and
-  // through the knowledge of a geometric shape (with its position).
-  // In general, we set phi = -1 for 'special' volumeID and
-  // then loop through the remaining 'normal' elements and set them to 1.
-  // In the case where there is a geometric shape, then we compute the
-  // absolute distance to that shape and multiply by the existing phi.
-
-
-  if(iod.mf.lsInit == MultiFluidData::OLD){
-    if(iod.mf.problem == MultiFluidData::SHOCKTUBE)
-      domain->setPhiForShockTube(X, r, Phi);
-
-    if(iod.mf.problem == MultiFluidData::BUBBLE && !(r < 0))
-      domain->setPhiForBubble(X, xb, yb, zb, r, invertGasLiquid, Phi);
-  }else{
-    Phi = -1.0;
-    domain->setPhiForFluid1(Phi);
-    if(iod.mf.interfaceType != MultiFluidData::FSF){
-      if (iod.mf.lsInit == MultiFluidData::VOLUMES){
-        domain->setPhiWithDistanceToGeometry(X,xb,yb,zb,r,invertGasLiquid,Phi);
-      }else if (iod.mf.lsInit == MultiFluidData::GEOMETRIC){
-        domain->setPhiByGeometricOverwriting(X,xb,yb,zb,r,invertGasLiquid,Phi);
-      }
-    }
-  }
-
-  Phin   = Phi;
-  Phinm1 = Phin;
-  Phinm2 = Phinm1;
-
-  if (name[0] != 0) {
-    DistSVec<double,1> ReadPhi(domain->getNodeDistInfo());
-    domain->readVectorFromFile(name, 0, 0, ReadPhi);
-    DistVec<double> PhiRead(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi.data()));
-    Phi  = PhiRead;
-    Phin = PhiRead;
-
-    if (data->use_nm1){
-      DistSVec<double,1> ReadPhi1(domain->getNodeDistInfo());
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
-      DistVec<double> PhiRead1(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi1.data()));
-      Phinm1 = PhiRead1;
-    }
-
-    if (data->use_nm2){
-      DistSVec<double,1> ReadPhi2(domain->getNodeDistInfo());
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
-      DistVec<double> PhiRead2(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(ReadPhi2.data()));
-      Phinm2 = PhiRead2;
-    }
-  }
-
-  if (data->use_nm1 && !data->exist_nm1){
-    Phinm1 = Phin;
-  }
-  if (data->use_nm2 && !data->exist_nm2){
-    Phinm2 = Phinm1;
-  }
-
-  // for reinitialization testing
-  Phi0 = Phi;
-
-}
-*/
 //-------------------------------------------------------------------------
 template<int dim>
-void LevelSet::conservativeToPrimitive(DistVec<double> &Cons, DistVec<double> &Prim, 
+void LevelSet::conservativeToPrimitive(DistSVec<double,1> &Cons, DistSVec<double,1> &Prim, 
 	                               DistSVec<double,dim> &U)
 {
+// TODO DistVec to DistSVec
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*u)[dim] = U.subData(iSub);
-    double (*prim) = Prim.subData(iSub);
-    double (*cons) = Cons.subData(iSub);
+    double (*prim)[1] = Prim.subData(iSub);
+    double (*cons)[1] = Cons.subData(iSub);
     for (int i=0; i<U.subSize(iSub); i++)
-      prim[i] = cons[i]/u[i][0];
+      prim[i][0] = cons[i][0]/u[i][0];
   }
 
 }
 
 //-------------------------------------------------------------------------
 template<int dim>
-void LevelSet::primitiveToConservative(DistVec<double> &Prim, DistVec<double> &Cons,
+void LevelSet::primitiveToConservative(DistSVec<double,1> &Prim, DistSVec<double,1> &Cons,
 				       DistSVec<double,dim> &U)
 {
+// TODO DistVec to DistSVec
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*u)[dim] = U.subData(iSub);
-    double (*prim) = Prim.subData(iSub);
-    double (*cons) = Cons.subData(iSub);
+    double (*prim)[1] = Prim.subData(iSub);
+    double (*cons)[1] = Cons.subData(iSub);
     for (int i=0; i<U.subSize(iSub); i++)
-      cons[i] = prim[i]*u[i][0];
+      cons[i][0] = prim[i][0]*u[i][0];
   }
 
 }
@@ -180,7 +96,7 @@ void LevelSet::primitiveToConservative(DistVec<double> &Prim, DistVec<double> &C
 template<int dim>
 void LevelSet::reinitializeLevelSet(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistVec<double> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
 {
   com->fprintf(stdout, "reinitializing\n");
   if(false)
@@ -193,7 +109,7 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
 template<int dim>
 void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistVec<double> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
 {
 
   /* solving reinitialization equation for the level set
@@ -241,8 +157,7 @@ void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState,
   //domain->checkNodePhaseChange(testsign);
 
   // set Phi to the new distance function
-  DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
-  Phi = distance;
+  Phi = Psi;
 
 }
 
@@ -250,7 +165,7 @@ void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState,
 template<int dim>
 void LevelSet::computeSteadyState(DistGeoState &geoState,
                                   DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                  DistSVec<double,dim> &U, DistVec<double> &Phi)
+                                  DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
 {
 
   bool lastIt = false;
@@ -288,7 +203,7 @@ void LevelSet::computeSteadyState(DistGeoState &geoState,
 template<int dim>
 void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistVec<double> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
 {
 
   // initialize Psi
@@ -325,9 +240,8 @@ void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState,
   domain->getSignedDistance(Psi,Phi);
 
   // set Phi to the new distance function
-  DistVec<double> distance(domain->getNodeDistInfo(), reinterpret_cast<double (*)>(Psi.data()));
   if(diff)
-    Phi -= distance;
+    Phi -= Psi;
   else
-    Phi = distance;
+    Phi = Psi;
 }
