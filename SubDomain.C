@@ -865,17 +865,17 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-                                       LevelSetStructure &LSS, Vec<int> &fluidId,
-                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       LevelSetStructure &LSS, bool linRecAtInterface, Vec<int> &fluidId,
+                                       int Nriemann, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
 
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, fluidId,
-                                           ngrad, egrad, fluxes, it,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
+                                           linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes); 
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, fluidId, V, fluxes); 
   return ierr;
 
 }
@@ -4739,13 +4739,14 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
 
   bool* edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
+  int numPhase = LSS.numOfFluids();
 
   for (int l=0; l<edges.size(); l++){
     i = edgePtr[l][0];
     j = edgePtr[l][1];
 
     if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
-      if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
+      if (LSS.isActive(0.0,i)||numPhase>1) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
           if(Wstarij[l][0]>1.0e-8) //use Wstarij.
@@ -4769,7 +4770,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         }
       }
  
-      if (LSS.isActive(0.0,j)) {// add Wstarji on node i
+      if (LSS.isActive(0.0,j)||numPhase>1) {// add Wstarji on node i
         if(Weights[i]<1.e-6) {
           Weights[i] = 1.0;
           if(Wstarji[l][0]>1.0e-8) //use Wstarji.
@@ -5261,47 +5262,6 @@ void SubDomain::getDerivativeOfGradP(NodalGrad<dim>& ngrad)
 }
 
 //-----------------------------------------------------------------------------
-
-template<int dim>
-void SubDomain::updatePhaseChange(SVec<double,3> &X, SVec<double,dim> &U, 
-                                  SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji,
-                                  LevelSetStructure &LSS, Vec<int> &nodeTag0, Vec<int> &nodeTag)
-{
-  if(!NodeToNode) {
-    NodeToNode = createEdgeBasedConnectivity();
-    fprintf(stderr,"Note: node to node connectivity create.\n");
-  }
-
-  Vec3D normal(1.0, 0.0, 0.0);
-
-  Vec3D X0, Xij;
-  int iNei;
-  double proj, maxProj;
-  int bestNeighbor;
-
-  SVec<double,dim> tempU(U);
-
-  for (int iNode=0; iNode<numNodes(); iNode++) {
-    if (nodeTag0[iNode]==nodeTag[iNode]) continue;  //no need to update.
-
-    X0[0] = X[iNode][0];  X0[1] =  X[iNode][1];  X0[2] = X[iNode][2];
-    maxProj = 0.0;
-    for (int i=0; i<NodeToNode->num(iNode); i++) {
-      iNei = (*NodeToNode)[iNode][i];
-      if (nodeTag0[iNei]!=nodeTag[iNei] || nodeTag[iNei]!=nodeTag[iNode]) continue; //skip this neighbor
-
-      Xij[0] = X[iNei][0];  Xij[1] = X[iNei][1];  Xij[2] = X[iNei][2];
-      Xij = X0 - Xij;
-
-      proj = Xij*normal/(Xij.norm()*normal.norm());
-      if (proj>maxProj) {maxProj = proj; bestNeighbor = iNei;}  
-    }
-    if (maxProj<=1.e-8) {fprintf(stderr,"updatePhaseChange failed! Abort...\n"); exit(-1);}
-    for (int i=0; i<dim; i++) U[iNode][i] = U[bestNeighbor][i];
-  }
-}
-
-//----------------------------------------------------------------------------
 
 template<int dim>
 void SubDomain::computePrdtWCtrlVolRatio(SVec<double,dim> &ratioTimesU, SVec<double,dim> &U, Vec<double> &ctrlVol, GeoState &geoState)

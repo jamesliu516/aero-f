@@ -135,7 +135,7 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   double n[3];
 
   if (type == DENSITY)
-    q = varFcn->getDensity(V);
+    q = varFcn->getDensity(V, fluidId);
   else if (type == MACH)
     q = varFcn->computeMachNumber(V, fluidId);
   else if (type == WTMACH)
@@ -153,25 +153,25 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if (type == TOTPRESSURE)
     q = varFcn->computeTotalPressure(mach, V, fluidId);
   else if (type == NUT_TURB)
-    q = varFcn->getTurbulentNuTilde(V);
+    q = varFcn->getTurbulentNuTilde(V, fluidId);
   else if (type == K_TURB)
-    q = varFcn->getTurbulentKineticEnergy(V);
+    q = varFcn->getTurbulentKineticEnergy(V, fluidId);
   else if (type == EPS_TURB)
-    q = varFcn->getTurbulentDissipationRate(V);
+    q = varFcn->getTurbulentDissipationRate(V,fluidId);
   else if(type == HYDROSTATICPRESSURE)
     q = varFcn->hydrostaticPressure(V[0],X);
   else if(type == HYDRODYNAMICPRESSURE)
     q = varFcn->hydrodynamicPressure(V,X,fluidId);
   else if(type == PRESSURECOEFFICIENT)
-    q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag);
+    q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
-    q = phi/varFcn->getDensity(V);
+    q = phi/varFcn->getDensity(V,fluidId);
   else if(type == PHILEVEL_STRUCTURE)
     q = phi;  //NOTE: In this case phi stores the distance to the structure. 
 
 // Included (MB)
   else if (type == VELOCITY_NORM)
-    q = varFcn->getVelocityNorm(V);
+    q = varFcn->getVelocityNorm(V,fluidId);
 
   return q;
 

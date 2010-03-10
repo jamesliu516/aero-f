@@ -63,6 +63,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 
   hth = createHeatTransferHandler(ioData, geoSource);
 
+  riemann1 = new DistExactRiemannSolver<dim>(ioData, domain, varFcn);
 // Included (MB)
   forceNorm = 0.0;
   if (ioData.sa.avgsIt) {
@@ -295,7 +296,6 @@ template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
-  geoState->setup2(timeState->getData());
   timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);

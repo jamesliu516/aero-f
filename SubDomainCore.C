@@ -4459,8 +4459,11 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
+    if(LSS.numOfFluids()==1) {
+      iActive = LSS.isActive(0,i);
+      jActive = LSS.isActive(0,j);
+    } else 
+      iActive = jActive = true; //no one is "inactive"
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
@@ -4468,7 +4471,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
 
     // now (i,j) must intersect the structure.
     LevelSetResult lsRes;
-    Vec3D flocal;
+    Vec3D flocal(0.0,0.0,0.0); //It MUST be initialized to 0 for the following lines to work!
     if (iActive) {
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
       if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
@@ -4476,8 +4479,8 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     }
     if (jActive) {
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
-      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      if (forceApp==1) flocal += -(pstarji[l]-pInfty)*normal[l];
+      else flocal += -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
     }
     sendLocalForce(flocal, lsRes, Fs);
   }
@@ -4592,12 +4595,19 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
         Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
-        pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-//        if (pStar[k]<1.0e-8) {
-//          fprintf(stderr,"WARNING: Got a triangle. pStar = %e. \n", pStar[k]);
-//          pStar[k] = pInfty;
-//        }
-        pStar[k] -= pInfty;
+
+        switch (LSS.numOfFluids()) {
+          case 1:
+            pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
+            pStar[k] -= pInfty;
+            break;
+          case 2:
+            pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
+            exit(-1);
+        }
       }
 
       for (int k=0; k<3; k++) {
@@ -4652,11 +4662,19 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
         Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
         Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
         Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
-        pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-//        if (pStar[k]<1e-8) {
-//          fprintf(stderr,"WARNING: Got a quad. pStar = %e. \n", pStar[k]);
-//          pStar[k] = pInfty;}
-        pStar[k] -= pInfty;
+
+        switch (LSS.numOfFluids()) {
+          case 1:
+            pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
+            pStar[k] -= pInfty;
+            break;
+          case 2:
+            pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
+            exit(-1);
+        }
       }
       // check if intersection point is really on surface.
       for (int k=0; k<4; k++) {
@@ -4746,7 +4764,7 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
     int status = 0;
     for (int j=0; j<3; j++)
       if (LSS.isActive(0,T[facet[iFacet][j]]))
-         status |= 1 << j;
+         status |= 1 << j;  //KW: set the j-th (counting from 0) binary digit to 1
     switch (status) {
       case 1:
         if (firstEdge<0)

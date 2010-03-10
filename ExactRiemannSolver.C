@@ -110,11 +110,11 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,
-      double *nphi, VarFcn *vf, double *Wstar, int nodej)
+      double *nphi, VarFcn *vf, double *Wstar, int nodej, int Id)
 
 {
   fsiRiemann->computeRiemannSolution(Vi,Vstar,nphi,vf,
-         Wstar,rupdate[nodej],weight[nodej],iteration);
+         Wstar,rupdate[nodej],weight[nodej],iteration, Id);
 }
 //------------------------------------------------------------------------------
 template<int dim>

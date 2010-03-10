@@ -986,8 +986,8 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
-                                     DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
-                                     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId, 
+                                     int Nriemann, DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
 {
@@ -1009,7 +1009,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                             fluidId(iSub), ngrad(iSub),
+                                             linRecAtInterface, fluidId(iSub), Nriemann,  ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -1050,7 +1050,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                     fluidId(iSub), ngrad(iSub),
+                                     linRecAtInterface, fluidId(iSub), Nriemann, ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
@@ -3497,20 +3497,6 @@ void Domain::getDerivativeOfGradP(DistNodalGrad<dim>& ngrad)
 //-----------------------------------------------------------------------------
 
 template<int dim>
-void Domain::updatePhaseChange(DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
-                               DistLevelSetStructure *distLSS,
-                               DistVec<int> &nodeTag0, DistVec<int> &nodeTag)  //for FS interface
-{
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->updatePhaseChange(X(iSub), U(iSub), Wstarij(iSub), Wstarji(iSub),
-                                       (*distLSS)(iSub), nodeTag0(iSub), nodeTag(iSub));
-}
-
-//-------------------------------------------------------------------------------
-
-template<int dim>
 void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
                                      DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                      DistLevelSetStructure *distLSS,
@@ -3536,6 +3522,7 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
     Fs[is][1] = subFs[0][is][1];
     Fs[is][2] = subFs[0][is][2];
   }
+#pragma omp parallel for
   for (int iSub=1; iSub<numLocSub; iSub++)
     for (int is=0; is<sizeFs; is++) {
       Fs[is][0] += subFs[iSub][is][0];

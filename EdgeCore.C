@@ -128,7 +128,7 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 //proceed to checking positivity of pressure and density for both nodes of an edge.
   int ierr = 0;
 
-  rho = vf->getDensity(Vi);
+  rho = vf->getDensity(Vi,IDi);
   p   = vf->checkPressure(Vi,IDi);
 
   if (rho <= 0.0) {
@@ -160,7 +160,7 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
 
 
-  rho = vf->getDensity(Vj);
+  rho = vf->getDensity(Vj,IDj);
   p   = vf->checkPressure(Vj,IDj);
 
   if (rho <= 0.0) {
