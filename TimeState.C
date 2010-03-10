@@ -68,9 +68,9 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 
 template<int dim>
 void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState, 
-					Vec<double> &ctrlVol, Vec<double> &Q, 
-					Vec<double> &Qn, Vec<double> &Qnm1,
-					Vec<double> &Qnm2, Vec<double> &R)
+					Vec<double> &ctrlVol, SVec<double,1> &Q, 
+					SVec<double,1> &Qn, SVec<double,1> &Qnm1,
+					SVec<double,1> &Qnm2, SVec<double,1> &R)
 {
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
@@ -95,12 +95,12 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
       c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
     }
 
-    double dAWdt = invDt * (c_np1*Q[i] + c_n*Qn[i] +
-                            c_nm1*Qnm1[i] + c_nm2*Qnm2[i]);
+    double dAWdt = invDt * (c_np1*Q[i][0] + c_n*Qn[i][0] +
+                            c_nm1*Qnm1[i][0] + c_nm2*Qnm2[i][0]);
     if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
-      R[i] = dAWdt + 0.5 * (R[i] + Rn[i][1]);
+      R[i][0] = dAWdt + 0.5 * (R[i][0] + Rn[i][1]);
     else
-      R[i] += dAWdt;
+      R[i][0] += dAWdt;
 
   }
 }

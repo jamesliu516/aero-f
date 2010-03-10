@@ -888,7 +888,7 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
                                         SVec<double,3>& X, SVec<double,dim>& V,
                                         NodalGrad<dim>& ngrad, NodalGrad<1> &ngradLS,
                                         EdgeGrad<dim>* egrad,
-                                        SVec<double,1>& Phi, Vec<double> &PhiF)
+                                        SVec<double,1>& Phi, SVec<double,1> &PhiF)
 {
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
                                   egrad, Phi, PhiF);
@@ -3792,11 +3792,11 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 template<int dim>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-					  Vec<double> &Q, Vec<double> &phi, Vec<int> &fluidId)
+					  Vec<double> &Q, SVec<double,1> &phi, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i], fluidId[i]);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i][0], fluidId[i]);
 
 }
 
@@ -4001,13 +4001,13 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi,
+void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, SVec<double,1> &Phi,
                 SVec<double,dim> &restriction, int sign){
 
   int idim;
   restriction = 0.0;
   for (int i=0; i<nodes.size(); i++)
-    if((sign > 0 && Phi[i] >= 0.0) || (sign < 0 && Phi[i] < 0.0))
+    if((sign > 0 && Phi[i][0] >= 0.0) || (sign < 0 && Phi[i][0] < 0.0))
       for(idim=0; idim<dim; idim++) restriction[i][idim] = initial[i][idim];
 
 }
@@ -4686,45 +4686,6 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::storeGhost(SVec<double,dim> &V, SVec<double,dim> &Vgf, Vec<double> &Phi)
-{
-  int i, j, k;
-
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  for(i=0; i<Phi.size(); i++)
-    for(k=1; k<4; k++)
-       Vgf[i][k] = V[i][k];
-
-  for (int l=0; l<edges.size(); l++){
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-
-    if(Phi[i]*Phi[j]<=0.0){ //at interface
-      if(Vgf[i][0]<0.0){
-        Vgf[i][0] = V[j][0];
-        Vgf[i][4] = V[j][4];
-      }else{
-        Vgf[i][0] = 0.5*(Vgf[i][0]+ V[j][0]);
-        Vgf[i][4] = 0.5*(Vgf[i][4]+ V[j][4]);
-      }
-
-      if(Vgf[j][0]<0.0){
-        Vgf[j][0] = V[i][0];
-        Vgf[j][4] = V[i][4];
-      }else{
-        Vgf[j][0] = 0.5*(Vgf[j][0]+V[i][0]);
-        Vgf[j][4] = 0.5*(Vgf[j][4]+V[i][4]);
-      }
-    }
-
-  }
-
-}
-//--------------------------------------------------------------------------
-
-template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
 {
@@ -4841,7 +4802,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
 
 template<int dim>
 void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
-                                   Vec<double> &Phi, SVec<double,dim> &Psi,
+                                   SVec<double,dim> &Phi, SVec<double,dim> &Psi,
 				   Vec<int> &Tag,
                          	   Vec<double> &w, Vec<double> &beta,
 				   SVec<double,dim> &PsiRes, int typeTracking)
@@ -4899,18 +4860,18 @@ void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, 
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,Vec<double> &Phi,SVec<double,dim> &Psi)
+void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dim> &Phi,SVec<double,dim> &Psi)
 {
   for(int i=0; i<nodes.size(); i++)
     if(Tag[i]==level)
-      Psi[i][0] = fabs(Phi[i]);
+      Psi[i][0] = fabs(Phi[i][0]);
 
 }
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                        NodalGrad<dim> &grad,
-                                       Vec<double> &Phi,SVec<double,dim> &Psi)
+                                       SVec<double,dim> &Phi,SVec<double,dim> &Psi)
 {
   for(int i=0; i<nodes.size(); i++){
     if(Tag[i]==1) Tag[i]=-1;
@@ -4923,7 +4884,7 @@ void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
 //-------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                      NodalGrad<dim> &grad, Vec<double> &Phi,
+                                      NodalGrad<dim> &grad, SVec<double,dim> &Phi,
                                       SVec<double,dim> &Psi)
 {
 
@@ -4936,7 +4897,7 @@ void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
 //-------------------------------------------------------------------------------
 template<int dim>
 double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                       SVec<double,3> &X, SVec<double,dim> &Psi,Vec<double> &Phi)
+                                       SVec<double,3> &X, SVec<double,dim> &Psi,SVec<double,dim> &Phi)
 {
 
   if(level==2)
@@ -4963,18 +4924,18 @@ void SubDomain::checkNodePhaseChange(SVec<double,dim> &X)
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void SubDomain::getSignedDistance(SVec<double,dim> &Psi, Vec<double> &Phi)
+void SubDomain::getSignedDistance(SVec<double,dim> &Psi, SVec<double,dim> &Phi)
 {
   for(int i=0; i<nodes.size(); i++){
-    if(Phi[i]<0.0)
+    if(Phi[i][0]<0.0)
       Psi[i][0] = -Psi[i][0];
-    if(Phi[i]<0.0 && Psi[i][0]>0.0)
-      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i],Psi[i][0]);
+    if(Phi[i][0]<0.0 && Psi[i][0]>0.0)
+      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i][0],Psi[i][0]);
   }
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
+void SubDomain::checkWeights(SVec<double,1> &Phi, SVec<double,1> &Phin,
                              SVec<double,dim> &Update, Vec<double> &Weight)
 {
   // this function checks that a node that changed phases has an update.
@@ -4983,11 +4944,11 @@ void SubDomain::checkWeights(Vec<double> &Phi, Vec<double> &Phin,
   //    by enforcing that phi value at that node is unchanged between tn and tn+1
 
   for(int i=0; i<nodes.size(); i++){
-    if(Phi[i]*Phin[i]<0.0 && !(Weight[i]>0.0)){
+    if(Phi[i][0]*Phin[i][0]<0.0 && !(Weight[i]>0.0)){
       fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset"
                       " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-                      globSubNum,Weight[i],Phin[i],Phi[i]);
-      Phi[i] = Phin[i];
+                      globSubNum,Weight[i],Phin[i][0],Phi[i][0]);
+      Phi[i][0] = Phin[i][0];
     }
   }
 
@@ -5078,7 +5039,7 @@ template<int dim>
 void SubDomain::printAllVariable(Vec<int> &X, SVec<double,dim> &U, int numSub, int it)
 {
 
-  int glob, phi;
+  int glob;
   for (int i=0; i<nodes.size(); i++){
     glob = locToGlobNodeMap[i]+1;
     fprintf(stdout, "Tag[%d,%d] = %d\n", i, glob, X[i]);

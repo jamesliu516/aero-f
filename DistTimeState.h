@@ -91,7 +91,7 @@ public:
              DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<int> &nodeTag);
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
-             DistVec<double> &Phi, DistSVec<double,dim> &U, IoData &iod);
+             DistSVec<double,1> &Phi, DistSVec<double,dim> &U, IoData &iod);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
@@ -109,8 +109,8 @@ public:
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
-			 DistVec<double> &, DistVec<double> &, DistVec<double> &, 
-			 DistVec<double> &, DistVec<double> &);
+			 DistSVec<double,1> &, DistSVec<double,1> &, DistSVec<double,1> &, 
+			 DistSVec<double,1> &, DistSVec<double,1> &);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -154,7 +154,7 @@ public:
   DistVec<double>* getInvReynolds(){ return irey; }
                                                                                                                           
   void multiplyByTimeStep(DistSVec<double,dim>&);
-  void multiplyByTimeStep(DistVec<double>&);
+  void multiplyByTimeStep(DistSVec<double,1>&);
   void multiplyByPreconditioner(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerPerfectGas(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerLiquid(DistSVec<double,dim> &, DistSVec<double,dim>&);

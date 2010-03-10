@@ -460,7 +460,7 @@ template<int dim>
 inline
 void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				     Vec<double> &normalVel, SVec<double,dim> &V,
-				     SVec<double,1> &Phi, Vec<double> &PhiF)
+				     SVec<double,1> &Phi, SVec<double,1> &PhiF)
 {
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
@@ -477,7 +477,7 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
                V[nodeNum(l)][2]*normal[1] +
                V[nodeNum(l)][3]*normal[2] ) -
              getNormalVel(normalVel, l);
-      PhiF[ nodeNum(l) ] += Uf*Phi[nodeNum(l)][0];
+      PhiF[ nodeNum(l) ][0] += Uf*Phi[nodeNum(l)][0];
     }
 
   }
@@ -761,7 +761,7 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 template<int dim>
 void FaceSet::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, BcData<dim> &bcData,
 					GeoState &geoState, SVec<double,dim> &V,
-					SVec<double,1> &Phi, Vec<double> &PhiF)
+					SVec<double,1> &Phi, SVec<double,1> &PhiF)
 {
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();

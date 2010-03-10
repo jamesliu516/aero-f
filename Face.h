@@ -618,7 +618,7 @@ public:
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				 Vec<double> &normalVel, SVec<double,dim> &V,
-				 SVec<double,1> &Phi, Vec<double> &PhiF);
+				 SVec<double,1> &Phi, SVec<double,1> &PhiF);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -1013,7 +1013,7 @@ public:
 			       SVec<double,dim> &, SVec<double,dim> &);
   template<int dim>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
-				 SVec<double,dim> &, SVec<double,1> &, Vec<double> &);
+				 SVec<double,dim> &, SVec<double,1> &, SVec<double,1> &);
 
   // DEBUG /* Not implemented */
   template<int dim>

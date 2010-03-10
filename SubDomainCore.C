@@ -3312,44 +3312,44 @@ void SubDomain::completeRotateSurfaceOwnership(CommPattern<int>&cpat)  {
 //------------------------------------------------------------------------------
 //             LEVEL SET SOLUTION AND REINITIALIZATION                       ---
 //------------------------------------------------------------------------------
-void SubDomain::avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin)
+void SubDomain::avoidNewPhaseCreation(SVec<double,1> &Phi, SVec<double,1> &Phin)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
 
   for(int i=0; i<nodes.size(); i++){
-    if(Phi[i]*Phin[i]<0.0){
+    if(Phi[i][0]*Phin[i][0]<0.0){
       // check if node i HAD a neighbour with a different levelset sign
       bool diffNeigh = false;
       for(int iNeigh=0; iNeigh<NodeToNode->num(i); iNeigh++)
-        if(Phin[i]*Phin[(*NodeToNode)[i][iNeigh]]<0.0){
+        if(Phin[i][0]*Phin[(*NodeToNode)[i][iNeigh]][0]<0.0){
           diffNeigh = true;
           break;
         }
-      if(!diffNeigh) {Phi[i] = Phin[i]; fprintf(stdout, "node %d has levelset clipped to avoid phase creation\n", locToGlobNodeMap[i]+1);}
+      if(!diffNeigh) {Phi[i][0] = Phin[i][0]; fprintf(stdout, "node %d has levelset clipped to avoid phase creation\n", locToGlobNodeMap[i]+1);}
     }
   }
 
 }
 //------------------------------------------------------------------------------
-void SubDomain::avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin, Vec<double> &weight)
+void SubDomain::avoidNewPhaseCreation(SVec<double,1> &Phi, SVec<double,1> &Phin, Vec<double> &weight)
 {
 
   for(int i=0; i<nodes.size(); i++){
-    if(Phi[i]*Phin[i]<0.0){
+    if(Phi[i][0]*Phin[i][0]<0.0){
       // check if node i HAD a neighbour with a different levelset sign
       if(weight[i] <= 0.0){
         fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset"
                         " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-                        globSubNum,weight[i],Phin[i],Phi[i]);
-        Phi[i] = Phin[i];
+                        globSubNum,weight[i],Phin[i][0],Phi[i][0]);
+        Phi[i][0] = Phin[i][0];
       }
     }
   }
 
 }
 //------------------------------------------------------------------------------
-void SubDomain::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level)
+void SubDomain::TagInterfaceNodes(Vec<int> &Tag, SVec<double,1> &Phi, int level)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -3407,7 +3407,7 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int l
 
 }
 //------------------------------------------------------------------------------
-void SubDomain::printPhi(SVec<double, 3> &X, Vec<double> &Phi, int it)
+void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,1> &Phi, int it)
 {
 
   fprintf(stderr, "\nPhi - subDomain %d: \n", locSubNum);
@@ -3426,7 +3426,7 @@ void SubDomain::printPhi(SVec<double, 3> &X, Vec<double> &Phi, int it)
 
   for (int i=0; i<nodes.size(); i++){
     glob = locToGlobNodeMap[i]+1;
-    fprintf(stderr, " Phi : %d %d   %.14e \n", i,glob,Phi[i]);
+    fprintf(stderr, " Phi : %d %d   %.14e \n", i,glob,Phi[i][0]);
   }
 
 }
@@ -3744,13 +3744,13 @@ void SubDomain::checkVec(SVec<double,3> &V)
 }
 
 //--------------------------------------------------------------------------
-void SubDomain::setPhiForFluid1(Vec<double> &phi)  {
+void SubDomain::setPhiForFluid1(SVec<double,1> &phi)  {
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() != -1)  {
       int *nodeNums = elems[iElem].nodeNum();
       for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        phi[nodeNums[iNode]] = 1.0;
+        phi[nodeNums[iNode]][0] = 1.0;
 
     }
   }
@@ -3759,28 +3759,28 @@ void SubDomain::setPhiForFluid1(Vec<double> &phi)  {
 void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
                                              double y, double z, double r,
                                              double invertGasLiquid,
-                                             Vec<double> &Phi)  {
+                                             SVec<double,1> &Phi)  {
 
 // assume it is a sphere!
   double dist; //dist to center of sphere
   for (int i=0; i<nodes.size(); i++){
     dist = (X[i][0]-x)*(X[i][0]-x) + (X[i][1]-y)*(X[i][1]-y) + (X[i][2]-z)*(X[i][2]-z);
     dist = sqrt(dist);
-    Phi[i] *= std::abs(dist - r);
+    Phi[i][0] *= std::abs(dist - r);
   }
 }
 //--------------------------------------------------------------------------
 void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
                                              double y, double z, double r,
                                              double invertGasLiquid,
-                                             Vec<double> &Phi)  {
+                                             SVec<double,1> &Phi)  {
 
 //WARNING: routine cannot do like in setPhiWithDistanceToGeometry
-//         where phi was computed by : Phi[i] *= std::abs(dist - r);
-//         because in that routine Phi[i] had value 1 or -1
+//         where phi was computed by : Phi[i][0] *= std::abs(dist - r);
+//         because in that routine Phi[i][0] had value 1 or -1
 //         Here this is not possible because we do not loop on nodes,
 //         we loop on elements, and thus we pass several times on each
-//         node, and we cannot say that Phi[i] is 1 or -1.
+//         node, and we cannot say that Phi[i][0] is 1 or -1.
 
 
   // assume it is a sphere!
@@ -3796,7 +3796,7 @@ void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
         dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
                (X[node][2]-z)*(X[node][2]-z);
         dist = sqrt(dist);
-        Phi[node] = dist - r;
+        Phi[node][0] = dist - r;
 
       }
     }else{
@@ -3807,8 +3807,8 @@ void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
         dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
                (X[node][2]-z)*(X[node][2]-z);
         dist = sqrt(dist);
-        //Phi[node] *= std::abs(dist-r); // does not work (cf WARNING)
-        Phi[node] = -std::abs(dist-r);
+        //Phi[node][0] *= std::abs(dist-r); // does not work (cf WARNING)
+        Phi[node][0] = -std::abs(dist-r);
       }
 
     }
@@ -3817,21 +3817,21 @@ void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
 }
 //--------------------------------------------------------------------------
 void SubDomain::setPhiForShockTube(SVec<double,3> &X,
-                                   double radius, Vec<double> &Phi)
+                                   double radius, SVec<double,1> &Phi)
 {
 
   for (int i=0; i<nodes.size(); i++)
-    Phi[i] = X[i][0] - radius;
+    Phi[i][0] = X[i][0] - radius;
 
 }
 //--------------------------------------------------------------------------
 void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
                              double z, double radius, double invertGasLiquid,
-                             Vec<double> &Phi)
+                             SVec<double,1> &Phi)
 {
 
   for (int i=0; i<nodes.size(); i++)
-    Phi[i] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
+    Phi[i][0] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
                                     (X[i][1] -y)*(X[i][1] -y)  +
                                     (X[i][2] -z)*(X[i][2] -z))
                                   - radius);
@@ -3839,13 +3839,13 @@ void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
 
 //--------------------------------------------------------------------------
 
-void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi){
+void SubDomain::setupPhiVolumesInitialConditions(const int volid, SVec<double,1> &Phi){
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() == volid)  {
       int *nodeNums = elems[iElem].nodeNum();
       for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        Phi[nodeNums[iNode]] = (volid==0) ? 1.0 : -1.0;
+        Phi[nodeNums[iNode]][0] = (volid==0) ? 1.0 : -1.0;
     }
   }
 
@@ -3854,7 +3854,7 @@ void SubDomain::setupPhiVolumesInitialConditions(const int volid, Vec<double> &P
 //--------------------------------------------------------------------------
 
 void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-                                 SVec<double,3> &X, Vec<double> &Phi){
+                                 SVec<double,3> &X, SVec<double,1> &Phi){
 
   double dist = 0.0;
   double x = ic.cen_x;
@@ -3864,7 +3864,7 @@ void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
 
   for (int i=0; i<Phi.size(); i++){
     dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
-    Phi[i] *= sqrt(dist) - r;
+    Phi[i][0] *= sqrt(dist) - r;
   }
 
 }
@@ -4017,7 +4017,7 @@ void SubDomain::outputCsDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs,
 //--------------------------------------------------------------------------
 
 void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-                                 SVec<double,3> &X, Vec<double> &Phi){
+                                 SVec<double,3> &X, SVec<double,1> &Phi){
 
   double scalar = 0.0;
   double x = ip.cen_x;
@@ -4031,7 +4031,7 @@ void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
 
   for (int i=0; i<Phi.size(); i++){
     scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
-    Phi[i] *= -scalar;
+    Phi[i][0] *= -scalar;
   }
 
 }
@@ -4079,13 +4079,13 @@ void SubDomain::markFaceBelongsToSurface(Vec<int> &faceFlag, CommPattern<int> &c
 //--------------------------------------------------------------------------
 // for mesh motion (with RK2 time-integration)
 
-void SubDomain::computePrdtPhiCtrlVolRatio(Vec<double> &ratioTimesPhi, Vec<double> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
+void SubDomain::computePrdtPhiCtrlVolRatio(SVec<double,1> &ratioTimesPhi, SVec<double,1> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
 {
    Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
 
    for (int i=0; i<nodes.size(); ++i) {
      double ratio = ctrlVol_n[i]/ctrlVol[i];
-     ratioTimesPhi[i] = ratio * Phi[i];
+     ratioTimesPhi[i][0] = ratio * Phi[i][0];
    }
 
 }
@@ -4350,7 +4350,7 @@ void SubDomain::computeCharacteristicEdgeLength(SVec<double,3>&X, double& minLen
 
 //---------------------------------------------------------------------------------------------
 
-double SubDomain::specifyBandwidth(Vec<double> &philevel)
+double SubDomain::specifyBandwidth(SVec<double,1> &philevel)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -4360,23 +4360,23 @@ double SubDomain::specifyBandwidth(Vec<double> &philevel)
   for (int i=0; i<numNodes(); i++) tag[i] = 0;
 
   for (int iEdge=0; iEdge<numEdges(); iEdge++)
-    if (philevel[edgePtr[iEdge][0]]>0 && philevel[edgePtr[iEdge][1]]<0)
+    if (philevel[edgePtr[iEdge][0]][0]>0 && philevel[edgePtr[iEdge][1]][0]<0)
       tag[edgePtr[iEdge][1]] = 1;
-    else if (philevel[edgePtr[iEdge][0]]<0 && philevel[edgePtr[iEdge][1]]>0)
+    else if (philevel[edgePtr[iEdge][0]][0]<0 && philevel[edgePtr[iEdge][1]][0]>0)
       tag[edgePtr[iEdge][0]] = 1;
 
   for (int iNode = 0; iNode<numNodes(); iNode++)
     if (tag[iNode]==1)
       for (int iNeighb=0; iNeighb<NodeToNode->num(iNode); iNeighb++)
-        if ((philevel[(*NodeToNode)[iNode][iNeighb]]<0) && (tag[(*NodeToNode)[iNode][iNeighb]]==0))
+        if ((philevel[(*NodeToNode)[iNode][iNeighb]][0]<0) && (tag[(*NodeToNode)[iNode][iNeighb]]==0))
           tag[(*NodeToNode)[iNode][iNeighb]] = 2;
 
   bool first = true;
   double bandwidth;
   for (int iNode=0; iNode<numNodes(); iNode++)
     if (tag[iNode]>0)
-      if (first) { bandwidth = -philevel[iNode];  first = false; }
-      else if (bandwidth< -philevel[iNode]) bandwidth = -philevel[iNode];
+      if (first) { bandwidth = -philevel[iNode][0];  first = false; }
+      else if (bandwidth< -philevel[iNode][0]) bandwidth = -philevel[iNode][0];
 
   fprintf(stderr,"bandwidth = %lf.\n", bandwidth);
   return bandwidth;

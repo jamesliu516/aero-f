@@ -151,10 +151,10 @@ public:
 
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistVec<double> &, DistVec<int> &);
+                                DistSVec<double,1> &, DistVec<int> &);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &,
-                                DistVec<double> &, DistVec<int> &);
+                                DistSVec<double,1> &, DistVec<int> &);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

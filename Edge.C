@@ -900,7 +900,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
                                       ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                       SVec<double,dim>& V, NodalGrad<dim>& ngrad,
                                       NodalGrad<1> &ngradLS,
-                                      EdgeGrad<dim>* egrad, SVec<double,1>& Phi, Vec<double>& PhiF)
+                                      EdgeGrad<dim>* egrad, SVec<double,1>& Phi, SVec<double,1>& PhiF)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -947,8 +947,8 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     // roe flux
     Phia = Uni*Pi[0] + Unj*Pj[0] - fabs(uroe)*(Pj[0]-Pi[0]);
 
-    PhiF[i] += 0.5*Phia;
-    PhiF[j] -= 0.5*Phia;
+    PhiF[i][0] += 0.5*Phia;
+    PhiF[j][0] -= 0.5*Phia;
   }
 }
 

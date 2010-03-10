@@ -36,6 +36,7 @@ public:
   typedef DistSVec<double,dim> SolVecType;
   typedef DistSVec<double,3> PosVecType;
   typedef DistVec<double> VolVecType;
+  typedef DistSVec<double,1> PhiVecType;
 
   TsParameters *data;
   virtual double computeResidualNorm(DistSVec<double,dim>&);
@@ -145,8 +146,6 @@ public:
   DistInfo &getVecInfo() const { return domain->getNodeDistInfo(); }
   DistInfo &getInletVecInfo() const {return domain->getInletNodeDistInfo(); }
   int getNumPhase() { return numPhase; }
-
-  virtual double reinitLS(DistVec<double> &Phi, DistSVec<double,dim> &U, int iti) { };
 
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);

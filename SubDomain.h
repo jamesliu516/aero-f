@@ -248,29 +248,29 @@ public:
   void computeLocalAvg(SVec<double,3> &, SVec<double,2> &, SVec<double,2> &);
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
-  void setPhiForFluid1(Vec<double> &);
+  void setPhiForFluid1(SVec<double,1> &);
   void setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
                                     double y, double z, double r,
                                     double invertGasLiquid,
-                                    Vec<double> &Phi);
+                                    SVec<double,1> &Phi);
   void setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
                                     double y, double z, double r,
                                     double invertGasLiquid,
-                                    Vec<double> &Phi);
+                                    SVec<double,1> &Phi);
   void setPhiForShockTube(SVec<double,3> &X,
-                          double radius, Vec<double> &Phi);
+                          double radius, SVec<double,1> &Phi);
   void setPhiForBubble(SVec<double,3> &X, double x, double y,
                        double z, double radius, double invertGasLiquid,
-                       Vec<double> &Phi);
-  void setupPhiVolumesInitialConditions(const int volid, Vec<double> &Phi);
+                       SVec<double,1> &Phi);
+  void setupPhiVolumesInitialConditions(const int volid, SVec<double,1> &Phi);
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-                                 SVec<double,3> &X, Vec<double> &Phi);
+                                 SVec<double,3> &X, SVec<double,1> &Phi);
   void outputCsDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &);
 
   void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-                                 SVec<double,3> &X, Vec<double> &Phi);
-  void avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin);
-  void avoidNewPhaseCreation(Vec<double> &Phi, Vec<double> &Phin, Vec<double> &weight);
+                                 SVec<double,3> &X, SVec<double,1> &Phi);
+  void avoidNewPhaseCreation(SVec<double,1> &Phi, SVec<double,1> &Phin);
+  void avoidNewPhaseCreation(SVec<double,1> &Phi, SVec<double,1> &Phin, Vec<double> &weight);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
              VolumeInitialConditions &ic, SVec<double,dim> &U);
@@ -388,7 +388,7 @@ public:
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
                                NodalGrad<dim>&, NodalGrad<1>&, EdgeGrad<dim>*, SVec<double,1>&,
-                               Vec<double>&);
+                               SVec<double,1>&);
   template<int dim>
   int computeFiniteVolumeBar_Step1(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&, SVec<double,3>& ,
                                     SVec<double,dim>&, NodalGrad<dim> &, EdgeGrad<dim>* , SVec<double,dim>&,
@@ -676,7 +676,7 @@ public:
   template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-				 Vec<double> &, Vec<double> &, Vec<int> &);
+				 Vec<double> &, SVec<double,1> &, Vec<int> &);
 
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -786,7 +786,7 @@ public:
   int checkSolution(VarFcn *, Vec<double> &, SVec<double,dim> &, Vec<int> &, Vec<int> &);
 
   template<int dim>
-  void restrictionOnPhi(SVec<double,dim> &initial, Vec<double> &Phi,
+  void restrictionOnPhi(SVec<double,dim> &initial, SVec<double,1> &Phi,
                         SVec<double,dim> &restriction, int sign);
 
   template<int dim>
@@ -834,7 +834,7 @@ public:
   int *getRotOwn() { return rotOwn; }
   NodeSet &getNodes() { return nodes; }
 
-  void TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi, int level);
+  void TagInterfaceNodes(Vec<int> &Tag, SVec<double,1> &Phi, int level);
   void FinishReinitialization(Vec<int> &Tag, SVec<double,1> &Psi, int level);
 
   template<int dim>
@@ -851,7 +851,7 @@ public:
 
   template<int dim>
   void computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
-                          Vec<double> &Phi, SVec<double,dim> &Psi,
+                          SVec<double,dim> &Phi, SVec<double,dim> &Psi,
                           Vec<int> &Tag,
                           Vec<double> &w, Vec<double> &beta,
                           SVec<double,dim> &PsiRes, int typeTracking);
@@ -862,25 +862,25 @@ public:
   void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
                            SVec<double,dim> &PsiRes,bool localdt);
   template<int dim>
-  void copyCloseNodes(int level, Vec<int> &Tag,Vec<double> &Phi,SVec<double,dim> &Psi);
+  void copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dim> &Phi,SVec<double,dim> &Psi);
   template<int dim>
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                  NodalGrad<dim> &grad,
-                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
   template<int dim>
   void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
                                  NodalGrad<dim> &grad,
-                                 Vec<double> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
   template<int dim>
   double computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, Vec<double> &Phi);
+                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi);
 
   template<int dim>
   void checkNodePhaseChange(SVec<double,dim> &X);
   template<int dim>
-  void getSignedDistance(SVec<double,dim> &Psi, Vec<double> &Phi);
+  void getSignedDistance(SVec<double,dim> &Psi, SVec<double,dim> &Phi);
   template<int dim>
-  void checkWeights(Vec<double> &Phi, Vec<double> &Phin,
+  void checkWeights(SVec<double,1> &Phi, SVec<double,1> &Phin,
                     SVec<double,dim> &Update, Vec<double> &Weight);
   template<int dim>
   void storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, 
@@ -902,7 +902,7 @@ public:
   template<int dim>
   void printAllVariable(Vec<int> &, SVec<double,dim>&, int , int);
 
-  void printPhi(SVec<double,3> &, Vec<double>&, int );
+  void printPhi(SVec<double,3> &, SVec<double,1>&, int );
 
   template<class Scalar, int neq>
   void printAllMatrix(GenMat<Scalar,neq> &, int );
@@ -1044,7 +1044,7 @@ public:
   template<int dim>
   void computePrdtWCtrlVolRatio(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &, GeoState &);
 
-  void computePrdtPhiCtrlVolRatio(Vec<double> &, Vec<double> &, Vec<double> &, GeoState &);
+  void computePrdtPhiCtrlVolRatio(SVec<double,1> &, SVec<double,1> &, Vec<double> &, GeoState &);
 
   template<int dim>
   void updatePhaseChange(SVec<double,3>&, SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
@@ -1073,7 +1073,7 @@ public:
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
-  double specifyBandwidth(Vec<double> &);
+  double specifyBandwidth(SVec<double,1> &);
   double scalarNormalExtrap(double*, Vec3D, Vec3D, int, SVec<double,3> &, bool);
   bool insideOutside(double*, const double, const double, const double, const double,
                      const double, const double);

@@ -127,9 +127,6 @@ public:
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
 
-  void storeGhost(DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistVec<double> &);
-
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -141,7 +138,7 @@ public:
                        DistTimeState<dim> *, bool=true);
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistSVec<double,1> &,
                        DistVec<int> &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it,
                        DistSVec<double,dim> * = 0,
@@ -160,7 +157,7 @@ public:
                        DistExactRiemannSolver<dim> *, int it = 0);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
-                       DistVec<double> &, DistVec<int> &, DistSVec<double,dim> &,DistVec<double> &);
+                       DistSVec<double,1> &, DistVec<int> &, DistSVec<double,dim> &,DistSVec<double,1> &);
 
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,

@@ -365,7 +365,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
-                               DistVec<double> &Phi,
+                               DistSVec<double,1> &Phi,
                                DistSVec<double,dim> &U, IoData &iod)
 {
   *Un = Ufar;
@@ -374,12 +374,12 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*x)[3] = X.subData(iSub);
     double (*u)[dim] = Un->subData(iSub);
-    double *phi = Phi.subData(iSub);
+    double (*phi)[1] = Phi.subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
-      if (phi[i]<0.0)
+      if (phi[i][0]<0.0)
         for (int j=0; j<dim; j++)
           u[i][j] = Ub[j];
-      phi[i] *= u[i][0];
+      phi[i][0] *= u[i][0];
     }
   }
 
@@ -525,15 +525,15 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 template<int dim>
 void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
                                             DistVec<double> &ctrlVol,
-                                            DistVec<double> &Q,
-					    DistVec<double> &Qn,
-					    DistVec<double> &Qnm1,
-					    DistVec<double> &Qnm2,
-                                            DistVec<double> &R)
+                                            DistSVec<double,1> &Q,
+					    DistSVec<double,1> &Qn,
+					    DistSVec<double,1> &Qnm1,
+					    DistSVec<double,1> &Qnm2,
+                                            DistSVec<double,1> &R)
 {
-                                                                                                                      
-  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
-                                                                                                                      
+
+  //if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
+
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subTimeState[iSub]->add_dAW_dtLS(Q.getMasterFlag(iSub), geoState(iSub),
@@ -791,15 +791,15 @@ void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dim>& dU)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::multiplyByTimeStep(DistVec<double>& dPhi)
+void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,1>& dPhi)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    double *dphi = dPhi.subData(iSub);
+    double (*dphi)[1] = dPhi.subData(iSub);
     double* _dt = dt->subData(iSub);
     for (int i=0; i<dPhi.subSize(iSub); ++i)
-	dphi[i] *= _dt[i];
+	dphi[i][0] *= _dt[i];
   }
 
 }

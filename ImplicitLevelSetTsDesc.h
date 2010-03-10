@@ -35,7 +35,7 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 	
   MatVecProd<dim,1> *mvpLS;
   KspPrec<1> *pcLS;
-  KspSolver<DistVec<double>, MatVecProd<dim,1>, KspPrec<1>, Communicator> *kspLS;
+  KspSolver<DistSVec<double,1>, MatVecProd<dim,1>, KspPrec<1>, Communicator> *kspLS;
 
   NewtonSolver<ImplicitLevelSetTsDesc<dim> > *ns;
 
@@ -67,9 +67,9 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   //-- new functions for solving LevelSet equation
-  void computeFunctionLS(int, DistSVec<double,dim> &,DistVec<double> &);
-  void computeJacobianLS(int, DistSVec<double,dim> &,DistVec<double> &);
-  int solveLinearSystemLS(int, DistVec<double> &, DistVec<double> &);
+  void computeFunctionLS(int, DistSVec<double,dim> &,DistSVec<double,1> &);
+  void computeJacobianLS(int, DistSVec<double,dim> &,DistSVec<double,1> &);
+  int solveLinearSystemLS(int, DistSVec<double,1> &, DistSVec<double,1> &);
 
 
  protected:
@@ -83,7 +83,7 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
 
   template<int neq>
-  KspSolver<DistVec<double>, MatVecProd<dim,neq>, KspPrec<neq,double>,
+  KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>, KspPrec<neq,double>,
   Communicator> *createKrylovSolverLS(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
                                         KspPrec<neq,double> *, Communicator *);
 };

@@ -485,9 +485,9 @@ void ExplicitLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 
 //------------------------------------------------------------------------------
 template<int dim>
-void ExplicitLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
+void ExplicitLevelSetTsDesc<dim>::computeRKUpdateLS(DistSVec<double,1> &Philocal,
                                   DistVec<int> &localFluidId,
-                                  DistVec<double> &dPhi, DistSVec<double,dim> &U)
+                                  DistSVec<double,1> &dPhi, DistSVec<double,dim> &U)
 {
 
   this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi);
