@@ -81,7 +81,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
 
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
-  if(this->mmh) {
+  if(this->mmh && !this->inSubCycling) {
     //store previous states for phase-change update
     double tw = this->timer->getTime();
     switch(this->phaseChangeChoice) {
@@ -143,8 +143,6 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
   U = U0;
   checkSolution(U);
 
-
-
   this->timer->addFluidSolutionTime(t0);
 }
 
@@ -157,7 +155,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
-  if(this->mmh) {
+  if(this->mmh && !this->inSubCycling) {
     //store previous states for phase-change update
     double tw = this->timer->getTime();
     switch(this->phaseChangeChoice) {

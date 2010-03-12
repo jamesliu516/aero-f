@@ -1094,7 +1094,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
     }
     // End shocktube setup
   }
-  fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
+//  fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
 
 }
 

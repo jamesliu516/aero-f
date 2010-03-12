@@ -888,6 +888,8 @@ public:
                               Vec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,

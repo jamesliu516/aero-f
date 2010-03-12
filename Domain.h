@@ -393,6 +393,8 @@ public:
                               DistVec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U, DistVec<int> &fluidId);
 
   // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 

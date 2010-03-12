@@ -5060,6 +5060,28 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId){
+
+  bool found = false;
+  double rhoe = -1.0; 
+
+// only the pressure with fluidId = 0 (outside part)
+// are updated. It is assumed that the input and output states are uniform!
+  for(int i=0; i<nodes.size(); i++) {
+    if(fluidId[i]!=0) 
+      continue;
+    if(!found){ //rhoe is not computed yet.
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V,fluidId[i]);
+      vf->setPressure(p,V,fluidId[i]);
+      rhoe = vf->computeRhoEnergy(V);
+      found = true;
+    }    
+    U[i][4] = rhoe;
+  }
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void SubDomain::printVariable(SVec<double,dim> &V, VarFcn *vf)
 {
   inletNodes.printVariable(V, sharedInletNodes, vf);
