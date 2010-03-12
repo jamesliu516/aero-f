@@ -25,6 +25,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
  protected:
   DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
+  double vfar[dim]; //farfield state
 
   DistVec<int> nodeTag; // = 1 for fluid #1; = -1 for fluid #2.
   DistVec<int> nodeTag0; // node tag for the previous time-step.

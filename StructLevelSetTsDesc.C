@@ -49,6 +49,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
   linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
 
+  double *Vin = this->bcData->getInletPrimitiveState();
+  for(int i=0; i<dim; i++)
+    vfar[i] =Vin[i];
+
   if (ioData.strucIntersect.riemannNormal==StructureIntersect::FLUID) 
     riemannNormal = 1;
   else if (ioData.strucIntersect.riemannNormal==StructureIntersect::STRUCTURE)
@@ -660,10 +664,21 @@ bool StructLevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<d
   }
 
   if(this->mmh && !inSubCycling) {
+    double tw = this->timer->getTime();
+    //store previous states for phase-change update
+    if(this->numFluid==1)
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                     *this->VWeights, this->distLSS);
+    else //numFluid>1
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
-    double tw = this->timer->getTime();
+    tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
@@ -672,6 +687,15 @@ bool StructLevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<d
       nodeTag0 = this->nodeTag;
       nodeTag = this->distLSS->getStatus();
     }
+
+    //update phase-change
+    tw = this->timer->getTime();
+    if(this->numFluid==1)
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    else //numFluid>1
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar, &this->nodeTag);
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
   } 
   
   this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);

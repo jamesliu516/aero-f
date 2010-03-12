@@ -649,7 +649,7 @@ DistPhysBAMIntersector::buildSolidNormals() {
      }
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
 
-//     insidePoint = Vec3D(0.0,0.0,0.0);
+//     insidePoint = Vec3D(6.22,0.0,0.0); //TODO: debug
   } else
     com->fprintf(stderr, "All triangles are degenerate!!\n");
 }
