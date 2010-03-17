@@ -5074,7 +5074,7 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<
       double V[dim];
       vf->conservativeToPrimitive(U[i],V,fluidId[i]);
       vf->setPressure(p,V,fluidId[i]);
-      rhoe = vf->computeRhoEnergy(V);
+      rhoe = vf->computeRhoEnergy(V,fluidId[i]);
       found = true;
     }    
     U[i][4] = rhoe;
