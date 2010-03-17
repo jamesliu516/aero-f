@@ -169,6 +169,7 @@ public:
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }
   CommPattern<double> *getVec3DPat() const { return vec3DPat; }
   CommPattern<double> *getVolPat() const { return volPat; }
+  CommPattern<int> *getLevelPat() const { return levelPat; }
   CommPattern<double> *getWeightPat() const { return weightPat; }
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
@@ -659,7 +660,7 @@ public:
   void assemble(CommPattern<Scalar> *, DistSVec<Scalar,dim> &, const OpType &);
 
   template<class Scalar>
-  void assemble(CommPattern<Scalar> *, DistVec<double> &);
+  void assemble(CommPattern<Scalar> *, DistVec<Scalar> &);
 
 
   void assemble(DistVec<double> &v) {

@@ -82,6 +82,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Pscale = ioData.ref.rv.pressure;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
+//  this->com->fprintf(stderr,"RhoScale = %e, Pscale = %e\n", ioData.ref.rv.density, ioData.ref.rv.pressure);
   globIt = -1;
   inSubCycling = false;
 
