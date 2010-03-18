@@ -32,9 +32,10 @@ public:
 
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
 			  SVec<double,dim> &, SVec<double,dim> &);
+  template<int dimLS>
   void add_dAW_dtLS(bool *, GeoState &, Vec<double> &, 
-		    SVec<double,1> &, SVec<double,1> &, SVec<double,1> &, 
-		    SVec<double,1> &, SVec<double,1> &);
+		    SVec<double,dimLS> &, SVec<double,dimLS> &, SVec<double,dimLS> &, 
+		    SVec<double,dimLS> &, SVec<double,dimLS> &);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(bool *, Vec<double> &, GenMat<Scalar,neq> &, SVec<double,dim> &,
@@ -72,9 +73,6 @@ public:
   template<class Scalar>
   void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &,
                GenMat<Scalar,dim> &, Scalar);
-
-  template<class Scalar>
-  void addToH2LS(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,1> &);
 
   template<class Scalar>
   void addToH2Minus(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,dim> &);

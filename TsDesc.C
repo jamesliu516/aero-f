@@ -296,6 +296,8 @@ template<int dim>
 void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
+  geoState->setup2(timeState->getData());
+
   timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
@@ -506,10 +508,14 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
 
-    if (wallRecType==BcsWallData::CONSTANT)
+    if (wallRecType==BcsWallData::CONSTANT){
+      com->fprintf(stdout, "wallRecType = CONATANT\n");
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    else //wallRecType == EXACT_RIEMANN
+    }
+    else{ //wallRecType == EXACT_RIEMANN
+      com->fprintf(stdout, "wallRecType = EXACTRIEMANN\n");
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
+    }
 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -541,7 +547,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-  restart->writeToDisk(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState, 0);
+  restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
   if (*lastIt) {

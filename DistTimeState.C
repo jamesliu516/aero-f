@@ -470,18 +470,20 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 }
 //------------------------------------------------------------------------------
 template<int dim>
+template<int dimLS>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
                                double *Ub, DistSVec<double,3> &X,
-                               DistSVec<double,1> &Phi,
+                               DistSVec<double,dimLS> &Phi,
                                DistSVec<double,dim> &U, IoData &iod)
 {
   *Un = Ufar;
 
+  //TODO:MULTIPHASE
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*x)[3] = X.subData(iSub);
     double (*u)[dim] = Un->subData(iSub);
-    double (*phi)[1] = Phi.subData(iSub);
+    double (*phi)[dimLS] = Phi.subData(iSub);
     for (int i=0; i<X.subSize(iSub); i++){
       if (phi[i][0]<0.0)
         for (int j=0; j<dim; j++)
@@ -630,13 +632,14 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
                                                                                                                       
 //------------------------------------------------------------------------------
 template<int dim>
+template<int dimLS>
 void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
-                                            DistVec<double> &ctrlVol,
-                                            DistSVec<double,1> &Q,
-					    DistSVec<double,1> &Qn,
-					    DistSVec<double,1> &Qnm1,
-					    DistSVec<double,1> &Qnm2,
-                                            DistSVec<double,1> &R)
+                                      DistVec<double> &ctrlVol,
+                                      DistSVec<double,dimLS> &Q,
+                                      DistSVec<double,dimLS> &Qn,
+                                      DistSVec<double,dimLS> &Qnm1,
+                                      DistSVec<double,dimLS> &Qnm2,
+                                      DistSVec<double,dimLS> &R)
 {
 
   //if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
@@ -644,8 +647,8 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subTimeState[iSub]->add_dAW_dtLS(Q.getMasterFlag(iSub), geoState(iSub),
-                                   ctrlVol(iSub), Q(iSub), Qn(iSub), Qnm1(iSub),
-				   Qnm2(iSub), R(iSub));
+                                     ctrlVol(iSub), Q(iSub), Qn(iSub), Qnm1(iSub),
+				                             Qnm2(iSub), R(iSub));
 }
 
 //------------------------------------------------------------------------------
@@ -801,25 +804,6 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                      
-template<int dim>
-template<class Scalar>
-void DistTimeState<dim>::addToH2LS(DistVec<double> &ctrlVol, DistVec<double> &U,
-                                 DistMat<Scalar,1> &A)
-{
-                                                                                                                      
-#ifdef DOUBLE_CHECK
-  //varFcn->conservativeToPrimitive(U, *V);
-#endif
-                                                                                                                      
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->addToH2LS(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub),
-                                (*V)(iSub), A(iSub));
-                                                                                                                      
-}
-
-//------------------------------------------------------------------------------
 
 template<int dim>
 template<class Scalar>
@@ -898,15 +882,17 @@ void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dim>& dU)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,1>& dPhi)
+template<int dimLS>
+void DistTimeState<dim>::multiplyByTimeStep(DistSVec<double,dimLS>& dPhi)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    double (*dphi)[1] = dPhi.subData(iSub);
+    double (*dphi)[dimLS] = dPhi.subData(iSub);
     double* _dt = dt->subData(iSub);
     for (int i=0; i<dPhi.subSize(iSub); ++i)
-	dphi[i][0] *= _dt[i];
+      for (int idim=0; idim<dimLS; idim++)
+	      dphi[i][idim] *= _dt[i];
   }
 
 }

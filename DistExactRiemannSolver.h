@@ -41,7 +41,8 @@ public:
 
   void updatePhaseChange(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistVec<int> &fluidIdn); 
   void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistSVec<double,3> &X);
-  void avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin);
+  template<int dimLS>
+  void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin);
 
   ExactRiemannSolver<dim> &operator() (int i) 
     const { return *subExactRiemannSolver[i]; }

@@ -8,23 +8,24 @@
 #include <ExplicitLevelSetTsDesc.h>
 
 
-template<int dim>
+template<int dim, int dimLS>
 void startLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
 
   Communicator *com = domain.getCommunicator();
 
   domain.createVecPat(dim, &ioData);
+  domain.createPhiVecPat(dimLS, &ioData);
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
-    ImplicitLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ImplicitLevelSetTsDesc<dim> > tsSolver(&tsDesc);
+    ImplicitLevelSetTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ImplicitLevelSetTsDesc<dim,dimLS> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);
   }
   else{
-    ExplicitLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ExplicitLevelSetTsDesc<dim> > tsSolver(&tsDesc);
+    ExplicitLevelSetTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ExplicitLevelSetTsDesc<dim,dimLS> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);
   }
 

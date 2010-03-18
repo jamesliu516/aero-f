@@ -454,11 +454,11 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 inline
 void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				     Vec<double> &normalVel, SVec<double,dim> &V,
-				     SVec<double,1> &Phi, SVec<double,1> &PhiF)
+				     SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiF)
 {
   double Uf = 0.0;
   if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
@@ -475,7 +475,8 @@ void Face::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
                V[nodeNum(l)][2]*normal[1] +
                V[nodeNum(l)][3]*normal[2] ) -
              getNormalVel(normalVel, l);
-      PhiF[ nodeNum(l) ][0] += Uf*Phi[nodeNum(l)][0];
+      for (int k=0; k<dimLS; k++)
+        PhiF[ nodeNum(l) ][k] += Uf*Phi[nodeNum(l)][k];
     }
 
   }
@@ -579,11 +580,11 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 }
 
 //------------------------------------------------------------------------------
-template<int dim, class Scalar>
+template<int dim, class Scalar, int dimLS>
 inline
 void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 					     Vec<double> &normalVel, SVec<double,dim> &V,
-					     GenMat<Scalar,1> &A)
+					     GenMat<Scalar,dimLS> &A)
 {
 
   double jac;
@@ -595,7 +596,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
     jac *= V[nodeNum(l)][0]; // why did sriram write this? not true!!!
     exit(1);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
-    for (int k=0; k<1; ++k)
+    for (int k=0; k<dimLS*dimLS; ++k)
       Aii[k] += jac;
   }
 }
@@ -756,10 +757,10 @@ void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void FaceSet::computeFiniteVolumeTermLS(FluxFcn **fluxFcn, BcData<dim> &bcData,
 					GeoState &geoState, SVec<double,dim> &V,
-					SVec<double,1> &Phi, SVec<double,1> &PhiF)
+					SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiF)
 {
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
@@ -837,9 +838,9 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
+template<int dim, class Scalar, int dimLS>
 void FaceSet::computeJacobianFiniteVolumeTermLS(GeoState &geoState, SVec<double,dim> &V,
-						GenMat<Scalar,1> &A)
+						GenMat<Scalar,dimLS> &A)
 {
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();

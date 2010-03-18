@@ -9,7 +9,7 @@
 struct DistInfo;
 
 class GeoSource;
-class LevelSet;
+template<int dimLS> class LevelSet;
 template<class Scalar, int dim> class DistSVec;
 
 //------------------------------------------------------------------------

@@ -1761,7 +1761,6 @@ template<int dim>
   void TsOutput<dim>::writeHeatFluxesToDisk(bool lastIt, int it, int itSc, int itNl, double t, double cpu,
                                       double* e, DistSVec<double,3> &X, DistSVec<double,dim> &U,
                                       DistVec<int> *fluidId)
-//TODO: fluidId (previous Phi) is not used!
 {
   int nSurfs = postOp->getNumSurfHF();
 
@@ -1811,8 +1810,7 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
 
 template<int dim>
 void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
-                    double *qtytot, double *qty1, double *qty2,
-                    double *computedtot, double *computed1, double *computed2)
+                    int numPhases, double **expected, double **computed)
 {
 
   if (com->cpuNum() != 0) return;
@@ -1820,22 +1818,16 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
   if (!steady)
     if (fpConservationErr) {
       fprintf(fpConservationErr, "%d %e ", it, t);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", qtytot[i]);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", qty1[i]);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", qty2[i]);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", computedtot[i]);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", computed1[i]);
-      for(int i=0; i<dim; i++) 
-        fprintf(fpConservationErr, "%e ", computed2[i]);
+      for(int iPhase=0; iPhase<numPhases; iPhase++)
+        for(int i=0; i<dim; i++) 
+          fprintf(fpConservationErr, "%e ", expected[iPhase][i]);
+      for(int iPhase=0; iPhase<numPhases; iPhase++)
+        for(int i=0; i<dim; i++) 
+          fprintf(fpConservationErr, "%e ", computed[iPhase][i]);
       fprintf(fpConservationErr, "\n");
       fflush(fpConservationErr);
+      
     }
-
 
 }
 
@@ -1924,9 +1916,10 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 //------------------------------------------------------------------------------
 
 template<int dim>
+template<int dimLS>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
-                                             DistTimeState<dim> *timeState, DistSVec<double,1> &Phi,
+                                             DistTimeState<dim> *timeState, DistSVec<double,dimLS> &Phi,
                                              DistVec<int> &fluidId)
 {
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
@@ -2020,14 +2013,14 @@ void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, dou
 }
 
 //------------------------------------------------------------------------------
-                                                                                                      
+/*
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, 
                                              DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U,
                                              DistSVec<double,1> &Phi, DistVec<int> &fluidId)
 {
-                                                                                                      
+ 
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
     int step = 0;
     if (frequency > 0) {
@@ -2040,10 +2033,10 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
       tag = rmmh->getTagValue(t);
     else
       tag = t * refVal->time;
-                                                                                                      
+
     if (solutions)
       domain->writeVectorToFile(solutions, step, tag, U);
-                                                                                                      
+
     int i;
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (scalars[i]) {
@@ -2066,9 +2059,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
       }
     }
   }
-                                                                                                      
-}
 
+}
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>

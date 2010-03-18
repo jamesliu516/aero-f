@@ -22,7 +22,7 @@ PostFcn::PostFcn(VarFcn *vf)
 
 //------------------------------------------------------------------------------
 
-double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
+double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
 
   fprintf(stderr, "*** Warning: computeNodeScalarQuantity not defined\n");
@@ -128,7 +128,7 @@ void PostFcnEuler::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
+double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
 
   double q = 0.0;
@@ -165,9 +165,12 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
   else if(type == PRESSURECOEFFICIENT)
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
-    q = phi/varFcn->getDensity(V,fluidId);
-  else if(type == PHILEVEL_STRUCTURE)
-    q = phi;  //NOTE: In this case phi stores the distance to the structure. 
+    q = static_cast<double>(fluidId);
+  else if(type == PHILEVEL_STRUCTURE){
+    if (phi)
+      q = phi[0];  //NOTE: In this case phi stores the distance to the structure. 
+    else q = 0.0;
+  }
 
 // Included (MB)
   else if (type == VELOCITY_NORM)
@@ -1072,7 +1075,7 @@ void PostFcnSA::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
+double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
 
   double q = 0.0;
@@ -1125,7 +1128,7 @@ PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(io
 //------------------------------------------------------------------------------
 
                                                                                                 
-double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
+double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
 
   double q = 0.0;
@@ -1185,7 +1188,7 @@ void PostFcnKE::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double phi, int fluidId)
+double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
 
   double q = 0.0;

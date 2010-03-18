@@ -939,13 +939,14 @@ void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U
 //------------------------------------------------------------------------------
 
 template<int dim>
+template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
                                               DistSVec<double,dim>& U,
                                               DistVec<double>& A,
                                               DistVec<double>& Q,
                                               DistTimeState<dim> *timeState,
-                                              DistSVec<double,1>& Phi,
+                                              DistSVec<double,dimLS> &Phi,
                                               DistVec<int>& fluidId)
 {
   int iSub;
@@ -964,7 +965,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &fluidId);
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &(fluidId(iSub)));
       subDomain[iSub]->computeFaceScalarQuantity(type, postFcn, (*bcData)(iSub),
                                                  (*geoState)(iSub), X(iSub),
                                                  (*V)(iSub), (*tmp2)(iSub));
@@ -1006,11 +1007,12 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       subDomain[iSub]->addRcvData(*(domain->getWeightPat()), R.subData(iSub));
       subDomain[iSub]->computeWeightsLeastSquaresNodePart(R(iSub));
       double (*u)[dim] = U.subData(iSub);
-      double (*t3)[3] = tmp3.subData(iSub);
-      double (*x)[3] = X.subData(iSub);
+      double (*t3)[3]  = tmp3.subData(iSub);
+      double (*x)[3]   = X.subData(iSub);
+      int     *id      = fluidId.subData(iSub);
       for (int i=0; i<tmp3.subSize(iSub); ++i) {
         double v[dim];
-        varFcn->conservativeToPrimitive(u[i], v, fluidId[i]);
+        varFcn->conservativeToPrimitive(u[i], v, id[i]);
         t3[i][0] = v[1];
         t3[i][1] = v[2];
         t3[i][2] = v[3];
@@ -1123,7 +1125,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &fluidId);
+      varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &(fluidId(iSub)));
       subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
@@ -1131,6 +1133,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 }
 
 //---------------------------------------------------------------------------------
+/* Merged with above function
 template<int dim>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
@@ -1142,7 +1145,6 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
   int iSub;
 
-                                                                                              
   if ((type == PostFcn::DELTA_PLUS) || (type == PostFcn::SKIN_FRICTION)) {
     if (!tmp2)
       tmp2 = new DistSVec<double,2>(domain->getNodeDistInfo());
@@ -1154,8 +1156,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
         subDomain[iSub]->setComLenNodes(2, *vec2Pat);
       vec2Pat->finalize();
     }
-                                                                                              
-                                                                                              
+
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -1165,20 +1166,16 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                                  (*V)(iSub), (*tmp2)(iSub));
       subDomain[iSub]->sndData(*vec2Pat, tmp2->subData(iSub));
     }
-                                                                                              
-                                                                                              
+
     vec2Pat->exchange();
-                                                                                              
-                                                                                              
+
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
       subDomain[iSub]->addRcvData(*vec2Pat, tmp2->subData(iSub));
-                                                                                              
-                                                                                              
+
       double (*t)[2] = tmp2->subData(iSub);
       double* q = Q.subData(iSub);
-                                                                                              
-                                                                                              
+
       for (int i=0; i<Q.subSize(iSub); ++i) {
         if (t[i][0] != 0.0)
           q[i] = t[i][1] / t[i][0];
@@ -1248,8 +1245,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
     }
   }
-                                                                                              
+
 }
+*/
 
 //------------------------------------------------------------------------------
 

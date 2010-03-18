@@ -42,8 +42,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
             iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
       lriemann = new LocalRiemannGfmpGasJWL(vf);
     else{
-      fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
-      exit(1);
+      //fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
+      //exit(1);
     }
   }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
     if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&

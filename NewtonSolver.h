@@ -31,7 +31,6 @@ class NewtonSolver {
 
   ProblemDescriptor *probDesc;
 
-  typedef DistSVec<double,1> PhiVecType;
   typename ProblemDescriptor::SolVecType F;  // nonlinear function
   typename ProblemDescriptor::SolVecType Finlet;  // nonlinear function at inlet nodes
   typename ProblemDescriptor::SolVecType dQ; // gradient of F

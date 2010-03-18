@@ -88,7 +88,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 //-------------------------------------------------------------
 
 // for FF interface
-  LS = 0; // for debug!
+  //LS = 0; // for debug!
   Vgf = 0;
   Vgfweight = 0;
   if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
@@ -142,7 +142,7 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
   if (dynNodalTransfer) delete dynNodalTransfer;
   if (Fs) delete[] Fs;
 
-  if (LS) delete LS;
+  //if (LS) delete LS;
   if (Vgf) delete Vgf;
   if (Vgfweight) delete Vgfweight;
   if(tmpDistSVec)  delete tmpDistSVec;
@@ -363,8 +363,12 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
       this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     }
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    if (numFluid==2)  
-      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    if (numFluid==2){
+      DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
+      tempPhi = distLSS->getPhi();
+      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, tempPhi, nodeTag);
+      //this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    }
     else 
       this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
@@ -391,7 +395,10 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
+    tempPhi = distLSS->getPhi();
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, tempPhi, nodeTag);
+    //this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   } 
   else { //numFluid == 1
@@ -404,7 +411,8 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
-  this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, 0);
+  // TODO
+  //this->restart->writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n());
 
   if (*lastIt) {

@@ -16,6 +16,8 @@
 #include <LowMachPrec.h>
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 #include <LevelSet/FluidTypeCriterion.h>
+#include <GeoState.h>
+#include <NodalGrad.h>
 
 #include <stdio.h>
 #include <math.h>
@@ -764,7 +766,7 @@ void Domain::computeDerivativeOfFiniteVolumeTerm(DistVec<double> &ctrlVol, DistV
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistExactRiemannSolver<dim> &riemann,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -772,7 +774,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistVec<int> &fluidId,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-                                     DistNodalGrad<1>& ngradLS,
+                                     DistNodalGrad<dimLS>& ngradLS,
                                      DistSVec<double,dim>& R, int it,
                                      DistSVec<double,dim> *bcFlux,
                                      DistSVec<double,dim> *interfaceFlux,
@@ -837,7 +839,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
       for (iSub = 0; iSub < numLocSub; ++iSub) {
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
-    SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
+        SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), fluidId(iSub), ngrad(iSub),
@@ -1078,13 +1080,13 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
-                                     DistNodalGrad<dim>& ngrad, DistNodalGrad<1>& ngradLS,
+                                     DistNodalGrad<dim>& ngrad, DistNodalGrad<dimLS>& ngradLS,
                                      DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,1>& Phi, DistSVec<double,1> &PhiF)
+                                     DistSVec<double,dimLS>& Phi, DistSVec<double,dimLS> &PhiF)
 {
   double t0 = timer->getTime();
   int iSub;
@@ -1096,16 +1098,14 @@ void Domain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn
                                                geoState(iSub),
                                                X(iSub), V(iSub), ngrad(iSub), ngradLS(iSub),
                                                legrad, Phi(iSub),PhiF(iSub));
-    //subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(PhiF.subData(iSub)));
-    subDomain[iSub]->sndData(*volPat, PhiF.subData(iSub));
+    subDomain[iSub]->sndData(*phiVecPat, PhiF.subData(iSub));
   }
 
-  volPat->exchange();
+  phiVecPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->addRcvData(*volPat, PhiF.subData(iSub));
-    //subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(PhiF.subData(iSub)));
+    subDomain[iSub]->addRcvData(*phiVecPat, PhiF.subData(iSub));
 
   timer->addLSFiniteVolumeTermTime(t0);
 }
@@ -1274,11 +1274,11 @@ void Domain::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, DistBcData<dim> 
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar, int neq>
+template<int dim, class Scalar, int neq, int dimLS>
 void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &riemann,
                                              FluxFcn **fluxFcn, DistBcData<dim> &bcData,
                                              DistGeoState &geoState,
-                                             DistNodalGrad<dim> &ngrad, DistNodalGrad<1> &ngradLS,
+                                             DistNodalGrad<dim> &ngrad, DistNodalGrad<dimLS> &ngradLS,
                                              DistSVec<double,3> &X,
                                              DistVec<double> &ctrlVol,
                                              DistSVec<double,dim> &V, DistMat<Scalar,neq> &A,
@@ -1582,8 +1582,6 @@ void Domain::computeGalerkinBarTerm(bool doInitialTasks,
 
 //------------------------------------------------------------------------------
 
-#include <GeoState.h>
-#include <NodalGrad.h>
 template<int dim>
 void Domain::computePointWiseSourceTerm(DistGeoState &geoState, DistVec<double> &ctrlVol,
 					DistNodalGrad<dim> &ngrad, DistSVec<double,dim> &VV,
@@ -2457,31 +2455,6 @@ void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
-void Domain::computeH2LS(
-                       DistGeoState &geoState,
-                       DistSVec<double,3> &X, DistSVec<double,dim> &V,
-                       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,1> &H2)
-{
-
-  double t0 = timer->getTime();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeH2LS(geoState(iSub),
-                               X(iSub), V(iSub), ngrad(iSub), H2(iSub));
-//    subDomain[iSub]->precomputeRec(recFcn, X(iSub), V(iSub), ngrad(iSub),
-//                                   aij(iSub), aji(iSub), bij(iSub), bji(iSub));
-  }
-
-  double t = timer->addH2SetupTime(t0);
-
-  com->printf(6, "H2 matrix computation: %f s\n", t);
-
-}
-
-//------------------------------------------------------------------------------
-
 template<class Scalar1, class Scalar2, int dim>
 void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
 	     DistVec<double> &ctrlVol, DistMat<Scalar1,dim> &H2,
@@ -2508,35 +2481,6 @@ void Domain::computeMatVecProdH2(RecFcn *recFcn, DistSVec<double,3> &X,
     subDomain[iSub]->addRcvData(*vPat, prod.subData(iSub));
 
 }
-//------------------------------------------------------------------------------
-
-template<class Scalar1, class Scalar2>
-void Domain::computeMatVecProdH2LS(RecFcn *recFcn, DistSVec<double,3> &X,
-             DistVec<double> &ctrlVol, DistMat<Scalar1,1> &H2,
-             DistSVec<double,1> &aij, DistSVec<double,1> &aji,
-             DistSVec<double,1> &bij, DistSVec<double,1> &bji,
-             DistVec<Scalar2> &p,
-             DistVec<Scalar2> &prod)  {
-  int iSub;
-
-//  CommPattern<Scalar2> *vPat = getCommPat(p);
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeMatVecProdH2LS(recFcn, X(iSub), ctrlVol(iSub), H2(iSub),
-                     aij(iSub), aji(iSub), bij(iSub), bji(iSub),
-                     p(iSub), prod(iSub));
-    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(prod.subData(iSub)));
-  }
-
-  volPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(prod.subData(iSub)));
-
-}
-
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
@@ -2863,19 +2807,6 @@ int Domain::checkSolution(VarFcn *varFcn, DistVec<double> &ctrlVol,
 }
 //------------------------------------------------------------------------------
 
-template<int dim>
-void Domain::restrictionOnPhi(DistSVec<double,dim> &initial, DistSVec<double,1> &Phi,
-             DistSVec<double,dim> &restriction, int sign){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->restrictionOnPhi(initial(iSub),Phi(iSub),
-                                      restriction(iSub), sign);
-
-}
-
-//------------------------------------------------------------------------------
-
 template<int dim, int neq>
 int Domain::clipSolution(TsData::Clipping ctype, BcsWallData::Integration wtype,
 			 VarFcn* varFcn, double* Uin, DistSVec<double,dim>& U)
@@ -3146,61 +3077,6 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
-                   VolumeInitialConditions &ic, DistSVec<double,dim> &U)
-{
-
-  // It is assumed that the initialization using volumes is only
-  // called to distinguish nodes that are separated by a material
-  // interface (structure). Thus one node cannot be at
-  // the boundary of two fluids. A fluid node then gets its
-  // id from the element id and there cannot be any problem
-  // for parallelization.
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUVolumesInitialConditions(volid, fm, ic, U(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
-                   SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUMultiFluidInitialConditionsSphere(fm, ic, X(iSub), U(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub), nodeTag(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS)
 {
@@ -3233,143 +3109,15 @@ void Domain::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistS
 
 }
 
-//------------------------------------------------------------------------------
-
-template<int dim>
-void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dim> &lsgrad,
-                                DistSVec<double,dim> &Phi, DistSVec<double,dim> &Psi,
-                                DistVec<int> &Tag,
-                                DistVec<double> &w, DistVec<double> &beta,
-                                DistSVec<double,dim> &PsiRes, bool localdt,
-                                int typeTracking)
-{
-
-  int iSub;
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computePsiResidual(X(iSub), lsgrad(iSub), Phi(iSub),
-                                        Psi(iSub), Tag(iSub), w(iSub),
-                                        beta(iSub), PsiRes(iSub),typeTracking);
-    subDomain[iSub]->sndData(*vecPat, PsiRes.subData(iSub));
-  }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->addRcvData(*vecPat, PsiRes.subData(iSub));
-    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(beta.subData(iSub)));
-  }
-
-  volPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(beta.subData(iSub)));
-  }
-
-  com->barrier();
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(w.subData(iSub)));
-  }
-
-  volPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(w.subData(iSub)));
-    subDomain[iSub]->computePsiResidual2(Tag(iSub), w(iSub),beta(iSub),PsiRes(iSub));
-  }
-  com->barrier();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->computePsiResidual3(beta.max(), Tag(iSub), w(iSub),beta(iSub),PsiRes(iSub),localdt);
-  }
-
-}
 //-------------------------------------------------------------------------------
-template<int dim>
-void Domain::computeDistanceCloseNodes(DistVec<int> &Tag, DistSVec<double,3> &X,
-                                       DistNodalGrad<dim> &lsgrad,
-                                       DistSVec<double,dim> &Phi,DistSVec<double,dim> &Psi,
-                                       MultiFluidData::CopyCloseNodes copy)
-{
-  if(copy==MultiFluidData::FALSE){
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->computeDistanceCloseNodes(Tag(iSub), X(iSub), lsgrad(iSub), Phi(iSub), Psi(iSub));
-    subDomain[iSub]->sndData(*vecPat, Psi.subData(iSub));
-  }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->minRcvData(*vecPat, Psi.subData(iSub));
-    subDomain[iSub]->recomputeDistanceCloseNodes(Tag(iSub), X(iSub), lsgrad(iSub), Phi(iSub), Psi(iSub));
-    subDomain[iSub]->sndData(*vecPat, Psi.subData(iSub));
-  }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->minRcvData(*vecPat, Psi.subData(iSub));
-  }else{
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->copyCloseNodes(1,Tag(iSub),Phi(iSub),Psi(iSub));
-  }
-
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void Domain::computeDistanceLevelNodes(DistVec<int> &Tag, int level,
-                                       DistSVec<double,3> &X,DistSVec<double,dim> &Psi,
-                                       double &res, DistSVec<double,dim> &Phi,
-                                       MultiFluidData::CopyCloseNodes copy)
-{
-  if(copy==MultiFluidData::TRUE && level==2){
-#pragma omp parallel for
-    for (int iSub = 0; iSub < numLocSub; ++iSub)
-      subDomain[iSub]->copyCloseNodes(2,Tag(iSub),Phi(iSub),Psi(iSub));
-    return;
-  }
-
-#pragma omp parallel for reduction(+: res)
-  for (int iSub = 0; iSub < numLocSub; ++iSub){
-    res+=subDomain[iSub]->computeDistanceLevelNodes(Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
-    subDomain[iSub]->sndData(*vecPat, Psi.subData(iSub));
-  }
-
-  vecPat->exchange();
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->minRcvData(*vecPat, Psi.subData(iSub));
-
-  com->globalSum(1, &res);
-  res = sqrt(res);
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void Domain::checkNodePhaseChange(DistSVec<double,dim> &X)
+template<int dimLS>
+void Domain::checkNodePhaseChange(DistSVec<double,dimLS> &PhiProduct)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->checkNodePhaseChange(X(iSub));
+    subDomain[iSub]->checkNodePhaseChange(PhiProduct(iSub));
 
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void Domain::getSignedDistance(DistSVec<double,dim> &Psi, DistSVec<double,dim> &Phi)
-{
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->getSignedDistance(Psi(iSub),Phi(iSub));
 }
 //-------------------------------------------------------------------------------
 template<int dim>
@@ -3382,17 +3130,6 @@ void Domain::storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluid
 
   assemble(vecPat, Vupdate);
   assemble(volPat, weight);
-
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void Domain::checkWeights(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin,
-                          DistSVec<double,dim> &Update, DistVec<double> &Weight)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->checkWeights(Phi(iSub),Phin(iSub),Update(iSub),Weight(iSub));
 
 }
 //-------------------------------------------------------------------------------
@@ -3578,4 +3315,392 @@ void Domain::computePrdtWCtrlVolRatio(DistSVec<double,dim> &ratioTimesU, DistSVe
 }
 
 //-------------------------------------------------------------------------------
+//---------------------- LEVEL SET (PHI) ----------------------------------------
+//-------------------------------------------------------------------------------
+
+
+template<int dimLS>
+void Domain::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistVec<double> &weight){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub));
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::setPhiForFluid1(DistSVec<double,dimLS> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForFluid1(Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
+                                          double zb, double r, double invertGasLiquid,
+                                          DistSVec<double,dimLS> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiWithDistanceToGeometry(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
+                                          double zb, double r, double invertGasLiquid,
+                                          DistSVec<double,dimLS> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiByGeometricOverwriting(X(iSub),xb,yb,zb,r,
+                                                  invertGasLiquid, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
+                                DistSVec<double,dimLS> &Phi)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForShockTube(X(iSub), radius, Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
+                             double z, double radius,
+                             double invertGasLiquid, DistSVec<double,dimLS> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setPhiForBubble(X(iSub),
+                                     x, y, z, radius, invertGasLiquid,
+                                     Phi(iSub));
+
+}
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::setupPhiVolumesInitialConditions(const int volid, DistSVec<double,dimLS> &Phi){
+
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
+               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsSphere(ic, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupPhiMultiFluidInitialConditionsPlane(ip, X(iSub), Phi(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistSVec<double,dimLS> &Phi,
+                               int level)
+{
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->TagInterfaceNodes(Tag(iSub),Phi(iSub),level);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+  }
+
+  levelPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+
+
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi,
+                                    int level)
+{
+
+	int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
+    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
+    subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
+  }
+
+  levelPat->exchange();
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->TagPsiExchangeData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),
+                                        *volPat, Psi.subData(iSub));
+
+}
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::printPhi(DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, int it)
+{
+  com->barrier();
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->printPhi(X(iSub), Phi(iSub), numLocSub);
+  com->barrier();
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::computePrdtPhiCtrlVolRatio(DistSVec<double,dimLS> &ratioTimesPhi, DistSVec<double,dimLS> &Phi, DistVec<double> &ctrlVol, DistGeoState &geoState) {
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++)
+    subDomain[iSub]->computePrdtPhiCtrlVolRatio(ratioTimesPhi(iSub), Phi(iSub), ctrlVol(iSub), geoState(iSub));
+
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::restrictionOnPhi(DistSVec<double,dim> &initial, DistVec<int> &fluidId,
+                              DistSVec<double,dim> &restriction, int fluidIdTarget){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->restrictionOnPhi(initial(iSub),fluidId(iSub),
+                                      restriction(iSub), fluidIdTarget);
+
+}
+
+//-------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::getSignedDistance(DistSVec<double,dimLS> &Psi, DistSVec<double,dimLS> &Phi)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->getSignedDistance(Psi(iSub),Phi(iSub));
+}
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void Domain::computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dimLS> &lsgrad,
+                                DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Psi,
+                                DistVec<int> &Tag,
+                                DistVec<double> &w, DistVec<double> &beta,
+                                DistSVec<double,dimLS> &PsiRes, bool localdt,
+                                int typeTracking)
+{
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->computePsiResidual(X(iSub), lsgrad(iSub), Phi(iSub),
+                                        Psi(iSub), Tag(iSub), w(iSub),
+                                        beta(iSub), PsiRes(iSub),typeTracking);
+    subDomain[iSub]->sndData(*phiVecPat, PsiRes.subData(iSub));
+  }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->addRcvData(*phiVecPat, PsiRes.subData(iSub));
+    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(beta.subData(iSub)));
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(beta.subData(iSub)));
+  }
+
+  com->barrier();
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(w.subData(iSub)));
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(w.subData(iSub)));
+    subDomain[iSub]->computePsiResidual2(Tag(iSub), w(iSub),beta(iSub),PsiRes(iSub));
+  }
+  com->barrier();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->computePsiResidual3(beta.max(), Tag(iSub), w(iSub),beta(iSub),PsiRes(iSub),localdt);
+  }
+
+}
+//-------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::computeDistanceCloseNodes(DistVec<int> &Tag, DistSVec<double,3> &X,
+                                       DistNodalGrad<dimLS> &lsgrad,
+                                       DistSVec<double,dimLS> &Phi,DistSVec<double,dimLS> &Psi,
+                                       MultiFluidData::CopyCloseNodes copy)
+{
+  if(copy==MultiFluidData::FALSE){
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->computeDistanceCloseNodes(Tag(iSub), X(iSub), lsgrad(iSub), Phi(iSub), Psi(iSub));
+    subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
+  }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
+    subDomain[iSub]->recomputeDistanceCloseNodes(Tag(iSub), X(iSub), lsgrad(iSub), Phi(iSub), Psi(iSub));
+    subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
+  }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
+  }else{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->copyCloseNodes(1,Tag(iSub),Phi(iSub),Psi(iSub));
+  }
+
+}
+//-------------------------------------------------------------------------------
+template<int dimLS>
+void Domain::computeDistanceLevelNodes(DistVec<int> &Tag, int level,
+                                       DistSVec<double,3> &X,DistSVec<double,dimLS> &Psi,
+                                       double &res, DistSVec<double,dimLS> &Phi,
+                                       MultiFluidData::CopyCloseNodes copy)
+{
+  if(copy==MultiFluidData::TRUE && level==2){
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->copyCloseNodes(2,Tag(iSub),Phi(iSub),Psi(iSub));
+    return;
+  }
+
+#pragma omp parallel for reduction(+: res)
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    res+=subDomain[iSub]->computeDistanceLevelNodes(Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
+    subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
+  }
+
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
+
+  com->globalSum(1, &res);
+  res = sqrt(res);
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
+                   VolumeInitialConditions &ic, DistSVec<double,dim> &U)
+{
+
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUVolumesInitialConditions(volid, fm, ic, U(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+                   SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsSphere(fm, ic, X(iSub), U(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+                   PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub), nodeTag(iSub));
+
+}
+
+//------------------------------------------------------------------------------
 

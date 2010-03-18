@@ -616,50 +616,50 @@ public:
   }
 
 // Level Set Reinitialization
-  template<int dim>
-  void computePsiResidual(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                          SVec<double,dim> &ddx,SVec<double,dim> &ddy, 
-                          SVec<double,dim> &ddz, Vec<int> &Tag,
-                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+  template<int dimLS>
+  void computePsiResidual(SVec<double,3> &X,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi,
+                          SVec<double,dimLS> &ddx,SVec<double,dimLS> &ddy, 
+                          SVec<double,dimLS> &ddz, Vec<int> &Tag,
+                          Vec<double> &w,Vec<double> &beta, SVec<double,dimLS> &PsiRes,
 			  int typeTracking){
-    ElemHelper_dim<dim> h;
+    ElemHelper_dim<dimLS> h;
     char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
   }
 
-  template<int dim>
+  template<int dimLS>
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi){
-    ElemHelper_dim<dim> h;
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi){
+    ElemHelper_dim<dimLS> h;
     char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
 
-  template<int dim>
+  template<int dimLS>
   void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi){
-    ElemHelper_dim<dim> h;
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi){
+    ElemHelper_dim<dimLS> h;
     char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
   }
 
-  template<int dim>
+  template<int dimLS>
   void computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi){
-    ElemHelper_dim<dim> h;
+                                 SVec<double,3> &X, SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi){
+    ElemHelper_dim<dimLS> h;
     char xx[64];
-    GenElemWrapper_dim<dim> *wrapper=
-      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    GenElemWrapper_dim<dimLS> *wrapper=
+      (GenElemWrapper_dim<dimLS> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
   }
 
@@ -770,33 +770,33 @@ public:
   }
 
 // Level Set Reinitialization
-  template<int dim>
-  void computePsiResidual(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,SVec<double,dim> &ddz,
-                          Vec<int> &Tag, Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+  template<int dimLS>
+  void computePsiResidual(SVec<double,3> &X,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi,
+                          SVec<double,dimLS> &ddx,SVec<double,dimLS> &ddy,SVec<double,dimLS> &ddz,
+                          Vec<int> &Tag, Vec<double> &w,Vec<double> &beta, SVec<double,dimLS> &PsiRes,
 			  int typeTracking){
     fprintf(stderr, "Error: undefined function (computePsiResidual) for this elem type\n"); exit(1);
   }
 
-  template<int dim>
+  template<int dimLS>
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi){
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi){
     fprintf(stderr, "Error: undefined function (computeDistanceCloseNodes) for this elem type\n"); exit(1);
   }
 
-  template<int dim>
+  template<int dimLS>
   void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi){
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi){
     fprintf(stderr, "Error: undefined function (recomputeDistanceCloseNodes) for this elem type\n"); exit(1);
   }
 
-  template<int dim>
+  template<int dimLS>
   void computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi){
+                                 SVec<double,3> &X, SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi){
     fprintf(stderr, "Error: undefined function (computeDistanceLevelNodes) for this elem type\n"); exit(1);
   }
 
@@ -868,25 +868,25 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
 // Level Set Reinitialization
-  template<int dim>
-  void computePsiResidual(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-			  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-			  SVec<double,dim> &ddz, Vec<int> &Tag,
-			  Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
+  template<int dimLS>
+  void computePsiResidual(SVec<double,3> &X,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi,
+			  SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+			  SVec<double,dimLS> &ddz, Vec<int> &Tag,
+			  Vec<double> &w,Vec<double> &beta, SVec<double,dimLS> &PsiRes,
 			  int typeTracking);
-  template<int dim>
+  template<int dimLS>
   void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
-  template<int dim>
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi);
+  template<int dimLS>
   void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                 SVec<double,dim> &ddx, SVec<double,dim> &ddy,
-                                 SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
-  template<int dim>
+                                 SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
+                                 SVec<double,dimLS> &ddz,
+                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi);
+  template<int dimLS>
   void computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi);
+                                 SVec<double,3> &X, SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi);
 
 
 };

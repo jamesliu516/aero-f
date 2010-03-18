@@ -11,10 +11,10 @@
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt,
 			    DistTimeState<dim> &timeState, DistGeoState &geoState,
-			    LevelSet *levelSet)
+			    LevelSet<dimLS> *levelSet)
 {
 
   iteration = it;

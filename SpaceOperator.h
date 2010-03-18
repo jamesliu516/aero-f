@@ -41,7 +41,7 @@ template<int dim, class Scalar = double> class DistNodalGrad;
 template<int dim>
 class SpaceOperator {
 
-private:
+protected:
 
   VarFcn *varFcn;
   DistBcData<dim> *bcData;
@@ -61,16 +61,16 @@ private:
   FluxFcn **fluxFcnSA;
   RecFcn *recFcnSA;
 
-private:
+protected:
 
   bool locAlloc;
 
   BcFcn *bcFcn;
   FluxFcn **fluxFcn;
   RecFcn *recFcn;
-  RecFcn *recFcnLS;
+  //RecFcn *recFcnLS;
   DistNodalGrad<dim, double> *ngrad;
-  DistNodalGrad<1, double> *ngradLS;
+  //DistNodalGrad<dimLS, double> *ngradLS;
   DistNodalGrad<dim, bcomp> *compNodalGrad;
 
   DistEdgeGrad<dim> *egrad;
@@ -105,7 +105,6 @@ public:
   ~SpaceOperator();
 
   DistNodalGrad<dim, double> *getDistNodalGrad(DistSVec<double,dim> &)  { return ngrad; }
-  //DistNodalGrad<1, double> *getDistNodalGrad(DistVec<double> &)  { return ngradLS; }
   DistNodalGrad<dim, bcomp> *getDistNodalGrad(DistSVec<bcomp,dim> &)  { return compNodalGrad; }
 
   int getSpaceOrder() {return order;}
@@ -115,7 +114,7 @@ public:
   BcFcn *createBcFcn(IoData &);
   FluxFcn **createFluxFcn(IoData &);
   RecFcn *createRecFcn(IoData &);
-  RecFcn *createRecFcnLS(IoData &);
+  //RecFcn *createRecFcnLS(IoData &);
   FemEquationTerm *createFemEquationTerm(IoData &);
   VolumicForceTerm *createVolumicForceTerm(IoData &);
   void setBcFcn(BcFcn *);
@@ -134,15 +133,15 @@ public:
 // Included (MB)
   void computeResidual(DistExactRiemannSolver<dim> *,
                        DistSVec<double,3> &, DistVec<double> &,
-		       DistSVec<double,dim> &, DistSVec<double,dim> &,
+                       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
-// Included (MB)
-  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,1> &,
-                       DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int it,
-                       DistSVec<double,dim> * = 0,
-                       DistSVec<double,dim> * = 0);
+  //template<int dimLS>
+  //void computeResidual(DistSVec<double,3> &, DistVec<double> &,
+  //                     DistSVec<double,dim> &, DistSVec<double,dimLS> &,
+  //                     DistVec<int> &, DistSVec<double,dim> &,
+  //                     DistExactRiemannSolver<dim> *, int it,
+  //                     DistSVec<double,dim> * = 0,
+  //                     DistSVec<double,dim> * = 0);
 // Kevin's FSI with FS Riemann solver
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -156,8 +155,9 @@ public:
                        bool, DistVec<int> &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int, int it = 0);
 
-  void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,1> &, DistVec<int> &, DistSVec<double,dim> &,DistSVec<double,1> &);
+  //template<int dimLS>
+  //void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
+  //                     DistSVec<double,dimLS> &, DistVec<int> &, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
 
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -191,11 +191,6 @@ public:
 		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
 		       DistTimeState<dim> *);
 
-  template<class Scalar, int neq>
-  void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                       DistVec<int> &, DistExactRiemannSolver<dim> *);
-
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);
 
@@ -221,11 +216,6 @@ public:
 		 DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  template<class Scalar>
-  void computeH2LS(DistSVec<double,3> &, DistVec<double> &,
-                   DistVec<double> &, DistSVec<double,dim> &,
-                   DistMat<Scalar,1> &);
-
   template<class Scalar1, class Scalar2>
   void applyH2(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &,
                DistMat<Scalar1,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -238,13 +228,6 @@ public:
                 DistSVec<double,dim> &, DistSVec<double,dim> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &,
                 DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &);
-
-  template<class Scalar1, class Scalar2>
-  void applyH2LS(DistSVec<double,3> &, DistVec<double> &ctrlVol,
-                 DistVec<double> &, DistMat<Scalar1,1> &,
-                 DistSVec<double,1> &, DistSVec<double,1> &,
-                 DistSVec<double,1> &, DistSVec<double,1> &,
-                 DistVec<Scalar2> &, DistVec<Scalar2> &);
 
   template<class Scalar, int neq>
   void printAllMatrix(DistMat<Scalar,neq> &, int);
@@ -291,6 +274,41 @@ public:
                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji);
 };
 
+//------------------------------------------------------------------------------
+template<int dim, int dimLS>
+class MultiPhaseSpaceOperator : public SpaceOperator<dim> {
+
+protected:
+
+  RecFcn *recFcnLS;
+  DistNodalGrad<dimLS, double> *ngradLS; 
+
+public:
+
+  MultiPhaseSpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
+		Domain *, DistSVec<double,dim> * = 0);
+  MultiPhaseSpaceOperator(const MultiPhaseSpaceOperator<dim,dimLS> &, bool);
+  ~MultiPhaseSpaceOperator();
+
+  RecFcn *createRecFcnLS(IoData &);
+
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistSVec<double,dimLS> &,
+                       DistVec<int> &, DistSVec<double,dim> &,
+                       DistExactRiemannSolver<dim> *, int it,
+                       DistSVec<double,dim> * = 0,
+                       DistSVec<double,dim> * = 0);
+
+  void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
+                         DistSVec<double,dimLS> &, DistVec<int> &, 
+                         DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+
+  template<class Scalar, int neq>
+  void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
+                       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
+                       DistVec<int> &, DistExactRiemannSolver<dim> *);
+
+};
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

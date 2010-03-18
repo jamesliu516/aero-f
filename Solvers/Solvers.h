@@ -39,7 +39,7 @@ NavierStokesSegSolver {
      static void solve(IoData &ioData, GeoSource &geoSource, Domain &domain);
 };
 
-template<int dim>
+template<int dim, int dimLS>
 class
 LevelSetSolver {
    public:
