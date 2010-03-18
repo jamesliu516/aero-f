@@ -46,6 +46,7 @@ class TetMeshMotionSolver : public MeshMotionSolver {
 public:
 
   typedef DistSVec<double,3> SolVecType;
+  typedef DistSVec<double,1> PhiVecType;
   typedef DistVec<double> VolVecType;
 
 private:

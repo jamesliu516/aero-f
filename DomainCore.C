@@ -45,6 +45,7 @@ Domain::Domain()
   inletNodeDistInfo = 0;
 
   vecPat = 0;
+  phiVecPat = 0;
   compVecPat = 0;
   vec3DPat = 0;
   volPat = 0;
@@ -123,6 +124,7 @@ Domain::~Domain()
   if (inletNodeDistInfo) delete inletNodeDistInfo;
 
   if (vecPat) delete vecPat;
+  if (phiVecPat) delete phiVecPat;
   if (compVecPat) delete compVecPat;
   if (vec3DPat) delete vec3DPat;
   if (volPat) delete volPat;
@@ -296,6 +298,20 @@ void Domain::createVecPat(int dim, IoData *ioData)
 
       compVecPat->finalize();
     }
+}
+
+//------------------------------------------------------------------------------
+
+void Domain::createPhiVecPat(int dimLS, IoData *ioData)
+{
+  phiVecPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->setComLenNodes(dimLS, *phiVecPat);
+
+  phiVecPat->finalize();
+
 }
 
 //------------------------------------------------------------------------------
@@ -1291,173 +1307,6 @@ void Domain::computeDelRatios(DistMacroCellSet *macroCells, DistVec<double> &ctr
 }
 
 //------------------------------------------------------------------------------
-//         LEVEL SET SOLUTION AND REINITIALIZATION                           --
-//------------------------------------------------------------------------------
-
-void Domain::avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-void Domain::avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin, DistVec<double> &weight){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub));
-}
-//------------------------------------------------------------------------------
-void Domain::setPhiForFluid1(DistSVec<double,1> &Phi)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhiForFluid1(Phi(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-void Domain::setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
-                                          double zb, double r, double invertGasLiquid,
-                                          DistSVec<double,1> &Phi)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhiWithDistanceToGeometry(X(iSub),xb,yb,zb,r,
-                                                  invertGasLiquid, Phi(iSub));
-
-}
-//------------------------------------------------------------------------------
-void Domain::setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
-                                          double zb, double r, double invertGasLiquid,
-                                          DistSVec<double,1> &Phi)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhiByGeometricOverwriting(X(iSub),xb,yb,zb,r,
-                                                  invertGasLiquid, Phi(iSub));
-
-}
-//------------------------------------------------------------------------------
-void Domain::setPhiForShockTube(DistSVec<double,3> &X, double radius,
-                                DistSVec<double,1> &Phi)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhiForShockTube(X(iSub), radius, Phi(iSub));
-
-}
-//------------------------------------------------------------------------------
-void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
-                             double z, double radius,
-                             double invertGasLiquid, DistSVec<double,1> &Phi){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setPhiForBubble(X(iSub),
-                                     x, y, z, radius, invertGasLiquid,
-                                     Phi(iSub));
-
-}
-//------------------------------------------------------------------------------
-
-void Domain::setupPhiVolumesInitialConditions(const int volid, DistSVec<double,1> &Phi){
-
-  // It is assumed that the initialization using volumes is only
-  // called to distinguish nodes that are separated by a material
-  // interface (structure). Thus one node cannot be at
-  // the boundary of two fluids. A fluid node then gets its
-  // id from the element id and there cannot be any problem
-  // for parallelization.
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-void Domain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-               DistSVec<double,3> &X, DistSVec<double,1> &Phi){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupPhiMultiFluidInitialConditionsSphere(ic, X(iSub), Phi(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-void Domain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-               DistSVec<double,3> &X, DistSVec<double,1> &Phi){
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupPhiMultiFluidInitialConditionsPlane(ip, X(iSub), Phi(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-void Domain::TagInterfaceNodes(DistVec<int> &Tag, DistSVec<double,1> &Phi,
-                               int level)
-{
-
-  int iSub;
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->TagInterfaceNodes(Tag(iSub),Phi(iSub),level);
-    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-  }
-
-  levelPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-
-
-
-}
-//------------------------------------------------------------------------------
-void Domain::FinishReinitialization(DistVec<int> &Tag, DistSVec<double,1> &Psi,
-                                    int level)
-{
-
-	int iSub;
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub){
-    subDomain[iSub]->FinishReinitialization(Tag(iSub),Psi(iSub),level);
-    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)));
-    subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
-  }
-
-  levelPat->exchange();
-  volPat->exchange();
-
-#pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->TagPsiExchangeData(*levelPat, reinterpret_cast<int (*)[1]>(Tag.subData(iSub)),
-                                        *volPat, Psi.subData(iSub));
-
-}
-//------------------------------------------------------------------------------
-
-void Domain::printPhi(DistSVec<double,3> &X, DistSVec<double,1> &Phi, int it)
-{
-  com->barrier();
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->printPhi(X(iSub), Phi(iSub), numLocSub);
-  com->barrier();
-}
-
-//------------------------------------------------------------------------------
 //         SOLID LEVEL SET SOLUTION                                           --
 //------------------------------------------------------------------------------
 
@@ -1595,16 +1444,3 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
 }
 
 //-------------------------------------------------------------------------------
-
-void Domain::computePrdtPhiCtrlVolRatio(DistSVec<double,1> &ratioTimesPhi, DistSVec<double,1> &Phi, DistVec<double> &ctrlVol, DistGeoState &geoState) {
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    subDomain[iSub]->computePrdtPhiCtrlVolRatio(ratioTimesPhi(iSub), Phi(iSub), ctrlVol(iSub), geoState(iSub));
-
-}
-
-//-------------------------------------------------------------------------------
-
-
-

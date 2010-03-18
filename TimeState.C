@@ -67,10 +67,11 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 // If running Non-Modal, adds invA*d(AW)/dt to the flux invA*F
 
 template<int dim>
+template<int dimLS>
 void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState, 
-					Vec<double> &ctrlVol, SVec<double,1> &Q, 
-					SVec<double,1> &Qn, SVec<double,1> &Qnm1,
-					SVec<double,1> &Qnm2, SVec<double,1> &R)
+					Vec<double> &ctrlVol, SVec<double,dimLS> &Q, 
+					SVec<double,dimLS> &Qn, SVec<double,dimLS> &Qnm1,
+					SVec<double,dimLS> &Qnm2, SVec<double,dimLS> &R)
 {
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
@@ -95,12 +96,14 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
       c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
     }
 
-    double dAWdt = invDt * (c_np1*Q[i][0] + c_n*Qn[i][0] +
-                            c_nm1*Qnm1[i][0] + c_nm2*Qnm2[i][0]);
-    if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
-      R[i][0] = dAWdt + 0.5 * (R[i][0] + Rn[i][1]);
-    else
-      R[i][0] += dAWdt;
+    for (int idim=0; idim<dimLS; idim++){
+      double dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
+                              c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+        R[i][idim] = dAWdt + 0.5 * (R[i][idim] + Rn[i][idim]);
+      else
+        R[i][idim] += dAWdt;
+   }
 
   }
 }
@@ -551,43 +554,6 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
 
 }
 
-//------------------------------------------------------------------------------
-                                                                                                         
-template<int dim>
-template<class Scalar>
-void TimeState<dim>::addToH2LS(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
-                             SVec<double,dim> &V, GenMat<Scalar,1> &A)
-{
-                                                                                                         
-  double dfdUi[1], dfdVi[1];
-                                                                                                         
-  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
-                                                                                                         
-  if (data.use_modal == true && data.use_freq == false) A *= 0.5;
-                                                                                                         
-  double c_np1;
-  for (int i=0; i<dt.size(); ++i) {
-                                                                                                         
-    if (nodeFlag && !nodeFlag[i]) continue;
-                                                                                                         
-    if (data.use_freq == true)
-      c_np1 = data.alpha_np1 * ctrlVol[i];
-    else
-      c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
-                                                                                                         
-    int k;
-    for (k=0; k<1; ++k) dfdUi[k] = 0.0;
-    for (k=0; k<1; ++k) dfdUi[k + k] = c_np1;
-                                                                                                         
-//    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
-                                                                                                         
-    Scalar *Aii = A.getElem_ii(i);
-                                                                                                         
-    for (k=0; k<1; ++k) Aii[k] += dfdUi[k];
-                                                                                                         
-  }
-                                                                                                         
-}
 //------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar>

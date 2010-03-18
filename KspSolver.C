@@ -120,7 +120,7 @@ RichardsonSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solveLS(VecType &b, VecType 
 
   int iter;
   for (iter=0; iter<this->maxits; ++iter) {
-    this->mvpOp->applyLS(x, r);
+    this->mvpOp->apply(x, r);
     r = b - r;
     res = sqrt(r*r);
 
@@ -136,7 +136,7 @@ RichardsonSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solveLS(VecType &b, VecType 
   }
 
   if (this->checkFinalRes) {
-    this->mvpOp->applyLS(x, r);
+    this->mvpOp->apply(x, r);
     r = b - r;
     if (this->output)
       this->ioOp->fprintf(this->output, "  %d %e (actual residual norm)\n", iter, sqrt(r*r));
@@ -239,7 +239,7 @@ template<class VecType, class MatVecProdOp, class PrecOp, class IoOp>
 int
 CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solveLS(VecType &f, VecType &x)
 {
-  this->mvpOp->applyLS(x, Ap);
+  this->mvpOp->apply(x, Ap);
   r = f - Ap;
 
   double res = sqrt(r*r);
@@ -253,7 +253,7 @@ CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solveLS(VecType &f, VecType &x)
   if (res <= target) return 0;
 
   this->pcOp->apply(r, p);
-  this->mvpOp->applyLS(p, Ap);
+  this->mvpOp->apply(p, Ap);
 
   double pAp = p * Ap;
   double nu = p * r / pAp;
@@ -270,7 +270,7 @@ CgSolver<VecType,MatVecProdOp,PrecOp,IoOp>::solveLS(VecType &f, VecType &x)
     this->pcOp->apply(r, y);
     double alpha = Ap * y / pAp;
     p = y - alpha * p;
-    this->mvpOp->applyLS(p, Ap);
+    this->mvpOp->apply(p, Ap);
     pAp = p * Ap;
     nu = p * r / pAp;
 
@@ -457,7 +457,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveLS(VecType &b, VecT
 
   do {
 
-    this->mvpOp->applyLS(x, w);
+    this->mvpOp->apply(x, w);
     r = b - w;
 
     if (typePrec == 1) { this->pcOp->apply(r, w); r = w; }
@@ -481,9 +481,9 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveLS(VecType &b, VecT
     int j;
     for (j=0; j<numVec; ++j) {
       switch (typePrec) {
-      case 0: { this->mvpOp->applyLS(V[j], w); } break;
-      case 1: { this->mvpOp->applyLS(V[j], r); this->pcOp->apply(r, w); } break;
-      case 2: { this->pcOp->apply(V[j], r); this->mvpOp->applyLS(r, w); } break;
+      case 0: { this->mvpOp->apply(V[j], w); } break;
+      case 1: { this->mvpOp->apply(V[j], r); this->pcOp->apply(r, w); } break;
+      case 2: { this->pcOp->apply(V[j], r); this->mvpOp->apply(r, w); } break;
       }
 
       for (int i=0; i<=j; ++i) {
@@ -525,7 +525,7 @@ GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveLS(VecType &b, VecT
   } while (exitLoop == 0);
 
   if (this->checkFinalRes) {
-    this->mvpOp->applyLS(x, w);
+    this->mvpOp->apply(x, w);
     r = b - w;
     if (typePrec == 1) {
       this->pcOp->apply(r, w);

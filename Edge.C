@@ -377,13 +377,13 @@ void EdgeSet::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<double>
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, Vec<int> &fluidId,
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                     NodalGrad<1>& ngradLS,
+                                     NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<double,dim>* interfaceFlux,
                                      SVec<int,2>& tag, int failsafe, int rshift)
@@ -395,9 +395,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   SVec<double,dim>& dVdx = ngrad.getX();
   SVec<double,dim>& dVdy = ngrad.getY();
   SVec<double,dim>& dVdz = ngrad.getZ();
-  SVec<double,1>& dPdx = ngradLS.getX();
-  SVec<double,1>& dPdy = ngradLS.getY();
-  SVec<double,1>& dPdz = ngradLS.getZ();
+  SVec<double,dimLS>& dPdx = ngradLS.getX();
+  SVec<double,dimLS>& dPdy = ngradLS.getY();
+  SVec<double,dimLS>& dPdz = ngradLS.getZ();
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
   double Wi[2*dim], Wj[2*dim];
@@ -451,12 +451,16 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else{			// interface
       //ngradLS returns nodal gradients of primitive phi
-      gphii[0] = dPdx[i][0];
-      gphii[1] = dPdy[i][0];
-      gphii[2] = dPdz[i][0];
-      gphij[0] = dPdx[j][0];
-      gphij[1] = dPdy[j][0];
-      gphij[2] = dPdz[j][0];
+      //TODO: Multiphase : need fluidSelector
+      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
+      int lsdim = 0;
+      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
+      gphii[0] = dPdx[i][lsdim];
+      gphii[1] = dPdy[i][lsdim];
+      gphii[2] = dPdz[i][lsdim];
+      gphij[0] = dPdx[j][lsdim];
+      gphij[1] = dPdy[j][lsdim];
+      gphij[2] = dPdz[j][lsdim];
       for (int k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -900,12 +904,12 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                       ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                       SVec<double,dim>& V, NodalGrad<dim>& ngrad,
-                                      NodalGrad<1> &ngradLS,
-                                      EdgeGrad<dim>* egrad, SVec<double,1>& Phi, SVec<double,1>& PhiF)
+                                      NodalGrad<dimLS> &ngradLS,
+                                      EdgeGrad<dim>* egrad, SVec<double,dimLS>& Phi, SVec<double,dimLS>& PhiF)
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -914,12 +918,12 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
   SVec<double,dim>& dVdy  = ngrad.getY();
   SVec<double,dim>& dVdz  = ngrad.getZ();
   // in this routine Phi denotes the "conservative phi" ie (rho*phi)
-  SVec<double,1>& dPhidx = ngradLS.getX();
-  SVec<double,1>& dPhidy = ngradLS.getY();
-  SVec<double,1>& dPhidz = ngradLS.getZ();
+  SVec<double,dimLS>& dPhidx = ngradLS.getX();
+  SVec<double,dimLS>& dPhidy = ngradLS.getY();
+  SVec<double,dimLS>& dPhidz = ngradLS.getZ();
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim];
-  double ddPij[1], ddPji[1], Pi[2], Pj[2];
+  double ddPij[dimLS], ddPji[dimLS], Pi[2*dimLS], Pj[2*dimLS];
   double Uni, Unj;
   double Phia;
   double srho1, srho2, srhod;
@@ -935,25 +939,27 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
-    ddPij[0] = dx[0]*dPhidx[i][0] + dx[1]*dPhidy[i][0] + dx[2]*dPhidz[i][0];
-    ddPji[0] = dx[0]*dPhidx[j][0] + dx[1]*dPhidy[j][0] + dx[2]*dPhidz[j][0];
+    for (int k=0; k<dimLS; ++k) {
+      ddPij[k] = dx[k]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
+      ddPji[k] = dx[k]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
+    }
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
     recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
 
-    Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2] - normalVel[l];
-    Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2] - normalVel[l];
-    //Roe averaged variables
-    if(fabs(Pj[0]-Pi[0])<1.e-12*fabs(Pi[0]) || Pj[0]==Pi[0])
-      uroe     = 0.5*(Unj + Uni);
-    else
-      uroe     = (Pj[0]*Unj - Pi[0]*Uni)/(Pj[0]-Pi[0]);
+    Uni = Vi[1]*normal[l][0] + Vi[2]*normal[l][1] + Vi[3]*normal[l][2] - normalVel[l];
+    Unj = Vj[1]*normal[l][0] + Vj[2]*normal[l][1] + Vj[3]*normal[l][2] - normalVel[l];
 
     // roe flux
-    Phia = Uni*Pi[0] + Unj*Pj[0] - fabs(uroe)*(Pj[0]-Pi[0]);
-
-    PhiF[i][0] += 0.5*Phia;
-    PhiF[j][0] -= 0.5*Phia;
+    for (int k=0; k<dimLS; k++){
+      if(fabs(Pj[k]-Pi[k])<1.e-12*fabs(Pi[k]) || Pj[k]==Pi[k])
+        uroe     = 0.5*(Unj + Uni);
+      else
+        uroe     = (Pj[k]*Unj - Pi[k]*Uni)/(Pj[k]-Pi[k]);
+      Phia = Uni*Pi[k] + Unj*Pj[k] - fabs(uroe)*(Pj[k]-Pi[k]);
+      PhiF[i][k] += 0.5*Phia;
+      PhiF[j][k] -= 0.5*Phia;
+    }
   }
 }
 
@@ -1181,10 +1187,10 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
 }
 
 //----------------------------------------------------------
-template<int dim, class Scalar, int neq>
+template<int dim, class Scalar, int neq, int dimLS>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
-                                              NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                              NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                               SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<int> &fluidId)
@@ -1207,9 +1213,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   SVec<double,dim>& dVdx = ngrad.getX();
   SVec<double,dim>& dVdy = ngrad.getY();
   SVec<double,dim>& dVdz = ngrad.getZ();
-  SVec<double,1>& dPdx = ngradLS.getX();
-  SVec<double,1>& dPdy = ngradLS.getY();
-  SVec<double,1>& dPdz = ngradLS.getZ();
+  SVec<double,dimLS>& dPdx = ngradLS.getX();
+  SVec<double,dimLS>& dPdy = ngradLS.getY();
+  SVec<double,dimLS>& dPdz = ngradLS.getZ();
 
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
 
@@ -1226,12 +1232,16 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
-      gphii[0] = dPdx[i][0];
-      gphii[1] = dPdy[i][0];
-      gphii[2] = dPdz[i][0];
-      gphij[0] = dPdx[j][0];
-      gphij[1] = dPdy[j][0];
-      gphij[2] = dPdz[j][0];
+      //TODO: Multiphase : need fluidSelector
+      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
+      int lsdim = 0;
+      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
+      gphii[0] = dPdx[i][lsdim];
+      gphii[1] = dPdy[i][lsdim];
+      gphii[2] = dPdz[i][lsdim];
+      gphij[0] = dPdx[j][lsdim];
+      gphij[1] = dPdy[j][lsdim];
+      gphij[2] = dPdz[j][lsdim];
       for (k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -1276,16 +1286,15 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 }
 
 //------------------------------------------------------------------------------
-template<int dim, class Scalar, int neq>
+template<int dim, class Scalar, int neq, int dimLS>
 void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               FluxFcn **fluxFcn, GeoState &geoState,
-                                              NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                              NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                               SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
                                               GenMat<Scalar,neq> &A, Vec<int> &fluidId,
                                               int *nodeType)
 {
-
   /* in this function, rhs has already the values extrapolated at the inlet nodes
    * if we are in the case of water simulations
    * we are computing the jacobian matrix
@@ -1309,9 +1318,9 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   SVec<double,dim>& dVdx = ngrad.getX();
   SVec<double,dim>& dVdy = ngrad.getY();
   SVec<double,dim>& dVdz = ngrad.getZ();
-  SVec<double,1>& dPdx = ngradLS.getX();
-  SVec<double,1>& dPdy = ngradLS.getY();
-  SVec<double,1>& dPdz = ngradLS.getZ();
+  SVec<double,dimLS>& dPdx = ngradLS.getX();
+  SVec<double,dimLS>& dPdy = ngradLS.getY();
+  SVec<double,dimLS>& dPdz = ngradLS.getZ();
 
   VarFcn *varFcn;
 
@@ -1343,12 +1352,16 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
-      gphii[0] = dPdx[i][0];
-      gphii[1] = dPdy[i][0];
-      gphii[2] = dPdz[i][0];
-      gphij[0] = dPdx[j][0];
-      gphij[1] = dPdy[j][0];
-      gphij[2] = dPdz[j][0];
+      //TODO: Multiphase : need fluidSelector
+      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
+      int lsdim = 0;
+      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
+      gphii[0] = dPdx[i][lsdim];
+      gphii[1] = dPdy[i][lsdim];
+      gphii[2] = dPdz[i][lsdim];
+      gphij[0] = dPdx[j][lsdim];
+      gphij[1] = dPdy[j][lsdim];
+      gphij[2] = dPdz[j][lsdim];
       for (k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -1485,4 +1498,24 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   }
 }
 
+//------------------------------------------------------------------------------
+template<int dimLS>
+void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi)
+{
+
+  //TODO: Multiphase : implement correctly
+  int tag = 1;
+  for(int l=0; l<numEdges; l++){
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    for(int k=0; k<dimLS; k++){
+      if(Phi[i][k]*Phi[j][k]<=1.0e-12){
+        Tag[i] = tag;
+        Tag[j] = tag;
+      }
+    }
+  }
+
+}
 //------------------------------------------------------------------------------

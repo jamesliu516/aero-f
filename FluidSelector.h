@@ -50,7 +50,8 @@ public:
   ~FluidSelector() { delete fluidIdnm1; delete fluidIdnm2; }
 
 
-  void initializeFluidIds(DistSVec<double,1> &Phin, DistSVec<double,1> &Phinm1, DistSVec<double,1> &Phinm2){
+  template<int dim>
+  void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2){
     getFluidId(Phin);
     fluidIdn = fluidId;
     if(fluidIdnm1) getFluidId(*fluidIdnm1, Phinm1);

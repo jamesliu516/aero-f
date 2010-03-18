@@ -614,10 +614,10 @@ public:
 			       Vec<double> &normalVel, LevelSetStructure &LSS, SVec<double,dim> &V,
 			       double *Ub, SVec<double,dim> &fluxes, Vec<int> &fluidId);
 
-  template<int dim>
+  template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 				 Vec<double> &normalVel, SVec<double,dim> &V,
-				 SVec<double,1> &Phi, SVec<double,1> &PhiF);
+				 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiF);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
@@ -640,10 +640,10 @@ public:
 				       double *Ub, GenMat<Scalar,neq> &A, 
                                        Vec<int> &fluidId, int* nodeType);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int dimLS>
   void computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normal,
 					 Vec<double> &normalVel, SVec<double,dim> &V,
-					 GenMat<Scalar,1> &A);
+					 GenMat<Scalar,dimLS> &A);
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
@@ -1010,9 +1010,9 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &,
 			       Vec<int> &, SVec<double,dim> &, SVec<double,dim> &);
 
-  template<int dim>
+  template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
-				 SVec<double,dim> &, SVec<double,1> &, SVec<double,1> &);
+				 SVec<double,dim> &, SVec<double,dimLS> &, SVec<double,dimLS> &);
 
   // DEBUG /* Not implemented */
   template<int dim>
@@ -1037,9 +1037,9 @@ public:
                                        SVec<double,dim> &, GenMat<Scalar,neq> &, 
                                        Vec<int> &, int*);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int dimLS>
   void computeJacobianFiniteVolumeTermLS(GeoState &, 
-					 SVec<double,dim> &, GenMat<Scalar,1> &);
+					 SVec<double,dim> &, GenMat<Scalar,dimLS> &);
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &, 

@@ -51,9 +51,13 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     }
   }
   else if (ioData.eqs.numPhase == 2){
-    LevelSetSolver<5>::solve(ioData, geoSource, domain);
-  }else
-    com->fprintf(stderr, "*** Error: wrong number of phases\n");
+    com->fprintf(stdout, "*** Warning: number of phases is %d\n", ioData.eqs.numPhase);
+    LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
+  }
+  else if (ioData.eqs.numPhase == 3){
+    com->fprintf(stdout, "*** Warning: number of phases is %d\n", ioData.eqs.numPhase);
+    LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
+  }
 
 }
 

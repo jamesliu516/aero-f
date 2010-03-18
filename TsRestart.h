@@ -7,8 +7,8 @@
 class IoData;
 class RefVal;
 class DistGeoState;
-class LevelSet;
 
+template<int dimLS> class LevelSet;
 template<int dim> class DistTimeState;
 
 //------------------------------------------------------------------------------
@@ -40,10 +40,9 @@ public:
   TsRestart(IoData &, RefVal *);
   TsRestart();
 
-  template<int dim>
+  template<int dim, int dimLS>
   void writeToDisk(int, bool, int, double, double, 
-		   DistTimeState<dim> &, DistGeoState &, 
-		   LevelSet *LS);
+		   DistTimeState<dim> &, DistGeoState &, LevelSet<dimLS> *levelSet = 0);
 
   /** Function to write the structure positions to disk. Used for the embedded-method only. */
   void writeStructPosToDisk(int, bool, Vec<Vec3D>&);

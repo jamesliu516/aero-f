@@ -19,19 +19,17 @@
 
 #include <LevelSetTsDesc.h>
 
-#include <IoData.h>
-#include <Domain.h>
-
 struct DistInfo;
 
+class IoData;
+class Domain;
 class GeoSource;
-class LevelSet; 
 template<class Scalar, int dim> class DistSVec;
 
 //------------------------------------------------------------------------
 
-template<int dim>
-class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
+template<int dim, int dimLS>
+class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim,dimLS> {
 
  private:
   ExplicitData::Type timeType;
@@ -42,17 +40,17 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   DistSVec<double,dim> k3;
   DistSVec<double,dim> k4;
 
-  DistSVec<double,1> Phi0;
+  DistSVec<double,dimLS> Phi0;
   DistVec<int> fluidId0;
-  DistSVec<double,1> p1;
-  DistSVec<double,1> p2;
-  DistSVec<double,1> p3;
-  DistSVec<double,1> p4;
+  DistSVec<double,dimLS> p1;
+  DistSVec<double,dimLS> p2;
+  DistSVec<double,dimLS> p3;
+  DistSVec<double,dimLS> p4;
 
 // mesh motion modification for RK2
 // otherwise equal to U and Phi respectively
   DistSVec<double,dim> ratioTimesU;
-  DistSVec<double,1> ratioTimesPhi;
+  DistSVec<double,dimLS> ratioTimesPhi;
 
  public:
   ExplicitLevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -80,7 +78,7 @@ class ExplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
 
   void computeRKUpdate(DistSVec<double,dim>& Ulocal, 
                        DistSVec<double,dim>& dU, int it);
-  void computeRKUpdateLS(DistSVec<double,1>& Philocal, DistVec<int> &localFluidId, DistSVec<double,1>& dPhi, 
+  void computeRKUpdateLS(DistSVec<double,dimLS>& Philocal, DistVec<int> &localFluidId, DistSVec<double,dimLS>& dPhi, 
                          DistSVec<double,dim>& U);
 
 };

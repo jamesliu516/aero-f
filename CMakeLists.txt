@@ -125,7 +125,6 @@ ADD_LIBRARY(FluidBase
              InletNodeCore.C 
              IoDataCore.C 
              KspConvCriterion.C 
-             LevelSetCore.C 
              MacroCellCore.C 
              MatchNodeCore.C 
              MemoryPool.C 

@@ -55,7 +55,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   // ------------------------------------------------------------------------------------
 
   // ----------- components for Fluid-Fluid interface -----------------------------------
-  LevelSet *LS;
+  //LevelSet *LS;
   DistVec<double> Phi;            //<! conservative variables
   DistVec<double> PhiV;           //<! primitive variables
   DistSVec<double,dim> Vg;        //<! primitive V for GFMP

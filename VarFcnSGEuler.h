@@ -143,6 +143,8 @@ VarFcnSGEuler::VarFcnSGEuler(FluidModelData &data) : VarFcnBase(data) {
     type == PERFECTGAS;
   else if(data.gasModel.type == GasModelData::STIFFENED)
     type == STIFFENEDGAS;
+  else
+    fprintf(stdout, "*** Error: VarFcnSGEuler::type is undefined since data.gasModel.type = %d\n", data.gasModel.type);
 
   gam = data.gasModel.specificHeatRatio;
   gam1 = gam -1.0;

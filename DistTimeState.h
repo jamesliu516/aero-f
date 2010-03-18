@@ -93,8 +93,9 @@ public:
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
              DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<int> &nodeTag);
+  template<int dimLS>
   void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
-             DistSVec<double,1> &Phi, DistSVec<double,dim> &U, IoData &iod);
+             DistSVec<double,dimLS> &Phi, DistSVec<double,dim> &U, IoData &iod);
 //-------------------------------------
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
@@ -112,9 +113,10 @@ public:
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
+  template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
-			 DistSVec<double,1> &, DistSVec<double,1> &, DistSVec<double,1> &, 
-			 DistSVec<double,1> &, DistSVec<double,1> &);
+			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
+			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -144,9 +146,6 @@ public:
   void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar, double);
   
   template<class Scalar>
-  void addToH2LS(DistVec<double> &, DistVec<double> &, DistMat<Scalar,1> &);
-
-  template<class Scalar>
   void addToH2Minus(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   void computeBar(bool, DistMacroCellSet *, DistGeoState &, int);
@@ -158,7 +157,8 @@ public:
   DistVec<double>* getInvReynolds(){ return irey; }
                                                                                                                           
   void multiplyByTimeStep(DistSVec<double,dim>&);
-  void multiplyByTimeStep(DistSVec<double,1>&);
+  template<int dimLS>
+  void multiplyByTimeStep(DistSVec<double,dimLS>&);
   void multiplyByPreconditioner(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerPerfectGas(DistSVec<double,dim> &, DistSVec<double,dim>&);
   void multiplyByPreconditionerLiquid(DistSVec<double,dim> &, DistSVec<double,dim>&);

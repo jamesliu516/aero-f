@@ -3,18 +3,16 @@
 
 #include <LevelSetTsDesc.h>
 
-#include <IoData.h>
-#include <KspPrec.h>
-#include <Domain.h>
+class IoData;
+class GeoSource;
+class Domain;
 
 struct DistInfo;
-
-class GeoSource;
-class LevelSet; 
 template<class Scalar, int dim> class DistSVec;
-template<int dim, int neq> class MatVecProd;
 
-                                                                                                                
+template<int dim, int dimLS> class MatVecProdMultiPhase;
+template<int dim, int dimLS> class MatVecProdLS;
+template<int dim, class Scalar2> class KspPrec;
 #ifndef _KSPSLVR_TMPL_
 #define _KSPSLVR_TMPL_
 template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = double> class KspSolver;
@@ -23,21 +21,23 @@ template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = d
 
 //------------------------------------------------------------------------
 
-template<int dim>
-class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
+template<int dim, int dimLS>
+class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim, dimLS> {
 
+public:
+  typedef DistSVec<double,dimLS> PhiVecType;
  protected: 
   DistSVec<bool,2> *tag;
 
-  MatVecProd<dim,dim> *mvp;
+  MatVecProdMultiPhase<dim,dimLS> *mvp;
   KspPrec<dim> *pc;
-  KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
+  KspSolver<DistSVec<double,dim>, MatVecProdMultiPhase<dim,dimLS>, KspPrec<dim>, Communicator> *ksp;
 	
-  MatVecProd<dim,1> *mvpLS;
-  KspPrec<1> *pcLS;
-  KspSolver<DistSVec<double,1>, MatVecProd<dim,1>, KspPrec<1>, Communicator> *kspLS;
+  MatVecProdLS<dim,dimLS> *mvpLS;
+  KspPrec<dimLS> *pcLS;
+  KspSolver<DistSVec<double,dimLS>, MatVecProdLS<dim,dimLS>, KspPrec<dimLS>, Communicator> *kspLS;
 
-  NewtonSolver<ImplicitLevelSetTsDesc<dim> > *ns;
+  NewtonSolver<ImplicitLevelSetTsDesc<dim,dimLS> > *ns;
 
   int failSafeNewton;
   int maxItsNewton;
@@ -67,25 +67,20 @@ class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim> {
   int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   //-- new functions for solving LevelSet equation
-  void computeFunctionLS(int, DistSVec<double,dim> &,DistSVec<double,1> &);
-  void computeJacobianLS(int, DistSVec<double,dim> &,DistSVec<double,1> &);
-  int solveLinearSystemLS(int, DistSVec<double,1> &, DistSVec<double,1> &);
+  void computeFunctionLS(int, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+  void computeJacobianLS(int, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+  int solveLinearSystemLS(int, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
 
  protected:
   template<class Scalar, int neq>
   KspPrec<neq> *createPreconditioner(PcData &, Domain *);
 
-  template<int neq>
-  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>,
-  Communicator> *createKrylovSolver(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
-                                    KspPrec<neq> *, Communicator *);
+  template<int neq, class MatVecProdOp>
+  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>,
+  Communicator> *createKrylovSolver(const DistInfo &, KspData &, 
+                                    MatVecProdOp *, KspPrec<neq> *, Communicator *);
 
-
-  template<int neq>
-  KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>, KspPrec<neq,double>,
-  Communicator> *createKrylovSolverLS(const DistInfo &, KspData &, MatVecProd<dim,neq> *,
-                                        KspPrec<neq,double> *, Communicator *);
 };
 
 //------------------------------------------------------------------------------

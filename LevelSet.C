@@ -2,10 +2,52 @@
 
 #include <math.h>
 
+#include "IoData.h"
+#include "Domain.h"
+#include "TimeData.h"
+
 //-------------------------------------------------------------------------
+template<int dimLS>
+LevelSet<dimLS>::LevelSet(IoData &iod, Domain *dom):
+  Phin(dom->getNodeDistInfo()), Phinm1(dom->getNodeDistInfo()), Phinm2(dom->getNodeDistInfo()),
+  Psi(dom->getNodeDistInfo()), dt(dom->getNodeDistInfo()), PsiRes(dom->getNodeDistInfo()),
+  w(dom->getNodeDistInfo()), domain(dom), Phi0(dom->getNodeDistInfo()),
+  Tag(dom->getNodeDistInfo())
+{
+
+  com = domain->getCommunicator();
+  numLocSub = domain->getNumLocSub();
+
+  data = new TimeData(iod);
+
+  bandlevel = iod.mf.bandlevel;
+  localtime = iod.mf.localtime;
+  subIt = iod.mf.subIt;
+  cfl_psi = iod.mf.cfl;
+  typeTracking = iod.mf.typeTracking;
+  copy = iod.mf.copy;
+  conv_eps = iod.mf.eps;
+  diff = bool(iod.mf.outputdiff);
+  if(typeTracking == MultiFluidData::GRADIENT){
+    fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
+  }
+
+  lsgrad  = new DistNodalGrad<dimLS,double>(iod,dom,2);
+
+}
+//-------------------------------------------------------------------------
+template<int dimLS>
+LevelSet<dimLS>::~LevelSet()
+{
+  if(data) delete data;
+  if(lsgrad) delete lsgrad;
+}
+
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                     DistSVec<double,1> &Phi, IoData &iod)
+void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                     DistSVec<double,dimLS> &Phi, IoData &iod)
 {
 
   if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
@@ -28,19 +70,19 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,di
   Phinm2 = Phinm1;
 
   if (name[0] != 0) {
-    DistSVec<double,1> ReadPhi(domain->getNodeDistInfo());
+    DistSVec<double,dimLS> ReadPhi(domain->getNodeDistInfo());
     domain->readVectorFromFile(name, 0, 0, ReadPhi);
     Phi  = ReadPhi;
     Phin = ReadPhi;
 
     if (data->use_nm1){
-      DistSVec<double,1> ReadPhi1(domain->getNodeDistInfo());
+      DistSVec<double,dimLS> ReadPhi1(domain->getNodeDistInfo());
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, ReadPhi1);
       Phinm1 = ReadPhi1;
     }
 
     if (data->use_nm2){
-      DistSVec<double,1> ReadPhi2(domain->getNodeDistInfo());
+      DistSVec<double,dimLS> ReadPhi2(domain->getNodeDistInfo());
       data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, ReadPhi2);
       Phinm2 = ReadPhi2;
     }
@@ -59,44 +101,119 @@ void LevelSet::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,di
 }
 
 //-------------------------------------------------------------------------
+
+template<int dimLS>
+void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi){
+
+  // loop on all Volumes to setup Phi_0 
+  if(!iod.volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
+        //                                 and equation of state 'fluidModel'
+        domain->setupPhiVolumesInitialConditions(it->first, Phi);
+  }
+
+}
+
+//---------------------------------------------------------------------------------------------------------
+
+template<int dimLS>
+void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+
+  // Note that Phi was already initialized either to 1.0 everywhere
+  // (if there were no volumes specified in the input file)
+  // or to +1.0 where a volid was specified equal to 0 
+  //    and to -1.0 where a volid was specified different from 0.
+  // Therefore the only initialization
+  // left to do is for the spheres and other geometric shapes.
+  // For that, Phi must be multiplied by the signed distance
+  // to that geometric shape.
+
+  if(iod.mf.initialConditions.nspheres>0)
+    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
+      domain->setupPhiMultiFluidInitialConditionsSphere(*(iod.mf.initialConditions.sphere[i]),X,Phi);
+
+  if(iod.mf.initialConditions.nplanes>0)
+    domain->setupPhiMultiFluidInitialConditionsPlane(iod.mf.initialConditions.p1,X,Phi);
+
+}
+
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
+void LevelSet<dimLS>::update(DistSVec<double,dimLS> &Phi)
+{
+
+  if (data->use_nm2 && data->exist_nm1) {
+    Phinm2 = Phinm1;
+    data->exist_nm2 = true;
+  }
+  if (data->use_nm1) {
+    Phinm1 = Phin;
+    data->exist_nm1 = true;
+  }
+  Phin = Phi;
+}
+
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
+void LevelSet<dimLS>::writeToDisk(char *name)
+{
+
+  domain->writeVectorToFile(name, 0, 0.0, Phin);
+
+  if (data->use_nm1){
+    domain->writeVectorToFile(name, 1, 0.0, Phinm1);
+  }
+
+  if (data->use_nm2){
+    domain->writeVectorToFile(name, 2, 0.0, Phinm2);
+  }
+
+}
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::conservativeToPrimitive(DistSVec<double,1> &Cons, DistSVec<double,1> &Prim, 
+void LevelSet<dimLS>::conservativeToPrimitive(DistSVec<double,dimLS> &Cons, DistSVec<double,dimLS> &Prim, 
 	                               DistSVec<double,dim> &U)
 {
-// TODO DistVec to DistSVec
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*u)[dim] = U.subData(iSub);
-    double (*prim)[1] = Prim.subData(iSub);
-    double (*cons)[1] = Cons.subData(iSub);
+    double (*prim)[dimLS] = Prim.subData(iSub);
+    double (*cons)[dimLS] = Cons.subData(iSub);
     for (int i=0; i<U.subSize(iSub); i++)
-      prim[i][0] = cons[i][0]/u[i][0];
+      for (int idim=0; idim<dimLS; idim++)
+        prim[i][idim] = cons[i][idim]/u[i][0];
   }
 
 }
 
 //-------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::primitiveToConservative(DistSVec<double,1> &Prim, DistSVec<double,1> &Cons,
+void LevelSet<dimLS>::primitiveToConservative(DistSVec<double,dimLS> &Prim, DistSVec<double,dimLS> &Cons,
 				       DistSVec<double,dim> &U)
 {
-// TODO DistVec to DistSVec
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub){
     double (*u)[dim] = U.subData(iSub);
-    double (*prim)[1] = Prim.subData(iSub);
-    double (*cons)[1] = Cons.subData(iSub);
+    double (*prim)[dimLS] = Prim.subData(iSub);
+    double (*cons)[dimLS] = Cons.subData(iSub);
     for (int i=0; i<U.subSize(iSub); i++)
-      cons[i][0] = prim[i][0]*u[i][0];
+      for (int idim=0; idim<dimLS; idim++)
+        cons[i][idim] = prim[i][idim]*u[i][0];
   }
 
 }
 
 //-------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::reinitializeLevelSet(DistGeoState &geoState, 
+void LevelSet<dimLS>::reinitializeLevelSet(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
   com->fprintf(stdout, "reinitializing\n");
   if(false)
@@ -106,10 +223,11 @@ void LevelSet::reinitializeLevelSet(DistGeoState &geoState,
 
 }
 //-------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState, 
+void LevelSet<dimLS>::reinitializeLevelSetPDE(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
 
   /* solving reinitialization equation for the level set
@@ -151,7 +269,7 @@ void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState,
     lastlevel = (Tag.min()==0 ? false : true);
   }
 
-  //DistSVec<double,1> testsign(domain->getNodeDistInfo());
+  //DistSVec<double,dimLS> testsign(domain->getNodeDistInfo());
   //testsign = Psi;
   //testsign *= Phi;
   //domain->checkNodePhaseChange(testsign);
@@ -162,10 +280,11 @@ void LevelSet::reinitializeLevelSetPDE(DistGeoState &geoState,
 }
 
 //-------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::computeSteadyState(DistGeoState &geoState,
+void LevelSet<dimLS>::computeSteadyState(DistGeoState &geoState,
                                   DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                  DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
+                                  DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
 
   bool lastIt = false;
@@ -200,10 +319,11 @@ void LevelSet::computeSteadyState(DistGeoState &geoState,
 }
 
 //-------------------------------------------------------------------------
+template<int dimLS>
 template<int dim>
-void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState, 
+void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState, 
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,1> &Phi)
+				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
 
   // initialize Psi
@@ -244,4 +364,24 @@ void LevelSet::reinitializeLevelSetFM(DistGeoState &geoState,
     Phi -= Psi;
   else
     Phi = Psi;
+}
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
+bool LevelSet<dimLS>::checkConvergencePsi(int iteration, double &res0)
+{
+
+  double eps = 1.0e-6;
+  double res = sqrt(PsiRes*PsiRes);
+
+  if(iteration == 0)
+    res0 = res;
+
+  double target = eps*res0;
+  if(res < target || iteration >= subIt || res < 1.e-12){
+    com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
+    return true;
+  }
+
+  return false;
+
 }

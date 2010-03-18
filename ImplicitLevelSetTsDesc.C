@@ -1,19 +1,16 @@
 #include <ImplicitLevelSetTsDesc.h>
 
-#include <GeoSource.h>
-#include <DistTimeState.h>
+#include "IoData.h"
+#include "GeoSource.h"
+#include "Domain.h"
+#include "LevelSet.h"
+#include "DistTimeState.h"
+
 #include <MatVecProd.h>
 #include <KspSolver.h>
 #include <SpaceOperator.h>
-#include <Domain.h>
 #include <NewtonSolver.h>
 
-
-#ifdef TYPE_MAT
-#define MatScalar TYPE_MAT
-#else
-#define MatScalar double
-#endif
 
 #ifdef TYPE_PREC
 #define PrecScalar TYPE_PREC
@@ -23,16 +20,16 @@
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-ImplicitLevelSetTsDesc<dim>::
+template<int dim, int dimLS>
+ImplicitLevelSetTsDesc<dim,dimLS>::
 ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim>(ioData, geoSource, dom)
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom)
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
   
   // NewtonSolver
-  ns = new NewtonSolver<ImplicitLevelSetTsDesc<dim> >(this);
+  ns = new NewtonSolver<ImplicitLevelSetTsDesc<dim,dimLS> >(this);
   failSafeNewton = implicitData.newton.failsafe;
   maxItsNewton = implicitData.newton.maxIts;
   epsNewton = implicitData.newton.eps;
@@ -40,12 +37,14 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   epsAbsIncNewton = implicitData.newton.epsAbsInc;
 
   // MatVecProd, Prec and Krylov solver for Euler equations
-  if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)
-    mvp = new MatVecProdFD<dim, dim>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+  if (implicitData.mvp == ImplicitData::FD)
+    mvp = new MatVecProdFDMultiPhase<dim,dimLS>(this->timeState, this->geoState, this->multiPhaseSpaceOp, this->riemann, this->domain);
   else if (implicitData.mvp == ImplicitData::H1)
-    mvp = new MatVecProdH1<dim,MatScalar,dim>(this->timeState, this->spaceOp, this->domain, ioData);
-  else if (implicitData.mvp == ImplicitData::H2)
-    mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, this->domain);
+    mvp = new MatVecProdH1MultiPhase<dim,dimLS>(this->timeState, this->multiPhaseSpaceOp, this->riemann, this->domain);
+  else{
+    this->com->fprintf(stdout, "*** Error: MatVecProdH2MultiPhase is not available\n");
+    exit(1);
+  }
   
   pc = createPreconditioner<PrecScalar,dim>(implicitData.newton.ksp.ns.pc, this->domain);
   
@@ -53,12 +52,10 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   
 
   // MatVecProd, Prec and Krylov solver for LevelSet equation
-  if (implicitData.mvp != ImplicitData::FD)
-    this->com->printf(6, "H1 and H2 not implemented for Level-Set, FD only..... hum to check!!!\n");
-  mvpLS  = new MatVecProdLS<MatScalar,dim,1>(ioData, this->varFcn, this->timeState, this->geoState, this->spaceOp, this->domain, this->LS);
+  mvpLS  = new MatVecProdLS<dim,dimLS>(this->timeState, this->geoState, this->multiPhaseSpaceOp, this->domain, this->LS);
 
-  pcLS = createPreconditioner<PrecScalar,1>(implicitData.newton.ksp.lsi.pc, this->domain);
-  kspLS = createKrylovSolverLS(this->getVecInfo(), implicitData.newton.ksp.lsi, mvpLS, pcLS, this->com);
+  pcLS = createPreconditioner<PrecScalar,dimLS>(implicitData.newton.ksp.lsi.pc, this->domain);
+  kspLS = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.lsi, mvpLS, pcLS, this->com);
 
 
   // meshmotion
@@ -73,8 +70,8 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-ImplicitLevelSetTsDesc<dim>::~ImplicitLevelSetTsDesc()
+template<int dim, int dimLS>
+ImplicitLevelSetTsDesc<dim,dimLS>::~ImplicitLevelSetTsDesc()
 {
   if (tag)   delete tag;
   if (mvp)   delete mvp;
@@ -91,9 +88,9 @@ ImplicitLevelSetTsDesc<dim>::~ImplicitLevelSetTsDesc()
 //  Internal routines to setup the class (called in constructor)
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 template<class Scalar, int neq>
-KspPrec<neq> *ImplicitLevelSetTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *dom)
+KspPrec<neq> *ImplicitLevelSetTsDesc<dim,dimLS>::createPreconditioner(PcData &pcdata, Domain *dom)
 {
   
   KspPrec<neq> *_pc = 0;
@@ -114,25 +111,25 @@ KspPrec<neq> *ImplicitLevelSetTsDesc<dim>::createPreconditioner(PcData &pcdata, 
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-template<int neq>
-KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator> *
-ImplicitLevelSetTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &kspdata,
-                                        MatVecProd<dim,neq> *_mvp, KspPrec<neq> *_pc,
-					Communicator *_com)
+template<int dim, int dimLS>
+template<int neq, class MatVecProdOp>
+KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
+ImplicitLevelSetTsDesc<dim,dimLS>::createKrylovSolver(
+                               const DistInfo &info, KspData &kspdata,
+                               MatVecProdOp *_mvp, KspPrec<neq> *_pc,
+                               Communicator *_com)
 {
   
-  KspSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
-    KspPrec<neq>, Communicator> *_ksp = 0;
+  KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *_ksp = 0;
   
   if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+    _ksp = new RichardsonSolver<DistSVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+    _ksp = new CgSolver<DistSVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProd<dim,neq>,
+    _ksp = new GmresSolver<DistSVec<double,neq>, MatVecProdOp,
                  KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
   
   return _ksp;
@@ -140,38 +137,13 @@ ImplicitLevelSetTsDesc<dim>::createKrylovSolver(const DistInfo &info, KspData &k
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-template<int neq>
-KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>, KspPrec<neq>, Communicator, double> *
-ImplicitLevelSetTsDesc<dim>::createKrylovSolverLS(const DistInfo &info, KspData &kspdata,
-                                        MatVecProd<dim,neq> *_mvp, KspPrec<neq,double> *_pc,
-                                        Communicator *_com)
-{
-
-  KspSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
-    KspPrec<neq>, Communicator> *_ksp = 0;
-
-  if (kspdata.type == KspData::RICHARDSON)
-    _ksp = new RichardsonSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
-                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
-  else if (kspdata.type == KspData::CG)
-    _ksp = new CgSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
-                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
-  else if (kspdata.type == KspData::GMRES)
-    _ksp = new GmresSolver<DistSVec<double,1>, MatVecProd<dim,neq>,
-                 KspPrec<neq>, Communicator>(info, kspdata, _mvp, _pc, _com);
-
-  return _ksp;
-}
-
-
 //------------------------------------------------------------------------------
 // External routine to solve problem (called by TsSolver)
 // It calls for the NewtonSolver ns, which in turn will
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
-template<int dim>
-int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+template<int dim, int dimLS>
+int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
   
   int its;
@@ -180,10 +152,8 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
 
-  if(!(this->interfaceType==MultiFluidData::FSF)){
+  if(false && !(this->interfaceType==MultiFluidData::FSF)){
     this->varFcn->conservativeToPrimitive(U,this->V0,&(this->fluidSelector.fluidId));
-    //this->spaceOp->storePreviousPrimitive(U, this->Vg, this->fluidSelector.fluidId, this->Vgf, 
-    //                                      this->Vgfweight, *this->X);
     this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
 
     double t1 = this->timer->getTime();
@@ -192,9 +162,6 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
     (this->fluidSelector).getFluidId(this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
 
-    //this->spaceOp->updatePhaseChange(this->Vg, U, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn,
-    //                                 this->Vgf, this->Vgfweight, 
-    //                                 this->riemann);
     this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
   }
@@ -209,31 +176,31 @@ int ImplicitLevelSetTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 //------------------------------------------------------------------------------
 
 // this function evaluates (Aw),t + F(w,x,v)
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,dim> &Q,
                                                   DistSVec<double,dim> &F)
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
   this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->spaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, F, this->riemann, it+1);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, F, this->riemann, it+1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
-  this->spaceOp->applyBCsToResidual(Q, F);
+  this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,dim> &Q,
                                             DistSVec<double,dim> &rhs)
 {
-  this->spaceOp->recomputeRHS(*this->X, Q, this->fluidSelector.fluidId, rhs);
+  this->multiPhaseSpaceOp->recomputeRHS(*this->X, Q, this->fluidSelector.fluidId, rhs);
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-int ImplicitLevelSetTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
+template<int dim, int dimLS>
+int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
 {
   fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
 
@@ -243,46 +210,45 @@ int ImplicitLevelSetTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
     this->tag = new DistSVec<bool,2>(this->getVecInfo());
 
   this->domain->checkFailSafe(this->varFcn, U, *this->tag, &(this->fluidSelector.fluidId));
-  this->spaceOp->fix(*this->tag);
+  this->multiPhaseSpaceOp->fix(*this->tag);
 
   return 1;
 
 }
 
 //------------------------------------------------------------------------------
-template<int dim> 
-void ImplicitLevelSetTsDesc<dim>::resetFixesTag()
+template<int dim, int dimLS> 
+void ImplicitLevelSetTsDesc<dim,dimLS>::resetFixesTag()
 {
 
-  this->spaceOp->resetTag();
+  this->multiPhaseSpaceOp->resetTag();
 
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q,
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,dim> &Q,
                                                          DistSVec<double,dim> &F)
 {
-  this->mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, this->riemann, F);
+  mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, F);
 }
 //------------------------------------------------------------------------------
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q)
 {
   
   DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
   
   if (_pc) {
     
-    MatVecProdFD<dim, dim> *mvpfd = dynamic_cast<MatVecProdFD<dim, dim> *>(mvp);
-    MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
-    MatVecProdH2<MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<MatScalar,dim> *>(mvp);
+    MatVecProdFDMultiPhase<dim,dimLS> *mvpfd = dynamic_cast<MatVecProdFDMultiPhase<dim,dimLS> *>(mvp);
+    MatVecProdH1MultiPhase<dim,dimLS> *mvph1 = dynamic_cast<MatVecProdH1MultiPhase<dim,dimLS> *>(mvp);
     
-    if (mvpfd || mvph2) {
+    if (mvpfd) {
 
-      this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector.fluidId, this->riemann);
+      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector.fluidId, this->riemann);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
-      this->spaceOp->applyBCsToJacobian(Q, *_pc);
+      this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }
     else if (mvph1) {
       JacobiPrec<PrecScalar,dim> *jac = dynamic_cast<JacobiPrec<PrecScalar,dim> *>(pc);
@@ -307,8 +273,8 @@ void ImplicitLevelSetTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-int ImplicitLevelSetTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b,
+template<int dim, int dimLS>
+int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double,dim> &b,
 						  DistSVec<double,dim> &dQ)
 {
   
@@ -329,12 +295,12 @@ int ImplicitLevelSetTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> 
 // External routines to solve LevelSet equation implicitly (called by NewtonSolver)
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::computeFunctionLS(int it,
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
-                                                    DistSVec<double,1> &PhiF)
+                                                    DistSVec<double,dimLS> &PhiF)
 {
-  this->spaceOp->computeResidualLS(*this->X, *this->A, this->Phi, this->fluidSelector.fluidId, U, PhiF);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, this->fluidSelector.fluidId, U, PhiF);
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
 			        this->LS->Phin, this->LS->Phinm1, 
@@ -343,21 +309,21 @@ void ImplicitLevelSetTsDesc<dim>::computeFunctionLS(int it,
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void ImplicitLevelSetTsDesc<dim>::computeJacobianLS(int it,
+template<int dim, int dimLS>
+void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dim> &U,
-                                                    DistSVec<double,1> &PhiF)
+                                                    DistSVec<double,dimLS> &PhiF)
 {
 
-  mvpLS->evaluateLS(it, *this->X, *this->A, this->Phi, this->LS->Phin, 
-		    this->LS->Phinm1, this->LS->Phinm2, U, PhiF, this->fluidSelector.fluidId);
+  mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
+		  U, PhiF, this->fluidSelector.fluidId);
 
 }
 //------------------------------------------------------------------------------
 
-template<int dim>
-int ImplicitLevelSetTsDesc<dim>::solveLinearSystemLS(int it, DistSVec<double,1> &b,
-                                                  DistSVec<double,1> &dQ)
+template<int dim, int dimLS>
+int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<double,dimLS> &b,
+                                                  DistSVec<double,dimLS> &dQ)
 {
 
   double t0 = this->timer->getTime();

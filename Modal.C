@@ -912,7 +912,7 @@ template<int dim>
 void ModalSolver<dim>::preProcess()  {
 
   // setup solvers
-  VarFcn *varFcn = new VarFcn(*ioData); //TODO: check this (and several others)! 
+  VarFcn *varFcn = new VarFcn(*ioData);
   geoState = new DistGeoState(*ioData, &domain);
   geoState->setup1(tInput->positions, &Xref, &controlVol);
   bcData = new DistBcDataEuler<dim>(*ioData, varFcn, &domain, Xref);

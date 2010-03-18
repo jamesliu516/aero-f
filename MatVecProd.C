@@ -39,9 +39,6 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
 
   recFcnCon = 0;
   Rn = 0;
-  Phi = 0;
-  fluidId = 0;
-  Riemann = 0;
 
   if (data.mvp == ImplicitData::H1FD) {
     recFcnCon = new RecFcnConstant<dim>;
@@ -158,38 +155,6 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
 }
 
 //------------------------------------------------------------------------------
-template<int dim, int neq>
-void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                 DistSVec<double,dim> &q, DistSVec<double,1> &phi,
-                                 DistVec<int> &fluidId_, DistExactRiemannSolver<dim> *riemann,
-                                 DistSVec<double,dim> &f)
-{
-  
-  X = &x;
-  ctrlVol = &cv;
-  Qeps = q;
-  Phi = &phi;
-  fluidId = &fluidId_;
-  Riemann = riemann;
-                                                                                                                 
-  if (recFcnCon) {
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, riemann, 0);
-                                                                                                                 
-    if (timeState)
-      timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
-                                                                                                                 
-    spaceOp->applyBCsToResidual(Qeps, Feps);
-  }
-  else  {
-    Feps = f;
-  }
-
-  Qeps.strip(Q);
-  Feps.strip(F);
-  
-}
-
-//------------------------------------------------------------------------------
 
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
@@ -202,10 +167,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Qepstmp.pad(Qeps);
 
-  if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, Riemann, 0);
-  else
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -225,10 +187,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     
     Qepstmp.pad(Qeps);
 
-    if(Phi)
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, Riemann, 0);
-    else
-      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -264,7 +223,7 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 #endif
 
   if(Phi)
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, Riemann, 0);
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, Feps, riemann, 0);
   else
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
@@ -576,24 +535,6 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar, int neq>
-void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistSVec<double,1> &Phi, DistVec<int> &fluidId,
-                                            DistExactRiemannSolver<dim> *riemann,
-                                            DistSVec<double,dim> &F)
-{
-
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, fluidId, riemann);
-
-  if (timeState)
-    timeState->addToJacobian(ctrlVol, *this, Q);
-
-  spaceOp->applyBCsToJacobian(Q, *this);
-
-}
-
-//------------------------------------------------------------------------------
-                                                                                                      
 template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &X,
                                    DistVec<double> &cv)  {
@@ -1047,75 +988,308 @@ void MatVecProdH2<Scalar,dim>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, Space
 
 }
 
-//------------------------------------------------------------------------------
-
-template<class Scalar,int dim, int neq>
-MatVecProdLS<Scalar,dim,neq>::MatVecProdLS(IoData &ioData, VarFcn *varFcn, 
-                                           DistTimeState<dim> *ts, DistGeoState *gs,
-                                           SpaceOperator<dim> *spo, Domain *domain, 
-                                           LevelSet *ls) :
-  DistMat<Scalar,neq>(domain), timeState(ts), geoState(gs), LS(ls),
-  aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()),
-  bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo()), 
-  Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo()),
-  QepsV(domain->getNodeDistInfo()), QV(domain->getNodeDistInfo())
+//----------------------------------------------------------------------------//
+//                MatVecProd for Multiphase Euler equations                   //
+//----------------------------------------------------------------------------//
+// Finite Difference method for Multiphase Euler equations
+template<int dim, int dimLS>
+MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
+                                   DistTimeState<dim> *ts, DistGeoState *gs,
+                                   MultiPhaseSpaceOperator<dim,dimLS> * spo,
+                                   DistExactRiemannSolver<dim> * rsolver,
+                                   Domain *dom) :
+  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver), geoState(gs),
+  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()),
+  Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo())
 {
 
-#ifdef _OPENMP
-  this->numLocSub = DistMat<Scalar,neq>::numLocSub; //BUG omp
-#endif
+  X = 0;
+  ctrlVol = 0;
+  Phi = 0;
+  fluidId = 0;
+  com = dom->getCommunicator();
 
-  A = new MvpMat<Scalar,neq>*[this->numLocSub];
+}
 
-  double size = 0.0;
-  double coefsize = double(4*aij.size()*sizeof(double)) / (1024.*1024.);
+//----------------------------------------------------------------------------//
 
-#pragma omp parallel for reduction (+: size)
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
-    A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<Scalar,neq>();
-    size += double(A[iSub]->numNonZeroBlocks()*sizeof(Scalar)) / (1024.*1024.);
+template<int dim, int dimLS>
+MatVecProdFDMultiPhase<dim,dimLS>::~MatVecProdFDMultiPhase()
+{
+
+  this->spaceOp = 0;
+  this->timeState = 0;
+  this->riemann = 0;
+
+  geoState = 0;
+  X = 0;
+  ctrlVol = 0;
+  Phi = 0;
+  fluidId = 0;
+  com = 0;
+
+}
+
+//----------------------------------------------------------------------------//
+
+template<int dim, int dimLS>
+void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
+                                 DistSVec<double,3> &x, DistVec<double> &cv,
+                                 DistSVec<double,dim> &q, DistSVec<double,dimLS> &phi,
+                                 DistVec<int> &fluidId_, DistSVec<double,dim> &f)
+{
+  
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+  Phi = &phi;
+  fluidId = &fluidId_;
+
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, this->riemann, 0);
+
+  if (this->timeState)
+    this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
+
+  this->spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  Q = Qeps;
+  F = Feps;
+  
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
+                                               DistSVec<double,dim> &prod)
+{
+
+  double eps = computeEpsilon(Q, p);
+
+// Included (MB)
+  Qeps = Q + eps * p;
+
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, this->riemann, 0);
+
+  if (this->timeState)
+    this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
+
+  this->spaceOp->applyBCsToResidual(Qeps, Feps);
+
+  prod = (1.0/eps) * (Feps - F);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &U, DistSVec<double,dim> &p)
+{
+
+  int iSub, size = 0;
+  double eps0 = 1.e-6;
+
+  const DistInfo &distInfo = U.info();
+
+  double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
+
+  for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) alleps[iSub] = 0.0;
+
+#pragma omp parallel for reduction(+: size)
+  for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
+
+    int locOffset = distInfo.subOffset[iSub];
+
+    int locsize = 0;
+    double loceps = 0.0;
+
+    for (int i=0; i<distInfo.subLen[iSub]; ++i) {
+
+      if (distInfo.masterFlag[locOffset+i]) {
+	for (int j=0; j<dim; ++j) {
+	  ++locsize;
+	  loceps += eps0*fabs(U[locOffset+i][j]) + eps0;
+	}
+      }
+
+    }
+
+    size += locsize;
+    alleps[distInfo.locSubToGlobSub[iSub]] = loceps;
+
   }
 
   this->com->globalSum(1, &size);
-  this->com->globalSum(1, &coefsize);
+  this->com->globalSum(distInfo.numGlobSub, alleps);
 
-  spaceOp = new SpaceOperator<dim>(*spo, false);
-  timeState = new DistTimeState<dim>(*ts, false, ioData);
+  double eps = 0.0;
+  for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) eps += alleps[iSub];
+
+  double norm = sqrt(p*p);
+
+  if (norm > 1.e-14) eps /= double(size) * norm;
+  else eps = eps0;
+ 
+  return eps;
+
 }
 
 //------------------------------------------------------------------------------
-                                                                                                                      
-template<class Scalar,int dim, int neq>
-MatVecProdLS<Scalar,dim,neq>::~MatVecProdLS()
+// H1 MatVecProd for Multiphase Euler equations
+
+template<int dim, int dimLS>
+MatVecProdH1MultiPhase<dim,dimLS>::MatVecProdH1MultiPhase(DistTimeState<dim> *ts,
+                                   MultiPhaseSpaceOperator<dim,dimLS> *spo,
+                                   DistExactRiemannSolver<dim> *rsolver,
+                                   Domain *dom) :
+  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver), DistMat<double,dim>(dom)
 {
-                                                                                                                      
-  if (spaceOp) delete spaceOp;
-  if (timeState) delete timeState;                                                                                                                      
+
+  A = new MvpMat<double,dim>*[this->numLocSub];
+
+  double size = 0.0;
+
+#pragma omp parallel for reduction (+: size)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<double,dim>();
+    size += double(A[iSub]->numNonZeroBlocks()*dim*dim*sizeof(double)) / (1024.*1024.);
+  }
+
+  this->com->globalSum(1, &size);
+
+  this->com->printf(2, "Memory required for MultiPhaseMatVec with H1 (dim=%d): %3.2f MB\n", dim, size);
+
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+MatVecProdH1MultiPhase<dim,dimLS>::~MatVecProdH1MultiPhase()
+{
+
   if (A) {
 #pragma omp parallel for
-    for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    for (int iSub = 0; iSub < this->numLocSub; ++iSub) 
       if (A[iSub]) delete A[iSub];
-                                                                                                                      
+
     delete [] A;
   }
-                                                                                                                      
+
+  this->timeState = 0;
+  this->spaceOp   = 0;
+  this->riemann   = 0;
+  
 }
 //------------------------------------------------------------------------------
-// note: this can be done in another way (but less efficient) !!
-// (1) compute off-diag products (2) assemble (3) compute diag products (->redundancy)
 
-template<class Scalar,int dim, int neq>
-void MatVecProdLS<Scalar,dim,neq>::applyLS(DistVec<double> &p, DistVec<double> &prod)
+template<int dim, int dimLS>
+DistMat<double,dim> &MatVecProdH1MultiPhase<dim,dimLS>::operator= (const double x)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    *A[iSub] = x;
+
+  return *this;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MatVecProdH1MultiPhase<dim,dimLS>::exportMemory(MemoryPool *mp)
+{
+
+  if (!mp) return;
+
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    mp->set(A[iSub]->numNonZeroBlocks() * dim*dim * sizeof(double), 
+	    reinterpret_cast<void *>(A[iSub]->data()));
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                            DistSVec<double,dim> &Q, DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId,
+                                            DistSVec<double,dim> &F)
+{
+
+  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, fluidId, this->riemann);
+
+  if (this->timeState)
+    this->timeState->addToJacobian(ctrlVol, *this, Q);
+
+  this->spaceOp->applyBCsToJacobian(Q, *this);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MatVecProdH1MultiPhase<dim,dimLS>::apply(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
+{
+
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
+					 p(iSub), prod(iSub));
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.subData(iSub));
+  }
+
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.subData(iSub));
+
+}
+
+//------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------//
+//                MatVecProd for Level Set equations                          //
+//----------------------------------------------------------------------------//
+
+template<int dim, int dimLS>
+MatVecProdLS<dim,dimLS>::MatVecProdLS(DistTimeState<dim> *ts, DistGeoState *gs,
+                                      MultiPhaseSpaceOperator<dim,dimLS> *spo, 
+                                      Domain *dom, LevelSet<dimLS> *ls) :
+  timeState(ts), spaceOp(spo), levelSet(ls), geoState(gs), 
+  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo())
+{
+  X = 0; ctrlVol = 0; Q = 0; U = 0; F = 0; FluidId = 0;
+  com = dom->getCommunicator();
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+MatVecProdLS<dim,dimLS>::~MatVecProdLS()
+{
+  timeState = 0;
+  spaceOp   = 0;
+  X = 0; ctrlVol = 0; Q = 0; U = 0; F = 0; FluidId = 0;
+  com = 0;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,dimLS> &prod)
 {
   double eps = computeEpsilon(*Q, p);
 
   Qeps = (*Q) + eps * p;
 
-  //spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *U, Feps);
-  fprintf(stderr, "*** Error: need to properly call function ::applyLS in MatVecProdLS\n");
-  exit(1);
+  spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *FluidId, *U, Feps);
 
-  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, *Qn, *Qnm1, *Qnm2, Feps);
+  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, levelSet->Phin, 
+                          levelSet->Phinm1, levelSet->Phinm2, Feps);
 
   prod = (1.0/eps) * (Feps - (*F));
 
@@ -1123,93 +1297,77 @@ void MatVecProdLS<Scalar,dim,neq>::applyLS(DistVec<double> &p, DistVec<double> &
 
 //------------------------------------------------------------------------------
 
-template<class Scalar,int dim, int neq>
-void MatVecProdLS<Scalar,dim,neq>::evaluateLS(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                                      DistSVec<double,1> &q,  DistSVec<double,1> &qn,
-                                                      DistSVec<double,1> &qnm1, DistSVec<double,1> &qnm2,
-						      DistSVec<double,dim> &u, DistSVec<double,1> &f,
-                                                      DistVec<int> &fluidId)
+template<int dim, int dimLS>
+void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
+                                DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
+                                DistSVec<double,dimLS> &f, DistVec<int> &fluidId)
 {
-                                                                                                                    
-  X = &x;
+
+  X       = &x;
   ctrlVol = &cv;
-  Q = &q;
-  Qn= &qn;
-  Qnm1= &qnm1;
-  Qnm2= &qnm2;
-  U = &u;
-  F = &f;                                                                                                                    
-  //spaceOp->computeResidualLS(*X, *ctrlVol, *Q, *U, *F);
-  fprintf(stderr, "*** Error: need to properly call function ::evaluateLS in MatVecProdLS\n");
-  exit(1);
-                                                                                                             
-  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, *Qn, *Qnm1, *Qnm2, *F);
-                                                                                                             
-                                                                                                                    
-}
-//------------------------------------------------------------------------------
-template<class Scalar,int dim, int neq>
-DistMat<Scalar,neq> &MatVecProdLS<Scalar,dim,neq>::operator= (const Scalar x)
-{
-                                                                                                                      
-#pragma omp parallel for
-  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
-    *A[iSub] = x;
-                                                                                                                      
-  return *this;
+  Q       = &q;
+  U       = &u;
+  F       = &f;
+  FluidId = &fluidId;
+
+  spaceOp->computeResidualLS(*X, *ctrlVol, *Q, fluidId, *U, *F);
+
+  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, levelSet->Phin, 
+                          levelSet->Phinm1, levelSet->Phinm2, *F);
 
 }
 //------------------------------------------------------------------------------
-template<class Scalar,int dim, int neq>
-double MatVecProdLS<Scalar,dim,neq>::computeEpsilon(DistSVec<double,1> &u, DistVec<double> &p)                                                                                                             
+// WARNING: this routine is very different from MatVecProdFD<dim,neq>::computeEpsilon(...)
+template<int dim, int dimLS>
+double MatVecProdLS<dim, dimLS>::computeEpsilon(DistSVec<double,dimLS> &U, DistSVec<double,dimLS> &p)
 {
-                                                                                                             
+
   int iSub, size = 0;
   double eps0 = 1.e-6;
-                                                                                                             
-  const DistInfo &distInfo = u.info();
-                                                                                                             
+
+  const DistInfo &distInfo = U.info();
+
   double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
-                                                                                                             
+
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) alleps[iSub] = 0.0;
-                                                                                                             
+
 #pragma omp parallel for reduction(+: size)
   for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
-                                                                                                             
+
     int locOffset = distInfo.subOffset[iSub];
-                                                                                                             
+
     int locsize = 0;
     double loceps = 0.0;
-                                                                                                             
+
     for (int i=0; i<distInfo.subLen[iSub]; ++i) {
-                                                                                                             
+
       if (distInfo.masterFlag[locOffset+i]) {
-        for (int j=0; j<1; ++j) {
-          ++locsize;
-          loceps += eps0*fabs(u[locOffset+i][0]) + eps0;
-        }
+	for (int j=0; j<dimLS; ++j) {
+	  ++locsize;
+	  loceps += eps0*fabs(U[locOffset+i][j]) + eps0;
+	}
       }
-                                                                                                             
+
     }
-                                                                                                             
+
     size += locsize;
     alleps[distInfo.locSubToGlobSub[iSub]] = loceps;
-                                                                                                             
+
   }
-                                                                                                             
+
   this->com->globalSum(1, &size);
   this->com->globalSum(distInfo.numGlobSub, alleps);
-                                                                                                             
+
   double eps = 0.0;
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) eps += alleps[iSub];
-                                                                                                             
+
   double norm = sqrt(p*p);
-                                                                                                             
+
   if (norm > 1.e-14) eps /= double(size) * norm;
   else eps = eps0;
-                                                                                                             
+ 
   return eps;
-                                                                                                             
+
 }
 
 //------------------------------------------------------------------------------

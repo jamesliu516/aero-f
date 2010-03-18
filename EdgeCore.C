@@ -194,22 +194,6 @@ int EdgeSet::checkReconstructedValues(int i, int j, double *Vi, double *Vj, VarF
 
 }
 //------------------------------------------------------------------------------
-void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, Vec<double> &Phi)
-{
-
-  int tag = 1;
-  for(int l=0; l<numEdges; l++){
-    int i = ptr[l][0];
-    int j = ptr[l][1];
-
-    if(Phi[i]*Phi[j]<=1.0e-12){
-      Tag[i] = tag;
-      Tag[j] = tag;
-    }
-  }
-
-}
-//------------------------------------------------------------------------------
 
 #ifdef EDGE_LENGTH
 void EdgeSet::computeCharacteristicEdgeLength(SVec<double,3> &X, double &minLength, double &aveLength, double &maxLength, int &numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)

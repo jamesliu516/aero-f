@@ -3,30 +3,28 @@
 
 #include <TsDesc.h>
 
-#include <IoData.h>
-#include <Domain.h>
-#include <LevelSet.h>
-
-struct DistInfo;
-
+class IoData;
 class GeoSource;
+class Domain;
 class FluidSelector;
-template<class Scalar, int dim> class DistSVec;
+template<int dimLS> class LevelSet;
 template<int dim> class DistExactRiemannSolver;
 
-                                                                                                                
+struct DistInfo;
+template<class Scalar, int dim> class DistSVec;
 
 //------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 class LevelSetTsDesc : public TsDesc<dim> {
 
  protected:
+  MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   FluidSelector fluidSelector;
-  LevelSet *LS;
+  LevelSet<dimLS> *LS;
   DistExactRiemannSolver<dim> *riemann;
-  DistSVec<double,1> Phi;           //conservative variables
-  DistSVec<double,1> PhiV;          //primitive variables
+  DistSVec<double,dimLS> Phi;           //conservative variables
+  DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
 
   // multiphase conservation check
@@ -35,12 +33,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dim> computedQty;
   DistSVec<double,dim> *tmpDistSVec;
   DistSVec<double,dim> *tmpDistSVec2;
-  double expectedTot[dim];
-  double expectedF1[dim];
-  double expectedF2[dim];
-  double computedTot[dim];
-  double computedF1[dim];
-  double computedF2[dim];
+  double **expected;//[dimLS+2][dim]; // dimLS+1 different fluids and the total
+  double **computed;//[dimLS+2][dim];
 
   // frequency for reinitialization of level set
   int frequencyLS;
@@ -80,7 +74,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
  protected:
-  void avoidNewPhaseCreation(DistSVec<double,1> &localPhi);
+  void avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi);
 
 };
 

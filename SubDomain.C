@@ -208,6 +208,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
       ddz[j][k] -= Wj[2] * deltaVar;
     }
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -809,14 +810,14 @@ void SubDomain::computeDerivativeOfFiniteVolumeTerm(Vec<double> &irey, Vec<doubl
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
+template<int dim, int dimLS>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        Vec<int> &fluidId,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                       NodalGrad<1>& ngradLS,
+                                       NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
                                        SVec<double,dim> *bcFlux,
                                        SVec<double,dim> *interfaceFlux,
@@ -882,13 +883,13 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFcn* recFcnLS,
                                         BcData<dim>& bcData, GeoState& geoState,
                                         SVec<double,3>& X, SVec<double,dim>& V,
-                                        NodalGrad<dim>& ngrad, NodalGrad<1> &ngradLS,
+                                        NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
-                                        SVec<double,1>& Phi, SVec<double,1> &PhiF)
+                                        SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF)
 {
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
                                   egrad, Phi, PhiF);
@@ -1023,11 +1024,11 @@ void SubDomain::checkRHS(Scalar (*rhs)[dim])
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar, int neq>
+template<int dim, class Scalar, int neq, int dimLS>
 void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                                 FluxFcn **fluxFcn, BcData<dim> &bcData,
                                                 GeoState &geoState,
-                                                NodalGrad<dim> &ngrad, NodalGrad<1> &ngradLS,
+                                                NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                                 SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
                                                 Vec<int> &fluidId, CommPattern<double>* flag)
@@ -2291,65 +2292,6 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
-void SubDomain::computeH2LS(
-			    GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
-			    NodalGrad<dim> &ngrad, GenMat<Scalar,1> &A)
-{
-  Vec<Vec3D>& normal = geoState.getEdgeNormal();
-  double ddVij[1], ddVji[1], Vi[1], Vj[1], Ui, Uj, Un;
-  Scalar *Aij, *Aji, *Aii, *Ajj;
-
-  // contribution of the edges
-  bool *edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  for (int l=0; l<edges.size(); ++l) {
-    if (!edgeFlag[l]) continue;
-
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    int k;
-
-    Aij = A.getElem_ij(l);
-    Aji = A.getElem_ji(l);
-    Aii = A.getElem_ii(i);
-    Ajj = A.getElem_ii(j);
-
-    for (k=0; k<1; ++k) {
-//      Ui      = V[i][1]*dx[0]  +V[i][2]*dx[1]  +V[i][3]*dx[2];
-//      Uj      = V[j][1]*dx[0]  +V[j][2]*dx[1]  +V[j][3]*dx[2];
-      Ui      = V[i][1]*normal[l][0]  + V[i][2]*normal[l][1]  + V[i][2]*normal[l][2];
-      Uj      = V[j][1]*normal[l][0]  + V[j][2]*normal[l][1]  + V[j][2]*normal[l][2];
-      Un      = 0.5*(Ui  +Uj);
-//      Aii[k] += 0.5*(Ui  +fabs(Ui));
-//      Aij[k] += 0.5*(Uj  -fabs(Uj));
-//      Ajj[k] -= 0.5*(Uj  -fabs(Uj));
-//      Aji[k] -= 0.5*(Ui  +fabs(Ui));
-//      Aii[k] += 0.25*(Un  +fabs(Un));
-//      Aij[k] += 0.25*(Un  -fabs(Un));
-//      Ajj[k] -= 0.25*(Un  -fabs(Un));
-//      Aji[k] -= 0.25*(Un  +fabs(Un));
-//      Aii[k] += 0.25*Ui;
-//      Aij[k] += 0.25*Uj;
-//      Ajj[k] -= 0.25*Uj;
-//      Aji[k] -= 0.25*Ui;
-      Aii[k] += 0.25*Ui*V[i][0];
-      Aij[k] += 0.25*Uj*V[j][0];
-      Ajj[k] -= 0.25*Uj*V[j][0];
-      Aji[k] -= 0.25*Ui*V[i][0];
-
-    }
-  }
-
-  // contribution of the boundary faces
-  faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
-
-}
-
-//------------------------------------------------------------------------------
-
 template<class Scalar, int dim>
 void SubDomain::precomputeRec(RecFcn *recFcn, SVec<double,3> &X,
 			      SVec<double,dim> &V, NodalGrad<dim> &ngrad,
@@ -2537,45 +2479,6 @@ void SubDomain::computeMatVecProdH2(RecFcn *recFcn, SVec<double,3> &X,
     for (int k=0; k<dim; ++k) prod[i][k] *= voli;
 
   }
-}
-
-//------------------------------------------------------------------------------
-
-template<class Scalar1, class Scalar2>
-void SubDomain::computeMatVecProdH2LS(RecFcn *recFcn, SVec<double,3> &X,
-                Vec<double> &ctrlVol, GenMat<Scalar1,1> &A,
-                SVec<double,1> &aij, SVec<double,1> &aji,
-                SVec<double,1> &bij, SVec<double,1> &bji,
-                Vec<Scalar2> &p,
-                Vec<Scalar2> &prod) {
-  int i, j, l;
-  Scalar1 (*a)[1] = A.data();
-
-  prod = (Scalar2) 0.0;
-
-  int numNodes = nodes.size();
-  int numEdges = edges.size();
-  int (*edgePtr)[2] = edges.getPtr();
-  bool *masterFlag = edges.getMasterFlag();
-
-  for (l=0; l<numEdges; ++l) {
-    if (!masterFlag[l]) continue;
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-
-    // A is applied to reconstructed-limited states and stored in tmpi, tmpj
-    // address of a is shifted by the number of diagonal entries (numnodes)
-    DenseMatrixOp<Scalar1,1,1>::applyToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
-    DenseMatrixOp<Scalar1,1,1>::applyToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, 0);
-  }
-
-  // contribution from diagonal entries of A
-  for (i=0; i<numNodes; ++i) {
-    DenseMatrixOp<Scalar1,1,1>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
-    double voli = 1.0 / ctrlVol[i];
-    prod[i] *= voli;
-  }
-
 }
 
 //------------------------------------------------------------------------------
@@ -3755,7 +3658,7 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
   double phi = 1.0;
   int fluidId = 0;
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi, fluidId);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], &phi, fluidId);
 }
 
 //------------------------------------------------------------------------------
@@ -3780,7 +3683,7 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
   int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
     if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
-      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], phi, fluidId);
+      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], &phi, fluidId);
       Q[i] *= X[i][dir];
     }
   }
@@ -3789,14 +3692,14 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim, int dimLS>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-					  Vec<double> &Q, SVec<double,1> &phi, Vec<int> &fluidId)
+					                                Vec<double> &Q, SVec<double,dimLS> &phi, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i][0], fluidId[i]);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i], fluidId[i]);
 
 }
 
@@ -3984,7 +3887,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
     for (int i=0; i<U.size(); ++i) {
 
       if (!(U[i][0] > 0.0)) {
-        fprintf(stderr, "*** Error: negative density (%e) for node %d with phi=%d (previously %d)\n",
+        fprintf(stderr, "*** Error: negative density (%e) for node %d with fluidID=%d (previously %d)\n",
               U[i][0], locToGlobNodeMap[i] + 1, fluidId[i], fluidIdn[i]);
         ++ierr;
       }
@@ -4001,13 +3904,13 @@ int SubDomain::checkSolution(VarFcn *varFcn, Vec<double> &ctrlVol, SVec<double,d
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, SVec<double,1> &Phi,
-                SVec<double,dim> &restriction, int sign){
+void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, Vec<int> &fluidId,
+                                 SVec<double,dim> &restriction, int fluidIdTarget){
 
   int idim;
   restriction = 0.0;
   for (int i=0; i<nodes.size(); i++)
-    if((sign > 0 && Phi[i][0] >= 0.0) || (sign < 0 && Phi[i][0] < 0.0))
+    if(fluidId[i] == fluidIdTarget)
       for(idim=0; idim<dim; idim++) restriction[i][idim] = initial[i][idim];
 
 }
@@ -4860,98 +4763,14 @@ void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, 
     }
 }
 //------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dim> &Phi,SVec<double,dim> &Psi)
-{
-  for(int i=0; i<nodes.size(); i++)
-    if(Tag[i]==level)
-      Psi[i][0] = fabs(Phi[i][0]);
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                       NodalGrad<dim> &grad,
-                                       SVec<double,dim> &Phi,SVec<double,dim> &Psi)
-{
-  for(int i=0; i<nodes.size(); i++){
-    if(Tag[i]==1) Tag[i]=-1;
-  }
-  SVec<double,dim>& ddx  = grad.getX();
-  SVec<double,dim>& ddy  = grad.getY();
-  SVec<double,dim>& ddz  = grad.getZ();
-  elems.computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
-                                      NodalGrad<dim> &grad, SVec<double,dim> &Phi,
-                                      SVec<double,dim> &Psi)
-{
-
-  SVec<double,dim>& ddx  = grad.getX();
-  SVec<double,dim>& ddy  = grad.getY();
-  SVec<double,dim>& ddz  = grad.getZ();
-  elems.recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
-
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                       SVec<double,3> &X, SVec<double,dim> &Psi,SVec<double,dim> &Phi)
-{
-
-  if(level==2)
-    for(int i=0; i<nodes.size(); i++)
-      if(Tag[i]==-1) Tag[i]=1;
-  elems.computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
-  double res = 0.0;
-  for(int i=0; i<nodes.size(); i++)
-    if(Tag[i]==level)
-      res += Psi[i][0]*Psi[i][0];
-
-  return res;
-}
-//-------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::checkNodePhaseChange(SVec<double,dim> &X)
+template<int dimLS>
+void SubDomain::checkNodePhaseChange(SVec<double,dimLS> &PhiProduct)
 {
 
   for(int i=0; i<nodes.size(); i++)
-    for(int idim=0; idim<dim; idim++)
-      if(X[i][idim]<0.0)
+    for(int idim=0; idim<dimLS; idim++)
+      if(PhiProduct[i][idim]<0.0)
         fprintf(stdout, "***Error: node %d (%d) has changed phase during reinitialization\n", i, locToGlobNodeMap[i]+1);
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::getSignedDistance(SVec<double,dim> &Psi, SVec<double,dim> &Phi)
-{
-  for(int i=0; i<nodes.size(); i++){
-    if(Phi[i][0]<0.0)
-      Psi[i][0] = -Psi[i][0];
-    if(Phi[i][0]<0.0 && Psi[i][0]>0.0)
-      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i][0],Psi[i][0]);
-  }
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::checkWeights(SVec<double,1> &Phi, SVec<double,1> &Phin,
-                             SVec<double,dim> &Update, Vec<double> &Weight)
-{
-  // this function checks that a node that changed phases has an update.
-  // if that node does not have an update, then it is assumed that
-  //    some complex phenomenon makes the flow cavitates, which we prevent
-  //    by enforcing that phi value at that node is unchanged between tn and tn+1
-
-  for(int i=0; i<nodes.size(); i++){
-    if(Phi[i][0]*Phin[i][0]<0.0 && !(Weight[i]>0.0)){
-      fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset"
-                      " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-                      globSubNum,Weight[i],Phin[i][0],Phi[i][0]);
-      Phi[i][0] = Phin[i][0];
-    }
-  }
 
 }
 //------------------------------------------------------------------------------
@@ -5277,5 +5096,373 @@ void SubDomain::computePrdtWCtrlVolRatio(SVec<double,dim> &ratioTimesU, SVec<dou
 
 }
 
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//             LEVEL SET SOLUTION AND REINITIALIZATION                       ---
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin)
+{
+  if(!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
 
+  for(int i=0; i<nodes.size(); i++){
+    for(int j=0; j<dimLS; j++){
+      if(Phi[i][j]*Phin[i][j]<0.0){
+        // check if node i HAD a neighbour with a different levelset sign
+        bool diffNeigh = false;
+        for(int iNeigh=0; iNeigh<NodeToNode->num(i); iNeigh++)
+          if(Phin[i][j]*Phin[(*NodeToNode)[i][iNeigh]][j]<0.0){
+            diffNeigh = true;
+            break;
+          }
+        if(!diffNeigh) {Phi[i][j] = Phin[i][j]; fprintf(stdout, "node %d has levelset %d clipped to avoid phase creation\n", locToGlobNodeMap[i]+1, j);}
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight)
+{
+
+  for(int i=0; i<nodes.size(); i++){
+    for(int j=0; j<dimLS; j++){
+      if(Phi[i][j]*Phin[i][j]<0.0){
+        // check if node i HAD a neighbour with a different levelset sign
+        if(weight[i] <= 0.0){
+          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
+                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+                          globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
+          Phi[i][j] = Phin[i][j];
+        }
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi, int level)
+{
+  if(!NodeToNode)
+     NodeToNode = createEdgeBasedConnectivity();
+
+  if(level==0){
+  // tag nodes that are closest to interface by looking at phi[i]*phi[j]
+    Tag = 0;
+    edges.TagInterfaceNodes(Tag,Phi);
+
+  }else{
+  // tag nodes that are neighbours of already tagged nodes.
+    int nNeighs,nei,k;
+    for(int i=0; i<nodes.size(); i++){
+
+      if(Tag[i]==level){
+
+        nNeighs = NodeToNode->num(i);
+        for(k=0;k<nNeighs;k++){
+          nei = (*NodeToNode)[i][k];
+          if(Tag[nei]==0) Tag[nei] = level+1;
+        }
+
+      }
+    }
+  }
+
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
+{
+  if(globSubNum==1){
+  fprintf(stdout, "\nPhi - subDomain %d: \n", locSubNum);
+  int glob, sh;
+  /*for (int iSub = 0; iSub < numNeighb; ++iSub) {
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      sh = (*sharedNodes)[iSub][iNode] ;
+      glob = locToGlobNodeMap[sh]+1;
+      fprintf(stderr, "%d %.14e %.14e %.14e %.14e %.14e\n", glob, V[ sh ][0],
+                                                                  V[ sh ][1],
+                                                                  V[ sh ][2],
+                                                                  V[ sh ][3],
+                                                                  V[ sh ][4]);
+    }
+  }*/
+
+  for (int i=0; i<nodes.size(); i++){
+    glob = locToGlobNodeMap[i]+1;
+    fprintf(stdout, " Phi : %d %d   ", i,glob);
+    for(int j=0; j<dimLS; j++)
+      fprintf(stdout, "%.14e ", Phi[i][j]);
+    fprintf(stdout, "\n");
+  }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setPhiForFluid1(SVec<double,dimLS> &phi)  {
+  //TODO: Multiphase : implement correctly
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() != -1)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        phi[nodeNums[iNode]][0] = 1.0;
+
+    }
+  }
+}
+//--------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             SVec<double,dimLS> &Phi)  {
+  //TODO: Multiphase : implement correctly
+// assume it is a sphere!
+  double dist; //dist to center of sphere
+  for (int i=0; i<nodes.size(); i++){
+    dist = (X[i][0]-x)*(X[i][0]-x) + (X[i][1]-y)*(X[i][1]-y) + (X[i][2]-z)*(X[i][2]-z);
+    dist = sqrt(dist);
+    Phi[i][0] *= std::abs(dist - r);
+  }
+}
+//--------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
+                                             double y, double z, double r,
+                                             double invertGasLiquid,
+                                             SVec<double,dimLS> &Phi)  {
+  //TODO: Multiphase : implement correctly
+//WARNING: routine cannot do like in setPhiWithDistanceToGeometry
+//         where phi was computed by : Phi[i][0] *= std::abs(dist - r);
+//         because in that routine Phi[i][0] had value 1 or -1
+//         Here this is not possible because we do not loop on nodes,
+//         we loop on elements, and thus we pass several times on each
+//         node, and we cannot say that Phi[i][0] is 1 or -1.
+
+
+  // assume it is a sphere!
+  double dist; //dist to center of sphere
+  int node;
+
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() != -1)  {
+    // nodes in element with volumeID != -1 --> Phi>0 except where we specify otherwise
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        Phi[node][0] = dist - r;
+
+      }
+    }else{
+    // nodes in element with volumeID = -1 --> Phi<0
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        node = nodeNums[iNode];
+        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
+               (X[node][2]-z)*(X[node][2]-z);
+        dist = sqrt(dist);
+        //Phi[node][0] *= std::abs(dist-r); // does not work (cf WARNING)
+        Phi[node][0] = -std::abs(dist-r);
+      }
+
+    }
+  }
+
+}
+//--------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setPhiForShockTube(SVec<double,3> &X,
+                                   double radius, SVec<double,dimLS> &Phi)
+{
+  //TODO: Multiphase : implement correctly
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i][0] = X[i][0] - radius;
+
+}
+//--------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
+                             double z, double radius, double invertGasLiquid,
+                             SVec<double,dimLS> &Phi)
+{
+  //TODO: Multiphase : implement correctly
+  for (int i=0; i<nodes.size(); i++)
+    Phi[i][0] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
+                                    (X[i][1] -y)*(X[i][1] -y)  +
+                                    (X[i][2] -z)*(X[i][2] -z))
+                                  - radius);
+}
+
+//--------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::setupPhiVolumesInitialConditions(const int volid, SVec<double,dimLS> &Phi){
+  //TODO: Multiphase : implement correctly
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
+        Phi[nodeNums[iNode]][0] = (volid==0) ? 1.0 : -1.0;
+    }
+  }
+
+}
+
+//--------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
+                                 SVec<double,3> &X, SVec<double,dimLS> &Phi){
+  //TODO: Multiphase : implement correctly
+  double dist = 0.0;
+  double x = ic.cen_x;
+  double y = ic.cen_y;
+  double z = ic.cen_z;
+  double r = ic.radius;
+
+  for (int i=0; i<Phi.size(); i++){
+    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
+    Phi[i][0] *= sqrt(dist) - r;
+  }
+
+}
+
+//--------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
+                                 SVec<double,3> &X, SVec<double,dimLS> &Phi){
+  //TODO: Multiphase : implement correctly
+  double scalar = 0.0;
+  double x = ip.cen_x;
+  double y = ip.cen_y;
+  double z = ip.cen_z;
+  double norm = ip.nx*ip.nx+ip.ny*ip.ny+ip.nz*ip.nz;
+  norm = sqrt(norm);
+  double nx = ip.nx/norm;
+  double ny = ip.ny/norm;
+  double nz = ip.nz/norm;
+
+  for (int i=0; i<Phi.size(); i++){
+    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
+    Phi[i][0] *= -scalar;
+  }
+
+}
+//--------------------------------------------------------------------------
+// for mesh motion (with RK2 time-integration)
+template<int dimLS>
+void SubDomain::computePrdtPhiCtrlVolRatio(SVec<double,dimLS> &ratioTimesPhi,
+           SVec<double,dimLS> &Phi, Vec<double> &ctrlVol, GeoState &geoState)
+{
+   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+
+   for (int i=0; i<nodes.size(); ++i) {
+     double ratio = ctrlVol_n[i]/ctrlVol[i];
+     for (int j=0; j<dimLS; j++)
+       ratioTimesPhi[i][j] = ratio * Phi[i][j];
+   }
+
+}
+
+//-----------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level)
+{
+
+  if(!NodeToNode)
+    NodeToNode = createEdgeBasedConnectivity();
+
+  int nNeighs,nei,k;
+  for (int i=0; i<nodes.size(); i++){
+    if (Tag[i]==level){
+
+      nNeighs = NodeToNode->num(i);
+      for (k=0; k<nNeighs; k++){
+        nei = (*NodeToNode)[i][k];
+        if(Tag[nei]==0){
+          Tag[nei] = level+1;
+          Psi[nei][0] = Psi[i][0];
+        }else if(Tag[nei]==level+1){
+          if( (Psi[i][0] > 0.0 && Psi[i][0] > Psi[nei][0]) ||
+              (Psi[i][0] < 0.0 && Psi[i][0] < Psi[nei][0])  )
+            Psi[nei][0] = Psi[i][0];
+        }
+
+      }
+    }
+  }
+
+}
+//-----------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+{
+  for(int i=0; i<nodes.size(); i++)
+    if(Tag[i]==level)
+      Psi[i][0] = fabs(Phi[i][0]);
+
+}
+//------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                       NodalGrad<dimLS> &grad,
+                                       SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+{
+  for(int i=0; i<nodes.size(); i++){
+    if(Tag[i]==1) Tag[i]=-1;
+  }
+  SVec<double,dimLS>& ddx  = grad.getX();
+  SVec<double,dimLS>& ddy  = grad.getY();
+  SVec<double,dimLS>& ddz  = grad.getZ();
+  elems.computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+}
+//-------------------------------------------------------------------------------
+template<int dimLS>
+void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+                                      NodalGrad<dimLS> &grad, SVec<double,dimLS> &Phi,
+                                      SVec<double,dimLS> &Psi)
+{
+
+  SVec<double,dimLS>& ddx  = grad.getX();
+  SVec<double,dimLS>& ddy  = grad.getY();
+  SVec<double,dimLS>& ddz  = grad.getZ();
+  elems.recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+
+}
+//-------------------------------------------------------------------------------
+template<int dimLS>
+double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,dimLS> &Psi,SVec<double,dimLS> &Phi)
+{
+
+  if(level==2)
+    for(int i=0; i<nodes.size(); i++)
+      if(Tag[i]==-1) Tag[i]=1;
+  elems.computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+  double res = 0.0;
+  for(int i=0; i<nodes.size(); i++)
+    if(Tag[i]==level)
+      res += Psi[i][0]*Psi[i][0];
+
+  return res;
+}
+//-------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::getSignedDistance(SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi)
+{
+  for(int i=0; i<nodes.size(); i++){
+    if(Phi[i][0]<0.0)
+      Psi[i][0] = -Psi[i][0];
+    if(Phi[i][0]<0.0 && Psi[i][0]>0.0)
+      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i][0],Psi[i][0]);
+  }
+}
+//------------------------------------------------------------------------------

@@ -114,7 +114,8 @@ void DistExactRiemannSolver<dim>::storePreviousPrimitive(DistSVec<double,dim> &V
 }
 //------------------------------------------------------------------------------
 template<int dim>
-void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistSVec<double,1> &Phi, DistSVec<double,1> &Phin)
+template<int dimLS>
+void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin)
 {
   if(algorithmType_ != MultiFluidData::GHOSTFLUID_FOR_POOR)
     domain->avoidNewPhaseCreation(Phi,Phin,*weight);

@@ -16,8 +16,8 @@ class PitchingMeshMotionHandler;
 class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
-class LevelSet;
 
+template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistTimeState;
@@ -141,20 +141,20 @@ public:
                              double* , DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
-  void writeConservationErrors(IoData &iod, int it, double t, 
-                               double *totqty, double *f1qty, double *f2qty,
-                               double *toterr, double *f1err, double *f2err);
+  void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
+                               double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+  template<int dimLS>
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistSVec<double,1> &, DistVec<int> &);
-  void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
-                                DistVec<double> &, DistSVec<double,dim> &,
-                                DistSVec<double,1> &, DistVec<int> &);
+                                DistSVec<double,dimLS> &, DistVec<int> &);
+  //void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
+  //                              DistVec<double> &, DistSVec<double,dim> &,
+  //                              DistSVec<double,1> &, DistVec<int> &);
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

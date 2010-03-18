@@ -1,4 +1,9 @@
 #include <LevelSetTsDesc.h>
+
+#include "IoData.h"
+#include "GeoSource.h"
+#include "Domain.h"
+#include "LevelSet.h"
 #include <DistExactRiemannSolver.h>
 #include <FluidSelector.h>
 
@@ -26,28 +31,21 @@ using std::min;
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-LevelSetTsDesc<dim>::
+template<int dim, int dimLS>
+LevelSetTsDesc<dim,dimLS>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()), //Vg(this->getVecInfo()),
+  TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase/*should be 2*/, ioData, dom) 
+  fluidSelector(ioData.eqs.numPhase, ioData, dom) 
 {
 
-  this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
+  multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
+                                                             this->domain, this->V);
+  this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
 
-  LS = new LevelSet(ioData, this->domain);
+  LS = new LevelSet<dimLS>(ioData, this->domain);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
-
-  //Vgf = 0;
-  //Vgfweight = 0;
-  //if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
-  //  Vgf = new DistSVec<double,dim>(this->getVecInfo());
-  //  Vgfweight = new DistVec<double>(this->getVecInfo());
-  //  *Vgf =-1.0;
-  //  *Vgfweight =0.0;
-  //}
 
   //multiphase conservation check
   boundaryFlux  = 0.0;
@@ -55,9 +53,15 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   computedQty   = 0.0;
   tmpDistSVec   = 0;
   tmpDistSVec2  = 0;
-  for(int i=0; i<dim; i++){
-    expectedTot[i] = 0.0; expectedF1[i] = 0.0; expectedF2[i] = 0.0;
-    computedTot[i] = 0.0; computedF1[i] = 0.0; computedF2[i] = 0.0;
+  expected = new double * [dimLS+2];
+  computed = new double * [dimLS+2];
+  for(int j=0; j<dimLS+2; j++){
+    expected[j] = new double[dim];
+    computed[j] = new double[dim];
+    for(int i=0; i<dim; i++){
+      expected[j][i] = 0.0;
+      computed[j][i] = 0.0;
+    }
   }
 
   frequencyLS = ioData.mf.frequency;
@@ -71,23 +75,27 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-LevelSetTsDesc<dim>::~LevelSetTsDesc()
+template<int dim, int dimLS>
+LevelSetTsDesc<dim,dimLS>::~LevelSetTsDesc()
 {
 
   if (LS) delete LS;
   if (riemann) delete riemann;
-  //if (Vgf) delete Vgf;
-  //if (Vgfweight) delete Vgfweight;
 
   if(tmpDistSVec)  delete tmpDistSVec;
   if(tmpDistSVec2) delete tmpDistSVec2;
+  for(int j=0; j<dimLS+2; j++){
+    delete expected[j];
+    delete computed[j];
+  }
+  delete expected;
+  delete computed;
 
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
 
   this->geoState->setup2(this->timeState->getData());
@@ -108,8 +116,8 @@ void LevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
+template<int dim, int dimLS>
+double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
                                             DistSVec<double,dim> &U)
 {
   double t0 = this->timer->getTime();
@@ -133,8 +141,8 @@ double LevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
 
   this->geoState->update(*this->X, *this->A);
@@ -154,8 +162,8 @@ void LevelSetTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
+template<int dim, int dimLS>
+int LevelSetTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 {
 
   int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, fluidSelector.fluidId, fluidSelector.fluidIdn);
@@ -166,8 +174,8 @@ int LevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::conservationErrors(DistSVec<double,dim> &U, int it)
 {
   if(!tmpDistSVec)  tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
 // computes the total mass, momentum and energy
@@ -182,8 +190,6 @@ void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
 //     For the momentum and the energy, the physical flux depends on the 
 //     pressure at this interface. More to be said here (numerical flux among
 //     other things)
-  int fluid1 =  1;
-  int fluid2 = -1;
 
   // total mass, total mass of fluid1, total mass of fluid2
   // note that there are two types of conservation errors:
@@ -194,23 +200,21 @@ void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
 
   computedQty = U;
   computedQty *= *this->A;
-  computedQty.sum(computedTot);
+  computedQty.sum(computed[0]);
 
-  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(computedF1);
-
-  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(computedF2);
+  for(int i=1; i<dimLS+2; i++){ // for each separate fluid
+    int fluidIdTarget = i-1; //use fluidSelector to obtain them?
+    this->domain->restrictionOnPhi(computedQty, fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
+    tmpDistSVec->sum(computed[i]);
+  }
 
   // expected total mass, mass in fluid1, mass in fluid2
   // an expected mass is computed iteratively, that is
   // m_{n+1} = m_{n} + fluxes_at_boundaries
   if(it==0){
-    for (int i=0; i<dim; i++){
-       expectedTot[i] = computedTot[i];
-       expectedF1[i]  = computedF1[i];
-       expectedF2[i]  = computedF2[i];
-    }
+    for (int j=0; j<dimLS+2; j++)
+      for (int i=0; i<dim; i++)
+        expected[j][i] = computed[j][i];
     return;
   }
 
@@ -219,24 +223,22 @@ void LevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
 
   boundaryFlux.sum(bcfluxsum);
   for (int i=0; i<dim; i++)
-    expectedTot[i] += dt*bcfluxsum[i];
+    expected[0][i] += dt*bcfluxsum[i];
 
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expectedF1[i] += dt*bcfluxsum[i];
-
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expectedF2[i] += dt*bcfluxsum[i];
+  for(int j=1; j<dimLS+2; j++){
+    int fluidIdTarget = j-1; //use fluidSelector to obtain them?
+    this->domain->restrictionOnPhi(boundaryFlux, fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
+    tmpDistSVec->sum(bcfluxsum);
+    for (int i=0; i<dim; i++)
+      expected[j][i] += dt*bcfluxsum[i];
+  }
 
 }
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
                           int it, double t, DistSVec<double,dim> &U)
 {
   conservationErrors(U,it);
@@ -256,8 +258,8 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, (fluidSelector.fluidId));
-    this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, (fluidSelector.fluidId));
+    this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
     this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
   }
 
@@ -265,8 +267,8 @@ void LevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int it,
                                                int itSc, int itNl,
                                                double t, double dt, DistSVec<double,dim> &U)
 {
@@ -283,8 +285,8 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, Phi, fluidSelector.fluidId);
-  this->output->writeConservationErrors(ioData, it, t, expectedTot, expectedF1, expectedF2, computedTot, computedF1, computedF2);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, fluidSelector.fluidId);
+  this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   if (*lastIt) {
@@ -297,8 +299,8 @@ void LevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it,
 }
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::outputForces(IoData &ioData, bool* lastIt, int it, int itSc, int itNl,
                                double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = this->timer->getRunTime();
@@ -307,10 +309,10 @@ void LevelSetTsDesc<dim>::outputForces(IoData &ioData, bool* lastIt, int it, int
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::resetOutputToStructure(DistSVec<double,dim> &U)
 {
-  this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
+  this->com->printf(5,"LevelSetTsDesc<dim,dimLS>::resetOutputToStructure\n");
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
@@ -320,12 +322,12 @@ void LevelSetTsDesc<dim>::resetOutputToStructure(DistSVec<double,dim> &U)
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dtLeft,
 					  DistSVec<double,dim> &U)
 {
 
-  this->com->printf(5,"LevelSetTsDesc<dim>::resetOutputToStructure\n");
+  this->com->printf(5,"LevelSetTsDesc<dim,dimLS>::resetOutputToStructure\n");
   if (this->mmh) {
     double work[2];
     this->mmh->computeInterfaceWork(dt, this->postOp, this->geoState->getXn(), 
@@ -343,8 +345,8 @@ void LevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+template<int dim, int dimLS>
+bool LevelSetTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
 {
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
@@ -360,8 +362,8 @@ bool LevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void LevelSetTsDesc<dim>::avoidNewPhaseCreation(DistSVec<double,1> &localPhi)
+template<int dim, int dimLS>
+void LevelSetTsDesc<dim,dimLS>::avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi)
 {
 
   this->domain->avoidNewPhaseCreation(localPhi, LS->Phin);
