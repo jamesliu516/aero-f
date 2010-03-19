@@ -217,7 +217,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-                bool linRecFSI = true)  {
+                bool linRecFSI)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -269,7 +269,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //KW: set gradients = 0 for cells near interface.
-  if(!linRecFSI)  
+/*  if(!linRecFSI)  
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
@@ -278,7 +278,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
     }
-
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -876,6 +876,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, fluidId, V, fluxes); 
+
   return ierr;
 
 }

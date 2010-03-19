@@ -767,7 +767,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
-  int fluid1 = 0, fluid2 = 1; //TODO: to be fixed!
+  int farfieldFluid = 0; // This is the basic rule. But shouldn't be hard-coded here. (TODO)
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -864,8 +864,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if(Nriemann) //pass fluid normal
         normalDir = -1.0/(normal[l].norm())*normal[l];
       else //pass struct normal
-        if(fluidId[i]==fluid1)       normalDir =      resij.gradPhi;
-        else if(fluidId[i]==fluid2)  normalDir = -1.0*resij.gradPhi;
+        if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+        else                                normalDir = -1.0*resij.gradPhi;
 
       riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
 
@@ -881,8 +881,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if(Nriemann) //pass fluid normal
         normalDir = 1.0/(normal[l].norm())*normal[l];
       else //pass struct normal
-        if(fluidId[j]==fluid1)       normalDir =      resij.gradPhi;
-        else if(fluidId[j]==fluid2)  normalDir = -1.0*resij.gradPhi; //TODO:double X ignored!
+        if(fluidId[j]==farfieldFluid)       normalDir =      resij.gradPhi;
+        else                                normalDir = -1.0*resij.gradPhi; //TODO:double X ignored!
 
       riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
 

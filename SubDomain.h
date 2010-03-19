@@ -322,7 +322,7 @@ public:
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
-                                    bool linRecFSI);
+                                    bool linRecFSI = true);
 
 
   template<int dim, class Scalar>

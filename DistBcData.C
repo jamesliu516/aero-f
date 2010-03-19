@@ -195,7 +195,6 @@ template<int dim>
 void DistBcData<dim>::finalize(DistSVec<double,3> &X)
 {
   //assumption : only one phase is found at the far-field boundary
-
   com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
   this->vf->conservativeToPrimitive(this->Uin, Vin);
   this->vf->conservativeToPrimitive(this->Uout, Vout);
@@ -1543,7 +1542,7 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
     else if(iod.eqs.fluidModel.fluid == FluidModelData::JWL)
       setBoundaryConditionsJWL(iod, X);
     
-  }else if (iod.eqs.numPhase == 2){
+  }else if (iod.eqs.numPhase >= 2){
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
         iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
       setBoundaryConditionsGasGas(iod, X);

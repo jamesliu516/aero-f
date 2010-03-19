@@ -49,8 +49,8 @@ private:
   double depth;
 
 
-  void check(int tag=0) const{/* 
-    if(tag>=numPhases){
+  void check(int tag=0) const{ 
+/*    if(tag>=numPhases){
       fprintf(stdout, "*** Error: there is no VarFcn with that tag %d\n", tag);
       fflush(stdout);
       exit(1);
@@ -249,8 +249,9 @@ VarFcn::VarFcn(IoData &iod){
     varFcn[1] = createVarFcnBase(iod, iod.eqs.fluidModel2);
   }
   if(numPhases>2){
-    fprintf(stderr,"You've been chosen to implement the constructor of VarFcn for n(>2) phase flow!\n");
-    exit(-1);
+    varFcn[2] = createVarFcnBase(iod, iod.eqs.fluidModel2);
+    //fprintf(stderr,"You've been chosen to implement the constructor of VarFcn for n(>2) phase flow!\n");
+    //exit(-1);
   }
 
   meshVel = 0.0;
