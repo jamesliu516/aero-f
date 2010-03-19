@@ -271,7 +271,7 @@ public:
   void computeGradientsLeastSquares(DistSVec<double,3> &, DistVec<int> &,
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
-                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI);
+                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true;);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &,

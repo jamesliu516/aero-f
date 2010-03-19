@@ -219,10 +219,10 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
     if(iod->eqs.numPhase>1)
       setupUFluidIdInitialConditions(iod->mf.fluidModel2, *fluidId, *(iod->mf.initialConditions.sphere[0]), 1); //TODO: to be fixed
     if(iod->eqs.numPhase>2){
-      fprintf(stderr,"Trying to setup i.c. for %d phase flow. Check DistTimeState<dim>::setup(...)\n", iod->eqs.numPhase);
+      //fprintf(stderr,"Trying to setup i.c. for %d phase flow. Check DistTimeState<dim>::setup(...)\n", iod->eqs.numPhase);
       // first you need to setup fluidModel3 in IoData, then do
-      // setupUFluidIdInitialConditions(iod->mf.fluidModel3, *fluidId, blabla, 3);
-      exit(-1);
+      setupUFluidIdInitialConditions(iod->mf.fluidModel2, *fluidId, *(iod->mf.initialConditions.sphere[1]), 2);
+      //exit(-1);
     }
   }
 

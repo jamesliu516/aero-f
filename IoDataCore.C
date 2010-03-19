@@ -3601,7 +3601,7 @@ int IoData::checkInputValuesMulti_step1(){
       eqs.numPhase = 2;
       mf.interfaceType = MultiFluidData::FSF;
     }
-  }else if(eqs.numPhase == 2){
+  }else if(eqs.numPhase >= 2){
     mf.interfaceType = MultiFluidData::FF;
     if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14)
     {
@@ -3612,7 +3612,7 @@ int IoData::checkInputValuesMulti_step1(){
 
 
 
-  if(eqs.numPhase == 2){
+  if(eqs.numPhase >= 2){
     error += checkInputValuesMultiEOS();
     error += checkInputValuesVolumesInitialization();
     error += checkInputValuesMultiFluidInitialization();
@@ -3630,7 +3630,7 @@ void IoData::checkInputValuesMulti_step2(){
 // this routine non dimensionalizes the input data for VolumeInitialConditions
 // and for MultiFluid.InitialConditions
 
-  if(eqs.numPhase == 2){
+  if(eqs.numPhase >= 2){
     // volumeInitialConditions first
     if(!volumes.volumeMap.dataMap.empty()){
       map<int, VolumeData *>::iterator it;
@@ -3966,7 +3966,7 @@ int IoData::printMultiEOS(){
       error++;
     }
   }
-  else if (eqs.numPhase == 2) {
+  else if (eqs.numPhase >= 2) {
 
      if (eqs.fluidModel.fluid == FluidModelData::GAS &&
          eqs.fluidModel2.fluid == FluidModelData::GAS)
@@ -4022,8 +4022,10 @@ int IoData::printMultiEOS(){
 
   }
   else{
-    com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
-    error++;
+
+    fprintf(stderr," ----- THREE-PHASE FLOW SIMULATION -----\n");
+//    com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
+//    error++;
   }
 
 
@@ -4227,7 +4229,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
   double Cv2, k1water2, k2water2, Prefwater2, RHOrefwater2;
   double Pref2, awater2, bwater2;
 
-  if(eqs.numPhase == 2){
+  if(eqs.numPhase >= 2){
     R2 = eqs.fluidModel2.gasModel.idealGasConstant;
     gamma2 = eqs.fluidModel2.gasModel.specificHeatRatio;
 
@@ -4607,7 +4609,7 @@ int IoData::checkInputValuesStateEquation()
     eqs.fluidModel.jwlModel.A2 = 0.0;
   }
 
-  if (eqs.numPhase == 2){
+  if (eqs.numPhase >= 2){
     if (eqs.fluidModel2.fluid == FluidModelData::LIQUID){
       if (eqs.fluidModel2.liquidModel.Prefwater < 0.0){
         com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for 2nd Tait's EOS\n", eqs.fluidModel2.liquidModel.Prefwater);
@@ -4732,7 +4734,7 @@ for(int j = 1; j < 8*sizeof(int); j++) {
 
 
 // for Multiphase flow using levelset
-  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT
+  if(eqs.numPhase >= 2 && schemes.ls.reconstruction == SchemeData::CONSTANT
                        && mf.interfaceType != MultiFluidData::FSF){
     com->fprintf(stderr, "*** Error: Linear reconstruction of the levelset is needed!\n");
     ++error;

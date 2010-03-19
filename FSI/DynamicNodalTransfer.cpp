@@ -97,7 +97,7 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& s
       structU[i][j] = UandUdot[i*3+j];
       structUdot[i][j] = UandUdot[(structU.size()+i)*3+j];
     }
-//  com.fprintf(stderr,"norm of received disp = %e.\n", structU.norm());
+//  com.fprintf(stderr,"norm of received disp/velo = %.12e/%.12e.\n", structU.norm(), structUdot.norm());
 
   structU = 1.0/XScale*structU;
   structUdot = 1.0/UScale*structUdot;
