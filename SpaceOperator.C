@@ -1722,18 +1722,18 @@ RecFcn *MultiPhaseSpaceOperator<dim,dimLS>::createRecFcnLS(IoData &ioData)
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi,
-                                         DistVec<int> &fluidId, DistSVec<double,dim> &R,
+                                         FluidSelector &fluidSelector, DistSVec<double,dim> &R,
                                          DistExactRiemannSolver<dim> *riemann, int it,
                                          DistSVec<double,dim> *bcFlux,
                                          DistSVec<double,dim> *interfaceFlux)
 {
 
   R = 0.0;
-  this->varFcn->conservativeToPrimitive(U, *(this->V), &fluidId);
+  this->varFcn->conservativeToPrimitive(U, *(this->V), &(fluidSelector.fluidId));
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidId, *(this->V));
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidSelector.fluidId, *(this->V));
     this->timer->addNodalGradTime(t0);
   }
 
@@ -1763,7 +1763,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
-                                  *(this->geoState), X, *(this->V), fluidId, *(this->ngrad), this->egrad,
+                                  *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
                                   *ngradLS, R, it, bcFlux, interfaceFlux,
                                   this->failsafe,this->rshift);
 
@@ -1836,12 +1836,12 @@ template<int dim, int dimLS>
 template<class Scalar, int neq>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
-                                         DistVec<int> &fluidId, DistExactRiemannSolver<dim> *riemann)
+                                         FluidSelector &fluidSelector, DistExactRiemannSolver<dim> *riemann)
 {
 
   //fprintf(stdout, "going through computeJacobian for two-phase flows\n");
 #ifdef DOUBLE_CHECK
-  this->varFcn->conservativeToPrimitive(U, *(this->V), &fluidId);
+  this->varFcn->conservativeToPrimitive(U, *(this->V), &(fluidSelector.fluidId));
 #endif
 
   A = 0.0;
@@ -1853,7 +1853,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
   else  {
     if (this->fet)
       this->domain->computeJacobianGalerkinTerm(this->fet, *(this->bcData), *(this->geoState), X, ctrlVol, *(this->V), A);
-    this->domain->computeJacobianFiniteVolumeTerm(*riemann, this->fluxFcn, *(this->bcData), *(this->geoState), *(this->ngrad), *ngradLS, X, ctrlVol, *(this->V), A, fluidId);
+    this->domain->computeJacobianFiniteVolumeTerm(*riemann, this->fluxFcn, *(this->bcData), *(this->geoState), *(this->ngrad), *ngradLS, X, ctrlVol, *(this->V), A, fluidSelector);
     if (this->volForce)
       this->domain->computeJacobianVolumicForceTerm(this->volForce, ctrlVol, *(this->V), A);
   }

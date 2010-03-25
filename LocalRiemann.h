@@ -21,7 +21,7 @@ protected:
                        // FluidStruct       Gas                     N/A
 public:
   LocalRiemann()           { vf_ = 0; fluid1 = 0; fluid2 = 1;}
-  LocalRiemann(VarFcn *vf) { vf_ = vf; fluid1 = 0; fluid2 = 1;}
+  LocalRiemann(VarFcn *vf, int tag1, int tag2) { vf_ = vf; fluid1 = tag1; fluid2 = tag2;}
   virtual ~LocalRiemann()  { vf_ = 0; }
 
   // multiphase Riemann problem
@@ -53,7 +53,7 @@ class LocalRiemannGfmp : public LocalRiemann {
 
 public:
   LocalRiemannGfmp() : LocalRiemann() {}
-  LocalRiemannGfmp(VarFcn *vf) : LocalRiemann(vf) {}
+  LocalRiemannGfmp(VarFcn *vf, int tag1, int tag2) : LocalRiemann(vf,tag1,tag2) {}
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){///*nothing to do for GFMP*/}
@@ -70,7 +70,7 @@ class LocalRiemannGfmpar : public LocalRiemann {
 
 public:
   LocalRiemannGfmpar() : LocalRiemann() {}
-  LocalRiemannGfmpar(VarFcn *vf, MultiFluidData::TypePhaseChange phaseChangeType) : LocalRiemann(vf), phaseChangeType_(phaseChangeType) {}
+  LocalRiemannGfmpar(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange phaseChangeType) : LocalRiemann(vf,tag1,tag2), phaseChangeType_(phaseChangeType) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
@@ -179,6 +179,7 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
   u = u1 - phi*(res2[0]-res1[0]);
   p = vf_->computeIsentropicPressure(entropy, 1.0/v, myFluidId);
   double c = vf_->computeSoundSpeed(1.0/v, entropy, myFluidId);
+  //fprintf(stdout, "EOS = (%e %e %e %e %e), s=%e, v=%e, myFluidId=%d, c=%e\n", vf_->getOmega(myFluidId), vf_->getA1(myFluidId), vf_->getA2(myFluidId), vf_->getR1r(myFluidId), vf_->getR2r(myFluidId), entropy, v, myFluidId, c);
   du = -phi*c/v;
   dp = -c*c/(v*v);
   if (flag>0 && c<= 0.0) fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e\n", c,u,p,du,dp);

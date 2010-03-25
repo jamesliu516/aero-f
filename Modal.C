@@ -922,7 +922,7 @@ void ModalSolver<dim>::preProcess()  {
 
   // Temporal operator contains Uref for us
   tState = new DistTimeState<dim>(*ioData, spaceOp, varFcn, &domain);
-  tState->setup(tInput->solutions,  bcData->getInletBoundaryVector(), Xref, Uref);
+  tState->setup(tInput->solutions,  Xref, bcData->getInletBoundaryVector(), Uref, *ioData);
 
   RefVal *refVal = new RefVal(ioData->ref.rv);
   tOutput = new TsOutput<dim>(*ioData, refVal, &domain, postOp);

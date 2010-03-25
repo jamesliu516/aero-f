@@ -13,7 +13,8 @@ template<class Scalar, int dim> class SVec;
 template<int dim>
 class ExactRiemannSolver{
 
-  LocalRiemann *lriemann;
+  int numLriemann;
+  LocalRiemann **lriemann;
 
   LocalRiemann *fsiRiemann;
 	

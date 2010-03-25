@@ -836,7 +836,7 @@ void Timer::print(Timer *str, FILE *fp)
   }
 
   // Output Level-Set Timers
-  if (ioData->eqs.numPhase == 2) {
+  if (ioData->eqs.numPhase > 1) {
     com->fprintf(fp, "LevelSet Solution             : %10.2f %10.2f %10.2f         -\n", tmin[levelSet], tmax[levelSet], tavg[levelSet]);
 
     com->fprintf(fp, "  Nodal Weights and Grad      : %10.2f %10.2f %10.2f %9d\n",

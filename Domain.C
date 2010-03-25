@@ -18,6 +18,7 @@
 #include <LevelSet/FluidTypeCriterion.h>
 #include <GeoState.h>
 #include <NodalGrad.h>
+#include "FluidSelector.h"
 
 #include <stdio.h>
 #include <math.h>
@@ -772,7 +773,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
-                                     DistVec<int> &fluidId,
+                                     FluidSelector &fluidSelector,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistNodalGrad<dimLS>& ngradLS,
                                      DistSVec<double,dim>& R, int it,
@@ -790,6 +791,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
+  DistVec<int> &FluidId(fluidSelector.fluidId);
 
   int iSub;
 #pragma omp parallel for
@@ -797,9 +799,11 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
     SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
+    Vec<int> &fluidId = FluidId(iSub);
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                             X(iSub), V(iSub), fluidId(iSub), ngrad(iSub),
+                                             X(iSub), V(iSub), fluidId,
+                                             fluidSelector, ngrad(iSub),
                                              legrad,  ngradLS(iSub), (*RR)(iSub), it,
                                              lbcFlux, linterfaceFlux,
                                              (*tag)(iSub), failsafe, rshift);
@@ -840,9 +844,11 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
         SVec<double,dim>* lbcFlux = (bcFlux) ? &((*bcFlux)(iSub)) : 0;
         SVec<double,dim>* linterfaceFlux = (interfaceFlux) ? &((*interfaceFlux)(iSub)) : 0;
+        Vec<int> &fluidId = FluidId(iSub);
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
-                                     X(iSub), V(iSub), fluidId(iSub), ngrad(iSub),
+                                     X(iSub), V(iSub), fluidId,
+                                     fluidSelector, ngrad(iSub),
                                      legrad, ngradLS(iSub), (*RR)(iSub), it,
                                      lbcFlux, linterfaceFlux,
                                      (*tag)(iSub), 0, rshift);
@@ -1282,7 +1288,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                              DistSVec<double,3> &X,
                                              DistVec<double> &ctrlVol,
                                              DistSVec<double,dim> &V, DistMat<Scalar,neq> &A,
-                                             DistVec<int> &fluidId)
+                                             FluidSelector &fluidSelector)
 {
 
   int iSub;
@@ -1298,7 +1304,8 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                                      ngrad(iSub), ngradLS(iSub),
                                                      X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
-                                                     fluidId(iSub), inletRhsPat);
+                                                     fluidSelector, 
+                                                     fluidSelector.fluidId(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
@@ -1317,7 +1324,8 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                                      ngrad(iSub), ngradLS(iSub),
                                                      X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
-                                                     fluidId(iSub), inletRhsPat);
+                                                     fluidSelector, 
+                                                     fluidSelector.fluidId(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
@@ -3400,7 +3408,7 @@ void Domain::setPhiForBubble(DistSVec<double,3> &X, double x, double y,
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void Domain::setupPhiVolumesInitialConditions(const int volid, DistSVec<double,dimLS> &Phi){
+void Domain::setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi){
 
   // It is assumed that the initialization using volumes is only
   // called to distinguish nodes that are separated by a material
@@ -3410,7 +3418,7 @@ void Domain::setupPhiVolumesInitialConditions(const int volid, DistSVec<double,d
   // for parallelization.
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, Phi(iSub));
+    subDomain[iSub]->setupPhiVolumesInitialConditions(volid, fluidId, Phi(iSub));
 
 }
 
@@ -3650,8 +3658,8 @@ void Domain::computeDistanceLevelNodes(DistVec<int> &Tag, int level,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
-                   VolumeInitialConditions &ic, DistSVec<double,dim> &U)
+void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
+                                            DistSVec<double,dim> &U)
 {
 
   // It is assumed that the initialization using volumes is only
@@ -3662,12 +3670,12 @@ void Domain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
   // for parallelization.
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->setupUVolumesInitialConditions(volid, fm, ic, U(iSub));
+    subDomain[iSub]->setupUVolumesInitialConditions(volid, UU, U(iSub));
 
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void Domain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
                    SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U){
@@ -3689,9 +3697,9 @@ void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
     subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub));
 
 }
-
+*/
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
                    PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag){
@@ -3701,6 +3709,6 @@ void Domain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
     subDomain[iSub]->setupUMultiFluidInitialConditionsPlane(fm, ip, X(iSub), U(iSub), nodeTag(iSub));
 
 }
-
+*/
 //------------------------------------------------------------------------------
 

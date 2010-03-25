@@ -32,7 +32,6 @@ void InletNodeSet::setup(int loc, int num, IoData& ioData)
   locSubNum = loc;
   numInletNodes = num;
   inletNodes = new InletNode[num];
-  typeFluid = ioData.eqs.fluidModel.fluid;
 }
 
 //------------------------------------------------------------------------------

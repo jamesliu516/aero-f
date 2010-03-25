@@ -13,7 +13,11 @@ class Communicator;
 template<int dim, class Scalar = double> class DistNodalGrad;
 #endif
 
-
+// This LevelSet class stores the level-set at the previous time-steps
+// and helps compute the next-step level-set as well as the
+// reinitialization of the level-set
+// Note that the current level-set is not stored here, but is available
+// in LevelSetTsDesc.
 
 template<int dimLS>
 class LevelSet {
@@ -40,7 +44,7 @@ class LevelSet {
   DistSVec<double,dimLS> Phi0;
   DistSVec<double,dimLS> Psi;		// the steady state solution of Psi will reinitialize the level set
   DistVec<double> dt;			// pseudo-time steps
-  DistSVec<double,dimLS> PsiRes;		// residual of the reinitialization equation
+  DistSVec<double,dimLS> PsiRes;        // residual of the reinitialization equation
   DistVec<double> w;			// weights in epxlicit positive coefficient scheme (cf Barth and Sethian)
   DistNodalGrad<dimLS, double> *lsgrad;	// least-square gradient to compute normal at each node
   DistVec<int> Tag;			// node tags for reinitialization in a narrow band
@@ -54,15 +58,19 @@ class LevelSet {
   LevelSet(IoData &iod, Domain *domain);
   ~LevelSet();
 
+  // initialization routines
   template<int dim>
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
              DistSVec<double,dimLS> &Phi, IoData &iod);
   void setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi);
   void setupPhiMultiFluidInitialConditions(IoData &iod, 
                               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
+
+  // update the members of the class and writing them to the disk
   void update(DistSVec<double,dimLS> &Phi);
   void writeToDisk(char *name);
 
+  // reinitialization routines
   template<int dim>
   void reinitializeLevelSet(DistGeoState &geoState,
                             DistSVec<double,3> &X, DistVec<double> &ctrlVol,
@@ -83,6 +91,7 @@ class LevelSet {
   bool checkConvergencePsi(int iteration, double &res0);
 
 
+  // switching from conservative (rho*phi) to primitive (phi) and vice-versa
   template<int dim>
   void conservativeToPrimitive(DistSVec<double,dimLS> &Cons, DistSVec<double,dimLS> &Prim,
                                DistSVec<double,dim> &U);

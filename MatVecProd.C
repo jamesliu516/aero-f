@@ -997,8 +997,8 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
                                    DistTimeState<dim> *ts, DistGeoState *gs,
                                    MultiPhaseSpaceOperator<dim,dimLS> * spo,
                                    DistExactRiemannSolver<dim> * rsolver,
-                                   Domain *dom) :
-  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver), geoState(gs),
+                                   FluidSelector *fs, Domain *dom) :
+  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver,fs), geoState(gs),
   Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()),
   Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo())
 {
@@ -1006,7 +1006,6 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
   X = 0;
   ctrlVol = 0;
   Phi = 0;
-  fluidId = 0;
   com = dom->getCommunicator();
 
 }
@@ -1020,12 +1019,12 @@ MatVecProdFDMultiPhase<dim,dimLS>::~MatVecProdFDMultiPhase()
   this->spaceOp = 0;
   this->timeState = 0;
   this->riemann = 0;
+  this->fluidSelector = 0;
 
   geoState = 0;
   X = 0;
   ctrlVol = 0;
   Phi = 0;
-  fluidId = 0;
   com = 0;
 
 }
@@ -1036,16 +1035,15 @@ template<int dim, int dimLS>
 void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
                                  DistSVec<double,3> &x, DistVec<double> &cv,
                                  DistSVec<double,dim> &q, DistSVec<double,dimLS> &phi,
-                                 DistVec<int> &fluidId_, DistSVec<double,dim> &f)
+                                 DistSVec<double,dim> &f)
 {
   
   X = &x;
   ctrlVol = &cv;
   Qeps = q;
   Phi = &phi;
-  fluidId = &fluidId_;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -1069,7 +1067,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *fluidId, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -1141,8 +1139,8 @@ template<int dim, int dimLS>
 MatVecProdH1MultiPhase<dim,dimLS>::MatVecProdH1MultiPhase(DistTimeState<dim> *ts,
                                    MultiPhaseSpaceOperator<dim,dimLS> *spo,
                                    DistExactRiemannSolver<dim> *rsolver,
-                                   Domain *dom) :
-  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver), DistMat<double,dim>(dom)
+                                   FluidSelector *fs, Domain *dom) :
+  MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver,fs), DistMat<double,dim>(dom)
 {
 
   A = new MvpMat<double,dim>*[this->numLocSub];
@@ -1179,6 +1177,7 @@ MatVecProdH1MultiPhase<dim,dimLS>::~MatVecProdH1MultiPhase()
   this->timeState = 0;
   this->spaceOp   = 0;
   this->riemann   = 0;
+  this->fluidSelector = 0;
   
 }
 //------------------------------------------------------------------------------
@@ -1213,11 +1212,11 @@ void MatVecProdH1MultiPhase<dim,dimLS>::exportMemory(MemoryPool *mp)
 
 template<int dim, int dimLS>
 void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                            DistSVec<double,dim> &Q, DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId,
+                                            DistSVec<double,dim> &Q, DistSVec<double,dimLS> &Phi,
                                             DistSVec<double,dim> &F)
 {
 
-  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, fluidId, this->riemann);
+  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann);
 
   if (this->timeState)
     this->timeState->addToJacobian(ctrlVol, *this, Q);

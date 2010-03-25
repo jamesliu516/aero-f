@@ -159,8 +159,8 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
     nodeTag0 = nodeTag = distLSS->getStatus();
 
   this->geoState->setup2(this->timeState->getData());
-  this->timeState->setup(this->input->solutions, this->bcData->getInletBoundaryVector(), 
-                         *this->X, *U, &ioData, &nodeTag);
+  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), 
+                         *U, ioData, &nodeTag);
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
     double *tmax = &(this->data)->maxTime;
@@ -411,8 +411,9 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
-  // TODO
-  //this->restart->writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
+  TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
+                                       //      it does not seem to understand the template
+  restart2->writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n());
 
   if (*lastIt) {

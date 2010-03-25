@@ -29,16 +29,17 @@ domain(dom)
   interfacialWj = new DistSVec<double,dim-2>(dom->getEdgeDistInfo());
 
   if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
+    // only the ioData.eqs.fluidModel is considered since only the Riemann invariant of one EOS is tabulated!
+    // (no need to specify two different EOS)
 
     double *refIn  = new double[2];
     double *refOut = new double[1];
     refIn[0] = ioData.ref.rv.density;
-    refIn[1] = pow(ioData.ref.rv.density,-ioData.eqs.fluidModel2.jwlModel.omega)*ioData.ref.rv.velocity*ioData.ref.rv.velocity;
+    refIn[1] = pow(ioData.ref.rv.density,-ioData.eqs.fluidModel.jwlModel.omega)*ioData.ref.rv.velocity*ioData.ref.rv.velocity;
     refOut[0] = ioData.ref.rv.velocity;
 
     tabulationC = new SparseGridCluster;
     tabulationC->readFromFile(ioData.mf.sparseGrid.numberOfTabulations, refIn, refOut, ioData.mf.sparseGrid.tabulationFileName, dom->getCommunicator()->cpuNum());
-    //tabulationC->readFromFile(1,refIn, refOut, "SparseGridClusterRiemannInvariant", dom->getCommunicator()->cpuNum());
 
   }else if(ioData.mf.riemannComputation == MultiFluidData::TABULATION5){
 

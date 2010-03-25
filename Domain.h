@@ -37,6 +37,7 @@ class PostFcn;
 class TimeLowMachPrec;
 class SpatialLowMachPrec;
 class DistLevelSetStructure;
+class FluidSelector;
 
 class BCApplier; //HB
 class MatchNodeSet;
@@ -336,7 +337,7 @@ public:
                        double z, double radius, double invertGasLiquid,
                        DistSVec<double,dimLS> &Phi);
   template<int dimLS>
-  void setupPhiVolumesInitialConditions(const int volid, DistSVec<double,dimLS> &Phi);
+  void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                     DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
@@ -349,17 +350,16 @@ public:
   void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
   template<int dim>
-  void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
-             VolumeInitialConditions &ic, DistSVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
-             SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-             PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-             PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag);
+  void setupUVolumesInitialConditions(const int volid, double UU[dim], DistSVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+  //           SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+  //           PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+  //           PlaneData &ip, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistVec<int> &nodeTag);
 
   template<int dim>
   void storeGhost(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &);
@@ -425,7 +425,7 @@ public:
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistVec<int> &, 
+                               FluidSelector &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&,
                                int, DistSVec<double,dim> *, DistSVec<double,dim> *,
@@ -474,9 +474,9 @@ public:
   void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &,
                                        FluxFcn **, DistBcData<dim> &, DistGeoState &,
                                        DistNodalGrad<dim>&, DistNodalGrad<dimLS>&,
-				                               DistSVec<double,3> &,
+                                       DistSVec<double,3> &,
                                        DistVec<double> &, DistSVec<double,dim> &,
-                                       DistMat<Scalar,neq> &, DistVec<int> &);
+                                       DistMat<Scalar,neq> &, FluidSelector &);
   template<int dim>
   void recomputeRHS(VarFcn*, DistSVec<double,dim> &, DistSVec<double,dim> &, DistExtrapolation<dim>*,
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);

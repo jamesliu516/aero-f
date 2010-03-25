@@ -92,6 +92,9 @@ PostFcnEuler::PostFcnEuler(IoData &iod, VarFcn *vf) : PostFcn(vf)
     double a = vf->getAlphaWater();
     double b = vf->getBetaWater();
     pinfty = (P+a*pow(iod.bc.inlet.density, b));
+  } else if (iod.eqs.fluidModel.fluid == FluidModelData::JWL){
+    mach = iod.ref.mach;
+    pinfty = iod.bc.inlet.pressure;
   }
 
 }
@@ -166,6 +169,7 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
     q = static_cast<double>(fluidId);
+    //q  = phi[0]/varFcn->getDensity(V, fluidId);
   else if(type == PHILEVEL_STRUCTURE){
     if (phi)
       q = phi[0];  //NOTE: In this case phi stores the distance to the structure. 

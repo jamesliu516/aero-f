@@ -54,6 +54,7 @@ class VolumicForceTerm;
 class TriangulatedSurface;
 class TimeLowMachPrec;
 class EulerStructGhostFluid;
+class FluidSelector;
 
 struct V6NodeData;
 struct Vec3D;
@@ -268,7 +269,7 @@ public:
                        double z, double radius, double invertGasLiquid,
                        SVec<double,dimLS> &Phi);
   template<int dimLS>
-  void setupPhiVolumesInitialConditions(const int volid, SVec<double,dimLS> &Phi);
+  void setupPhiVolumesInitialConditions(const int volid, const int fluidId, SVec<double,dimLS> &Phi);
   template<int dimLS>
   void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
                                  SVec<double,3> &X, SVec<double,dimLS> &Phi);
@@ -282,17 +283,16 @@ public:
   template<int dimLS>
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight);
   template<int dim>
-  void setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
-             VolumeInitialConditions &ic, SVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
-             SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-             PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
-  template<int dim>
-  void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
-             PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U, Vec<int> &nodeTag);
+  void setupUVolumesInitialConditions(const int volid, double UU[dim], SVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
+  //           SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+  //           PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U);
+  //template<int dim>
+  //void setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
+  //           PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U, Vec<int> &nodeTag);
 
   void computeLij(double [3][3], double [3], double [6], double [5]);
   void computeBij(double [3][3], double [6], double, double [3][3], double, double [5]);
@@ -374,7 +374,8 @@ public:
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
-                              SVec<double,3>&, SVec<double,dim>&, Vec<int> &,
+                              SVec<double,3>&, SVec<double,dim>&, 
+                              Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int, SVec<double,dim> *,
@@ -419,6 +420,7 @@ public:
                                        NodalGrad<dim> &, NodalGrad<dimLS> &,
                                        SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
+                                       FluidSelector &, 
                                        Vec<int> &, CommPattern<double> *);
   template<int dim>
   void recomputeRHS(VarFcn*, SVec<double,dim>& ,SVec<double,dim>& , Extrapolation<dim>*,

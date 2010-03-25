@@ -38,7 +38,7 @@ extern "C" {
 class LocalRiemannGfmpGasGas : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpGasGas(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  LocalRiemannGfmpGasGas(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -75,7 +75,7 @@ void LocalRiemannGfmpGasGas::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmpTaitTait : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpTaitTait(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  LocalRiemannGfmpTaitTait(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpTaitTait() { vf_ = 0; }
 
 void computeRiemannSolution(double *Vi, double *Vj,
@@ -142,7 +142,7 @@ void LocalRiemannGfmpTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmpJWLJWL : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpJWLJWL(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  LocalRiemannGfmpJWLJWL(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -179,7 +179,7 @@ void LocalRiemannGfmpJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmpGasJWL : public LocalRiemannGfmp {
 
 public:
-  LocalRiemannGfmpGasJWL(VarFcn *vf) : LocalRiemannGfmp(vf) {}
+  LocalRiemannGfmpGasJWL(VarFcn *vf, int tag1, int tag2) : LocalRiemannGfmp(vf,tag1,tag2) {}
   ~LocalRiemannGfmpGasJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -221,7 +221,7 @@ void LocalRiemannGfmpGasJWL::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparGasGas : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasGas(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,typePhaseChange) {}
+  LocalRiemannGfmparGasGas(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparGasGas() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -340,7 +340,7 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparGasTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparGasTait(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
+  LocalRiemannGfmparGasTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparGasTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -454,7 +454,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparTaitTait: public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparTaitTait(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
+  LocalRiemannGfmparTaitTait(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparTaitTait() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -575,7 +575,7 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
 class LocalRiemannGfmparJWLJWL : public LocalRiemannGfmpar {
 
 public:
-  LocalRiemannGfmparJWLJWL(VarFcn *vf, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf, typePhaseChange) {}
+  LocalRiemannGfmparJWLJWL(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange typePhaseChange) : LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {}
   ~LocalRiemannGfmparJWLJWL() { vf_ = 0; }
 
   void computeRiemannSolution(double *Vi, double *Vj,
@@ -817,10 +817,10 @@ private:
   SparseGridCluster *sgCluster_;
 
 public:
-  LocalRiemannGfmparGasJWL(VarFcn *vf, SparseGridCluster *sgCluster, 
+  LocalRiemannGfmparGasJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
                            MultiFluidData::RiemannComputation riemannComputation,
                            MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
-  LocalRiemannGfmpar(vf, typePhaseChange) {
+  LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -1475,7 +1475,7 @@ class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
   LocalRiemannFluidStructure() : LocalRiemann() {fluid1 = fluid2 = 0;}
-  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf) {fluid1 = fluid2 = 0;}
+  LocalRiemannFluidStructure(VarFcn *vf) : LocalRiemann(vf,0,0) {fluid1 = fluid2 = 0;}
   virtual ~LocalRiemannFluidStructure() { vf_ = 0; }
 
 void computeRiemannSolution(double *Vi, double *Vstar,

@@ -251,6 +251,8 @@ public:
 //----------------------------------------------------------------------------//
 //                MatVecProd for Multiphase Euler equations                   //
 //----------------------------------------------------------------------------//
+// this class is not derived from the MatVecProd class!
+// Its templates are different and additional members are different.
 template<int dim, int dimLS>
 class MatVecProdMultiPhase {
 
@@ -258,18 +260,19 @@ protected:
   DistTimeState<dim> *timeState;
   MultiPhaseSpaceOperator<dim,dimLS> *spaceOp;
   DistExactRiemannSolver<dim> *riemann;
+  FluidSelector *fluidSelector;
 
 public:
 
   MatVecProdMultiPhase(DistTimeState<dim> *ts, MultiPhaseSpaceOperator<dim,dimLS> *spo,
-                       DistExactRiemannSolver<dim> *rsolver) : 
-                       timeState(ts), spaceOp(spo), riemann(rsolver) {}
-  virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; }
+                       DistExactRiemannSolver<dim> *rsolver, FluidSelector *fs) : 
+                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs) {}
+  virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; fluidSelector = 0; }
 
   virtual void exportMemory(MemoryPool *mp) {}
 
   virtual void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
-                        DistSVec<double,dim> &, DistSVec<double,dimLS> &, DistVec<int> &,
+                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                         DistSVec<double,dim> &) = 0;
 
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
@@ -290,7 +293,6 @@ class MatVecProdFDMultiPhase : public MatVecProdMultiPhase<dim,dimLS> {
   DistSVec<double,3> *X;
   DistVec<double> *ctrlVol;
   DistSVec<double,dimLS> *Phi;
-  DistVec<int> *fluidId;
 
   Communicator *com;
 
@@ -301,12 +303,12 @@ public:
 // Included (MB)
   MatVecProdFDMultiPhase(DistTimeState<dim> *, DistGeoState *, 
 	       MultiPhaseSpaceOperator<dim,dimLS> *, DistExactRiemannSolver<dim> *,
-               Domain *);
+               FluidSelector *, Domain *);
 
   ~MatVecProdFDMultiPhase();
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                     DistSVec<double,dim> &, DistSVec<double,dimLS> &, DistVec<int> &,
+                     DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                      DistSVec<double,dim> &);
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
@@ -323,7 +325,7 @@ class MatVecProdH1MultiPhase : public MatVecProdMultiPhase<dim,dimLS>,
 public:
 
   MatVecProdH1MultiPhase(DistTimeState<dim> *, MultiPhaseSpaceOperator<dim,dimLS> *, 
-                         DistExactRiemannSolver<dim> *, Domain *);
+                         DistExactRiemannSolver<dim> *, FluidSelector *, Domain *);
   ~MatVecProdH1MultiPhase();
 
   DistMat<double,dim> &operator= (const double);
@@ -333,7 +335,7 @@ public:
   void exportMemory(MemoryPool *);
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dimLS> &, DistVec<int> &,
+                DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                 DistSVec<double,dim> &);
 
   void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);

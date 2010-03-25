@@ -245,12 +245,14 @@ VarFcn::VarFcn(IoData &iod){
   if(numPhases>0){
     varFcn[0] = createVarFcnBase(iod, iod.eqs.fluidModel);
   }
-  if(numPhases>1){
-    varFcn[1] = createVarFcnBase(iod, iod.eqs.fluidModel2);
-  }
-  if(numPhases>2){
-    fprintf(stderr,"You've been chosen to implement the constructor of VarFcn for n(>2) phase flow!\n");
-    exit(-1);
+
+  for(int iPhase=1; iPhase<numPhases; iPhase++){
+    map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(iPhase);
+    if(it == iod.eqs.fluidModelMap.dataMap.end()){
+      fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", iPhase);
+      exit(1);
+    }
+    varFcn[iPhase] = createVarFcnBase(iod, *it->second);
   }
 
   meshVel = 0.0;
@@ -274,18 +276,25 @@ VarFcnBase *VarFcn::createVarFcnBase(IoData &iod, FluidModelData &fluidModel) {
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
-          iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
+          iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES){
         vf_ = new VarFcnSGSA(fluidModel);
-      else if (iod.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
+        //fprintf(stdout, "Debug: VarFcnSGSA created\n");
+      }else if (iod.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE){
         vf_ = new VarFcnSGKE(fluidModel);
+        //fprintf(stdout, "Debug: VarFcnSGKE created\n");
+      }
     }
-    else
+    else{
       vf_ = new VarFcnSGEuler(fluidModel);
+      //fprintf(stdout, "Debug: VarFcnSGEuler created\n");
+    }
   }
   else if(fluidModel.fluid == FluidModelData::LIQUID){
     vf_ = new VarFcnTait(fluidModel);
+    //fprintf(stdout, "Debug: VarFcnSGTait created\n");
   }else if(fluidModel.fluid == FluidModelData::JWL){
     vf_ = new VarFcnJwl(fluidModel);
+    //fprintf(stdout, "Debug: VarFcnSGJwl created\n");
   }else{
     fprintf(stdout, "No VarFcn created\n");
     fflush(stdout);

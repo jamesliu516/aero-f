@@ -275,6 +275,10 @@ public:
 };
 
 //------------------------------------------------------------------------------
+// derived class of SpaceOperator to run multi-phase flow problems
+// the added functions allow to advance the Euler equations when
+// different EOS are considered and to advance the level-set 
+// advection equation(s).
 template<int dim, int dimLS>
 class MultiPhaseSpaceOperator : public SpaceOperator<dim> {
 
@@ -283,6 +287,8 @@ protected:
   RecFcn *recFcnLS;
   DistNodalGrad<dimLS, double> *ngradLS; 
 
+  RecFcn *createRecFcnLS(IoData &);
+
 public:
 
   MultiPhaseSpaceOperator(IoData &, VarFcn *, DistBcData<dim> *, DistGeoState *,
@@ -290,11 +296,10 @@ public:
   MultiPhaseSpaceOperator(const MultiPhaseSpaceOperator<dim,dimLS> &, bool);
   ~MultiPhaseSpaceOperator();
 
-  RecFcn *createRecFcnLS(IoData &);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
-                       DistVec<int> &, DistSVec<double,dim> &,
+                       FluidSelector &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it,
                        DistSVec<double,dim> * = 0,
                        DistSVec<double,dim> * = 0);
@@ -306,7 +311,7 @@ public:
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                       DistVec<int> &, DistExactRiemannSolver<dim> *);
+                       FluidSelector &, DistExactRiemannSolver<dim> *);
 
 };
 //------------------------------------------------------------------------------

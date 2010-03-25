@@ -92,9 +92,9 @@ DistBcData<dim>::DistBcData(IoData &ioData, VarFcn *varFcn, Domain *domain) :
 
   // it is assumed that at only fluid can be found at the far-field boundary of an external flow
   // and it is always the fluid with id=0 (by default)
-  if(vf->getType()==VarFcnBase::STIFFENEDGAS || vf->getType()==VarFcnBase::PERFECTGAS)
+  if(varFcn->getType()==VarFcnBase::STIFFENEDGAS || varFcn->getType()==VarFcnBase::PERFECTGAS)
     boundaryFluid = GAS;
-  else if (vf->getType()==VarFcnBase::JWL)
+  else if (varFcn->getType()==VarFcnBase::JWL)
     boundaryFluid = JWL;
   else
     boundaryFluid = TAIT;
@@ -1063,8 +1063,13 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
      // for shock tube type of computation
 // fluidModel1 is on the left/inlet 
 // fluidModel2 is on the right/outlet
-    gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
-    Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant;
+    map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
+    if(it == iod.eqs.fluidModelMap.dataMap.end()){
+      fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
+      exit(1);
+    }
+    gam = it->second->gasModel.specificHeatRatio;
+    Pstiff = it->second->gasModel.pressureConstant;
     if(iod.bc.outlet.mach >= 0.0){
       velout2 = gam * (iod.bc.outlet.pressure+Pstiff) *
         iod.bc.outlet.mach*iod.bc.outlet.mach / iod.bc.outlet.density;
@@ -1303,8 +1308,13 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasLiquid(IoData &iod,
 // fluidModel1 = Liquid is on the left/inlet 
 // fluidModel2 = Gas    is on the right/outlet
   
-    double gam = iod.eqs.fluidModel2.gasModel.specificHeatRatio;
-    double Pstiff = iod.eqs.fluidModel2.gasModel.pressureConstant;
+    map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
+    if(it == iod.eqs.fluidModelMap.dataMap.end()){
+      fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
+      exit(1);
+    }
+    double gam = it->second->gasModel.specificHeatRatio;
+    double Pstiff = it->second->gasModel.pressureConstant;
     if(iod.bc.outlet.mach >= 0.0)
       velout2 = gam * (iod.bc.outlet.pressure+Pstiff) *
         iod.bc.outlet.mach*iod.bc.outlet.mach / iod.bc.outlet.density;
@@ -1543,25 +1553,30 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
     else if(iod.eqs.fluidModel.fluid == FluidModelData::JWL)
       setBoundaryConditionsJWL(iod, X);
     
-  }else if (iod.eqs.numPhase == 2){
+  }else if (iod.eqs.numPhase > 1){
+    map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
+    if(it == iod.eqs.fluidModelMap.dataMap.end()){
+      fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
+      exit(1);
+    }
     if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        it->second->fluid == FluidModelData::GAS)
       setBoundaryConditionsGasGas(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        it->second->fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidLiquid(iod, X);
     
     else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::GAS)
+        it->second->fluid == FluidModelData::GAS)
       setBoundaryConditionsGasLiquid(iod, X);
 
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+        it->second->fluid == FluidModelData::LIQUID)
       setBoundaryConditionsLiquidGas(iod, X);
 
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
-        iod.eqs.fluidModel2.fluid == FluidModelData::JWL)
+        it->second->fluid == FluidModelData::JWL)
       setBoundaryConditionsJWLGas(iod,X);
 
     else{

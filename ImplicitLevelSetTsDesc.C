@@ -38,9 +38,11 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)
-    mvp = new MatVecProdFDMultiPhase<dim,dimLS>(this->timeState, this->geoState, this->multiPhaseSpaceOp, this->riemann, this->domain);
+    mvp = new MatVecProdFDMultiPhase<dim,dimLS>(this->timeState, this->geoState,
+                                                this->multiPhaseSpaceOp, this->riemann,
+                                                &this->fluidSelector, this->domain);
   else if (implicitData.mvp == ImplicitData::H1)
-    mvp = new MatVecProdH1MultiPhase<dim,dimLS>(this->timeState, this->multiPhaseSpaceOp, this->riemann, this->domain);
+    mvp = new MatVecProdH1MultiPhase<dim,dimLS>(this->timeState, this->multiPhaseSpaceOp, this->riemann, &this->fluidSelector, this->domain);
   else{
     this->com->fprintf(stdout, "*** Error: MatVecProdH2MultiPhase is not available\n");
     exit(1);
@@ -183,7 +185,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
   this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, F, this->riemann, it+1);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, this->fluidSelector, F, this->riemann, it+1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
   this->multiPhaseSpaceOp->applyBCsToResidual(Q, F);
 }
@@ -230,7 +232,7 @@ template<int dim, int dimLS>
 void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,dim> &Q,
                                                          DistSVec<double,dim> &F)
 {
-  mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, this->fluidSelector.fluidId, F);
+  mvp->evaluate(it, *this->X, *this->A, Q, this->PhiV, F);
 }
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
@@ -246,7 +248,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd) {
 
-      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector.fluidId, this->riemann);
+      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector, this->riemann);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }

@@ -722,6 +722,27 @@ FluidModelData::FluidModelData()
 
 //------------------------------------------------------------------------------
 
+static RootClassAssigner nullAssigner;
+Assigner *FluidModelData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
+
+  new ClassToken<FluidModelData>(ca, "Fluid", this,
+                                 reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
+                                 "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
+
+  gasModel.setup("GasModel", ca);
+  jwlModel.setup("JWLModel", ca);
+  liquidModel.setup("LiquidModel", ca);
+
+  return ca;
+
+};
+
+//------------------------------------------------------------------------------
+
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
 
@@ -738,6 +759,44 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
 
 };
 
+//------------------------------------------------------------------------------
+
+/*
+FluidModelData & FluidModelData::operator=(const FluidModelData &fm){
+
+  this->fluid = fm.fluid;
+  this->pmin  = fm.pmin;
+
+  this->gasModel.type              = fm.gasModel.type;
+  this->gasModel.specificHeatRatio = fm.gasModel.specificHeatRatio;
+  this->gasModel.idealGasConstant  = fm.gasModel.idealGasConstant;
+  this->gasModel.pressureConstant  = fm.gasModel.pressureConstant;
+
+  this->jwlModel.type              = fm.jwlModel.type;
+  this->jwlModel.omega             = fm.jwlModel.omega;
+  this->jwlModel.idealGasConstant  = fm.jwlModel.idealGasConstant;
+  this->jwlModel.A1                = fm.jwlModel.A1;
+  this->jwlModel.A2                = fm.jwlModel.A2;
+  this->jwlModel.R1                = fm.jwlModel.R1;
+  this->jwlModel.R2                = fm.jwlModel.R2;
+  this->jwlModel.rhoref            = fm.jwlModel.rhoref;
+
+  this->liquidModel.type           = fm.liquidModel.type;
+  this->liquidModel.check          = fm.liquidModel.check;
+  this->liquidModel.specificHeatRatio = fm.liquidModel.specificHeatRatio;
+  this->liquidModel.Cv             = fm.liquidModel.Cv;
+  this->liquidModel.k1water        = fm.liquidModel.k1water;
+  this->liquidModel.k2water        = fm.liquidModel.k2water;
+  this->liquidModel.Prefwater      = fm.liquidModel.Prefwater;
+  this->liquidModel.RHOrefwater    = fm.liquidModel.RHOrefwater;
+  this->liquidModel.Pref           = fm.liquidModel.Pref;
+  this->liquidModel.alpha          = fm.liquidModel.alpha;
+  this->liquidModel.beta           = fm.liquidModel.beta;
+
+  return *this;
+
+}
+*/
 //------------------------------------------------------------------------------
 
 ViscosityModelData::ViscosityModelData()
@@ -1240,6 +1299,7 @@ void EquationsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<EquationsData>(ca, "GravityY", this, &EquationsData::gravity_y);
   new ClassDouble<EquationsData>(ca, "GravityZ", this, &EquationsData::gravity_z);
 
+  fluidModelMap.setup("FluidModelData", 0);
   fluidModel.setup("FluidModel", ca);
   viscosityModel.setup("ViscosityModel", ca);
   thermalCondModel.setup("ThermalConductivityModel", ca);
@@ -1252,59 +1312,32 @@ void EquationsData::setup(const char *name, ClassAssigner *father)
 SphereData::SphereData()
 {
 
-  type = Fluid1;
+  fluidModelID = -1;
 
   cen_x  = 0.0;
   cen_y  = 0.0;
   cen_z  = 0.0;
   radius = -1.0;
 
-  mach        = -1.0;
-  velocity    = -1.0;
-  pressure    = -1.0;
-  density     = -1.0;
-  temperature = -1.0;
-
-  alpha = 400.0;
-  beta  = 400.0;
-
 }
 
 //------------------------------------------------------------------------------
 
-void SphereData::setup(const char *name, ClassAssigner *father)
+Assigner *SphereData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 12, father);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, &nullAssigner);
 
-  new ClassToken<SphereData>
-    (ca, "Type", this, reinterpret_cast<int SphereData::*>
-     (&SphereData::type), 2,
-     "Fluid1", 0, "Fluid2", 1);
+  new ClassInt<SphereData> (ca, "FluidModelID", this, &SphereData::fluidModelID);
 
-  new ClassDouble<SphereData>
-    (ca, "Center_x", this, &SphereData::cen_x);
-  new ClassDouble<SphereData>
-    (ca, "Center_y", this, &SphereData::cen_y);
-  new ClassDouble<SphereData>
-    (ca, "Center_z", this, &SphereData::cen_z);
-  new ClassDouble<SphereData>
-    (ca, "Radius", this, &SphereData::radius);
-  new ClassDouble<SphereData>
-    (ca, "Pressure", this, &SphereData::pressure);
-  new ClassDouble<SphereData>
-    (ca, "Density", this, &SphereData::density);
-  new ClassDouble<SphereData>
-    (ca, "Temperature", this, &SphereData::temperature);
-  new ClassDouble<SphereData>
-    (ca, "Mach", this, &SphereData::mach);
-  new ClassDouble<SphereData>
-    (ca, "Velocity", this, &SphereData::velocity);
-  new ClassDouble<SphereData>
-    (ca, "Alpha", this, &SphereData::alpha);
-  new ClassDouble<SphereData>
-    (ca, "Beta", this, &SphereData::beta);
+  new ClassDouble<SphereData> (ca, "Center_x", this, &SphereData::cen_x);
+  new ClassDouble<SphereData> (ca, "Center_y", this, &SphereData::cen_y);
+  new ClassDouble<SphereData> (ca, "Center_z", this, &SphereData::cen_z);
+  new ClassDouble<SphereData> (ca, "Radius", this, &SphereData::radius);
 
+  initialConditions.setup("InitialConditions", ca);
+
+  return ca;
 }
 
 //------------------------------------------------------------------------------
@@ -1312,82 +1345,79 @@ void SphereData::setup(const char *name, ClassAssigner *father)
 PlaneData::PlaneData()
 {
 
-  type = Fluid1;
+  fluidModelID = -1;
   cen_x  = 0.0;
   cen_y  = 0.0;
   cen_z  = 0.0;
   nx     = 0.0;
   ny     = 0.0;
   nz     = 0.0;
-  pressure    = 0.0;
-  density     = 0.0;
-  temperature = 0.0;
-  velocity    = 0.0;
 
-  alpha = 400.0;
-  beta  = 400.0;
 }
 
 //------------------------------------------------------------------------------
 
-void PlaneData::setup(const char *name, ClassAssigner *father)
+Assigner *PlaneData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 13, father);
+  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
 
-  new ClassToken<PlaneData>
-    (ca, "Type", this, reinterpret_cast<int PlaneData::*>
-     (&PlaneData::type), 2,
-     "Fluid1", 0, "Fluid2", 1);
+  new ClassInt<PlaneData> (ca, "FluidModelID", this, &PlaneData::fluidModelID);
 
-  new ClassDouble<PlaneData>
-    (ca, "Center_x", this, &PlaneData::cen_x);
-  new ClassDouble<PlaneData>
-    (ca, "Center_y", this, &PlaneData::cen_y);
-  new ClassDouble<PlaneData>
-    (ca, "Center_z", this, &PlaneData::cen_z);
-  new ClassDouble<PlaneData>
-    (ca, "Normal_x", this, &PlaneData::nx);
-  new ClassDouble<PlaneData>
-    (ca, "Normal_y", this, &PlaneData::ny);
-  new ClassDouble<PlaneData>
-    (ca, "Normal_z", this, &PlaneData::nz);
-  new ClassDouble<PlaneData>
-    (ca, "Pressure", this, &PlaneData::pressure);
-  new ClassDouble<PlaneData>
-    (ca, "Density", this, &PlaneData::density);
-  new ClassDouble<PlaneData>
-    (ca, "Temperature", this, &PlaneData::temperature);
-  new ClassDouble<PlaneData>
-    (ca, "Velocity", this, &PlaneData::velocity);
-  new ClassDouble<PlaneData>
-    (ca, "Alpha", this, &PlaneData::alpha);
-  new ClassDouble<PlaneData>
-    (ca, "Beta", this, &PlaneData::beta);
+  new ClassDouble<PlaneData> (ca, "Center_x", this, &PlaneData::cen_x);
+  new ClassDouble<PlaneData> (ca, "Center_y", this, &PlaneData::cen_y);
+  new ClassDouble<PlaneData> (ca, "Center_z", this, &PlaneData::cen_z);
+  new ClassDouble<PlaneData> (ca, "Normal_x", this, &PlaneData::nx);
+  new ClassDouble<PlaneData> (ca, "Normal_y", this, &PlaneData::ny);
+  new ClassDouble<PlaneData> (ca, "Normal_z", this, &PlaneData::nz);
+
+  initialConditions.setup("InitialConditions", ca);
+
+  return ca;
 }
+
 //------------------------------------------------------------------------------
 
-InitialConditionsData::InitialConditionsData()
+PointData::PointData()
+{
+  fluidModelID = -1;
+  x  = 0.0;
+  y  = 0.0;
+  z  = 0.0;
+}
+
+//------------------------------------------------------------------------------
+
+//void PointData::setup(const char *name, ClassAssigner *father)
+Assigner *PointData::getAssigner()
 {
 
-  nspheres  = 0;
+  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
 
-  sphere[0] = &s1;
-  sphere[1] = &s2;
+  new ClassInt<PointData>
+    (ca, "FluidModelID", this, &PointData::fluidModelID);
+  new ClassDouble<PointData>
+    (ca, "X", this, &PointData::x);
+  new ClassDouble<PointData>
+    (ca, "Y", this, &PointData::y);
+  new ClassDouble<PointData>
+    (ca, "Z", this, &PointData::z);
 
-  nplanes   = 0;
+  initialConditions.setup("InitialConditions", ca);
+
+  return ca;
 }
 
 //------------------------------------------------------------------------------
 
-void InitialConditionsData::setup(const char *name, ClassAssigner *father)
+void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
 
-  s1.setup("Sphere1", ca);
-  s2.setup("Sphere2", ca);
-  p1.setup("Plane1", ca);
+  sphereMap.setup("Sphere", 0);
+  planeMap.setup("Plane", 0);
+  pointMap.setup("Point", 0);
 
 }
 
@@ -1534,7 +1564,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 21, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
@@ -1578,9 +1608,7 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
-  fluidModel.setup("FluidModel", ca);
-  fluidModel2.setup("FluidModel2", ca);
-  initialConditions.setup("InitialConditions", ca);
+  multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
 
   new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
@@ -2743,7 +2771,6 @@ SurfaceData::SurfaceData()  {
 }
 
 //------------------------------------------------------------------------------
-static RootClassAssigner nullAssigner;
 Assigner *SurfaceData::getAssigner()  {
 
   ClassAssigner *ca = new ClassAssigner("normal", 12, &nullAssigner);
@@ -2879,6 +2906,7 @@ void BoundingBoxData::setup(const char *name, ClassAssigner *father)
 VolumeData::VolumeData()  {
 
   type = FLUID;
+  fluidModelID = -1;
 
 }
 
@@ -2890,10 +2918,10 @@ Assigner *VolumeData::getAssigner()  {
 
   new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
+  new ClassInt<VolumeData> (ca, "FluidModelID", this, &VolumeData::fluidModelID);
 
   porousMedia.setup("PorousMedium", ca);
-  fluidModel.setup("FluidModel", ca);
-  volumeInitialConditions.setup("VolumeInitialConditions", ca);
+  initialConditions.setup("InitialConditions", ca);
 
   return ca;
 }
@@ -2965,7 +2993,7 @@ void PorousMedia::setup(const char *name, ClassAssigner *father)  {
 
 //------------------------------------------------------------------------------
 
-VolumeInitialConditions::VolumeInitialConditions() {
+InitialConditions::InitialConditions() {
 
   mach = -1.0;
   velocity = -1.0;
@@ -2979,21 +3007,46 @@ VolumeInitialConditions::VolumeInitialConditions() {
 
 //------------------------------------------------------------------------------
 
-//Assigner *VolumeInitialConditions::getAssigner() {
-void VolumeInitialConditions::setup(const char *name, ClassAssigner *father) {
+void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
-  //ClassAssigner *ca = new ClassAssigner("normal", 7, &nullAssigner);
   ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
-  new ClassDouble<VolumeInitialConditions>(ca, "Mach",        this, &VolumeInitialConditions::mach);
-  new ClassDouble<VolumeInitialConditions>(ca, "Velocity",    this, &VolumeInitialConditions::velocity);
-  new ClassDouble<VolumeInitialConditions>(ca, "Alpha",       this, &VolumeInitialConditions::alpha);
-  new ClassDouble<VolumeInitialConditions>(ca, "Beta",        this, &VolumeInitialConditions::beta);
-  new ClassDouble<VolumeInitialConditions>(ca, "Density",     this, &VolumeInitialConditions::density);
-  new ClassDouble<VolumeInitialConditions>(ca, "Pressure",    this, &VolumeInitialConditions::pressure);
-  new ClassDouble<VolumeInitialConditions>(ca, "Temperature", this, &VolumeInitialConditions::temperature);
+  new ClassDouble<InitialConditions>(ca, "Mach",        this, &InitialConditions::mach);
+  new ClassDouble<InitialConditions>(ca, "Velocity",    this, &InitialConditions::velocity);
+  new ClassDouble<InitialConditions>(ca, "Alpha",       this, &InitialConditions::alpha);
+  new ClassDouble<InitialConditions>(ca, "Beta",        this, &InitialConditions::beta);
+  new ClassDouble<InitialConditions>(ca, "Density",     this, &InitialConditions::density);
+  new ClassDouble<InitialConditions>(ca, "Pressure",    this, &InitialConditions::pressure);
+  new ClassDouble<InitialConditions>(ca, "Temperature", this, &InitialConditions::temperature);
 
-  //return ca;
+}
+
+//------------------------------------------------------------------------------
+
+EmbeddedFramework::EmbeddedFramework() {
+
+  intersectorName = PhysBAMLite;
+  structNormal = ElementBased;
+  eosChange = NodalState;
+  forceAlg = ReconstructedSurface;
+    
+}
+
+//------------------------------------------------------------------------------
+
+void EmbeddedFramework::setup(const char *name) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 5, 0); //father);
+
+  new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
+                                      "PhysBAMLite", 0, "FRG", 1);
+  new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
+                                      "ElementBased", 0, "NodeBased", 1);
+  new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
+                                      "NodalState", 0, "RiemannSolution", 1);
+  new ClassToken<EmbeddedFramework> (ca, "Force", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
+                                      "Reconstructed", 0, "ControlVolumeBoundary", 1);
+  embedIC.setup("InitialConditions", ca); 
 
 }
 
@@ -3213,6 +3266,7 @@ void IoData::readCmdFile()
 		 error, error>1? "s":"");
     exit(-1);
   }
+//  printDebug();
 
   com->setMaxVerbose(problem.verbose);
 
@@ -3376,13 +3430,6 @@ void IoData::resetInputValues()
   if (problem.type[ProblemData::THERMO])
     bc.wall.type = BcsWallData::ISOTHERMAL;
 
-  if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    if(schemes.bc.type == BoundarySchemeData::STEGER_WARMING &&
-       bc.inlet.type != BcsFreeStreamData::INTERNAL){
-      com->fprintf(stderr, "*** Error: for an hydrodynamic simulation, numerical treatment of boundary conditions needs to be an extrapolation method\n");
-      exit(1);
-    }
-  }
   // to avoid having inlet nodes when computing Internal BCs
   if(bc.inlet.type == BcsFreeStreamData::INTERNAL)
     schemes.bc.type = BoundarySchemeData::STEGER_WARMING;
@@ -3530,28 +3577,27 @@ int IoData::checkInputValues()
 {
 
   int error = 0;
-  // no need for all input values for Sparse Grid generation
-  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
-    eqs.fluidModel  =  mf.fluidModel;
-    eqs.fluidModel2 =  mf.fluidModel2;
-    return checkInputValuesSparseGrid(mf.sparseGrid);
-  }
     
   // input values for flow solver
-  error += checkInputValuesMulti_step1();
+  error += checkInputValuesAllEquationsOfState();
+
+  // no need for all input values for Sparse Grid generation
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_){
+    //eqs.fluidModel  =  mf.fluidModel;
+    //eqs.fluidModel2 =  mf.fluidModel2;
+    return checkInputValuesSparseGrid(mf.sparseGrid);
+  }
+
+  error += checkInputValuesAllInitialConditions();
   error += checkInputValuesEssentialBC();
-  error += checkInputValuesStateEquation();
 
   error += checkInputValuesNonDimensional();
-
-
   error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap); 
+
   checkInputValuesTurbulence();
-
   checkInputValuesDefaultOutlet();
-
-  checkInputValuesMulti_step2();
-  error += checkInputValuesSparseGrid(mf.sparseGrid);
+  nonDimensionalizeAllEquationsOfState();
+  nonDimensionalizeAllInitialConditions();
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -3570,54 +3616,49 @@ int IoData::checkInputValues()
   eqs.tc.tr.bfix.z1 /= ref.rv.tlength;
 
 
-  //error += checkInputValuesInitializeMulti();
-
   return error;
 
 }
 //------------------------------------------------------------------------------
-int IoData::checkInputValuesMulti_step1(){
+
+int IoData::checkInputValuesAllEquationsOfState(){
 
   int error = 0;
-  //auto-detection of some parameters when running multiphase
-  // rules are:
-  // numPhase==1 && no volumes --> single phase flow
-  // numPhase==1 && volumes    --> volumes only (no real contact between different fluids)
-  // numPhase==2 && no volumes --> pure Multifluid (check that either radius of spheres>0 or shocktube)
-  // numPhase==2 && volumes    --> mixed FSF & FF  (check that either radius of spheres>0 or shocktube)
 
-  double norm = mf.initialConditions.p1.nx*mf.initialConditions.p1.nx+
-                mf.initialConditions.p1.ny*mf.initialConditions.p1.ny+
-                mf.initialConditions.p1.nz*mf.initialConditions.p1.nz;
-  if(eqs.numPhase==1 && !volumes.volumeMap.dataMap.empty()){
-    // we still need to check that there is a fluid volume (if only porous volume, then it is still a single phase flow
-    map<int, VolumeData *>::iterator it;
-    int countFluids = 0;
-    for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
-        countFluids++;
+  // count number of phases and check input values of each EOS
+  // copy FluidModel[0] in FluidModel, if the first exists (always true unless a one-phase simulation is done using old inputfile type)
+  eqs.numPhase = 0;
+  bool fluidModelZeroExists = false;
 
-    if(countFluids>0){ // check if volumeMap contains fluids or porous.
-      eqs.numPhase = 2;
-      mf.interfaceType = MultiFluidData::FSF;
+  if(!eqs.fluidModelMap.dataMap.empty()){
+    map<int, FluidModelData *>::iterator it;
+    for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+      eqs.numPhase++;
+      error += checkInputValuesEquationOfState(*(it->second), it->first);
+      // copy FluidModel[0] in FluidModel
+      if(it->first == 0){
+        fluidModelZeroExists = true;
+        eqs.fluidModel = *(it->second);
+      }
     }
-  }else if(eqs.numPhase == 2){
-    mf.interfaceType = MultiFluidData::FF;
-    if(mf.initialConditions.s1.radius<=0 && mf.initialConditions.s2.radius<=0 && norm < 1e-14)
-    {
+    // if FluidModel[0] was not specified for a multiphase flow simulation
+    if(!fluidModelZeroExists && eqs.numPhase > 0){
       error++;
-      com->fprintf(stdout, "*** Error : no multiphase flow detected\n");
+      com->fprintf(stderr, "*** Error: FluidModel[0] must be specified for a multiphase flow simulation\n");
     }
   }
-
-
-
-  if(eqs.numPhase == 2){
-    error += checkInputValuesMultiEOS();
-    error += checkInputValuesVolumesInitialization();
-    error += checkInputValuesMultiFluidInitialization();
+  // if no map, then take the old style FluidModel
+  if(eqs.numPhase == 0){
+    error += checkInputValuesEquationOfState(eqs.fluidModel, -1);
+    eqs.numPhase = 1;
   }
-  error += printMultiEOS();
+
+  // check if fluid-fluid interfaces are expected
+  if(eqs.numPhase > 1 && 
+     (!mf.multiInitialConditions.sphereMap.dataMap.empty() || !mf.multiInitialConditions.planeMap.dataMap.empty()))
+    mf.interfaceType = MultiFluidData::FF;
+  else
+    mf.interfaceType = MultiFluidData::FSF;
 
   return error;
 
@@ -3625,456 +3666,125 @@ int IoData::checkInputValuesMulti_step1(){
 
 //------------------------------------------------------------------------------
 
-void IoData::checkInputValuesMulti_step2(){
-
-// this routine non dimensionalizes the input data for VolumeInitialConditions
-// and for MultiFluid.InitialConditions
-
-  if(eqs.numPhase == 2){
-    // volumeInitialConditions first
-    if(!volumes.volumeMap.dataMap.empty()){
-      map<int, VolumeData *>::iterator it;
-      for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-        if(it->second->type==VolumeData::FLUID)
-          nonDimensionalizeVolumeInitialization(it->second->fluidModel, it->second->volumeInitialConditions);
-    }
-
-    //multifluid.initialConditions second
-    if(mf.interfaceType!=MultiFluidData::FSF){
-      for(int i=0; i<mf.initialConditions.nsphere; i++){
-        mf.initialConditions.sphere[i]->density     /= ref.rv.density;
-        mf.initialConditions.sphere[i]->pressure    /= ref.rv.pressure;
-        mf.initialConditions.sphere[i]->temperature /= ref.rv.temperature;
-        mf.initialConditions.sphere[i]->velocity    /= ref.rv.velocity;
-        mf.initialConditions.sphere[i]->alpha       *= acos(-1.0) / 180.0;
-        mf.initialConditions.sphere[i]->beta        *= acos(-1.0) / 180.0;
-      }
-
-      mf.initialConditions.p1.density        /= ref.rv.density;
-      mf.initialConditions.p1.pressure       /= ref.rv.pressure;
-      mf.initialConditions.p1.temperature    /= ref.rv.temperature;
-      mf.initialConditions.p1.velocity       /= ref.rv.velocity;
-      mf.initialConditions.p1.alpha         *= acos(-1.0) / 180.0;
-      mf.initialConditions.p1.beta          *= acos(-1.0) / 180.0;
-
-      nonDimensionalizeFluidModel(mf.fluidModel);
-      nonDimensionalizeFluidModel(mf.fluidModel2);
-
-    }
-    mf.Pinit /= ref.rv.pressure;
-    mf.Prate /= ref.rv.pressure/ref.rv.time;
-
-  }
-}
-
-//------------------------------------------------------------------------------
-int IoData::checkInputValuesMultiEOS(){
+int IoData::checkInputValuesAllInitialConditions(){
 
   int error = 0;
 
-  com->fprintf(stdout, " ----- TWO-PHASE FLOW SIMULATION -----\n");
-  //first reinitialize fluidModel and fluidModel2
-  eqs.fluidModel.fluid = FluidModelData::UNDEFINED;
-  eqs.fluidModel2.fluid = FluidModelData::UNDEFINED;
-
-  //check if some volumes were defined (if so check that there are only two fluids!)
-  if(volumes.volumeMap.dataMap.empty()) com->fprintf(stdout, "No VolumeData specified\n");
-  else{
-    map<int, VolumeData *>::iterator it;
-    int countFluids = 0;
-    for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID) {
-        countFluids++;
-        if(countFluids == 1){ eqs.fluidModel  = it->second->fluidModel; /*com->fprintf(stdout, "fluidModel1 corresponds to volume id = %d\n", it->first);*/}
-        if(countFluids == 2){ eqs.fluidModel2 = it->second->fluidModel; /*com->fprintf(stdout, "fluidModel2 corresponds to volume id = %d\n", it->first);*/}
-      }
-    com->fprintf(stdout, "*** Warning : %d fluids in VolumeData were detected\n", countFluids);
-    if(countFluids>2){
-      com->fprintf(stdout, "*** Warning : there were %d fluids specified in %d regions of the computational domain\n", countFluids, countFluids);
-      com->fprintf(stdout, "***         : only the first two fluids will be considered!\n");
-    }
-  }
-
-  //check if some multifluid object has been specified
-  if(mf.interfaceType!=MultiFluidData::FSF){
-    //the two fluidModel and fluidModel2 objects under Multifluid must be defined
-    if(eqs.fluidModel.fluid != FluidModelData::UNDEFINED){ // volumes were defined previously
-      if(eqs.fluidModel.fluid != mf.fluidModel.fluid) {error++; com->fprintf(stdout, "*** Warning : FluidModel in MultiFluid and in Volumes do not match\n");}
-      else if(eqs.fluidModel.fluid == FluidModelData::GAS && (
-              eqs.fluidModel.gasModel.specificHeatRatio != mf.fluidModel.gasModel.specificHeatRatio ||
-              eqs.fluidModel.gasModel.pressureConstant  != mf.fluidModel.gasModel.pressureConstant)){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel(GAS) in MultiFluid and in Volumes have different constants\n");
-      }
-      else if(eqs.fluidModel.fluid == FluidModelData::JWL && (
-              eqs.fluidModel.jwlModel.omega   != mf.fluidModel.jwlModel.omega   ||
-              eqs.fluidModel.jwlModel.A1      != mf.fluidModel.jwlModel.A1      ||
-              eqs.fluidModel.jwlModel.A2      != mf.fluidModel.jwlModel.A2      ||
-              eqs.fluidModel.jwlModel.R1      != mf.fluidModel.jwlModel.R1      ||
-              eqs.fluidModel.jwlModel.R2      != mf.fluidModel.jwlModel.R2      ||
-              eqs.fluidModel.jwlModel.rhoref  != mf.fluidModel.jwlModel.rhoref  )){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel(JWL) in MultiFluid and in Volumes have different constants\n");
-      }
-      else if(eqs.fluidModel.fluid == FluidModelData::LIQUID && (
-              eqs.fluidModel.liquidModel.Cv          != mf.fluidModel.liquidModel.Cv ||
-              eqs.fluidModel.liquidModel.k1water     != mf.fluidModel.liquidModel.k1water ||
-              eqs.fluidModel.liquidModel.k2water     != mf.fluidModel.liquidModel.k2water ||
-              eqs.fluidModel.liquidModel.Prefwater   != mf.fluidModel.liquidModel.Prefwater ||
-              eqs.fluidModel.liquidModel.RHOrefwater != mf.fluidModel.liquidModel.RHOrefwater )){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel(LIQUID) in MultiFluid and in Volumes have different constants\n");
-      }
-    }
-    else{ // no volumes defined previously
-      eqs.fluidModel  =  mf.fluidModel;
-      //com->fprintf(stdout, "***      values for fm1 are %e %e\n", eqs.fluidModel.gasModel.specificHeatRatio, eqs.fluidModel.gasModel.pressureConstant);
-    }
-
-    if(eqs.fluidModel2.fluid != FluidModelData::UNDEFINED){ // volumes were defined previously
-      if(eqs.fluidModel2.fluid != mf.fluidModel2.fluid) {error++; com->fprintf(stdout, "*** Warning : FluidModel2 in MultiFluid and in Volumes do not match\n");}
-      else if(eqs.fluidModel2.fluid == FluidModelData::GAS && (
-              eqs.fluidModel2.gasModel.specificHeatRatio != mf.fluidModel2.gasModel.specificHeatRatio ||
-              eqs.fluidModel2.gasModel.pressureConstant  != mf.fluidModel2.gasModel.pressureConstant)){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel2(GAS) in MultiFluid and in Volumes have different constants\n");
-      }
-      else if(eqs.fluidModel2.fluid == FluidModelData::JWL && (
-              eqs.fluidModel2.jwlModel.omega   != mf.fluidModel2.jwlModel.omega   ||
-              eqs.fluidModel2.jwlModel.A1      != mf.fluidModel2.jwlModel.A1      ||
-              eqs.fluidModel2.jwlModel.A2      != mf.fluidModel2.jwlModel.A2      ||
-              eqs.fluidModel2.jwlModel.R1      != mf.fluidModel2.jwlModel.R1      ||
-              eqs.fluidModel2.jwlModel.R2      != mf.fluidModel2.jwlModel.R2      ||
-              eqs.fluidModel2.jwlModel.rhoref  != mf.fluidModel2.jwlModel.rhoref  )){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel2(JWL) in MultiFluid and in Volumes have different constants\n");
-      }
-      else if(eqs.fluidModel2.fluid == FluidModelData::LIQUID && (
-              eqs.fluidModel2.liquidModel.Cv          != mf.fluidModel2.liquidModel.Cv ||
-              eqs.fluidModel2.liquidModel.k1water     != mf.fluidModel2.liquidModel.k1water ||
-              eqs.fluidModel2.liquidModel.k2water     != mf.fluidModel2.liquidModel.k2water ||
-              eqs.fluidModel2.liquidModel.Prefwater   != mf.fluidModel2.liquidModel.Prefwater ||
-              eqs.fluidModel2.liquidModel.RHOrefwater != mf.fluidModel2.liquidModel.RHOrefwater )){
-        error++;
-        com->fprintf(stdout, "*** Warning : FluidModel2(LIQUID) in MultiFluid and in Volumes have different constants\n");
-      }
-    }
-    else{ // no volumes defined previously
-      eqs.fluidModel2 =  mf.fluidModel2;
-      //com->fprintf(stdout, "*** Warning     values for fm2 are %e %e\n", eqs.fluidModel2.gasModel.specificHeatRatio, eqs.fluidModel2.gasModel.pressureConstant);
-    }
-
-  }
-
-
-  //check that fluidModel and fluidModel2 are "defined"
-  if(eqs.fluidModel.fluid == FluidModelData::UNDEFINED ||
-     eqs.fluidModel2.fluid == FluidModelData::UNDEFINED ){
-    com->fprintf(stdout, "*** Error : one of the two fluids is not defined\n");
-    error++;
-  }
-
-  return error;
-}
-
-//------------------------------------------------------------------------------
-
-int IoData::checkInputValuesVolumesInitialization(){
-
-  int error = 0;
+  // check input values of initial conditions for volumeData
   if(!volumes.volumeMap.dataMap.empty()){
     map<int, VolumeData *>::iterator it;
     for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
       if(it->second->type==VolumeData::FLUID)
-        error += checkVolumeInitialization(it->second->fluidModel, it->second->volumeInitialConditions, it->first);
+        error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
   }
 
-  return error;
-
-}
-
-//------------------------------------------------------------------------------
-
-int IoData::checkVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic, int volid){
-
-  int error = 0;
-
-  if(ic.mach < 0 && ic.velocity < 0){
-    error++;
-    com->fprintf(stdout, "*** Error : a velocity norm or a mach number must be specified for VolumeData[%d]\n", volid);
-  }
-
-  if(fm.fluid == FluidModelData::GAS || fm.fluid == FluidModelData::JWL){
-    if(ic.density < 0){
-      error++;
-      com->fprintf(stdout, "*** Error : a density must be specified for VolumeData[%d]\n", volid);
-    }
-    if(ic.pressure < 0){
-      error++;
-      com->fprintf(stdout, "*** Error : a pressure must be specified for VolumeData[%d]\n", volid);
-    }
-  }else if(fm.fluid == FluidModelData::LIQUID){
-    if(ic.pressure < 0 && ic.density < 0 ){
-      error++;
-      com->fprintf(stdout, "*** Error : either pressure or density must be specified for VolumeData[%d]\n", volid);
-    }else if(ic.pressure < 0){ //pressure computed from density
-      double k1ok2 = fm.liquidModel.k1water/fm.liquidModel.k2water;
-      ic.pressure = -k1ok2 + (fm.liquidModel.Prefwater+k1ok2)*pow(ic.density/fm.liquidModel.RHOrefwater, fm.liquidModel.k2water);
-    }else{  //pressure is given, whatever the density, it is recomputed given pressure.
-      double k1ok2 = fm.liquidModel.k1water/fm.liquidModel.k2water;
-      ic.density = fm.liquidModel.RHOrefwater*pow((ic.pressure+k1ok2)/(fm.liquidModel.Prefwater+k1ok2),1.0/fm.liquidModel.k2water);
-    }
-    if(ic.temperature < 0){
-      error++;
-      com->fprintf(stdout, "*** Error : a temperature must be specified for VolumeData[%d]\n", volid);
-    }
-  }
-
-  return error;
-
-}
-
-//------------------------------------------------------------------------------
-
-int IoData::checkInputValuesMultiFluidInitialization(){
-//Initial conditions specified in MultiFluid object are associated
-//to MultiFluid.FluidModel2
-
-  int error = 0;
-
-  if(mf.interfaceType!=MultiFluidData::FSF){
-
-    for(int i=0; i<mf.initialConditions.nsphere; i++){
-      if(mf.initialConditions.sphere[i]->radius>0.0){
-        mf.initialConditions.nspheres++;
-        if(mf.initialConditions.sphere[i]->mach < 0 && mf.initialConditions.sphere[i]->velocity < 0){
-          error++;
-          com->fprintf(stdout, "*** Error : a velocity norm or a mach number must be specified for Sphere %d\n", i);
-        }
-        if(mf.initialConditions.sphere[i]->alpha>360.0 || mf.initialConditions.sphere[i]->beta>360.0){
-          error++;
-          com->fprintf(stdout, "*** Error : angles of flow must be specified for Sphere %d\n", i);
-        }
-
-        if(mf.fluidModel2.fluid == FluidModelData::GAS || mf.fluidModel2.fluid == FluidModelData::JWL){
-          if(mf.initialConditions.sphere[i]->density < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a density must be specified for Sphere %d\n", i);
-          }
-          if(mf.initialConditions.sphere[i]->pressure < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a pressure must be specified for Sphere %d\n", i);
-          }
-        }else if(mf.fluidModel2.fluid == FluidModelData::LIQUID){
-          if(mf.initialConditions.sphere[i]->pressure < 0 && mf.initialConditions.sphere[i]->density < 0 ){
-            error++;
-            com->fprintf(stdout, "*** Error : either pressure or density must be specified for Sphere %d\n", i);
-          }else if(mf.initialConditions.sphere[i]->pressure < 0){ //pressure computed from density
-            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
-            mf.initialConditions.sphere[i]->pressure = -k1ok2 +
-                                 (mf.fluidModel2.liquidModel.Prefwater+k1ok2)*
-                         pow(mf.initialConditions.sphere[i]->density/mf.fluidModel2.liquidModel.RHOrefwater, mf.fluidModel2.liquidModel.k2water);
-          }else{  //pressure is given, whatever the density, it is recomputed given pressure.
-            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
-            mf.initialConditions.sphere[i]->density = mf.fluidModel2.liquidModel.RHOrefwater*pow((mf.initialConditions.sphere[i]->pressure+k1ok2)/(mf.fluidModel2.liquidModel.Prefwater+k1ok2),1.0/mf.fluidModel2.liquidModel.k2water);
-          }
-          if(mf.initialConditions.sphere[i]->temperature < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a temperature must be specified for Sphere %d\n", i);
-          }
-        }
-      }
-    }
-
-    // for planes (shocktube)
-    double norm = mf.initialConditions.p1.nx*mf.initialConditions.p1.nx+
-                  mf.initialConditions.p1.ny*mf.initialConditions.p1.ny+
-                  mf.initialConditions.p1.nz*mf.initialConditions.p1.nz;
-    if(norm > 0.0){
-      mf.initialConditions.nplanes = 1;
-      if(mf.initialConditions.p1.velocity < 0 ){
-          error++;
-          com->fprintf(stdout, "*** Error : a velocity norm must be specified for Plane\n");
-      }
-      if(mf.initialConditions.p1.alpha>360.0 || mf.initialConditions.p1.beta>360.0){
+  // check input values of initial conditions for multiFluidData
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      if(it->second->radius <= 0.0){
         error++;
-        com->fprintf(stdout, "*** Error : angles of flow must be specified for Plane\n");
+        com->fprintf(stderr, "*** Error: a positive radius must be specified for the sphere[%d] initial conditions\n", it->first);
       }
-        if(mf.fluidModel2.fluid == FluidModelData::GAS || mf.fluidModel2.fluid == FluidModelData::JWL){
-          if(mf.initialConditions.p1.density < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a density must be specified for Plane\n");
-          }
-          if(mf.initialConditions.p1.pressure < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a pressure must be specified for Plane\n");
-          }
-        }else if(mf.fluidModel2.fluid == FluidModelData::LIQUID){
-          if(mf.initialConditions.p1.pressure < 0 && mf.initialConditions.p1.density < 0 ){
-            error++;
-            com->fprintf(stdout, "*** Error : either pressure or density must be specified for Plane\n");
-          }else if(mf.initialConditions.p1.pressure < 0){ //pressure computed from density
-            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
-            mf.initialConditions.p1.pressure = -k1ok2 +
-                                 (mf.fluidModel2.liquidModel.Prefwater+k1ok2)*
-                         pow(mf.initialConditions.p1.density/mf.fluidModel2.liquidModel.RHOrefwater, mf.fluidModel2.liquidModel.k2water);
-          }else{  //pressure is given, whatever the density, it is recomputed given pressure.
-            double k1ok2 = mf.fluidModel2.liquidModel.k1water/mf.fluidModel2.liquidModel.k2water;
-            mf.initialConditions.p1.density = mf.fluidModel2.liquidModel.RHOrefwater*pow((mf.initialConditions.p1.pressure+k1ok2)/(mf.fluidModel2.liquidModel.Prefwater+k1ok2),1.0/mf.fluidModel2.liquidModel.k2water);
-          }
-          if(mf.initialConditions.p1.temperature < 0){
-            error++;
-            com->fprintf(stdout, "*** Error : a temperature must be specified for Plane\n");
-          }
-       }
-
     }
   }
-
+  if(!mf.multiInitialConditions.planeMap.dataMap.empty()){
+    map<int, PlaneData *>::iterator it;
+    for (it=mf.multiInitialConditions.planeMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.planeMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      double norm = it->second->cen_x*it->second->cen_x+it->second->cen_y*it->second->cen_y+it->second->cen_z*it->second->cen_z;
+      if(norm <= 0.0){
+        error++;
+        com->fprintf(stderr, "*** Error: a positive vector norm must be specified for the plane[%d] initial conditions\n", it->first);
+      }
+    }
+  }
+  // check input values of initial conditions for EmbeddedStructure
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it=embed.embedIC.pointMap.dataMap.begin();
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++)
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+  }
   return error;
 
 }
 
 //------------------------------------------------------------------------------
 
-int IoData::printMultiEOS(){
+void IoData::nonDimensionalizeAllEquationsOfState(){
 
-  int error = 0;
-  if (eqs.numPhase == 1){
-    if (eqs.fluidModel.fluid == FluidModelData::GAS)
-      if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
-        com->fprintf(stderr, " ----- PERFECT GAS SIMULATION -----\n");
-      else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED)
-        com->fprintf(stderr, " ----- STIFFENED GAS SIMULATION -----\n");
-      else{
-        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
-        error++;
-      }
-    else if (eqs.fluidModel.fluid == FluidModelData::JWL)
-      if(eqs.fluidModel.jwlModel.type == JWLModelData::IDEAL)
-        com->fprintf(stderr, " ----- PERFECT GAS SIMULATION (using JWL)-----\n");
-      else if(eqs.fluidModel.jwlModel.type == JWLModelData::JWL)
-        com->fprintf(stderr, " ----- JWL SIMULATION -----\n");
-      else{
-        com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
-        error++;
-      }
-    else if (eqs.fluidModel.fluid == FluidModelData::LIQUID)
-      com->fprintf(stderr, " ----- BAROTROPIC LIQUID SIMULATION -----\n");
-    else {
-      com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
-      error++;
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  if(!eqs.fluidModelMap.dataMap.empty()){
+    map<int, FluidModelData *>::iterator it;
+    for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
+      nonDimensionalizeFluidModel(*(it->second));
+  }
+  nonDimensionalizeFluidModel(eqs.fluidModel);
+
+}
+
+//------------------------------------------------------------------------------
+
+void IoData::nonDimensionalizeAllInitialConditions(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  // non-dimensionalize initial conditions for volumeData
+  if(!volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID)
+        nonDimensionalizeInitialConditions(it->second->initialConditions);
+  }
+
+  // non-dimensionalize initial conditions for multiFluidData
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x  /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+      it->second->radius /= ref.rv.length;
     }
   }
-  else if (eqs.numPhase == 2) {
-
-     if (eqs.fluidModel.fluid == FluidModelData::GAS &&
-         eqs.fluidModel2.fluid == FluidModelData::GAS)
-       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL &&
-           eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
-         com->fprintf(stderr, " ----- PERFECT GAS-PERFECT GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
-               eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-         com->fprintf(stderr, " ----- STIFFENED GAS-STIFFENED GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::IDEAL &&
-               eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-         com->fprintf(stderr, " ----- PERFECT GAS-STIFFENED GAS SIMULATION -----\n");
-       else if(eqs.fluidModel.gasModel.type == GasModelData::STIFFENED &&
-               eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
-         com->fprintf(stderr, " ----- STIFFENED GAS-PERFECT GAS SIMULATION -----\n");
-       else{
-         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program\n");
-         error++;
-       }
-     else if (eqs.fluidModel.fluid == FluidModelData::GAS &&
-              eqs.fluidModel2.fluid == FluidModelData::JWL)
-       if (eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
-         com->fprintf(stderr, " ---- PERFECT GAS-JWL SIMULATION -----\n");
-       else if (eqs.fluidModel.gasModel.type == GasModelData::STIFFENED)
-         com->fprintf(stderr, " ---- STIFFENED GAS-JWL SIMULATION -----\n");
-       else{
-         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
-         error++;
-       }
-     else if (eqs.fluidModel.fluid == FluidModelData::JWL &&
-              eqs.fluidModel2.fluid == FluidModelData::JWL)
-       com->fprintf(stderr, " ---- JWL-JWL SIMULATION -----\n");
-     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-              eqs.fluidModel2.fluid == FluidModelData::GAS)
-       if (eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
-         com->fprintf(stderr, " ---- BAROTROPIC LIQUID-PERFECT GAS SIMULATION -----\n");
-       else if (eqs.fluidModel2.gasModel.type == GasModelData::STIFFENED)
-         com->fprintf(stderr, " ---- BAROTROPIC LIQUID-STIFFENED GAS SIMULATION -----\n");
-       else{
-         com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n -----> exiting program");
-         error++;
-       }
-     else if (eqs.fluidModel.fluid == FluidModelData::LIQUID &&
-              eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-       com->fprintf(stderr, " ---- BAROTROPIC LIQUID-BAROTROPIC LIQUID SIMULATION ----\n");
-     else if (eqs.fluidModel.fluid == FluidModelData::GAS &&
-              eqs.fluidModel2.fluid == FluidModelData::LIQUID)
-       com->fprintf(stderr, " ----- GAS-LIQUID SIMULATION -----\n");
-     else {
-       com->fprintf(stderr, " ----- UNDEFINED SIMULATION -----\n");
-       error++;
-     }
-
-  }
-  else{
-    com->fprintf(stderr, " ----- ONLY SINGLE AND TWO-PHASE FLOW SIMULATIONS ARE POSSIBLE ----\n -----> exiting program");
-    error++;
+  if(!mf.multiInitialConditions.planeMap.dataMap.empty()){
+    map<int, PlaneData *>::iterator it;
+    for (it=mf.multiInitialConditions.planeMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.planeMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+    }
   }
 
+  mf.Pinit /= ref.rv.pressure;
+  mf.Prate /= ref.rv.pressure/ref.rv.time;
 
-  return error;
-
-}
-//------------------------------------------------------------------------------
-
-void IoData::nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic){
-
-  ic.velocity    /= ref.rv.velocity;
-  ic.pressure    /= ref.rv.pressure;
-  ic.density     /= ref.rv.density;
-  ic.temperature /= ref.rv.temperature;
-
-  ic.alpha       *= acos(-1.0)/180.0;
-  ic.beta        *= acos(-1.0)/180.0;
-
-  nonDimensionalizeFluidModel(fm);
-
-}
-
-//------------------------------------------------------------------------------
-
-void IoData::nonDimensionalizeFluidModel(FluidModelData &fm){
-
-  if(fm.fluid == FluidModelData::GAS)
-    fm.gasModel.pressureConstant /= ref.rv.pressure;
-
-  else if(fm.fluid == FluidModelData::JWL){
-    fm.jwlModel.A1     /= ref.rv.pressure;
-    fm.jwlModel.A2     /= ref.rv.pressure;
-    fm.jwlModel.rhoref /= ref.rv.density;
+  // non-dimensionalize initial conditions for EmbeddedStructure
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it=embed.embedIC.pointMap.dataMap.begin();
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++) {
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->x /= ref.rv.length;
+      it->second->y /= ref.rv.length;
+      it->second->z /= ref.rv.length;
+    }
   }
-
-  else if(fm.fluid == FluidModelData::LIQUID){
-    double Pref = -fm.liquidModel.k1water/fm.liquidModel.k2water;
-    double awater = (fm.liquidModel.Prefwater -Pref)/pow(fm.liquidModel.RHOrefwater, fm.liquidModel.k2water);
-    double bwater = fm.liquidModel.k2water;
-
-    fm.liquidModel.Cv /= 1.0;
-    fm.liquidModel.k1water     /= ref.rv.pressure;
-    fm.liquidModel.RHOrefwater /= ref.rv.density;
-    fm.liquidModel.Prefwater   /= ref.rv.pressure;
-
-    fm.liquidModel.Pref  = Pref / ref.rv.pressure;
-    fm.liquidModel.alpha = awater * pow(ref.rv.density, bwater - 1.0)/(ref.rv.velocity *ref.rv.velocity);
-    fm.liquidModel.beta  = bwater;
-  }
-
-
 }
 
 //------------------------------------------------------------------------------
@@ -4083,6 +3793,13 @@ int IoData::checkInputValuesNonDimensional()
 {
   int error = 0;
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
+
+    // no multiphase flow in non-dimensional
+    if(eqs.numPhase > 1){ 
+      com->fprintf(stderr, "*** Error: multiphase flow are possible only in Dimensional Mode \n");
+      ++error;
+      return error;
+    }
 
     if (eqs.type != EquationsData::EULER) {
       if (ref.reynolds_mu < 0.0) {
@@ -4105,8 +3822,6 @@ int IoData::checkInputValuesNonDimensional()
     }
 
 // Included (MB)
-    //if (eqs.type == EquationsData::NAVIER_STOKES)
-      //com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
     ref.dRe_mudMach = 0.0;
     ref.dRe_lambdadMach = 0.0;
 
@@ -4141,8 +3856,11 @@ int IoData::checkInputValuesNonDimensional()
       bwater = k2water;
     }
 
+    // set up density
     if (bc.inlet.density < 0.0)
       bc.inlet.density = 1.0;
+
+    // set up pressure
     if (bc.inlet.pressure < 0.0)
       if (eqs.fluidModel.fluid == FluidModelData::GAS)
         if(ref.mach>0.0)
@@ -4163,6 +3881,8 @@ int IoData::checkInputValuesNonDimensional()
           com->fprintf(stderr, "*** Error: no valid Mach number for non-dimensional simulation\n");
       else if(eqs.fluidModel.fluid == FluidModelData::LIQUID)
         bc.inlet.pressure = Prefwater/((Prefwater+k1water/k2water)*k2water*ref.mach*ref.mach);
+
+    // set up temperature (for Tait)
     if (bc.inlet.temperature < 0.0 && eqs.fluidModel.fluid == FluidModelData::LIQUID){
       com->fprintf(stderr, "*** Error: no valid non-dimensionalized temperature (%f) given\n", bc.inlet.temperature);
       error ++;
@@ -4173,8 +3893,11 @@ int IoData::checkInputValuesNonDimensional()
       eqs.fluidModel.liquidModel.beta = bwater;
     }
   }
+
   return error;
+
 }
+
 //------------------------------------------------------------------------------------
 int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 {
@@ -4222,34 +3945,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     bwater = k2water;
   }
 
-  double R2, gamma2;
-  double Rjwl2,omegajwl2,A1jwl2,A2jwl2,R1jwl2,R2jwl2,rhorefjwl2;
-  double Cv2, k1water2, k2water2, Prefwater2, RHOrefwater2;
-  double Pref2, awater2, bwater2;
-
-  if(eqs.numPhase == 2){
-    R2 = eqs.fluidModel2.gasModel.idealGasConstant;
-    gamma2 = eqs.fluidModel2.gasModel.specificHeatRatio;
-
-    Rjwl2   = eqs.fluidModel2.jwlModel.idealGasConstant;
-    omegajwl2  = eqs.fluidModel2.jwlModel.omega;
-    A1jwl2     = eqs.fluidModel2.jwlModel.A1;
-    A2jwl2     = eqs.fluidModel2.jwlModel.A2;
-    R1jwl2     = eqs.fluidModel2.jwlModel.R1;
-    R2jwl2     = eqs.fluidModel2.jwlModel.R2;
-    rhorefjwl2 = eqs.fluidModel2.jwlModel.rhoref;
-
-    Cv2 = eqs.fluidModel2.liquidModel.Cv;
-    k1water2 = eqs.fluidModel2.liquidModel.k1water;
-    k2water2 = eqs.fluidModel2.liquidModel.k2water;
-    Prefwater2 = eqs.fluidModel2.liquidModel.Prefwater;
-    RHOrefwater2 = eqs.fluidModel2.liquidModel.RHOrefwater;
-    if(eqs.fluidModel2.fluid == FluidModelData::LIQUID){
-      Pref2 = -k1water2/k2water2;
-      awater2 = (Prefwater2 + k1water2/k2water2)/pow(RHOrefwater2, k2water2);
-      bwater2 = k2water2;
-    }
-  }
   if (problem.mode == ProblemData::DIMENSIONAL) {
     if (bc.inlet.pressure < 0.0)  {
       if(eqs.fluidModel.fluid == FluidModelData::GAS ||
@@ -4334,9 +4029,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.dvelocitydMach = dvelocitydMach;
       ref.rv.dtimedMach = - ref.length / (velocity * velocity) * dvelocitydMach;
 
-
-      eqs.fluidModel.gasModel.pressureConstant /= ref.rv.pressure;
-
     }
     else if(eqs.fluidModel.fluid == FluidModelData::JWL){
       if (ref.density < 0.0)
@@ -4376,10 +4068,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
       ref.rv.entropy = pow(ref.rv.density,-omegajwl)*velocity*velocity;
 
-      eqs.fluidModel.jwlModel.A1     /= ref.rv.pressure;
-      eqs.fluidModel.jwlModel.A2     /= ref.rv.pressure;
-      eqs.fluidModel.jwlModel.rhoref /= ref.rv.density;
-      com->fprintf(stderr, "non-dimensionalization values are: %e %e %e\n", ref.rv.density, ref.rv.velocity, ref.rv.pressure);
     }
     else if(eqs.fluidModel.fluid == FluidModelData::LIQUID){
       if (ref.density < 0.0)
@@ -4420,28 +4108,9 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
       ref.rv.tforce = ref.rv.force / aero.forceScaling;
       ref.rv.tpower = ref.rv.power / aero.powerScaling;
 
-      eqs.fluidModel.liquidModel.Pref = Pref / (ref.rv.density * ref.rv.velocity *ref.rv.velocity);
-      eqs.fluidModel.liquidModel.alpha = awater * pow(ref.rv.density, bwater - 1.0)/(ref.rv.velocity *ref.rv.velocity);
-      eqs.fluidModel.liquidModel.beta  = bwater;
-
     }
 
-    if (eqs.fluidModel2.fluid == FluidModelData::GAS)
-      eqs.fluidModel2.gasModel.pressureConstant /= ref.rv.pressure;
-    if (eqs.fluidModel2.fluid == FluidModelData::JWL){
-      eqs.fluidModel2.jwlModel.A1     /= ref.rv.pressure;
-      eqs.fluidModel2.jwlModel.A2     /= ref.rv.pressure;
-      eqs.fluidModel2.jwlModel.rhoref /= ref.rv.density;
-    }
-    if (eqs.fluidModel2.fluid == FluidModelData::LIQUID) {
-      eqs.fluidModel2.liquidModel.Pref = Pref2 / (ref.rv.density * ref.rv.velocity *ref.rv.velocity);
-      eqs.fluidModel2.liquidModel.alpha = awater2 * pow(ref.rv.density, bwater2 - 1.0)/(ref.rv.velocity *ref.rv.velocity);
-      eqs.fluidModel2.liquidModel.beta  = bwater2;
-    }
-
-    eqs.fluidModel.pmin /= ref.rv.pressure;
-    eqs.fluidModel2.pmin /= ref.rv.pressure;
-
+    // non-dimensionalize boundary conditions
     bc.inlet.density /= ref.rv.density;
     bc.inlet.pressure /= ref.rv.pressure;
     bc.inlet.velocity /= ref.rv.velocity;
@@ -4485,7 +4154,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     rmesh.timestep /= ref.rv.time;
 
     for (int j=0; j<rmesh.num; j++){
-//      fprintf(stderr,"old time: %f, new time: %f.\n", rmesh.vpts[j]->time, rmesh.vpts[j]->time/ref.rv.time);
+//      com->fprintf(stderr,"old time: %f, new time: %f.\n", rmesh.vpts[j]->time, rmesh.vpts[j]->time/ref.rv.time);
       rmesh.vpts[j]->time     /= ref.rv.time;
       rmesh.vpts[j]->velocityX /= ref.rv.velocity;
       rmesh.vpts[j]->velocityY /= ref.rv.velocity;
@@ -4495,9 +4164,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     forced.timestep /= ref.rv.time;
     forced.frequency *= ref.rv.time;
 
-    //bc.hydro.gravity /= ref.rv.velocity / ref.rv.time;
-    //bc.hydro.alpha *= acos(-1.0) / 180.0;
-    //bc.hydro.beta *= acos(-1.0) / 180.0;
     bc.hydro.depth /= ref.length;
     eqs.gravity_x /= ref.rv.velocity / ref.rv.time;
     eqs.gravity_y /= ref.rv.velocity / ref.rv.time;
@@ -4580,59 +4246,7 @@ int IoData::checkInputValuesEssentialBC()
 
 }
 //------------------------------------------------------------------------------
-int IoData::checkInputValuesStateEquation()
-{
-  int error = 0;
-
-  if (eqs.fluidModel.fluid == FluidModelData::LIQUID){
-    if (eqs.fluidModel.liquidModel.Prefwater < 0.0){
-      com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for Tait's EOS\n", eqs.fluidModel.liquidModel.Prefwater);
-      ++error;
-    }
-    if (eqs.fluidModel.liquidModel.RHOrefwater < 0.0){
-      com->fprintf(stderr, "*** Error: no valid reference density (%e) given for Tait's EOS\n", eqs.fluidModel.liquidModel.RHOrefwater);
-      ++error;
-    }
-    if ( eqs.fluidModel.liquidModel.Cv < 0.0 ) {
-      com->fprintf(stderr, "*** Error: no valid reference specific heat coefficient (%e) given\n", eqs.fluidModel.liquidModel.Cv);
-      ++error;
-    }
-  }
-  else if(eqs.fluidModel.fluid         == FluidModelData::GAS &&
-	  eqs.fluidModel.gasModel.type == GasModelData::IDEAL)
-    eqs.fluidModel.gasModel.pressureConstant = 0.0;
-  else if(eqs.fluidModel.fluid         == FluidModelData::JWL &&
-	  eqs.fluidModel.jwlModel.type == JWLModelData::IDEAL){
-    eqs.fluidModel.jwlModel.A1 = 0.0;
-    eqs.fluidModel.jwlModel.A2 = 0.0;
-  }
-
-  if (eqs.numPhase == 2){
-    if (eqs.fluidModel2.fluid == FluidModelData::LIQUID){
-      if (eqs.fluidModel2.liquidModel.Prefwater < 0.0){
-        com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for 2nd Tait's EOS\n", eqs.fluidModel2.liquidModel.Prefwater);
-        ++error;
-      }
-      if (eqs.fluidModel2.liquidModel.RHOrefwater < 0.0){
-        com->fprintf(stderr, "*** Error: no valid reference density (%e) given for 2nd Tait's EOS\n", eqs.fluidModel2.liquidModel.RHOrefwater);
-        ++error;
-      }
-      if ( eqs.fluidModel2.liquidModel.Cv < 0.0 ) {
-        com->fprintf(stderr, "*** Error: no valid reference specific heat coefficient (%e) given\n", eqs.fluidModel2.liquidModel.Cv);
-        ++error;
-      }
-    }
-    else if(eqs.fluidModel2.fluid == FluidModelData::GAS && eqs.fluidModel2.gasModel.type == GasModelData::IDEAL)
-      eqs.fluidModel2.gasModel.pressureConstant = 0.0;
-    else if(eqs.fluidModel2.fluid         == FluidModelData::JWL &&
-            eqs.fluidModel2.jwlModel.type == JWLModelData::IDEAL){
-      eqs.fluidModel2.jwlModel.A1 = 0.0;
-      eqs.fluidModel2.jwlModel.A2 = 0.0;
-    }
-  }
-  return error;
-}
-//------------------------------------------------------------------------------
+// must be done after the non-dimensionalization of input values!
 void IoData::checkInputValuesTurbulence()
 {
    if (bc.inlet.nutilde < 0.0)
@@ -4647,6 +4261,7 @@ void IoData::checkInputValuesTurbulence()
 }
 
 //------------------------------------------------------------------------------
+
 void IoData::checkInputValuesDefaultOutlet()
 {
   if (bc.outlet.mach < 0.0)
@@ -4732,13 +4347,180 @@ for(int j = 1; j < 8*sizeof(int); j++) {
 
 
 // for Multiphase flow using levelset
-  if(eqs.numPhase == 2 && schemes.ls.reconstruction == SchemeData::CONSTANT
-                       && mf.interfaceType != MultiFluidData::FSF){
+  if(eqs.numPhase > 1 && schemes.ls.reconstruction == SchemeData::CONSTANT
+                      && mf.interfaceType != MultiFluidData::FSF){
     com->fprintf(stderr, "*** Error: Linear reconstruction of the levelset is needed!\n");
     ++error;
   }
 
   return error;
+
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesInitialConditions(InitialConditions &initialConditions,
+                                              int fluidModelID)
+{
+
+  int error = 0;
+
+  // first check that there is a corresponding fluidModelID in eqs.fluidModelMap
+  // and determine the type of that fluidModel
+  // note that eqs.fluidModel does not need to be considered because it can only be used for single phase flow
+  // and this routine is for multiphase flow.
+  int fluidModelIDCount = 0;
+  FluidModelData::Fluid fluidType = FluidModelData::UNDEFINED;
+  if(eqs.fluidModelMap.dataMap.empty()){
+    error++;
+    com->fprintf(stderr, "*** Error: no valid FluidModel were specified for Initial Conditions\n");
+    com->fprintf(stderr, "           FluidModelData[0] must at least be specified\n");
+  }else{
+    map<int, FluidModelData *>::iterator it;
+    for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++)
+      if(it->first == fluidModelID){
+        fluidModelIDCount++;
+        fluidType = it->second->fluid;
+      }
+    if(fluidModelIDCount != 1){
+      error++;
+      com->fprintf(stderr, "*** Error: there are %d fluidModel(s) %d\n", fluidModelIDCount, fluidModelID);
+    }
+  }
+      
+
+  // then check that the initial conditions for that fluidModel are adequate.
+  if(initialConditions.mach < 0 && initialConditions.velocity < 0 ){
+    error++;
+    com->fprintf(stderr, "*** Error : an initial velocity norm or an initial mach number must be specified\n");
+  }
+
+  if(fluidType == FluidModelData::GAS || fluidType == FluidModelData::JWL){
+    if(initialConditions.density < 0){
+      error++;
+      com->fprintf(stderr, "*** Error : an initial density must be specified\n");
+    }
+    if(initialConditions.pressure < 0){
+      error++;
+      com->fprintf(stderr, "*** Error : an initial pressure must be specified\n");
+    }
+  }
+  else if(fluidType == FluidModelData::LIQUID){
+    if(initialConditions.pressure < 0 && initialConditions.density < 0 ){
+      error++;
+      com->fprintf(stderr, "*** Error : either initial pressure or density must be specified\n");
+    }
+    if(initialConditions.temperature < 0){
+      error++;
+      com->fprintf(stderr, "*** Error : an initial temperature must be specified\n");
+    }
+  }
+
+  return error;
+
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesEquationOfState(FluidModelData &fluidModel, int fluidModelID)
+{
+  int error = 0;
+
+  // ******* TAIT ******** //
+  if (fluidModel.fluid == FluidModelData::LIQUID){
+    if (fluidModel.liquidModel.Prefwater < 0.0){
+      com->fprintf(stderr, "*** Error: no valid reference pressure (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.Prefwater, fluidModelID);
+      ++error;
+    }
+    if (fluidModel.liquidModel.RHOrefwater < 0.0){
+      com->fprintf(stderr, "*** Error: no valid reference density (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.RHOrefwater, fluidModelID);
+      ++error;
+    }
+    if (fluidModel.liquidModel.Cv < 0.0) {
+      com->fprintf(stderr, "*** Error: no valid reference specifinitialConditions heat coeffinitialConditionsient (%e) given for Tait's EOS (fluidModelID = %d)\n", fluidModel.liquidModel.Cv, fluidModelID);
+      ++error;
+    }
+  }
+
+  // ******* PERFECT GAS ******** //
+  else if (fluidModel.fluid         == FluidModelData::GAS &&
+	   fluidModel.gasModel.type == GasModelData::IDEAL)
+    fluidModel.gasModel.pressureConstant = 0.0;
+
+  // ******* STIFFENED GAS ******** //
+  else if (fluidModel.fluid         == FluidModelData::GAS &&
+	   fluidModel.gasModel.type == GasModelData::STIFFENED){
+    if (fluidModel.gasModel.pressureConstant < 0.0) {
+      com->fprintf(stderr, "*** Error: no valid reference pressure constant (%e) given for Stiffened Gas EOS (fluidModelID = %d)\n", fluidModel.gasModel.pressureConstant, fluidModelID);
+      ++error;
+    }
+  }
+
+  // ******* JWL GAS ******** //
+  else if (fluidModel.fluid         == FluidModelData::JWL &&
+	   fluidModel.jwlModel.type == JWLModelData::IDEAL){
+    fluidModel.jwlModel.A1 = 0.0;
+    fluidModel.jwlModel.A2 = 0.0;
+  }
+
+  // ******* JWL GAS ******** //
+  else if (fluidModel.fluid == FluidModelData::JWL){
+    if (fluidModel.jwlModel.R1*fluidModel.jwlModel.rhoref < 0.0){
+      com->fprintf(stderr, "*** Error: negative value of R1*rhoref (%e) given for JWL EOS (fluidModelID = %d)\n", fluidModel.jwlModel.R1*fluidModel.jwlModel.rhoref, fluidModelID);
+      ++error;
+    }
+    if (fluidModel.jwlModel.R2*fluidModel.jwlModel.rhoref < 0.0){
+      com->fprintf(stderr, "*** Error: negative value of R2*rhoref (%e) given for JWL EOS (fluidModelID = %d)\n", fluidModel.jwlModel.R2*fluidModel.jwlModel.rhoref, fluidModelID);
+      ++error;
+    }
+  }
+
+  return error;
+}
+
+//------------------------------------------------------------------------------
+
+void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialConditions){
+
+  initialConditions.velocity    /= ref.rv.velocity;
+  initialConditions.pressure    /= ref.rv.pressure;
+  initialConditions.density     /= ref.rv.density;
+  initialConditions.temperature /= ref.rv.temperature;
+
+  initialConditions.alpha       *= acos(-1.0)/180.0;
+  initialConditions.beta        *= acos(-1.0)/180.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
+
+  fluidModel.pmin /= ref.rv.pressure;
+
+  if(fluidModel.fluid == FluidModelData::GAS)
+    fluidModel.gasModel.pressureConstant /= ref.rv.pressure;
+
+  else if(fluidModel.fluid == FluidModelData::JWL){
+    fluidModel.jwlModel.A1     /= ref.rv.pressure;
+    fluidModel.jwlModel.A2     /= ref.rv.pressure;
+    fluidModel.jwlModel.rhoref /= ref.rv.density;
+  }
+
+  else if(fluidModel.fluid == FluidModelData::LIQUID){
+    double Pref = -fluidModel.liquidModel.k1water/fluidModel.liquidModel.k2water;
+    double awater = (fluidModel.liquidModel.Prefwater - Pref)/pow(fluidModel.liquidModel.RHOrefwater, fluidModel.liquidModel.k2water);
+    double bwater = fluidModel.liquidModel.k2water;
+
+    fluidModel.liquidModel.Cv          /= 1.0;
+    fluidModel.liquidModel.k1water     /= ref.rv.pressure;
+    fluidModel.liquidModel.RHOrefwater /= ref.rv.density;
+    fluidModel.liquidModel.Prefwater   /= ref.rv.pressure;
+
+    fluidModel.liquidModel.Pref  = Pref / ref.rv.pressure;
+    fluidModel.liquidModel.alpha = awater * pow(ref.rv.density, bwater - 1.0)/(ref.rv.velocity *ref.rv.velocity);
+    fluidModel.liquidModel.beta  = bwater;
+  }
 
 }
 
@@ -4819,3 +4601,121 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   return error;
 
 }
+
+//------------------------------------------------------------------------------
+
+void IoData::printDebug(){
+
+  com->fprintf(stderr, "to non-dimensionalize, use %e %e %e\n\n", ref.rv.density, ref.rv.velocity, ref.rv.pressure);
+
+  // fluidModels
+  if(!eqs.fluidModelMap.dataMap.empty()){
+    map<int, FluidModelData *>::iterator it;
+    for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++){
+      com->fprintf(stderr, "FluidModelData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "FluidModelData::fluid        = %d\n", it->second->fluid);
+      com->fprintf(stderr, "FluidModelData::pmin         = %e\n", it->second->pmin);
+      if(it->second->fluid == FluidModelData::GAS){
+        com->fprintf(stderr, "GasModelData::type              = %d\n", it->second->gasModel.type);
+        com->fprintf(stderr, "GasModelData::specificHeatRatio = %e\n", it->second->gasModel.specificHeatRatio);
+        com->fprintf(stderr, "GasModelData::idealGasConstant  = %e\n", it->second->gasModel.idealGasConstant);
+        com->fprintf(stderr, "GasModelData::pressureConstant  = %e\n", it->second->gasModel.pressureConstant);
+      }
+      else if(it->second->fluid == FluidModelData::JWL){
+        com->fprintf(stderr, "JwlModelData::type              = %d\n", it->second->jwlModel.type);
+        com->fprintf(stderr, "JwlModelData::omega             = %e\n", it->second->jwlModel.omega);
+        com->fprintf(stderr, "JwlModelData::idealGasConstant  = %e\n", it->second->jwlModel.idealGasConstant);
+        com->fprintf(stderr, "JwlModelData::A1                = %e\n", it->second->jwlModel.A1);
+        com->fprintf(stderr, "JwlModelData::A2                = %e\n", it->second->jwlModel.A2);
+        com->fprintf(stderr, "JwlModelData::R1                = %e\n", it->second->jwlModel.R1);
+        com->fprintf(stderr, "JwlModelData::R2                = %e\n", it->second->jwlModel.R2);
+        com->fprintf(stderr, "JwlModelData::rhoref            = %e\n", it->second->jwlModel.rhoref);
+      }
+      else if(it->second->fluid == FluidModelData::LIQUID){
+        com->fprintf(stderr, "LiquidModelData::type           = %d\n", it->second->liquidModel.type);
+        com->fprintf(stderr, "LiquidModelData::check          = %d\n", it->second->liquidModel.check);
+        com->fprintf(stderr, "LiquidModelData::specificHeatRatio = %e\n", it->second->liquidModel.specificHeatRatio);
+        com->fprintf(stderr, "LiquidModelData::Cv             = %e\n", it->second->liquidModel.Cv);
+        com->fprintf(stderr, "LiquidModelData::k1water        = %e\n", it->second->liquidModel.k1water);
+        com->fprintf(stderr, "LiquidModelData::k2water        = %e\n", it->second->liquidModel.k2water);
+        com->fprintf(stderr, "LiquidModelData::Prefwater      = %e\n", it->second->liquidModel.Prefwater);
+        com->fprintf(stderr, "LiquidModelData::RHOrefwater    = %e\n", it->second->liquidModel.RHOrefwater);
+        com->fprintf(stderr, "LiquidModelData::Pref           = %e\n", it->second->liquidModel.Pref);
+        com->fprintf(stderr, "LiquidModelData::alpha          = %e\n", it->second->liquidModel.alpha);
+        com->fprintf(stderr, "LiquidModelData::beta           = %e\n", it->second->liquidModel.beta);
+      }
+      com->fprintf(stderr, "\n");
+    }
+  }
+
+  // initial conditions for volumeData
+  if(!volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator it;
+    for (it=volumes.volumeMap.dataMap.begin(); it!=volumes.volumeMap.dataMap.end();it++)
+      if(it->second->type==VolumeData::FLUID){
+        com->fprintf(stderr, "VolumeData::tag          = %d\n", it->first);
+        com->fprintf(stderr, "VolumeData::fluidModelID = %d\n", it->second->fluidModelID);
+        com->fprintf(stderr, "VolumeData::density      = %e\n", it->second->initialConditions.density);
+        com->fprintf(stderr, "VolumeData::pressure     = %e\n", it->second->initialConditions.pressure);
+        com->fprintf(stderr, "VolumeData::temperature  = %e\n", it->second->initialConditions.temperature);
+        com->fprintf(stderr, "VolumeData::mach         = %e\n", it->second->initialConditions.mach);
+        com->fprintf(stderr, "VolumeData::velocity     = %e\n", it->second->initialConditions.velocity);
+        com->fprintf(stderr, "VolumeData::alpha        = %e\n", it->second->initialConditions.alpha);
+        com->fprintf(stderr, "VolumeData::beta         = %e\n", it->second->initialConditions.beta);
+        com->fprintf(stderr, "\n");
+      }
+  }
+
+  // initial conditions for multiFluidData
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "SphereData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "SphereData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "SphereData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "SphereData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "SphereData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "SphereData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "SphereData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "SphereData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "SphereData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "SphereData::x0           = %e\n", it->second->cen_x);
+      com->fprintf(stderr, "SphereData::y0           = %e\n", it->second->cen_y);
+      com->fprintf(stderr, "SphereData::z0           = %e\n", it->second->cen_z);
+      com->fprintf(stderr, "SphereData::R0           = %e\n", it->second->radius);
+      com->fprintf(stderr, "\n");
+    }
+  }
+  if(!mf.multiInitialConditions.planeMap.dataMap.empty()){
+    map<int, PlaneData *>::iterator it;
+    for (it=mf.multiInitialConditions.planeMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.planeMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "PlaneData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "PlaneData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "PlaneData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "PlaneData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "PlaneData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "PlaneData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "PlaneData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "PlaneData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "PlaneData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "PlaneData::x0           = %e\n", it->second->cen_x);
+      com->fprintf(stderr, "PlaneData::y0           = %e\n", it->second->cen_y);
+      com->fprintf(stderr, "PlaneData::z0           = %e\n", it->second->cen_z);
+      com->fprintf(stderr, "PlaneData::nx           = %e\n", it->second->nx);
+      com->fprintf(stderr, "PlaneData::ny           = %e\n", it->second->ny);
+      com->fprintf(stderr, "PlaneData::nz           = %e\n", it->second->nz);
+      com->fprintf(stderr, "\n");
+    }
+  }
+
+  // initial conditions for EmbeddedStructure
+
+
+
+}
+
+//------------------------------------------------------------------------------
