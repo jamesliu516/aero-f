@@ -441,7 +441,9 @@ struct FluidModelData {
   FluidModelData();
   ~FluidModelData() {}
 
+  Assigner *getAssigner();
   void setup(const char *, ClassAssigner * = 0);
+  //FluidModelData &operator=(const FluidModelData &);
 
 };
 
@@ -495,7 +497,7 @@ struct PorousMedia  {
 
 //------------------------------------------------------------------------------
 
-struct VolumeInitialConditions {
+struct InitialConditions {
 
   double mach;
   double velocity;
@@ -504,8 +506,7 @@ struct VolumeInitialConditions {
   double density;
   double temperature;
 
-  VolumeInitialConditions();
-  //Assigner *getAssigner();
+  InitialConditions();
   void setup(const char *, ClassAssigner * = 0);
 
 };
@@ -515,10 +516,10 @@ struct VolumeInitialConditions {
 struct VolumeData  {
 
   enum Type {FLUID = 0, POROUS = 1} type;
+  int fluidModelID;
 
   PorousMedia   porousMedia;
-  FluidModelData fluidModel;
-  VolumeInitialConditions volumeInitialConditions;
+  InitialConditions initialConditions;
 
   VolumeData();
   Assigner *getAssigner();
@@ -775,47 +776,52 @@ struct TurbulenceClosureData {
 
 struct SphereData {
 
-  enum Type {Fluid1 = 0, Fluid2 = 1} type;
   double cen_x, cen_y, cen_z, radius;
-  double pressure, density, temperature, mach, velocity;
-  double alpha, beta;
+  int fluidModelID;
+  InitialConditions initialConditions;
 
   SphereData();
   ~SphereData() {}
-  void setup(const char *, ClassAssigner * = 0);
+  Assigner *getAssigner();
 
 };
 
 //------------------------------------------------------------------------------
 
 struct PlaneData {
-  enum Type {Fluid1 = 0, Fluid2 = 1} type;
+
   double cen_x, cen_y, cen_z, nx, ny, nz;
-  double pressure, density, temperature, velocity;
-  double alpha, beta;
+  int fluidModelID;
+  InitialConditions initialConditions;
 
   PlaneData();
   ~PlaneData() {}
-  void setup(const char *, ClassAssigner * = 0);
+  Assigner *getAssigner();
+
 };
 
 //------------------------------------------------------------------------------
 
-struct InitialConditionsData {
+struct PointData {
 
-  static const int nsphere = 2;
-  int nspheres;
-  SphereData* sphere[nsphere];
+  int fluidModelID;
+  double x,y,z;
+  InitialConditions initialConditions;
 
-  SphereData s1;
-  SphereData s2;
+  PointData();
+  ~PointData() {}
+  Assigner *getAssigner();
 
-  int nplanes;
+};
 
-  PlaneData p1;
+//------------------------------------------------------------------------------
 
-  InitialConditionsData();
-  ~InitialConditionsData() {}
+struct MultiInitialConditionsData {
+
+  ObjectMap<SphereData> sphereMap;
+  ObjectMap<PlaneData>  planeMap;
+  ObjectMap<PointData>  pointMap;
+
   void setup(const char *, ClassAssigner * = 0);
 };
 
@@ -877,9 +883,7 @@ struct MultiFluidData {
 
   double Prate, Pinit;
 
-  FluidModelData fluidModel;
-  FluidModelData fluidModel2;
-  InitialConditionsData initialConditions;
+  MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
 
@@ -917,8 +921,8 @@ struct EquationsData {
 
   double gravity_x, gravity_y, gravity_z;
 
+  ObjectMap<FluidModelData> fluidModelMap;
   FluidModelData fluidModel;
-  FluidModelData fluidModel2;
   ViscosityModelData viscosityModel;
   ThermalCondModelData thermalCondModel;
   TurbulenceClosureData tc;
@@ -1653,6 +1657,24 @@ struct Velocity  {
 
 //------------------------------------------------------------------------------
 
+struct EmbeddedFramework { 
+//TODO: should merge StructureIntersect and EmbeddedStructureInfo into this object.
+
+  enum IntersectorName {PhysBAMLite = 0, FRG = 1} intersectorName;
+  enum StructureNormal {ElementBased = 0, NodeBased = 1} structNormal;
+  enum EOSChange {NodalState = 0, RiemannSolution = 1} eosChange;
+  enum ForceAlgorithm {ReconstructedSurface = 0, ControlVolumeBoundary = 1} forceAlg;
+
+  MultiInitialConditionsData embedIC;
+  
+  EmbeddedFramework();
+  ~EmbeddedFramework() {}
+
+  void setup(const char *);
+};
+
+//------------------------------------------------------------------------------
+
 struct StructureIntersect {
   ParseTree tree;
   const char *intersectorName;
@@ -1732,6 +1754,7 @@ public:
   Surfaces surfaces;
   Velocity rotations;
   Volumes volumes;
+  EmbeddedFramework embed;
   StructureIntersect strucIntersect;
   EmbeddedStructureInfo embeddedStructure;
 
@@ -1743,30 +1766,26 @@ public:
   void readCmdLine(int, char**);
   void setupCmdFileVariables();
   void readCmdFile();
-  int checkFileNames();
   void resetInputValues();
+  int checkFileNames();
   int checkInputValues();
-  int checkInputValuesEssentialBC();
-  int checkInputValuesStateEquation();
+  int checkInputValuesAllEquationsOfState();
+  int checkInputValuesAllInitialConditions();
+  void nonDimensionalizeAllEquationsOfState();
+  void nonDimensionalizeAllInitialConditions();
   int checkInputValuesNonDimensional();
-//  int checkInputValuesDimensional();
   int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
+  int checkInputValuesEssentialBC();
   void checkInputValuesTurbulence();
   void checkInputValuesDefaultOutlet();
   int checkSolverValues(map<int,SurfaceData*>& surfaceMap);
-//  int checkSolverValues();
-  int checkInputValuesMulti_step1();
-  void checkInputValuesMulti_step2();
-  int checkInputValuesMultiEOS();
-  int checkInputValuesVolumesInitialization();
-  int checkVolumeInitialization(FluidModelData &fm,
-                                VolumeInitialConditions &ic, int volid);
-  int checkInputValuesMultiFluidInitialization();
-  int printMultiEOS();
-  void nonDimensionalizeVolumeInitialization(FluidModelData &fm, VolumeInitialConditions &ic);
-  void nonDimensionalizeFluidModel(FluidModelData &fm);
-  int checkInputValuesInitializeMulti();
+  int checkInputValuesInitialConditions(InitialConditions &initialConditions,
+                                        int fluidModelID);
+  int checkInputValuesEquationOfState(FluidModelData &fluidModel, int fluidModelID);
+  void nonDimensionalizeInitialConditions(InitialConditions &initialConditions);
+  void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
+  void printDebug();
 
 };
 

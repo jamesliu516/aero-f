@@ -85,11 +85,11 @@ LevelSetTsDesc<dim,dimLS>::~LevelSetTsDesc()
   if(tmpDistSVec)  delete tmpDistSVec;
   if(tmpDistSVec2) delete tmpDistSVec2;
   for(int j=0; j<dimLS+2; j++){
-    delete expected[j];
-    delete computed[j];
+    delete [] expected[j];
+    delete [] computed[j];
   }
-  delete expected;
-  delete computed;
+  delete [] expected;
+  delete [] computed;
 
 }
 
@@ -111,7 +111,7 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   
   *this->Xs = *this->X;
 
-  //this->timer->setSetupTime();
+  this->timer->setSetupTime();
 }
 
 //------------------------------------------------------------------------------

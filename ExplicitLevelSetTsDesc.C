@@ -479,7 +479,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>& Ul
   *this->tmpDistSVec  = 0.0;
   *this->tmpDistSVec2 = 0.0;
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(Ulocal);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, this->fluidSelector.fluidId, 
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, this->PhiV, this->fluidSelector, 
                                  dU, this->riemann,it, this->tmpDistSVec,
                                  this->tmpDistSVec2);
                                  //Q: why send PhiV?

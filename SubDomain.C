@@ -39,6 +39,7 @@ using std::max;
 #include <VectorSet.h>
 #include <LinkF77.h>
 #include <LowMachPrec.h>
+#include "FluidSelector.h"
 //#include "LevelSet/LevelSetStructure.h"
 
 extern "C" {
@@ -815,7 +816,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
                                        BcData<dim>& bcData, GeoState& geoState,
                                        SVec<double,3>& X, SVec<double,dim>& V,
-                                       Vec<int> &fluidId,
+                                       Vec<int> &fluidId, FluidSelector &fluidSelector,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
@@ -824,7 +825,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, fluidId,
+                                           recFcn, elems, geoState, X, V, fluidId, fluidSelector,
                                            ngrad, egrad, ngradLS, fluxes, it,
                                            interfaceFlux, tag, failsafe, rshift);
 
@@ -1031,13 +1032,14 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
                                                 NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                                 SVec<double,3> &X, Vec<double> &ctrlVol,
                                                 SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                                FluidSelector &fluidSelector,
                                                 Vec<int> &fluidId, CommPattern<double>* flag)
 {
   if (!flag){
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidId);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
   }else{
-    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidId, nodeType);
+    edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId, nodeType);
     faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
   }
 
@@ -3695,7 +3697,7 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 template<int dim, int dimLS>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-					                                Vec<double> &Q, SVec<double,dimLS> &phi, Vec<int> &fluidId)
+                                          Vec<double> &Q, SVec<double,dimLS> &phi, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
@@ -4219,81 +4221,8 @@ void SubDomain::zeroMeshMotionBCDofs(SVec<double,dim> &x, int* DofType)
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SubDomain::setupUVolumesInitialConditions(const int volid, FluidModelData &fm,
-                                VolumeInitialConditions &ic, SVec<double,dim> &U){
-
-  double UU[5];
-
-  if(fm.fluid == FluidModelData::GAS){
-    double gam = fm.gasModel.specificHeatRatio;
-    double ps = fm.gasModel.pressureConstant;
-
-    double rho = ic.density;
-    double p   = ic.pressure;
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::JWL){
-    double omega = fm.jwlModel.omega;
-    double A1    = fm.jwlModel.A1;
-    double A2    = fm.jwlModel.A2;
-    double R1    = fm.jwlModel.R1;
-    double R2    = fm.jwlModel.R2;
-    double rhor  = fm.jwlModel.rhoref;
-    double R1r = R1*rhor; double R2r = R2*rhor;
-
-    double rho = ic.density;
-    double p   = ic.pressure;
-
-    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
-    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
-                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
-
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::LIQUID){
-    double pref  = fm.liquidModel.Pref;
-    double alpha = fm.liquidModel.alpha;
-    double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
-
-    double rho = ic.density;
-    double temperature = ic.temperature;
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
-
-  }
+void SubDomain::setupUVolumesInitialConditions(const int volid, double UU[dim],
+                                               SVec<double,dim> &U){
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() == volid)  {
@@ -4307,84 +4236,10 @@ void SubDomain::setupUVolumesInitialConditions(const int volid, FluidModelData &
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
                        SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U){
-
-  double UU[5];
-
-  if(fm.fluid == FluidModelData::GAS){
-    double gam = fm.gasModel.specificHeatRatio;
-    double ps = fm.gasModel.pressureConstant;
-
-    double rho = ic.density;
-    double p   = ic.pressure;
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(gam*(p+ps)/rho);
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::JWL){
-    double omega = fm.jwlModel.omega;
-    double A1    = fm.jwlModel.A1;
-    double A2    = fm.jwlModel.A2;
-    double R1    = fm.jwlModel.R1;
-    double R2    = fm.jwlModel.R2;
-    double rhor  = fm.jwlModel.rhoref;
-    double R1r = R1*rhor; double R2r = R2*rhor;
-
-
-    double rho = ic.density;
-    double p   = ic.pressure;
-
-    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
-    double frhop = A1*(-omega/R1r + (1-omega*rho/R1r)*R1r/(rho*rho)) *exp(-R1r/rho)
-                 + A2*(-omega/R2r + (1-omega*rho/R2r)*R2r/(rho*rho)) *exp(-R2r/rho);
-
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(((omega+1.0)*p-frho)/rho + frhop);
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::LIQUID){
-    double pref  = fm.liquidModel.Pref;
-    double alpha = fm.liquidModel.alpha;
-    double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
-
-    double rho = ic.density;
-    double temperature = ic.temperature;
-    double vel = 0.0;
-    if(ic.mach>=0.0) vel = ic.mach*sqrt(alpha*beta*pow(rho,beta-1.0));
-    else vel = ic.velocity;
-    double u   = vel*cos(ic.alpha)*cos(ic.beta);
-    double v   = vel*cos(ic.alpha)*sin(ic.beta);
-    double w   = vel*sin(ic.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
-
-  }
 
   double dist = 0.0;
   double x = ic.cen_x;
@@ -4400,78 +4255,13 @@ void SubDomain::setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
   }
 
 }
-
+*/
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
                        PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U){
 
-  double UU[5];
-
-  if(fm.fluid == FluidModelData::GAS){
-    double gam = fm.gasModel.specificHeatRatio;
-    double ps = fm.gasModel.pressureConstant;
-
-    double rho = ip.density;
-    double p   = ip.pressure;
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::JWL){
-    double omega = fm.jwlModel.omega;
-    double A1    = fm.jwlModel.A1;
-    double A2    = fm.jwlModel.A2;
-    double R1    = fm.jwlModel.R1;
-    double R2    = fm.jwlModel.R2;
-    double rhor  = fm.jwlModel.rhoref;
-    double R1r = R1*rhor; double R2r = R2*rhor;
-
-
-    double rho = ip.density;
-    double p   = ip.pressure;
-
-    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
-
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::LIQUID){
-    double pref  = fm.liquidModel.Pref;
-    double alpha = fm.liquidModel.alpha;
-    double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
-
-    double rho = ip.density;
-    double temperature = ip.temperature;
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
-
-  }
 
   double scalar = 0.0;
   double x = ip.cen_x;
@@ -4489,78 +4279,12 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
   }
 
 }
-
+*/
 //------------------------------------------------------------------------------
-
+/*
 template<int dim>
 void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
                        PlaneData &ip, SVec<double,3> &X, SVec<double,dim> &U, Vec<int> &nodeTag){
-
-  double UU[5];
-
-  if(fm.fluid == FluidModelData::GAS){
-    double gam = fm.gasModel.specificHeatRatio;
-    double ps = fm.gasModel.pressureConstant;
-
-    double rho = ip.density;
-    double p   = ip.pressure;
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p+gam*ps)/(gam-1.0) + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::JWL){
-    double omega = fm.jwlModel.omega;
-    double A1    = fm.jwlModel.A1;
-    double A2    = fm.jwlModel.A2;
-    double R1    = fm.jwlModel.R1;
-    double R2    = fm.jwlModel.R2;
-    double rhor  = fm.jwlModel.rhoref;
-    double R1r = R1*rhor; double R2r = R2*rhor;
-
-
-    double rho = ip.density;
-    double p   = ip.pressure;
-
-    double frho  = A1*(1-omega*rho/R1r)*exp(-R1r/rho) + A2*(1-omega*rho/R2r)*exp(-R2r/rho);
-
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = (p-frho)/omega + 0.5 *rho*vel*vel;
-
-  }else if(fm.fluid == FluidModelData::LIQUID){
-    double pref  = fm.liquidModel.Pref;
-    double alpha = fm.liquidModel.alpha;
-    double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
-
-    double rho = ip.density;
-    double temperature = ip.temperature;
-    double vel = ip.velocity;
-    double u   = vel*cos(ip.alpha)*cos(ip.beta);
-    double v   = vel*cos(ip.alpha)*sin(ip.beta);
-    double w   = vel*sin(ip.alpha);
-
-    UU[0] = rho;
-    UU[1] = rho*u;
-    UU[2] = rho*v;
-    UU[3] = rho*w;
-    UU[4] = rho*(cv*temperature + 0.5*vel*vel);
-
-  }
 
   double scalar = 0.0;
   double x = ip.cen_x;
@@ -4579,13 +4303,8 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
     }
   }
 
-/*  FILE* ff = fopen("tag.out","w");
-  fprintf(ff,"node# x y z u0 u1 u2 u3 u4 tag\n");
-  for (int i=0; i<U.size(); i++) 
-    fprintf(ff,"%d %e %e %e %e %e %e %e %e %d\n", i+1, X[i][0], X[i][1], X[i][2], U[i][0], U[i][1], U[i][2], U[i][3], U[i][4], nodeTag[i]);
-  fclose(ff);*/
 }
-
+*/
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -5176,7 +4895,6 @@ void SubDomain::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi, int le
 template<int dimLS>
 void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
 {
-  if(globSubNum==1){
   fprintf(stdout, "\nPhi - subDomain %d: \n", locSubNum);
   int glob, sh;
   /*for (int iSub = 0; iSub < numNeighb; ++iSub) {
@@ -5195,9 +4913,8 @@ void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
     glob = locToGlobNodeMap[i]+1;
     fprintf(stdout, " Phi : %d %d   ", i,glob);
     for(int j=0; j<dimLS; j++)
-      fprintf(stdout, "%.14e ", Phi[i][j]);
+      fprintf(stdout, "%e ", Phi[i][j]);
     fprintf(stdout, "\n");
-  }
   }
 
 }
@@ -5303,13 +5020,17 @@ void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
 //--------------------------------------------------------------------------
 
 template<int dimLS>
-void SubDomain::setupPhiVolumesInitialConditions(const int volid, SVec<double,dimLS> &Phi){
-  //TODO: Multiphase : implement correctly
+void SubDomain::setupPhiVolumesInitialConditions(const int volid, 
+                    const int fluidId, SVec<double,dimLS> &Phi){
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() == volid)  {
       int *nodeNums = elems[iElem].nodeNum();
-      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        Phi[nodeNums[iNode]][0] = (volid==0) ? 1.0 : -1.0;
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
+        for (int iDim = 0; iDim < dimLS; iDim++){
+          if(iDim+1 == fluidId)
+            Phi[nodeNums[iNode]][iDim] = 1.0;
+        }
+      }
     }
   }
 

@@ -142,9 +142,9 @@ VarFcnSGKE::VarFcnSGKE(FluidModelData &data) : VarFcnBase(data) {
   }
 
   if (data.gasModel.type == GasModelData::IDEAL)
-    type == PERFECTGAS;
+    type = PERFECTGAS;
   else if(data.gasModel.type == GasModelData::STIFFENED)
-    type == STIFFENEDGAS;
+    type = STIFFENEDGAS;
 
   gam = data.gasModel.specificHeatRatio;
   gam1 = gam -1.0;

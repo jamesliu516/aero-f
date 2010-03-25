@@ -6,6 +6,9 @@
 #include <DistMacroCell.h>
 #include <LowMachPrec.h>
 
+struct FluidModelData;
+struct InitialConditions;
+
 class VarFcn;
 class Domain;
 class DistGeoState;
@@ -70,6 +73,8 @@ private:
   DistVec<double> *dIdti;
   DistVec<double> *dIdtv;
 
+private:
+  void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
 public:
 
   DistTimeState(IoData &, SpaceOperator<dim> *, VarFcn *, Domain *, DistSVec<double,dim> * = 0);
@@ -82,24 +87,13 @@ public:
 
   void setGlobalTimeStep (double t) { *dt = t; }
 
-  void setup(const char *, DistSVec<double,dim> &, DistSVec<double,3> &, DistSVec<double,dim> &, 
-             IoData * = 0, DistVec<int> * = 0); //iod and fluidId needed only for multi-phase flow
-  void setupUFluidIdInitialConditions(FluidModelData &fm, DistVec<int> &fluidId, SphereData &ic, int myId);
-//------ to be removed (or moved) -----
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
-             DistSVec<double,dim> &U, IoData &iod);
+             DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); //fluidId needed only for multi-phase flow (not true)
   void setupUVolumesInitialConditions(IoData &iod);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
-  void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
-             DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod);
-  void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistVec<int> &nodeTag);
-  template<int dimLS>
-  void setup(const char *name, DistSVec<double,dim> &Ufar, double *Ub, DistSVec<double,3> &X,
-             DistSVec<double,dimLS> &Phi, DistSVec<double,dim> &U, IoData &iod);
-//-------------------------------------
+  void setupUFluidIdInitialConditions(double UU[dim], DistVec<int> &fluidId, int myId);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
-              //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
               DistExactRiemannSolver<dim> *riemann);
 
   void writeToDisk(char *);

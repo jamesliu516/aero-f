@@ -74,7 +74,6 @@ class InletNodeSet {
         int locSubNum;
 	int numInletNodes;
 	InletNode *inletNodes;
-  	FluidModelData::Fluid typeFluid;
 	
   public:
   

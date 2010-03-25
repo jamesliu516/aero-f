@@ -4,11 +4,11 @@
 #include "DistVector.h"
 #include "Vector.h"
 #include "IoData.h"
-#include "Domain.h"
 
 #include <assert.h>
-
 //#define NDEBUG // if commented, assert statements are evaluated
+
+class Domain;
 
 //--------------------------------------------------------------------------
 //
@@ -16,6 +16,10 @@
 // by determining the fluid identification from the different 
 // available level sets.
 //
+// The convention is as follows. For n different fluids, only
+// n-1 (=dim) level-sets are necessary.
+// Phi[i] is positive where fluid i+1 (=varFcn[i+1]) is found. 
+// fluid 0 (=varFcn[0]) is found where all levelsets are negative.
 //--------------------------------------------------------------------------
 
 class FluidSelector {
@@ -29,26 +33,9 @@ public:
   DistVec<int> *fluidIdnm2;
 
 public:
-  
-  FluidSelector(const int nPhases, IoData &ioData, Domain *domain) :
-    fluidId(domain->getNodeDistInfo()), fluidIdn(domain->getNodeDistInfo())
-  { 
-    numPhases = nPhases; 
-    fluidIdnm1 = 0;
-    fluidIdnm2 = 0;
-    if(ioData.ts.implicit.type == ImplicitData::THREE_POINT_BDF){
-      fluidIdnm1 = new DistVec<int>(domain->getNodeDistInfo());
-      *fluidIdnm1 = 0;
-    }
-    else if(ioData.ts.implicit.type == ImplicitData::FOUR_POINT_BDF){
-      fluidIdnm1 = new DistVec<int>(domain->getNodeDistInfo());
-      *fluidIdnm1 = 0;
-      fluidIdnm2 = new DistVec<int>(domain->getNodeDistInfo());
-      *fluidIdnm2 = 0;
-    }
-  }
-  ~FluidSelector() { delete fluidIdnm1; delete fluidIdnm2; }
 
+  FluidSelector(const int nPhases, IoData &ioData, Domain *domain);
+  ~FluidSelector();
 
   template<int dim>
   void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2){
@@ -70,7 +57,7 @@ public:
       double *phi = Phi.subData(iSub);
       int    *tag = fluidId.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-        tag[iNode] = (phi[iNode]>=0.0) ? 0 : 1; 
+        tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
     }
   }
 
@@ -83,9 +70,9 @@ public:
       double (*phi)[dim] = Phi.subData(iSub);
       int     *tag       = fluidId.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
-        tag[iNode] = numPhases-1;
+        tag[iNode] = 0;
         for(int i=0; i<dim; i++)
-          if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
+          if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
       }
     }
   }
@@ -93,38 +80,57 @@ public:
 
 
 // ---- obtaining fluidId from levelset phi ---- //
+// ---- and vice-versa                      ---- //
 
   /* Node-Level Operators */
-  void getFluidId(int &tag, double phi){ tag = (phi>=0.0) ? 0 : 1; }
+  void getFluidId(int &tag, double phi){ tag = (phi<0.0) ? 0 : 1; }
 
   void getFluidId(int &tag, double *phi){
+    tag = 0;
     for(int i=0; i<numPhases-1; i++)
-      if(phi[i]>=0.0) {tag = i; return; }
-    tag = numPhases-1;
+      if(phi[i]>0.0) {tag = i+1; return; }
   }
 
   template<int dim>
   void getFluidId(int &tag, double *phi){
     assert(dim==numPhases-1);
+    tag = 0;
     for(int i=0; i<dim; i++)
-      if(phi[i]>=0.0) {tag = i; return; }
-    tag = dim;
+      if(phi[i]>0.0) {tag = i+1; return; }
+  }
+
+  int getLevelSetDim(int fluidId1, int fluidId2){
+    if(fluidId1 == fluidId2){
+      fprintf(stdout, "*** Error: getLevelSetDim should not be called when there is no interface.\n");
+      exit(1);
+    }
+    if(fluidId1 < 0 || fluidId2 < 0){
+      fprintf(stdout, "*** Error: arguments of getLevelSetDim (%d %d)should be positive\n", fluidId1, fluidId2);
+      exit(1);
+    }
+    if(fluidId1 * fluidId2 != 0){
+      fprintf(stdout, "*** Error: it  is assumed that all interfaces are between any fluid and fluid 0\n");
+      exit(1);
+    }
+    int fId = fluidId1 + fluidId2;
+    return fId-1;
+    
   }
 
 
   /* Non-Distributed Operators */
   void getFluidId(Vec<int> &tag, Vec<double> &phi){
     for(int iNode=0; iNode<phi.size(); iNode++)
-      tag[iNode] = (phi[iNode]>=0.0) ? 0 : 1; 
+      tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
   }
 
   template<int dim>
   void getFluidId(Vec<int> &tag, SVec<double,dim> &phi){
     assert(dim==numPhases-1);
     for(int iNode=0; iNode<phi.size(); iNode++){
-      tag[iNode] = numPhases-1;
+      tag[iNode] = 0;
       for(int i=0; i<dim; i++)
-        if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
+        if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
     }
   }
     
@@ -137,7 +143,7 @@ public:
       double *phi = Phi.subData(iSub);
       int    *tag = Tag.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-        tag[iNode] = (phi[iNode]>=0.0) ? 0 : 1; 
+        tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
     }
   }
 
@@ -150,9 +156,9 @@ public:
       double (*phi)[dim] = Phi.subData(iSub);
       int     *tag       = Tag.subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
-        tag[iNode] = numPhases-1;
+        tag[iNode] = 0;
         for(int i=0; i<dim; i++)
-          if(phi[iNode][i]>=0.0) { tag[iNode] = i; break; }
+          if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
       }
     }
   }

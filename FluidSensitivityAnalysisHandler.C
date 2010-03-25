@@ -196,7 +196,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
   else if (ioData.problem.mode == ProblemData::DIMENSIONAL) {
     
     ioData.eqs.fluidModel.pmin *= ioData.ref.rv.pressure;
-    ioData.eqs.fluidModel2.pmin *= ioData.ref.rv.pressure;
 
     ioData.bc.inlet.density *= ioData.ref.rv.density;
     ioData.bc.inlet.pressure *= ioData.ref.rv.pressure;
@@ -280,7 +279,6 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.ref.rv.dtimedMach = - ioData.ref.length / (velocity * velocity) * dvelocitydMach;
 
     ioData.eqs.fluidModel.pmin /= ioData.ref.rv.pressure;
-    ioData.eqs.fluidModel2.pmin /= ioData.ref.rv.pressure;
 
     ioData.bc.inlet.density /= ioData.ref.rv.density;
     ioData.bc.inlet.pressure /= ioData.ref.rv.pressure;

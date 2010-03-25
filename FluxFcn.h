@@ -113,17 +113,16 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, FluxFcnBase::T
     }
     ff_[0] = createFluxFcn(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac);
   }
-  if(numPhases_>1){
-   if(vf_->varFcn[1] == 0){
-      fprintf(stderr, "*** Error: member varFcn[1] of VarFcn has not been initialized correctly\n");
+
+  for(int iPhase=1; iPhase<numPhases_; iPhase++){
+    map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(iPhase);
+    if(it == iod.eqs.fluidModelMap.dataMap.end()){
+      fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", iPhase);
       exit(1);
     }
-    ff_[1] = createFluxFcn(rshift, ffType, iod.eqs.fluidModel2, iod, vf_->varFcn[1], typeJac);
+    ff_[iPhase] = createFluxFcn(rshift, ffType, *it->second, iod, vf_->varFcn[iPhase], typeJac);
   }
-  if(numPhases_>2){
-    fprintf(stderr, "You've been chosen to implement the constructor of VarFcn for n(>2) phase flow!\n");
-    exit(-1);
-  }
+
 }
 
 //------------------------------------------------------------------------------

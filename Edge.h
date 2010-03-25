@@ -26,6 +26,7 @@ class GeoState;
 class FemEquationTerm;
 class TimeLowMachPrec;
 class LevelSetStructure;
+class FluidSelector;
 
 
 struct Vec3D;
@@ -87,11 +88,11 @@ public:
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, Vec<int> &,
+                              SVec<double,dim>&, Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
-			                        SVec<double,dim>* interfaceFlux,
+                              SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
   /** compute flux for Riemann based FSI*/
@@ -132,13 +133,13 @@ public:
                                        NodalGrad<dim> &, NodalGrad<dimLS> &,
                                        SVec<double,3> &, Vec<double> &,
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<int> &);
+                                       FluidSelector &, Vec<int> &);
   template<int dim, class Scalar, int neq, int dimLS>
   void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&, FluxFcn **, GeoState &,
                                NodalGrad<dim> &, NodalGrad<dimLS> &,
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
-                               Vec<int> &, int * );
+                               FluidSelector &, Vec<int> &, int * );
 
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,

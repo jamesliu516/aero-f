@@ -179,50 +179,30 @@ DistTimeState<dim>::~DistTimeState()
 }
 
 //------------------------------------------------------------------------------
-/*
-template<int dim>
-void DistTimeState<dim>::setup(const char *name, double *Ucst, 
-                               DistSVec<double,3> &X, DistSVec<double,dim> &U)
-{
-  Un->set(Ucst);
-
-  if (name[0] != 0) {
-    domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-    if (data->use_nm2)
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
-  }
-
-  U = *Un;
-  if (data->use_nm1 && !data->exist_nm1)
-    *Unm1 = *Un;
-  if (data->use_nm2 && !data->exist_nm2)
-    *Unm2 = *Unm1;
-                                                                                                               
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
-					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
-}
-*/
-//------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
-			       DistSVec<double,3> &X, DistSVec<double,dim> &U, IoData *iod, DistVec<int> *fluidId)
+void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
+                               DistSVec<double,dim> &Ufar,
+                               DistSVec<double,dim> &U, IoData &iod,
+                               DistVec<int> *fluidId)
 {
   *Un = Ufar;
  
-  if(fluidId && iod) {
-    if(iod->eqs.numPhase>1)
-      setupUFluidIdInitialConditions(iod->mf.fluidModel2, *fluidId, *(iod->mf.initialConditions.sphere[0]), 1); //TODO: to be fixed
-    if(iod->eqs.numPhase>2){
-      fprintf(stderr,"Trying to setup i.c. for %d phase flow. Check DistTimeState<dim>::setup(...)\n", iod->eqs.numPhase);
-      // first you need to setup fluidModel3 in IoData, then do
-      // setupUFluidIdInitialConditions(iod->mf.fluidModel3, *fluidId, blabla, 3);
-      exit(-1);
+  // convention:
+  // initialization : U = Ufar
+  // first,  setup U for volume with specific volume Ids
+  // second, setup U for multiphase geometric conditions (planes, then spheres)
+  // third,  setup U for embedded structures
+  // NOTE: each new setup overwrites the previous ones.
+  setupUVolumesInitialConditions(iod);
+  setupUMultiFluidInitialConditions(iod,X);
+  if(fluidId) { //TODO: to be fixed
+    if(iod.eqs.numPhase==2){
+      double UU[dim];
+      //computeInitialState(*(iod->mf.initialConditions.sphere[0]), iod->mf.fluidModel2, UU);
+      fprintf(stdout, "*** Error: needs to be implemented properly\n");
+      exit(1);
+      setupUFluidIdInitialConditions(UU, *fluidId, 1);
     }
   }
 
@@ -250,11 +230,10 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setupUFluidIdInitialConditions(FluidModelData &fm, DistVec<int> &fluidId, SphereData &ic, int myId)
+void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
+                                             FluidModelData &fm, double UU[dim])
 {
 
-  // compute initial state UU 
-  double UU[dim]; //only works for dim = 5.
   if(fm.fluid == FluidModelData::GAS){
     double gam = fm.gasModel.specificHeatRatio;
     double ps = fm.gasModel.pressureConstant;
@@ -324,8 +303,119 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(FluidModelData &fm, Dist
     UU[3] = rho*w;
     UU[4] = rho*(cv*temperature + 0.5*vel*vel);
 
+  }else{
+    fprintf(stdout, "*** Error: no initial state could be computed\n");
+    exit(1);
   }
-   
+
+}
+
+//------------------------------------------------------------------------------
+ 
+template<int dim>
+void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
+{
+
+  // loop on all Volumes to setup U0
+  if(!iod.volumes.volumeMap.dataMap.empty()){
+    map<int, VolumeData *>::iterator volIt;
+    for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
+      if(volIt->second->type==VolumeData::FLUID){
+        //each volume (volIt->first) is setup using Input variables 'volumeInitialConditions'
+        //                                 and equation of state 'fluidModel'
+        map<int, FluidModelData *>::iterator fluidIt = iod.eqs.fluidModelMap.dataMap.find(volIt->second->fluidModelID);
+        if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+          fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", volIt->second->fluidModelID);
+          exit(1);
+        }
+        double UU[dim];
+        computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
+        domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%e %e %e %e %e) for volume %d paired with EOS %d\n", UU[0],UU[1],UU[2],UU[3],UU[4],volIt->first, volIt->second->fluidModelID);
+        domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
+      }
+  }
+
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
+{
+  // Note that Un was already initialized either using the far-field
+  // or using the definition of volumes. Therefore the only initialization
+  // left to do is for the planes and spheres (in that order).
+
+  map<int, FluidModelData *>::iterator fluidIt;
+
+  if(!iod.mf.multiInitialConditions.planeMap.dataMap.empty()){
+    map<int, PlaneData *>::iterator planeIt;
+    for(planeIt  = iod.mf.multiInitialConditions.planeMap.dataMap.begin();
+        planeIt != iod.mf.multiInitialConditions.planeMap.dataMap.end();
+        planeIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(planeIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", planeIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+      domain->getCommunicator()->fprintf(stdout, "  for PlaneData[%d] = (%g %g %g), (%g %g %g) with EOS %d\n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz, planeIt->second->fluidModelID);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double scalar = 0.0;
+        for(int i=0; i<u.size(); i++) {
+          scalar = planeIt->second->nx*(x[i][0] - planeIt->second->cen_x)+planeIt->second->ny*(x[i][1] - planeIt->second->cen_y)+planeIt->second->nz*(x[i][2] - planeIt->second->cen_z);
+          if(scalar > 0.0) //node is on the same side indicated by vector
+            for (int idim=0; idim<dim; idim++)
+              u[i][idim] = UU[idim];
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator sphereIt;
+    for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
+        sphereIt != iod.mf.multiInitialConditions.sphereMap.dataMap.end();
+        sphereIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(sphereIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", sphereIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+      domain->getCommunicator()->fprintf(stdout, "  for SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double dist = 0.0;
+        for(int i=0; i<X.subSize(iSub); i++) {
+          dist = (x[i][0] - sphereIt->second->cen_x)*(x[i][0] - sphereIt->second->cen_x) +
+                 (x[i][1] - sphereIt->second->cen_y)*(x[i][1] - sphereIt->second->cen_y) +
+                 (x[i][2] - sphereIt->second->cen_z)*(x[i][2] - sphereIt->second->cen_z);
+          if(dist < sphereIt->second->radius*sphereIt->second->radius){ //node is inside the sphere
+            for (int idim=0; idim<dim; idim++)
+              u[i][idim] = UU[idim];
+          }
+        }
+      }
+    }
+  }
+
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::setupUFluidIdInitialConditions(double UU[dim], DistVec<int> &fluidId, int myId)
+{
+
   // set Un[id==myID] = UU
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
@@ -339,178 +429,6 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(FluidModelData &fm, Dist
   }
 
 //  fprintf(stderr,"U inside 'sphere': %e %e %e %e %e\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
-                               DistSVec<double,dim> &Ufar,
-                               DistSVec<double,dim> &U, IoData &iod)
-{
-
-  *Un = Ufar;
-
-  setupUVolumesInitialConditions(iod);
-  setupUMultiFluidInitialConditions(iod,X);
-
-  if (name[0] != 0) {
-    domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-    if (data->use_nm2)
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
-  }
-
-  U  = *Un;
-  if (data->use_nm1 && !data->exist_nm1)
-    *Unm1 = *Un;
-  if (data->use_nm2 && !data->exist_nm2)
-    *Unm2 = *Unm1;
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
-                                              (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-template<int dim>
-void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
-{
-
-  // loop on all Volumes to setup U0
-  if(!iod.volumes.volumeMap.dataMap.empty()){
-    map<int, VolumeData *>::iterator it;
-    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
-        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
-        //                                 and equation of state 'fluidModel'
-        domain->setupUVolumesInitialConditions(it->first, it->second->fluidModel, it->second->volumeInitialConditions, *Un);
-  }
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X)
-{
-  // These initial conditions are setup using MultiFluid.FluidModel2
-  // which can be a gas or a liquid or a jwl gas.
-  // Note that Un was already initialized either using the far-field
-  // or using the definition of volumes. Therefore the only initialization
-  // left to do is for the spheres and other geometric shapes.
-
-  if(iod.mf.initialConditions.nspheres>0)
-    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
-      domain->setupUMultiFluidInitialConditionsSphere(iod.mf.fluidModel2, *(iod.mf.initialConditions.sphere[i]),X,*Un);
-
-  if(iod.mf.initialConditions.nplanes>0)
-    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, X, *Un);
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
-                               DistSVec<double,dim> &Ufar,
-                               DistSVec<double,dim> &U, DistVec<int> &nodeTag, IoData &iod)
-{
-
-  *Un = Ufar;
-  nodeTag = 1;
-
-  if (!iod.volumes.volumeMap.dataMap.empty()) {
-    Communicator *com = domain->getCommunicator(); //for screen output only.
-    com->fprintf(stderr,"WARNING: volume map exists but will be ignored!\n");
-  }
-  setupUMultiFluidInitialConditions(iod,X,nodeTag);
-
-  if (name[0] != 0) {
-    domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-    if (data->use_nm2)
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
-  }
-
-  U  = *Un;
-  if (data->use_nm1 && !data->exist_nm1)
-    *Unm1 = *Un;
-  if (data->use_nm2 && !data->exist_nm2)
-    *Unm2 = *Unm1;
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
-                                              (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, 
-                                                           DistVec<int> &nodeTag)
-{
-  // These initial conditions are setup using MultiFluid.FluidModel2
-  // which can be a gas or a liquid or a jwl gas.
-  // Note that Un was already initialized using the far-field. Therefore the only initialization
-  // left to do is for the spheres and other geometric shapes.
-
-  if (iod.mf.initialConditions.nspheres>0) { 
-    Communicator *com = domain->getCommunicator(); //for screen output only.
-    com->fprintf(stderr,"WARNING: sphere domains exist but will be ignored!\n");
-  }
-
-  if(iod.mf.initialConditions.nplanes>0)
-    domain->setupUMultiFluidInitialConditionsPlane(iod.mf.fluidModel2, iod.mf.initialConditions.p1, 
-                                                   X, *Un, nodeTag);
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-template<int dimLS>
-void DistTimeState<dim>::setup(const char *name, DistSVec<double,dim> &Ufar,
-                               double *Ub, DistSVec<double,3> &X,
-                               DistSVec<double,dimLS> &Phi,
-                               DistSVec<double,dim> &U, IoData &iod)
-{
-  *Un = Ufar;
-
-  //TODO:MULTIPHASE
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub){
-    double (*x)[3] = X.subData(iSub);
-    double (*u)[dim] = Un->subData(iSub);
-    double (*phi)[dimLS] = Phi.subData(iSub);
-    for (int i=0; i<X.subSize(iSub); i++){
-      if (phi[i][0]<0.0)
-        for (int j=0; j<dim; j++)
-          u[i][j] = Ub[j];
-      phi[i][0] *= u[i][0];
-    }
-  }
-
-  if (name[0] != 0) {
-    domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
-      data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
-    if (data->use_nm2)
-      data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
-  }
-                                                                                                                      
-  U  = *Un;
-  if (data->use_nm1 && !data->exist_nm1)
-    *Unm1 = *Un;
-  if (data->use_nm2 && !data->exist_nm2)
-    *Unm2 = *Unm1;
-                                                                                                                      
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub)
-    if (!subTimeState[iSub])
-      subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
-					      (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
 
 }
 

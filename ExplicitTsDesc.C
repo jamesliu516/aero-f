@@ -12,7 +12,6 @@ ExplicitTsDesc<dim>::ExplicitTsDesc(IoData& ioData, GeoSource& geoSource, Domain
   : TsDesc<dim>(ioData, geoSource, dom), k1(this->getVecInfo()), k2(this->getVecInfo()), 
   k3(this->getVecInfo()), k4(this->getVecInfo()), U0(this->getVecInfo()), Ubc(this->getInletVecInfo()),ratioTimesU(this->getVecInfo())
 {
-  check = ioData.eqs.fluidModel.liquidModel.check;
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, 0);
   

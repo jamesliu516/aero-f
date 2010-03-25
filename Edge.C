@@ -21,6 +21,7 @@ using std::min;
 #include <GenMatrix.h>
 #include <LowMachPrec.h>
 #include "LevelSet/LevelSetStructure.h"
+#include "FluidSelector.h"
 
 //------------------------------------------------------------------------------
 
@@ -382,6 +383,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
                                      ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
                                      SVec<double,dim>& V, Vec<int> &fluidId,
+                                     FluidSelector &fluidSelector, 
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
@@ -451,16 +453,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
     else{			// interface
       //ngradLS returns nodal gradients of primitive phi
-      //TODO: Multiphase : need fluidSelector
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = 0;
-      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
-      gphii[0] = dPdx[i][lsdim];
-      gphii[1] = dPdy[i][lsdim];
-      gphii[2] = dPdz[i][lsdim];
-      gphij[0] = dPdx[j][lsdim];
-      gphij[1] = dPdy[j][lsdim];
-      gphij[2] = dPdz[j][lsdim];
+      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
+      gphii[0] = -dPdx[i][lsdim];
+      gphii[1] = -dPdy[i][lsdim];
+      gphii[2] = -dPdz[i][lsdim];
+      gphij[0] = -dPdx[j][lsdim];
+      gphij[1] = -dPdy[j][lsdim];
+      gphij[2] = -dPdz[j][lsdim];
       for (int k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -1193,7 +1193,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                               SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
-                                              GenMat<Scalar,neq> &A, Vec<int> &fluidId)
+                                              GenMat<Scalar,neq> &A, FluidSelector &fluidSelector,
+                                              Vec<int> &fluidId)
 {
 	// it is assumed that dim=5, ie no turbulence possible
   int k;
@@ -1232,16 +1233,14 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
-      //TODO: Multiphase : need fluidSelector
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = 0;
-      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
-      gphii[0] = dPdx[i][lsdim];
-      gphii[1] = dPdy[i][lsdim];
-      gphii[2] = dPdz[i][lsdim];
-      gphij[0] = dPdx[j][lsdim];
-      gphij[1] = dPdy[j][lsdim];
-      gphij[2] = dPdz[j][lsdim];
+      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
+      gphii[0] = -dPdx[i][lsdim];
+      gphii[1] = -dPdy[i][lsdim];
+      gphii[2] = -dPdz[i][lsdim];
+      gphij[0] = -dPdx[j][lsdim];
+      gphij[1] = -dPdy[j][lsdim];
+      gphij[2] = -dPdz[j][lsdim];
       for (k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -1292,8 +1291,8 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               NodalGrad<dim> &ngrad, NodalGrad<dimLS> &ngradLS,
                                               SVec<double,3> &X,
                                               Vec<double> &ctrlVol, SVec<double,dim> &V,
-                                              GenMat<Scalar,neq> &A, Vec<int> &fluidId,
-                                              int *nodeType)
+                                              GenMat<Scalar,neq> &A, FluidSelector &fluidSelector,
+                                              Vec<int> &fluidId, int *nodeType)
 {
   /* in this function, rhs has already the values extrapolated at the inlet nodes
    * if we are in the case of water simulations
@@ -1352,16 +1351,14 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       riemann.resetInterfacialW(l);
     } else {
       //ngradLS returns nodal gradients of phi
-      //TODO: Multiphase : need fluidSelector
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = 0;
-      // lsdim = fluidSelector.whichLevelSet(fluidId[i],fluidId[j]);
-      gphii[0] = dPdx[i][lsdim];
-      gphii[1] = dPdy[i][lsdim];
-      gphii[2] = dPdz[i][lsdim];
-      gphij[0] = dPdx[j][lsdim];
-      gphij[1] = dPdy[j][lsdim];
-      gphij[2] = dPdz[j][lsdim];
+      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
+      gphii[0] = -dPdx[i][lsdim];
+      gphii[1] = -dPdy[i][lsdim];
+      gphii[2] = -dPdz[i][lsdim];
+      gphij[0] = -dPdx[j][lsdim];
+      gphij[1] = -dPdy[j][lsdim];
+      gphij[2] = -dPdz[j][lsdim];
       for (k=0; k<3; k++)
         gradphi[k] = 0.5*(gphii[k]+gphij[k]);
       double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
@@ -1503,7 +1500,7 @@ template<int dimLS>
 void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi)
 {
 
-  //TODO: Multiphase : implement correctly
+  //TODO: Multiphase reinitialization: implement correctly
   int tag = 1;
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];

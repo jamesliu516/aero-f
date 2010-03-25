@@ -50,8 +50,13 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
                      DistSVec<double,dimLS> &Phi, IoData &iod)
 {
 
+  map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
+  if(it == iod.eqs.fluidModelMap.dataMap.end()){
+    fprintf(stderr, "*** Error: no FluidModel[1] was specified\n");
+    exit(1);
+  }
   if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-     iod.eqs.fluidModel2.fluid == FluidModelData::LIQUID)
+     it->second->fluid == FluidModelData::LIQUID)
     invertGasLiquid = -1.0;
   else invertGasLiquid = 1.0;
 
@@ -60,7 +65,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   // Initialization of Phi is done through the use of volumeID and
   // through the knowledge of a geometric shape (with its position).
 
-  Phi0 = 1.0;
+  Phi0 = -1.0;
   setupPhiVolumesInitialConditions(iod, Phi0);
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
   primitiveToConservative(Phi0, Phi, U);
@@ -106,13 +111,15 @@ template<int dimLS>
 void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi){
 
   // loop on all Volumes to setup Phi_0 
+  // Phi_0[iPhase] is 1 where VarFcn[iPhase+1] is present and -1 elsewhere
+  // except for the first phase (varFcn[0]) that corresponds to all previous Phi being negative
   if(!iod.volumes.volumeMap.dataMap.empty()){
-    map<int, VolumeData *>::iterator it;
-    for (it=iod.volumes.volumeMap.dataMap.begin(); it!=iod.volumes.volumeMap.dataMap.end();it++)
-      if(it->second->type==VolumeData::FLUID)
-        //each volume (it->first) is setup using Input variables 'volumeInitialConditions'
-        //                                 and equation of state 'fluidModel'
-        domain->setupPhiVolumesInitialConditions(it->first, Phi);
+    map<int, VolumeData *>::iterator volIt;
+    for (volIt=iod.volumes.volumeMap.dataMap.begin(); volIt!=iod.volumes.volumeMap.dataMap.end();volIt++)
+      if(volIt->second->type==VolumeData::FLUID){
+        com->fprintf(stdout, "Processing initialization of LevelSet for volume %d paired with EOS %d\n", volIt->first, volIt->second->fluidModelID);
+        domain->setupPhiVolumesInitialConditions(volIt->first, volIt->second->fluidModelID,Phi);
+      }
   }
 
 }
@@ -122,21 +129,99 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
 template<int dimLS>
 void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
 
-  // Note that Phi was already initialized either to 1.0 everywhere
+  // Note that Phi was already initialized either to -1.0 everywhere
   // (if there were no volumes specified in the input file)
-  // or to +1.0 where a volid was specified equal to 0 
-  //    and to -1.0 where a volid was specified different from 0.
-  // Therefore the only initialization
-  // left to do is for the spheres and other geometric shapes.
-  // For that, Phi must be multiplied by the signed distance
-  // to that geometric shape.
+  // or to +1.0 and to -1.0.
 
-  if(iod.mf.initialConditions.nspheres>0)
-    for(int i=0; i<iod.mf.initialConditions.nspheres; i++)
-      domain->setupPhiMultiFluidInitialConditionsSphere(*(iod.mf.initialConditions.sphere[i]),X,Phi);
+  // Assumption: one geometric object surface does not cross another geometric
+  //             object surface. In other words, there cannot exist a point
+  //             in space where three or more fluids are in contact.
+  // Assumption: a geometric surface always separates the main fluid
+  //             given by varFcn[0] = iod.eqs.fluidModel =
+  //             iod.eqs.fluidModelMap.dataMap.begin() from
+  //             another fluid, at least one of the fluid involved is the main fluid
 
-  if(iod.mf.initialConditions.nplanes>0)
-    domain->setupPhiMultiFluidInitialConditionsPlane(iod.mf.initialConditions.p1,X,Phi);
+  DistSVec<double,dimLS> Distance(domain->getNodeDistInfo());
+  Distance = -1.0;
+
+  if(!iod.mf.multiInitialConditions.planeMap.dataMap.empty()){
+    map<int, PlaneData *>::iterator planeIt;
+    for(planeIt  = iod.mf.multiInitialConditions.planeMap.dataMap.begin();
+        planeIt != iod.mf.multiInitialConditions.planeMap.dataMap.end();
+        planeIt++){
+      com->fprintf(stdout, "Processing initialization of LevelSet for plane %d paired with EOS %d\n", planeIt->first, planeIt->second->fluidModelID);
+      double nx = planeIt->second->nx;
+      double ny = planeIt->second->ny;
+      double nz = planeIt->second->nz;
+      double norm = sqrt(nx*nx+ny*ny+nz*nz);
+      nx /= norm; ny /= norm; nz /= norm;
+
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+        SVec<double,3>     &x  (X(iSub));
+
+        for (int i=0; i<x.size(); i++){
+          double scalar = nx*(x[i][0]-planeIt->second->cen_x)+
+                          ny*(x[i][1]-planeIt->second->cen_y)+
+                          nz*(x[i][2]-planeIt->second->cen_z); // positive in the direction of n
+          // set level-set only if this fluid has its own level-set (nothing to do for fluidModelID = 0)
+          if(planeIt->second->fluidModelID > 0){
+            int fluidId = planeIt->second->fluidModelID-1;
+            if(scalar>0.0) phi[i][fluidId] = 1.0;
+            if(distance[i][fluidId]<0.0) distance[i][fluidId] = fabs(scalar);
+            else                         distance[i][fluidId] = fmin(fabs(scalar),distance[i][fluidId]);
+          }
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator sphereIt;
+    for(sphereIt  = iod.mf.multiInitialConditions.sphereMap.dataMap.begin();
+        sphereIt != iod.mf.multiInitialConditions.sphereMap.dataMap.end();
+        sphereIt++){
+      com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
+      double x0 = sphereIt->second->cen_x;
+      double y0 = sphereIt->second->cen_y;
+      double z0 = sphereIt->second->cen_z;
+      double r0 = sphereIt->second->radius;
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+        SVec<double,3>     &x  (X(iSub));
+
+        for (int i=0; i<x.size(); i++){
+          double scalar = sqrt((x[i][0] - x0)*(x[i][0] - x0) + 
+                          (x[i][1] - y0)*(x[i][1] - y0) + 
+                          (x[i][2] - z0)*(x[i][2] - z0)) - r0;//positive outside the sphere
+          if(sphereIt->second->fluidModelID > 0){
+            int fluidId = sphereIt->second->fluidModelID-1;
+            if(scalar<0.0) phi[i][fluidId] = 1.0;
+            if(distance[i][fluidId]<0.0) distance[i][fluidId] = fabs(scalar);
+            else                         distance[i][fluidId] = fmin(fabs(scalar),distance[i][fluidId]);
+          }
+        }
+      }
+    }
+  }
+
+  // phi[fluidId] is initialized with -1 and +1 giving the location of fluid fluidId
+  // distance[fluidId] is the positive distance to the closest interface between fluid fluidId and fluid 0.
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+    SVec<double,dimLS> &phi(Phi(iSub));
+    SVec<double,dimLS> &distance(Distance(iSub));
+    for (int i=0; i<phi.size(); i++)
+      for (int idim=0; idim<dimLS; idim++)
+        phi[i][idim] *= distance[i][idim];
+  }
 
 }
 
