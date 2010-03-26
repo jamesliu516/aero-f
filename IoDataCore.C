@@ -3629,6 +3629,8 @@ void IoData::checkInputValuesMulti_step2(){
 
 // this routine non dimensionalizes the input data for VolumeInitialConditions
 // and for MultiFluid.InitialConditions
+  mf.Pinit /= ref.rv.pressure;
+  mf.Prate /= ref.rv.pressure/ref.rv.time;
 
   if(eqs.numPhase >= 2){
     // volumeInitialConditions first
@@ -3661,8 +3663,6 @@ void IoData::checkInputValuesMulti_step2(){
       nonDimensionalizeFluidModel(mf.fluidModel2);
 
     }
-    mf.Pinit /= ref.rv.pressure;
-    mf.Prate /= ref.rv.pressure/ref.rv.time;
 
   }
 }

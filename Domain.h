@@ -271,7 +271,7 @@ public:
   void computeGradientsLeastSquares(DistSVec<double,3> &, DistVec<int> &,
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
-                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true;);
+                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &,
@@ -849,8 +849,6 @@ public:
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
 
-  int numElems();
-  int numNodes();
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 

@@ -1106,12 +1106,13 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
-    fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
-    exit(1);
-    varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
+    //fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
+    //exit(1);
+    //varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
     //TODO: to be fixed for 3pt-BDF!!!
     //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1, Vgf, Vgfweight, riemann);
     //riemann->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1);
+    *Unm1 = *Un;
     data->exist_nm1 = true;
   }
   *Un = Q;
