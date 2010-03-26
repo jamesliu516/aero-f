@@ -249,7 +249,7 @@ void jacflux3Dwater(int type, VarFcnBase *vf, FluxFcnBase::Type localTypeJac, do
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				     double *VL, double *VR, double *flux)
+				     double *VL, double *VR, double *flux, bool useLimiter)
 {
 
   fprintf(stderr, "*** Error: FluxFcnTaitFDJacRoeEuler3D::compute not implemented\n");
@@ -260,12 +260,12 @@ void FluxFcnTaitFDJacRoeEuler3D::compute(double length, double irey, double *nor
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				       double *VL, double *VR, double *flux)
+				       double *VL, double *VR, double *flux, bool useLimiter)
 {
 
   F77NAME(roeflux5waterdissprec)(0, gamma, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
           normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(),
-          sprec.getSlope(), sprec.getCutOffMach(), irey, sprec.getPrecTag());
+          sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
  
 }
 
@@ -273,7 +273,7 @@ void FluxFcnTaitApprJacRoeEuler3D::compute(double length, double irey, double *n
 
 void FluxFcnTaitApprJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						double *VL, double *VR, 
-						double *jacL, double *jacR)
+						double *jacL, double *jacR, bool useLimiter)
 {
 //void roejacappr3Dwater(int type, double gamma, VarFcn* varFcn, double vfcv, double vfa, 
 //                       double vfb, double vfp, FluxFcnBase::Type typeJac, double* normal, 
@@ -292,12 +292,12 @@ void FluxFcnTaitApprJacRoeEuler3D::computeJacobians(double length, double irey, 
   F77NAME(roejac5waterdissprec)(type, gamma,
                                 vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
                                 n, normalVel, 
-                                VL, VR, dfdUL, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, sprec.getPrecTag());
+                                VL, VR, dfdUL, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
   n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2];
   F77NAME(roejac5waterdissprec)(type, gamma,
                                 vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(),
                                 n, -normalVel,
-                                VR, VL, dfdUR, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, sprec.getPrecTag());
+                                VR, VL, dfdUR, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), irey, useLimiter ? sprec.getPrecTag() : 0);
   for (int k=0; k<dim2; k++)
     dfdUR[k] = -dfdUR[k];
   
@@ -319,7 +319,7 @@ void FluxFcnTaitApprJacRoeEuler3D::computeJacobians(double length, double irey, 
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					double *VL, double *VR, double *flux)
+					double *VL, double *VR, double *flux, bool useLimiter)
 {
 
   fprintf(stderr, "*** Error: FluxFcnTaitExactJacRoeEuler3D::compute not implemented\n");
@@ -331,7 +331,7 @@ void FluxFcnTaitExactJacRoeEuler3D::compute(double length, double irey, double *
 
 void FluxFcnTaitExactJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						 double *VL, double *VR, 
-						 double *jacL, double *jacR)
+						 double *jacL, double *jacR, bool useLimiter)
 {
 
   fprintf(stderr, "*** Error: FluxFcnTaitExactJacRoeEuler3D::computeJacobians not implemented\n");
@@ -342,7 +342,7 @@ void FluxFcnTaitExactJacRoeEuler3D::computeJacobians(double length, double irey,
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   double P = vf->getPrefWater() + vf->getAlphaWater()*pow(V[0], vf->getBetaWater());
@@ -357,7 +357,7 @@ void FluxFcnTaitWallEuler3D::compute(double length, double irey, double *normal,
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   F77NAME(genbcfluxtait)(0, vf->getCv(), vf->getPrefWater(), vf->getAlphaWater(), vf->getBetaWater(), normal, normalVel, V, Ub, flux);
@@ -367,7 +367,7 @@ void FluxFcnTaitGhidagliaEuler3D::compute(double length, double irey, double *no
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
   fprintf(stderr, "*** Error: FluxFcnTaitInflowEuler3D::compute not implemented\n");
   exit(1);
@@ -376,7 +376,7 @@ void FluxFcnTaitInflowEuler3D::compute(double length, double irey, double *norma
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				    double *V, double *Ub, double *flux)
+				    double *V, double *Ub, double *flux, bool useLimiter)
 {
   fprintf(stderr, "*** Error: FluxFcnTaitOutflowEuler3D::compute not implemented\n");
   exit(1);
@@ -385,7 +385,7 @@ void FluxFcnTaitOutflowEuler3D::compute(double length, double irey, double *norm
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					   double *V, double *Ub, double *flux)
+					   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   flux3Dwater<5>(0,vf,normal,normalVel,V,Ub,flux);
@@ -395,7 +395,7 @@ void FluxFcnTaitInternalInflowEuler3D::compute(double length, double irey, doubl
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitInternalInflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
-						   double *V, double *Ub, double *jacL)
+						   double *V, double *Ub, double *jacL, bool useLimiter)
 {
 
   jacflux3Dwater<5>(0,vf,typeJac,normal,normalVel,V,Ub,jacL);
@@ -405,7 +405,7 @@ void FluxFcnTaitInternalInflowEuler3D::computeJacobian(double length, double ire
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					    double *V, double *Ub, double *flux)
+					    double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   flux3Dwater<5>(0,vf,normal,normalVel,V,Ub,flux);
@@ -415,7 +415,7 @@ void FluxFcnTaitInternalOutflowEuler3D::compute(double length, double irey, doub
 //------------------------------------------------------------------------------
 
 void FluxFcnTaitInternalOutflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
-						    double *V, double *Ub, double *jacL)
+						    double *V, double *Ub, double *jacL, bool useLimiter)
 {
  
   jacflux3Dwater<5>(0,vf,typeJac,normal,normalVel,V,Ub,jacL);

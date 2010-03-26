@@ -1461,36 +1461,6 @@ void Domain::printPhi(DistSVec<double,3> &X, DistVec<double> &Phi, int it)
 //         SOLID LEVEL SET SOLUTION                                           --
 //------------------------------------------------------------------------------
 
-int Domain::numElems() //TODO: (1)wrong. (2)never called.
-{
-  int numOfElems = 0;
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    numOfElems += subDomain[iSub]->numElems();
-  return numOfElems;
-}
-
-//-------------------------------------------------------------------------------
-
-int Domain::numNodes() //TODO: don't need Edge, Face, Elem...
-{
-  int iSub, k, totNum[4];
-  int (*num)[4] = reinterpret_cast<int (*)[4]>(alloca(sizeof(int) * numLocSub * 4));
-
-#pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub)
-    subDomain[iSub]->getElementStatistics(num[iSub][0], num[iSub][1], num[iSub][2], num[iSub][3]);
-
-  for (k=0; k<4; ++k) totNum[k] = num[0][k];
-  for (iSub=1; iSub<numLocSub; ++iSub)
-    for (k=0; k<4; ++k)
-      totNum[k] += num[iSub][k];
-  com->globalSum(4, totNum);
-  return totNum[0];
-
-}
-
-//-------------------------------------------------------------------------------
-
 void Domain::updateNodeTag(DistSVec<double,3> &X, DistLevelSetStructure *LSS, DistVec<int> &nodeTag0, DistVec<int> &nodeTag)
 {
 #pragma omp parallel for

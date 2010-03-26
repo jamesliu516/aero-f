@@ -42,7 +42,7 @@ public:
   virtual void computeRiemannSolution(int tag, double *Vi, double *Vstar,
                               double *nphi, VarFcn *vf,
                               double *Wstar, double *rupdatei,
-                              double &weighti, int it) {}
+                              double &weighti, int it) {} //KW:never called. Should be removed...
 };
 
 //----------------------------------------------------------------------------

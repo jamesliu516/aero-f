@@ -615,19 +615,19 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k]; 
         if (masterFlag[l]) { 
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, 0, false);
           for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
         }
       }
       if (jIsActive) {
         LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
         normalDir = (Nriemann) ? 1.0/(normal[l].norm())*normal[l] : res.gradPhi;
-        riemann.computeFSIRiemannSolution(Vj,res.normVel,res.gradPhi,varFcn,Wstar,i);
+        riemann.computeFSIRiemannSolution(Vj,res.normVel,normalDir,varFcn,Wstar,i);
         
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, 0, false);
           for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
         }
       }
@@ -872,7 +872,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
         for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
       if (masterFlag[l]) {
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i]);
+        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
         for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
       }
 
@@ -889,7 +889,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       if (it>0)
         for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
       if (masterFlag[l]) {
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j]);
+        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
         for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
       }
     }

@@ -82,7 +82,6 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Pscale = ioData.ref.rv.pressure;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
-//  this->com->fprintf(stderr,"RhoScale = %e, Pscale = %e\n", ioData.ref.rv.density, ioData.ref.rv.pressure);
   globIt = -1;
   inSubCycling = false;
 
@@ -226,7 +225,7 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if(!FsComputed) fprintf(stderr,"WARNING: FSI force not computed!\n");
+  if(!FsComputed) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
 
   //check if it's in subcycling with iCycle>1.
@@ -633,10 +632,11 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 template<int dim>
 bool StructLevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
 {
+
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
-    //this->com->fprintf(stdout, "max pressure reached\n"); 
+//    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   } 
 

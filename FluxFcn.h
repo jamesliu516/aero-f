@@ -67,17 +67,17 @@ public:
 
 
   //----- General Functions -----//
-  void compute(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *flux, int tag=0){
+  void compute(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *flux, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->compute(length, irey, normal, normalVel, VL, VR, flux);
+    ff_[tag]->compute(length, irey, normal, normalVel, VL, VR, flux, useLimiter);
   }
-  void computeJacobian(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, int tag=0){
+  void computeJacobian(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->computeJacobian(length, irey, normal, normalVel, VL, VR, jacL);
+    ff_[tag]->computeJacobian(length, irey, normal, normalVel, VL, VR, jacL, useLimiter);
   }
-  void computeJacobians(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, double *jacR, int tag=0){
+  void computeJacobians(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, double *jacR, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR);
+    ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR, useLimiter);
   }
 
   //----- Sensitivity Analysis Functions -----//
