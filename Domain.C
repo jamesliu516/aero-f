@@ -211,7 +211,7 @@ void Domain::computeGradientsLeastSquares(DistSVec<double,3> &X,
                                           DistSVec<Scalar,dim> &ddx,
                                           DistSVec<Scalar,dim> &ddy,
                                           DistSVec<Scalar,dim> &ddz,
-                                          bool linFSI = true)
+                                          bool linFSI)
 {
 
 #pragma omp parallel for
@@ -2587,21 +2587,21 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistSVec<Scalar,dim> &W, con
 //------------------------------------------------------------------------------
 
 template<class Scalar>
-void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<double> &W)
+void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
 {
 
   int iSub;
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->sndData(*commPat, reinterpret_cast<double (*)[1]>(W.subData(iSub)));
+    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
   }
 
   commPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<double (*)[1]>(W.subData(iSub)));
+    subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
 
 }
 
@@ -3147,6 +3147,15 @@ void Domain::IncreasePressure(double p, VarFcn *vf,  DistSVec<double,dim> &U){
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->IncreasePressure(p,vf,U(iSub));
+
+}
+//-------------------------------------------------------------------------------
+template<int dim>
+void Domain::IncreasePressure(double p, VarFcn *vf,  DistSVec<double,dim> &U, DistVec<int> &fluidId){
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->IncreasePressure(p,vf,U(iSub),fluidId(iSub));
 
 }
 //-------------------------------------------------------------------------------

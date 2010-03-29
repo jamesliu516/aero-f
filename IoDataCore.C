@@ -3209,6 +3209,7 @@ void IoData::setupCmdFileVariables()
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
   volumes.setup("Volumes");
+  embed.setup("EmbeddedFramework");
   strucIntersect.setup("Intersect");
   embeddedStructure.setup("EmbeddedStructure");
 }
@@ -4713,9 +4714,26 @@ void IoData::printDebug(){
   }
 
   // initial conditions for EmbeddedStructure
-
-
-
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it =embed.embedIC.pointMap.dataMap.begin(); 
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "PointData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "PointData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "PointData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "PointData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "PointData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "PointData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "PointData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "PointData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "PointData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "PointData::x            = %e\n", it->second->x);
+      com->fprintf(stderr, "PointData::y            = %e\n", it->second->y);
+      com->fprintf(stderr, "PointData::z            = %e\n", it->second->z);
+      com->fprintf(stderr, "\n");
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

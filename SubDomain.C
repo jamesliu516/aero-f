@@ -219,7 +219,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-                bool linRecFSI = true)  {
+                bool linRecFSI)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -271,7 +271,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
   }
 
 //KW: set gradients = 0 for cells near interface.
-  if(!linRecFSI)  
+/*  if(!linRecFSI)  
     for (int l=0; l<edges.size(); ++l) {
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
@@ -280,7 +280,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
     }
-
+*/
 }
 
 //------------------------------------------------------------------------------
@@ -878,6 +878,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            linRecAtInterface, fluidId, Nriemann, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, fluidId, V, fluxes); 
+
   return ierr;
 
 }
@@ -4556,6 +4557,28 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
     }
   }
 
+}
+//------------------------------------------------------------------------------
+template<int dim>
+void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId){
+
+  bool found = false;
+  double rhoe = -1.0; 
+
+// only the pressure with fluidId = 0 (outside part)
+// are updated. It is assumed that the input and output states are uniform!
+  for(int i=0; i<nodes.size(); i++) {
+    if(fluidId[i]!=0) 
+      continue;
+    if(!found){ //rhoe is not computed yet.
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V,fluidId[i]);
+      vf->setPressure(p,V,fluidId[i]);
+      rhoe = vf->computeRhoEnergy(V,fluidId[i]);
+      found = true;
+    }    
+    U[i][4] = rhoe;
+  }
 }
 //------------------------------------------------------------------------------
 template<int dim>

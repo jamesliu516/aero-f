@@ -25,6 +25,7 @@ class PhysBAMIntersector;
 class SubDomain;
 class EdgeSet;
 class Timer;
+class IoData;
 template<class Scalar, int dim> class SVec;
 
 class DistPhysBAMIntersector : public DistLevelSetStructure {
@@ -85,7 +86,7 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, bool interpNormal);
+    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, bool interpNormal);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
     void updatePhysBAMInterface(Vec3D *particles, int size);
     void recompute(double dtf, double dtfLeft, double dts);

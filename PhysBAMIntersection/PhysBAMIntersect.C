@@ -4,6 +4,7 @@
 #include "Vector3D.h"
 #include "Communicator.h"
 #include <Domain.h>
+#include <IoData.h>
 #include <Vector.h>
 #include <DistVector.h>
 #include <Timer.h>
@@ -649,7 +650,7 @@ DistPhysBAMIntersector::buildSolidNormals() {
      }
      insidePoint = 0.5*((1+edgeRes(1).y.alpha)*p1+(1-edgeRes(1).y.alpha)*p2);
 
-//     insidePoint = Vec3D(0.0,0.0,0.0);
+     //insidePoint = Vec3D(7.0,0.0,0.0); //TODO: debug
   } else
     com->fprintf(stderr, "All triangles are degenerate!!\n");
 }
@@ -687,7 +688,7 @@ DistPhysBAMIntersector::initializePhysBAM() {
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, bool interpNormal) {
+DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, IoData& iod, bool interpNormal) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
@@ -927,10 +928,6 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
      xyz(2)[2] = insidePoint[1];
      xyz(2)[3] = insidePoint[2];
 
-/*       fprintf(stderr, "Test edge is %f %f %f, %f %f %f\n",
-             X[0][0], X[0][1], X[0][2],
-             insidePoint[0], insidePoint[1], insidePoint[2]);
-*/
      double thickness = std::max(distIntersector.insidePointTol, distIntersector.getTolerance());
 //     fprintf(stderr,"For subdomain %d: tol = %e.\n", globIndex, thickness);
      distIntersector.getInterface().Intersect(xyz, edgeRes, thickness);
@@ -938,15 +935,12 @@ void PhysBAMIntersector::fixUntouchedSubDomain(SVec<double,3>&X)
        Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
        const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
        if(edgeVec*trNorm < 0) {
- //        if(globIndex==198)fprintf(stderr, "This subdomain is outside the structure\n");
          status[0] = INSIDE;
        } else {
-//         if(globIndex==198)fprintf(stderr, "This subdomain is inside the structure\n");
          status[0] = INSIDE; //TODO: this is not perfect
          //status[0] = OUTSIDE;
        }
      } else {
-//       if(globIndex==198)fprintf(stderr, "This subdomain is trivially inside the structure\n");
        status[0] = OUTSIDE;
      }
 
@@ -975,8 +969,6 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
     }
 //  std::cout << "Initial lead (# decided nodes): " << lead << std::endl;
 
-  int iDebug = 0;
-
   while(next < lead) {
     int cur = list[next++];
     int curStatus = status[cur];
@@ -1004,7 +996,7 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
     else                           nUndecided++;
   }
 
-  while (nUndecided) {
+  while (nUndecided) { //this can happen for example if a subdomain is unconnected...
     for (int i=0; i<sub.numNodes(); ++i)
       if (status[i]==UNDECIDED) {
         ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
@@ -1027,7 +1019,7 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
         distIntersector.getInterface().Intersect(xyz, edgeRes, thickness);
 
         if(edgeRes(1).y.triangleID >= 0) {
-          Vec3D edgeVec(insidePoint[0]-X[0][0], insidePoint[1]-X[0][1], insidePoint[2]-X[0][2]);
+          Vec3D edgeVec(insidePoint[0]-X[i][0], insidePoint[1]-X[i][1], insidePoint[2]-X[i][2]);
           const Vec3D &trNorm = distIntersector.getSurfaceNorm(edgeRes(1).y.triangleID-1);
           if(edgeVec*trNorm < 0) {
             status[i] = INSIDE; nInside++;}
@@ -1055,7 +1047,6 @@ void PhysBAMIntersector::finishNodeStatus(SubDomain& sub, SVec<double,3>&X)
 
       }
   }
-
 
   //debug only: Plot the first layer of inside nodes.
 /*  int myCPU = distIntersector.com->cpuNum();
@@ -1098,7 +1089,6 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
   for (int l=0; l<edges.size(); l++) {
     int p = ptr[l][0], q = ptr[l][1];
     if(status[p]==status[q]) continue;
-
     //now need to find an intersection for this edge .
     Vec3D xp(X[p]), xq(X[q]);
     Vec3D dir = xq - xp;

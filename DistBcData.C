@@ -195,7 +195,6 @@ template<int dim>
 void DistBcData<dim>::finalize(DistSVec<double,3> &X)
 {
   //assumption : only one phase is found at the far-field boundary
-
   com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
   this->vf->conservativeToPrimitive(this->Uin, Vin);
   this->vf->conservativeToPrimitive(this->Uout, Vout);
@@ -1099,7 +1098,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
     }
     // End shocktube setup
   }
-  fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
+//  fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
 
 }
 

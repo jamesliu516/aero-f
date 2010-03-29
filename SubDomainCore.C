@@ -4285,6 +4285,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             pStar[k] -= pInfty;
             break;
           case 2:
+          case 3:
+          case 4:
             pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
             break;
           default:
@@ -4352,6 +4354,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             pStar[k] -= pInfty;
             break;
           case 2:
+          case 3:
+          case 4:
             pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
             break;
           default:

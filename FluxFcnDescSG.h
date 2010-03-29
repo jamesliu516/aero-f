@@ -19,10 +19,10 @@ public:
     FluxFcnFDJacRoeEuler3D(ioData, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGFDJacRoeEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -36,11 +36,11 @@ public:
     FluxFcnApprJacRoeEuler3D(ioData, rs, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGApprJacRoeEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -54,11 +54,11 @@ public:
     FluxFcnExactJacRoeEuler3D(gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGExactJacRoeEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -72,7 +72,7 @@ public:
     FluxFcnFDJacHLLEEuler3D(ioData, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGFDJacHLLEEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -86,8 +86,8 @@ public:
     FluxFcnApprJacHLLEEuler3D(ioData, rs, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGApprJacHLLEEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -101,7 +101,7 @@ public:
     FluxFcnFDJacHLLCEuler3D(ioData, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGFDJacHLLCEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -115,7 +115,7 @@ public:
     FluxFcnApprJacHLLCEuler3D(ioData, rs, gg, varFcnSGEuler, tp) {}
   ~FluxFcnSGApprJacHLLCEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -129,11 +129,11 @@ public:
     FluxFcnVanLeerEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGVanLeerEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -146,11 +146,11 @@ public:
     FluxFcnWallEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGWallEuler3D() { vf = 0; }
   
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 //------------------------------------------------------------------------------
@@ -163,7 +163,7 @@ public:
     FluxFcnGhidagliaEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGGhidagliaEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -177,10 +177,10 @@ public:
     FluxFcnInflowEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGInflowEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -194,11 +194,11 @@ public:
     FluxFcnInternalInflowEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGInternalInflowEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -212,10 +212,10 @@ public:
     FluxFcnOutflowEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGOutflowEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -229,11 +229,11 @@ public:
     FluxFcnInternalOutflowEuler3D(varFcnSGEuler, tp) {}
   ~FluxFcnSGInternalOutflowEuler3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -264,10 +264,10 @@ class FluxFcnSGFDJacRoeSA3D : public FluxFcnFDJacRoeSA3D {
     FluxFcnFDJacRoeSA3D(ioData, gg, varFcnSGSA) {}
   ~FluxFcnSGFDJacRoeSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -281,11 +281,11 @@ public:
     FluxFcnApprJacRoeSA3D(ioData, rs,gg, varFcnSGSA, tp) {}
   ~FluxFcnSGApprJacRoeSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -299,11 +299,11 @@ public:
     FluxFcnExactJacRoeSA3D(gg, varFcnSGSA, tp) {}
   ~FluxFcnSGExactJacRoeSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -317,7 +317,7 @@ class FluxFcnSGFDJacHLLESA3D : public FluxFcnFDJacHLLESA3D {
   FluxFcnFDJacHLLESA3D(ioData, gg, varFcnSGSA, tp) {}
   ~FluxFcnSGFDJacHLLESA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -331,8 +331,8 @@ public:
   FluxFcnApprJacHLLESA3D(ioData, rs,gg, varFcnSGSA, tp) {}
   ~FluxFcnSGApprJacHLLESA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -346,11 +346,11 @@ public:
     FluxFcnWallSA3D(varFcnSGSA, tp) {}
   ~FluxFcnSGWallSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -364,10 +364,10 @@ public:
     FluxFcnOutflowSA3D(varFcnSGSA, tp) {}
   ~FluxFcnSGOutflowSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -381,11 +381,11 @@ public:
     FluxFcnInternalInflowSA3D(varFcnSGSA, tp) {}
   ~FluxFcnSGInternalInflowSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -399,11 +399,11 @@ public:
     FluxFcnInternalOutflowSA3D(varFcnSGSA, tp) {}
   ~FluxFcnSGInternalOutflowSA3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -417,8 +417,8 @@ public:
     FluxFcnRoeSAturb3D(ioData, gg, varFcnSGSA, tp) {}
   ~FluxFcnSGRoeSAturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -431,8 +431,8 @@ public:
     FluxFcnWallSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGWallSAturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -445,8 +445,8 @@ public:
     FluxFcnOutflowSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGOutflowSAturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -459,8 +459,8 @@ public:
     FluxFcnInternalInflowSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGInternalInflowSAturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -473,8 +473,8 @@ public:
     FluxFcnInternalOutflowSAturb3D(varFcnSGSA, tp) {}
   ~FluxFcnSGInternalOutflowSAturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -488,10 +488,10 @@ public:
     FluxFcnFDJacRoeKE3D(ioData, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGFDJacRoeKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -504,11 +504,11 @@ public:
     FluxFcnApprJacRoeKE3D(ioData, rs, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGApprJacRoeKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -522,7 +522,7 @@ public:
     FluxFcnFDJacHLLEKE3D(ioData, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGFDJacHLLEKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 
 };
@@ -536,8 +536,8 @@ public:
     FluxFcnApprJacHLLEKE3D(ioData, rs, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGApprJacHLLEKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -550,11 +550,11 @@ public:
     FluxFcnExactJacRoeKE3D(gg, varFcnSGKE, tp) {}
   ~FluxFcnSGExactJacRoeKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
 
 };
 
@@ -568,11 +568,11 @@ public:
     FluxFcnWallKE3D(varFcnSGKE, tp) {}
   ~FluxFcnSGWallKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -586,10 +586,10 @@ public:
     FluxFcnOutflowKE3D(varFcnSGKE, tp) {}
   ~FluxFcnSGOutflowKE3D() { vf = 0; }
 
-  void compute(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *, double, double *, double *, double *, bool);
 
 // Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *);
+  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
 
 };
 
@@ -602,8 +602,8 @@ public:
     FluxFcnRoeKEturb3D(ioData, gg, varFcnSGKE, tp) {}
   ~FluxFcnSGRoeKEturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobians(double, double, double *, double, double *, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -617,8 +617,8 @@ public:
     FluxFcnWallKEturb3D(varFcnSGKE, tp) {}
   ~FluxFcnSGWallKEturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 
@@ -632,8 +632,8 @@ public:
     FluxFcnOutflowKEturb3D(varFcnSGKE, tp) {}
   ~FluxFcnSGOutflowKEturb3D() { vf = 0; }
 
-  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f) {}
-  void computeJacobian(double, double, double *, double, double *, double *, double *);
+  void compute(double, double, double *n, double nv, double *vl, double *vr, double *f, bool) {}
+  void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
 };
 

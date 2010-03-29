@@ -171,6 +171,7 @@ public:
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }
   CommPattern<double> *getVec3DPat() const { return vec3DPat; }
   CommPattern<double> *getVolPat() const { return volPat; }
+  CommPattern<int> *getLevelPat() const { return levelPat; }
   CommPattern<double> *getWeightPat() const { return weightPat; }
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
@@ -273,7 +274,7 @@ public:
   void computeGradientsLeastSquares(DistSVec<double,3> &, DistVec<int> &,
                                     DistSVec<double,6> &,
                                     DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &,
-                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI);
+                                    DistSVec<Scalar,dim> &, DistSVec<Scalar,dim> &, bool linFSI = true);
 
   template<int dim, class Scalar>
   void computeGradientsGalerkin(DistVec<double> &, DistSVec<double,3> &,
@@ -405,6 +406,8 @@ public:
                               DistVec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, DistSVec<double,dim> &U, DistVec<int> &fluidId);
 
   // ----- END   LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
 
@@ -656,7 +659,7 @@ public:
   void assemble(CommPattern<Scalar> *, DistSVec<Scalar,dim> &, const OpType &);
 
   template<class Scalar>
-  void assemble(CommPattern<Scalar> *, DistVec<double> &);
+  void assemble(CommPattern<Scalar> *, DistVec<Scalar> &);
 
 
   void assemble(DistVec<double> &v) {
@@ -846,8 +849,6 @@ public:
   template<int dim>
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
 
-  int numElems();
-  int numNodes();
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 

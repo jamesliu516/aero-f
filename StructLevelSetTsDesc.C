@@ -38,16 +38,20 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 {
 
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
-  forceApp = ioData.strucIntersect.forceApproach;
   pressureChoice = ioData.strucIntersect.pressureChoice;
-  phaseChangeChoice = ioData.strucIntersect.phaseChangeChoice;
 
   this->postOp->setForceGenerator(this);
   if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (numFluid==2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
-  interpolatedNormal = (ioData.strucIntersect.normal==StructureIntersect::INTERPOLATED) ? true : false;
+  interpolatedNormal = (ioData.embed.structNormal==EmbeddedFramework::NodeBased) ? true : false;
+  phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RiemannSolution) ? 1 : 0;
+  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::ReconstructedSurface) ? 3 : 1;
   linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
+
+  double *Vin = this->bcData->getInletPrimitiveState();
+  for(int i=0; i<dim; i++)
+    vfar[i] =Vin[i];
 
   if (ioData.strucIntersect.riemannNormal==StructureIntersect::FLUID) 
     riemannNormal = 1;
@@ -72,6 +76,14 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   Weights = 0;
   VWeights = 0;
+
+  Prate = ioData.mf.Prate;
+  Pinit = ioData.mf.Pinit;
+  Pscale = ioData.ref.rv.pressure;
+  tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
+
+  globIt = -1;
+  inSubCycling = false;
 
 //------ load structure mesh information ----------------------
   numStructNodes = 0;
@@ -154,7 +166,7 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 template<int dim>
 void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
-  distLSS->initialize(this->domain,*this->X, interpolatedNormal);
+  distLSS->initialize(this->domain,*this->X, ioData, interpolatedNormal);
   if(this->numFluid>1) //initialize nodeTags for multi-phase flow
     nodeTag0 = nodeTag = distLSS->getStatus();
 
@@ -163,8 +175,8 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
                          *U, ioData, &nodeTag);
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
-    double *tmax = &(this->data)->maxTime;
-    _mmh->setup(tmax); //obtain maxTime from structure
+    double *tMax = &(this->data)->maxTime;
+    _mmh->setup(tMax); //obtain maxTime from structure
   }
 
   //compute force
@@ -181,8 +193,6 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     SVec<double,dim> &subWij = (*Wij)(iSub);
     SVec<double,dim> &subWji = (*Wji)(iSub);
-    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
     SVec<double,dim> &subVV = VV(iSub);
     int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
     if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
@@ -200,6 +210,7 @@ void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;
+
   FsComputed = true;
   // Now "accumulate" the force for the embedded structure
   if(dynNodalTransfer){
@@ -214,8 +225,16 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if(!FsComputed) fprintf(stderr,"WARNING: FSI force not computed!\n");
+  if(!FsComputed) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
+
+  //check if it's in subcycling with iCycle>1.
+  if(globIt==it)
+    inSubCycling = true;
+  else {
+    globIt = it;
+    inSubCycling = false;
+  }
 
   double t0 = this->timer->getTime();
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
@@ -351,7 +370,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    if (numFluid==2) {
+    if (numFluid>=2) {
       this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
       this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
@@ -363,7 +382,7 @@ void StructLevelSetTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, 
       this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
     }
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    if (numFluid==2){
+    if (numFluid>=2){
       DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
       tempPhi = distLSS->getPhi();
       this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, tempPhi, nodeTag);
@@ -390,7 +409,7 @@ void StructLevelSetTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int i
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  if (numFluid==2) {
+  if (numFluid>=2) {
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
@@ -619,6 +638,84 @@ void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft
 
 //-------------------------------------------------------------------------------
 
+template<int dim>
+bool StructLevelSetTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
+{
+
+  if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
+
+  if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
+//    this->com->fprintf(stdout, "max pressure reached\n"); 
+    return true;
+  } 
+
+  // max pressure not reached, so we do not solve and we increase pressure and let structure react
+  
+  // construct Wij, Wji from U. 
+  DistSVec<double,dim> VV(this->getVecInfo());
+  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
+  SubDomain **subD = this->domain->getSubDomain();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+
+    for (int l=0; l<subWstarij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWstarij[l][k] = subVV[i][k];
+        subWstarji[l][k] = subVV[j][k];
+      }
+    }
+  }
+
+  if(this->mmh && !inSubCycling) {
+    double tw = this->timer->getTime();
+    //store previous states for phase-change update
+    if(this->numFluid==1)
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                     *this->VWeights, this->distLSS);
+    else //numFluid>1
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+
+    //get structure timestep dts
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    //recompute intersections
+    tw = this->timer->getTime();
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+    this->timer->addIntersectionTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+    //update nodeTags (only for numFluid>1)
+    if(numFluid>1) {
+      nodeTag0 = this->nodeTag;
+      nodeTag = this->distLSS->getStatus();
+    }
+
+    //update phase-change
+    tw = this->timer->getTime();
+    if(this->numFluid==1)
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar);
+    else //numFluid>1
+      this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, vfar, &this->nodeTag);
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+  } 
+  
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
+  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
+
+  return false;
+
+}
+
+//------------------------------------------------------------------------------
 
 
 

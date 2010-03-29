@@ -4,6 +4,7 @@
 #include "Vector3D.h"
 
 class Domain;
+class IoData;
 template<class Scalar, int dim>
 class DistSVec;
 template <class Scalar> class Vec;
@@ -84,7 +85,7 @@ class DistLevelSetStructure {
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}
-    virtual void initialize(Domain *, DistSVec<double,3> &X, bool) = 0;
+    virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, bool) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
     virtual void clearTotalForce();
     virtual Vec3D getTotalForce(const double pref);

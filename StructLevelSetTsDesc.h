@@ -25,6 +25,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
  protected:
   DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
+  double vfar[dim]; //farfield state
 
   DistVec<int> nodeTag; // = 1 for fluid #1; = -1 for fluid #2.
   DistVec<int> nodeTag0; // node tag for the previous time-step.
@@ -43,6 +44,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double dtf;     //<! fluid time-step
   double dtfLeft; //<! time until next structure time-step is reached.
   double dts;     //<! structure time-step
+  int globIt;         //<! current global(i.e. structure) iteration
+  bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
   // ----------------------------------------------------------------------------------
 
   // ----------- components for Fluid-Structure interface. -----------------------------
@@ -82,6 +85,15 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   // --------------------------------------------------------------------------------------
 
   DynamicNodalTransfer *dynNodalTransfer;
+
+  //buckling cylinder parameters
+  // pressure is increased in the fluid at rate Prate from
+  // initial pressure Pinit until it reaches the pressure
+  // given by boundary conditions which happens at tmax.
+  double tmax;
+  double Prate;
+  double Pinit;
+  double Pscale;
 
  public:
   int orderOfAccuracy; // consistent with the reconstruction type for space
@@ -130,6 +142,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);
+
+  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
 
 };
 
