@@ -15,6 +15,8 @@
 #include <Timer.h>
 #include "LevelSet/IntersectionFactory.h"
 
+#include "OneDimensionalSolver.h"
+
 extern void startNavierStokesSolver(IoData &, GeoSource &, Domain &);
 extern void startModalSolver(Communicator *, IoData &, Domain &);
 extern void startSparseGridGeneration(IoData &, Domain &);
@@ -65,7 +67,13 @@ int main(int argc, char **argv)
   ioData.readCmdLine(argc, argv);
   ioData.readCmdFile();
 
-  if (ioData.problem.alltype==ProblemData::_SPARSEGRIDGEN_){
+  OneDimensional one(ioData,&domain);
+  one.spatialSetup();
+  one.temporalSetup();
+  one.stateInitialization(ioData.oneDimensionalInfo);
+  one.totalTimeIntegration();
+
+/*  if (ioData.problem.alltype==ProblemData::_SPARSEGRIDGEN_){
     startSparseGridGeneration(ioData,domain);
   }else{
     // obtain problem geometry
@@ -86,7 +94,7 @@ int main(int argc, char **argv)
     else
       startNavierStokesSolver(ioData, geoSource, domain);
   }
-
+*/
 #ifndef CREATE_DSO
   closeCommunication();
 #endif

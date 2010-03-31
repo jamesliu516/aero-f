@@ -27,27 +27,27 @@ class FluidSelector {
   int numPhases;
 
 public:
-  DistVec<int> fluidId;
-  DistVec<int> fluidIdn;
+  DistVec<int> *fluidId;
+  DistVec<int> *fluidIdn;
   DistVec<int> *fluidIdnm1;
   DistVec<int> *fluidIdnm2;
 
 public:
 
-  FluidSelector(const int nPhases, IoData &ioData, Domain *domain);
+  FluidSelector(const int nPhases, IoData &ioData, Domain *domain = 0);
   ~FluidSelector();
 
   template<int dim>
   void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2){
     getFluidId(Phin);
-    fluidIdn = fluidId;
+    *fluidIdn = *fluidId;
     if(fluidIdnm1) getFluidId(*fluidIdnm1, Phinm1);
     if(fluidIdnm2) getFluidId(*fluidIdnm2, Phinm2);
   }
   void update(){
     if(fluidIdnm2) *fluidIdnm2 = *fluidIdnm1;
-    if(fluidIdnm1) *fluidIdnm1 = fluidIdn;
-    fluidIdn = fluidId;
+    if(fluidIdnm1) *fluidIdnm1 = *fluidIdn;
+    *fluidIdn = *fluidId;
   }
 
   void getFluidId(DistVec<double> &Phi){
@@ -55,7 +55,7 @@ public:
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; ++iSub) {
       double *phi = Phi.subData(iSub);
-      int    *tag = fluidId.subData(iSub);
+      int    *tag = fluidId->subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
         tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
     }
@@ -68,7 +68,7 @@ public:
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; ++iSub) {
       double (*phi)[dim] = Phi.subData(iSub);
-      int     *tag       = fluidId.subData(iSub);
+      int     *tag       = fluidId->subData(iSub);
       for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
         tag[iNode] = 0;
         for(int i=0; i<dim; i++)
@@ -165,12 +165,12 @@ public:
 
 // Debug
   void printFluidId(){
-    int numLocSub = fluidId.numLocSub();
+    int numLocSub = fluidId->numLocSub();
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; ++iSub) {
-      int    *tag = fluidId.subData(iSub);
-      for (int i=0; i<fluidId.subSize(iSub); i++)
-        fprintf(stdout, "fluidId[%d] = %d\n", i, fluidId[i]);
+      int    *tag = fluidId->subData(iSub);
+      for (int i=0; i<fluidId->subSize(iSub); i++)
+        fprintf(stdout, "fluidId[%d] = %d\n", i, tag[i]);
     }
   }
 

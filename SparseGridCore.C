@@ -295,7 +295,7 @@ double **SparseGrid::generateSubGrid(const int newSubGrid,
       }
     }
     else{
-      nPointsDim[i] = static_cast<int>(pow(2,multiIndex[newSubGrid][i]-1));
+      nPointsDim[i] = static_cast<int>(pow(2.0,multiIndex[newSubGrid][i]-1)+0.1);
       coordDim[i] = new double[nPointsDim[i]];
       for(int j=0; j<nPointsDim[i]; j++)
         coordDim[i][j] = (2.0*j+1.0)/(2.0*nPointsDim[i]);
@@ -522,7 +522,7 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
       else if(multiIndex[subGrid][idim] < 3)
         nPointsDim[idim] = 2;
       else
-        nPointsDim[idim] = static_cast<int>(pow(2,multiIndex[subGrid][idim]-1));
+        nPointsDim[idim] = static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
   
       nCumulatedPointsDim[idim] = nPointsDim[idim];
       nPointsSubGrid *= nPointsDim[idim];

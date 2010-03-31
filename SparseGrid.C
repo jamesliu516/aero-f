@@ -1,6 +1,7 @@
 #include "SparseGrid.h"
 #include <cmath>
 #include <cstdlib>
+using namespace std;
 
 //------------------------------------------------------------------------------
 
@@ -186,11 +187,11 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
 
 //1 random testing in the domain ('number' random values in each dimension):
     case 1:{
-      numTestPoints = static_cast<int>(pow(number[0],dim));
+      numTestPoints = static_cast<int>(pow(static_cast<double>(number[0]),dim)+0.1);
       for(int idim=0; idim<dim; idim++){
       	numPointsDim[idim] = number[0];
         coordDim[idim] = new double[number[0]];
-        numCumPointsDim[idim] = static_cast<int>(pow(number[0],idim+1));
+        numCumPointsDim[idim] = static_cast<int>(pow(static_cast<double>(number[0]),idim+1)+0.1);
       }
       for(int i=0; i<number[0]; i++)
       	for(int idim=0; idim<dim; idim++)
@@ -200,13 +201,13 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
 
 //2 linear testing in the domain ('number' evenly spaces between values in each dimension):
     case 2:{
-      numTestPoints = static_cast<int>(pow(number[0],dim));
+      numTestPoints = static_cast<int>(pow(static_cast<double>(number[0]),dim)+0.1);
       double spacing[dim];
       for(int idim=0; idim<dim; idim++){
       	numPointsDim[idim] = number[0];
         coordDim[idim] = new double[number[0]];
         spacing[idim] = (range[idim][1]-range[idim][0])/number[0];
-        numCumPointsDim[idim] = static_cast<int>(pow(number[0],idim+1));
+        numCumPointsDim[idim] = static_cast<int>(pow(static_cast<double>(number[0]),idim+1)+0.1);
         for(int i=0; i<number[0]; i++)
           coordDim[idim][i] = range[idim][0] + 0.5*spacing[idim] + i*spacing[idim];
       }
@@ -217,10 +218,10 @@ void SparseGrid::test(FnType fn, int type, int *number, double *param){
     case 3:{
       numTestPoints = 1;
       for(int idim=0; idim<dim; idim++){
-      	double spacing = (range[idim][1]-range[idim][0])*pow(2, -number[idim]);
+      	double spacing = (range[idim][1]-range[idim][0])*pow(2.0, -number[idim]);
       	
       	if(number[idim] == 0) numPointsDim[idim] = 1;
-      	else                  numPointsDim[idim] = static_cast<int>(pow(2,number[idim])+1);
+      	else                  numPointsDim[idim] = static_cast<int>(pow(2.0,number[idim])+1.1);
       	numTestPoints *= numPointsDim[idim];
       	numCumPointsDim[idim] = numTestPoints;
       	

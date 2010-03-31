@@ -100,22 +100,20 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllFE(DistSVec<double,dim> &U)
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
-    this->varFcn->conservativeToPrimitive(U0,this->V0,&(this->fluidSelector.fluidId));
-    this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
+    this->varFcn->conservativeToPrimitive(U0,this->V0,this->fluidSelector.fluidId);
+    this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
     t0 = this->timer->getTime();
 
-    computeRKUpdateLS(this->Phi, this->fluidSelector.fluidId, p1, U);
+    computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
     this->Phi = this->Phi - p1;
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
     (this->fluidSelector).getFluidId(this->Phi); //update fluidId accordingly
 
     this->timer->addLevelSetSolutionTime(t0);
 
-    U = U0;
-
     // Riemann overwrite using the value of Phi_{n+1}
-    this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }else U = U0;
 
   checkSolution(U);
@@ -146,14 +144,12 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
-    this->varFcn->conservativeToPrimitive(U0,this->V0,&(this->fluidSelector.fluidId));
-    //this->multiPhaseSpaceOp->storePreviousPrimitive(U0, this->Vg, this->fluidSelector.fluidId,
-    //                                      this->Vgf, this->Vgfweight, *this->X);
-    this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
+    this->varFcn->conservativeToPrimitive(U0,this->V0,this->fluidSelector.fluidId);
+    this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
 
     t0 = this->timer->getTime();
 
-    computeRKUpdateLS(this->Phi, this->fluidSelector.fluidId, p1, U);
+    computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
     Phi0 = ratioTimesPhi - p1;
     //this->avoidNewPhaseCreation(Phi0);
     this->fluidSelector.getFluidId(fluidId0,Phi0);
@@ -161,10 +157,6 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
     this->timer->addLevelSetSolutionTime(t0);
 
     // Riemann overwrite on U0 using the value of Phi0
-    //this->multiPhaseSpaceOp->updatePhaseChange(this->Vg, U0, fluidId0,
-    //                                 this->fluidSelector.fluidIdn, this->Vgf,
-    //                                 this->Vgfweight, this->riemann);
-    //this->riemann->updatePhaseChange();
   }
   this->boundaryFlux  = *this->tmpDistSVec;
   this->interfaceFlux = *this->tmpDistSVec2;
@@ -181,9 +173,6 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
-    //this->multiPhaseSpaceOp->storePreviousPrimitive(U, this->Vg, this->Phi,
-    //                                      this->Vgf, this->Vgfweight);
-    //this->riemann->storePreviousPrimitive();
 
     t0 = this->timer->getTime();
 
@@ -195,11 +184,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2(DistSVec<double,dim> &U)
     this->timer->addLevelSetSolutionTime(t0);
 
     // Riemann overwrite on U_{n+1} using the value of Phi_{n+1}
-    //this->multiPhaseSpaceOp->updatePhaseChange(this->Vg, U, this->fluidSelector.fluidId,
-    //                                 this->fluidSelector.fluidIdn, this->Vgf,
-    //                                 this->Vgfweight, this->riemann);
-    this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
   checkSolution(U);
   this->boundaryFlux  += *this->tmpDistSVec;
@@ -229,14 +215,12 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
   this->timer->addFluidSolutionTime(t0);
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
-    this->varFcn->conservativeToPrimitive(U0,this->V0,&(this->fluidSelector.fluidId));
-    //this->multiPhaseSpaceOp->storePreviousPrimitive(U0, this->Vg, this->fluidSelector.fluidId,
-    //                                      this->Vgf, this->Vgfweight, *this->X);
-    this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
+    this->varFcn->conservativeToPrimitive(U0,this->V0,this->fluidSelector.fluidId);
+    this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
 
     t0 = this->timer->getTime();
 
-    computeRKUpdateLS(this->Phi, this->fluidSelector.fluidId, p1, U0);
+    computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U0);
     Phi0 = this->Phi - p1;
     //this->avoidNewPhaseCreation(Phi0);
     this->fluidSelector.getFluidId(fluidId0,Phi0);
@@ -281,8 +265,8 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLAllRK2bis(DistSVec<double,dim> &U
     //this->multiPhaseSpaceOp->updatePhaseChange(this->Vg, U, this->fluidSelector.fluidId,
     //                                 this->fluidSelector.fluidIdn, this->Vgf,
     //                                 this->Vgfweight, this->riemann);
-    this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
   checkSolution(U);
   this->boundaryFlux  += *this->tmpDistSVec;
@@ -304,18 +288,18 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
 
-    this->varFcn->conservativeToPrimitive(U0,this->V0,&(this->fluidSelector.fluidId));
+    this->varFcn->conservativeToPrimitive(U0,this->V0,this->fluidSelector.fluidId);
     //this->multiPhaseSpaceOp->storePreviousPrimitive(U, this->Vg, this->fluidSelector.fluidId, 
     //                                      this->Vgf, this->Vgfweight, *this->X);
-    this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
+    this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
 
     solveNLLevelSet(U);
 
     //this->multiPhaseSpaceOp->updatePhaseChange(this->Vg, U, this->fluidSelector.fluidId, 
     //                                 this->fluidSelector.fluidIdn, this->Vgf, 
     //                                 this->Vgfweight, this->riemann);
-    this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
   checkSolution(U);
@@ -435,7 +419,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
 {
 
   this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
-  computeRKUpdateLS(this->Phi, this->fluidSelector.fluidId, p1, U);
+  computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = ratioTimesPhi - p1;
   this->avoidNewPhaseCreation(Phi0);
   this->fluidSelector.getFluidId(fluidId0,Phi0);
@@ -450,7 +434,7 @@ template<int dim, int dimLS>
 void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> &U)
 {
 
-  computeRKUpdateLS(this->Phi, this->fluidSelector.fluidId, p1, U);
+  computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
   this->avoidNewPhaseCreation(Phi0);
   this->fluidSelector.getFluidId(fluidId0,Phi0);

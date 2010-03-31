@@ -107,8 +107,8 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
-    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, &(fluidSelector.fluidId));
-  
+    _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, fluidSelector.fluidId);
+ 
   *this->Xs = *this->X;
 
   this->timer->setSetupTime();
@@ -126,7 +126,7 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   int numSubCycles = 1;
   double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, fluidSelector.fluidId);
+                            &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId));
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -150,7 +150,7 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   LS->update(Phi);
   fluidSelector.update();
   
-  this->timeState->update(U, fluidSelector.fluidIdn, fluidSelector.fluidIdnm1, riemann);
+  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
@@ -166,7 +166,7 @@ template<int dim, int dimLS>
 int LevelSetTsDesc<dim,dimLS>::checkSolution(DistSVec<double,dim> &U)
 {
 
-  int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, fluidSelector.fluidId, fluidSelector.fluidIdn);
+  int ierr = this->domain->checkSolution(this->varFcn, *this->A, U, *fluidSelector.fluidId, *fluidSelector.fluidIdn);
 
   return ierr;
 
@@ -204,7 +204,7 @@ void LevelSetTsDesc<dim,dimLS>::conservationErrors(DistSVec<double,dim> &U, int 
 
   for(int i=1; i<dimLS+2; i++){ // for each separate fluid
     int fluidIdTarget = i-1; //use fluidSelector to obtain them?
-    this->domain->restrictionOnPhi(computedQty, fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
+    this->domain->restrictionOnPhi(computedQty, *fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
     tmpDistSVec->sum(computed[i]);
   }
 
@@ -227,7 +227,7 @@ void LevelSetTsDesc<dim,dimLS>::conservationErrors(DistSVec<double,dim> &U, int 
 
   for(int j=1; j<dimLS+2; j++){
     int fluidIdTarget = j-1; //use fluidSelector to obtain them?
-    this->domain->restrictionOnPhi(boundaryFlux, fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
+    this->domain->restrictionOnPhi(boundaryFlux, *fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
     tmpDistSVec->sum(bcfluxsum);
     for (int i=0; i<dim; i++)
       expected[j][i] += dt*bcfluxsum[i];
@@ -253,14 +253,14 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
   this->output->openAsciiFiles();
 
   if (it == 0) {
-    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
-    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, (fluidSelector.fluidId));
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, *fluidSelector.fluidId);
     this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
-    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   }
 
 }
@@ -281,11 +281,11 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
                                                                                                       
-  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
-  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
-  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
+  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, fluidSelector.fluidId);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, Phi, *fluidSelector.fluidId);
   this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
@@ -304,7 +304,7 @@ void LevelSetTsDesc<dim,dimLS>::outputForces(IoData &ioData, bool* lastIt, int i
                                double t, double dt, DistSVec<double,dim> &U)  {
 
   double cpu = this->timer->getRunTime();
-  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &(fluidSelector.fluidId));
+  this->output->writeForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
 }
 
 //------------------------------------------------------------------------------
@@ -316,7 +316,7 @@ void LevelSetTsDesc<dim,dimLS>::resetOutputToStructure(DistSVec<double,dim> &U)
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
-    _mmh->resetOutputToStructure(this->postOp, *this->X, U, &(fluidSelector.fluidId));
+    _mmh->resetOutputToStructure(this->postOp, *this->X, U, fluidSelector.fluidId);
 
 }
 
@@ -332,14 +332,14 @@ void LevelSetTsDesc<dim,dimLS>::updateOutputToStructure(double dt, double dtLeft
     double work[2];
     this->mmh->computeInterfaceWork(dt, this->postOp, this->geoState->getXn(), 
                                     this->timeState->getUn(), *this->X, U, 
-                                    work, &(fluidSelector.fluidIdn), &(fluidSelector.fluidId));
+                                    work, fluidSelector.fluidIdn, fluidSelector.fluidId);
     this->restart->energy[0] += work[0];
     this->restart->energy[1] += work[1];
   }
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh)
-    _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, &(fluidSelector.fluidId));
+    _mmh->updateOutputToStructure(dt, dtLeft, this->postOp, *this->X, U, fluidSelector.fluidId);
 
 }
 

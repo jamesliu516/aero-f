@@ -151,6 +151,8 @@ struct TransientData {
 
   const char *sparseGrid;
 
+  const char *oneDimensionalRes;
+
   int frequency;
   double x0, y0, z0;
   double length;
@@ -1720,6 +1722,24 @@ struct EmbeddedStructureInfo {
 };
 
 //------------------------------------------------------------------------------
+struct OneDimensionalInfo {
+  enum CoordinateType {CARTESIAN = 0, CYLINDRICAL = 1, SPHERICAL = 2} coordType;
+  enum VolumeType { CONSTANT_VOLUME = 0, REAL_VOLUME = 1} volumeType;
+  double maxDistance; //mesh goes from 0 to maxDistance
+  
+  int numPoints; //mesh has numPoints elements
+
+  double interfacePosition;
+
+  double density1, velocity1, pressure1;
+  double density2, velocity2, pressure2;
+
+  OneDimensionalInfo();
+  ~OneDimensionalInfo() {}
+
+  void setup(const char *);
+};
+//------------------------------------------------------------------------------
 
 class IoData {
 
@@ -1757,6 +1777,7 @@ public:
   EmbeddedFramework embed;
   StructureIntersect strucIntersect;
   EmbeddedStructureInfo embeddedStructure;
+  OneDimensionalInfo oneDimensionalInfo;
 
 public:
 
@@ -1773,6 +1794,7 @@ public:
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();
+  void nonDimensionalizeOneDimensionalProblem();
   int checkInputValuesNonDimensional();
   int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
   int checkInputValuesEssentialBC();

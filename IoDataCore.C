@@ -201,6 +201,7 @@ TransientData::TransientData()
   surfaceheatflux = "";
   heatfluxes = "";
   sparseGrid = "SparseGrid";
+  oneDimensionalRes = "res1D";
 
   frequency = 0;
   length = 1.0;
@@ -217,7 +218,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 79, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 80, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -306,6 +307,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
   new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
+  new ClassStr<TransientData>(ca, "OneDimResults", this, &TransientData::oneDimensionalRes);
 
 }
 
@@ -3144,6 +3146,41 @@ void EmbeddedStructureInfo::setup(const char *name) {
 }
 
 //------------------------------------------------------------------------------
+OneDimensionalInfo::OneDimensionalInfo(){
+
+  coordType  = CARTESIAN;
+  volumeType = REAL_VOLUME;
+
+  maxDistance = 1.0;
+  numPoints = 101;
+  interfacePosition = 0.5;
+
+  density1 = 1.0; velocity1 = 0.0; pressure1 = 1.0;
+  density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
+
+}
+//------------------------------------------------------------------------------
+void OneDimensionalInfo::setup(const char *name){
+
+  ClassAssigner *ca = new ClassAssigner(name, 11, 0);
+
+  new ClassToken<OneDimensionalInfo>(ca, "Coordinates", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::coordType), 3, "Cartesian", 0, "Cylindrical", 1, "Spherical", 2);
+  new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
+  new ClassDouble<OneDimensionalInfo>(ca, "MaxDistance", this, &OneDimensionalInfo::maxDistance);
+  new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
+  new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
+
+  new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
+  new ClassDouble<OneDimensionalInfo>(ca, "Velocity1", this, &OneDimensionalInfo::velocity1);
+  new ClassDouble<OneDimensionalInfo>(ca, "Pressure1", this, &OneDimensionalInfo::pressure1);
+  new ClassDouble<OneDimensionalInfo>(ca, "Density2", this, &OneDimensionalInfo::density2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Velocity2", this, &OneDimensionalInfo::velocity2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Pressure2", this, &OneDimensionalInfo::pressure2);
+
+}
+
+
+//-----------------------------------------------------------------------------
 
 IoData::IoData(Communicator *communicator)
 {
@@ -3211,6 +3248,7 @@ void IoData::setupCmdFileVariables()
   volumes.setup("Volumes");
   strucIntersect.setup("Intersect");
   embeddedStructure.setup("EmbeddedStructure");
+  oneDimensionalInfo.setup("OneDimensionalInfo");
 }
 
 //------------------------------------------------------------------------------
@@ -3592,12 +3630,13 @@ int IoData::checkInputValues()
   error += checkInputValuesEssentialBC();
 
   error += checkInputValuesNonDimensional();
-  error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap); 
+  error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap);
 
   checkInputValuesTurbulence();
   checkInputValuesDefaultOutlet();
   nonDimensionalizeAllEquationsOfState();
   nonDimensionalizeAllInitialConditions();
+  nonDimensionalizeOneDimensionalProblem();
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -3785,6 +3824,23 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->z /= ref.rv.length;
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+void IoData:: nonDimensionalizeOneDimensionalProblem(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  oneDimensionalInfo.interfacePosition /= ref.rv.length;
+  oneDimensionalInfo.maxDistance       /= ref.rv.length;
+
+  oneDimensionalInfo.density1  /= ref.rv.density;
+  oneDimensionalInfo.velocity1 /= ref.rv.velocity;
+  oneDimensionalInfo.pressure1 /= ref.rv.pressure;
+  oneDimensionalInfo.density2  /= ref.rv.density;
+  oneDimensionalInfo.velocity2 /= ref.rv.velocity;
+  oneDimensionalInfo.pressure2 /= ref.rv.pressure;
 }
 
 //------------------------------------------------------------------------------

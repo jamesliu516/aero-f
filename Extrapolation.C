@@ -39,7 +39,7 @@ Extrapolation<dim>::~Extrapolation()
 
 //------------------------------------------------------------------------------
 inline
-double distance(Vec3D a, Vec3D b)
+double pointToPointDistance(Vec3D a, Vec3D b)
 {
 
   double t = (b[0]-a[0])*(b[0]-a[0]) + (b[1]-a[1])*(b[1]-a[1]) + (b[2]-a[2])*(b[2]-a[2]);
@@ -148,8 +148,8 @@ void Extrapolation<dim>::computeFaceInterpolation(int i, bool &master, int node,
       Vec3D X2 = temp2 + extrapolationdata[i][1].r * (temp0 - temp2) +
 		 extrapolationdata[i][1].t * (temp1 - temp2 );
 
-      double dx1 = distance(X1, X0);
-      double dx2 = distance(X2, X1);
+      double dx1 = pointToPointDistance(X1, X0);
+      double dx2 = pointToPointDistance(X2, X1);
 
       if(dx2!=0.0){
         for (int kkk=0; kkk<dim; kkk++)

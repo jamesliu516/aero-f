@@ -155,8 +155,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   this->timer->addFluidSolutionTime(t0);
 
   if(false && !(this->interfaceType==MultiFluidData::FSF)){
-    this->varFcn->conservativeToPrimitive(U,this->V0,&(this->fluidSelector.fluidId));
-    this->riemann->storePreviousPrimitive(this->V0, this->fluidSelector.fluidId, *this->X);
+    this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
+    this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
 
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);
@@ -164,8 +164,8 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     (this->fluidSelector).getFluidId(this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
 
-    this->riemann->updatePhaseChange(this->V0, this->fluidSelector.fluidId, this->fluidSelector.fluidIdn);
-    this->varFcn->primitiveToConservative(this->V0,U,&(this->fluidSelector.fluidId));
+    this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+    this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }
 
   checkSolution(U);
@@ -196,7 +196,7 @@ template<int dim, int dimLS>
 void ImplicitLevelSetTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,dim> &Q,
                                             DistSVec<double,dim> &rhs)
 {
-  this->multiPhaseSpaceOp->recomputeRHS(*this->X, Q, this->fluidSelector.fluidId, rhs);
+  this->multiPhaseSpaceOp->recomputeRHS(*this->X, Q, *this->fluidSelector.fluidId, rhs);
 }
 
 //------------------------------------------------------------------------------
@@ -211,7 +211,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
   if (!this->tag)
     this->tag = new DistSVec<bool,2>(this->getVecInfo());
 
-  this->domain->checkFailSafe(this->varFcn, U, *this->tag, &(this->fluidSelector.fluidId));
+  this->domain->checkFailSafe(this->varFcn, U, *this->tag, this->fluidSelector.fluidId);
   this->multiPhaseSpaceOp->fix(*this->tag);
 
   return 1;
@@ -302,7 +302,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
                                                     DistSVec<double,dimLS> &PhiF)
 {
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, this->fluidSelector.fluidId, U, PhiF);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF);
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
 			        this->LS->Phin, this->LS->Phinm1, 
@@ -318,7 +318,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobianLS(int it,
 {
 
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-		  U, PhiF, this->fluidSelector.fluidId);
+		  U, PhiF, *this->fluidSelector.fluidId);
 
 }
 //------------------------------------------------------------------------------

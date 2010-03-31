@@ -155,6 +155,7 @@ ADD_LIBRARY(FluidBase
              LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
              FluidSelector.C
+             OneDimensionalSolver.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)

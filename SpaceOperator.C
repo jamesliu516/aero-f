@@ -1729,11 +1729,11 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 {
 
   R = 0.0;
-  this->varFcn->conservativeToPrimitive(U, *(this->V), &(fluidSelector.fluidId));
+  this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidSelector.fluidId, *(this->V));
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V));
     this->timer->addNodalGradTime(t0);
   }
 
@@ -1841,7 +1841,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
 
   //fprintf(stdout, "going through computeJacobian for two-phase flows\n");
 #ifdef DOUBLE_CHECK
-  this->varFcn->conservativeToPrimitive(U, *(this->V), &(fluidSelector.fluidId));
+  this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
 #endif
 
   A = 0.0;

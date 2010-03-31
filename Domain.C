@@ -791,7 +791,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
 
   DistSVec<double,dim>* RR = new DistSVec<double,dim>(getNodeDistInfo());
   *RR = R; // initialize temp residual
-  DistVec<int> &FluidId(fluidSelector.fluidId);
+  DistVec<int> &FluidId(*(fluidSelector.fluidId));
 
   int iSub;
 #pragma omp parallel for
@@ -1305,7 +1305,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                                      X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
                                                      fluidSelector, 
-                                                     fluidSelector.fluidId(iSub), inletRhsPat);
+                                                     (*(fluidSelector.fluidId))(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
@@ -1325,7 +1325,7 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
                                                      X(iSub),
                                                      ctrlVol(iSub), V(iSub), A(iSub),
                                                      fluidSelector, 
-                                                     fluidSelector.fluidId(iSub), inletRhsPat);
+                                                     (*(fluidSelector.fluidId))(iSub), inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
     double t = timer->addFiniteVolumeJacTime(t0);
