@@ -67,13 +67,12 @@ int main(int argc, char **argv)
   ioData.readCmdLine(argc, argv);
   ioData.readCmdFile();
 
-  OneDimensional one(ioData,&domain);
-  one.spatialSetup();
-  one.temporalSetup();
-  one.stateInitialization(ioData.oneDimensionalInfo);
-  one.totalTimeIntegration();
-
-/*  if (ioData.problem.alltype==ProblemData::_SPARSEGRIDGEN_){
+  if(ioData.oneDimensionalInfo.maxDistance>0.0){
+    OneDimensional one(ioData,&domain);
+    one.spatialSetup();
+    one.stateInitialization(ioData.oneDimensionalInfo);
+    one.totalTimeIntegration();
+  }else if (ioData.problem.alltype==ProblemData::_SPARSEGRIDGEN_){
     startSparseGridGeneration(ioData,domain);
   }else{
     // obtain problem geometry
@@ -94,7 +93,7 @@ int main(int argc, char **argv)
     else
       startNavierStokesSolver(ioData, geoSource, domain);
   }
-*/
+
 #ifndef CREATE_DSO
   closeCommunication();
 #endif

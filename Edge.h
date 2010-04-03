@@ -150,7 +150,7 @@ public:
 */
 
   template<int dimLS>
-  void TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }

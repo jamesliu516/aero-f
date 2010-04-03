@@ -393,6 +393,7 @@ void OneDimensional::resultsOutput(double time, int iteration){
   varFcn->conservativeToPrimitive(U,V,&fluidId);
 
   output << "# time = " << time*refVal.time << endl;
+  output << "# " << numPoints << endl;
   for(int i=0; i<numPoints; i++)
     output << X[i][0]*refVal.length <<" "<< V[i][0]*refVal.density <<" "<<V[i][1]*refVal.velocity <<" "<<V[i][4]*refVal.pressure <<" "<<Phi[i][0]/V[i][0]*refVal.length <<endl;
   output.close();

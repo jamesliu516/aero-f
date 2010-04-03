@@ -67,6 +67,8 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
   Phi0 = -1.0;
   setupPhiVolumesInitialConditions(iod, Phi0);
+  if(iod.input.oneDimensionalSolution[0] != 0)
+    setupPhiOneDimensionalSolution(iod,X,Phi0);
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
   primitiveToConservative(Phi0, Phi, U);
 
@@ -100,6 +102,19 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     Phinm2 = Phinm1;
   }
 
+  // determine which level-sets must be updated and reinitialized
+  conservativeToPrimitive(Phi,Phi0,U);
+  double minDist[dimLS];
+  double maxDist[dimLS];
+  Phi0.min(minDist);
+  Phi0.max(maxDist);
+  for(int idim=0; idim<dimLS; idim++){
+    if(fabs(minDist[idim])==fabs(maxDist[idim]) && fabs(minDist[idim]) == 1)
+      trueLevelSet[idim] = false;
+    else trueLevelSet[idim] = true;
+    fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
+  }
+
   // for reinitialization testing
   Phi0 = Phi;
 
@@ -124,7 +139,75 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
 
 }
 
-//---------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
+
+template<int dimLS>
+void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+
+  // read 1D solution
+  fstream input;
+  int sp = strlen(iod.input.prefix) + 1;
+  char *filename = new char[sp + strlen(iod.input.oneDimensionalSolution)];
+  sprintf(filename, "%s%s", iod.input.prefix, iod.input.oneDimensionalSolution);
+  input.open(filename, fstream::in);
+  if (!input.is_open()) {
+    cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
+    exit(1);
+  }
+
+  input.ignore(256,'\n');
+  input.ignore(2,' ');
+  int numPoints = 0;
+  input >> numPoints;
+  cout <<"number of points in 1D solution is " << numPoints <<endl;
+  double x_1D[numPoints];
+  double v_1D[numPoints][4];/* rho, u, p, phi*/
+
+  for(int i=0; i<numPoints; i++) {
+    input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
+    x_1D[i]    /= iod.ref.rv.length;
+    v_1D[i][0] /= iod.ref.rv.density;
+    v_1D[i][1] /= iod.ref.rv.velocity;
+    v_1D[i][2] /= iod.ref.rv.pressure;
+    v_1D[i][3] /= iod.ref.rv.length;
+  }
+
+  input.close();
+
+  // interpolation assuming 1D solution is centered on bubble_coord0
+  double bubble_x0 = 0.0;
+  double bubble_y0 = 0.0;
+  double bubble_z0 = 0.0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    SVec<double,dimLS> &phi(Phi(iSub));
+    SVec<double, 3> &x(X(iSub));
+
+    double localRadius; int np;
+    double localAlpha;
+    for(int i=0; i<phi.size(); i++) {
+      localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+      np = static_cast<int>(floor(localRadius/x_1D[numPoints-1]*(numPoints-1)));
+
+      if(np>numPoints-1){
+      //further away from the max radius of the 1D simulation, take last value
+      //<==> constant extrapolation
+        np = numPoints-1;
+        phi[i][0] = v_1D[np][3];
+      }else{
+      //linear interpolation
+        localAlpha = (localRadius-x_1D[np])/(x_1D[np+1]-x_1D[np]);
+        phi[i][0]  = localAlpha*v_1D[np][3] + (1.0-localAlpha)*v_1D[np+1][3];
+      }
+      // assumes that the fluidTag==0 is outside flow
+      // and that the fluidTag==1 is the inside flow!!!
+      
+    }
+  }
+
+}
+
+//---------------------------------------------------------------------------------------
 
 template<int dimLS>
 void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
@@ -213,15 +296,42 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 
   // phi[fluidId] is initialized with -1 and +1 giving the location of fluid fluidId
   // distance[fluidId] is the positive distance to the closest interface between fluid fluidId and fluid 0.
+  double minDist[dimLS];
+  double maxDist[dimLS];
+  Distance.min(minDist);
+  Distance.max(maxDist);
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
 
     SVec<double,dimLS> &phi(Phi(iSub));
     SVec<double,dimLS> &distance(Distance(iSub));
-    for (int i=0; i<phi.size(); i++)
-      for (int idim=0; idim<dimLS; idim++)
-        phi[i][idim] *= distance[i][idim];
+    for (int idim=0; idim<dimLS; idim++){
+      // multiply only when distance is not -1 everywhere
+      if(minDist[idim] != maxDist[idim])
+        for (int i=0; i<phi.size(); i++)
+          phi[i][idim] *= distance[i][idim];
+      else
+        fprintf(stdout, "LevelSet[%d] does not need to be updated since it seems enclosed in a volume!\n", idim);
+    }
   }
+
+}
+
+//---------------------------------------------------------------------------------------------------------
+template<int dimLS>
+void LevelSet<dimLS>::checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi)
+{
+
+  for(int idim=0; idim<dimLS; idim++)
+    if(!trueLevelSet[idim]){
+      //fprintf(stdout, "setting dphi[%d] to zero\n", idim);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dimLS> &dphi(dPhi(iSub));
+        for(int i=0; i<dphi.size(); i++)
+          dphi[i][idim] = 0.0;
+      }
+    }
 
 }
 
@@ -301,108 +411,10 @@ void LevelSet<dimLS>::reinitializeLevelSet(DistGeoState &geoState,
 				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
   com->fprintf(stdout, "reinitializing\n");
-  if(false)
-    reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
-  else if(true)
-    reinitializeLevelSetFM(geoState,X,ctrlVol,U,Phi);
+  // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
+  reinitializeLevelSetFM(geoState,X,ctrlVol,U,Phi);
 
 }
-//-------------------------------------------------------------------------
-template<int dimLS>
-template<int dim>
-void LevelSet<dimLS>::reinitializeLevelSetPDE(DistGeoState &geoState, 
-				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
-{
-
-  /* solving reinitialization equation for the level set
-  ** dphi/dt + sign(phi)*(abs(grad(phi))-1.0) = 0.0
-  ** where phi is the 'primitive phi'
-  **
-  ** numerically, since we need to iterate over fictitious time
-  ** to converge the solution, we solve
-  ** dpsi/dtau + sign(phi)*(abs(grad(phi))-1.0) = 0.0
-  ** and psi(tau = 0.0) = phi
-  **
-  ** it is not always possible to solve this equation using
-  ** local time stepping, especially far from the interface.
-  ** Since the distance function is needed only close to the
-  ** interface, one solves this equation for nodes close to
-  ** that interface (those nodes are tagged first). The
-  ** remaining nodes are set to an arbitrary value. Here
-  ** we chose to give them the highest value among its neighbors.
-  */
-
-  // initialize Psi
-  Psi = Phi;
-
-  // tag nodes that are close to interface up to level 'levelTot'
-  int level = 0;
-  for (level=0; level<bandlevel; level++)
-    //domain->TagInterfaceNodes(Tag,Phi0,level);
-    domain->TagInterfaceNodes(Tag,Phi,level);
-
-  // steady state solution over tagged nodes
-  //computeSteadyState(geoState, X, ctrlVol, U, Phi0); // for testing only!!
-  computeSteadyState(geoState, X, ctrlVol, U, Phi);
-
-  // psi is set to max(values of neighbours with tag>0) if tag is 0
-  bool lastlevel = false;
-  while(!lastlevel){
-    domain->FinishReinitialization(Tag,Psi,level);
-    level += 1;
-    lastlevel = (Tag.min()==0 ? false : true);
-  }
-
-  //DistSVec<double,dimLS> testsign(domain->getNodeDistInfo());
-  //testsign = Psi;
-  //testsign *= Phi;
-  //domain->checkNodePhaseChange(testsign);
-
-  // set Phi to the new distance function
-  Phi = Psi;
-
-}
-
-//-------------------------------------------------------------------------
-template<int dimLS>
-template<int dim>
-void LevelSet<dimLS>::computeSteadyState(DistGeoState &geoState,
-                                  DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                  DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
-{
-
-  bool lastIt = false;
-  int iteration = 0;
-  double res0;
-
-  //need to compute only for tagged nodes =1 ie for nodes close to interface!
-  if(typeTracking != MultiFluidData::LINEAR)
-    lsgrad->compute(geoState.getConfig(),X,Psi);
-
-  while(!lastIt){
-
-    domain->computePsiResidual(X, *lsgrad, Phi, Psi, Tag,
-		               w, dt, PsiRes, localtime, typeTracking);
-
-    lastIt = checkConvergencePsi(iteration, res0);
-
-    if(localtime){
-      dt *= cfl_psi;
-      PsiRes *= dt;
-    }else{
-      double dt_glob = cfl_psi*dt.min();
-      PsiRes *= dt_glob;
-    }
-
-    Psi -= PsiRes;
-    
-    iteration++;
-
-  }
-
-}
-
 //-------------------------------------------------------------------------
 template<int dimLS>
 template<int dim>
@@ -411,62 +423,57 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
 				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
 
-  // initialize Psi
-  Psi = 0.1;
+  // reinitialize each LevelSet separately
+  for(int idim=0; idim<dimLS; idim++){
+    if(!trueLevelSet[idim]) continue;
+    fprintf(stdout, "reinitializing phi[%d] to distance\n", idim);
 
-  // tag nodes that are close to interface up to level 'bandlevel'
-  int level = 0;
-  for (level=0; level<bandlevel; level++)
-    domain->TagInterfaceNodes(Tag,Phi,level);
+    // initialize Psi
+    Psi = 0.1;
+
+    // tag nodes that are close to interface up to level 'bandlevel'
+    int level = 0;
+    for (level=0; level<bandlevel; level++)
+      domain->TagInterfaceNodes(idim,Tag,Phi,level);
 
 
-  //compute distance for Psi<=0.5 and level<bandlevel
-  // first, the nodes with tag = 1 (ie closest nodes to interface)
-  domain->computeDistanceCloseNodes(Tag,X,*lsgrad,Phi,Psi,copy);
-  // second, the other nodes
-  // we proceed layer by layer, going from one layer to the other
-  // when a layer is converged.
-  double res,resn,resnm1;
-  double eps = conv_eps;
-  int it=0;
-  for (level=2; level<bandlevel; level++){
-    com->fprintf(stdout, "*** level = %d\n", level);
-    res = 1.0;
-    resn = 1.0; resnm1 = 1.0;
-    it = 0;
-    while(res>eps || it<=1){
-      resnm1 = resn;
-      domain->computeDistanceLevelNodes(Tag,level,X,Psi,resn,Phi,copy);
-      res = fabs((resn-resnm1)/(resn+resnm1));
-      it++;
+    //compute distance for Psi<=0.5 and level<bandlevel
+    // first, the nodes with tag = 1 (ie closest nodes to interface)
+    domain->computeDistanceCloseNodes(idim,Tag,X,*lsgrad,Phi,Psi,copy);
+    // second, the other nodes
+    // we proceed layer by layer, going from one layer to the other
+    // when a layer is converged.
+    double res,resn,resnm1;
+    double eps = conv_eps;
+    int it=0;
+    for (level=2; level<bandlevel; level++){
+      com->fprintf(stdout, "*** level = %d\n", level);
+      res = 1.0;
+      resn = 1.0; resnm1 = 1.0;
+      it = 0;
+      while(res>eps || it<=1){
+        resnm1 = resn;
+        domain->computeDistanceLevelNodes(idim,Tag,level,X,Psi,resn,Phi,copy);
+        res = fabs((resn-resnm1)/(resn+resnm1));
+        it++;
+      }
     }
+
+    domain->getSignedDistance(idim,Psi,Phi);
+
+    // set Phi to the new distance function
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub){
+      double (*phi)[dimLS] = Phi.subData(iSub);
+      double (*psi)[1]     = Psi.subData(iSub);
+      for (int i=0; i<Phi.subSize(iSub); i++){
+        if(diff)
+          phi[i][idim] -= psi[i][0];
+        else
+          phi[i][idim] = psi[i][0];
+      }
+    }
+
   }
-
-  domain->getSignedDistance(Psi,Phi);
-
-  // set Phi to the new distance function
-  if(diff)
-    Phi -= Psi;
-  else
-    Phi = Psi;
 }
 //---------------------------------------------------------------------------------------------------------
-template<int dimLS>
-bool LevelSet<dimLS>::checkConvergencePsi(int iteration, double &res0)
-{
-
-  double eps = 1.0e-6;
-  double res = sqrt(PsiRes*PsiRes);
-
-  if(iteration == 0)
-    res0 = res;
-
-  double target = eps*res0;
-  if(res < target || iteration >= subIt || res < 1.e-12){
-    com->fprintf(stdout, "*** ReinitLS: SubIt = %d (init = %e, res = %e, target = %e)\n", iteration, res0, res, target);
-    return true;
-  }
-
-  return false;
-
-}

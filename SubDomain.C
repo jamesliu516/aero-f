@@ -2664,6 +2664,7 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
       for (int j = 0; j < dim; ++j)  {
 	w[ (*sharedNodes)[iSub][iNode] ][j] += buffer[iNode][j];
       }
+
   }
 }
 
@@ -4422,66 +4423,6 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
 }
 
 //--------------------------------------------------------------------------
-
-template<int dim>
-void SubDomain::computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
-                                   SVec<double,dim> &Phi, SVec<double,dim> &Psi,
-				   Vec<int> &Tag,
-                         	   Vec<double> &w, Vec<double> &beta,
-				   SVec<double,dim> &PsiRes, int typeTracking)
-{
-
-  PsiRes = 0.0;
-  w = 0.0;
-  beta = 0.0;
-
-  SVec<double,dim>& ddx  = grad.getX();
-  SVec<double,dim>& ddy  = grad.getY();
-  SVec<double,dim>& ddz  = grad.getZ();
-
-  elems.computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
-}
-
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-				    SVec<double,dim> &PsiRes)
-{
-
-  for(int i=0; i<nodes.size(); i++){
-    if(Tag[i]==0 && (PsiRes[i][0]!=0.0 || w[i]!=0.0 || beta[i]!=0.0)){
-      fprintf(stdout, "this untagged node (%d) should not have a residual!\n", locToGlobNodeMap[i]+1);
-      // can happen for nodes that belong to an active tet but are not tagged nodes
-      PsiRes[i][0]=0.0;
-      beta[i] = 0.0;
-      w[i] = 0.0;
-    }
-  }
-
-
-  for(int i=0; i<nodes.size(); i++){
-    if(Tag[i]>0){
-      if(w[i]!=0.0)
-        PsiRes[i][0] /= w[i];
-
-      if(beta[i]!=0.0)
-        beta[i] = w[i]/beta[i];
-    }
-  }
-
-}
-//------------------------------------------------------------------------------
-template<int dim>
-void SubDomain::computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-                                    SVec<double,dim> &PsiRes, bool localdt)
-{
-  if(!localdt)
-    for(int i=0; i<nodes.size(); i++){
-      if(!(beta[i]>0.0))
-        beta[i] = bmax;
-    }
-}
-//------------------------------------------------------------------------------
 template<int dimLS>
 void SubDomain::checkNodePhaseChange(SVec<double,dimLS> &PhiProduct)
 {
@@ -4823,6 +4764,8 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
+  fprintf(stderr, "***Error: this routine is not valid for multiple subdomains\n");
+  exit(1);
 
   for(int i=0; i<nodes.size(); i++){
     for(int j=0; j<dimLS; j++){
@@ -4862,7 +4805,7 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi, int level)
+void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level)
 {
   if(!NodeToNode)
      NodeToNode = createEdgeBasedConnectivity();
@@ -4870,7 +4813,7 @@ void SubDomain::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi, int le
   if(level==0){
   // tag nodes that are closest to interface by looking at phi[i]*phi[j]
     Tag = 0;
-    edges.TagInterfaceNodes(Tag,Phi);
+    edges.TagInterfaceNodes(lsdim,Tag,Phi);
 
   }else{
   // tag nodes that are neighbours of already tagged nodes.
@@ -4919,105 +4862,6 @@ void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
 
 }
 //------------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setPhiForFluid1(SVec<double,dimLS> &phi)  {
-  //TODO: Multiphase : implement correctly
-  for (int iElem = 0; iElem < elems.size(); iElem++)  {
-    if (elems[iElem].getVolumeID() != -1)  {
-      int *nodeNums = elems[iElem].nodeNum();
-      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++)
-        phi[nodeNums[iNode]][0] = 1.0;
-
-    }
-  }
-}
-//--------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
-                                             double y, double z, double r,
-                                             double invertGasLiquid,
-                                             SVec<double,dimLS> &Phi)  {
-  //TODO: Multiphase : implement correctly
-// assume it is a sphere!
-  double dist; //dist to center of sphere
-  for (int i=0; i<nodes.size(); i++){
-    dist = (X[i][0]-x)*(X[i][0]-x) + (X[i][1]-y)*(X[i][1]-y) + (X[i][2]-z)*(X[i][2]-z);
-    dist = sqrt(dist);
-    Phi[i][0] *= std::abs(dist - r);
-  }
-}
-//--------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
-                                             double y, double z, double r,
-                                             double invertGasLiquid,
-                                             SVec<double,dimLS> &Phi)  {
-  //TODO: Multiphase : implement correctly
-//WARNING: routine cannot do like in setPhiWithDistanceToGeometry
-//         where phi was computed by : Phi[i][0] *= std::abs(dist - r);
-//         because in that routine Phi[i][0] had value 1 or -1
-//         Here this is not possible because we do not loop on nodes,
-//         we loop on elements, and thus we pass several times on each
-//         node, and we cannot say that Phi[i][0] is 1 or -1.
-
-
-  // assume it is a sphere!
-  double dist; //dist to center of sphere
-  int node;
-
-  for (int iElem = 0; iElem < elems.size(); iElem++)  {
-    if (elems[iElem].getVolumeID() != -1)  {
-    // nodes in element with volumeID != -1 --> Phi>0 except where we specify otherwise
-      int *nodeNums = elems[iElem].nodeNum();
-      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
-        node = nodeNums[iNode];
-        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
-               (X[node][2]-z)*(X[node][2]-z);
-        dist = sqrt(dist);
-        Phi[node][0] = dist - r;
-
-      }
-    }else{
-    // nodes in element with volumeID = -1 --> Phi<0
-      int *nodeNums = elems[iElem].nodeNum();
-      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++){
-        node = nodeNums[iNode];
-        dist = (X[node][0]-x)*(X[node][0]-x) + (X[node][1]-y)*(X[node][1]-y) +
-               (X[node][2]-z)*(X[node][2]-z);
-        dist = sqrt(dist);
-        //Phi[node][0] *= std::abs(dist-r); // does not work (cf WARNING)
-        Phi[node][0] = -std::abs(dist-r);
-      }
-
-    }
-  }
-
-}
-//--------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setPhiForShockTube(SVec<double,3> &X,
-                                   double radius, SVec<double,dimLS> &Phi)
-{
-  //TODO: Multiphase : implement correctly
-  for (int i=0; i<nodes.size(); i++)
-    Phi[i][0] = X[i][0] - radius;
-
-}
-//--------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setPhiForBubble(SVec<double,3> &X, double x, double y,
-                             double z, double radius, double invertGasLiquid,
-                             SVec<double,dimLS> &Phi)
-{
-  //TODO: Multiphase : implement correctly
-  for (int i=0; i<nodes.size(); i++)
-    Phi[i][0] = invertGasLiquid*(sqrt( (X[i][0] -x)*(X[i][0] -x)  +
-                                    (X[i][1] -y)*(X[i][1] -y)  +
-                                    (X[i][2] -z)*(X[i][2] -z))
-                                  - radius);
-}
-
-//--------------------------------------------------------------------------
 
 template<int dimLS>
 void SubDomain::setupPhiVolumesInitialConditions(const int volid, 
@@ -5036,46 +4880,6 @@ void SubDomain::setupPhiVolumesInitialConditions(const int volid,
 
 }
 
-//--------------------------------------------------------------------------
-template<int dimLS>
-void SubDomain::setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-                                 SVec<double,3> &X, SVec<double,dimLS> &Phi){
-  //TODO: Multiphase : implement correctly
-  double dist = 0.0;
-  double x = ic.cen_x;
-  double y = ic.cen_y;
-  double z = ic.cen_z;
-  double r = ic.radius;
-
-  for (int i=0; i<Phi.size(); i++){
-    dist = (X[i][0] - x)*(X[i][0] - x) + (X[i][1] - y)*(X[i][1] - y) + (X[i][2] - z)*(X[i][2] - z);
-    Phi[i][0] *= sqrt(dist) - r;
-  }
-
-}
-
-//--------------------------------------------------------------------------
-
-template<int dimLS>
-void SubDomain::setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-                                 SVec<double,3> &X, SVec<double,dimLS> &Phi){
-  //TODO: Multiphase : implement correctly
-  double scalar = 0.0;
-  double x = ip.cen_x;
-  double y = ip.cen_y;
-  double z = ip.cen_z;
-  double norm = ip.nx*ip.nx+ip.ny*ip.ny+ip.nz*ip.nz;
-  norm = sqrt(norm);
-  double nx = ip.nx/norm;
-  double ny = ip.ny/norm;
-  double nz = ip.nz/norm;
-
-  for (int i=0; i<Phi.size(); i++){
-    scalar = nx*(X[i][0] - x)+ny*(X[i][1] - y)+nz*(X[i][2] - z);
-    Phi[i][0] *= -scalar;
-  }
-
-}
 //--------------------------------------------------------------------------
 // for mesh motion (with RK2 time-integration)
 template<int dimLS>
@@ -5123,18 +4927,18 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, i
 }
 //-----------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+void SubDomain::copyCloseNodes(int lsdim, int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
   for(int i=0; i<nodes.size(); i++)
     if(Tag[i]==level)
-      Psi[i][0] = fabs(Phi[i][0]);
+      Psi[i][0] = fabs(Phi[i][lsdim]);
 
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+void SubDomain::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                        NodalGrad<dimLS> &grad,
-                                       SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+                                       SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
   for(int i=0; i<nodes.size(); i++){
     if(Tag[i]==1) Tag[i]=-1;
@@ -5142,31 +4946,31 @@ void SubDomain::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
   SVec<double,dimLS>& ddx  = grad.getX();
   SVec<double,dimLS>& ddy  = grad.getY();
   SVec<double,dimLS>& ddz  = grad.getZ();
-  elems.computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  elems.computeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 }
 //-------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+void SubDomain::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                       NodalGrad<dimLS> &grad, SVec<double,dimLS> &Phi,
-                                      SVec<double,dimLS> &Psi)
+                                      SVec<double,1> &Psi)
 {
 
   SVec<double,dimLS>& ddx  = grad.getX();
   SVec<double,dimLS>& ddy  = grad.getY();
   SVec<double,dimLS>& ddz  = grad.getZ();
-  elems.recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+  elems.recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
 //-------------------------------------------------------------------------------
 template<int dimLS>
-double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                       SVec<double,3> &X, SVec<double,dimLS> &Psi,SVec<double,dimLS> &Phi)
+double SubDomain::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,1> &Psi,SVec<double,dimLS> &Phi)
 {
 
   if(level==2)
     for(int i=0; i<nodes.size(); i++)
       if(Tag[i]==-1) Tag[i]=1;
-  elems.computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+  elems.computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
   double res = 0.0;
   for(int i=0; i<nodes.size(); i++)
     if(Tag[i]==level)
@@ -5177,13 +4981,13 @@ double SubDomain::computeDistanceLevelNodes(Vec<int> &Tag, int level,
 //-------------------------------------------------------------------------------
 
 template<int dimLS>
-void SubDomain::getSignedDistance(SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi)
+void SubDomain::getSignedDistance(int lsdim, SVec<double,1> &Psi, SVec<double,dimLS> &Phi)
 {
   for(int i=0; i<nodes.size(); i++){
-    if(Phi[i][0]<0.0)
+    if(Phi[i][lsdim]<0.0)
       Psi[i][0] = -Psi[i][0];
-    if(Phi[i][0]<0.0 && Psi[i][0]>0.0)
-      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i][0],Psi[i][0]);
+    if(Phi[i][lsdim]<0.0 && Psi[i][0]>0.0)
+      fprintf(stdout, "globnode %d (%d) has changed phase %e %e\n", locToGlobNodeMap[i]+1,i,Phi[i][lsdim],Psi[i][0]);
   }
 }
 //------------------------------------------------------------------------------

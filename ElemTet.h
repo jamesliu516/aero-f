@@ -156,28 +156,22 @@ public:
 			       SVec<double,dim> &, SVec<double,dim> &, double, SVec<double,dim> &);
 
 // Level Set Reinitialization
-  template<int dim>
-  void computePsiResidual(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                          SVec<double,dim> &ddx,SVec<double,dim> &ddy,
-                          SVec<double,dim> &ddz, Vec<int> &Tag,
-                          Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes,
-			  int typeTracking);
 
   template<int dim>
-  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+  void computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                  SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,1> &Psi);
 
   template<int dim>
-  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+  void recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                  SVec<double,dim> &ddx, SVec<double,dim> &ddy,
                                  SVec<double,dim> &ddz,
-                                 SVec<double,dim> &Phi,SVec<double,dim> &Psi);
+                                 SVec<double,dim> &Phi,SVec<double,1> &Psi);
 
   template<int dim>
-  void computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dim> &Psi, SVec<double,dim> &Phi);
+  void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
 
 
@@ -186,10 +180,6 @@ private:
   //--------------functions in ElemTetCore.C
 
 //Level Set Reinitialization
-  void computePsiResidualSubTet(double psi[4], double phi[4],
-                                Vec3D A, Vec3D B, Vec3D C, Vec3D D,
-                                double locdphi[4], double locw[4],
-                                double locbeta[4], bool debug);
   double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
   int findRootPolynomialLaguerre(double f1, double f2, double fp1, double fp2, double &root);
   bool computeDistancePlusPhiToOppFace(double phi[3], Vec3D Y0,
@@ -206,39 +196,25 @@ private:
 
 //Level Set Reinitialization
   template<int dim>
-  int findLSIntersectionPoint(SVec<double,dim> &Phi, SVec<double,dim> &ddx,
+  int findLSIntersectionPoint(int lsdim, SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                               SVec<double,dim> &ddy, SVec<double,dim> &ddz,
  			      SVec<double,3> &X,
                               int reorder[4], Vec3D P[4], int typeTracking);
   template<int dim>
-  void findLSIntersectionPointLinear(SVec<double,dim> &Phi, SVec<double,dim> &ddx,
+  void findLSIntersectionPointLinear(int lsdim, SVec<double,dim> &Phi, SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
-  void findLSIntersectionPointGradient(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
+  void findLSIntersectionPointGradient(int lsdim, SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
 				 SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
   template<int dim>
-  int findLSIntersectionPointHermite(SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
+  int findLSIntersectionPointHermite(int lsdim, SVec<double,dim> &Phi,  SVec<double,dim> &ddx,
                                  SVec<double,dim> &ddy, SVec<double,dim> &ddz,
                                  SVec<double,3> &X,
                                  int reorder[4], Vec3D P[4], int scenario);
-
-  template<int dim>
-  void computePsiResidual0(SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
-
-  template<int dim>
-  void computePsiResidual1(int reorder[4], Vec3D P[4],
-                           SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
-
-  template<int dim>
-  void computePsiResidual2(int reorder[4], Vec3D P[4],
-                           SVec<double,3> &X,SVec<double,dim> &Phi,SVec<double,dim> &Psi,
-                           Vec<double> &w,Vec<double> &beta, SVec<double,dim> &PsiRes, bool debug);
 
   template<int dim>
   void computeDistanceToInterface(int type, SVec<double,3> &X, int reorder[4],

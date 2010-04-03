@@ -454,7 +454,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{			// interface
       //ngradLS returns nodal gradients of primitive phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j]);
+      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
       gphii[0] = -dPdx[i][lsdim];
       gphii[1] = -dPdy[i][lsdim];
       gphii[2] = -dPdz[i][lsdim];
@@ -1497,20 +1497,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void EdgeSet::TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi)
+void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi)
 {
 
-  //TODO: Multiphase reinitialization: implement correctly
   int tag = 1;
   for(int l=0; l<numEdges; l++){
     int i = ptr[l][0];
     int j = ptr[l][1];
 
-    for(int k=0; k<dimLS; k++){
-      if(Phi[i][k]*Phi[j][k]<=1.0e-12){
-        Tag[i] = tag;
-        Tag[j] = tag;
-      }
+    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0){
+      Tag[i] = tag;
+      Tag[j] = tag;
     }
   }
 
