@@ -250,34 +250,9 @@ public:
   void computeFilterWidth(SVec<double,3> &, Vec<double> &);
   void finalizeTags(SVec<int,2> &);
   template<int dimLS>
-  void setPhiForFluid1(SVec<double,dimLS> &);
-  template<int dimLS>
-  void setPhiWithDistanceToGeometry(SVec<double,3> &X, double x,
-                                    double y, double z, double r,
-                                    double invertGasLiquid,
-                                    SVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiByGeometricOverwriting(SVec<double,3> &X, double x,
-                                    double y, double z, double r,
-                                    double invertGasLiquid,
-                                    SVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiForShockTube(SVec<double,3> &X,
-                          double radius, SVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiForBubble(SVec<double,3> &X, double x, double y,
-                       double z, double radius, double invertGasLiquid,
-                       SVec<double,dimLS> &Phi);
-  template<int dimLS>
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, SVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-                                 SVec<double,3> &X, SVec<double,dimLS> &Phi);
   void outputCsDynamicLES(DynamicLESTerm *, SVec<double,2> &, SVec<double,3> &, Vec<double> &);
 
-  template<int dimLS>
-  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-                                 SVec<double,3> &X, SVec<double,dimLS> &Phi);
   template<int dimLS>
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin);
   template<int dimLS>
@@ -837,7 +812,7 @@ public:
   NodeSet &getNodes() { return nodes; }
 
   template<int dimLS>
-  void TagInterfaceNodes(Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
   template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
 
@@ -853,36 +828,24 @@ public:
   template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
 
-  template<int dim>
-  void computePsiResidual(SVec<double,3> &X, NodalGrad<dim> &grad,
-                          SVec<double,dim> &Phi, SVec<double,dim> &Psi,
-                          Vec<int> &Tag,
-                          Vec<double> &w, Vec<double> &beta,
-                          SVec<double,dim> &PsiRes, int typeTracking);
-  template<int dim>
-  void computePsiResidual2(Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-                           SVec<double,dim> &PsiRes);
-  template<int dim>
-  void computePsiResidual3(double bmax, Vec<int> &Tag, Vec<double> &w, Vec<double> &beta,
-                           SVec<double,dim> &PsiRes,bool localdt);
   template<int dimLS>
-  void copyCloseNodes(int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi);
+  void copyCloseNodes(int lsdim, int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,1> &Psi);
   template<int dimLS>
-  void computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+  void computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                  NodalGrad<dimLS> &grad,
-                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi);
+                                 SVec<double,dimLS> &Phi,SVec<double,1> &Psi);
   template<int dimLS>
-  void recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+  void recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                  NodalGrad<dimLS> &grad,
-                                 SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi);
+                                 SVec<double,dimLS> &Phi,SVec<double,1> &Psi);
   template<int dimLS>
-  double computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                 SVec<double,3> &X, SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi);
+  double computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
+                                 SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
   template<int dimLS>
   void checkNodePhaseChange(SVec<double,dimLS> &PhiProduct);
   template<int dimLS>
-  void getSignedDistance(SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi);
+  void getSignedDistance(int lsdim, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
   template<int dim>
   void storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId, 
                               SVec<double,3> &X, SVec<double,dim> &Vupdate, 

@@ -38,6 +38,7 @@ InputData::InputData()
   podFile2 = "";
   strModesFile = "";
   solidsurface = "";
+  oneDimensionalSolution = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -50,7 +51,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 18, father);
+  ClassAssigner *ca = new ClassAssigner(name, 19, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -73,6 +74,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<InputData>(ca, "SolidSurface", this, &InputData::solidsurface);
   ghostsolid.setup("GhostSolid",ca);
+
+  new ClassStr<InputData>(ca, "OneDimensionalSolution", this, &InputData::oneDimensionalSolution);
 
 }
 
@@ -3151,7 +3154,7 @@ OneDimensionalInfo::OneDimensionalInfo(){
   coordType  = CARTESIAN;
   volumeType = REAL_VOLUME;
 
-  maxDistance = 1.0;
+  maxDistance = 0.0;
   numPoints = 101;
   interfacePosition = 0.5;
 

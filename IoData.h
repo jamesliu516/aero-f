@@ -57,6 +57,7 @@ struct InputData {
   const char *podFile2;
   const char *strModesFile;
   const char *solidsurface;
+  const char *oneDimensionalSolution;
 
 // Included (MB)
   const char *shapederivatives;

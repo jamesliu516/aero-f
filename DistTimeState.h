@@ -90,6 +90,7 @@ public:
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
              DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); //fluidId needed only for multi-phase flow (not true)
   void setupUVolumesInitialConditions(IoData &iod);
+  void setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setupUFluidIdInitialConditions(double UU[dim], DistVec<int> &fluidId, int myId);
   void update(DistSVec<double,dim> &);

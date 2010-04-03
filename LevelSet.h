@@ -28,6 +28,11 @@ class LevelSet {
   Domain *domain;
   TimeData *data;
 
+  bool trueLevelSet[dimLS]; // some level-sets take only values -1 and +1 (volumeID initialization)
+                            // and do not need to be advected, since they don't represent a
+                            // fluid-fluid interface. However, other level-sets are distance functions
+                            // to a fluid-fluid interface and must therefore be updated and reinitialized.
+
   // for reinitialization from Input file
   MultiFluidData::InterfaceTracking typeTracking;  // how to find interface location
   MultiFluidData::CopyCloseNodes copy;             // true if nodes close to interface are unchanged
@@ -42,7 +47,7 @@ class LevelSet {
 
   // for reinitialization
   DistSVec<double,dimLS> Phi0;
-  DistSVec<double,dimLS> Psi;		// the steady state solution of Psi will reinitialize the level set
+  DistSVec<double,1> Psi;		// the steady state solution of Psi will reinitialize the level set
   DistVec<double> dt;			// pseudo-time steps
   DistSVec<double,dimLS> PsiRes;        // residual of the reinitialization equation
   DistVec<double> w;			// weights in epxlicit positive coefficient scheme (cf Barth and Sethian)
@@ -63,10 +68,13 @@ class LevelSet {
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
              DistSVec<double,dimLS> &Phi, IoData &iod);
   void setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi);
+  void setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X,
+                                      DistSVec<double,dimLS> &Phi);
   void setupPhiMultiFluidInitialConditions(IoData &iod, 
                               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
 
   // update the members of the class and writing them to the disk
+  void checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi);
   void update(DistSVec<double,dimLS> &Phi);
   void writeToDisk(char *name);
 
@@ -76,20 +84,9 @@ class LevelSet {
                             DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                             DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
   template<int dim>
-  void reinitializeLevelSetPDE(DistGeoState &geoState,
-                            DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                            DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
-  template<int dim>
-  void computeSteadyState(DistGeoState &geoState,
-                          DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                          DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
-  template<int dim>
   void reinitializeLevelSetFM(DistGeoState &geoState,
                             DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                             DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi);
-
-  bool checkConvergencePsi(int iteration, double &res0);
-
 
   // switching from conservative (rho*phi) to primitive (phi) and vice-versa
   template<int dim>

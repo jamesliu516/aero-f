@@ -162,50 +162,36 @@ void ElemSet::computeTestFilterAvgs(SVec<double,dim> &VCap, SVec<double,16> &Mom
 // Level Set Reinitialization functions
 
 template<int dimLS>
-void ElemSet::computePsiResidual(SVec<double,3> &X,SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi,
-				                         SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
-			   	                       SVec<double,dimLS> &ddz, Vec<int> &Tag,
-                                 Vec<double> &w,Vec<double> &beta, SVec<double,dimLS> &PsiRes,
- 				                         int typeTracking)
-{
-
-  for (int i=0; i<numElems; i++)
-    elems[i]->computePsiResidual(X,Phi,Psi,ddx,ddy,ddz,Tag,w,beta,PsiRes,typeTracking);
-
-}
-
-//------------------------------------------------------------------------------
-template<int dimLS>
-void ElemSet::computeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+void ElemSet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                        SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
                                        SVec<double,dimLS> &ddz,
-                                       SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+                                       SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
 
   for (int i=0; i<numElems; i++)
-    elems[i]->computeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+    elems[i]->computeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void ElemSet::recomputeDistanceCloseNodes(Vec<int> &Tag, SVec<double,3> &X,
+void ElemSet::recomputeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3> &X,
                                        SVec<double,dimLS> &ddx, SVec<double,dimLS> &ddy,
                                        SVec<double,dimLS> &ddz,
-                                       SVec<double,dimLS> &Phi,SVec<double,dimLS> &Psi)
+                                       SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
 
   for (int i=0; i<numElems; i++)
-    elems[i]->recomputeDistanceCloseNodes(Tag,X,ddx,ddy,ddz,Phi,Psi);
+    elems[i]->recomputeDistanceCloseNodes(lsdim,Tag,X,ddx,ddy,ddz,Phi,Psi);
 
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void ElemSet::computeDistanceLevelNodes(Vec<int> &Tag, int level,
-                                       SVec<double,3> &X, SVec<double,dimLS> &Psi, SVec<double,dimLS> &Phi)
+void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
+                                       SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi)
 {
 
   for (int i=0; i<numElems; i++)
-    elems[i]->computeDistanceLevelNodes(Tag,level,X,Psi,Phi);
+    elems[i]->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
 
 }
 // End of Level Set Reinitialization functions

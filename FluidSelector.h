@@ -99,7 +99,7 @@ public:
       if(phi[i]>0.0) {tag = i+1; return; }
   }
 
-  int getLevelSetDim(int fluidId1, int fluidId2){
+  int getLevelSetDim(int fluidId1, int fluidId2, int node1 = 0, int node2 = 0){
     if(fluidId1 == fluidId2){
       fprintf(stdout, "*** Error: getLevelSetDim should not be called when there is no interface.\n");
       exit(1);
@@ -109,7 +109,8 @@ public:
       exit(1);
     }
     if(fluidId1 * fluidId2 != 0){
-      fprintf(stdout, "*** Error: it  is assumed that all interfaces are between any fluid and fluid 0\n");
+      fprintf(stdout, "*** Error: it is assumed that all interfaces are between any fluid and fluid 0\n");
+      fprintf(stdout, "***      : here fluidIds are %d and %d for nodes %d and %d\n", fluidId1, fluidId2, node1, node2);
       exit(1);
     }
     int fId = fluidId1 + fluidId2;

@@ -320,34 +320,11 @@ public:
 
   // ----- BEGIN LEVELSET - MULTIPHASE FLOW SPECIFIC FUNCTIONS ----- //
   template<int dimLS>
-  void setPhiForFluid1(DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiWithDistanceToGeometry(DistSVec<double,3> &X, double xb, double yb,
-                                    double zb, double r, double invertGasLiquid,
-                                    DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiByGeometricOverwriting(DistSVec<double,3> &X, double xb, double yb,
-                                    double zb, double r, double invertGasLiquid,
-                                    DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiForShockTube(DistSVec<double,3> &X, double radius,
-                          DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setPhiForBubble(DistSVec<double,3> &X, double x, double y,
-                       double z, double radius, double invertGasLiquid,
-                       DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
-  void setupPhiMultiFluidInitialConditionsSphere(SphereData &ic,
-                    DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void setupPhiMultiFluidInitialConditionsPlane(PlaneData &ip,
-                    DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void TagInterfaceNodes(DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
-  template<int dimLS>
-  void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
+  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  //template<int dimLS>
+  //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], DistSVec<double,dim> &U);
@@ -375,26 +352,19 @@ public:
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS);
 
   template<int dimLS>
-  void computePsiResidual(DistSVec<double,3> &X, DistNodalGrad<dimLS> &lsgrad,
-			  DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Psi,
-			  DistVec<int> &Tag,
-			  DistVec<double> &w, DistVec<double> &beta,
-			  DistSVec<double,dimLS> &PsiRes, bool localdt,
-			  int typeTracking);
-  template<int dimLS>
-  void computeDistanceCloseNodes(DistVec<int> &Tag, DistSVec<double,3> &X,
+  void computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,3> &X,
                                  DistNodalGrad<dimLS> &lsgrad,
-                                 DistSVec<double,dimLS> &Phi,DistSVec<double,dimLS> &Psi,
+                                 DistSVec<double,dimLS> &Phi,DistSVec<double,1> &Psi,
                                  MultiFluidData::CopyCloseNodes copy);
   template<int dimLS>
-  void computeDistanceLevelNodes(DistVec<int> &Tag, int level,
-                                 DistSVec<double,3> &X,DistSVec<double,dimLS> &Psi,
+  void computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
+                                 DistSVec<double,3> &X,DistSVec<double,1> &Psi,
                                  double &res, DistSVec<double,dimLS> &Phi,
                                  MultiFluidData::CopyCloseNodes copy);
   template<int dimLS>
   void checkNodePhaseChange(DistSVec<double,dimLS> &PhiProduct);
   template<int dim>
-  void getSignedDistance(DistSVec<double,dim> &Psi, DistSVec<double,dim> &Phi);
+  void getSignedDistance(int lsdim, DistSVec<double,1> &Psi, DistSVec<double,dim> &Phi);
   template<int dimLS>
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin);
   template<int dimLS>
