@@ -32,36 +32,26 @@ template<int dim>
 StructLevelSetTsDesc<dim>::
 StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Phi(this->getVecInfo()), Vg(this->getVecInfo()), Vtemp(this->getVecInfo()),
-  PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
-  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),numFluid(ioData.eqs.numPhase)
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
 {
 
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
-  pressureChoice = ioData.strucIntersect.pressureChoice;
 
   this->postOp->setForceGenerator(this);
   if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
   if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
-  interpolatedNormal = (ioData.embed.structNormal==EmbeddedFramework::NodeBased) ? true : false;
-  phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RiemannSolution) ? 1 : 0;
-  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::ReconstructedSurface) ? 3 : 1;
-  linRecAtInterface  = (ioData.strucIntersect.reconstruct==StructureIntersect::LINEAR) ? true : false;
+  interpolatedNormal = (ioData.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
+  phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
+  forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+  linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
+  riemannNormal      = (ioData.embed.riemannNormal==EmbeddedFramework::FLUID) ? 1 : 0;
 
-  double *Vin = this->bcData->getInletPrimitiveState();
-  for(int i=0; i<dim; i++)
-    vfar[i] =Vin[i];
-
-  if (ioData.strucIntersect.riemannNormal==StructureIntersect::FLUID) 
-    riemannNormal = 1;
-  else if (ioData.strucIntersect.riemannNormal==StructureIntersect::STRUCTURE)
-    riemannNormal = 0;
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
   distLSS = 0;
-
+  
   const char *intersectorName = ioData.strucIntersect.intersectorName;
   if(intersectorName != 0)
     distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
@@ -85,6 +75,10 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   globIt = -1;
   inSubCycling = false;
 
+  double *Vin = this->bcData->getInletPrimitiveState();
+  for(int i=0; i<dim; i++)
+    vfar[i] =Vin[i];
+
 //------ load structure mesh information ----------------------
   numStructNodes = 0;
   Fs = 0;
@@ -99,43 +93,17 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   FsComputed = false;
 //-------------------------------------------------------------
 
-// for FF interface
-  //LS = 0; // for debug!
-  Vgf = 0;
-  Vgfweight = 0;
-  if(ioData.mf.typePhaseChange == MultiFluidData::EXTRAPOLATION){
-    Vgf = new DistSVec<double,dim>(this->getVecInfo());
-    Vgfweight = new DistVec<double>(this->getVecInfo());
-    *Vgf =-1.0;
-    *Vgfweight =0.0;
-  }
-
-  //multiphase conservation check (only for FF interface)
-  boundaryFlux  = 0.0;
-  interfaceFlux = 0.0;
-  computedQty   = 0.0;
-  tmpDistSVec   = 0;
-  tmpDistSVec2  = 0;
-  for(int i=0; i<dim; i++){
-    expectedTot[i] = 0.0; expectedF1[i] = 0.0; expectedF2[i] = 0.0;
-    computedTot[i] = 0.0; computedF1[i] = 0.0; computedF2[i] = 0.0;
-  }
-
-  frequencyLS = ioData.mf.frequency;
-  interfaceTypeFF = ioData.mf.interfaceType;
-
-//------------- For Fluid-Structure Interaction -------------------------
-  if(ioData.embeddedStructure.type != EmbeddedStructureInfo::NONE) {
+//------------- For Fluid-Structure Interaction ---------------
+  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
                                                 this->domain->getTimer());
-
     //for updating phase change
     Weights  = new DistVec<double>(this->getVecInfo());
     VWeights = new DistSVec<double,dim>(this->getVecInfo());
   } else
     dynNodalTransfer = 0;
 
-//----------------------------------------------------------------------
+//-------------------------------------------------------------
 
 }
 
@@ -153,12 +121,6 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 
   if (dynNodalTransfer) delete dynNodalTransfer;
   if (Fs) delete[] Fs;
-
-  //if (LS) delete LS;
-  if (Vgf) delete Vgf;
-  if (Vgfweight) delete Vgfweight;
-  if(tmpDistSVec)  delete tmpDistSVec;
-  if(tmpDistSVec2) delete tmpDistSVec2;
 }
 
 //------------------------------------------------------------------------------
@@ -282,75 +244,6 @@ int StructLevelSetTsDesc<dim>::checkSolution(DistSVec<double,dim> &U)
     ierr = this->domain->checkSolution(this->varFcn, U, nodeTag);
 
   return ierr;
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void StructLevelSetTsDesc<dim>::conservationErrors(DistSVec<double,dim> &U, int it)
-{
-  if(!tmpDistSVec)  tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
-// computes the total mass, momentum and energy
-// 1- in the whole domain regardless of which phase they belong to
-// 2- in the positive phase (phi>=0.0 <=> sign= 1)
-// 3- in the negative phase (phi< 0.0 <=> sign=-1)
-// The computed total domain mass, momentum and energy can be compared
-//     to expected values (since only what goes out and comes in need to be
-//     to be accounted for).
-// When considering one phase, only the mass can be compared to an expected
-//     value since the flux is zero at the interface between the two fluids.
-//     For the momentum and the energy, the physical flux depends on the
-//     pressure at this interface. More to be said here (numerical flux among
-//     other things)
-  int fluid1 =  1;
-  int fluid2 = -1;
-
-  // total mass, total mass of fluid1, total mass of fluid2
-  // note that there are two types of conservation errors:
-  // 1 - fluxes do not cancel at the interface
-  // 2 - populating of cell that changes fluid
-  // Both have an effect on the total mass
-  // Only the type-2 error has an effect on the total mass of fluid-i
-
-  computedQty = U;
-  computedQty *= *this->A;
-  computedQty.sum(computedTot);
-
-  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0inside routine
-  tmpDistSVec->sum(computedF1);
-
-  this->domain->restrictionOnPhi(computedQty, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0inside routine
-  tmpDistSVec->sum(computedF2);
-
-  // expected total mass, mass in fluid1, mass in fluid2
-  // an expected mass is computed iteratively, that is
-  // m_{n+1} = m_{n} + fluxes_at_boundaries
-  if(it==0){
-    for (int i=0; i<dim; i++){
-       expectedTot[i] = computedTot[i];
-       expectedF1[i]  = computedF1[i];
-       expectedF2[i]  = computedF2[i];
-    }
-    return;
-  }
-
-  const double dt = this->timeState->getTime();
-  double bcfluxsum[dim];
-
-  boundaryFlux.sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expectedTot[i] += dt*bcfluxsum[i];
-
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid1); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expectedF1[i] += dt*bcfluxsum[i];
-
-  this->domain->restrictionOnPhi(boundaryFlux, Phi, *tmpDistSVec, fluid2); //tmpDistSVec reinitialized to 0.0 inside routine
-  tmpDistSVec->sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expectedF2[i] += dt*bcfluxsum[i];
-
 }
 
 //------------------------------------------------------------------------------
@@ -532,43 +425,7 @@ void StructLevelSetTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, Dis
                                            double F[3], double M[3]) 
 {
   if (!FsComputed) 
-    if (pressureChoice==0) //(default) use p* in force calculation.
-      computeForceLoad(this->Wstarij, this->Wstarji);
-
-    else if (pressureChoice==1) {
-      // construct Wij, Wji from U. Then use them for force calculation. 
-      DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-      DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-      DistSVec<double,dim> VV(this->getVecInfo());
-      *Wij = 0.0;
-      *Wji = 0.0;
-      this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
-      SubDomain **subD = this->domain->getSubDomain();
-
-#pragma omp parallel for
-      for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-        SVec<double,dim> &subWij = (*Wij)(iSub);
-        SVec<double,dim> &subWji = (*Wji)(iSub);
-        SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-        SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-        SVec<double,dim> &subVV = VV(iSub);
-        int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();    
-        if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
-  
-        for (int l=0; l<subWij.size(); l++) {
-          int i = ptr[l][0];
-          int j = ptr[l][1];
-          if (subWstarij[l][0]>1e-10 && subWstarij[l][4]>1e-10)  
-            for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
-          if (subWstarji[l][0]>1e-10 && subWstarji[l][4]>1e-10)  
-            for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
-        }
-      } 
-
-      computeForceLoad(Wij, Wji);
-      delete Wij;
-      delete Wji;
-    }
+    computeForceLoad(this->Wstarij, this->Wstarji);
 
   F[0] = F[1] = F[2] = 0.0;
   for (int i=0; i<numStructNodes; i++) {
@@ -589,47 +446,9 @@ template <int dim>
 void StructLevelSetTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, DistSVec<double,dim> &U)
 {
   if(dynNodalTransfer) {
-
-    if (pressureChoice==0) //(default) use p* in force calculation.
-      computeForceLoad(this->Wstarij, this->Wstarji);
-    
-    else if (pressureChoice==1) {
-      // construct Wij, Wji from U. Then use them for force calculation. 
-      DistSVec<double,dim> *Wij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-      DistSVec<double,dim> *Wji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
-      DistSVec<double,dim> VV(this->getVecInfo());
-      *Wij = 0.0;
-      *Wji = 0.0;
-      this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
-      SubDomain **subD = this->domain->getSubDomain();
-
-#pragma omp parallel for
-      for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-        SVec<double,dim> &subWij = (*Wij)(iSub);
-        SVec<double,dim> &subWji = (*Wji)(iSub);
-        SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-        SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-        SVec<double,dim> &subVV = VV(iSub);
-        int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-        if (subWij.size()!=(subD[iSub]->getEdges()).size()) {fprintf(stderr,"WRONG!!!\n"); exit(-1);}
-  
-        for (int l=0; l<subWij.size(); l++) {
-          int i = ptr[l][0];
-          int j = ptr[l][1];
-          if (subWstarij[l][0]>1e-10)  
-            for (int k=0; k<dim; k++) subWij[l][k] = subVV[i][k];
-          if (subWstarji[l][0]>1e-10)  
-            for (int k=0; k<dim; k++) subWji[l][k] = subVV[j][k];
-        }
-      }
-
-      computeForceLoad(Wij, Wji);
-      delete Wij;
-      delete Wji;
-
-    }
-
+    computeForceLoad(this->Wstarij, this->Wstarji);
     FsComputed = true; //to avoid redundant computation of Fs.
+
     // Now "accumulate" the force for the embedded structure
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);

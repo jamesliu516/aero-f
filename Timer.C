@@ -820,7 +820,7 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "\n");
 
   // Output Mesh solution time (except for Euler FSI)
-  if(ioData->strucIntersect.intersectorName == 0) {
+  if(ioData->problem.framework == ProblemData::EMBEDDED) {
     com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
                  tmin[mesh], tmax[mesh], tavg[mesh]);
     com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
@@ -877,7 +877,7 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "\n");
   }
 
-  if (ioData->strucIntersect.intersectorName != 0) {
+  if(ioData->problem.framework == ProblemData::EMBEDDED) {
     com->fprintf(fp, "Eulerian FSI                  : %10.2f %10.2f %10.2f         -\n",
                  tmin[eulerFSI], tmax[eulerFSI], tavg[eulerFSI]);
     com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 

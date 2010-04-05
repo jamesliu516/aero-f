@@ -119,45 +119,67 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 //------------------------------------------------------------------------------
 
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
-                                             meshFile(iod.embeddedStructure.surfaceMeshFile),
-                                             matcherFile(iod.embeddedStructure.matcherFile),
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
                                              UScale(iod.ref.rv.tvelocity)
 {
   timer = tim;
 
-  // read the input.
-  coupled = ((iod.embeddedStructure.type == EmbeddedStructureInfo::TWOWAY) ||
-             (iod.embeddedStructure.type == EmbeddedStructureInfo::ONEWAY)) ? true : false;
+  // ----------------------------------
+  //       User-Provided Info
+  // ----------------------------------
+  if(iod.problem.type[ProblemData::AERO])
+    coupled = true;
+  else if(iod.problem.type[ProblemData::FORCED])
+    coupled = false;
+  else {
+    com.fprintf(stderr,"ERROR: Simulation type is not supported by the embedded framework.\n");
+    exit(-1);
+  }
 
-  // ---- for 2-way coupling only -----
-  dim2Treatment = (iod.embeddedStructure.dim2Treatment == EmbeddedStructureInfo::YES) ? true : false;
+  // ---- input files ----
+  int sp = strlen(iod.input.prefix) + 1;
+  meshFile = new char[sp + strlen(iod.input.embeddedSurface)];
+  sprintf(meshFile,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+  matcherFile = new char[sp + strlen(iod.input.match)];
+  sprintf(matcherFile,"%s%s", iod.input.prefix, iod.input.match); 
 
-  // ---- for 1-way coupling (not forced-motion) only -----
-  oneWayCoupling = (iod.embeddedStructure.type == EmbeddedStructureInfo::ONEWAY) ? true : false;
+  // ---- for debug ----
+  dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
+  oneWayCoupling = (iod.embed.coupling == EmbeddedFramework::ONEWAY) ? true : false; //by default it's false
 
   // ---- for forced-motion only ------
-  if (iod.embeddedStructure.forcedMotionMode == EmbeddedStructureInfo::HEAVING)
-    mode = 1;
-  else if (iod.embeddedStructure.forcedMotionMode == EmbeddedStructureInfo::CONSTHEAVING)
-    mode = 2;
-  else 
-    mode = 99; //for debugging use.
+  if(!coupled)
+    if(iod.forced.type==ForcedData::HEAVING)
+      mode = 1;
+    else {
+      com.fprintf(stderr,"ERROR: Forced motion type is not supported by the embedded framework.\n");
+      exit(-1);
+    }
+  else
+    mode = -1;
 
-  tMax = iod.embeddedStructure.tMax;
-  dt = iod.embeddedStructure.dt;
-  omega = 2.0*acos(-1.0)*iod.embeddedStructure.omega;
-  dx = iod.embeddedStructure.dx;
-  dy = iod.embeddedStructure.dy;
-  dz = iod.embeddedStructure.dz;
-  t0= iod.embeddedStructure.t0;
+  // NOTE: All variables stored in EmbeddedStructure must be dimensional! (unless the simulation itself is non-dim)
+  tMax  = tScale*iod.ts.maxTime; //iod.ts.maxTime is already non-dimensionalized in IoData
+  dt    = tScale*iod.forced.timestep;
+  t0    = tScale*iod.restart.etime;
+  omega = 2.0*acos(-1.0)*(1.0/tScale)*iod.forced.frequency;
+  dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
+  dy    = iod.ref.rv.length*iod.forced.hv.ay;
+  dz    = iod.ref.rv.length*iod.forced.hv.az;  
+  com.fprintf(stderr,"*** User Specified Embedded Structure Info ***\n");
+  com.fprintf(stderr,"  coupled = %d,  dim2Treatment = %d\n", coupled, dim2Treatment);
+  if(!coupled){
+    com.fprintf(stderr,"  (forced motion) mode = %d, t0 = %e, tMax = %e, dt = %e\n", mode, t0, tMax, dt);
+    com.fprintf(stderr,"                  omega = %e, dx = %e, dy = %e, dz = %e.\n", omega, dx, dy, dz);
+  }
+  // ----------------------------------
+  //               End
   // ----------------------------------
 
-  com.fprintf(stderr,"*** Embedded structure information read from inputfile ***\n");
-  com.fprintf(stderr,"  coupled = %d,  dim2Treatment = %d, oneWayCoupling = %d\n", coupled, dim2Treatment, oneWayCoupling);
-  if(!coupled)
-    com.fprintf(stderr,"  (forced motion) mode = %d, tMax = %f, dt = %f, omega = %f, dx = %f, dy = %f, dz = %f.\n", mode, tMax, dt, omega, dx, dy, dz);
 
+  // ----------------------------------
+  //    Load Structure Mesh (at t=0)
+  // ----------------------------------
   // defaults
   nNodes = 0;
   X = 0;
@@ -179,7 +201,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   fscanf(nodeFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++) 
-    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", meshFile); exit(-1);}
+    if(debug[i]!=c1[i]) {fprintf(stderr,"Could not open file: %s\n", meshFile); exit(-1);}
   
   std::list<Vec3D> nodeList;
   std::list<Vec3D>::iterator it;
@@ -213,6 +235,9 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   F = new (com) double[nNodes][3];
 
   fclose(nodeFile);
+  // ----------------------------------
+  //               End
+  // ----------------------------------
    
 
   //for 2-D simulation only: pairing nodes in cross-section direction
@@ -226,6 +251,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
           pairing[i] = j;
   }
 
+
+  // communication with structure (if coupled)
   if(coupled) {
     MatchNodeSet **mns = new MatchNodeSet *[1];
     if(com.cpuNum() == 0)
@@ -237,7 +264,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     structExc->getInfo();
     dt = tScale*structExc->getTimeStep();
     tMax = tScale*structExc->getMaxTime();
-//    tMax = 0.02402e-6; //TODO: FIX THIS
 
     int *locToGlob = new int[1];
     locToGlob[0] = 0;
@@ -323,8 +349,12 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
   it++;
   if(!coupled) {
-    double time = t0 + dt*(double)it;
-    
+    double time;
+    if(it==1 && algNum==6)
+      time = t0 + 0.5*dt*(double)it;
+    else
+      time = t0 + dt*(double)it;
+     
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = (1-cos(omega*time))*dx;

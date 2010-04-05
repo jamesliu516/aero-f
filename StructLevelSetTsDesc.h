@@ -5,7 +5,6 @@
 
 #include <IoData.h>
 #include <Domain.h>
-#include <LevelSet.h>
 #include <PostOperator.h>
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
@@ -14,9 +13,6 @@ class DynamicNodalTransfer;
 class GeoSource;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
-
-
-
 
 //------------------------------------------------------------------------
 
@@ -57,33 +53,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
   // ------------------------------------------------------------------------------------
 
-  // ----------- components for Fluid-Fluid interface -----------------------------------
-  //LevelSet *LS;
-  DistVec<double> Phi;            //<! conservative variables
-  DistVec<double> PhiV;           //<! primitive variables
-  DistSVec<double,dim> Vg;        //<! primitive V for GFMP
-  DistSVec<double,dim> *Vgf;      //<! primitive V storage for phase change (if extrapolation)
-  DistVec<double> *Vgfweight;
-
-  // multiphase conservation check
-  DistSVec<double,dim> boundaryFlux;
-  DistSVec<double,dim> interfaceFlux;
-  DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> *tmpDistSVec;
-  DistSVec<double,dim> *tmpDistSVec2;
-  double expectedTot[dim];
-  double expectedF1[dim];
-  double expectedF2[dim];
-  double computedTot[dim];
-  double computedF1[dim];
-  double computedF2[dim];
-
-  // frequency for reinitialization of level set
-  int frequencyLS;
-
-  MultiFluidData::InterfaceType interfaceTypeFF; //to advance levelset or not
-  // --------------------------------------------------------------------------------------
-
   DynamicNodalTransfer *dynNodalTransfer;
 
   //buckling cylinder parameters
@@ -102,8 +71,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                 // = 2 : on GammaF, formula 2;
                 // = 3 : on Gamma*, formula 1;
                 // = 4 : on Gamma*, formula 2;
-  int pressureChoice; // = 0. use p* in force calculation.
-                      // = 1. use pij or pji (reconstructed pressure) in force calculation.
   int phaseChangeChoice; // = 0. use nodal values.
                          // = 1. use solutions of Riemann problems.
   const int numFluid;   //numFluid = 1 (for fluid-fullbody)
@@ -133,7 +100,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
-  void conservationErrors(DistSVec<double,dim> &U, int it);
 
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
