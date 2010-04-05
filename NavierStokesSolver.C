@@ -8,10 +8,11 @@
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
   Communicator* com = domain.getCommunicator();
-  if (ioData.strucIntersect.intersectorName != 0) {
-    com->fprintf(stderr, "*** NOTE: Running an Embedded Fluid-Structure simulation\n");
+  if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
+    com->fprintf(stderr, "*** NOTE: Running an Embedded %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
     StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
-  } else if (ioData.eqs.numPhase == 1){
+  } 
+  else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER) 
       NavierStokesCoupledSolver<5>::solve(ioData, geoSource, domain);
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES) {

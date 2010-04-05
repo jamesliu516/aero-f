@@ -243,23 +243,3 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdateLS(DistVec<double> &Philocal,
-                                  DistVec<double> &dPhi, DistSVec<double,dim> &U)
-{
-  if (this->numFluid!=2) {
-    fprintf(stderr,"in ExplicitStructLevelSetTsDesc::computeRKUpdateLS, shouldn't call me! abort.\n");
-    exit(-1);
-  }
-  //this->spaceOp->computeResidualLS(*this->X, *this->A, Philocal, U, dPhi);
-  // for RK2 on moving grids
-  this->timeState->multiplyByTimeStep(dPhi);
-
-}
-
-//------------------------------------------------------------------------------
-
-
-
-
-

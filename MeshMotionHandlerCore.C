@@ -1436,11 +1436,11 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   dts = 0.0;
   it0 = iod.restart.iteration; //restart time-step
  
-  switch (iod.embeddedStructure.structVelocity){
-    case EmbeddedStructureInfo::FINITE_DIFFERENCE:
+  switch (iod.embed.structVelocity){
+    case EmbeddedFramework::FINITE_DIFFERENCE:
       structVelocity = 1;
       break;
-    case EmbeddedStructureInfo::COMPUTED_BY_STRUCTURE:
+    case EmbeddedFramework::COMPUTED_BY_STRUCTURE:
       structVelocity = 0;
       break;
     default:
