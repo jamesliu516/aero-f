@@ -57,7 +57,7 @@ public:
   virtual ~LocalRiemannGfmp() { vf_ = 0; }
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){///*nothing to do for GFMP*/}
-    if(ID != IDn) fprintf(stdout, "node changes phase!\n");
+    //if(ID != IDn) fprintf(stdout, "node changes from phase %d to phase %d!\n", IDn, ID);
   }
 };
 

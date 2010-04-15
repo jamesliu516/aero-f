@@ -3465,7 +3465,7 @@ void Domain::computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<do
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
   }
 
-  vecPat->exchange();
+  volPat->exchange();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub){
@@ -3476,7 +3476,7 @@ void Domain::computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<do
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
   }
 
-  vecPat->exchange();
+  volPat->exchange();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -3510,7 +3510,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
   }
 
-  vecPat->exchange();
+  volPat->exchange();
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
