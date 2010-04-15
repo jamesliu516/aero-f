@@ -29,7 +29,7 @@ LevelSet<dimLS>::LevelSet(IoData &iod, Domain *dom):
   conv_eps = iod.mf.eps;
   diff = bool(iod.mf.outputdiff);
   if(typeTracking == MultiFluidData::GRADIENT){
-    fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
+    com->fprintf(stdout, "***Warning: if reinitialization in band --> problem!\n ***         You need to reinitialize in the whole domain with this method\n");
   }
 
   lsgrad  = new DistNodalGrad<dimLS,double>(iod,dom,2);
@@ -112,7 +112,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     if(fabs(minDist[idim])==fabs(maxDist[idim]) && fabs(minDist[idim]) == 1)
       trueLevelSet[idim] = false;
     else trueLevelSet[idim] = true;
-    fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
+    //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
   }
 
   // for reinitialization testing
@@ -310,8 +310,8 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
       if(minDist[idim] != maxDist[idim])
         for (int i=0; i<phi.size(); i++)
           phi[i][idim] *= distance[i][idim];
-      else
-        fprintf(stdout, "LevelSet[%d] does not need to be updated since it seems enclosed in a volume!\n", idim);
+      //else
+      //  fprintf(stdout, "LevelSet[%d] does not need to be updated since it seems enclosed in a volume!\n", idim);
     }
   }
 
@@ -410,7 +410,6 @@ void LevelSet<dimLS>::reinitializeLevelSet(DistGeoState &geoState,
 				    DistSVec<double,3> &X, DistVec<double> &ctrlVol,
 				    DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi)
 {
-  com->fprintf(stdout, "reinitializing\n");
   // XXX reinitializeLevelSetPDE(geoState,X,ctrlVol,U,Phi);
   reinitializeLevelSetFM(geoState,X,ctrlVol,U,Phi);
 
@@ -426,10 +425,17 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
   // reinitialize each LevelSet separately
   for(int idim=0; idim<dimLS; idim++){
     if(!trueLevelSet[idim]) continue;
-    fprintf(stdout, "reinitializing phi[%d] to distance\n", idim);
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub){
+      double (*phi)[dimLS] = Phi.subData(iSub);
+      double (*psi)[1]     = Psi.subData(iSub);
+      for (int i=0; i<Phi.subSize(iSub); i++)
+        psi[i][0] = phi[i][idim];
+    }
+    com->fprintf(stdout, "reinitializing phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // initialize Psi
-    Psi = 0.1;
+    Psi = 1.0;
 
     // tag nodes that are close to interface up to level 'bandlevel'
     int level = 0;
@@ -460,6 +466,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     }
 
     domain->getSignedDistance(idim,Psi,Phi);
+    com->fprintf(stdout, "after reinitialization of phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // set Phi to the new distance function
 #pragma omp parallel for

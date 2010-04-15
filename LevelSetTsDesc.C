@@ -153,9 +153,11 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
+    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
     LS->conservativeToPrimitive(Phi,PhiV,U);
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
+    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
   }
 
 }

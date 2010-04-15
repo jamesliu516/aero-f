@@ -4897,6 +4897,7 @@ void SubDomain::computePrdtPhiCtrlVolRatio(SVec<double,dimLS> &ratioTimesPhi,
 }
 
 //-----------------------------------------------------------------------------
+/*
 template<int dimLS>
 void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level)
 {
@@ -4925,6 +4926,7 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, i
   }
 
 }
+*/
 //-----------------------------------------------------------------------------
 template<int dimLS>
 void SubDomain::copyCloseNodes(int lsdim, int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,1> &Psi)

@@ -334,7 +334,7 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
         }
         double UU[dim];
         computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
-        domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%e %e %e %e %e) for volume %d paired with EOS %d\n", UU[0],UU[1],UU[2],UU[3],UU[4],volIt->first, volIt->second->fluidModelID);
+        domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g) for volume %d paired with EOS %d\n", UU[0],UU[1],UU[2],UU[3],UU[4],volIt->first, volIt->second->fluidModelID);
         domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
       }
   }
@@ -443,7 +443,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       double UU[dim];
       computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
       domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-      domain->getCommunicator()->fprintf(stdout, "  for PlaneData[%d] = (%g %g %g), (%g %g %g) with EOS %d\n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz, planeIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "           for PlaneData[%d] = (%g %g %g), (%g %g %g) with EOS %d\n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz, planeIt->second->fluidModelID);
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -473,7 +473,7 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       double UU[dim];
       computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
       domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-      domain->getCommunicator()->fprintf(stdout, "  for SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "           for SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
