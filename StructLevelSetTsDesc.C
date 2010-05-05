@@ -35,6 +35,7 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
 {
 
+  simType         = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
   this->postOp->setForceGenerator(this);
@@ -46,6 +47,9 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   riemannNormal      = (ioData.embed.riemannNormal==EmbeddedFramework::FLUID) ? 1 : 0;
+
+  if(orderOfAccuracy==1) //first-order everywhere...
+    linRecAtInterface = false; 
 
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
@@ -187,7 +191,7 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if(!FsComputed) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
+  if(!FsComputed&&simType) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
 
   //check if it's in subcycling with iCycle>1.

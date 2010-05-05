@@ -707,7 +707,7 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     intersector[i]->findIntersections(X(i));
 
 //  for(int iSub=0; iSub<numLocSub; iSub++)
-//    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), X(iSub), 2); 
+//    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), X(iSub), 1); 
 }
 
 //----------------------------------------------------------------------------
@@ -1219,7 +1219,7 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
 {
   int (*ptr)[2] = edges.getPtr();
   const double TOL = 1.0e-4;
-  int MAX_ITER = 50;
+  int MAX_ITER = 20;
   int max_iter = 0;
   double maxEdgeSize = 0;
   for (int l=0; l<edges.size(); l++) {

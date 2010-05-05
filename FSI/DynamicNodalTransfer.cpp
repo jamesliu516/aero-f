@@ -194,7 +194,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   // load structure nodes (from file).
   FILE *nodeFile = 0;
   nodeFile = fopen(meshFile,"r");
-  if(!nodeFile) fprintf(stderr,"top file not found (in structure codes)\n");
+  if(!nodeFile) fprintf(stderr,"top file not found (in embedded structure)\n");
   char c1[200], c2[200];
   int num0 = 0, num1 = 0, count, nInputs;
   double x1,x2,x3;
