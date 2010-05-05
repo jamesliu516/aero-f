@@ -34,6 +34,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int numStructElems;
   bool interpolatedNormal; 
   bool linRecAtInterface;
+  int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
 
   // ----------- time steps -----------------------------------------------------------
