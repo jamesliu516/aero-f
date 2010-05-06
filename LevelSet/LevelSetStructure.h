@@ -1,6 +1,6 @@
 #ifndef _LEVEL_SET_STRUCTURE_H_
 #define _LEVEL_SET_STRUCTURE_H_
-
+ 
 #include "Vector3D.h"
 
 class Domain;
