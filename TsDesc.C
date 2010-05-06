@@ -137,6 +137,7 @@ VarFcn *TsDesc<dim>::createVarFcn(IoData &ioData)
   VarFcn *vf = 0;
   fprintf(stderr,"ERROR: obsolete function createVarFcn(...) called!\n");
   exit(-1);
+  return vf;
 
 }
 
@@ -254,8 +255,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
   geoState->setup2(timeState->getData());
-
-  timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
+  timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
@@ -465,14 +465,10 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     // First time step: compute GradP before computing forces
     spaceOp->computeGradP(*X, *A, U);
 
-    if (wallRecType==BcsWallData::CONSTANT){
-      com->fprintf(stdout, "wallRecType = CONATANT\n");
+    if (wallRecType==BcsWallData::CONSTANT)
       output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    }
-    else{ //wallRecType == EXACT_RIEMANN
-      com->fprintf(stdout, "wallRecType = EXACTRIEMANN\n");
+    else //wallRecType == EXACT_RIEMANN
       output->writeForcesToDisk(*riemann1, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
-    }
 
     output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
