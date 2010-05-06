@@ -594,7 +594,6 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //  return 0.0;
     //}
   }
-  timer->removeForceAndDispComm(t0);
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 

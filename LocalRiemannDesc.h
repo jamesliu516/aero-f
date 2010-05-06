@@ -1050,19 +1050,19 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double function[2];
   double increment[2];
   bool convergence = false;
-  double eps = 1.e-6;
-  int MaxIts = 400;
+  double eps = 1.e-4;
+  int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 0.85; // must be between 0 and 1
-  double relaxationFactorGas = 0.85; // must be between 0 and 1
+  double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = 1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
   double vr  = 1.0/rhor;
   double vil = vl;
   double vir = vr;
-  //vil = initrhol>0.0 ? 1.0/initrhol : vl;
-  //vir = initrhor>0.0 ? 1.0/initrhor : vr;
+  vil = initrhol>0.0 ? 1.0/initrhol : vl;
+  vir = initrhor>0.0 ? 1.0/initrhor : vr;
 
   double omegal = vf_->getOmega(fluid2);
   double omp1ooml = (omegal+1.0)/omegal;
@@ -1081,19 +1081,25 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
 //check vacuum
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
   double vacuumValues[6]; /* rhoil, uil, pil, rhoir, uir, pir */
-  if(vacuum(rhol,ul,pl,rhor,ur,pr,vacuumValues)){
-    if(verbose>-1){
-      fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", vacuumValues[0], vacuumValues[3]);
-      fprintf(stdout, "uil_vac   = %e and uir_vac   = %e\n", vacuumValues[1], vacuumValues[4]);
-      fprintf(stdout, "pil_vac   = %e and pir_vac   = %e\n", vacuumValues[2], vacuumValues[5]);
+  vacuumValues[0] = -1.0; // positive if proper vacuum values are computed
+  bool checkVacuumValues = false;
+  if(checkVacuumValues){
+    if(vacuum(rhol,ul,pl,rhor,ur,pr,vacuumValues)){
+      if(verbose>-1){
+        fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", vacuumValues[0], vacuumValues[3]);
+        fprintf(stdout, "uil_vac   = %e and uir_vac   = %e\n", vacuumValues[1], vacuumValues[4]);
+        fprintf(stdout, "pil_vac   = %e and pir_vac   = %e\n", vacuumValues[2], vacuumValues[5]);
+      }
+      rhoil = vacuumValues[0];
+      rhoir = vacuumValues[3];
+      ui    = 0.5*(vacuumValues[1]+vacuumValues[4]);
+      pi    = 0.5*(vacuumValues[2]+vacuumValues[5]);
+      return true;
     }
-    rhoil = vacuumValues[0];
-    rhoir = vacuumValues[3];
-    ui    = 0.5*(vacuumValues[1]+vacuumValues[4]);
-    pi    = 0.5*(vacuumValues[2]+vacuumValues[5]);
-    return true;
+    if(verbose>4) fprintf(stdout, "checking vacuum possibilities -- DONE\n");
+  }else{
+    if(verbose>4) fprintf(stdout, "no checking of vacuum possibilities\n");
   }
-  if(verbose>4) fprintf(stdout, "checking vacuum possibilities -- DONE\n");
 
 //start newton iteration loop
   while(!convergence){
@@ -1194,7 +1200,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
     }
     if(verbose>2) fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
     //check - in case of rarefaction at next iteration, 1.0/rhoil may not be above a certain value
-    if(vil>1.0/vacuumValues[0]){
+    if(vacuumValues[0] > 0.0 && vil>1.0/vacuumValues[0]){ // vacuumValues is negative if it does not contain any proper value(see declaration and definition above)
       vil += increment[0];
       increment[0] = -0.5*(1.0/vacuumValues[0] - vil);
       vil -= increment[0];
@@ -1323,11 +1329,12 @@ double LocalRiemannGfmparGasJWL::jwlZeroSoundSpeedJwlDensity(const double densit
 {
 
     bool convergence = false;
-    double tol = 1.0e-6;
-    int it = 0, maxIt = 100;
+    double tol = 1.0e-4;
+    int it = 0, maxIt = 30;
     double relaxation = 1.0;
 
     double entropy = vf_->computeEntropy(density,pressure,fluid2);
+    if(entropy >= 0.0) return -1.0;
 
     double xn = density;
     double xnm1 = xn;
@@ -1400,8 +1407,8 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
   if(fn>0.0) return -1.0;
 
   bool convergence = false;
-  double tol = 1.0e-6;
-  int it =0, maxIt = 100;
+  double tol = 1.0e-4;
+  int it =0, maxIt = 30;
   double relaxation = 1.0;
 
 

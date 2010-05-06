@@ -251,8 +251,9 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
     monitorInitialState(it, U); // Phi?
 
   this->output->setMeshMotionHandler(ioData, this->mmh);
-
   this->output->openAsciiFiles();
+
+  this->timer->setSetupTime();
 
   if (it == 0) {
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
