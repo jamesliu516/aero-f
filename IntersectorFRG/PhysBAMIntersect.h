@@ -1,16 +1,16 @@
 #ifndef _PHYSBAMINTERSECT_H_
 #define _PHYSBAMINTERSECT_H_
 
+#include <map>
 #include <string>
 #include <list>
 
-#include "LevelSet/LevelSetStructure.h"
-#include "LevelSet/IntersectionFactory.h"
+#include "../LevelSet/LevelSetStructure.h"
+#include "../Vector.h"
 #include "PHYSBAM_INTERFACE.h"
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
 #include <PhysBAM_Geometry/Topology_Based_Geometry/TRIANGULATED_SURFACE.h>
-#include <Vector.h>
 
 using std::pair;
 using std::map;
@@ -60,13 +60,12 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     DistVec<int> *status0;  //previous node status
 
     double *triSize;
-    Vec3D *triNorms;  
+    Vec3D *triNorms;
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
     DistSVec<double,3> *X; //pointer to fluid node coords
 
     // parameters from input
-    double tolerance;
     bool interpolatedNormal;
 
     // sophisticated stuff...
@@ -83,16 +82,16 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void finishStatusByPoints(IoData &iod);
 
   public: //TODO: a lot of them can be moved to "protected".
-    DistPhysBAMIntersector(double tol);
-    void init(std::string structureFileName, std::string structureFileName);
+    DistPhysBAMIntersector(IoData &iod, Communicator *comm);
     ~DistPhysBAMIntersector();
 
-    double getTolerance() const { return tolerance; }
+    void init(char *meshfile, char *restartfile);
+
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, bool interpNormal);
+    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
     void updatePhysBAMInterface(Vec3D *particles, int size);
     void recompute(double dtf, double dtfLeft, double dts);
@@ -146,7 +145,7 @@ class PhysBAMIntersector : public LevelSetStructure {
     void findIntersections(SVec<double,3>&X);
     /** find intersections for each edge that has nodes with different statuses */
     double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */ 
+    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */
     void floodFill(SubDomain& sub, int& nUndecided);
     void noCheckFloodFill(SubDomain& sub, int& nUndecided);
     int findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& poly, int& nUndecided);

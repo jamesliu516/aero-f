@@ -2,7 +2,6 @@
 
 #include <Communicator.h>
 #include <parser/Assigner.h>
-#include "LevelSet/IntersectionFactory.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -3031,43 +3030,6 @@ void EmbeddedFramework::setup(const char *name) {
 
 //------------------------------------------------------------------------------
 
-void StructureIntersect::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 0);
-  libraryName = 0;
-  intersectorName = 0;
-
-  new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
-  new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
-  new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
-}
-
-//------------------------------------------------------------------------------
-
-void StructureIntersect::activate() {
-  if(libraryName != 0) {
-    void* handle = dlopen(libraryName, RTLD_NOW);
-    if (!handle) {
-            std::cerr << "Cannot open library: " << dlerror() << '\n';
-            return;
-        }
-    dlerror();
-   /* void(*registerFcn)() =  (void (*)()) dlsym(handle,"registerWithFactory");
-      if (registerFcn == 0) {
-            std::cerr << "Library does not contain a registry function\n";
-            exit(-1);
-      }
-
-    (*registerFcn)();*/
-
-   // dlclose(handle);
-  }
-  if(intersectorName != 0) {
-    IntersectionFactory::parseIntersectionObject(intersectorName, tree);
-  }
-}
-
-//------------------------------------------------------------------------------
-
 IoData::IoData(Communicator *communicator)
 {
 
@@ -3133,7 +3095,6 @@ void IoData::setupCmdFileVariables()
   rotations.setup("Velocity");
   volumes.setup("Volumes");
   embed.setup("EmbeddedFramework");
-  strucIntersect.setup("Intersect");
 }
 
 //------------------------------------------------------------------------------
@@ -3415,8 +3376,6 @@ void IoData::resetInputValues()
     }
   }
    
-  strucIntersect.activate();  
- 
   // Sparse Grid Generation does not call the flow solver
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
     problem.mode = ProblemData::DIMENSIONAL;

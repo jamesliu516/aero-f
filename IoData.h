@@ -1653,21 +1653,6 @@ struct EmbeddedFramework {
 
 //------------------------------------------------------------------------------
 
-struct StructureIntersect {
-  ParseTree tree;
-  const char *intersectorName;
-  const char *libraryName;
-
-  StructureIntersect() : tree("Data") { }
-
-  Assigner *getAssigner();
-  void setup(const char *);
-
-  void activate();
-};
-
-//------------------------------------------------------------------------------
-
 class IoData {
 
   char *cmdFileName;
@@ -1702,7 +1687,6 @@ public:
   Velocity rotations;
   Volumes volumes;
   EmbeddedFramework embed;
-  StructureIntersect strucIntersect;
 
 public:
 

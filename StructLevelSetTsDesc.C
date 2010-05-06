@@ -1,7 +1,11 @@
 #include <StructLevelSetTsDesc.h>
 #include <DistExactRiemannSolver.h>
-#include <LevelSet/IntersectionFactory.h>
 #include <FSI/DynamicNodalTransfer.h>
+
+#ifdef DO_EMBEDDED
+#include <IntersectorFRG/PhysBAMIntersect.h>
+//#include <IntersectorPhysBAM/blablabla>
+#endif
 
 #include <math.h>
 
@@ -42,7 +46,6 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
   if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
 
-  interpolatedNormal = (ioData.embed.structNormal==EmbeddedFramework::NODE_BASED) ? true : false;
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
@@ -54,23 +57,37 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
-  distLSS = 0;
-  
-  const char *intersectorName = ioData.strucIntersect.intersectorName;
-  if(intersectorName != 0)
-    distLSS = IntersectionFactory::getIntersectionObject(intersectorName, *this->domain);
-  distLSS->setNumOfFluids(numFluid);
 
+#ifdef DO_EMBEDDED
+  switch (ioData.embed.intersectorName) {
+    case EmbeddedFramework::FRG :
+      distLSS = new DistPhysBAMIntersector(ioData, this->com);
+      break;
+    case EmbeddedFramework::PHYSBAMLITE :  
+      //distLSS = new ....
+      this->com->fprintf(stderr,"ERROR: PhysBAM-Lite Intersector hasn't been integrated into the code.\n");
+      exit(-1);
+      break;
+    default:
+      this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
+      exit(-1);
+  }
+#else
+  this->com->fprintf(stderr,"ERROR: Embedded framework is NOT compiled! Check your makefile.\n");
+  exit(-1);
+#endif
+
+  //Riemann solution stored on edges
   Wstarij = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   *Wstarij = 0.0;
   *Wstarji = 0.0;
+
+  //TODO: should be merged with fluidId in TsDesc
   nodeTag0 = 0;
   nodeTag = 0;
 
-  Weights = 0;
-  VWeights = 0;
-
+  //only for IncreasePressure
   Prate = ioData.mf.Prate;
   Pinit = ioData.mf.Pinit;
   Pscale = ioData.ref.rv.pressure;
@@ -79,6 +96,11 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   globIt = -1;
   inSubCycling = false;
 
+  //for phase-change update
+  Weights = 0;
+  VWeights = 0;
+
+  //store farfield state for phase-change update for fluid-fullbody
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i];
@@ -132,7 +154,7 @@ StructLevelSetTsDesc<dim>::~StructLevelSetTsDesc()
 template<int dim>
 void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
-  distLSS->initialize(this->domain,*this->X, ioData, interpolatedNormal);
+  distLSS->initialize(this->domain,*this->X, ioData);
   if(this->numFluid>1) //initialize nodeTags for multi-phase flow
     nodeTag0 = nodeTag = distLSS->getStatus();
 

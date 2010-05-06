@@ -68,7 +68,6 @@ class LevelSetStructure {
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
-    Vec3D totalForce;
     virtual int numOfFluids() = 0; 
 
     virtual void findNodesNearInterface(SVec<double,3>&, SVec<double,3>&, SVec<double,3>&) = 0;
@@ -85,10 +84,8 @@ class DistLevelSetStructure {
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}
-    virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, bool) = 0;
+    virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
-    virtual void clearTotalForce();
-    virtual Vec3D getTotalForce(const double pref);
 
     virtual DistVec<double> &getPhi();
     virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
@@ -99,7 +96,6 @@ class DistLevelSetStructure {
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
     virtual int getNumStructNodes() = 0;
-    double totalForce[3];
 };
 
 #endif

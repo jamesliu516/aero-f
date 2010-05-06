@@ -1,3 +1,4 @@
+#include "../LevelSet/LevelSetStructure.C"
 #include <stdio.h>
 #include <iostream>
 #include "PhysBAMIntersect.h"
@@ -8,7 +9,6 @@
 #include <Vector.h>
 #include <DistVector.h>
 #include <Timer.h>
-#include "LevelSet/IntersectionFactory.h"
 #include "parser/Assigner.h"
 #include "Geometry/KDTree.h"
 #include <Connectivity.h>
@@ -23,44 +23,11 @@ typedef pair<int, bool> ibpair;
 typedef pair<iipair, ibpair> EdgePair;
 
 const int PhysBAMIntersector::UNDECIDED, PhysBAMIntersector::INSIDE, PhysBAMIntersector::OUTSIDE;
-
-class PhysBAMIntersectorConstructor : public IntersectorConstructor {
-    const char *structureFile;
-    const char *restartStructureFile;
-    double tolIntersect;
-
-  public:
-    PhysBAMIntersectorConstructor() {
-      structureFile = 0;
-      restartStructureFile = 0;
-      tolIntersect = 1.0e-4;
-    }
-
-    DistLevelSetStructure *getIntersector(IntersectProblemData&) {
-      DistPhysBAMIntersector *inter = new DistPhysBAMIntersector(tolIntersect);
-      std::string solidSurface = structureFile;
-
-      std::string solidSurface2 = (restartStructureFile) ? restartStructureFile : "";
-      inter->init(solidSurface, solidSurface2);
-      
-      return inter;
-    }
-
-    int print();
-
-    void init(ParseTree &dataTree) {
-        ClassAssigner *ca = new ClassAssigner("PhysBAMIntersectorConstructor", 4, 0);
-        new ClassStr<PhysBAMIntersectorConstructor>(ca, "structureFile", this, &PhysBAMIntersectorConstructor::structureFile);
-        new ClassStr<PhysBAMIntersectorConstructor>(ca, "restartStructureFile", this, &PhysBAMIntersectorConstructor::restartStructureFile);
-        new ClassDouble<PhysBAMIntersectorConstructor>(ca, "tolerance", this, &PhysBAMIntersectorConstructor::tolIntersect);
-        dataTree.implement(ca);
-    }
-
-
-};
+//CAUTION: INSIDE/OUTSIDE means inside/outside fluid #0.
 
 //----------------------------------------------------------------------------
 
+/** Utility class to find and store bounding boxes for triangles */
 class MyTriangle {
   int id;
   double x[3], w[3];
@@ -299,31 +266,43 @@ double ClosestTriangle::getSignedVertexDistance() const {
 
 //----------------------------------------------------------------------------
 
-IntersectorConstructor *myIntersect =
-  IntersectionFactory::registerClass("PhysBAM", new PhysBAMIntersectorConstructor());
+DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm) 
+{
+  this->numFluid = iod.eqs.numPhase;
+  com = comm;
 
-//----------------------------------------------------------------------------
+  //get embedded structure surface mesh and restart pos
+  char *struct_mesh, *struct_restart_pos;
+  int sp = strlen(iod.input.prefix) + 1;
 
-int PhysBAMIntersectorConstructor::print() {
-  return 0;
-}
+  struct_mesh        = new char[sp + strlen(iod.input.embeddedSurface)];
+  sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+  struct_restart_pos = new char[sp + strlen(iod.input.positions)];
+  if(iod.input.positions[0] != 0)
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+  else //no restart position file provided
+    struct_restart_pos = ""; 
+  
+  //nodal or facet normal?
+  interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
+                        true : false;
 
-//----------------------------------------------------------------------------
-
-DistPhysBAMIntersector::DistPhysBAMIntersector(double tol) {
-  this->numFluid = 0;
-  com = IntersectionFactory::getCommunicator();
-  tolerance = tol;
+  //initialize the following to 0(NULL)
   physInterface = 0;
   triNorms = 0;
   triSize = 0;
-  interpolatedNormal = false;
   nodalNormal = 0;
   status = 0;
   status0 = 0;
   boxMin = 0;
   boxMax = 0;
   poly = 0;
+
+  //Load files. Compute structure normals. Initialize PhysBAM Interface
+  init(struct_mesh, struct_restart_pos);
+
+  delete[] struct_mesh;
+  delete[] struct_restart_pos;
 }
 
 //----------------------------------------------------------------------------
@@ -358,11 +337,11 @@ DistPhysBAMIntersector::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartSolidSurface) {
+void DistPhysBAMIntersector::init(char *solidSurface, char *restartSolidSurface) {
 
   // Read data from the solid surface input file.
   FILE *topFile;
-  topFile = fopen(solidSurface.c_str(), "r");
+  topFile = fopen(solidSurface, "r");
   if (topFile == NULL) {com->fprintf(stderr, "Embedded structure surface mesh doesn't exist :(\n"); exit(1); }
 
   // load the nodes and initialize all node-based variables.
@@ -374,7 +353,7 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
   fscanf(topFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++)
-    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface.c_str()); exit(-1);}
+    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
 
   std::list<std::pair<int,Vec3D> > nodeList;
   std::list<std::pair<int,Vec3D> >::iterator it;
@@ -417,11 +396,11 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
 
   // load the elements.
   if(nInputs!=1) {
-    fprintf(stderr,"Failed reading elements from file: %s\n", solidSurface.c_str()); exit(-1);}
+    fprintf(stderr,"Failed reading elements from file: %s\n", solidSurface); exit(-1);}
   fscanf(topFile,"%s %s %s\n", c1,c2,c3);
   char debug2[6] = "using";
   for (int i=0; i<5; i++) 
-    if(debug2[i]!=c2[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface.c_str()); exit(-1);}
+    if(debug2[i]!=c2[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
     
   std::list<int> elemList1;
   std::list<int> elemList2;
@@ -458,8 +437,8 @@ void DistPhysBAMIntersector::init(std::string solidSurface, std::string restartS
   fclose(topFile);
 
   // load solid nodes at restart time.
-  if (restartSolidSurface.c_str()[0] != 0) {
-    FILE* resTopFile = fopen(restartSolidSurface.c_str(), "r");
+  if (restartSolidSurface[0] != 0) {
+    FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
     std::list<std::pair<int,Vec3D> > nodeList2;
@@ -668,14 +647,13 @@ DistPhysBAMIntersector::buildSolidNormals() {
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, bool interpNormal) {
+DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
   }
   this->X = &X;
   domain = d;
-  interpolatedNormal = interpNormal;
   numLocSub = d->getNumLocSub();
   intersector = new PhysBAMIntersector*[numLocSub];
   pseudoPhi = new DistVec<double>(X.info()); //TODO: not needed at all!
