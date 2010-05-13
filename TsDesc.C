@@ -255,7 +255,7 @@ void TsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &iod)
 {
 
   geoState->setup2(timeState->getData());
-  timeState->setup(input->solutions, bcData->getInletBoundaryVector(), *X, *U);
+  timeState->setup(input->solutions, *X, bcData->getInletBoundaryVector(), *U, iod);
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(mmh);
   DeformingMeshMotionHandler* _dmmh = dynamic_cast<DeformingMeshMotionHandler*>(mmh);
