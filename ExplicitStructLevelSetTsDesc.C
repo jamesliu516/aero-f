@@ -111,6 +111,9 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
+    if(this->riemannNormal==2)
+      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
+
 
     //update nodeTags (only for numFluid>1)
     if(this->numFluid>1) {
@@ -185,6 +188,9 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
+    if(this->riemannNormal==2)
+      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
+
 
     //update nodeTags (only for numFluid>1)
     if(this->numFluid>1) {
@@ -228,10 +234,10 @@ void ExplicitStructLevelSetTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ul
 
   if(this->numFluid==1)  
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, dU, this->riemann, this->riemannNormal, it);
+                                   this->linRecAtInterface, dU, this->riemann, this->riemannNormal, this->Nsbar, it);
   else //numFluid>1
     this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, it);
+                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it);
 
   this->timeState->multiplyByTimeStep(dU);
   

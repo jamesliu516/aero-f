@@ -904,7 +904,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, int it)
+                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, 
+                                         DistSVec<double,3> *Nsbar, int it)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
@@ -928,7 +929,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, Nriemann, *ngrad, egrad,
+                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, Nriemann, Nsbar, *ngrad, egrad,
                                   R, it, failsafe,rshift);
 
   if (use_modal == false)  {
@@ -956,7 +957,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, DistExactRiemannSolver<dim> *riemann, 
-                                         int Nriemann, int it)
+                                         int Nriemann, DistSVec<double,3> *Nsbar, int it)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &fluidId);  
@@ -981,7 +982,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
                                   *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, fluidId, Nriemann,
-                                  *ngrad, egrad, R, it, failsafe,rshift);
+                                  Nsbar, *ngrad, egrad, R, it, failsafe,rshift);
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
 #pragma omp parallel for
@@ -1138,6 +1139,17 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     }
   }
   varFcn->primitiveToConservative(V, U, fluidId);
+}
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void SpaceOperator<dim>::computeCellAveragedStructNormal(DistSVec<double, 3> &Nsbar, DistLevelSetStructure *distLSS)
+{
+  DistVec<double> weights(domain->getNodeDistInfo()); //currently it's an integer, but might become "double" in future
+  Nsbar   = 0.0;
+  weights = 0.0;
+  domain->computeCellAveragedStructNormal(Nsbar, weights, distLSS);
 }
 
 //-----------------------------------------------------------------------------

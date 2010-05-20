@@ -3022,8 +3022,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
-  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 2,
-                                      "Fluid", 0, "Structure", 1);
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
+                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
   new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
                                       "ComputedByStructure", 0, "FiniteDifference", 1);
 }

@@ -279,7 +279,7 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm)
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
   struct_restart_pos = new char[sp + strlen(iod.input.positions)];
   if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
   else //no restart position file provided
     struct_restart_pos = ""; 
   

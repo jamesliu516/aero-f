@@ -895,7 +895,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, int Nriemann,
-                                     DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     DistSVec<double,3>* Nsbar, DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
 {
@@ -917,7 +917,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub), 
-                                             linRecAtInterface, Nriemann, ngrad(iSub),
+                                             linRecAtInterface, Nriemann, (Nsbar) ? &((*Nsbar)(iSub)) : 0, ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -958,7 +958,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                     linRecAtInterface, Nriemann, ngrad(iSub),
+                                     linRecAtInterface, Nriemann, (Nsbar) ? &((*Nsbar)(iSub)) : 0, ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
@@ -995,7 +995,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistSVec<double,dim>& Wstarij, DistSVec<double,dim>& Wstarji,
                                      DistLevelSetStructure *LSS, bool linRecAtInterface, DistVec<int> &fluidId, 
-                                     int Nriemann, DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
+                                     int Nriemann, DistSVec<double,3> *Nsbar, DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
                                      DistSVec<double,dim>& R, int it,
                                      int failsafe, int rshift)
 {
@@ -1017,7 +1017,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
     ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                              fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                              X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                             linRecAtInterface, fluidId(iSub), Nriemann,  ngrad(iSub),
+                                             linRecAtInterface, fluidId(iSub), Nriemann, (Nsbar) ? &((*Nsbar)(iSub)) : 0,  ngrad(iSub),
                                              legrad, (*RR)(iSub), it,
                                              (*tag)(iSub), failsafe, rshift);
   }
@@ -1058,7 +1058,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         ierr = subDomain[iSub]->computeFiniteVolumeTerm(riemann(iSub),
                                      fluxFcn, recFcn, bcData(iSub), geoState(iSub),
                                      X(iSub), V(iSub), Wstarij(iSub), Wstarji(iSub), (*LSS)(iSub),
-                                     linRecAtInterface, fluidId(iSub), Nriemann, ngrad(iSub),
+                                     linRecAtInterface, fluidId(iSub), Nriemann, (Nsbar) ? &((*Nsbar)(iSub)) : 0, ngrad(iSub),
                                      legrad, (*RR)(iSub), it,
                                      (*tag)(iSub), 0, rshift);
       }
