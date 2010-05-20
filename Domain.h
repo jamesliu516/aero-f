@@ -440,7 +440,7 @@ public:
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
-                               DistLevelSetStructure *, bool, int,
+                               DistLevelSetStructure *, bool, int, DistSVec<double,3>*,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
@@ -450,7 +450,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistLevelSetStructure *, bool, DistVec<int> &, int,
-                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistSVec<double,dim>&, int, int, int);
 
   template<int dim, int dimLS>
@@ -850,6 +850,10 @@ public:
   void getDerivativeOfGradP(DistNodalGrad<dim>&);
 
   void updateNodeTag(DistSVec<double,3> &, DistLevelSetStructure *, DistVec<int> &, DistVec<int> &);
+
+  void computeCellAveragedStructNormal(DistSVec<double,3> &, DistVec<double> &, DistLevelSetStructure *);
+
+
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 
   template<int dim>

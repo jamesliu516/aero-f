@@ -35,6 +35,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool linRecAtInterface;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
+                      // 2: averaged structure normal;
 
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
@@ -51,6 +52,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
+
+  DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
   // ------------------------------------------------------------------------------------
 
   DynamicNodalTransfer *dynNodalTransfer;

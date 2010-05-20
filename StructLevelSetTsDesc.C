@@ -49,7 +49,9 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  riemannNormal      = (ioData.embed.riemannNormal==EmbeddedFramework::FLUID) ? 1 : 0;
+  riemannNormal      = (int)ioData.embed.riemannNormal;
+
+  this->com->fprintf(stderr,"my riemannNormal = %d\n", riemannNormal);
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 
@@ -82,6 +84,13 @@ StructLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Wstarji = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
   *Wstarij = 0.0;
   *Wstarji = 0.0;
+
+  //cell-averaged structure normals
+  if(riemannNormal==2) {
+    Nsbar        = new DistSVec<double,3>(this->domain->getNodeDistInfo());
+    *Nsbar = 0.0;
+  } else 
+    Nsbar = 0;
 
   //TODO: should be merged with fluidId in TsDesc
   nodeTag0 = 0;
@@ -155,6 +164,9 @@ template<int dim>
 void StructLevelSetTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
   distLSS->initialize(this->domain,*this->X, ioData);
+  if(riemannNormal==2)
+    this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
+
   if(this->numFluid>1) //initialize nodeTags for multi-phase flow
     nodeTag0 = nodeTag = distLSS->getStatus();
 
@@ -393,9 +405,9 @@ template<int dim>
 double StructLevelSetTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {
   if(this->numFluid==1)
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, riemannNormal, 0);
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, riemannNormal, Nsbar,  0);
   else //numFluid>1
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, 0);
+    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
 
