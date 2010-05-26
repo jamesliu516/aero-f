@@ -456,28 +456,36 @@ namespace Communication {
         com.comm, &win);
 #endif
   }
+
   template <typename Scalar>
     Window<Scalar>::~Window() {
   #ifdef USE_MPI
       MPI_Win_free(&win);
   #endif
-    }
+  }
 
   template <typename Scalar>
   void Window<Scalar>::put(Scalar *a, int locOff, int size, int prNum, int remOff) {
 #ifdef USE_MPI
-    static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
+    double t0;
+    if (com.timer) t0 = com.timer->getTime();
+ 
+   static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
     MPI_Put(a+locOff, size*CommTrace<Scalar>::multiplicity, CommTrace<Scalar>::MPIType,
         prNum,
         remOff*CommTrace<Scalar>::multiplicity, size*CommTrace<Scalar>::multiplicity,
         CommTrace<Scalar>::MPIType,
         win);
+
+    if (com.timer) com.timer->addRMAComTime(t0);
 #endif
-      }
+  }
 
   template <typename Scalar>
   void Window<Scalar>::accumulate(Scalar *a, int locOff, int size, int prNum, int remOff, int op) {
 #ifdef USE_MPI
+    double t0;
+    if (com.timer) t0 = com.timer->getTime();
 
     static const MPI_Op mpiOp[] = { MPI_SUM, MPI_MIN, MPI_MAX };
     MPI_Accumulate(a+locOff, size*CommTrace<Scalar>::multiplicity, CommTrace<Scalar>::MPIType,
@@ -486,15 +494,22 @@ namespace Communication {
         CommTrace<Scalar>::MPIType, mpiOp[op],
         win);
 
+    if (com.timer) com.timer->addRMAComTime(t0);
 #endif
-      }
+  }
+
   template <typename Scalar>
     void Window<Scalar>::fence(bool isBeginning) {
 #ifdef USE_MPI
+      double t0;
+      if (com.timer) t0 = com.timer->getTime();
+
       if(isBeginning)
         MPI_Win_fence((MPI_MODE_NOPUT | MPI_MODE_NOPRECEDE), win);
       else
         MPI_Win_fence(MPI_MODE_NOSUCCEED, win);
+
+      if (com.timer) com.timer->addRMAComTime(t0);
 #endif
   }
 }
