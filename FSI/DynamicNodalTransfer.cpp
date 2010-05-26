@@ -63,18 +63,15 @@ DynamicNodalTransfer::sendForce() {
   double *embeddedData = embedded.first;
   int length = embedded.second;
 
-  com.barrier();
-  double t0 = timer->getTime();
-  
   if(!winForce) winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
     //(KW) WARNING: if "length" changes, winForce needs to be re-initialized !! 
+
+  com.barrier(); //for timing purpose
   winForce->fence(true);
   winForce->accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
   winForce->fence(false);
-  timer->addInterComTime(t0);
 
   structure.processReceivedForce();
-  
 }
 
 //------------------------------------------------------------------------------
@@ -88,6 +85,7 @@ DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& s
   if(!winDisp) winDisp = new  Communication::Window<double> (com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
     //(KW) WARNING: if "structU.size" changes, UandUdot and winDisp needs to be re-initialized !! 
 
+  com.barrier(); //for timing purpose
   winDisp->fence(true);
   structure.sendDisplacement(winDisp);
   winDisp->fence(false);
@@ -392,10 +390,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       UandUdot[(i+nNodes)][j] = Udot[i][j];
     }
 
-  double t0 = timer->getTime();
   for(int i = 0; i < com.size(); ++i) 
     window->put((double*)UandUdot, 0, 2*3*nNodes, i, 0);
-  timer->addInterComTime(t0);
 }
 
 //------------------------------------------------------------------------------

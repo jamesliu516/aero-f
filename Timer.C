@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 46;
+  numTimings = 47;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -700,20 +700,20 @@ double Timer::addEmbedPhaseChangeTime(double t0)
 }
 
 //------------------------------------------------------------------------------
-/*
-double Timer::addEmbedComTime(double t0)
+
+double Timer::addRMAComTime(double t0)
 {
   double t = getTime() - t0;
 
-  counter[embedCom]++;
-  data[embedCom] += t;
+//  counter[rmaCom]++;
+  data[rmaCom] += t;
 
   return t;
 }
-*/
+
 //------------------------------------------------------------------------------
 
-double Timer::removeIntersAndPhaseChange(double t0)
+double Timer::removeIntersAndPhaseChange(double t0)  //removed from "Fluid Solution"
 {
 
   double t = getTime() - t0;
@@ -743,7 +743,7 @@ void Timer::print(Timer *str, FILE *fp)
   data[total] = data[setup] + data[run];
 
 
-  data[comm] = data[localCom] + data[globalCom] + data[interCom];
+  data[comm] = data[localCom] + data[globalCom] + data[rmaCom] + data[interCom];
   data[io] = data[binread] + data[binwrite];
   
   if (ioData->problem.alltype == ProblemData::_POD_CONSTRUCTION_)
@@ -820,7 +820,7 @@ void Timer::print(Timer *str, FILE *fp)
   com->fprintf(fp, "\n");
 
   // Output Mesh solution time (except for Euler FSI)
-  if(ioData->problem.framework == ProblemData::EMBEDDED) {
+  if(ioData->problem.framework != ProblemData::EMBEDDED) {
     com->fprintf(fp, "Mesh Solution                 : %10.2f %10.2f %10.2f         -\n", 
                  tmin[mesh], tmax[mesh], tavg[mesh]);
     com->fprintf(fp, "  K Matrix Assembly           : %10.2f %10.2f %10.2f %9d\n", 
@@ -892,6 +892,8 @@ void Timer::print(Timer *str, FILE *fp)
 	       tmin[localCom], tmax[localCom], tavg[localCom]);
   com->fprintf(fp, "  Global                      : %10.2f %10.2f %10.2f         -\n", 
 	       tmin[globalCom], tmax[globalCom], tavg[globalCom]);
+  com->fprintf(fp, "  RMA                         : %10.2f %10.2f %10.2f         -\n", 
+	       tmin[rmaCom], tmax[rmaCom], tavg[rmaCom]);
   com->fprintf(fp, "  Inter                       : %10.2f %10.2f %10.2f %9d\n", 
 	       tmin[interCom], tmax[interCom], tavg[interCom], 
 	       counter[interCom]);

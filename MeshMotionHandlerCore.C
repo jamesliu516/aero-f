@@ -594,7 +594,6 @@ double AeroMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     //  return 0.0;
     //}
   }
-  timer->removeForceAndDispComm(t0);
   timer->removeForceAndDispComm(t0); // do not count the communication time with the
                                      // structure in the mesh solution
 
@@ -1493,6 +1492,9 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double ttt = timer->getTime();
   if(!dynNodalTransfer) {
     fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
     exit(-1);
@@ -1509,6 +1511,8 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
       step1ForC0XFEM(lastIt,it,t,Xdot,X);
       break;
   }
+  timer->removeForceAndDispComm(ttt); // do not count the communication time with the
+                                     // structure in the mesh solution
 
   return dts;
 }
@@ -1619,6 +1623,9 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
 double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double ttt = timer->getTime();
   if(!dynNodalTransfer || !distLSS) {
     fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
     exit(-1);
@@ -1637,6 +1644,8 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       step2ForC0(lastIt,it,t,Xdot,X);
       break;
   }
+  timer->removeForceAndDispComm(ttt); // do not count the communication time with the
+                                     // structure in the mesh solution
 
   return dts;
 }

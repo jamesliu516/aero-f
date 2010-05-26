@@ -101,6 +101,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
         break;
     }
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
 
     //get structure timestep dts
@@ -110,6 +111,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
     tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
     this->timer->addIntersectionTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
     if(this->riemannNormal==2)
       this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
@@ -129,6 +131,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
     
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
   }
 
@@ -178,6 +181,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
         break;
     }
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
 
     //get structure timestep dts
@@ -187,6 +191,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
     this->timer->addIntersectionTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
     if(this->riemannNormal==2)
       this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
@@ -205,6 +210,7 @@ void ExplicitStructLevelSetTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U)
     else //numFluid>1
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
+    this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
   }
 

@@ -743,8 +743,15 @@ DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
 void
 DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
 
+//  com->fprintf(stderr,"*** recompute intersections ...\n");
+
+  Timer *timer = domain->getTimer(); 
+  double cputime[20];
+
+  cputime[0] = timer->getTime();
+
   if (dtfLeft<-1.0e-8) {
-    fprintf(stderr,"There is a bug in time-step!\n");
+    com->fprintf(stderr,"ERROR: Time-step is negative (%e)!\n", dtfLeft);
     exit(-1);
   }
   //get current struct coordinates.
@@ -756,23 +763,73 @@ DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
   // for getClosestTriangles
   DistVec<double> distance(X->info());
   DistVec<int> tId(X->info());
-  
+
+  cputime[1] = timer->getTime();
+
   updatePhysBAMInterface(Xs, numStNodes);
+
+  cputime[2] = timer->getTime();
+
   getBoundingBox();
+
+  cputime[3] = timer->getTime();
+
   buildSolidNormals();
+
+  cputime[4] = timer->getTime();
 
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     intersector[iSub]->reset();
+    
+    cputime[5] = timer->getTime();
+
     intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub), distance(iSub));
+
+    cputime[6] = timer->getTime();
+
     intersector[iSub]->computeFirstLayerNodeStatus(tId(iSub), distance(iSub));
+
+    cputime[7] = timer->getTime();
+
   }
 
   findInAndOut();
+
+  cputime[8] = timer->getTime();
+
  
   for(int iSub = 0; iSub < numLocSub; ++iSub){ 
     intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub]));   
+
+    cputime[9] = timer->getTime();
+
     intersector[iSub]->findIntersections((*X)(iSub));
+
+    cputime[10] = timer->getTime();
+
   }
+/*
+  com->barrier();
+  double allcputime[20*(com->size())];
+  Communication::Window<double> window0(*com, 20*(com->size())*sizeof(double), (double*)allcputime);
+  window0.fence(true);
+  window0.put((double*)cputime, 0, 20, 0, 20*(com->cpuNum()));
+  window0.fence(false);
+
+  if(com->cpuNum()==0) {
+    FILE* timing =  fopen("intersector_timing.txt", "a");
+//    fprintf(timing, "cpu#  |  update Xs  |   update PhysBAM  |  bounding-box  |  normals  |  reset status  |  PROJECTIONS  |  SEPARATION  |  inAndout  |  finish status  |  INTERSECT  | TOTAL\n");
+    for(int i=0; i<com->size(); i++) {
+      fprintf(timing, "%d     ", i);
+      for(int j=0; j<10; j++) 
+        fprintf(timing, "%6.6f      ", allcputime[i*20+j+1]-allcputime[i*20+j]);
+      fprintf(timing, "%6.6f\n", allcputime[i*20+10] - allcputime[i*20]);
+    }
+    fprintf(timing,"\n");
+    fclose(timing);
+  }
+
+  com->fprintf(stderr,"DONE with recompute!\n");*/
 }
 
 //----------------------------------------------------------------------------
