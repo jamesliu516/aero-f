@@ -518,13 +518,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
-  SVec<double,dim> tempWstarij(Wstarij);
-  SVec<double,dim> tempWstarji(Wstarji);
-  if (it>0) { //if it>0 (i.e. not called from computeResidualNorm), clear Wstarij and Wstarji for update.
-    Wstarij = 0.0;
-    Wstarji = 0.0;
-  }
-
   Vec3D normalDir; //normal direction fed to the Riemann solver. Related to the choice of "Nriemann".
 
   int ierr=0;
@@ -538,8 +531,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     bool jIsActive = LSS.isActive(0, j);
     bool intersect = LSS.edgeIntersectsStructure(0,i,j);
 
-    if( !iIsActive && !jIsActive ) 
+    if( !iIsActive && !jIsActive ) {
+      if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
       continue;
+    }
 
     // ------------------------------------------------
     //  Reconstruction without crossing the interface.
@@ -566,25 +561,29 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         // Case 1: i and j are both active (but i-j intersects)
         if (iIsActive&&jIsActive) {
           double Vtemp[2*dim];
-          if (tempWstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
+          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
             for (int k=0; k<dim; k++) Vi[k] = V[i][k]; 
-          } else recFcn->compute(V[i], ddVij, tempWstarij[l], ddVji, Vi, Vtemp);
-          if (tempWstarji[l][0]<1e-8) {
+          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
+          if (Wstarji[l][0]<1e-8) {
             for (int k=0; k<dim; k++) Vj[k] = V[j][k];
-          } else recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
+          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
         }
         // Case 2: i is active, j is inactive
         else if (iIsActive)
-          if (tempWstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
+          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
             for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          } else recFcn->compute(V[i], ddVij, tempWstarij[l], ddVji, Vi, Vj);
+          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
         // Case 3: i is inactive, j is active
         else if (jIsActive)
-          if (tempWstarji[l][0]<1e-8) {
+          if (Wstarji[l][0]<1e-8) {
             for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          } else recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, Vi, Vj);
+          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
       }
     }
+
+    if(it>0)
+      for(int k=0;k<dim;k++)
+        Wstarij[l][k] = Wstarji[l][k] = 0.0;
 
     // check for negative pressure or density //
     if (!rshift)
@@ -703,11 +702,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
-  SVec<double,dim> tempWstarij(Wstarij);
-  SVec<double,dim> tempWstarji(Wstarji);
-  Wstarij = 0.0;
-  Wstarji = 0.0;
-
   Vec3D normalDir;
 
   int ierr=0;
@@ -742,14 +736,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       else {//linRec at interface using Wstar
         double Vtemp[2*dim];
-        if (tempWstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
+        if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
           for (int k=0; k<dim; k++) Vi[k] = V[i][k];
-        } else recFcn->compute(V[i], ddVij, tempWstarij[l], ddVji, Vi, Vtemp);
-        if (tempWstarji[l][0]<1e-8) {
+        } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
+        if (Wstarji[l][0]<1e-8) {
           for (int k=0; k<dim; k++) Vj[k] = V[j][k];
-        } else recFcn->compute(tempWstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
+        } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
       }
     } 
+
+    if(it>0)
+      for(int k=0;k<dim;k++)
+        Wstarij[l][k] = Wstarji[l][k] = 0.0;
 
     // check for negative pressure or density //
     if (!rshift)
