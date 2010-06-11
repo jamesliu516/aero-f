@@ -1680,7 +1680,8 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 #ifdef DO_MODAL
   outputPODVectors(Utrue, singVals, nPOD);
 #endif
-/*
+
+/*#ifdef DO_MODAL
   // allocate for upper half of sym. eigprob
   double *eigVals = new double[nPOD];
   double *eigVecs = new double[nPOD*nSnaps];
