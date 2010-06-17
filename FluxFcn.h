@@ -458,10 +458,6 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
   if(fmodel.fluid == FluidModelData::GAS){
 // Euler or Navier-Stokes for Stiffened Gas 
     VarFcnSGEuler *vfsgeuler = new VarFcnSGEuler(fmodel);
-    if(vfsgeuler == 0){
-      fprintf(stderr, "*** Error: FluidModal has an error\n");
-      exit(-1);
-    }
 
     switch(ffType){
 

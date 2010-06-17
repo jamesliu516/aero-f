@@ -650,7 +650,7 @@ void WallFcnSA::computeWallValues(double utau, double delta, double rho,
   double mutomu = coef0 * (exp(kuplus) - 1.0 - kuplus - 0.5*kuplus*kuplus);
 
   if(mutomu<0.0) {
-     fprintf(stderr,"*** Warning: mutomu clipped at wall boundary (mutomu = %e)\n",mutomu);
+//     fprintf(stderr,"*** Warning: mutomu clipped at wall boundary (mutomu = %e)\n",mutomu);
      mutomu = 0.0;
   }
 
@@ -703,7 +703,7 @@ void WallFcnSA::computeDerivativeOfWallValues(double utau, double dutau, double 
   double dmutomu = coef0 * (exp(kuplus) * dkuplus - dkuplus - kuplus*dkuplus);
 
   if(mutomu<0.0) {
-     fprintf(stderr,"*** Warning: mutomu clipped at wall boundary (mutomu = %e)\n",mutomu);
+//     fprintf(stderr,"*** Warning: mutomu clipped at wall boundary (mutomu = %e)\n",mutomu);
      mutomu = 0.0;
      dmutomu = 0.0;
   }
