@@ -19,13 +19,14 @@
 #ifndef ARRSEIG_H
 #define ARRSEIG_H
 
-#include <new.h>
-#include <stddef.h>
+#include <new>
+#include <cstddef>
 #include "arch.h"
 #include "arerror.h"
 #include "debug.h"
 #include "blas1c.h"
 
+using namespace std;
 
 // "New" handler.
 

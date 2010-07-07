@@ -1225,7 +1225,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
   DistSVec<double,dim> FF(domain.getNodeDistInfo());
 
   // Allocate ROM operators
-  VarFcn *varFcn = new VarFcnSGEuler(ioData->eqs.fluidModel); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
   MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
   onlyHOp->evalH(0, Xref, controlVol, Uref);
 
