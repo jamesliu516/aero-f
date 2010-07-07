@@ -425,7 +425,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   int cntp1;
 
   // every step corresponds to solving for 2x each member of the BDF scheme
-  FF *= 2.0; 
+  FF *= (-2.0); 
   for (int cnt = 0; cnt < nSteps; ++cnt) {
 
     cntp1 = cnt+1;
