@@ -19,14 +19,15 @@
 #ifndef ARDFMAT_H
 #define ARDFMAT_H
 
-#include <stddef.h>
-#include <fstream.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstddef>
+#include <fstream>
+#include <cstdlib>
+#include <string>
+#include <cstdio>
 #include "arch.h"
 #include "arerror.h"
 
+using namespace std;
 
 template<class ARTYPE>
 class ARdfMatrix {

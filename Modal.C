@@ -425,7 +425,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
   int cntp1;
 
   // every step corresponds to solving for 2x each member of the BDF scheme
-  FF *= 2.0; 
+  FF *= (-2.0); 
   for (int cnt = 0; cnt < nSteps; ++cnt) {
 
     cntp1 = cnt+1;
@@ -1225,7 +1225,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
   DistSVec<double,dim> FF(domain.getNodeDistInfo());
 
   // Allocate ROM operators
-  VarFcn *varFcn = new VarFcnSGEuler(ioData->eqs.fluidModel); 
+  VarFcn *varFcn = new VarFcn(*ioData); 
   MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
   onlyHOp->evalH(0, Xref, controlVol, Uref);
 
