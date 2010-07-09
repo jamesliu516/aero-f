@@ -102,6 +102,7 @@ struct TransientData {
   const char *podFile;
   const char *romFile;
   const char *philevel;
+  const char *controlvolume;
   const char *philevel_structure;
 // Included (MB)
   const char *velocitynorm;

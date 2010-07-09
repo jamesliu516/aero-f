@@ -28,7 +28,8 @@ public:
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
                    WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, TEMPERATURE_NORMAL_DERIVATIVE = 24, 
                    SURFACE_HEAT_FLUX = 25, PRESSURECOEFFICIENT = 26, PHILEVEL_STRUCTURE = 27,
-                   SSIZE = 28};
+                   CONTROL_VOLUME = 28,
+                   SSIZE = 29};
 
 
 // Original

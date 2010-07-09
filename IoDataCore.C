@@ -178,6 +178,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   philevel = "";
+  controlvolume = "";
   philevel_structure = "";
 
 // Included (MB)
@@ -283,6 +284,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
+  new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
   new ClassStr<TransientData>(ca, "Philevel_structure", this, &TransientData::philevel_structure);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
