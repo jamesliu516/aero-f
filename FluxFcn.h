@@ -48,7 +48,7 @@ private:
   FluxFcnBase *createFluxFcn(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, VarFcnBase *vfb, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
 
   //for Implicit Segregated Navier-Stokes solver ONLY!
-  FluxFcnBase *createFluxFcnSeg1(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, VarFcnBase *vfb, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
+  FluxFcnBase *createFluxFcnSeg1(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
   FluxFcnBase *createFluxFcnSeg2(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, VarFcnBase *vfb, FluxFcnBase::Type typeJac = FluxFcnBase::CONSERVATIVE);
 
 public:
@@ -137,9 +137,8 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, int segPart, F
     fprintf(stderr, "*** Error: Unable to construct FluxFcn for Implicit Segregated NS solver!\n");
     exit(1);
   }
-
-  if(segPart==1) 
-    ff_[0] = createFluxFcnSeg1(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac);
+  if(segPart==1)  
+    ff_[0] = createFluxFcnSeg1(rshift, ffType, iod.eqs.fluidModel, iod, typeJac); // an Euler varFcn will be created
   if(segPart==2) 
     ff_[0] = createFluxFcnSeg2(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac);
 }
@@ -450,16 +449,16 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
 inline
 FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &fmodel, IoData &iod, 
-                                        VarFcnBase *vfb, FluxFcnBase::Type typeJac){
+                                        FluxFcnBase::Type typeJac){
 
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
   if(fmodel.fluid == FluidModelData::GAS){
 // Euler or Navier-Stokes for Stiffened Gas 
-    VarFcnSGEuler *vfsgeuler = dynamic_cast<VarFcnSGEuler *>(vfb);
+    VarFcnSGEuler *vfsgeuler = new VarFcnSGEuler(fmodel); 
     if(vfsgeuler == 0){
-      fprintf(stderr, "*** Error: a VarFcnSGEuler is expected to create the associated FluxFcn\n");
+      fprintf(stderr, "*** Error: FluidModal has an error\n");
       exit(-1);
     }
 
