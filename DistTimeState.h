@@ -92,7 +92,7 @@ public:
   void setupUVolumesInitialConditions(IoData &iod);
   void setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
-  void setupUFluidIdInitialConditions(double UU[dim], DistVec<int> &fluidId, int myId);
+  void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
   void update(DistSVec<double,dim> &);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               DistExactRiemannSolver<dim> *riemann);

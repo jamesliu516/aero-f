@@ -32,7 +32,7 @@ extern "C" {
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlFDJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				     double *VL, double *VR, double *flux)
+				     double *VL, double *VR, double *flux, bool useLimiter)
 {
 
    fprintf(stderr, "*** Error: FluxFcnJwlFDJacRoeEuler3D::compute not implemented\n");
@@ -43,14 +43,14 @@ void FluxFcnJwlFDJacRoeEuler3D::compute(double length, double irey, double *norm
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				       double *VL, double *VR, double *flux)
+				       double *VL, double *VR, double *flux, bool useLimiter)
 {
 
    F77NAME(roeflux5jwl)(0, gamma, vf->getOmega(), vf->getA1(), vf->getA2(), vf->getR1r(), vf->getR2r(),
                         normal, normalVel, 
                         VL, VL+rshift, VR, VR+rshift, flux, 
                         sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), 
-                        sprec.getShockParameter(), irey, length, sprec.getPrecTag());
+                        sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
  
 }
 
@@ -58,7 +58,7 @@ void FluxFcnJwlApprJacRoeEuler3D::compute(double length, double irey, double *no
 
 void FluxFcnJwlApprJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						double *VL, double *VR, 
-						double *jacL, double *jacR)
+						double *jacL, double *jacR, bool useLimiter)
 {
 
   const int dim = 5;
@@ -71,10 +71,10 @@ void FluxFcnJwlApprJacRoeEuler3D::computeJacobians(double length, double irey, d
   double n[3] = {normal[0], normal[1], normal[2]};
   F77NAME(roejac6jwl)(type, gamma, vf->getOmega(), vf->getA1(), vf->getA2(), vf->getR1r(), vf->getR2r(), n, normalVel, 
                       VL, VR, dfdUL, 1, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), 
-                      irey, length, sprec.getPrecTag());
+                      irey, length, useLimiter ? sprec.getPrecTag() : 0);
   F77NAME(roejac6jwl)(type, gamma, vf->getOmega(), vf->getA1(), vf->getA2(), vf->getR1r(), vf->getR2r(), n, normalVel,
                       VR, VL, dfdUR, 2, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), 
-                      irey, length, sprec.getPrecTag());
+                      irey, length, useLimiter ? sprec.getPrecTag() : 0);
   if (typeJac == FluxFcnBase::CONSERVATIVE) {
     for (int k=0; k<dim2; ++k) {
       jacL[k] = dfdUL[k];
@@ -91,7 +91,7 @@ void FluxFcnJwlApprJacRoeEuler3D::computeJacobians(double length, double irey, d
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlExactJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					double *VL, double *VR, double *flux)
+					double *VL, double *VR, double *flux, bool useLimiter)
 {
 
   fprintf(stderr, "*** Error: FluxFcnJwlExactJacRoeEuler3D::compute not implemented\n");
@@ -103,7 +103,7 @@ void FluxFcnJwlExactJacRoeEuler3D::compute(double length, double irey, double *n
 
 void FluxFcnJwlExactJacRoeEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel, 
 						 double *VL, double *VR, 
-						 double *jacL, double *jacR)
+						 double *jacL, double *jacR, bool useLimiter)
 {
 
   fprintf(stderr, "*** Error: FluxFcnJwlExactJacRoeEuler3D::computeJacobians not implemented\n");
@@ -114,7 +114,7 @@ void FluxFcnJwlExactJacRoeEuler3D::computeJacobians(double length, double irey, 
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlWallEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   flux[0] = 0.0;
@@ -128,7 +128,7 @@ void FluxFcnJwlWallEuler3D::compute(double length, double irey, double *normal, 
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlGhidagliaEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
   F77NAME(genbcfluxjwl)(0, vf->getOmega(), vf->getA1(), vf->getA2(),
@@ -140,7 +140,7 @@ void FluxFcnJwlGhidagliaEuler3D::compute(double length, double irey, double *nor
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				   double *V, double *Ub, double *flux)
+				   double *V, double *Ub, double *flux, bool useLimiter)
 {
     fprintf(stderr, "*** Error: FluxFcnJwlInflowEuler3D::compute not implemented\n");
     exit(1);
@@ -149,7 +149,7 @@ void FluxFcnJwlInflowEuler3D::compute(double length, double irey, double *normal
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-				    double *V, double *Ub, double *flux)
+				    double *V, double *Ub, double *flux, bool useLimiter)
 {
     fprintf(stderr, "*** Error: FluxFcnJwlOutflowEuler3D::compute not implemented\n");
     exit(1);
@@ -158,7 +158,7 @@ void FluxFcnJwlOutflowEuler3D::compute(double length, double irey, double *norma
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlInternalInflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					   double *V, double *Ub, double *flux)
+					   double *V, double *Ub, double *flux, bool useLimiter)
 {
 
     fprintf(stderr, "*** Error: FluxFcnJwlInternalInflowEuler3D::compute not implemented\n");
@@ -169,7 +169,7 @@ void FluxFcnJwlInternalInflowEuler3D::compute(double length, double irey, double
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlInternalInflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
-						   double *V, double *Ub, double *jacL)
+						   double *V, double *Ub, double *jacL, bool useLimiter)
 {
 
     fprintf(stderr, "*** Error: FluxFcnJwlInternalInflowEuler3D::computeJacobian not implemented\n");
@@ -180,7 +180,7 @@ void FluxFcnJwlInternalInflowEuler3D::computeJacobian(double length, double irey
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlInternalOutflowEuler3D::compute(double length, double irey, double *normal, double normalVel, 
-					    double *V, double *Ub, double *flux)
+					    double *V, double *Ub, double *flux, bool useLimiter)
 {
 
     fprintf(stderr, "*** Error: FluxFcnJwlInternalOutflowEuler3D::compute not implemented\n");
@@ -191,7 +191,7 @@ void FluxFcnJwlInternalOutflowEuler3D::compute(double length, double irey, doubl
 //------------------------------------------------------------------------------
 
 void FluxFcnJwlInternalOutflowEuler3D::computeJacobian(double length, double irey, double *normal, double normalVel, 
-						    double *V, double *Ub, double *jacL)
+						    double *V, double *Ub, double *jacL, bool useLimiter)
 {
  
     fprintf(stderr, "*** Error: FluxFcnJwlInternalOutflowEuler3D::computeJacobian not implemented\n");

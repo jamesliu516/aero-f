@@ -307,7 +307,7 @@ public:
                                     SVec<double,6> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
                                     SVec<Scalar,dim> &, SVec<Scalar,dim> &,
-                                    bool linRecFSI);
+                                    bool linRecFSI = true);
 
 
   template<int dim, class Scalar>
@@ -361,14 +361,14 @@ public:
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, int, 
-                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
                               SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, Vec<int> &, int,
-                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
@@ -852,6 +852,8 @@ public:
                               Vec<double> &weight);
   template<int dim>
   void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U);
+  template<int dim>
+  void IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId);
 
   template<int dim>
   void checkExtrapolationValue(SVec<double,dim>&,  VarFcn*,
@@ -1028,6 +1030,8 @@ public:
   int* getNeiElemOfNode(int, int, int&);
   void getNodeCoords(int, SVec<double,3> &, double&, double&, double&);
   void updateNodeTag(SVec<double,3>&, LevelSetStructure &, Vec<int>&, Vec<int>&);
+
+  void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
   void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
                                Vec<double>&, Vec<double>&, double pInfty);

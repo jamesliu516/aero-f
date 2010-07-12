@@ -195,20 +195,14 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // first,  setup U for volume with specific volume Ids
   // optional, setup U with one dimensional solution
   // second, setup U for multiphase geometric conditions (planes, then spheres)
-  // third,  setup U for embedded structures
+  // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
   if(iod.input.oneDimensionalSolution[0] != 0) setupUOneDimensionalSolution(iod,X);
   setupUMultiFluidInitialConditions(iod,X);
-  if(fluidId) { //TODO: to be fixed
-    if(iod.eqs.numPhase==2){
-      double UU[dim];
-      //computeInitialState(*(iod->mf.initialConditions.sphere[0]), iod->mf.fluidModel2, UU);
-      fprintf(stdout, "*** Error: needs to be implemented properly\n");
-      exit(1);
-      setupUFluidIdInitialConditions(UU, *fluidId, 1);
-    }
-  }
+
+  if(fluidId && iod.eqs.numPhase>=2) 
+    setupUFluidIdInitialConditions(iod, *fluidId);
 
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
@@ -497,24 +491,43 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setupUFluidIdInitialConditions(double UU[dim], DistVec<int> &fluidId, int myId)
+void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId)
 {
+  map<int, FluidModelData *>::iterator fluidIt;
 
-  // set Un[id==myID] = UU
+  if(!iod.embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator pointIt;
+    for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
+        pointIt != iod.embed.embedIC.pointMap.dataMap.end();
+        pointIt ++){
+
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(pointIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", pointIt->second->fluidModelID);
+        exit(-1);
+      }
+
+      double UU[dim];
+      computeInitialState(pointIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+      domain->getCommunicator()->fprintf(stdout, "  for PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
+
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    SVec<double,dim> &subUn((*Un)(iSub));
-    Vec<int> &subId(fluidId(iSub));
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &subUn((*Un)(iSub));
+        Vec<int> &subId(fluidId(iSub));
 
-    for(int i=0; i<subUn.size(); i++) 
-      if(subId[i]==myId)
-        for(int iDim=0; iDim<dim; iDim++)
-          subUn[i][iDim] = UU[iDim];
+        for(int i=0; i<subUn.size(); i++)
+          if(subId[i]==fluidIt->first)
+            for(int iDim=0; iDim<dim; iDim++)
+              subUn[i][iDim] = UU[iDim];
+      }
+    }
+  } else {
+    domain->getCommunicator()->fprintf(stderr, "ERROR: FluidId-based initial conditions could not be found.\n");
+    exit(-1);
   }
-
-//  fprintf(stderr,"U inside 'sphere': %e %e %e %e %e\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-
-}
+} 
 
 //------------------------------------------------------------------------------
 
@@ -1094,12 +1107,13 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
-    fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
-    exit(1);
-    varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
+    //fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
+    //exit(1);
+    //varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
     //TODO: to be fixed for 3pt-BDF!!!
     //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1, Vgf, Vgfweight, riemann);
     //riemann->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1);
+    *Unm1 = *Un;
     data->exist_nm1 = true;
   }
   *Un = Q;

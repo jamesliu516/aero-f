@@ -38,8 +38,9 @@ GeoSource::GeoSource(IoData &ioData)
   mapName = new char[sp + strlen(ioData.input.cpumap)];
   sprintf(mapName, "%s%s", ioData.input.prefix, ioData.input.cpumap);
 
-  if (ioData.problem.type[ProblemData::AERO] ||
-      ioData.problem.type[ProblemData::THERMO]) {
+  if (ioData.problem.framework==ProblemData::BODYFITTED && //KW: For Embedded, matcher file is in ASCII
+      (ioData.problem.type[ProblemData::AERO] ||        //      and it's loaded in FSI/Dynam... 
+       ioData.problem.type[ProblemData::THERMO])) {
     matchName = new char[sp + strlen(ioData.input.match)];
     sprintf(matchName, "%s%s", ioData.input.prefix, ioData.input.match);
   }

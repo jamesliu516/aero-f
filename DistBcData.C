@@ -195,7 +195,6 @@ template<int dim>
 void DistBcData<dim>::finalize(DistSVec<double,3> &X)
 {
   //assumption : only one phase is found at the far-field boundary
-
   com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
   this->vf->conservativeToPrimitive(this->Uin, Vin);
   this->vf->conservativeToPrimitive(this->Uout, Vout);
@@ -1099,7 +1098,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsGasGas(IoData &iod,
     }
     // End shocktube setup
   }
-  //fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
+//  fprintf(stderr,"DEBUG: Uout: (%e %e %e %e %e).\n", this->Uout[0], this->Uout[1], this->Uout[2], this->Uout[3], this->Uout[4]);
 
 }
 
@@ -1466,7 +1465,7 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod,
   this->Uin[2] = this->Uin[0]*velin*cos(iod.bc.inlet.alpha)*sin(iod.bc.inlet.beta);
   this->Uin[3] = this->Uin[0]*velin*sin(iod.bc.inlet.alpha);
   this->Uin[4] = (pressurein+gam*Pstiff)/(gam-1.0) + 0.5 * this->Uin[0] * velin2;
-  this->com->printf(2, "Conservative Inlet : %e %e %e %e %e\n", pressurein, gam, Pstiff, velin2, this->Uin[4]);
+//  this->com->printf(2, "Conservative Inlet : %e %e %e %e %e\n", pressurein, gam, Pstiff, velin2, this->Uin[4]);
 
   this->Uout[0] = rhoout;
   this->Uout[1] = this->Uout[0]*velout*cos(iod.bc.outlet.alpha)*cos(iod.bc.outlet.beta);

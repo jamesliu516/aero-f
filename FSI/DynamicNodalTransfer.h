@@ -26,8 +26,8 @@ class EmbeddedStructure {
   Timer *timer;
   StructExc* structExc;
   
-  const char *meshFile;
-  const char *matcherFile;
+  char *meshFile;
+  char *matcherFile;
  
   bool coupled;
   int algNum;

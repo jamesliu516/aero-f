@@ -67,17 +67,17 @@ public:
 
 
   //----- General Functions -----//
-  void compute(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *flux, int tag=0){
+  void compute(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *flux, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->compute(length, irey, normal, normalVel, VL, VR, flux);
+    ff_[tag]->compute(length, irey, normal, normalVel, VL, VR, flux, useLimiter);
   }
-  void computeJacobian(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, int tag=0){
+  void computeJacobian(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->computeJacobian(length, irey, normal, normalVel, VL, VR, jacL);
+    ff_[tag]->computeJacobian(length, irey, normal, normalVel, VL, VR, jacL, useLimiter);
   }
-  void computeJacobians(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, double *jacR, int tag=0){
+  void computeJacobians(double length, double irey, double *normal, double normalVel, double *VL, double *VR, double *jacL, double *jacR, int tag=0, bool useLimiter = true){
     check(tag);
-    ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR);
+    ff_[tag]->computeJacobians(length, irey, normal, normalVel, VL, VR, jacL, jacR, useLimiter);
   }
 
   //----- Sensitivity Analysis Functions -----//
@@ -137,8 +137,7 @@ FluxFcn::FluxFcn(int rshift, int ffType, IoData &iod, VarFcn *vf, int segPart, F
     fprintf(stderr, "*** Error: Unable to construct FluxFcn for Implicit Segregated NS solver!\n");
     exit(1);
   }
-
-  if(segPart==1) 
+  if(segPart==1)  
     ff_[0] = createFluxFcnSeg1(rshift, ffType, iod.eqs.fluidModel, iod, typeJac); //an Euler (inviscid) VarFcn will be created
   if(segPart==2) 
     ff_[0] = createFluxFcnSeg2(rshift, ffType, iod.eqs.fluidModel, iod, vf_->varFcn[0], typeJac);

@@ -14,31 +14,6 @@ class Communicator;
 
 //------------------------------------------------------------------------------
 
-struct BoundingBoxData {
-  enum ProvideBoundingBox {NO = 0, YES = 1} provide;
-  double xmin, xmax, ymin, ymax, zmin, zmax;
-
-  BoundingBoxData();
-  ~BoundingBoxData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-};
-
-//------------------------------------------------------------------------------
-
-struct GhostSolidData  {
-  enum YesNo {NO = 0, YES = 1} runit, solidSurfaceFile;
-  BoundingBoxData boundingBox;
-
-  GhostSolidData();
-  ~GhostSolidData() {}
-
-  void setup(const char *, ClassAssigner * = 0);
-
-};
-
-//--------------------------------------------------------------------------------
-
 struct InputData {
 
   const char *prefix;
@@ -56,13 +31,11 @@ struct InputData {
   const char *podFile;
   const char *podFile2;
   const char *strModesFile;
-  const char *solidsurface;
+  const char *embeddedSurface;
   const char *oneDimensionalSolution;
 
 // Included (MB)
   const char *shapederivatives;
-
-  GhostSolidData ghostsolid;
 
   InputData();
   ~InputData() {}
@@ -130,6 +103,7 @@ struct TransientData {
   const char *podFile;
   const char *romFile;
   const char *philevel;
+  const char *controlvolume;
   const char *philevel_structure;
 // Included (MB)
   const char *velocitynorm;
@@ -178,8 +152,6 @@ struct RestartData {
   const char *positions;
   const char *levelsets;
   const char *data;
-
-  const char *structPos;
 
   int frequency;
 
@@ -243,6 +215,7 @@ struct ProblemData {
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
+  enum Framework {BODYFITTED = 0, EMBEDDED = 1} framework;
   int verbose;
 
   ProblemData();
@@ -1661,64 +1634,24 @@ struct Velocity  {
 //------------------------------------------------------------------------------
 
 struct EmbeddedFramework { 
-//TODO: should merge StructureIntersect and EmbeddedStructureInfo into this object.
 
-  enum IntersectorName {PhysBAMLite = 0, FRG = 1} intersectorName;
-  enum StructureNormal {ElementBased = 0, NodeBased = 1} structNormal;
-  enum EOSChange {NodalState = 0, RiemannSolution = 1} eosChange;
-  enum ForceAlgorithm {ReconstructedSurface = 0, ControlVolumeBoundary = 1} forceAlg;
+  enum IntersectorName {PHYSBAMLITE = 0, FRG = 1} intersectorName;
+  enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
+  enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
+  enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
 
   MultiInitialConditionsData embedIC;
+
+  //Debug variables
+  enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
+  enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
+  enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
+  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
 
-  void setup(const char *);
-};
-
-//------------------------------------------------------------------------------
-
-struct StructureIntersect {
-  ParseTree tree;
-  const char *intersectorName;
-  const char *libraryName;
-  enum Normal {FACET = 0, INTERPOLATED = 1} normal;
-  enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
-  enum RiemannNormal {STRUCTURE = 0, FLUID = 1} riemannNormal;
-  int forceApproach;
-  int pressureChoice;
-  int phaseChangeChoice;
-
-  StructureIntersect() : tree("Data") { }
-
-  Assigner *getAssigner();
-  void setup(const char *);
-
-  void activate();
-};
-
-//------------------------------------------------------------------------------
-
-struct EmbeddedStructureInfo {
-  const char *surfaceMeshFile;
-  const char *matcherFile;
-
-  enum Type {FORCED = 0, ONEWAY = 1, TWOWAY = 2, NONE = 3} type;
-  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
-  enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
-  enum ForcedMotionMode {HEAVING = 0, CONSTHEAVING = 1, OTHER = 2} forcedMotionMode;
-  double tMax;
-  double dt; 
-  double omega;
-  double dx;
-  double dy;
-  double dz;
-  double t0;
- 
-  EmbeddedStructureInfo() {}
-  ~EmbeddedStructureInfo() {}
-
-  Assigner *getAssigner();
   void setup(const char *);
 };
 
@@ -1776,8 +1709,6 @@ public:
   Velocity rotations;
   Volumes volumes;
   EmbeddedFramework embed;
-  StructureIntersect strucIntersect;
-  EmbeddedStructureInfo embeddedStructure;
   OneDimensionalInfo oneDimensionalInfo;
 
 public:

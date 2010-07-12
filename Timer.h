@@ -16,7 +16,7 @@ class Timer {
     mesh, meshAssembly, meshPrecSetup, meshKsp,
     podConstr, snapsLinSolv, padeReconstr, correlMatrix, eigSolv, gramSchmidt,
     romSol, romConstr, romTimeInteg,
-    comm, localCom, globalCom, interCom,
+    comm, localCom, globalCom, interCom, rmaCom,
     io, binread, binwrite,
     levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
     waitrec, timeStep, intersect, embedPhaseChange, eulerFSI
@@ -77,6 +77,7 @@ public:
   double addLocalComTime(double);
   double addGlobalComTime(double);
   double addInterComTime(double);
+  double addRMAComTime(double);
   double addBinaryReadTime(double);
   double addBinaryWriteTime(double);
   double addFluidSolutionTime(double);
@@ -91,7 +92,6 @@ public:
   // Embedded FSI Timer Functions
   double addIntersectionTime(double);
   double addEmbedPhaseChangeTime(double);
-//  double addEmbedComTime(double);
   double removeIntersAndPhaseChange(double);
 
   void print(Timer *, FILE * = stdout);

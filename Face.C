@@ -320,7 +320,7 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 {
   if(code==BC_ADIABATIC_WALL_MOVING || code==BC_ADIABATIC_WALL_FIXED) {
   // FS Riemann based flux calculation.
-    double flux[dim], Wstar[2*dim];
+    double flux[dim], Wstar[2*dim], Vi[2*dim];
     int k;
     Vec3D wallVel, unitNormal;
     VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
@@ -329,17 +329,14 @@ void Face::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
       k = nodeNum(l);
       unitNormal = getNormal(normals,l)/(getNormal(normals,l).norm());
       wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
-      riemann.computeFSIRiemannSolution(V[k], wallVel, -1.0*unitNormal, varFcn, Wstar, k); //<! "k" is passed in for updating phase-change, which is used only under the embedded framework. 
+      for(int iDim=0; iDim<dim; iDim++)
+        Vi[iDim] = Vi[iDim+dim] = V[k][iDim];
 
-/*      if(code==BC_ADIABATIC_WALL_MOVING) {//Kevin's debug 
-        fprintf(stderr,"** Solving a FS Riemann problem at moving wall.\n");
-        fprintf(stderr,"   Inputs : V[%d] = %e %e %e %e %e.  wallVel = %e %e %e.\n", 
-                           k+1, V[k][0], V[k][1], V[k][2], V[k][3], V[k][4], wallVel[0], wallVel[1], wallVel[2]);
-        fprintf(stderr,"   Outputs: Wstar = %e %e %e %e %e.\n", Wstar[0], Wstar[1], Wstar[2], Wstar[3], Wstar[4]);
-      }
-*/
+      riemann.computeFSIRiemannSolution(Vi, wallVel, -1.0*unitNormal, varFcn, Wstar, k); //<! "k" is passed in for updating phase-change, which is used only under the embedded framework. 
+
 //      fluxFcn[BC_INTERNAL]->compute(0.0, 0.0, getNormal(normals,l), getNormalVel(normalVel,l), V[k], Wstar, flux);
-        fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), Wstar, Ub, flux);
+      fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), Wstar, Ub, flux);
+
       for (int i=0; i<dim; ++i)
         fluxes[k][i] += flux[i];
     }

@@ -4055,6 +4055,13 @@ void SubDomain::updateNodeTag(SVec<double,3> &X, LevelSetStructure &LSS, Vec<int
 
 //--------------------------------------------------------------------------------
 
+void SubDomain::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double> &weights, LevelSetStructure &LSS)
+{
+  edges.computeCellAveragedStructNormal(Nsbar, weights, LSS);
+}
+
+//--------------------------------------------------------------------------------
+
 void SubDomain::computeCharacteristicEdgeLength(SVec<double,3>&X, double& minLength, double& aveLength, double& maxLength, int& numInsideEdges, const double xmin, const double xmax, const double ymin, const double ymax, const double zmin, const double zmax)
 #define EDGE_LENGTH
 #ifdef EDGE_LENGTH
@@ -4285,6 +4292,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             pStar[k] -= pInfty;
             break;
           case 2:
+          case 3:
+          case 4:
             pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
             break;
           default:
@@ -4352,6 +4361,8 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
             pStar[k] -= pInfty;
             break;
           case 2:
+          case 3:
+          case 4:
             pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
             break;
           default:

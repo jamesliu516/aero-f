@@ -13,7 +13,6 @@
 
 #include <fenv.h>
 #include <Timer.h>
-#include "LevelSet/IntersectionFactory.h"
 
 #include "OneDimensionalSolver.h"
 
@@ -61,7 +60,6 @@ int main(int argc, char **argv)
 //  fprintf(stderr,"TIMER::START TIME: %lf\n",timer->getTime());
 
   Communicator *com = domain.getCommunicator();
-  IntersectionFactory::setCommunicator(com);
   // iodata obtains all the problem parameters from the cmd line and input file(s)
   IoData ioData(com);
   ioData.readCmdLine(argc, argv);

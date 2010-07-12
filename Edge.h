@@ -100,7 +100,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              bool, int, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              bool, int, SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -108,7 +108,7 @@ public:
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                               SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              bool, Vec<int>&, int, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              bool, Vec<int>&, int, SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
@@ -180,6 +180,8 @@ public:
   void computeCharacteristicEdgeLength(SVec<double,3> &, double&, double&, double&, int&,
                                        const double, const double, const double,
                                        const double, const double, const double);
+
+  void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
 };
 

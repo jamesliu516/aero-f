@@ -869,6 +869,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     }
   }
 
+  else if (type == PostFcn::CONTROL_VOLUME) 
+    Q = A;
+
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
@@ -1122,6 +1125,9 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     }
   }
 */
+  else if (type == PostFcn::CONTROL_VOLUME) 
+    Q = A;
+
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
