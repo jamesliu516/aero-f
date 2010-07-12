@@ -28,6 +28,7 @@
 #include <FluidSelector.h>
 #include <LevelSet/FluidTypeCriterion.h>
 
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -904,8 +905,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, 
-                                         DistSVec<double,3> *Nsbar, int it)
+                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar, int it, DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
@@ -919,8 +919,17 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
         LSS->getStatus(), *V, linRecAtInterface);  
     timer->addNodalGradTime(t0);
   }
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
   if (xpol) //boundary condition using xpol = extrapolation
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (fet) {
+      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
+      bcData->computeNodeValue(X);
+  }
 
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
@@ -1066,6 +1075,12 @@ void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, 
   VWeights = 0.0;
   domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS);
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim> 
+void SpaceOperator<dim>::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag)
+{domain->populateGhostPoints(ghostPoints,U,varFcn,distLSS,tag);}
 
 //------------------------------------------------------------------------------
 template<int dim>

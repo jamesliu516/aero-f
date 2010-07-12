@@ -90,6 +90,9 @@ public:
   template<class T>
   Vec<Scalar> &operator*=(const T);
 
+  template<class T>
+  Vec<Scalar> &operator/=(const T);
+
   Vec<Scalar> &operator=(const Vec<Scalar> &);
   Vec<Scalar> &operator+=(const Vec<Scalar> &);
   Vec<Scalar> &operator-=(const Vec<Scalar> &);
@@ -109,6 +112,12 @@ public:
   Scalar operator*(const Expr<T, Scalar> &);
 
   Scalar &operator[](int i) const { return v[i]; }
+  /*
+  // Adam April 2010 : 
+  // nullifyPointers has to be called is the object is a Vec<Scalar *>
+  // otherwise call nullify and Scalar::nullify must be defined.
+  void nullifyPointers() {for(int i=0;i<len;++i) delete v[i];}
+  void nullify() {for(int i=0;i<len;++i) v[i].nullify();}*/
 
   int size() const { return len; }
 
@@ -284,6 +293,21 @@ Vec<Scalar>::operator*=(const T y)
 {
 
   for (int i=len; i--; ) v[i] *= y;
+
+  return *this;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+template<class T>
+inline
+Vec<Scalar> &
+Vec<Scalar>::operator/=(const T y)
+{
+
+  for (int i=len; i--; ) v[i] /= y;
 
   return *this;
 

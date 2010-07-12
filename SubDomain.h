@@ -14,6 +14,7 @@
 #include <TriangulatedSurface.h>
 #include <DenseMatrix.h>
 #include "LevelSet/LevelSetStructure.h"
+#include <GhostPoint.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -416,7 +417,8 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
-			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVolumicForceTerm(VolumicForceTerm *, Vec<double> &,
@@ -819,6 +821,12 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
+
+  template<int dim>
+    void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);
+
+  template<int dim>
+    void reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints);
 
   template<int dim>
   void computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,

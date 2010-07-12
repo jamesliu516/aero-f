@@ -89,7 +89,8 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
-			   SVec<double,dim> &, SVec<double,dim> &);
+			   SVec<double,dim> &, SVec<double,dim> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);

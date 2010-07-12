@@ -87,7 +87,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
   // setup solution output files
-
   probDesc->setupOutputToDisk(ioData, &lastIt, it, t, U);
 
   /** for embedded method: send force (if it>0) and send receive disp (from Struct). */
@@ -106,7 +105,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     double dtLeft = dts;
     it++;
 
-    do {
+    do { // Subcycling
       itSc++;
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;

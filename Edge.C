@@ -70,10 +70,11 @@ void EdgeSet::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &ge
     idti[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
     idti[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
 
+    /*
     if(fet) vis = fet->computeViscousTimeStep(Xmid, Vmid)*S*S;
     idtv[i] += vis;
     idtv[j] += vis;
-
+    */
   }
 
 }

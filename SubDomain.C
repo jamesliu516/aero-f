@@ -41,6 +41,7 @@ using std::max;
 #include <LowMachPrec.h>
 #include "FluidSelector.h"
 //#include "LevelSet/LevelSetStructure.h"
+#include <GhostPoint.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -61,6 +62,8 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
   idti = 0.0;
   idtv = 0.0;
   edges.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
+  // Adam 2010.06.01: compute time step by tetrahedra, as the viscous term is computed
+  if(fet) elems.computeTimeStep(fet,X,V,idtv);
   faces.computeTimeStep(fet, varFcn, geoState, X, V, idti, idtv, tprec);
 
 }
@@ -1120,10 +1123,11 @@ void SubDomain::computeDerivativeOfVolumicForceTerm(VolumicForceTerm *volForce, 
 template<int dim>
 void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 				    GeoState &geoState, SVec<double,3> &X,
-				    SVec<double,dim> &V, SVec<double,dim> &R)
+				    SVec<double,dim> &V, SVec<double,dim> &R,
+				    Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 {
 
-  elems.computeGalerkinTerm(fet, geoState, X, V, R);
+  elems.computeGalerkinTerm(fet, geoState, X, V, R,ghostPoints,LSS);
 
   faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R);
 
@@ -2665,7 +2669,6 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
       for (int j = 0; j < dim; ++j)  {
 	w[ (*sharedNodes)[iSub][iNode] ][j] += buffer[iNode][j];
       }
-
   }
 }
 
@@ -4350,6 +4353,54 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 
 }
 
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag)
+{
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  for (int l=0; l<edges.size(); l++)
+    {
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+      if(LSS.edgeIntersectsStructure(0.0,i,j))
+	{ //at interface
+	  int tagI = tag[i];
+	  int tagJ = tag[j];
+
+	  Vec<double> Vi(dim);
+	  Vec<double> Vj(dim);
+	  varFcn[tagI].conservativeToPrimitive(U[i],Vi.v);
+	  varFcn[tagJ].conservativeToPrimitive(U[j],Vj.v);
+	  if(!ghostPoints[i]) // GP has not been created
+	    {ghostPoints[i]=new GhostPoint<dim>;}
+	  if(!ghostPoints[j]) // GP has not been created
+	    {ghostPoints[j]=new GhostPoint<dim>;}
+	  ghostPoints[i]->addNeighbour(Vj,1.0,tagJ);
+	  ghostPoints[j]->addNeighbour(Vi,1.0,tagI);
+	}
+    } 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  for (int i=0; i<nodes.size(); i++)
+    {
+      if(ghostPoints[i]) // GP has already been created
+	{
+	  ghostPoints[i]->reduce();
+	}
+    } 
+}
 
 //--------------------------------------------------------------------------
 

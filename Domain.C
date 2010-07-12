@@ -1450,16 +1450,34 @@ void Domain::finishJacobianGalerkinTerm(DistVec<double> &ctrlVol, DistMat<Scalar
 template<int dim>
 void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 				 DistGeoState &geoState, DistSVec<double,3> &X,
-				 DistSVec<double,dim> &V, DistSVec<double,dim> &R)
+				 DistSVec<double,dim> &V, DistSVec<double,dim> &R,
+				 DistVec<GhostPoint<dim>*> *ghostPoints,DistLevelSetStructure *LSS)
 {
 
   double t0 = timer->getTime();
 
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					 X(iSub), V(iSub), R(iSub));
-
+  if(ghostPoints)
+    {
+      if(!LSS) 
+	{
+	  cout<<"LSS has to be provided in the case of a viscous simulation\n";
+	  exit(1);
+	}
+      Vec<GhostPoint<dim>*> *gp;
+      for (int iSub = 0; iSub < numLocSub; ++iSub)
+	{
+	  gp     = ghostPoints->operator[](iSub);
+	  subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+					       X(iSub), V(iSub), R(iSub),gp,&(LSS->operator()(iSub)));
+	}
+    }
+  else
+    {
+      for (int iSub = 0; iSub < numLocSub; ++iSub)
+	subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+					     X(iSub), V(iSub), R(iSub));
+    }
   timer->addFiniteElementTermTime(t0);
 
 }
@@ -3100,7 +3118,24 @@ void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<dou
   assemble(volPat, Weights);
 
 }
+//------------------------------------------------------------------------------
 
+template<int dim>
+void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVec<double,dim> &U, VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub),U(iSub),varFcn,(*distLSS)(iSub),tag(iSub));
+    }
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub));
+    }
+  
+
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

@@ -20,35 +20,103 @@
 template<int dim>
 void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 				  Vec<double> &d2wall, SVec<double,dim> &V, 
-				  SVec<double,dim> &R)
+				  SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 {
-  
+  // In the case of an embedded simulation, check if the tetrahedra is actually active
+  bool isTetInactive=true,isAtTheInterface=true;
+  if(ghostPoints) // Then LSS is also a non null pointer. It has already been checked in Domain.C
+    {
+      for(int i=0;i<4;++i) 
+	{
+	  isTetInactive    = (isTetInactive && !(LSS->isActive(0,nodeNum(i))));
+	  isAtTheInterface = (isAtTheInterface && LSS->isActive(0,nodeNum(i)));
+	}
+      if(isTetInactive) return;
+    }
+  isAtTheInterface = !isAtTheInterface;
+
+  // Common Part
   double dp1dxj[4][3];
   double vol = computeGradientP1Function(X, dp1dxj);
 
   double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
                    d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
-  double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+
+  // Embedded Case. Replace states in the structure by Ghost States
+  if(ghostPoints) // Then LSS is also a non null pointer. It has already been checked in Domain.C
+    {
+      GhostPoint<dim> *gp;
+      for(int i=0;i<4;++i)
+	{
+	  gp = ghostPoints->operator[](nodeNum(i));
+	  if(!(LSS->isActive(0,nodeNum(i))))
+	    {
+	      v[i] = gp->getPrimitiveState();
+	    }
+	}
+      /*
+      if(isAtTheInterface)
+	{
+	  cout<<"Node1: "<<nodeNum(0)<<" "<<LSS->isActive(0,nodeNum(0))<<" "<<v[0][0]<<" "<<v[0][1]<<" "<<v[0][2]<<" "<<v[0][3]<<endl;
+	  cout<<"Node2: "<<nodeNum(1)<<" "<<LSS->isActive(0,nodeNum(1))<<" "<<v[1][0]<<" "<<v[1][1]<<" "<<v[1][2]<<" "<<v[1][3]<<endl;
+	  cout<<"Node3: "<<nodeNum(2)<<" "<<LSS->isActive(0,nodeNum(2))<<" "<<v[2][0]<<" "<<v[2][1]<<" "<<v[2][2]<<" "<<v[2][3]<<endl;
+	  cout<<"Node4: "<<nodeNum(3)<<" "<<LSS->isActive(0,nodeNum(3))<<" "<<v[3][0]<<" "<<v[3][1]<<" "<<v[3][2]<<" "<<v[3][3]<<endl;
+	  std::cin.get();
+	}
+      */
+    }
 
   double r[3][dim], s[dim], pr[12];
   bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                                   s, pr, vol, X, nodeNum(), volume_id);
 
-  for (int j=0; j<4; ++j) {
-    int idx = nodeNum(j);
-    for (int k=0; k<dim; ++k)
-      R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
-                            r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
-  }
-
-  if (porousTermExists) {
-    for (int j=0; j<4; ++j) {
-      int idx = nodeNum(j);
-      for (int k=1; k<4; ++k)
-        R[idx][k] += pr[3*j+k-1];
+  if(ghostPoints) // We don't want to update States associated to ghost points
+    {
+      for (int j=0; j<4; ++j) {
+	int idx = nodeNum(j);
+	if(LSS->isActive(0,idx))
+	  {
+	    for (int k=0; k<dim; ++k)
+	      {
+		R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+				      r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+	      }
+	  }
+      }
+      if (porousTermExists) {
+	for (int j=0; j<4; ++j) {
+	  int idx = nodeNum(j);
+	  if(LSS->isActive(0,idx))
+	    {
+	      for (int k=1; k<4; ++k)
+		{
+		  R[idx][k] += pr[3*j+k-1];
+		}
+	    }
+	}
+      }
     }
-  }
-
+  else // All the states are updated
+    {
+      for (int j=0; j<4; ++j) {
+	int idx = nodeNum(j);
+	for (int k=0; k<dim; ++k)
+	  {
+	    R[idx][k] += vol * ( (r[0][k] * dp1dxj[j][0] + r[1][k] * dp1dxj[j][1] +
+				  r[2][k] * dp1dxj[j][2]) - fourth * s[k] );
+	  }
+      }
+      if (porousTermExists) {
+	for (int j=0; j<4; ++j) {
+	  int idx = nodeNum(j);
+	  for (int k=1; k<4; ++k)
+	    {
+	      R[idx][k] += pr[3*j+k-1];
+	    }
+	}
+      }
+    }
 }
 
 //------------------------------------------------------------------------------
