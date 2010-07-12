@@ -48,7 +48,7 @@ LevelSetSolver {
 
 template<int dim>
 class
-StructLevelSetSolver {
+NavierStokesEmbedded {
    public:
      static void solve(IoData &ioData, GeoSource &geoSource, Domain &domain);
 };

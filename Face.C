@@ -215,18 +215,37 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
     Vec3D u = varFcn->getVelocity(V[ nodeNum(l) ]);
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ]);
     double un = u * n - ndot;
+
+    // Low-Mach Preconditioner
+    /*
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     double locbeta = tprec.getBeta(locMach);
-    
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+    */
 
-    idti[ nodeNum(l) ] += min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
+    // Adam 2010.06.09 Correction
 
-    double vis = 0.0;
-    if (fet) vis = fet->computeViscousTimeStep(X[nodeNum(l)],V[nodeNum(l)]);
-    idtv[ nodeNum(l) ] += vis*S*S;
+    //  double oldDt = min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
+    //   double oldDt = 15.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S/numNodes();
+    //double oldDt = 15.0*min(0.5*(coeff1-coeff2),0.0)*S/numNodes();
+    // double newDt = 5.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S;
+    double veryNewDt =  -(fabs(u*n)+a)*S;
+
+    idti[ nodeNum(l) ] += veryNewDt;
+
+    // idti[ nodeNum(l) ] += 5.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S;///numNodes();
+    
+    // cout<<"beta: "<<locbeta<<" coeff1: "<<coeff1<<" coeff2: "<<coeff2<<" u.n+a: "<<fabs(u*n)+a<<endl;
+    // std::cin.get();
+
+    // Previous Version
+    // idti[ nodeNum(l) ] += min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
+
+    // double vis = 0.0;
+    // if (fet) vis = fet->computeViscousTimeStep(X[nodeNum(l)],V[nodeNum(l)]);
+    // idtv[ nodeNum(l) ] += vis*S*S;
   }
     
 }

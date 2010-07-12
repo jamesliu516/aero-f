@@ -58,6 +58,8 @@ public:
 
   Vec<Scalar> &operator() (int i) const { return *subVec[i]; }
 
+  Vec<Scalar>* operator[] (int i) const { return subVec[i]; }
+
   void createSubVec();
 
   DistVec<Scalar> *alias() const;
@@ -83,7 +85,18 @@ public:
   bool *getMasterFlag(int i) const { return distInfo.getMasterFlag(i); }
 
   void zeroNonMaster(); 
-    
+
+  // Adam April 2010 : 
+  // nullifyPointers has to be called is the object is a DistVec<Scalar *>
+  // otherwise call nullify and Scalar::nullify must be defined.
+  void nullifyPointers() 
+  {
+    for(int i=0;i<this->len;++i) this->v[i]=0;
+  }
+  void nullify() 
+  {
+    for(int i=0;i<this->len;++i) this->v[i].nullify();
+  }
 };
 
 //------------------------------------------------------------------------------

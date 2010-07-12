@@ -4,6 +4,7 @@
 #include <MacroCell.h>
 #include <Vector.h>
 #include <BlockAlloc.h>
+#include <GhostPoint.h>
 
 #ifdef OLD_STL
 #include <map.h>
@@ -68,6 +69,7 @@ class FaceSet;
 class Face;
 class PorousMedia;
 class VolumeData;
+class LevelSetStructure;
 
 struct Vec3D;
 
@@ -102,7 +104,8 @@ class GenElemWrapper_dim {
 public:
   virtual 
   void computeGalerkinTerm(FemEquationTerm *, SVec<double,3> &, Vec<double> &,
-			   SVec<double,dim> &, SVec<double,dim> &) = 0;
+			   SVec<double,dim> &, SVec<double,dim> &, Vec<GhostPoint<dim>*> * ghostPoints=0, 
+			   LevelSetStructure *LSS=0) = 0;
   
   virtual
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 
@@ -196,8 +199,8 @@ public:
 
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R) {
-    t->computeGalerkinTerm(fet, X, d2wall, V, R);
+			   SVec<double,dim> &R, Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
+    t->computeGalerkinTerm(fet, X, d2wall, V, R,ghostPoints,LSS);
   }
   
   void computeVMSLESTerm(VMSLESTerm *vmst, SVec<double,dim> &VBar,
@@ -456,12 +459,12 @@ public:
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R) {
+			   SVec<double,dim> &R,Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     ElemHelper_dim<dim> h;
     char xx[64];
     GenElemWrapper_dim<dim> *wrapper=
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeGalerkinTerm(fet, X, d2wall, V, R);
+    wrapper->computeGalerkinTerm(fet, X, d2wall, V, R,ghostPoints,LSS);
   }
   
   template<int dim>
@@ -651,7 +654,7 @@ public:
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, SVec<double,dim> &V, 
-			   SVec<double,dim> &R) {
+			   SVec<double,dim> &R,Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
@@ -793,9 +796,14 @@ public:
 
   int read(BinFileHandler&, int, int (*)[2], int *, map<int, VolumeData *> &);
 
+  // compute Viscous Contribution Adam 2010.06.01
+  template<int dim>
+    void computeTimeStep(FemEquationTerm *,SVec<double,3> &,SVec<double,dim> &,Vec<double> &);
+
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &, 
-			   SVec<double,dim> &, SVec<double,dim> &);
+			   SVec<double,dim> &, SVec<double,dim> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 

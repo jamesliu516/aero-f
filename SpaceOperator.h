@@ -2,6 +2,7 @@
 #define _SPACE_OPERATOR_H_
 
 #include <IoData.h>
+#include <GhostPoint.h>
 #include <complex>
 typedef std::complex<double> bcomp;
 
@@ -147,7 +148,8 @@ public:
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0);
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
+		       DistVec<GhostPoint<dim>*> *ghostPoints=0);
 // Kevin's FSI with FS Riemann solver (for thin shell problems) 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
@@ -162,6 +164,9 @@ public:
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
+
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,

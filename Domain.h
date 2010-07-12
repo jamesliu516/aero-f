@@ -7,6 +7,7 @@
 #include <VectorSet.h>
 #include <Vector.h>
 #include <DenseMatrix.h>
+#include <GhostPoint.h>
 #include <complex>
 typedef std::complex<double> bcomp;
 #include <iostream>
@@ -348,6 +349,9 @@ public:
                           DistLevelSetStructure *distLSS);
 
   template<int dim>
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+
+  template<int dim>
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS);
@@ -466,7 +470,8 @@ public:
   template<int dim>
   void computeGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
 			   DistGeoState &, DistSVec<double,3> &,
-			   DistSVec<double,dim> &, DistSVec<double,dim> &);
+			   DistSVec<double,dim> &, DistSVec<double,dim> &,
+			   DistVec<GhostPoint<dim>*> *ghostPoints=0,DistLevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVolumicForceTerm(VolumicForceTerm *, DistVec<double> &,

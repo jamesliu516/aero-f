@@ -11,22 +11,64 @@
 #include <GenMatrix.h>
 #include <math.h>
 #include <GeoState.h>
-
+#include "LevelSet/LevelSetStructure.h"
 
 //------------------------------------------------------------------------------
 //--------------functions in ElemSet class
 //------------------------------------------------------------------------------
 
 template<int dim>
+void ElemSet::computeTimeStep(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,dim> &V, Vec<double> &idtv)
+{
+  int *nodeNumber,numberOfNodes;
+  double Vmid[dim],oneOnDofs;
+  double Xmid[3];
+  double localDt;
+  double nGrad[4][3];
+  int    nodeID;
+  for (int i=0; i<numElems; ++i)
+    {
+      nodeNumber    = elems[i]->nodeNum();
+      numberOfNodes = elems[i]->numNodes();
+
+      oneOnDofs = 1.0/((double) numberOfNodes);
+
+      for (int k=0; k<dim; ++k) 
+	{
+	  Vmid[k] = 0.0;
+	  for(int j=0;j<numberOfNodes;++j)
+	    { 
+	      nodeID   = nodeNumber[j];
+	      Vmid[k] += V[nodeID][k];	  
+	    }
+	  Vmid[k] *= oneOnDofs;
+	}
+      // localDt_i = mu/rho*||n_i||^2/|T|
+      // This line gives: 9.0*mu/rho*|T|
+      localDt = 9.0*fet->computeViscousTimeStep(Xmid, Vmid)*elems[i]->computeVolume(X);
+      // gradPhi = n_i/(3.0*|T|)
+      elems[i]->computeGradientP1Function(X,nGrad);
+      for(int j=0;j<numberOfNodes;++j)
+	{
+	  nodeID = nodeNumber[j];
+	  // And we got what we need
+	  idtv[nodeID]  += localDt*(nGrad[j][0]*nGrad[j][0] + nGrad[j][1]*nGrad[j][1] + nGrad[j][2]*nGrad[j][2]);
+	}
+    }
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
 void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 				  SVec<double,3> &X, SVec<double,dim> &V, 
-				  SVec<double,dim> &R)
+				  SVec<double,dim> &R,
+				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R);
+    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
 
 }
 

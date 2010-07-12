@@ -10,7 +10,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     com->fprintf(stderr, "*** NOTE: Running an Embedded %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
-    StructLevelSetSolver<5>::solve(ioData, geoSource, domain);
+    NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
   } 
   else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER) 
