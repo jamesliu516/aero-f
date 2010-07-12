@@ -261,6 +261,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
   }
+  if (iod.output.transient.controlvolume[0] != 0) {
+    sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
+    scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
+    sprintf(scalars[PostFcn::CONTROL_VOLUME], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.controlvolume);
+  }
   if (iod.output.transient.philevel_structure[0] != 0) {
     sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;
     scalars[PostFcn::PHILEVEL_STRUCTURE] = new char[sp + strlen(iod.output.transient.philevel_structure)];
@@ -2327,6 +2333,12 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     scalars[PostFcn::PHILEVEL] = new char[sp + strlen(iod.output.transient.philevel)];
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
+  }
+  if (iod.output.transient.controlvolume[0] != 0) {
+    sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
+    scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
+    sprintf(scalars[PostFcn::CONTROL_VOLUME], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.controlvolume);
   }
   if (iod.output.transient.philevel_structure[0] != 0) {
     sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;

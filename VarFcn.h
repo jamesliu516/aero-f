@@ -49,8 +49,8 @@ private:
   double depth;
 
 
-  void check(int tag=0) const{/* 
-    if(tag>=numPhases){
+  void check(int tag=0) const{ 
+/*    if(tag>=numPhases){
       fprintf(stdout, "*** Error: there is no VarFcn with that tag %d\n", tag);
       fflush(stdout);
       exit(1);

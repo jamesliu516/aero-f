@@ -1523,7 +1523,6 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   R_1 = Vi[0];
   U_1 = vni;
   P_1  = vf->getPressure(Vi,Id);
-
   U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
   eriemannfs(R_1,U_1,P_1,R_i,U_i,P_i,vf,Id); //caution: U_i will not be modified!
 
@@ -1624,21 +1623,20 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
     return;
   }
 
-
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
-    pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1,power)-pref;
+    pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
   }
   else{ // shock
-    double temp = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
+    double temp = ((gamma+1.0)*rho*(ui-u)*(ui-u))/2.0;
     pi = p + 0.5*temp + sqrt(0.25*temp*temp + 2.0*gamma*temp*(p+pref)/(gamma+1.0));
     temp = (gamma-1.0)/(gamma+1.0);
     double pstarbar = pi + pref;
     double pbar = p + pref;
-    rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
+    rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1.0);
   }
 }
 

@@ -5,7 +5,6 @@
 
 #include <IoData.h>
 #include <Domain.h>
-#include <LevelSet.h>
 #include <PostOperator.h>
 // MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
@@ -15,9 +14,6 @@ class GeoSource;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
 
-
-
-
 //------------------------------------------------------------------------
 
 template<int dim>
@@ -25,6 +21,7 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
  protected:
   DistExactRiemannSolver<dim> *riemann; //Riemann solver -- used at both FF and FS interfaces
+  double vfar[dim]; //farfield state
 
   DistVec<int> nodeTag; // = 1 for fluid #1; = -1 for fluid #2.
   DistVec<int> nodeTag0; // node tag for the previous time-step.
@@ -35,14 +32,17 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
   int numStructElems;
-  bool interpolatedNormal; 
   bool linRecAtInterface;
+  int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
+                      // 2: averaged structure normal;
 
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
   double dtfLeft; //<! time until next structure time-step is reached.
   double dts;     //<! structure time-step
+  int globIt;         //<! current global(i.e. structure) iteration
+  bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
   // ----------------------------------------------------------------------------------
 
   // ----------- components for Fluid-Structure interface. -----------------------------
@@ -52,36 +52,20 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
+
+  DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
   // ------------------------------------------------------------------------------------
 
-  // ----------- components for Fluid-Fluid interface -----------------------------------
-  //LevelSet *LS;
-  DistVec<double> Phi;            //<! conservative variables
-  DistVec<double> PhiV;           //<! primitive variables
-  DistSVec<double,dim> Vg;        //<! primitive V for GFMP
-  DistSVec<double,dim> *Vgf;      //<! primitive V storage for phase change (if extrapolation)
-  DistVec<double> *Vgfweight;
-
-  // multiphase conservation check
-  DistSVec<double,dim> boundaryFlux;
-  DistSVec<double,dim> interfaceFlux;
-  DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> *tmpDistSVec;
-  DistSVec<double,dim> *tmpDistSVec2;
-  double expectedTot[dim];
-  double expectedF1[dim];
-  double expectedF2[dim];
-  double computedTot[dim];
-  double computedF1[dim];
-  double computedF2[dim];
-
-  // frequency for reinitialization of level set
-  int frequencyLS;
-
-  MultiFluidData::InterfaceType interfaceTypeFF; //to advance levelset or not
-  // --------------------------------------------------------------------------------------
-
   DynamicNodalTransfer *dynNodalTransfer;
+
+  //buckling cylinder parameters
+  // pressure is increased in the fluid at rate Prate from
+  // initial pressure Pinit until it reaches the pressure
+  // given by boundary conditions which happens at tmax.
+  double tmax;
+  double Prate;
+  double Pinit;
+  double Pscale;
 
  public:
   int orderOfAccuracy; // consistent with the reconstruction type for space
@@ -90,8 +74,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
                 // = 2 : on GammaF, formula 2;
                 // = 3 : on Gamma*, formula 1;
                 // = 4 : on Gamma*, formula 2;
-  int pressureChoice; // = 0. use p* in force calculation.
-                      // = 1. use pij or pji (reconstructed pressure) in force calculation.
   int phaseChangeChoice; // = 0. use nodal values.
                          // = 1. use solutions of Riemann problems.
   const int numFluid;   //numFluid = 1 (for fluid-fullbody)
@@ -121,7 +103,6 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double computeResidualNorm(DistSVec<double,dim>& );
   void monitorInitialState(int, DistSVec<double,dim>& );
-  void conservationErrors(DistSVec<double,dim> &U, int it);
 
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
@@ -130,6 +111,8 @@ class StructLevelSetTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);
+
+  bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
 
 };
 

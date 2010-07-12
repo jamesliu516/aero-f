@@ -33,7 +33,6 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
   DistVec<double> p4;
 
   bool FE;
-  double vfar[dim]; //farfield state
  public:
   ExplicitStructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~ExplicitStructLevelSetTsDesc();
@@ -60,8 +59,6 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
 
   void computeRKUpdate(DistSVec<double,dim>& Ulocal,
                        DistSVec<double,dim>& dU, int it);
-  void computeRKUpdateLS(DistVec<double>& Philocal, DistVec<double>& dPhi,
-                         DistSVec<double,dim>& U);
 
 };
 

@@ -2,7 +2,6 @@
 
 #include <Communicator.h>
 #include <parser/Assigner.h>
-#include "LevelSet/IntersectionFactory.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,7 +36,7 @@ InputData::InputData()
   podFile = "";
   podFile2 = "";
   strModesFile = "";
-  solidsurface = "";
+  embeddedSurface= "";
   oneDimensionalSolution = "";
 
 // Included (MB)
@@ -72,8 +71,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
 
-  new ClassStr<InputData>(ca, "SolidSurface", this, &InputData::solidsurface);
-  ghostsolid.setup("GhostSolid",ca);
+  new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
 
   new ClassStr<InputData>(ca, "OneDimensionalSolution", this, &InputData::oneDimensionalSolution);
 
@@ -183,6 +181,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   philevel = "";
+  controlvolume = "";
   philevel_structure = "";
 
 // Included (MB)
@@ -289,6 +288,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
+  new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
   new ClassStr<TransientData>(ca, "Philevel_structure", this, &TransientData::philevel_structure);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
@@ -327,7 +327,6 @@ RestartData::RestartData()
   levelsets= "DEFAULT.LEV";
   data = "DEFAULT.RST";
 
-  structPos = "";
 
   frequency = 0;
 
@@ -349,7 +348,6 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "Position", this, &RestartData::positions);
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
-  new ClassStr<RestartData>(ca, "StructPosition", this, &RestartData::structPos);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
 
 }
@@ -404,6 +402,7 @@ ProblemData::ProblemData()
   alltype = _STEADY_;
   mode = NON_DIMENSIONAL;
   prec = NON_PRECONDITIONED;
+  framework = BODYFITTED;
 
   test = REGULAR;
   verbose = 4;
@@ -438,6 +437,11 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
     (ca, "Prec", this,
      reinterpret_cast<int ProblemData::*>(&ProblemData::prec), 2,
      "NonPreconditioned", 0, "LowMach", 1);
+
+  new ClassToken<ProblemData>
+    (ca, "Framework", this,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::framework), 2,
+     "BodyFitted", 0, "Embedded", 1);
 
   new ClassToken<ProblemData>
     (ca, "Test", this,
@@ -2865,49 +2869,6 @@ Assigner *RotationData::getAssigner()  {
 
 //------------------------------------------------------------------------------
 
-GhostSolidData::GhostSolidData() {
-
-  runit = NO;
-}
-
-//-----------------------------------------------------------------------------
-
-void GhostSolidData::setup(const char *name, ClassAssigner *father) {
-
-  ClassAssigner *ca = new ClassAssigner(name, 2, father);
-
-  new ClassToken<GhostSolidData> (ca, "RunGhostSolid", this, reinterpret_cast<int GhostSolidData::*>(&GhostSolidData::runit), 2, "NO", 0, "YES", 1);
-  boundingBox.setup("BoundingBox",ca);
-
-}
-
-//-----------------------------------------------------------------------------
-
-BoundingBoxData::BoundingBoxData() {
-  provide = NO;
-  xmin = xmax = ymin = ymax = zmin = zmax = 0.0;
-}
-
-//-----------------------------------------------------------------------------
-
-void BoundingBoxData::setup(const char *name, ClassAssigner *father)
-{
-
-  ClassAssigner *ca = new ClassAssigner(name, 7, father);
-
-  new ClassToken<BoundingBoxData>(ca, "ProvideBoundingBox", this, reinterpret_cast<int BoundingBoxData::*>(&BoundingBoxData::provide), 2, "NO", 0, "YES", 1);
-  new ClassDouble<BoundingBoxData>(ca, "Xmin", this, &BoundingBoxData::xmin);
-  new ClassDouble<BoundingBoxData>(ca, "Xmax", this, &BoundingBoxData::xmax);
-  new ClassDouble<BoundingBoxData>(ca, "Ymin", this, &BoundingBoxData::ymin);
-  new ClassDouble<BoundingBoxData>(ca, "Ymax", this, &BoundingBoxData::ymax);
-  new ClassDouble<BoundingBoxData>(ca, "Zmin", this, &BoundingBoxData::zmin);
-  new ClassDouble<BoundingBoxData>(ca, "Zmax", this, &BoundingBoxData::zmax);
-
-}
-
-
-//-----------------------------------------------------------------------------
-
 VolumeData::VolumeData()  {
 
   type = FLUID;
@@ -3030,11 +2991,18 @@ void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
 EmbeddedFramework::EmbeddedFramework() {
 
-  intersectorName = PhysBAMLite;
-  structNormal = ElementBased;
-  eosChange = NodalState;
-  forceAlg = ReconstructedSurface;
-    
+  intersectorName = PHYSBAMLITE;
+  structNormal = ELEMENT_BASED;
+  eosChange = NODAL_STATE;
+  forceAlg = RECONSTRUCTED_SURFACE;
+
+  //debug variables
+  coupling = TWOWAY;
+  dim2Treatment = NO;    
+  reconstruct = CONSTANT;
+  riemannNormal = FLUID;
+  structVelocity = COMPUTED_BY_STRUCTURE;
+
 }
 
 //------------------------------------------------------------------------------
@@ -3053,99 +3021,18 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Reconstructed", 0, "ControlVolumeBoundary", 1);
   embedIC.setup("InitialConditions", ca); 
 
-}
 
-//------------------------------------------------------------------------------
-
-void StructureIntersect::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 0);
-  libraryName = 0;
-  intersectorName = 0;
-  normal = FACET;
-  reconstruct = CONSTANT;
-  riemannNormal = STRUCTURE;
-  forceApproach = 0;
-  pressureChoice = 0;
-  phaseChangeChoice = 0;
-
-  new ClassParseTree<StructureIntersect>(ca, "Data", this, &StructureIntersect::tree);
-  new ClassStr<StructureIntersect>(ca, "name", this, &StructureIntersect::intersectorName);
-  new ClassStr<StructureIntersect>(ca, "library", this, &StructureIntersect::libraryName);
-  new ClassToken<StructureIntersect> (ca, "normal", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::normal), 2,
-                                      "Facet", 0, "Interpolated", 1);
-  new ClassToken<StructureIntersect> (ca, "reconstruction", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::reconstruct), 2,
-                                      "Constant", 0, "Linear", 1);
-  new ClassToken<StructureIntersect> (ca, "riemannNormal", this, reinterpret_cast<int StructureIntersect::*>(&StructureIntersect::riemannNormal), 2,
-                                      "Structure", 0, "Fluid", 1);
-  new ClassInt<StructureIntersect>(ca, "forceApproach", this, &StructureIntersect::forceApproach);
-  new ClassInt<StructureIntersect>(ca, "pressureChoice", this, &StructureIntersect::pressureChoice);
-  new ClassInt<StructureIntersect>(ca, "phaseChangeChoice", this, &StructureIntersect::phaseChangeChoice);
-}
-
-//------------------------------------------------------------------------------
-
-void StructureIntersect::activate() {
-  if(libraryName != 0) {
-    void* handle = dlopen(libraryName, RTLD_NOW);
-    if (!handle) {
-            std::cerr << "Cannot open library: " << dlerror() << '\n';
-            return;
-        }
-    dlerror();
-   /* void(*registerFcn)() =  (void (*)()) dlsym(handle,"registerWithFactory");
-      if (registerFcn == 0) {
-            std::cerr << "Library does not contain a registry function\n";
-            exit(-1);
-      }
-
-    (*registerFcn)();*/
-
-   // dlclose(handle);
-  }
-  if(intersectorName != 0) {
-    IntersectionFactory::parseIntersectionObject(intersectorName, tree);
-  }
-}
-
-//------------------------------------------------------------------------------
-
-void EmbeddedStructureInfo::setup(const char *name) {
-  ClassAssigner *ca = new ClassAssigner(name, 0);
-
-  surfaceMeshFile = "";
-  matcherFile = "";
-
-  type = NONE;
-  dim2Treatment = NO;
-  forcedMotionMode = HEAVING;
-  structVelocity = COMPUTED_BY_STRUCTURE;
-
-  tMax = 1.0e-6;
-  dt = 1.0e-6;
-  omega = 1000.0;
-  dx = dy = dz = 0.0;
-  t0 = 0.0;
-
-  new ClassStr<EmbeddedStructureInfo>(ca, "meshFile", this, &EmbeddedStructureInfo::surfaceMeshFile);
-  new ClassStr<EmbeddedStructureInfo>(ca, "matcherFile", this, &EmbeddedStructureInfo::matcherFile);
-
-  new ClassToken<EmbeddedStructureInfo> (ca, "type", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::type), 4,
-                                      "ForcedMotion", 0, "OneWayCoupling", 1, "TwoWayCoupling", 2, "None", 3);
-  new ClassToken<EmbeddedStructureInfo> (ca, "structureVelocity", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::structVelocity), 2,
-                                      "ComputedByStructure", 0, "FiniteDifference", 1);
-  new ClassToken<EmbeddedStructureInfo> (ca, "dim2Treatment", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::dim2Treatment), 2,
+  //debug variables
+  new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
+                                      "TwoWay", 0, "OneWay", 1);
+  new ClassToken<EmbeddedFramework> (ca, "TwoDimension", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::dim2Treatment), 2,
                                       "No", 0, "Yes", 1);
-  new ClassToken<EmbeddedStructureInfo> (ca, "forcedMotionMode", this, reinterpret_cast<int EmbeddedStructureInfo::*>(&EmbeddedStructureInfo::forcedMotionMode), 3,
-                                      "Heaving", 0, "ConstantVelocityHeaving", 1, "Other", 2);
-
-  new ClassDouble<EmbeddedStructureInfo>(ca, "maxTime", this, &EmbeddedStructureInfo::tMax);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "timeStep", this, &EmbeddedStructureInfo::dt);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "frequency", this, &EmbeddedStructureInfo::omega);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeX", this, &EmbeddedStructureInfo::dx);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeY", this, &EmbeddedStructureInfo::dy);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "amplitudeZ", this, &EmbeddedStructureInfo::dz);
-  new ClassDouble<EmbeddedStructureInfo>(ca, "t0", this, &EmbeddedStructureInfo::t0);
- 
+  new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
+                                      "Constant", 0, "Linear", 1);
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
+                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
+  new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
+                                      "ComputedByStructure", 0, "FiniteDifference", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -3249,8 +3136,7 @@ void IoData::setupCmdFileVariables()
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
   volumes.setup("Volumes");
-  strucIntersect.setup("Intersect");
-  embeddedStructure.setup("EmbeddedStructure");
+  embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("OneDimensionalInfo");
 }
 
@@ -3533,8 +3419,6 @@ void IoData::resetInputValues()
     }
   }
    
-  strucIntersect.activate();  
- 
   // Sparse Grid Generation does not call the flow solver
   if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
     problem.mode = ProblemData::DIMENSIONAL;
@@ -4772,9 +4656,26 @@ void IoData::printDebug(){
   }
 
   // initial conditions for EmbeddedStructure
-
-
-
+  if(!embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator it;
+    for (it =embed.embedIC.pointMap.dataMap.begin(); 
+         it!=embed.embedIC.pointMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "PointData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "PointData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "PointData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "PointData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "PointData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "PointData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "PointData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "PointData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "PointData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "PointData::x            = %e\n", it->second->x);
+      com->fprintf(stderr, "PointData::y            = %e\n", it->second->y);
+      com->fprintf(stderr, "PointData::z            = %e\n", it->second->z);
+      com->fprintf(stderr, "\n");
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

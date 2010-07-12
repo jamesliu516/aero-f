@@ -24,9 +24,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   fsiRiemann = 0;
 
 // FSI Riemann problem
-  if(1) // FIX
-  //if(iod.strucIntersect.intersectorName != 0) // FIX
-    fsiRiemann = new LocalRiemannFluidStructure();
+  if(iod.problem.framework==ProblemData::EMBEDDED) 
+    fsiRiemann = new LocalRiemannFluidStructure(); //NOTE(KW): The following lines will still be 
+                                                   //  executed. Currently they are never used but in
+                                                   //  future if we have both FS and FF, they are needed.
 
 // Multiphase Riemann problem
 // Assumption: there are only numPhase-1 interfaces (between fluid 0 and each one of the other fluids)

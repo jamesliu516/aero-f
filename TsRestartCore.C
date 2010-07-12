@@ -36,9 +36,9 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   else
     sprintf(data[0], "");
 
-  structPos = new char[sp + strlen(iod.output.restart.structPos)];
-  if (iod.output.restart.structPos[0] != 0)
-    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.structPos);
+  structPos = new char[sp + strlen(iod.output.restart.positions)];
+  if (iod.output.restart.positions[0] != 0)
+    sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(structPos, "");
 

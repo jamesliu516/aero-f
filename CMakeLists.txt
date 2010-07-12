@@ -35,10 +35,6 @@ ENDIF(BLAS_LIBRARIES)
 FIND_PACKAGE(LAPACK)
 FIND_PACKAGE(MPI)
 
-FIND_PATH(PHYSBAM_INCLUDE_DIR AERO_INTERFACE_1.h ../PhysBam
-../../PhysBam /home/michel/PhysBam)
-FIND_PATH(BOOST_INCLUDE_DIR boost/static_assert.hpp /home/pavery/boost/boost_install/include/boost-1_34_1)
-
 SET(TARGETS_INST fluid)
 
 IF(UNIX)
@@ -86,7 +82,7 @@ SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
-SET(MAIN_FILES Main.C LevelSet/IntersectionFactory.C)
+SET(MAIN_FILES Main.C)
 
 ADD_LIBRARY(FluidBase
              FSI/DynamicNodalTransfer.cpp
@@ -249,7 +245,6 @@ ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cp
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
-# ADD_SUBDIRECTORY(PhysBAMIntersection)
 install(TARGETS FluidBase DESTINATION lib EXPORT fluid-targets)
 install(EXPORT fluid-targets DESTINATION lib/base)
 export(TARGETS FluidBase FILE ${CMAKE_CURRENT_SOURCE_DIR}/base-exports.cmake)
@@ -267,23 +262,56 @@ ELSE (MERCURIAL_EXECUTABLE)
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF (MERCURIAL_EXECUTABLE)
 
+###################
+# Local Variables #
+###################
+SITE_NAME(HOSTNAME)
+FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+MARK_AS_ADVANCED(HOSTNAME)
+MARK_AS_ADVANCED(LOCAL_DIR)
+###################
+
 IF(EXTRALIB)
   SET(EXTRALIBRARIES ${EXTRALIBRARIES} ${EXTRALIB})
 ENDIF(EXTRALIB)
 
+##############################
+# For the embedded framework #
+##############################
+FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../PhysBAM)
+FIND_LIBRARY(INTERSECTOR NAMES IntersectorFRG PATHS ${CMAKE_CURRENT_SOURCE_DIR}/IntersectorFRG)
 
-ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
+IF (PHYSBAM_BASE AND INTERSECTOR)
+  SET(DO_EMBEDDED 1)
+ELSE (PHYSBAM_BASE AND INTERSECTOR)
+  SET(DO_EMBEDDED 0)
+ENDIF (PHYSBAM_BASE AND INTERSECTOR)
+
+OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
+
+IF (DO_EMBEDDED)
+  IF (NOT PHYSBAM_BASE)
+    MESSAGE("WARNING: Couldn't find PhysBAM-Base!")
+    SET(DO_EMBEDDED 0)
+  ENDIF (NOT PHYSBAM_BASE) 
+  IF (NOT INTERSECTOR)
+    MESSAGE("WARNING: Couldn't find Intersector!")
+    SET(DO_EMBEDDED 0)
+  ENDIF (NOT INTERSECTOR)  
+ENDIF (DO_EMBEDDED)
+
+IF (DO_EMBEDDED)
+  ADD_DEFINITIONS(-DDO_EMBEDDED)
+  INCLUDE_DIRECTORIES(${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
+  SET (EXTRALIBRARIES ${EXTRALIBRARIES} ${INTERSECTOR})
+ENDIF (DO_EMBEDDED)
+
+##############################
+
 
 SET(INC_DIR .)
 
-IF(PHYSBAM_INCLUDE_DIR)
-  SET(INC_DIR ${INC_DIR} ${PHYSBAM_INCLUDE_DIR} ${PHYSBAM_INCLUDE_DIR}/Public_Library)
-  file(GLOB PHYSBAM_LIBS /home/icmewang/PhysBam/lib*.so /home/michel/Research/Academic/PhysBam/lib/lib*.so)
-  SET(EXTRALIBRARIES ${PHYSBAM_LIBS} ${EXTRALIBRARIES})
-ENDIF(PHYSBAM_INCLUDE_DIR)
-IF(BOOST_INCLUDE_DIR)
-  SET(INC_DIR ${INC_DIR} ${BOOST_INCLUDE_DIR})
-ENDIF(BOOST_INCLUDE_DIR)
+ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
 
 SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
@@ -399,6 +427,11 @@ ELSE(MPI_FOUND)
  MESSAGE("Distributed Execution:    NO *******")
  MESSAGE("Aeroelastic:              NO *******")
 ENDIF(MPI_FOUND)
+IF(DO_EMBEDDED)
+ MESSAGE("Embedded framework:       YES")
+ELSE(DO_EMBEDDED)
+ MESSAGE("Embedded framework:       NO *******")
+ENDIF(DO_EMBEDDED)
 IF(DO_MODAL)
  MESSAGE("Modal capability:         YES")
 ELSE(DO_MODAL)

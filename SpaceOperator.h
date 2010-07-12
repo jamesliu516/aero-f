@@ -147,13 +147,13 @@ public:
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, int it = 0);
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0);
 // Kevin's FSI with FS Riemann solver (for thin shell problems) 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, int it = 0);
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0);
 
   //template<int dimLS>
   //void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
@@ -171,6 +171,9 @@ public:
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);
+
+  void computeCellAveragedStructNormal(DistSVec<double,3> &, DistLevelSetStructure *);
+
 
   double recomputeResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
  

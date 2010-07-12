@@ -1435,11 +1435,11 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   dts = 0.0;
   it0 = iod.restart.iteration; //restart time-step
  
-  switch (iod.embeddedStructure.structVelocity){
-    case EmbeddedStructureInfo::FINITE_DIFFERENCE:
+  switch (iod.embed.structVelocity){
+    case EmbeddedFramework::FINITE_DIFFERENCE:
       structVelocity = 1;
       break;
-    case EmbeddedStructureInfo::COMPUTED_BY_STRUCTURE:
+    case EmbeddedFramework::COMPUTED_BY_STRUCTURE:
       structVelocity = 0;
       break;
     default:
@@ -1492,6 +1492,9 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double ttt = timer->getTime();
   if(!dynNodalTransfer) {
     fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
     exit(-1);
@@ -1508,6 +1511,8 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
       step1ForC0XFEM(lastIt,it,t,Xdot,X);
       break;
   }
+  timer->removeForceAndDispComm(ttt); // do not count the communication time with the
+                                     // structure in the mesh solution
 
   return dts;
 }
@@ -1618,6 +1623,9 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
 double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  Timer *timer;
+  timer = domain->getTimer();
+  double ttt = timer->getTime();
   if(!dynNodalTransfer || !distLSS) {
     fprintf(stderr,"EmbeddedMeshMotionHandler is not initialized correctly!\n");
     exit(-1);
@@ -1636,6 +1644,8 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       step2ForC0(lastIt,it,t,Xdot,X);
       break;
   }
+  timer->removeForceAndDispComm(ttt); // do not count the communication time with the
+                                     // structure in the mesh solution
 
   return dts;
 }

@@ -84,11 +84,14 @@ void FaceTria::computeForce(ExactRiemannSolver<dim>& riemann,
   //compute new Vface and plug into Vtet.
   //need: normalVel, normal, varFcn.
   double Wstar[3][2*dim];
+  double Vi[2*dim];
   for (int l=0; l<3; ++l) {
     int k = nodeNum(l);
+    for(int iDim=0; iDim<dim; iDim++)
+      Vi[iDim] = Vi[iDim+dim] = V[k][iDim];
     Vec3D unitNormal = getNormal(normals, l)/(getNormal(normals,l).norm());
     Vec3D wallVel = getNormalVel(normalVel, l)/(getNormal(normals,l).norm())*unitNormal;
-    riemann.computeFSIRiemannSolution(V[nodeNum(l)], wallVel, -1.0*unitNormal, varFcn, Wstar[l], 0); 
+    riemann.computeFSIRiemannSolution(Vi, wallVel, -1.0*unitNormal, varFcn, Wstar[l], 0); 
   }
 
   double *Vface[3] = {Wstar[0], Wstar[1], Wstar[2]};
