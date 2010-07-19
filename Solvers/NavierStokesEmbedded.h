@@ -1,12 +1,12 @@
-#ifndef _LEVELSETSOLVER_H_
-#define _LEVELSETSOLVER_H_
+#ifndef _NAVIER_STOKES_EMBEDDED_H_
+#define _NAVIER_STOKES_EMBEDDED_H_
 #include <IoData.h>
 #include <GeoSource.h>
 #include <Domain.h>
 #include <TsSolver.h>
-#include <ExplicitStructLevelSetTsDesc.h>
+#include <ExplicitEmbeddedTsDesc.h>
 template<int dim>
-void startStructLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
+void startNavierStokesEmbedded(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
 
   Communicator *com = domain.getCommunicator();
@@ -18,8 +18,8 @@ void startStructLevelSetSolver(IoData &ioData, GeoSource &geoSource, Domain &dom
     com->fprintf(stderr, "***Error: wrong time integrator for EulerStructGhostFluid method\n");   
   }
   else{
-    ExplicitStructLevelSetTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-    TsSolver<ExplicitStructLevelSetTsDesc<dim> > tsSolver(&tsDesc);
+    ExplicitEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ExplicitEmbeddedTsDesc<dim> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);
   }
 
