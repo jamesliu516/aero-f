@@ -65,7 +65,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
     double (*ireynolds) = irey.subData(iSub);
     double (*volume) = ctrlVol.subData(iSub);
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
-      idtimev[i] = idtimev[i] / volume[i];
+//      idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }

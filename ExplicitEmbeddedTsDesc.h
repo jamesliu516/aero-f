@@ -1,7 +1,7 @@
-#ifndef _EXPLICIT_STRUCT_LEVELSET_TS_DESC_H_
-#define _EXPLICIT_STRUCT_LEVELSET_TS_DESC_H_
+#ifndef _EXPLICIT_EMBEDDED_TS_DESC_H_
+#define _EXPLICIT_EMBEDDED_TS_DESC_H_
 
-#include <StructLevelSetTsDesc.h>
+#include <EmbeddedTsDesc.h>
 
 #include <IoData.h>
 #include <Domain.h>
@@ -15,7 +15,7 @@ template<class Scalar, int dim> class DistSVec;
 //------------------------------------------------------------------------
 
 template<int dim>
-class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
+class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
 
  private:
   ExplicitData::Type timeType;
@@ -33,9 +33,11 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
   DistVec<double> p4;
 
   bool FE;
+
  public:
-  ExplicitStructLevelSetTsDesc(IoData &, GeoSource &, Domain *);
-  ~ExplicitStructLevelSetTsDesc();
+
+  ExplicitEmbeddedTsDesc(IoData &, GeoSource &, Domain *);
+  ~ExplicitEmbeddedTsDesc();
 
   int solveNonLinearSystem(DistSVec<double,dim> &U);
 
@@ -44,8 +46,9 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
 //  void solveNLSystemTwoBlocks(DistSVec<double,dim> &U);
 
 // for solving the total system in one block (U and Phi at the same time)
-  void solveNLAllFE(DistSVec<double,dim> &U);
-  void solveNLAllRK2(DistSVec<double,dim> &U);
+  void commonPart(DistSVec<double,dim> &U); // Common part to the two following functions.
+  void solveNLAllFE(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc);
+  void solveNLAllRK2(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc);
 //  void solveNLAllRK2(DistSVec<double,dim> &U);
 
 // for solving the total system in two blocks (U first, Phi second)
@@ -65,7 +68,7 @@ class ExplicitStructLevelSetTsDesc : public StructLevelSetTsDesc<dim> {
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX
-#include <ExplicitStructLevelSetTsDesc.C>
+#include <ExplicitEmbeddedTsDesc.C>
 #endif
 
 #endif

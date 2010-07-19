@@ -278,7 +278,7 @@ ENDIF(EXTRALIB)
 ##############################
 # For the embedded framework #
 ##############################
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ../PhysBAM)
+FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS /lustre/home/kevinwgy/PhysBAM)
 FIND_LIBRARY(INTERSECTOR NAMES IntersectorFRG PATHS ${CMAKE_CURRENT_SOURCE_DIR}/IntersectorFRG)
 
 IF (PHYSBAM_BASE AND INTERSECTOR)
