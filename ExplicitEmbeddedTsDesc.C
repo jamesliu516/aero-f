@@ -30,8 +30,12 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 {
   timeType = ioData.ts.expl.type;
 
-  if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
-  else FE = false;
+  if(ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_4) RK4 = true;
+  else {
+    RK4 = false;
+    if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
+    else FE = false;
+  } // if RK4 and FE are both false, do RK2.
 
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) {
@@ -66,10 +70,9 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
   commonPart(U);
-  if(!FE) 
-    solveNLAllRK2(U,t0,Ubc);
-  else
-    solveNLAllFE(U,t0,Ubc); 
+  if(RK4)     solveNLAllRK4(U,t0,Ubc);
+  else if(FE) solveNLAllFE(U,t0,Ubc);
+  else        solveNLAllRK2(U,t0,Ubc);
 } 
 
 //------------------------------------------------------------------------------
@@ -186,8 +189,41 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
 //-----------------------------------------------------------------------------
 
 template<int dim>
+void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc)
+{
+  computeRKUpdate(U, k1, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k2, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - 0.5 * k2;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k3, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - k3;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k4, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
+  this->spaceOp->applyBCsToSolutionVector(U);
+
+  checkSolution(U);
+  this->timer->addFluidSolutionTime(t0);
+}
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
 void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
+//KW: 'it', positive or not, determines if Wstar, the Riemann solution (per edge), will be updated.
+//    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal); //KW: (?)only for Navier-Stokes.
 

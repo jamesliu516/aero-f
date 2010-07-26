@@ -32,6 +32,7 @@ class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
   DistVec<double> p3;
   DistVec<double> p4;
 
+  bool RK4;
   bool FE;
 
  public:
@@ -49,7 +50,7 @@ class ExplicitEmbeddedTsDesc : public EmbeddedTsDesc<dim> {
   void commonPart(DistSVec<double,dim> &U); // Common part to the two following functions.
   void solveNLAllFE(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc);
   void solveNLAllRK2(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc);
-//  void solveNLAllRK2(DistSVec<double,dim> &U);
+  void solveNLAllRK4(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &UBc);
 
 // for solving the total system in two blocks (U first, Phi second)
 //  void solveNLEuler(DistSVec<double,dim> & U);

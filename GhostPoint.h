@@ -1,6 +1,6 @@
 #ifndef _GHOST_POINT_H_
 #define _GHOST_POINT_H_
-
+  
 //#include<VarFcn.h>
 #include<Vector.h>
 #include<iostream>

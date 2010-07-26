@@ -49,10 +49,11 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  riemannNormal      = (int)ioData.embed.riemannNormal;
-
-//  this->com->fprintf(stderr,"my riemannNormal = %d\n", riemannNormal);
-
+  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
+    riemannNormal = (int)ioData.embed.riemannNormal;
+  else //auto
+    riemannNormal = simType ? 1 : 0;
+      
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 
 

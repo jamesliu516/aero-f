@@ -3000,7 +3000,7 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
-  riemannNormal = FLUID;
+  riemannNormal = AUTO;
   structVelocity = COMPUTED_BY_STRUCTURE;
 
 }
@@ -3030,7 +3030,7 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
-                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
+                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
   new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
                                       "ComputedByStructure", 0, "FiniteDifference", 1);
 }
