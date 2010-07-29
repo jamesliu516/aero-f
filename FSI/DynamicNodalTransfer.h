@@ -22,10 +22,14 @@ class StructExc;
  *
  */
 class EmbeddedStructure {
+  friend class DynamicNodalTransfer;
+
   Communicator &com;
   Timer *timer;
   StructExc* structExc;
   
+  bool getSurfFromFEM;
+
   char *meshFile;
   char *matcherFile;
  
@@ -46,7 +50,9 @@ class EmbeddedStructure {
   int it;
 
   int nNodes;
+  int nElems; //activated only if the mesh is provided by FEM
   double (*X)[3]; //original node coordinates
+  int    (*Tria)[3]; //mesh topology (activated only if the mesh is provided by FEM)
   double (*U)[3]; //displacement
   double (*Udot)[3]; //velocity
   double (*UandUdot)[3]; //displacement and velocity (TODO: this is redundant)
@@ -66,6 +72,9 @@ public:
   void sendMaxTime(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
   void processReceivedForce();
+
+  //if embedded mesh provided by FEM
+  bool embeddedMeshByFEM() {return getSurfFromFEM;}
 };
 
 
@@ -81,7 +90,6 @@ class DynamicNodalTransfer {
 
 	Communicator &com;
         Timer *timer;
-        EmbeddedStructure structure;
 
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
@@ -91,6 +99,7 @@ class DynamicNodalTransfer {
         double dts;
         double tMax;
 public:
+        EmbeddedStructure structure;
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &, Timer *);
 	~DynamicNodalTransfer();
 
@@ -105,6 +114,16 @@ public:
         double getStructureMaxTime() {return tMax;}
 
         void updateOutputToStructure(double  dt, double dtLeft, SVec<double,3> &Fs);
+        bool embeddedMeshByFEM() {return structure.embeddedMeshByFEM();}
+        int  numStNodes() {return structure.nNodes;}
+        int  numStElems() {return structure.nElems;}
+        double (*getStNodes())[3] {return structure.X;}
+        int    (*getStElems())[3] {return structure.Tria;}
+//        void getEmbeddedMesh(int &n1, double (**xyz)[3], int &n2, int (**abc)[3]) {
+//          structure.getEmbeddedMesh(n1,xyz,n2,abc); 
+//          fprintf(stderr,"DY %d %e %e %e\n", 2, xyz[1][0], xyz[1][1], xyz[1][2]);
+//          fprintf(stderr,"DY %d %e %e %e\n", 2, structure.X[1][0], structure.X[1][1], structure.X[1][2]);}
+
 };
 
 #endif /* DYNAMICNODALTRANSFER_H_ */
