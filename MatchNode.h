@@ -20,6 +20,7 @@ public:
   ~MatchNodeSet();
 
   void read(BinFileHandler &, int, int (*)[2]);
+  void autoInit(int);
 
   template<class NodeMap>
   void renumberNodes(NodeMap &);

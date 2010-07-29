@@ -69,6 +69,22 @@ void MatchNodeSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2])
 
 }
 
+//------------------------------------------------------------------------------
+
+void MatchNodeSet::autoInit(int nNodes) 
+{
+  numNodes = nNodes;
+  index = new int[numNodes][3];
+  gap = new double[numNodes][3];
+
+  for(int i=0; i<numNodes; i++) {
+    index[i][0] = index[i][1] = i;
+    gap[i][0] = gap[i][1] = gap[i][2] = 0.0;
+  }
+}
+
+//------------------------------------------------------------------------------
+
 MatchNodeSet::MatchNodeSet(const char *name) {
   FILE *fp = fopen(name, "r");
 

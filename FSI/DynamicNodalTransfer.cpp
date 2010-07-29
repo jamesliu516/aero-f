@@ -118,7 +118,8 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
-                                             UScale(iod.ref.rv.tvelocity)
+                                             UScale(iod.ref.rv.tvelocity),  nNodes(0), nElems(0), X(0), Tria(0), U(0),
+                                             Udot(0), UandUdot(0), F(0), it(0), structExc(0), algNum(6) //A6
 {
   timer = tim;
 
@@ -140,6 +141,10 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   sprintf(meshFile,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
   matcherFile = new char[sp + strlen(iod.input.match)];
   sprintf(matcherFile,"%s%s", iod.input.prefix, iod.input.match); 
+
+  getSurfFromFEM = coupled && (!strlen(iod.input.embeddedSurface));
+  if(getSurfFromFEM)
+    com.fprintf(stderr,"Note: Using the embedded surface provided by structure code.\n");
 
   // ---- for debug ----
   dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
@@ -174,13 +179,12 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   //               End
   // ----------------------------------
 
-
-  // ----------------------------------
-  //    Load Structure Mesh (at t=0)
-  // ----------------------------------
+/*
   // defaults
   nNodes = 0;
+  nElems = 0;
   X = 0;
+  Tria = 0;
   U = 0;
   Udot = 0;
   UandUdot = 0;
@@ -188,55 +192,102 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   it = 0;
   structExc = 0;
   algNum = 6; //the default is A6. For 2-way coupling, algNum will be modified by the info from structure.
+*/
+  // ---------------------------------
+  //       F-S Communication
+  // ---------------------------------
+  if(coupled) {
+    MatchNodeSet **mns = new MatchNodeSet *[1];
+    if(com.cpuNum() == 0 && !getSurfFromFEM)
+      mns[0] = new MatchNodeSet(matcherFile);
+    else 
+      mns[0] = new MatchNodeSet();
+    structExc = new StructExc(iod, mns, 6, &strCom, &com, 1);
 
-  // load structure nodes (from file).
-  FILE *nodeFile = 0;
-  nodeFile = fopen(meshFile,"r");
-  if(!nodeFile) fprintf(stderr,"top file not found (in embedded structure)\n");
-  char c1[200], c2[200];
-  int num0 = 0, num1 = 0, count, nInputs;
-  double x1,x2,x3;
-  fscanf(nodeFile, "%s %s\n", c1, c2);
-  char debug[6]="Nodes";
-  for (int i=0; i<5; i++) 
-    if(debug[i]!=c1[i]) {fprintf(stderr,"Could not open file: %s\n", meshFile); exit(-1);}
-  
-  std::list<Vec3D> nodeList;
-  std::list<Vec3D>::iterator it;
+    if(getSurfFromFEM) {//receive embedded surface from FEM
+      structExc->getEmbeddedWetSurfaceInfo(nNodes, nElems);
+      X = new (com) double[nNodes][3];
+      Tria = new (com) int[nElems][3];
+      structExc->getEmbeddedWetSurface(nNodes, (double*)X, nElems, (int*)Tria);
+      if(com.cpuNum()==0) {
+        mns[0]->autoInit(nNodes);
+        structExc->updateMNS(mns);
+      }
+    }
 
-  while(1) {
-    nInputs = fscanf(nodeFile,"%s", c1);
-    if(nInputs!=1) break;
-    num1 = atoi(c1);
-    if(num0+1!=num1) break;
 
-    fscanf(nodeFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-    nodeList.push_back(Vec3D(x1,x2,x3));
-    num0 = num1;
+    structExc->negotiate();
+    structExc->getInfo();
+    dt = tScale*structExc->getTimeStep();
+    tMax = tScale*structExc->getMaxTime();
+    algNum = structExc->getAlgorithmNumber();
   }
-  nNodes = nodeList.size();
+  // ----------------------------------
+  //               End
+  // ----------------------------------
 
-  X = new (com) double[nNodes][3];
+
+  // ----------------------------------
+  //    Load Structure Mesh (at t=0)
+  // ----------------------------------
+  if(!getSurfFromFEM) {//otherwise mesh is already loaded.
+    // load structure nodes (from file).
+    FILE *nodeFile = 0;
+    nodeFile = fopen(meshFile,"r");
+    if(!nodeFile) fprintf(stderr,"top file not found (in embedded structure)\n");
+    char c1[200], c2[200];
+    int num0 = 0, num1 = 0, count, nInputs;
+    double x1,x2,x3;
+    fscanf(nodeFile, "%s %s\n", c1, c2);
+    char debug[6]="Nodes";
+    for (int i=0; i<5; i++) 
+      if(debug[i]!=c1[i]) {fprintf(stderr,"Could not open file: %s\n", meshFile); exit(-1);}
   
-  count = 0;
-  for (it=nodeList.begin(); it!=nodeList.end(); it++) {
-    X[count][0] = (*it)[0]; 
-    X[count][1] = (*it)[1]; 
-    X[count][2] = (*it)[2]; 
-    count++;
-  }
-  if(count!=nNodes) {fprintf(stderr,"WRONG!!\n"); exit(-1);}
+    std::list<Vec3D> nodeList;
+    std::list<Vec3D>::iterator it;
+    while(1) {
+      nInputs = fscanf(nodeFile,"%s", c1);
+      if(nInputs!=1) break;
+      num1 = atoi(c1);
+      if(num0+1!=num1) break;
 
+      fscanf(nodeFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      nodeList.push_back(Vec3D(x1,x2,x3));
+      num0 = num1;
+    }
+    nNodes = nodeList.size();
+
+    X = new (com) double[nNodes][3];
+  
+    count = 0;
+    for (it=nodeList.begin(); it!=nodeList.end(); it++) {
+      X[count][0] = (*it)[0]; 
+      X[count][1] = (*it)[1]; 
+      X[count][2] = (*it)[2]; 
+      count++;
+    }
+    if(count!=nNodes) {fprintf(stderr,"WRONG!!\n"); exit(-1);}
+    fclose(nodeFile);
+  }
+  // ----------------------------------
+  //               End
+  // ----------------------------------
+
+
+  // allocate memory for other stuff...
   U = new (com) double[nNodes][3];
   Udot = new (com) double[nNodes][3];
   UandUdot = new (com) double[nNodes*2][3];
   F = new (com) double[nNodes][3];
 
-  fclose(nodeFile);
-  // ----------------------------------
-  //               End
-  // ----------------------------------
-   
+  // prepare distinfo for struct nodes
+  if(coupled) {
+    int *locToGlob = new int[1];
+    locToGlob[0] = 0;
+    di = new DistInfo(1, 1, 1, locToGlob, &com);
+    di->setLen(0,nNodes);
+    di->finalize(false);
+  }
 
   //for 2-D simulation only: pairing nodes in cross-section direction
   if(dim2Treatment) {
@@ -249,41 +300,18 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
           pairing[i] = j;
   }
 
-
-  // communication with structure (if coupled)
-  if(coupled) {
-    MatchNodeSet **mns = new MatchNodeSet *[1];
-    if(com.cpuNum() == 0)
-      mns[0] = new MatchNodeSet(matcherFile);
-    else 
-      mns[0] = new MatchNodeSet();
-    structExc = new StructExc(iod, mns, 6, &strCom, &com, 1);
-    structExc->negotiate();
-    structExc->getInfo();
-    dt = tScale*structExc->getTimeStep();
-    tMax = tScale*structExc->getMaxTime();
-
-    int *locToGlob = new int[1];
-    locToGlob[0] = 0;
-    di = new DistInfo(1, 1, 1, locToGlob, &com);
-
-    di->setLen(0,nNodes);
-    di->finalize(false);
-  
-    algNum = structExc->getAlgorithmNumber();
-  }
-
 }
 
 //------------------------------------------------------------------------------
 
 EmbeddedStructure::~EmbeddedStructure()
 {
-  if(X) delete[] X;
-  if(U) delete[] U;
-  if(Udot) delete[] Udot;
-  if(UandUdot) delete[] UandUdot;
-  if(F) delete[] F;
+  if(X)         delete[] X;
+  if(Tria)      delete[] Tria;
+  if(U)         delete[] U;
+  if(Udot)      delete[] Udot;
+  if(UandUdot)  delete[] UandUdot;
+  if(F)         delete[] F;
   if(structExc) delete structExc;  
 }
 

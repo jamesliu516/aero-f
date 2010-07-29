@@ -82,10 +82,11 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     void finishStatusByPoints(IoData &iod);
 
   public: //TODO: a lot of them can be moved to "protected".
-    DistPhysBAMIntersector(IoData &iod, Communicator *comm);
+    DistPhysBAMIntersector(IoData &iod, Communicator *comm, int nNodes = 0, double (*xyz)[3] = 0, int nElems = 0, int (*abc)[3] = 0);
     ~DistPhysBAMIntersector();
 
     void init(char *meshfile, char *restartfile);
+    void init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();

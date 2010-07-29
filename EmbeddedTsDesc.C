@@ -61,10 +61,33 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
+  //for phase-change update
+  Weights = 0;
+  VWeights = 0;
+
+//------------- For Fluid-Structure Interaction ---------------
+  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
+    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
+                                                this->domain->getTimer());
+    //for updating phase change
+    Weights  = new DistVec<double>(this->getVecInfo());
+    VWeights = new DistSVec<double,dim>(this->getVecInfo());
+  } else
+    dynNodalTransfer = 0;
+//-------------------------------------------------------------
+
 #ifdef DO_EMBEDDED
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG :
-      distLSS = new DistPhysBAMIntersector(ioData, this->com);
+      if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
+        int nNodes = dynNodalTransfer->numStNodes();
+        int nElems = dynNodalTransfer->numStElems();
+        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        int (*abc)[3] = dynNodalTransfer->getStElems();
+//        dynNodalTransfer->getEmbeddedMesh(nNodes,xyz,nElems,abc);
+        distLSS = new DistPhysBAMIntersector(ioData, this->com, nNodes, xyz, nElems, abc);
+      } else
+        distLSS = new DistPhysBAMIntersector(ioData, this->com);
       break;
     case EmbeddedFramework::PHYSBAMLITE :  
       //distLSS = new ....
@@ -106,10 +129,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   globIt = -1;
   inSubCycling = false;
 
-  //for phase-change update
-  Weights = 0;
-  VWeights = 0;
-
   //store farfield state for phase-change update for fluid-fullbody
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
@@ -127,18 +146,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 
   FsComputed = false;
-//-------------------------------------------------------------
-
-//------------- For Fluid-Structure Interaction ---------------
-  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
-    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
-                                                this->domain->getTimer());
-    //for updating phase change
-    Weights  = new DistVec<double>(this->getVecInfo());
-    VWeights = new DistSVec<double,dim>(this->getVecInfo());
-  } else
-    dynNodalTransfer = 0;
-
 //-------------------------------------------------------------
 
   // Adam 04/06/2010

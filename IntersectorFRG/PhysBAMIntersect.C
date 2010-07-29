@@ -266,7 +266,8 @@ double ClosestTriangle::getSignedVertexDistance() const {
 
 //----------------------------------------------------------------------------
 
-DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm) 
+DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm, int nNodes,
+                                               double (*xyz)[3], int nElems, int (*abc)[3]) 
 {
   this->numFluid = iod.eqs.numPhase;
   com = comm;
@@ -299,7 +300,10 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm)
   poly = 0;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
-  init(struct_mesh, struct_restart_pos);
+  if(nNodes && xyz && nElems && abc)
+    init(nNodes, xyz, nElems, abc, struct_restart_pos);
+  else
+    init(struct_mesh, struct_restart_pos);
 
   delete[] struct_mesh;
   delete[] struct_restart_pos;
@@ -469,6 +473,92 @@ void DistPhysBAMIntersector::init(char *solidSurface, char *restartSolidSurface)
     for (int k=0; k<numStNodes; k++) {
       Xs_n[k]         = Xs[k];
       Xs_np1[k]    = Xs[k];
+    }
+    fclose(resTopFile);
+  }
+
+  // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
+  com->fprintf(stderr,"Checking the solid surface...\n");
+  if (checkTriangulatedSurface()) 
+    com->fprintf(stderr,"Ok.\n");
+  else 
+    exit(-1); 
+
+  getBoundingBox();
+  initializePhysBAM();
+}
+
+//----------------------------------------------------------------------------
+/** Intersector initialization method
+*
+* \param dataTree the data read from the input file for this intersector.
+*/
+void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+
+  // node set
+  numStNodes = nNodes;
+  // feed data to Xss. 
+  Xs      = new Vec3D[numStNodes];
+  Xs0     = new Vec3D[numStNodes];
+  Xs_n    = new Vec3D[numStNodes];
+  Xs_np1  = new Vec3D[numStNodes];
+  Xsdot   = new Vec3D[numStNodes];
+  solidX  = new Vec<Vec3D>(numStNodes, Xs);
+  solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
+  solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+
+  for (int k=0; k<numStNodes; k++) {
+    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);  
+    Xs0[k]    = Xs[k];
+    Xs_n[k]   = Xs[k];
+    Xs_np1[k] = Xs[k];
+    Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
+  }
+
+  // elem set
+  numStElems = nElems; 
+  stElem = new int[numStElems][3];
+  for (int i=0; i<numStElems; i++)
+    for (int k=0; k<3; k++)
+      stElem[i][k] = abc[i][k];
+
+  // load solid nodes at restart time.
+  if (restartSolidSurface[0] != 0) {
+    FILE* resTopFile = fopen(restartSolidSurface, "r");
+    if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+    int ndMax2 = 0;
+    std::list<std::pair<int,Vec3D> > nodeList2;
+    std::list<std::pair<int,Vec3D> >::iterator it2;
+
+    int ndMax;
+    while(1) {
+      int nInputs, num1;
+      double x1, x2, x3;
+      char *endptr, c1[200];
+
+      nInputs = fscanf(resTopFile,"%s", c1);
+      if(nInputs!=1) break;    
+      num1 = strtol(c1, &endptr, 10);
+      if(endptr == c1) break;
+
+      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+      ndMax = std::max(num1, ndMax);
+    }
+    if (ndMax!=numStNodes) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+      exit(1);
+    }
+
+    for (int k=0; k<numStNodes; k++)
+      Xs[k] = Vec3D(0,0,0);
+    
+    for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
+      Xs[it2->first-1] = it2->second;
+
+    for (int k=0; k<numStNodes; k++) {
+      Xs_n[k]   = Xs[k];
+      Xs_np1[k] = Xs[k];
     }
     fclose(resTopFile);
   }
