@@ -295,7 +295,7 @@ void MatVecProdFD<dim, neq>::applyInviscid(DistSVec<double,neq> &p, DistSVec<dou
 
     Feps.strip(Ftmp);
 
-    prod += (1.0/eps) * (Fepstmp - Ftmp);
+    prod += (0.5/eps) * (Fepstmp - Ftmp);
 
   }
 
@@ -345,7 +345,7 @@ void MatVecProdFD<dim, neq>::applyViscous(DistSVec<double,neq> &p, DistSVec<doub
 
     Feps.strip(Ftmp);
 
-    prod += (1.0/eps) * (Fepstmp - Ftmp);
+    prod += (0.5/eps) * (Fepstmp - Ftmp);
 
   }
 
