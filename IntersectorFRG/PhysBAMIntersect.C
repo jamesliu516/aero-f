@@ -282,7 +282,7 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm, 
   if(iod.input.positions[0] != 0)
     sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
   else //no restart position file provided
-    struct_restart_pos = ""; 
+    struct_restart_pos[0] = '\0'; 
   
   //nodal or facet normal?
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
