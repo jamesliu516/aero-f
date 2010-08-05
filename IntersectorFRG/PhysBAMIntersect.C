@@ -17,6 +17,7 @@
 using std::pair;
 using std::map;
 using std::list;
+using std::set;
 
 typedef pair<int, int> iipair;
 typedef pair<int, bool> ibpair;
@@ -267,7 +268,7 @@ double ClosestTriangle::getSignedVertexDistance() const {
 //----------------------------------------------------------------------------
 
 DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm, int nNodes,
-                                               double (*xyz)[3], int nElems, int (*abc)[3]) 
+                                               double (*xyz)[3], int nElems, int (*abc)[3])
 {
   this->numFluid = iod.eqs.numPhase;
   com = comm;
@@ -289,14 +290,15 @@ DistPhysBAMIntersector::DistPhysBAMIntersector(IoData &iod, Communicator *comm, 
                         true : false;
 
   //initialize the following to 0(NULL)
-  physInterface = 0;
+  globPhysInterface = 0;
   triNorms = 0;
-  triSize = 0;
   nodalNormal = 0;
   status = 0;
   status0 = 0;
   boxMin = 0;
   boxMax = 0;
+  distance = 0;
+  tId = 0;
   poly = 0;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
@@ -320,12 +322,13 @@ DistPhysBAMIntersector::~DistPhysBAMIntersector()
   if(Xsdot)       delete[] Xsdot;
   if(status)      delete   status;
   if(status0)     delete   status0;
-  if(triSize)     delete[] triSize;
   if(triNorms)    delete[] triNorms;
   if(nodalNormal) delete[] nodalNormal;
   if(boxMax)      delete   boxMax;
   if(boxMin)      delete   boxMin;
-  if(poly)  delete   poly;
+  if(distance)    delete   distance;
+  if(tId)         delete   tId;
+  if(poly)        delete   poly;
 }
 
 //----------------------------------------------------------------------------
@@ -484,7 +487,7 @@ void DistPhysBAMIntersector::init(char *solidSurface, char *restartSolidSurface)
   else 
     exit(-1); 
 
-  getBoundingBox();
+//  getBoundingBox();
   initializePhysBAM();
 }
 
@@ -508,7 +511,7 @@ void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int 
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
 
   for (int k=0; k<numStNodes; k++) {
-    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);  
+    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -516,7 +519,7 @@ void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int 
   }
 
   // elem set
-  numStElems = nElems; 
+  numStElems = nElems;
   stElem = new int[numStElems][3];
   for (int i=0; i<numStElems; i++)
     for (int k=0; k<3; k++)
@@ -537,7 +540,7 @@ void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int 
       char *endptr, c1[200];
 
       nInputs = fscanf(resTopFile,"%s", c1);
-      if(nInputs!=1) break;    
+      if(nInputs!=1) break;
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
@@ -552,7 +555,7 @@ void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int 
 
     for (int k=0; k<numStNodes; k++)
       Xs[k] = Vec3D(0,0,0);
-    
+
     for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
       Xs[it2->first-1] = it2->second;
 
@@ -565,17 +568,17 @@ void DistPhysBAMIntersector::init(int nNodes, double (*xyz)[3], int nElems, int 
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"Checking the solid surface...\n");
-  if (checkTriangulatedSurface()) 
+  if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
-  else 
-    exit(-1); 
+  else
+    exit(-1);
 
-  getBoundingBox();
+//  getBoundingBox();
   initializePhysBAM();
 }
 
 //----------------------------------------------------------------------------
-
+/*
 void DistPhysBAMIntersector::getBoundingBox() {
   xMin = xMax = Xs[0][0];
   yMin = yMax = Xs[0][1];
@@ -589,7 +592,7 @@ void DistPhysBAMIntersector::getBoundingBox() {
     zMax = std::max(zMax, Xs[i][2]);
   }
 }
-
+*/
 //----------------------------------------------------------------------------
 
 void
@@ -615,8 +618,8 @@ DistPhysBAMIntersector::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
   physbam_triangulated_surface.Update_Triangle_List();
-  if(physInterface) delete physInterface;
-  physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
+  if(globPhysInterface) delete globPhysInterface;
+  globPhysInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
 }
 
 //----------------------------------------------------------------------------
@@ -674,7 +677,6 @@ bool DistPhysBAMIntersector::checkTriangulatedSurface()
 void
 DistPhysBAMIntersector::buildSolidNormals() {
   if(!triNorms) triNorms = new Vec3D[numStElems];
-  if(!triSize)  triSize = new double[numStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
       nodalNormal = new Vec3D[numStNodes];
@@ -683,8 +685,6 @@ DistPhysBAMIntersector::buildSolidNormals() {
   }
 
   // Also look to determine a point inside the solid but away from the structure.
-  double nrmMax = 0;
-  int trMaxNorm = -1;
   for (int iTriangle=0; iTriangle<numStElems; iTriangle++) {
     int n1 = stElem[iTriangle][0];
     int n2 = stElem[iTriangle][1];
@@ -699,16 +699,7 @@ DistPhysBAMIntersector::buildSolidNormals() {
     double dy3 = Xs[n3][1]-y1;
     double dz3 = Xs[n3][2]-z1;
 
-   // first calculate the "size" of the triangle.
-    double dx23 = Xs[n3][0] - Xs[n2][0];
-    double dy23 = Xs[n3][1] - Xs[n2][1];
-    double dz23 = Xs[n3][2] - Xs[n2][2];
-    double size12 = Vec3D(dx2,dy2,dz2).norm();
-    double size13 = Vec3D(dx3,dy3,dz3).norm();
-    double size23 = Vec3D(dx23,dy23,dz23).norm();
-    triSize[iTriangle] = min(size12,min(size13,size23));
-
-    // now calculate the normal.
+    // calculate the normal.
     triNorms[iTriangle] = Vec3D(dx2, dy2, dz2)^Vec3D(dx3,dy3,dz3);
     
     if(interpolatedNormal){ // compute nodal normal (weighted by area)
@@ -718,19 +709,76 @@ DistPhysBAMIntersector::buildSolidNormals() {
     }
 
     double nrm = triNorms[iTriangle].norm();
-    if(nrm > nrmMax) {
-      nrmMax = nrm;
-      trMaxNorm = iTriangle;
-    }
     // normalize the normal.
     if(nrm > 0.0)
-       triNorms[iTriangle] /= nrm;
+      triNorms[iTriangle] /= nrm;
+    else
+      fprintf(stderr,"ERROR: area of Triangle %d is %e.\n", iTriangle+1, nrm);
   }
 
   if(interpolatedNormal) //normalize nodal normals.
-    for(int i=0; i<numStNodes; i++) {
+    for(int i=0; i<numStNodes; i++)
       nodalNormal[i] /= nodalNormal[i].norm();
+}
+
+//----------------------------------------------------------------------------
+
+void DistPhysBAMIntersector::expandScope()
+{
+  SubDomain **subs = domain->getSubDomain();
+
+  // 1. setup communication pattern
+  int numLocSub = domain->getNumLocSub();
+  SubDTopo *subTopo = domain->getSubTopo();
+  CommPattern<int> trader(subTopo, com, CommPattern<int>::CopyOnSend, CommPattern<int>::NonSym);
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+    int *sndChannel = subs[iSub]->getSndChannel();
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++)
+      trader.setLen(sndChannel[iNei], 1+intersector[iSub]->package[iNei].size());     
+  }    
+  trader.finalize();
+
+  // 2. send packages to neighbour subdomains.
+  set<int>::iterator it;
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+    int *sndChannel = subs[iSub]->getSndChannel();
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++) {
+      SubRecInfo<int> sInfo = trader.getSendBuffer(sndChannel[iNei]);
+      int *buffer = reinterpret_cast<int*>(sInfo.data);
+      buffer[0] = intersector[iSub]->package[iNei].size(); 
+      int count = 0;
+      for(it=intersector[iSub]->package[iNei].begin(); it!= intersector[iSub]->package[iNei].end(); it++)
+        buffer[++count] = *it;
     }
+  }
+
+  // 3. exchange
+  trader.exchange();
+
+  // 4. expand scope
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+
+/*    char ch[20] = "debug_cpuX";
+    ch[9] = 'A' + subs[iSub]->getGlobSubNum();
+    FILE* myDebug = fopen(ch,"w");*/
+
+    int *rcvChannel = subs[iSub]->getRcvChannel();
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++) {
+      SubRecInfo<int> sInfo = trader.recData(rcvChannel[iNei]);
+      int *buffer = reinterpret_cast<int*>(sInfo.data);
+      for(int j=0; j<buffer[0]; j++)
+        intersector[iSub]->scope.insert(buffer[j+1]);
+    }
+/*
+    fprintf(myDebug,"Scope (%d) of Sub %d is:\n", intersector[iSub]->scope.size(), subs[iSub]->getGlobSubNum());
+    for(set<int>::iterator itt=intersector[iSub]->scope.begin(); itt!=intersector[iSub]->scope.end(); itt++)
+      fprintf(myDebug,"%d\n", *itt+1);
+    fprintf(myDebug,"\n");
+    fclose(myDebug);*/
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -752,27 +800,27 @@ DistPhysBAMIntersector::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   status0 = new DistVec<int>(domain->getNodeDistInfo());  
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
-
+  distance = new DistVec<double>(domain->getNodeDistInfo());
+  tId = new DistVec<int>(domain->getNodeDistInfo());
+  
   poly = new DistVec<bool>(domain->getNodeDistInfo());
   findPoly();
-
-  // for getClosestTriangles
-  DistVec<double> distance(X.info());
-  DistVec<int> tId(X.info());
 
   buildSolidNormals();
   d->findNodeBoundingBoxes(X,*boxMin,*boxMax);
 
+#pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
     intersector[i] = new PhysBAMIntersector(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), *this);
-    intersector[i]->getClosestTriangles(X(i), (*boxMin)(i), (*boxMax)(i), tId(i), distance(i));
-    intersector[i]->computeFirstLayerNodeStatus(tId(i), distance(i));
+    intersector[i]->getClosestTriangles(X(i), (*boxMin)(i), (*boxMax)(i), (*tId)(i), (*distance)(i), false);
+    intersector[i]->computeFirstLayerNodeStatus((*tId)(i), (*distance)(i));
   }
   findInAndOut();
   finishStatusByPoints(iod);   
  
-  for(int i = 0; i < numLocSub; ++i) 
-    intersector[i]->findIntersections(X(i));
+#pragma omp parallel for
+  for(int i = 0; i < numLocSub; ++i)  
+    intersector[i]->findIntersections(X(i), false);
 
 //  for(int iSub=0; iSub<numLocSub; iSub++)
 //    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), X(iSub), 1); 
@@ -801,9 +849,8 @@ DistPhysBAMIntersector::findPoly() {
 
 //----------------------------------------------------------------------------
 
-void
-DistPhysBAMIntersector::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
-
+void DistPhysBAMIntersector::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) 
+{
 //  com->fprintf(stderr,"DistPhysBAMIntersector::updateStructure called!\n");
   if(nNodes!=numStNodes) {
     com->fprintf(stderr,"Number of structure nodes has changed!\n");
@@ -819,52 +866,41 @@ DistPhysBAMIntersector::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
 
 //----------------------------------------------------------------------------
 
-void
-DistPhysBAMIntersector::updatePhysBAMInterface(Vec3D *particles, int size) {
-  for (int i=0; i<size; i++)
-    physInterface->triangulated_surface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0],
-                                                                     particles[i][1], particles[i][2]);
-  physInterface->Update(true); //also rebuild the topology (not really needed for now).
+void DistPhysBAMIntersector::updatePhysBAMInterface() 
+{
+  for (int i=0; i<numStNodes; i++)
+    globPhysInterface->triangulated_surface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0], Xs[i][1], Xs[i][2]);
+  globPhysInterface->Update(false); //also rebuild the topology (not really needed for now).
 }
 
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-void
-DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) {
+void DistPhysBAMIntersector::recompute(double dtf, double dtfLeft, double dts) 
+{
 
-//  Timer *timer = domain->getTimer(); 
-
-  if (dtfLeft<-1.0e-8) {
-    com->fprintf(stderr,"ERROR: Time-step is negative (%e)!\n", dtfLeft);
-    exit(-1);
-  }
-  //get current struct coordinates.
-  double alpha = 1.0;
-  //double alpha = (dts - dtfLeft + dtf)/dts;
-  for (int i=0; i<numStNodes; i++) 
-    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
-
-  // for getClosestTriangles
-  DistVec<double> distance(X->info());
-  DistVec<int> tId(X->info());
-
-  updatePhysBAMInterface(Xs, numStNodes);
-  getBoundingBox();
+  updateStructCoords(0.0, 1.0);
   buildSolidNormals();
+  expandScope();
 
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
-    intersector[iSub]->reset();
-    intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub), distance(iSub));
-    intersector[iSub]->computeFirstLayerNodeStatus(tId(iSub), distance(iSub));
+    intersector[iSub]->reset(); 
+    intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
+    intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
+    intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
+    intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])); 
+//    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1); 
+    intersector[iSub]->findIntersections((*X)(iSub), true);
   }
+}
 
-  findInAndOut();
- 
-  for(int iSub = 0; iSub < numLocSub; ++iSub){ 
-    intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub]));   
-    intersector[iSub]->findIntersections((*X)(iSub));
-  }
+//----------------------------------------------------------------------------
+
+void DistPhysBAMIntersector::updateStructCoords(double c_n, double c_np1)
+{
+  for (int i=0; i<numStNodes; i++)
+    Xs[i] = c_n*Xs_n[i] + c_np1*Xs_np1[i];
 }
 
 //----------------------------------------------------------------------------
@@ -1026,20 +1062,28 @@ void DistPhysBAMIntersector::finishStatusByPoints(IoData &iod)
 
 void PhysBAMIntersector::finishStatusByHistory(SubDomain& sub)
 {
-  if(numOfFluids()<3) //no need to do the following 
-    return;
-
   int numNodes = status.size();
   Connectivity &nToN = *(sub.getNodeToNode());
   for(int i=0; i<numNodes; i++) {
     if(status[i]==OUTSIDE){
       if(status0[i]!=INSIDE)
         status[i] = status0[i];
-      else //status0[i]==INSIDE    
+      else {//status0[i]==INSIDE
+        bool done = false;    
         for(int iNei=0; iNei<nToN.num(i); iNei++)
-          if(status0[nToN[i][iNei]]!=INSIDE)
+          if(status0[nToN[i][iNei]]!=INSIDE) {
             status[i] = status0[nToN[i][iNei]];
-    } else if(status[i]==UNDECIDED)
+            done = true;
+            break;
+          }
+        if(!done) 
+          fprintf(stderr,"ERROR: F-S Interface moved over 2 (or more) layers of nodes in 1 time-step!\n"); 
+      }
+    } 
+    else if(status[i]==UNDECIDED)
+      if(status0[i]!=UNDECIDED)
+        status[i] = status0[i];
+      else  
         fprintf(stderr,"Still have undecided nodes...\n");
   }
 }
@@ -1060,12 +1104,15 @@ void PhysBAMIntersector::floodFill(SubDomain& sub, int& nUndecided)
   // lead: In pointer
   // next: out pointer (of FIFO)
   int next = 0, lead = 0;
-  for(int i = 0; i < numNodes; ++i)
+  for(int i = 0; i < numNodes; ++i) {
+//    if(locToGlobNodeMap[i]+1==1531336)
+//      fprintf(stderr,"For node %d (on Sub %d): status = %d\n", locToGlobNodeMap[i]+1, sub.getGlobSubNum(), status[i]);
     if(status[i] != UNDECIDED) {
       seed[lead++] = i;
       level[i] = 0;
     } else
       nUndecided++;
+  }
 
   while(next < lead) { //still have seeds not used
     int cur = seed[next++];
@@ -1090,26 +1137,228 @@ void PhysBAMIntersector::floodFill(SubDomain& sub, int& nUndecided)
 
 PhysBAMIntersector::PhysBAMIntersector(SubDomain &sub, SVec<double,3> &X,
                     Vec<int> &stat, Vec<int> &stat0, DistPhysBAMIntersector &distInt) :
-                      distIntersector(distInt), status(stat), status0(stat0),
-                      edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
+                      subD(&sub), distIntersector(distInt), status(stat), status0(stat0),
+                      edges(sub.getEdges()), globIndex(sub.getGlobSubNum()), nodeToSubD(*sub.getNodeToSubD())
 {
-  int numEdges = edges.size();
+  physbam_solids_particle = 0;
+  physbam_stElem = 0;
+  physbam_triangle_mesh = 0;
+  physbam_triangulated_surface = 0;
+  physInterface = 0;
 
   status = UNDECIDED;
   status0 = UNDECIDED;
 
   locToGlobNodeMap = sub.getNodeMap();
 
+  iscope = 0;
+  package = new set<int>[sub.getNumNeighb()];
+  int *neighb = sub.getNeighb();
+  for(int i=0; i<sub.getNumNeighb(); i++)
+    sub2pack[neighb[i]] = i;
+
   nFirstLayer = 0;
+}
+
+//----------------------------------------------------------------------------
+
+PhysBAMIntersector::~PhysBAMIntersector()
+{
+  delete[] package;
+  if(iscope) delete[] iscope;
+
+  if(physbam_solids_particle) delete physbam_solids_particle;
+  if(physbam_stElem) delete physbam_stElem;
+  if(physbam_triangle_mesh) delete physbam_triangle_mesh;
+  if(physbam_triangulated_surface) delete physbam_triangulated_surface;
+  if(physInterface) delete physInterface;
 }
 
 //----------------------------------------------------------------------------
 
 void PhysBAMIntersector::reset()
 {
+  for(int i=0; i<subD->getNumNeighb(); i++)
+    package[i].clear();
+
+  if(iscope) {delete[] iscope; iscope = 0;}
+  n2p.clear();
+  particle.clear();
+
+  CrossingEdgeRes.clear();
+  ReverseCrossingEdgeRes.clear();
+
   status0 = status;
   status = UNDECIDED;
+
+//  fprintf(stderr,"(%d) I'm here 1.\n", subD->getGlobSubNum());
+  if(physbam_solids_particle) {delete physbam_solids_particle; physbam_solids_particle = 0;}
+//  fprintf(stderr,"(%d) I'm here 2.\n", subD->getGlobSubNum());
+  if(physbam_stElem) {delete physbam_stElem; physbam_stElem = 0;}
+//  fprintf(stderr,"(%d) I'm here 3.\n", subD->getGlobSubNum());
+  if(physbam_triangle_mesh) {delete physbam_triangle_mesh; physbam_triangle_mesh = 0;}
+//  fprintf(stderr,"(%d) I'm here 4.\n", subD->getGlobSubNum());
+  if(physbam_triangulated_surface) {delete physbam_triangulated_surface; physbam_triangulated_surface = 0;}
+//  fprintf(stderr,"(%d) I'm here 5.\n", subD->getGlobSubNum());
+  if(physInterface) {delete physInterface; physInterface = 0;}
+//  fprintf(stderr,"(%d) I'm here 6.\n", subD->getGlobSubNum());
+
   nFirstLayer = 0;
+}
+
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElems)
+{ //IMPORTANT: In PhysBAM array index starts fr*om 1 instead of 0
+  int nPar, nTri = scope.size();
+  if(nTri==0)
+    return;
+
+  nPar = buildScopeTopology(sElem, nsElems);
+  // Initialize the Particles list 
+  int count = 0;
+  physbam_solids_particle = new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
+  physbam_solids_particle->array_collection.Resize(nPar);
+  for (list<int>::iterator lit=particle.begin(); lit!=particle.end(); lit++) 
+    physbam_solids_particle->X(++count) = PhysBAM::VECTOR<double,3>(Xs[*lit][0],Xs[*lit][1], Xs[*lit][2]);
+
+  // Initialize the Triangle list
+  physbam_stElem = new PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> >();
+  for (set<int>::iterator it=scope.begin(); it!=scope.end(); it++)
+    physbam_stElem->Append(PhysBAM::VECTOR<int,3>(n2p[sElem[*it][0]]+1, n2p[sElem[*it][1]]+1, n2p[sElem[*it][2]]+1));
+
+  // Construct TRIANGLE_MESH triangle_mesh (it stores its own copy of physbam_stElem).
+  physbam_triangle_mesh = new PhysBAM::TRIANGLE_MESH(physbam_solids_particle->array_collection.Size(), *physbam_stElem);
+  physbam_triangle_mesh->Initialize_Adjacent_Elements(); //need this?
+
+  // Construct TRIANGULATED_SURFACE. (only stores the reference to physbam_triangle_mesh and physbam_solids_particle)
+  physbam_triangulated_surface = new PhysBAM::TRIANGULATED_SURFACE<double>(*physbam_triangle_mesh, *physbam_solids_particle);
+  physbam_triangulated_surface->Update_Triangle_List();
+
+  // Construct PhysBAMInterface. (only stores a reference to physbam_triangulated_surface)
+  physInterface = new PhysBAMInterface<double>(*physbam_triangulated_surface);
+
+/*  char ch[20] = "physbam_cpuX";
+  ch[11] = '0' + subD->getGlobSubNum();
+  FILE* myDebug = fopen(ch,"w");
+  fprintf(myDebug,"Particles: \n");
+  for(int i=0; i<nPar; i++)
+    fprintf(myDebug, "%d %e %e %e\n", i+1, physbam_solids_particle.X(i+1)[1], physbam_solids_particle.X(i+1)[2], physbam_solids_particle.X(i+1)[3]);
+  fprintf(myDebug,"Node to Particle map:\n");
+  for(map<int,int>::iterator it=n2p.begin(); it!=n2p.end(); it++)
+    fprintf(myDebug,"%d -> %d\n", it->first, it->second);
+  fprintf(myDebug,"Elements:\n");
+  for(int i=0; i<nTri; i++)
+    fprintf(myDebug,"%d: %d %d %d\n", i+1, physbam_stElem(i+1)[1], physbam_stElem(i+1)[2], physbam_stElem(i+1)[3]);
+  fclose(myDebug);
+*/
+}
+
+/*
+void PhysBAMIntersector::rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElems)
+{ //IMPORTANT: In PhysBAM array index starts from 1 instead of 0
+  int count, nPar, nTri = scope.size();
+  if(nTri==0)
+    return;
+
+  nPar = buildScopeTopology(sElem, nsElems);
+  // Initialize the Particles list (at the same find a bounding box)
+  count = 0;
+  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >& physbam_solids_particle = *new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
+  physbam_solids_particle.array_collection.Resize(nPar);
+  for (list<int>::iterator lit=particle.begin(); lit!=particle.end(); lit++)
+    physbam_solids_particle.X(++count) = PhysBAM::VECTOR<double,3>(Xs[*lit][0],Xs[*lit][1], Xs[*lit][2]);
+
+  // Initialize the Triangle list
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > & physbam_stElem=*new PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> >();
+  for (set<int>::iterator it=scope.begin(); it!=scope.end(); it++)
+    physbam_stElem.Append(PhysBAM::VECTOR<int,3>(n2p[sElem[*it][0]]+1, n2p[sElem[*it][1]]+1, n2p[sElem[*it][2]]+1));
+
+  // Construct TRIANGLE_MESH triangle_mesh.
+  PhysBAM::TRIANGLE_MESH& physbam_triangle_mesh=*new PhysBAM::TRIANGLE_MESH(physbam_solids_particle.array_collection.Size(), physbam_stElem);
+  physbam_triangle_mesh.Initialize_Adjacent_Elements(); //need this?
+
+  // Construct TRIANGULATED_SURFACE.
+  PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*new PhysBAM::TRIANGULATED_SURFACE<double>(physbam_triangle_mesh, physbam_solids_particle);
+  physbam_triangulated_surface.Update_Triangle_List();
+  if(physInterface) delete physInterface;
+  physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
+
+}
+*/
+//----------------------------------------------------------------------------
+/*
+void PhysBAMIntersector::buildSolidNormals(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem)
+{
+  int nTr = scope.size();
+  if(nTr==0)
+    return;
+  int nPt = particle.size();
+  bool interp = distIntersector.interpolatedNormal;
+
+  // allocate memory.
+  if(trNormal) delete[] trNormal;
+  trNormal = new Vec3D[nTr];
+  if(interp) {
+    if(ndNormal) delete[] ndNormal;
+    ndNormal = new Vec3D[nPt];
+    for(int i=0; i<nPt; i++)
+      ndNormal[i] = 0.0;
+  }
+
+  for(int iTr=0; iTr<nTr; iTr++) {
+    int n1 = sElem[iscope[iTr]][0];
+    int n2 = sElem[iscope[iTr]][1];
+    int n3 = sElem[iscope[iTr]][2];
+    double x1 = Xs[n1][0];
+    double y1 = Xs[n1][1];
+    double z1 = Xs[n1][2];
+    double dx2 = Xs[n2][0]-x1;
+    double dy2 = Xs[n2][1]-y1;
+    double dz2 = Xs[n2][2]-z1;
+    double dx3 = Xs[n3][0]-x1;
+    double dy3 = Xs[n3][1]-y1;
+    double dz3 = Xs[n3][2]-z1;
+
+    // calculate the normal.
+    trNormal[iTr] = Vec3D(dx2,dy2,dz2)^Vec3D(dx3,dy3,dz3);
+
+    if(interp){ // compute nodal normal (weighted by 2*area)
+      ndNormal[n2p[n1]] += trNormal[iTr];
+      ndNormal[n2p[n2]] += trNormal[iTr];
+      ndNormal[n2p[n3]] += trNormal[iTr];
+    } 
+
+    // normalize the normal.
+    double nrm = trNormal[iTr].norm();
+    if(nrm > 0.0)
+       trNormal[iTr] /= nrm;
+    else
+      fprintf(stderr,"ERROR: Area of Triangle %d is %e.\n", iscope[iTr]+1, 0.5*nrm); 
+  }
+
+  if(interp) //normalize nodal normals.
+    for(int i=0; i<nPt; i++) 
+      ndNormal[i] /= ndNormal[i].norm(); //TODO: need a local communication
+}
+*/
+//----------------------------------------------------------------------------
+
+int PhysBAMIntersector::buildScopeTopology(int (*sElem)[3], int nsElem)
+{ // construct iscope, n2p, and particles.
+  iscope = new int[scope.size()]; //it's memory has been released in "reset".
+  int nd, newID = 0, newTrID = 0;
+  for(set<int>::iterator it=scope.begin(); it!=scope.end(); it++){
+    iscope[newTrID++] = *it;
+    for(int k=0; k<3; k++) {
+      nd = sElem[*it][k];
+      if(n2p.find(nd)==n2p.end()) {
+        n2p[nd] = newID++;
+        particle.push_back(nd);
+      }
+    }
+  }
+  return newID;
 }
 
 //----------------------------------------------------------------------------
@@ -1117,70 +1366,66 @@ void PhysBAMIntersector::reset()
 /** Find the closest structural triangle for each node. If no triangle intersect the bounding box of the node,
 * no closest triangle exists
 */
-void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist) 
+void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope) 
 {
-  int ntri = distIntersector.getNumStructElems();
-  MyTriangle *myTris = new MyTriangle[ntri];
   int (*triNodes)[3] = distIntersector.stElem;
   Vec3D *structX = (distIntersector.getStructPosition()).data();
-  for(int i = 0; i < ntri; ++i)
-    myTris[i] = MyTriangle(i, distIntersector.getStructPosition(), triNodes[i]);
+  int ntri;
+  MyTriangle *myTris;
 
-  int nClose = 0;
-  double maxDist = 0, maxSize = 0;
-
-  int trBased = 0, edgeBased = 0, vertexBased = 0;
-
+  // build the KDTree
+  if(useScope) {
+    ntri = scope.size();
+    if(ntri==0) {
+      tId = -1;
+      return;
+    }
+    myTris = new MyTriangle[ntri];
+    int count = 0;
+    set<int>::iterator it;
+    for(it=scope.begin(); it!=scope.end(); it++)
+      myTris[count++] = MyTriangle(*it, distIntersector.getStructPosition(), triNodes[*it]);
+  } else {
+    ntri = distIntersector.getNumStructElems();
+    myTris = new MyTriangle[ntri];
+    for(int i = 0; i < ntri; ++i)
+      myTris[i] = MyTriangle(i, distIntersector.getStructPosition(), triNodes[i]);
+  }
   KDTree<MyTriangle> structureTree(ntri, myTris);
+
+  // clear scope for refill 
+  scope.clear();
+
+  // find candidates
   ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms);
-
-  double maxErr = 0;
-  double exactPhi = -1000;
-  double numPhi = -1000;
-  int errNode = -1;
-  int maxCand = 0;
-  int ndMaxCand = -1;
-
   int nMaxCand = 500;
   MyTriangle *candidates = new MyTriangle[nMaxCand];
   for(int i = 0; i < X.size(); ++i) {
     int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
     if(nFound > nMaxCand) {
-      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", there were more candidates than we can handle: " << nFound << std::endl;
+      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
       nMaxCand = nFound;
       delete [] candidates;
       candidates = new MyTriangle[nMaxCand];
       structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
     }
-    if(nFound > maxCand) {
-      maxCand = nFound;
-      ndMaxCand = i;
-    }
     closestTriangle.start(X[i]);
-    for(int j = 0; j < std::min(nMaxCand,nFound); ++j) {
-      double xi1, xi2, dist;
-
-      closestTriangle.checkTriangle(candidates[j].trId());
+    for(int j = 0; j < nFound; ++j) {
+      int myId = candidates[j].trId();
+      scope.insert(myId);
+      addToPackage(i, myId);    
+      closestTriangle.checkTriangle(myId);
     }
-    if(nFound <= 0)
+    
+    if(nFound <= 0) {
       tId[i] = -1;
+      dist[i] = 0.0;
+    }
     else {
       tId[i] = closestTriangle.bestTriangle();
       if(tId[i] < 0)
         std::cout << "Horror!!!" << std::endl;
       dist[i] = closestTriangle.signedDistance();
-      if(closestTriangle.mode == 0 && dist[i] != 0)
-        trBased++;
-      if(closestTriangle.mode == 1 && dist[i] < 0)
-              edgeBased++;
-      if(closestTriangle.mode == 2 && dist[i] != 0)
-              vertexBased++;
-      nClose++;
-      maxDist = std::max(maxDist, std::abs(dist[i]));
-      maxSize = std::max(maxSize, sqrt(
-          (boxMin[i][0]-boxMax[i][0])*(boxMin[i][0]-boxMax[i][0]) +
-          (boxMin[i][1]-boxMax[i][1])*(boxMin[i][1]-boxMax[i][1]) +
-          (boxMin[i][2]-boxMax[i][2])*(boxMin[i][2]-boxMax[i][2]) ));
     }
   }
 
@@ -1192,11 +1437,10 @@ void PhysBAMIntersector::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &
 
 void PhysBAMIntersector::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist)
 {
-  const double TOL = 0;
   for (int i=0; i<tId.size(); i++) {
     if (tId[i]<0)
       continue;
-    status[i] = (dist[i]>=TOL) ? INSIDE : OUTSIDE;
+    status[i] = (dist[i]>=0.0) ? INSIDE : OUTSIDE;
     nFirstLayer++;
   }
 }
@@ -1285,13 +1529,16 @@ void PhysBAMIntersector::noCheckFloodFill(SubDomain& sub, int& nUndecided)
 
 //----------------------------------------------------------------------------
 
-void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
+void PhysBAMIntersector::findIntersections(SVec<double,3>&X, bool useScope)
 {
+
   int (*ptr)[2] = edges.getPtr();
   const double TOL = 1.0e-4;
   int MAX_ITER = 20;
   int max_iter = 0;
-  double maxEdgeSize = 0;
+
+  bool GlobPhysBAMUpdated = false;
+
   for (int l=0; l<edges.size(); l++) {
     int p = ptr[l][0], q = ptr[l][1];
     if(status[p]==status[q]) continue;
@@ -1300,11 +1547,11 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
     Vec3D xp(X[p]), xq(X[q]);
     Vec3D dir = xq - xp;
     Vec3D xpPrime, xqPrime;
-    maxEdgeSize = std::max(maxEdgeSize, dir.norm());
 
-    ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(2);
+    ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(1);
+    //ARRAY<PAIR<VECTOR<int,2>,IntersectionResult<double> > > edgeRes(2);
     edgeRes(1).x[1] = 1;  edgeRes(1).x[2] = 2;
-    edgeRes(2).x[1] = 2;  edgeRes(2).x[2] = 1;
+//    edgeRes(2).x[1] = 2;  edgeRes(2).x[2] = 1;
 
     for (int iter=0; iter<MAX_ITER; iter++) {
       double coeff = iter*iter*TOL;
@@ -1314,21 +1561,118 @@ void PhysBAMIntersector::findIntersections(SVec<double,3>&X)
       xyz(1)[1] = xpPrime[0];  xyz(1)[2] = xpPrime[1];  xyz(1)[3] = xpPrime[2];
       xyz(2)[1] = xqPrime[0];  xyz(2)[2] = xqPrime[1];  xyz(2)[3] = xqPrime[2];
 
-      distIntersector.getInterface().Intersect(xyz, edgeRes, coeff*dir.norm());
+      if(useScope) {
+        physInterface->Intersect(xyz, edgeRes, coeff*dir.norm());
+        if(edgeRes(1).y.triangleID>0)
+          edgeRes(1).y.triangleID = iscope[edgeRes(1).y.triangleID-1] + 1;
+//        if(edgeRes(2).y.triangleID>0)
+//          edgeRes(2).y.triangleID = iscope[edgeRes(2).y.triangleID-1] + 1;
+      } else 
+        distIntersector.getInterface().Intersect(xyz, edgeRes, coeff*dir.norm());
+      // the triangle Id stored in edgeRes starts from 1, i.e. using PhysBAM convention.
 
-      if (edgeRes(1).y.triangleID>=0 || edgeRes(2).y.triangleID>=0) {
+      if (edgeRes(1).y.triangleID>0 /*|| edgeRes(2).y.triangleID>0*/) {
         CrossingEdgeRes[l] = edgeRes(1).y;
-        ReverseCrossingEdgeRes[l] = edgeRes(2).y;
+        ReverseCrossingEdgeRes[l] = edgeRes(1).y;
+        //ReverseCrossingEdgeRes[l] = edgeRes(2).y;
         if (iter>max_iter) max_iter = iter;
         break;
       }
     }
 
+    // in case no intersection is found using local scope, try the entire structure
+/*    if (edgeRes(1).y.triangleID<0 && edgeRes(2).y.triangleID<0 && useScope) {
+      if(!GlobPhysBAMUpdated) {
+        distIntersector.updatePhysBAMInterface();
+        GlobPhysBAMUpdated = true;
+        fprintf(stderr,"Global Intersector is used to find intersections.\n");      
+      }
+      for (int iter=0; iter<MAX_ITER; iter++) {
+        double coeff = iter*iter*TOL;
+        Vec3D xpPrime = xp - coeff*dir;
+        Vec3D xqPrime = xq + coeff*dir;
+        ARRAY<VECTOR<double,3> > xyz(2);
+        xyz(1)[1] = xpPrime[0];  xyz(1)[2] = xpPrime[1];  xyz(1)[3] = xpPrime[2];
+        xyz(2)[1] = xqPrime[0];  xyz(2)[2] = xqPrime[1];  xyz(2)[3] = xqPrime[2];
+
+        distIntersector.getInterface().Intersect(xyz, edgeRes, coeff*dir.norm());
+
+        if (edgeRes(1).y.triangleID>0 || edgeRes(2).y.triangleID>0) {
+          CrossingEdgeRes[l] = edgeRes(1).y;
+          ReverseCrossingEdgeRes[l] = edgeRes(2).y;
+          if (iter>max_iter) max_iter = iter;
+          break;
+        }
+      }
+    }*/
+/*
+    // store intersecting triangles 
+    if (edgeRes(1).y.triangleID>0) {
+      scope.insert(edgeRes(1).y.triangleID-1);  //PhysBAM counts from 1 -_- 
+      addToPackage(p, edgeRes(1).y.triangleID-1);
+      addToPackage(q, edgeRes(1).y.triangleID-1);
+    }
+    if (edgeRes(2).y.triangleID>0 && edgeRes(2).y.triangleID!=edgeRes(1).y.triangleID) {
+      scope.insert(edgeRes(2).y.triangleID-1);
+      addToPackage(p, edgeRes(2).y.triangleID-1);
+      addToPackage(q, edgeRes(2).y.triangleID-1);
+    }
+*/      
     if (edgeRes(1).y.triangleID<0 && edgeRes(2).y.triangleID<0)
     fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
                     locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
   }
+/*
+  int *neighbours = subD->getNeighb();
+  fprintf(stderr,"I'm Sub %d. My neighbours are ",subD->getGlobSubNum());
+  for(int i=0; i<subD->getNumNeighb(); i++)
+    fprintf(stderr,"%d ", neighbours[i]);
+  fprintf(stderr,"\n");
+  for(int i=0; i<subD->getNumNeighb(); i++) {
+    fprintf(stderr,"Package from %d to %d: ", subD->getGlobSubNum(), neighbours[i]);
+    for(set<int>::iterator it=package[i].begin(); it!=package[i].end(); it++)
+      fprintf(stderr,"%d ", *it);
+    fprintf(stderr,"\n");
+  }
+*/
 }
+
+//----------------------------------------------------------------------------
+
+void PhysBAMIntersector::addToPackage(int iNode, int trID)
+{
+  int nSub = nodeToSubD.num(iNode);
+/*
+  if(nSub>subD->getNumNeighb()) {
+    fprintf(stderr,"Clearly a bug... owners = %d, nNeighbours = %d\n", nSub, subD->getNumNeighb());
+    exit(-1);
+  }
+
+  if(nSub<=1) {
+    if(nSub==0)
+      fprintf(stderr,"#SubDs for Node %d = 0\n", locToGlobNodeMap[iNode]);
+    return;
+  }
+  else {
+*/
+    for(int iSub=0; iSub<nSub; iSub++) {
+      if(nodeToSubD[iNode][iSub]==globIndex) {
+//        fprintf(stderr,"Oops, I met myself...\n");
+        continue;
+      }
+      package[sub2pack[nodeToSubD[iNode][iSub]]].insert(trID);  
+    }
+//  }
+}
+
+// an equivalent but succinct way of writing this...
+/*{
+  for(int iSub=0; iSub<nodeToSubD.num(iNode); iSub++) {
+    if(nodeToSubD[iNode][iSub]==subD->getGlobSubNum()) 
+      continue;
+    package[sub2pack[nodeToSubD[iNode][iSub]]].insert(trID);
+  }
+}*/
 
 //----------------------------------------------------------------------------
 
@@ -1346,19 +1690,19 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   IntersectionResult<double> rji = ReverseCrossingEdgeRes[edgeNum];
   double alpha0 = 0.0;
 
-  if (rij.triangleID>=0 && rij.triangleID>=0 && rij.triangleID==rji.triangleID) {
+  if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID==rji.triangleID) {
     result = rij;
     alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha;
   }  
-  else if (rij.triangleID>=0 && rji.triangleID>=0 && rij.triangleID!=rji.triangleID) {
+  else if (rij.triangleID>0 && rji.triangleID>0 && rij.triangleID!=rji.triangleID) {
     result = (ni<nj) ? rij : rji;
     alpha0 = result.alpha;
   }
-  else if (rij.triangleID>=0 && rji.triangleID<0) {
+  else if (rij.triangleID>0 && rji.triangleID<0) {
     result = rij;
     alpha0 = (ni<nj)? result.alpha : 1.0-result.alpha; 
   }
-  else if (rij.triangleID<0 && rji.triangleID>=0) {
+  else if (rij.triangleID<0 && rji.triangleID>0) {
     result = rji;
     alpha0 = (ni<nj)? 1.0-result.alpha : result.alpha;
   }
@@ -1390,24 +1734,6 @@ PhysBAMIntersector::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   }
 
   return lsRes;
-}
-
-//----------------------------------------------------------------------------
-
-bool PhysBAMIntersector::isActive(double t, int n, int phase) const{
-  return status[n] == phase;
-}
-
-//----------------------------------------------------------------------------
-
-bool PhysBAMIntersector::wasActive(double t, int n, int phase) const{
-  return status0[n] == phase;
-}
-
-//----------------------------------------------------------------------------
-
-bool PhysBAMIntersector::edgeIntersectsStructure(double t, int ni, int nj) const {
-  return status[ni] != status[nj];
 }
 
 //----------------------------------------------------------------------------

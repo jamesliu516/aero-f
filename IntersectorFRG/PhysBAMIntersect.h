@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <list>
+#include <set>
 
 #include "../LevelSet/LevelSetStructure.h"
 #include "../Vector.h"
@@ -15,6 +16,7 @@
 using std::pair;
 using std::map;
 using std::list;
+using std::set;
 using PhysBAM::PhysBAMInterface;
 using PhysBAM::ARRAY;
 using PhysBAM::PAIR;
@@ -40,8 +42,9 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
 
   protected:
     int numStNodes, numStElems;
-    double xMin, xMax, yMin, yMax, zMin, zMax; //a bounding box over the struct body
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
+    DistVec<double> *distance;
+    DistVec<int> *tId;
 
     // struct node coords
     Vec3D *Xs;
@@ -59,7 +62,6 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     DistVec<int> *status;   //node status
     DistVec<int> *status0;  //previous node status
 
-    double *triSize;
     Vec3D *triNorms;
     Vec3D *nodalNormal; //memory allocated only if interpolatedNormal == true
 
@@ -71,15 +73,16 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
     // sophisticated stuff...
     Communicator *com;
     PhysBAMIntersector **intersector;
-    PhysBAMInterface<double> *physInterface;
+    PhysBAMInterface<double> *globPhysInterface;
     Domain *domain;
 
     DistVec<bool> *poly; //true if a node lies in n>2 subdomains
     void findPoly();
     void buildSolidNormals();
-    void getBoundingBox();
+    void expandScope();
     void findInAndOut();
     void finishStatusByPoints(IoData &iod);
+    void updateStructCoords(double, double);
 
   public: //TODO: a lot of them can be moved to "protected".
     DistPhysBAMIntersector(IoData &iod, Communicator *comm, int nNodes = 0, double (*xyz)[3] = 0, int nElems = 0, int (*abc)[3] = 0);
@@ -94,12 +97,12 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
 
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
-    void updatePhysBAMInterface(Vec3D *particles, int size);
+    void updatePhysBAMInterface();
     void recompute(double dtf, double dtfLeft, double dts);
 
     LevelSetStructure & operator()(int subNum) const;
 
-    PhysBAMInterface<double> &getInterface() { return *physInterface; }
+    PhysBAMInterface<double> &getInterface() { return *globPhysInterface; }
     const Vec3D &getSurfaceNorm(int i) const {return triNorms[i]; }
     const Vec3D &getNodalNorm(int i) const {if (!nodalNormal) {fprintf(stderr,"ERROR: nodal normal not initialized!\n");exit(-1);} return nodalNormal[i];}
 
@@ -112,54 +115,71 @@ class DistPhysBAMIntersector : public DistLevelSetStructure {
 };
 
 class PhysBAMIntersector : public LevelSetStructure {
+
+  friend class DistPhysBAMIntersector;
+
   public:
     static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = 1; //INSIDE: inside real fluid, OUTSIDE: ~~
 
   protected:
-
     int globIndex;
     int *locToGlobNodeMap;
 
-    std::map<int,IntersectionResult<double> > CrossingEdgeRes;
-    std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
-
+    SubDomain *subD;
+    EdgeSet &edges;
     DistPhysBAMIntersector &distIntersector;
+
+    set<int> *package;
+    map<int,int> sub2pack;
+    Connectivity &nodeToSubD;
+
+    set<int> scope;
+    int *iscope; 
+    map<int,int> n2p; //node Id (index from 0) -> particle Id (index from 0 NOT 1!!!)
+    list<int> particle; //particles in the scope
+
+    map<int,IntersectionResult<double> > CrossingEdgeRes;
+    map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
     Vec<int> &status; //<! Whether a node is inside the fluid domain or not
     Vec<int> &status0; //<! status at the previous time-step.
-    EdgeSet &edges;
-    int nFirstLayer;
 
-    /** compute projection of any point on the plane of a triangle.
-     * send back the signed distance and barycentric coordinates of the projection point. */
-    void projection(Vec3D, int, double&, double&, double&);
+    PhysBAMInterface<double> *physInterface;
+    PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle;
+    ARRAY<VECTOR<int,3> > *physbam_stElem;
+    PhysBAM::TRIANGLE_MESH *physbam_triangle_mesh;
+    PhysBAM::TRIANGULATED_SURFACE<double> *physbam_triangulated_surface;
 
-  public:
-    PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistPhysBAMIntersector &);
-    int numOfFluids() {return distIntersector.numOfFluids();}
     void reset(); //<! set status0=status and reset status and nFirstLayer.
-    void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist);
-    /** Function to compute a signed distance and normal estimates for nodes that are next to the structure
-     *
-     * results are for the subdomain only */
+    void rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem);
+    void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope);
     void computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist);
-    /** compute the status (inside / outside) for all the nodes. */
-    void findIntersections(SVec<double,3>&X);
-    /** find intersections for each edge that has nodes with different statuses */
-    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
-    /** check the distance of apoint to a surface defined by a triangle. (used for debug only) */
+    void finishStatusByHistory(SubDomain& sub);
+    void findIntersections(SVec<double,3>&X, bool useScope);
+
+    int buildScopeTopology(int (*sElem)[3], int nsElems);
+    void projection(Vec3D, int, double&, double&, double&);
     void floodFill(SubDomain& sub, int& nUndecided);
     void noCheckFloodFill(SubDomain& sub, int& nUndecided);
     int findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& poly, int& nUndecided);
     int findSeedsByPoints(SubDomain& sub, SVec<double,3>& X, list< pair<Vec3D,int> > P, int& nUndecided);
-    void finishStatusByHistory(SubDomain& sub);
+    void addToPackage(int node, int trID);
+
+    // for debug 
+    int nFirstLayer;
+    double isPointOnSurface(Vec3D pt, int N1, int N2, int N3);
     void printFirstLayer(SubDomain& sub, SVec<double,3>& X, int TYPE = 1);
 
-    LevelSetResult
-    getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
-    bool isActive(double t, int n, int phase = 0) const;
-    bool wasActive(double t, int n, int phase = 0) const;
-    bool edgeIntersectsStructure(double t, int ni, int nj) const;
-    void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
+  public:
+    PhysBAMIntersector(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, DistPhysBAMIntersector &);
+    ~PhysBAMIntersector();
+
+    int numOfFluids()                                            {return distIntersector.numOfFluids();}
+    bool isActive(double t, int n, int phase = 0) const          {return status[n]==phase;}
+    bool wasActive(double t, int n, int phase = 0) const         {return status0[n]==phase;}
+    bool edgeIntersectsStructure(double t, int ni, int nj) const {return status[ni]!=status[nj];}
+
+    LevelSetResult getLevelSetDataAtEdgeCenter(double t, int ni, int nj);
+    void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {/* pure virtual in LevelSet */}
 
 };
 
