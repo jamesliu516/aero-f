@@ -129,6 +129,7 @@ class SubDomain {
   Connectivity *sharedNodes;
   Connectivity *sharedInletNodes;
   Connectivity** nodesToMCNodes;
+  Connectivity *NodeToSubD;
   int *numSharedEdges;
   EdgeDef **sharedEdges;
   int (*nodeRanges)[3];
@@ -153,8 +154,6 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
-//  TriangulatedSurface *triaSurf;
-
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -165,12 +164,17 @@ public:
   int *getNodeMap()  { return locToGlobNodeMap; }
   int getGlobSubNum()  { return globSubNum; }
   int getLocSubNum()  { return locSubNum; }
+  int getNumNeighb() { return numNeighb; }
+  int *getNeighb() { return neighb; }
+  int *getSndChannel() { return sndChannel; }
+  int *getRcvChannel() { return rcvChannel; }
   int numberEdges();
 
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
   Connectivity *createElementToElementConnectivity();
   Connectivity *createEdgeBasedConnectivity();
+  Connectivity *createNodeToSubDomainConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
   void createSharedInletNodeConnectivity(int);
@@ -1063,6 +1067,7 @@ public:
 
   EdgeSet &getEdges() { return edges; }
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
+  Connectivity *getNodeToSubD() { if(!NodeToSubD) NodeToSubD = createNodeToSubDomainConnectivity();  return NodeToSubD; }
   int findFarfieldNode();
 };
 //------------------------------------------------------------------------------

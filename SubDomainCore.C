@@ -86,8 +86,6 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   for(int i=0;i<3;i++)
    dGradP[i] = new double[locNodes->size()];
 
-//  triaSurf = new TriangulatedSurface;   // construct an empty TriangulatedSurface.
-
 }
 
 //------------------------------------------------------------------------------
@@ -120,7 +118,6 @@ SubDomain::~SubDomain()
   if (NodeToNode) delete NodeToNode;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
-//  if (triaSurf) delete triaSurf;
 
 }
 
@@ -275,6 +272,52 @@ Connectivity *SubDomain::createEdgeBasedConnectivity()
 }
 
 //------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createNodeToSubDomainConnectivity()
+{
+  int numNodes = nodes.size();
+  int *numOwner = reinterpret_cast<int *>(alloca(sizeof(int) * numNodes));
+  for (int i=0; i<numNodes; i++)
+    numOwner[i] = 1;
+
+  for(int iSub=0; iSub<numNeighb; iSub++)
+    for(int i=0; i<sharedNodes->num(iSub); i++)
+      ++numOwner[(*sharedNodes)[iSub][i]];
+
+  int nnz = 0;
+  for(int i=0; i<numNodes; i++)
+    nnz += numOwner[i];
+
+  // construction of ia
+  int *ia = new int[numNodes+1];
+  ia[0] = 0;
+  for(int i=0; i<numNodes; i++)
+    ia[i+1] = ia[i] + numOwner[i];
+
+  // construction of ja
+  int *ja = new int[nnz];
+  for (int i=0; i<numNodes; i++) {
+    ja[ia[i]] = globSubNum;
+    numOwner[i] = 1;
+  }
+
+  for(int iSub=0; iSub<numNeighb; iSub++)
+    for(int i=0; i<sharedNodes->num(iSub); i++) {
+      int me = (*sharedNodes)[iSub][i];
+      ja[ia[me]+numOwner[me]] = neighb[iSub];
+      ++numOwner[me];
+    }
+
+  // no need to sort.
+  
+  Connectivity *nodeToSubD = new Connectivity(numNodes, ia, ja);
+
+  return nodeToSubD;
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::createSharedInletNodeConnectivity(int subd)
 {        /* this function creates a connectivity for the shared inlet nodes but in the
          * indexation of the inletnodes in the subdomain we are considering/
