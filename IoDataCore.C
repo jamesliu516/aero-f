@@ -2991,7 +2991,7 @@ void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
 EmbeddedFramework::EmbeddedFramework() {
 
-  intersectorName = PHYSBAMLITE;
+  intersectorName = PHYSBAM;
   structNormal = ELEMENT_BASED;
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
@@ -3012,7 +3012,7 @@ void EmbeddedFramework::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 5, 0); //father);
 
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
-                                      "PhysBAMLite", 0, "FRG", 1);
+                                      "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
                                       "ElementBased", 0, "NodeBased", 1);
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,

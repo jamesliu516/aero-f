@@ -1115,6 +1115,26 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     Vec<double> &subWeights((*Weights)(iSub));
     SVec<double,dim> &subVWeights((*VWeights)(iSub));
 
+    for(int i=0;i<subV.size();++i){
+      if(!LSS.isSwept(0.0,i)) 
+        continue;
+      if(!LSS.isActive(0.0,i)) {
+        for(int iDim=0; iDim<dim; iDim++) 
+          subV[i][iDim] = vfar[iDim];
+        continue;
+      }
+
+      if(subWeights[i] <= 0.0){
+        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
+        exit(-1);
+      } else {
+        for (int iDim=0; iDim<dim; iDim++) 
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+//        fprintf(stderr,"Updating node %d on SubD %d to [%e %e %e %e %e]\n",i,subD[iSub]->getGlobSubNum(),subV[i][0],subV[i][1], subV[i][2], subV[i][3], subV[i][4]);
+      }
+    }
+
+/*
     if(distLSS->numOfFluids()==1) 
       for (int i=0; i<subV.size(); i++) {
         bool iIsActive = LSS.isActive(0.0, i);
@@ -1145,13 +1165,10 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
           exit(-1);
         }
 
-        //fprintf(stderr,"Node %d(%d): %e %e %e %e %e , %e %e %e %e %e\n", i+1, subFluidId[i], subV[i][0], subV[i][1], subV[i][2], subV[i][3], subV[i][4], subVWeights[i][0] / subWeights[i], subVWeights[i][1] / subWeights[i], subVWeights[i][2] / subWeights[i], subVWeights[i][3] / subWeights[i], subVWeights[i][4] / subWeights[i]);
-
-  
         for (int iDim=0; iDim<dim; iDim++)
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
       }
-    }
+    }*/
   }
   varFcn->primitiveToConservative(V, U, fluidId);
 }

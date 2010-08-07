@@ -1508,6 +1508,7 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
                             double *Wstar, double *rupdatej,
                             double &weightj, int it, int Id)
 {
+  if(Id < 0) return;
 
   int dim = 5;
 
@@ -1610,6 +1611,7 @@ void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int Id) //Caution: "ui" will not be modified!
 {
+  if(Id < 0) return;
 
   // assume structure on the left of the fluid
   // using the notation of Toro's paper

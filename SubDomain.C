@@ -3832,6 +3832,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   int ierr = 0;
 
   for (int i=0; i<U.size(); ++i) {
+    if(fluidId[i] < 0) continue; //TODO: discuss with Jon
 
     double V[dim];
     varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
@@ -4316,6 +4317,30 @@ template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
 {
+  const Connectivity &nToN = *getNodeToNode(); 
+  for(int currentNode=0;currentNode<numNodes();++currentNode)
+    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
+          continue;}
+        else if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+//          fprintf(stderr,"%02d Found a swept node %d, accumulating to weight %e, [%e %e %e %e %e]\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
+          for(int i=0;i<5;++i) 
+            VWeights[currentNode][i] = V[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=0;i<5;++i) 
+            VWeights[currentNode][i] += V[neighborNode][i];
+//            fprintf(stderr,"\t\t(%02d, %d), accumulating to weight %e, [%e %e %e %e %e] (now [%e %e %e %e %e])\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4],VWeights[currentNode][0],VWeights[currentNode][1],VWeights[currentNode][2],VWeights[currentNode][3],VWeights[currentNode][4]);
+        }
+      }
+    }
+
+
+
+/* (Old, works only with IntersectorFRG)
 
   int i, j, k;
 
@@ -4350,7 +4375,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
     }
 
   } 
-
+*/
 }
 
 
@@ -4421,7 +4446,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
     j = edgePtr[l][1];
 
     if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
-      if (LSS.isActive(0.0,i)||numPhase>1) {// add Wstarij on node j.
+      if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
           if(Wstarij[l][0]>1.0e-8) //use Wstarij.
@@ -4445,7 +4470,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         }
       }
  
-      if (LSS.isActive(0.0,j)||numPhase>1) {// add Wstarji on node i
+      if (LSS.isActive(0.0,j)) {// add Wstarji on node i
         if(Weights[i]<1.e-6) {
           Weights[i] = 1.0;
           if(Wstarji[l][0]>1.0e-8) //use Wstarji.

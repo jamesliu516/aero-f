@@ -161,13 +161,14 @@ public:
   ~SubDomain();
 
   // topology
-  int *getNodeMap()  { return locToGlobNodeMap; }
+  int *getNodeMap()    { return locToGlobNodeMap; }
   int getGlobSubNum()  { return globSubNum; }
-  int getLocSubNum()  { return locSubNum; }
-  int getNumNeighb() { return numNeighb; }
-  int *getNeighb() { return neighb; }
+  int getLocSubNum()   { return locSubNum; }
+  int getNumNeighb()   { return numNeighb; }
+  int *getNeighb()     { return neighb; }
   int *getSndChannel() { return sndChannel; }
   int *getRcvChannel() { return rcvChannel; }
+  Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
   Connectivity *createElemBasedConnectivity();

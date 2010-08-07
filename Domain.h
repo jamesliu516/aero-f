@@ -636,6 +636,8 @@ public:
   template<class Scalar>
   void assemble(CommPattern<Scalar> *, DistVec<Scalar> &);
 
+  template<class Scalar, class OpType >
+  void assemble(CommPattern<Scalar> *, DistVec<Scalar> &, const OpType &);
 
   void assemble(DistVec<double> &v) {
     assemble(getVecPat(), v);

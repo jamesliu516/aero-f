@@ -133,7 +133,7 @@ void PostFcnEuler::rstVar(IoData &iod, Communicator *com)
 
 double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
 {
-
+  if(fluidId < 0) fluidId=0; //TODO: fix this
   double q = 0.0;
   double n[3];
 

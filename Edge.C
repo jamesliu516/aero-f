@@ -176,13 +176,14 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
 
-
   for (int l=0; l<numEdges; ++l) {
 
     if (!masterFlag[l]) continue;
 
     i = ptr[l][0];
     j = ptr[l][1];
+    //TODO: discuss with Jon
+    if(fluidId[i] < 0 && fluidId[j] < 0) continue;
 
     S = sqrt(normal[l] * normal[l]);
     invS = 1.0/S;
@@ -206,29 +207,31 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }else{
-      u = varFcn->getVelocity(V[i]);
-      a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
-      un = u * n - ndot;
-      mach = varFcn->computeMachNumber(V[i],fluidId[i]);
+        if(fluidId[i] >= 0){
+            u = varFcn->getVelocity(V[i]);
+            a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
+            un = u * n - ndot;
+            mach = varFcn->computeMachNumber(V[i],fluidId[i]);
 
-      locbeta = tprec.getBeta(mach);
-      beta2 = locbeta * locbeta;
-      coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+            locbeta = tprec.getBeta(mach);
+            beta2 = locbeta * locbeta;
+            coeff1 = (1.0+beta2)*un;
+            coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
-      dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
+            dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;}
 
-      u = varFcn->getVelocity(V[j]);
-      a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
-      un = u * n - ndot;
-      mach = varFcn->computeMachNumber(V[j],fluidId[j]);
+        if(fluidId[j] >= 0){
+            u = varFcn->getVelocity(V[j]);
+            a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
+            un = u * n - ndot;
+            mach = varFcn->computeMachNumber(V[j],fluidId[j]);
 
-      locbeta = tprec.getBeta(mach);
-      beta2 = locbeta * locbeta;
-      coeff1 = (1.0+beta2)*un;
-      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+            locbeta = tprec.getBeta(mach);
+            beta2 = locbeta * locbeta;
+            coeff1 = (1.0+beta2)*un;
+            coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
-      dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
+            dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;}
     }
   }
 
@@ -713,6 +716,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    if(!LSS.isActive(0.0,i) && !LSS.isActive(0.0,j)) continue;
 
     // ------------------------------------------------
     //  Reconstruction without crossing the interface.
@@ -778,65 +782,69 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{// interface
 
       // for node i
-      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+      if(fluidId[i] >= 0) {
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
 
-      switch (Nriemann) {
-        case 0: //structure normal
-          if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
-          else                                normalDir = -1.0*resij.gradPhi;
-          break;
-        case 1: //fluid normal
-          normalDir = -1.0/(normal[l].norm())*normal[l];
-          break;
-        case 2: //cell-averaged structure normal
-          if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-          else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-          break;
-        default:
-          fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-          exit(-1);
-      }
-      if(std::abs(1.0-normalDir.norm())>0.1)
-        fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+            else                                normalDir = -1.0*resij.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = -1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
 
-      riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
+        riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
 
-      if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
-        for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
-      if (masterFlag[l]) {
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
-        for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+        if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
+          for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
+        if (masterFlag[l]) {
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+          for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+        }
       }
 
       // for node j
-      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+      if(fluidId[j] >= 0){
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
 
-      switch (Nriemann) {
-        case 0: //structure normal
-          if(fluidId[i]==farfieldFluid)       normalDir =      resji.gradPhi;
-          else                                normalDir = -1.0*resji.gradPhi;
-          break;
-        case 1: //fluid normal
-          normalDir = 1.0/(normal[l].norm())*normal[l];
-          break;
-        case 2: //cell-averaged structure normal
-          if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-          else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-          break;
-        default:
-          fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-          exit(-1);
-      }
-      if(std::abs(1.0-normalDir.norm())>0.1)
-        fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-
-      riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
-
-      if (it>0)
-        for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
-      if (masterFlag[l]) {
-        fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
-        for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      resji.gradPhi;
+            else                                normalDir = -1.0*resji.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = 1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+  
+        riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+  
+        if (it>0)
+          for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
+        if (masterFlag[l]) {
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+          for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+        }
       }
     }
   }

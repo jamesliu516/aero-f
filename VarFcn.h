@@ -49,13 +49,9 @@ private:
   double depth;
 
 
-  void check(int tag=0) const{ 
-/*    if(tag>=numPhases){
-      fprintf(stdout, "*** Error: there is no VarFcn with that tag %d\n", tag);
-      fflush(stdout);
-      exit(1);
-    }*/
-    assert(tag<numPhases);
+  void check(int& tag) const{ 
+    if(0 > tag || tag>=numPhases){fprintf(stderr,"check(%d) failed\n",tag);exit(-1);}
+//    assert(0 <= tag && tag<numPhases);
   }
 
   VarFcnBase *createVarFcnBase(IoData &iod, FluidModelData& fluidModel);
@@ -309,8 +305,8 @@ template<int dim>
 void VarFcn::conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, Vec<int> *tag)
 {
   if(tag)
-    for (int i=0; i<U.size(); ++i)
-      varFcn[(*tag)[i]]->conservativeToPrimitive(U[i], V[i]);
+    for (int i=0; i<U.size(); ++i){
+      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->conservativeToPrimitive(U[i], V[i]);}
   else
     for (int i=0; i<U.size(); ++i)
       varFcn[0]->conservativeToPrimitive(U[i], V[i]);
@@ -331,7 +327,7 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
     if(tag){
       int    *loctag   = tag->subData(iSub);
       for (int i=0; i<U.subSize(iSub); ++i){
-        varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
+        if(loctag[i] >= 0) varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
         //fprintf(stdout, "vf[%d] -> U = (%e %e %e %e %e) into V = (%e %e %e %e %e)\n", loctag[i],u[i][0],u[i][1],u[i][2],u[i][3],u[i][4],v[i][0],v[i][1],v[i][2],v[i][3],v[i][4]);
         //fflush(stdout);
       }
@@ -349,8 +345,8 @@ template<int dim>
 void VarFcn::primitiveToConservative(SVec<double,dim> &V, SVec<double,dim> &U, Vec<int> *tag)
 {
   if(tag)
-    for (int i=0; i<U.size(); ++i)
-      varFcn[(*tag)[i]]->primitiveToConservative(V[i], U[i]);
+    for (int i=0; i<U.size(); ++i){
+      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->primitiveToConservative(V[i], U[i]);}
   else
     for (int i=0; i<U.size(); ++i)
       varFcn[0]->primitiveToConservative(V[i], U[i]);
@@ -369,8 +365,8 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i)
-        varFcn[loctag[i]]->primitiveToConservative(v[i], u[i]);
+      for (int i=0; i<U.subSize(iSub); ++i){
+        if(loctag[i] >= 0) varFcn[loctag[i]]->primitiveToConservative(v[i], u[i]);}
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->primitiveToConservative(v[i], u[i]);
@@ -387,8 +383,7 @@ void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,
 
  if (tag){
     for (int i=0; i<U.size(); ++i){
-      varFcn[(*tag)[i]]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
-    }
+      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);}
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
@@ -413,8 +408,8 @@ void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec
     double (*dv)[dim] = dV.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i)
-        varFcn[loctag[i]]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
+      for (int i=0; i<U.subSize(iSub); ++i){
+        if(loctag[i] >= 0) varFcn[loctag[i]]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);}
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
@@ -431,8 +426,7 @@ void VarFcn::primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,
 
  if (tag){
     for (int i=0; i<U.size(); ++i){
-      varFcn[(*tag)[i]]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
-    }
+      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);}
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
@@ -456,8 +450,8 @@ void VarFcn::primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec
     double (*dv)[dim] = dV.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i)
-        varFcn[loctag[i]]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);
+      for (int i=0; i<U.subSize(iSub); ++i){
+        if(loctag[i] >= 0) varFcn[loctag[i]]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);}
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);

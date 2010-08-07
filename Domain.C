@@ -148,7 +148,11 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
 
-  dt = -cfl * ctrlVol / dt;
+  // TODO(jontg)
+  // dt = -cfl * ctrlVol / dt;
+  for (iSub = 0; iSub < numLocSub; ++iSub) for(int i = 0; i < dt(iSub).size(); ++i)
+      if(fluidId(iSub)[i] >= 0) dt(iSub)[i] = -cfl * ctrlVol(iSub)[i] / dt(iSub)[i]; 
+      else dt(iSub)[i] = 1e10;
 
 }
 
@@ -2620,6 +2624,26 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+
+}
+//------------------------------------------------------------------------------
+
+template<class Scalar, class OpType >
+void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const OpType& oper)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+  }
+
+  commPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
 
 }
 

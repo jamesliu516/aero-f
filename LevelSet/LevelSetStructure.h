@@ -2,6 +2,8 @@
 #define _LEVEL_SET_STRUCTURE_H_
  
 #include "Vector3D.h"
+#include <DistVector.h>
+#include <Vector.h>
 
 class Domain;
 class IoData;
@@ -59,12 +61,18 @@ class LevelSetStructure {
      * */
     virtual LevelSetResult
        getLevelSetDataAtEdgeCenter(double t, int ni, int nj) = 0;
-    virtual bool isActive(double t, int n, int phase = 0) const = 0; //!< Whether this node is active or ghost.
-    virtual bool wasActive(double t, int n, int phase = 0) const = 0; //!< Whether this node was active or ghost in the last iteration.
+    virtual bool isActive(double t, int n) const = 0;
+    virtual bool isOccluded(double t, int n) const = 0;
+    virtual bool isSwept(double t, int n) const = 0;
+    virtual int fluidModel(double t, int n) const = 0;
     virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
+    virtual bool edgeIntersectsStructure(double t, int eij) const = 0; //!< whether an edge eij intersects the structure
 
     /** creates an array of values which are positive inside the fluid and negative outside. */
-    virtual void computePhi(Vec<double> &phi);
+    virtual void computePhi(Vec<double> &phi){
+        for(int i = 0; i < phi.size(); ++i)
+            phi[i] = isActive(0,i) ? 1 : -1;}
+
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
@@ -87,7 +95,11 @@ class DistLevelSetStructure {
     virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
 
-    virtual DistVec<double> &getPhi();
+    virtual DistVec<double> &getPhi(){
+        for (int iSub=0; iSub<numLocSub; iSub++)
+            (*this)(iSub).computePhi((*pseudoPhi)(iSub));
+        return *pseudoPhi;}
+
     virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
 
     virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;

@@ -1635,7 +1635,7 @@ struct Velocity  {
 
 struct EmbeddedFramework { 
 
-  enum IntersectorName {PHYSBAMLITE = 0, FRG = 1} intersectorName;
+  enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
