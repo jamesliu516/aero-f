@@ -83,8 +83,26 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
   if(this->mmh && !this->inSubCycling) {
-    //store previous states for phase-change update
+    //get structure timestep dts
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+
+    //recompute intersections
     double tw = this->timer->getTime();
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    this->timer->addIntersectionTime(tw);
+    this->com->barrier();
+    this->timer->removeIntersAndPhaseChange(tw);
+    if(this->riemannNormal==2)
+      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
+
+    //update nodeTags (only for numFluid>1)
+    if(this->numFluid>1) {
+      this->nodeTag0 = this->nodeTag;
+      this->nodeTag = this->distLSS->getStatus();
+    }
+
+    //store previous states for phase-change update
+    tw = this->timer->getTime();
     switch(this->phaseChangeChoice) {
       case 0:
         if(this->numFluid==1)
@@ -108,25 +126,6 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     this->timer->addEmbedPhaseChangeTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
-
-    //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-
-    //recompute intersections
-    tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
-    this->timer->addIntersectionTime(tw);
-    this->com->barrier();
-    this->timer->removeIntersAndPhaseChange(tw);
-    if(this->riemannNormal==2)
-      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
-
-
-    //update nodeTags (only for numFluid>1)
-    if(this->numFluid>1) {
-      this->nodeTag0 = this->nodeTag;
-      this->nodeTag = this->distLSS->getStatus();
-    }
 
     //update phase-change
     tw = this->timer->getTime();

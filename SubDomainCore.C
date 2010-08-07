@@ -4192,11 +4192,8 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    if(LSS.numOfFluids()==1) {
-      iActive = LSS.isActive(0,i);
-      jActive = LSS.isActive(0,j);
-    } else 
-      iActive = jActive = true; //no one is "inactive"
+    iActive = LSS.isActive(0,i);
+    jActive = LSS.isActive(0,j);
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
@@ -4297,12 +4294,12 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   // -----------------------------------------------
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
-    nPos = nNeg = 0;
-    for (int i=0; i<4; i++) {
+    for (int i=0; i<4; i++) 
       T[i] = elems[iElem][i];
-      (LSS.isActive(0,T[i])) ? nPos++ : nNeg++;
-    }
-    if (nPos==0 || nPos==4) continue; // this tet is away from interface.
+    if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
+       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
+       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
+      continue; // this tet is away from interface.
 
     for (int i=0; i<4; i++) {
       x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
@@ -4497,6 +4494,7 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
   for (int i=0; i<6; i++) nextEdge[i] = -1;
   int firstEdge = -1;
 
+  //TODO: discuss with Jon
   for (int iFacet=0; iFacet<4; iFacet++) {
     int status = 0;
     for (int j=0; j<3; j++)

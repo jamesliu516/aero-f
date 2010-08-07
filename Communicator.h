@@ -51,6 +51,7 @@ class Communicator {
   int thisCPU;
   int numCPU;
 
+public: //TODO: discuss with Jon
 #ifdef USE_MPI
   MPI_Comm comm;
   int nPendReq;
@@ -58,6 +59,7 @@ class Communicator {
   ResizeArray<MPI_Status> reqStatus;
 #endif
 
+private:
   Timer *timer;
   int maxverbose;
 

@@ -3,8 +3,8 @@
 #include <FSI/DynamicNodalTransfer.h>
 
 #ifdef DO_EMBEDDED
-#include <IntersectorFRG/PhysBAMIntersect.h>
-//#include <IntersectorPhysBAM/blablabla>
+#include <IntersectorFRG/IntersectorFRG.h>
+#include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
 #include <math.h>
@@ -44,7 +44,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   this->postOp->setForceGenerator(this);
   if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED MULTI FLUID-STRUCTURE SIMULATION --------\n");
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
@@ -84,15 +84,13 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         int nElems = dynNodalTransfer->numStElems();
         double (*xyz)[3] = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
-//        dynNodalTransfer->getEmbeddedMesh(nNodes,xyz,nElems,abc);
-        distLSS = new DistPhysBAMIntersector(ioData, this->com, nNodes, xyz, nElems, abc);
+        distLSS = new DistIntersectorFRG(ioData, this->com, nNodes, xyz, nElems, abc);
       } else
-        distLSS = new DistPhysBAMIntersector(ioData, this->com);
+        distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
-    case EmbeddedFramework::PHYSBAMLITE :  
-      //distLSS = new ....
-      this->com->fprintf(stderr,"ERROR: PhysBAM-Lite Intersector hasn't been integrated into the code.\n");
-      exit(-1);
+    case EmbeddedFramework::PHYSBAM : //TODO: discuss with Jon. 
+      fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
+      distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
     default:
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
@@ -558,21 +556,10 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
   }
 
   if(this->mmh && !inSubCycling) {
-    double tw = this->timer->getTime();
-    //store previous states for phase-change update
-    if(this->numFluid==1)
-      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                     *this->VWeights, this->distLSS);
-    else //numFluid>1
-      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag);
-    this->timer->addEmbedPhaseChangeTime(tw);
-    this->timer->removeIntersAndPhaseChange(tw);
-
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
     //recompute intersections
-    tw = this->timer->getTime();
+    double tw = this->timer->getTime();
     this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
     this->timer->addIntersectionTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
@@ -581,6 +568,17 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
       nodeTag0 = this->nodeTag;
       nodeTag = this->distLSS->getStatus();
     }
+
+    //store previous states for phase-change update
+    tw = this->timer->getTime();
+    if(this->numFluid==1)
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                     *this->VWeights, this->distLSS);
+    else //numFluid>1
+      this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
 
     //update phase-change
     tw = this->timer->getTime();

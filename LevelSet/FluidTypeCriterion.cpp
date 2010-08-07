@@ -18,7 +18,7 @@ class FluidTypeFromIntersect : public FluidTypeCriterion {
       return !intersector.edgeIntersectsStructure(0, i, j);
     }
     int myPhase(int i) const {
-      return (intersector.isActive(0.0, i)) ? 1 : -1;
+      return intersector.fluidModel(0.0, i);
     }
 };
 
