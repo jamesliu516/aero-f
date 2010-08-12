@@ -59,24 +59,29 @@ IF(UNIX)
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
     FIND_LIBRARY(BLACSLIB NAMES blacs
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSF77LIB NAMES blacsF77
+    FIND_LIBRARY(BLACSCLIB NAMES blacsCinit
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
 
     #SET(USE_SCALAPACK 0)
-    IF(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
-      MESSAGE("Found SCALAPACK: " ${SCALAPACKLIB})
-      MESSAGE("Found BLACS:     " ${BLACSLIB})    
-      add_definitions(-DDO_SCALAPACK)
-      SET(EXTRALIBRARIES
-          ${SCALAPACKLIB} ${BLACSLIB} ${BLACSF77LIB} 
-          ${EXTRALIBRARIES})
-      SET(USE_SCALAPACK 1)
-    ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
-      SET(USE_SCALAPACK 0)
-    ENDIF(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
-    
-  ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+	  IF(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
+			MESSAGE("Found SCALAPACK: " ${SCALAPACKLIB})
+      MESSAGE("Found BLACS:     " ${BLACSLIB})
+	    MESSAGE("Found LAPACK:     " ${LAPACK_LIBRARIES})
+	
+	    add_definitions(-DDO_SCALAPACK)
+	    SET(EXTRALIBRARIES
+			    ${SCALAPACKLIB} ${BLACSLIB} ${BLACSCLIB} ${LAPACK_LIBRARIES}
+		      ${EXTRALIBRARIES} ${BLACSLIB} ${BLACSCLIB})
+																	      
+		  SET(USE_SCALAPACK 1)
+		ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
+			SET(USE_SCALAPACK 0)
+		ENDIF(USE_SCALAPACK	AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
+
+	ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)	
 ENDIF(UNIX)
+
+
 
 SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
@@ -348,16 +353,22 @@ f77src/roejac6.f
 f77src/roejac6jwl.f
 f77src/roejacwaterdissprim.f
 f77src/torsionspring.f
-f77src/thinsvd.f
-f77src/lworksize.f)
-
-IF (USE_SCALAPACK)
-  ADD_DEPENDENCIES(Fortran
-                   f77src/thinsvd.f
-                   f77src/lworksize.f)
-ENDIF(USE_SCALAPACK)
+f77src/dgecp.f
+f77src/dgers.f)
 
 SET_TARGET_PROPERTIES(Fortran
+                PROPERTIES COMPILE_FLAGS -fPIC)
+
+IF (USE_SCALAPACK)
+	ADD_LIBRARY(FortranScalapack
+		 f77src/thinsvd.f
+		 f77src/lworksizesvd.f
+		 f77src/leastsquares.f
+		 f77src/globalmatrices.f
+		 f77src/lworksizels.f)
+ENDIF(USE_SCALAPACK)
+
+SET_TARGET_PROPERTIES(FortranScalapack
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 IF(MPI_FOUND)
@@ -399,14 +410,14 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
-SET_TARGET_PROPERTIES(fluid 
-                      PROPERTIES 
-		        RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
-			RELEASE_OUTPUT_NAME aerof
-			DEBUG_OUTPUT_NAME aerof.debug
-		      )
+IF (USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran FortranScalapack Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ELSE(USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ENDIF(USE_SCALAPACK)
 
+SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
+	RELEASE_OUTPUT_NAME aerof DEBUG_OUTPUT_NAME aerof.debug)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)

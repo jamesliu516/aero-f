@@ -16,6 +16,10 @@ class GenFullM {
    int nrow;	// number of rows
    int ncolumn; // number of columns
    Scalar *v;   // pointer to matrix data
+   //CBM-pivot
+   int *iprow; 
+   int *ipcol;
+   int ndef;
 
  public:
 
@@ -55,7 +59,9 @@ class GenFullM {
 //   double max();
    void print(char *msg = "");
    void factor();
+   void Factor(double tol=1.0e-6); //CBM-pivot
    void reSolve(double *d);
+   void ReSolve(double *d); //CBM-pivot
    void zero();
    void add(GenFullM&, int, int);
 

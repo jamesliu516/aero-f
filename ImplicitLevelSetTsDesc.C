@@ -145,7 +145,7 @@ ImplicitLevelSetTsDesc<dim,dimLS>::createKrylovSolver(
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
 template<int dim, int dimLS>
-int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 {
   
   int its;

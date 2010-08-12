@@ -181,6 +181,7 @@ public:
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
   int numEdges() { return(edges.size()); }
+	FaceSet& getFaces() {return faces;};
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
 

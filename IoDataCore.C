@@ -2644,6 +2644,30 @@ void DeformingData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+ROB::ROB()
+{
+
+  tolerance = 1e-8;
+  numROB = 0;
+  romsolver = PG; 
+
+}
+
+//------------------------------------------------------------------------------
+
+void ROB::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
+  new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2);
+
+}
+
+//------------------------------------------------------------------------------
+
 LinearizedData::LinearizedData()
 {
 
@@ -3132,6 +3156,7 @@ void IoData::setupCmdFileVariables()
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
   forced.setup("Forced");
+	Rob.setup("ROB");
   linearizedData.setup("Linearized");
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");

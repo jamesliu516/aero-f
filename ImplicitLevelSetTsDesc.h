@@ -55,7 +55,7 @@ public:
   double getEpsAbsIncNewton() const { return epsAbsIncNewton; }
 
   //-- functions for solving Euler equations
-  int solveNonLinearSystem(DistSVec<double,dim> &);
+  int solveNonLinearSystem(DistSVec<double,dim> &, int);
   void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
   

@@ -42,7 +42,7 @@ ImplicitTsDesc<dim>::~ImplicitTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 {
 
   double t0 = this->timer->getTime();

@@ -51,7 +51,7 @@ ExplicitEmbeddedTsDesc<dim>::~ExplicitEmbeddedTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim>
-int ExplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U)
+int ExplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim>& U,int)
 {
   solveNLSystemOneBlock(U);
   return 1;

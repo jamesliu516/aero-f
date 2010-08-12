@@ -3587,3 +3587,91 @@ void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0) {	
+
+	//	multiPodFile: file containing names of bases
+	//	pod: array of pointers to POD bases. Each one is individually uninitialized
+	//	nPod: vector of number of required POD basis vectors
+	//	nBasesNeeded: number of bases needed for the problem (default is zero, meaning ignore)
+
+	// file with all bases
+	// copied/modified from ../*Saved*/Modal.C::buildGappyPODMatrix
+
+	char *vecFile = multiPodFile;	// already read into the function
+	if (!vecFile)
+		vecFile = "multiPodFile.in";	// default filename
+	FILE *inFP = fopen(vecFile, "r");
+	if (!inFP)  {
+		com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+		exit (-1);
+	}
+
+	// =====================================================
+	// read in file containing filenames for multiple bases
+	// =====================================================
+
+	int nData; // number of bases in the file
+	fscanf(inFP, "%d",&nData);	// first entry is the number of bases in the file
+
+	if (nBasesNeeded > 0 && nData < nBasesNeeded) {
+		com->fprintf(stderr," ... ERROR: expecting %d POD files, found %d\n",nBasesNeeded,nData);
+		com->fprintf(stderr," ... Exiting\n");
+		exit(-1); 
+	}
+
+	com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
+
+	char **podFile = new char *[nBasesNeeded];
+
+	for (int iData = 0; iData < nBasesNeeded; ++iData){
+		podFile[iData] = new char[1000];
+		fscanf(inFP, "%s", podFile[iData]);
+		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
+	}
+
+	// ================================
+	// read individual POD bases
+	// ================================
+
+	for (int iData=0; iData < nBasesNeeded; ++iData){	// loop over bases
+		readPodBasis(podFile[iData], nPod[iData],*(pod[iData]));
+	}
+}
+//------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double, dim> > &podVecs) {
+
+  // read in POD Vectors
+  const char *vecFile = podFile;
+
+  double eigValue;
+  int nPodVecs;
+
+  // read number of vecs
+  DistSVec<double,dim> tmpVec(getNodeDistInfo());
+  readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
+
+  nPodVecs = (int) eigValue;
+  com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);
+
+  if (nPod > nPodVecs)  {
+    com->fprintf(stderr, " ... There are only %d POD Vectors \n", nPodVecs);
+    nPod = nPodVecs;
+  }
+  else
+    nPodVecs = nPod;
+
+  com->fprintf(stderr, " ... Reading %d POD Vectors from file %s\n", nPodVecs, vecFile);
+
+  podVecs.resize(nPodVecs);
+
+  int iVec;
+  double firstEig;
+  readVectorFromFile(vecFile, 1, &firstEig, podVecs[0]);
+  for (iVec = 1; iVec < nPodVecs; iVec++)
+    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);
+
+  com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEig, eigValue/firstEig);
+}

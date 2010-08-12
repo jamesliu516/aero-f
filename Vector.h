@@ -76,6 +76,7 @@ public:
   bool locAlloc;
   Scalar *v;
 
+  Vec();
   Vec(int, Scalar * = 0);
   Vec(const Vec<Scalar> &);
 
@@ -211,6 +212,18 @@ void resize(int l) {
 #endif
 
 };
+
+//------------------------------------------------------------------------------
+
+template<class Scalar>
+inline
+Vec<Scalar>::Vec()
+{
+
+  len = 0;
+  v = 0;
+
+}
 
 //------------------------------------------------------------------------------
 
