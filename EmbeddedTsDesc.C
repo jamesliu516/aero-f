@@ -244,7 +244,7 @@ template<int dim>
 double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if(!FsComputed&&simType) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
+  if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
 
   //check if it's in subcycling with iCycle>1.

@@ -49,7 +49,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm)
   sprintf(struct_mesh,"%s%s", iod.input.prefix, iod.input.embeddedSurface);
   struct_restart_pos = new char[sp + strlen(iod.input.positions)];
   if(iod.input.positions[0] != 0)
-    sprintf(struct_restart_pos,"%s%s\n", iod.input.prefix, iod.input.positions);
+    sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
   else //no restart position file provided
     struct_restart_pos = ""; 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
@@ -460,6 +460,29 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
 
   findActiveNodesUsingFloodFill(tId,points);
   *status0=*status;
+
+/*
+  //Kevin's debug
+  char myName[20] = "Xedges_A.top";
+  myName[7] += com->cpuNum();
+  FILE* myFile = fopen(myName,"w");
+  int count = 0;
+  myName[8] = '\0'; //get Xedges_A
+  for(int i = 0; i < numLocSub; ++i) {
+    fprintf(myFile, "Elements %s using FluidNodes\n", myName);
+    Vec<bool>& edgeX = intersector[i]->edgeIntersections;
+    int (*ptr)[2] = intersector[i]->edges.getPtr();
+    int *locToGlob = intersector[i]->locToGlobNodeMap;
+    for(int i=0; i<edgeX.size(); i++) {
+      if(edgeX[i]) {
+        int ni = ptr[i][0], nj = ptr[i][1];
+        fprintf(myFile, "%d 1 %d %d\n", ++count, locToGlob[ni]+1, locToGlob[nj]+1);
+      }
+    }
+  }
+  fclose(myFile);
+*/
+
 }
 
 //----------------------------------------------------------------------------
@@ -527,15 +550,30 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
               for(int n=0;n<nToN.num(i);++n){int neighborNode=nToN[i][n];
                 if(i!=neighborNode && !intersector[iSub]->edgeIntersectsStructure(0.0,i,neighborNode) && !(*swept_node)(iSub)[neighborNode]){
                   if(stat != -5 && stat != (*status0)(iSub)[neighborNode]){
-                    fprintf(stderr,"ERROR: Swept cell detected inconsistent neighbors.\n");
+                    fprintf(stderr,"ERROR: Swept node (%d) detected inconsistent neighbors.\n", intersector[iSub]->locToGlobNodeMap[i]+1);
                     for(int j=0;j<nToN.num(i);++j){int tmp=nToN[i][j];
-                      if(i==tmp) continue; fprintf(stderr,"\tNeighbor %d is (visible [%d], status0 [%d], swept [%d])\n",tmp,!intersector[iSub]->edgeIntersectsStructure(0.0,i,tmp),(*status0)(iSub)[tmp],(*swept_node)(iSub)[tmp]);}
+                      if(i==tmp) continue; fprintf(stderr,"\tNeighbor %d is (visible [%d], status0 [%d], swept [%d])\n",intersector[iSub]->locToGlobNodeMap[tmp]+1,!intersector[iSub]->edgeIntersectsStructure(0.0,i,tmp),(*status0)(iSub)[tmp],(*swept_node)(iSub)[tmp]);}
                     exit(-1);}
                   stat = (*status0)(iSub)[neighborNode];}}
               (*status)(iSub)[i]=stat;}}}
 
   operMax<int> maxOp;
   domain->assemble(domain->getLevelPat(),*status,maxOp);
+
+ //Debug
+#pragma omp parallel for
+    for(int iSub=0;iSub<numLocSub;++iSub) {
+        SubDomain& sub=*(domain->getSubDomain()[iSub]);
+        Connectivity &nToN = *(sub.getNodeToNode());
+        for(int i=0;i<(*status)(iSub).size();++i) 
+//          if(intersector[iSub]->locToGlobNodeMap[i]==246960-1)
+//            fprintf(stderr,"****** status0 [%d], status [%d], occluded [%d], swept [%d]\n",
+//			    (*status0)(iSub)[i],(*status)(iSub)[i],(*occluded_node)(iSub)[i],(*swept_node)(iSub)[i]);
+          if((*status)(iSub)[i]==-5) {
+            (*status)(iSub)[i]=-2;
+            (*occluded_node)(iSub)[i]=true;
+          }
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -583,6 +621,61 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   DistVec<bool> tId(X->info());
   
   updatePhysBAMInterface(Xs, numStNodes,*X);
+
+/*
+  map<int,int> glob2loc;
+  glob2loc[902] = 1;
+  glob2loc[906] = 2;
+  glob2loc[908] = 3; 
+  glob2loc[909] = 4; 
+  glob2loc[762] = 5; 
+  glob2loc[907] = 6; 
+  glob2loc[946] = 7; 
+  glob2loc[901] = 8; 
+  glob2loc[926] = 9; 
+  glob2loc[1035] = 10; 
+  glob2loc[1042] = 11; 
+  glob2loc[1045] = 12; 
+  glob2loc[1044] = 13; 
+  glob2loc[1094] = 14; 
+  glob2loc[1043] = 15; 
+  glob2loc[1238] = 16; 
+  glob2loc[1036] = 17; 
+  glob2loc[1205] = 18; 
+
+
+  // Debug
+  static int count = 0;
+  if(com->cpuNum()==0) {
+    FILE *myFile = fopen("particles.top","a");
+    fprintf(myFile, "Its %d\n", ++count);
+    for(int i=0; i<numStNodes; i++) {
+      map<int,int>::iterator it = glob2loc.find(i+1);
+      if(it!=glob2loc.end())
+        fprintf(myFile,"%d %e %e %e\n", it->second, Xs[i][0], Xs[i][1], Xs[i][2]);
+    }
+    fclose(myFile);
+  }
+
+
+  if(com->cpuNum()==0 && count==1) {
+    FILE *myFile = fopen("topology.top","w");
+    fprintf(myFile,"#Id TypeOfElement Node1 Node2 Node3\n");
+    for(int i=0; i<numStElems; i++) {
+      int id = 0;
+      int A = stElem[i][0]+1;
+      int B = stElem[i][1]+1;
+      int C = stElem[i][2]+1;
+      map<int,int>::iterator it1 = glob2loc.find(A);
+      map<int,int>::iterator it2 = glob2loc.find(B);
+      map<int,int>::iterator it3 = glob2loc.find(C);
+      if(it1==glob2loc.end()||it2==glob2loc.end()||it3==glob2loc.end())
+        continue;
+      fprintf(myFile, "%d %d %d %d %d\n", ++id, 4, it1->second, it2->second, it3->second);
+    }
+  }
+*/
+
 
   buildSolidNormals();
 
@@ -764,7 +857,7 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
   if (!edgeIntersectsStructure(0.0,edgeNum)) {
     fprintf(stderr,"%02d There is no intersection between node %d(status:%d,occluded=%d) and %d(status:%d,occluded=%d) along edge %d! Abort...\n",
-                   globIndex,ni, status[ni],occluded_node[ni], nj, status[nj],occluded_node[nj],edgeNum);
+                   globIndex,locToGlobNodeMap[ni]+1, status[ni],occluded_node[ni], locToGlobNodeMap[nj]+1, status[nj],occluded_node[nj],edgeNum);
     PHYSBAM_MPI_UTILITIES::dump_stack_trace();
     exit(-1);}
 
