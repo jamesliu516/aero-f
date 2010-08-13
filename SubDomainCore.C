@@ -4197,7 +4197,7 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue; //both outside, no "double intersections".
+    if (iActive && jActive && !intersect) continue; 
 
     // now (i,j) must intersect the structure.
     LevelSetResult lsRes;
