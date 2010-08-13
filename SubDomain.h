@@ -163,6 +163,7 @@ public:
 
   // topology
   int *getNodeMap()  { return locToGlobNodeMap; }
+  int *getElemMap()  { return locToGlobElemMap; }
   int getGlobSubNum()  { return globSubNum; }
   int getLocSubNum()  { return locSubNum; }
   int numberEdges();

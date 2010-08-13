@@ -8,30 +8,6 @@ class Domain;
 #include <VectorSet.h>
 #include <ParallelRom.h> // KTC
 
-		// needed? (from Modal.h)
-
-		// #ifdef TYPE_PREC
-		// #define PreScalar TYPE_PREC
-		// #else
-		// #define PreScalar double
-		// #endif
-
-		// #include <SpaceOperator.h>
-		// #include <KspSolver.h>
-		// #include <KspPrec.h>
-		// #include <TsInput.h>
-		// #include <TsOutput.h>
-		// #include <TsRestart.h>
-		// 
-		// #ifdef DO_MODAL
-		//   #include <arpack++/include/ardnsmat.h>
-		//   #include <arpack++/include/ardssym.h>
-		// #endif
-		// 
-		// #include <complex.h>
-		// typedef complex<double> bcomp;
-
-
 template <int dim>
 class ArrayVecDist {
 	public:
@@ -76,6 +52,7 @@ private:
 
 	std::vector< ParallelRom<dim> > parallelRom;	// object for all parallel operations
 	void buildGappyMesh();	// build reduced mesh offline
+	void buildGappyMatrices();	// build matrices A and B
 
 	int nSampleNodes;	// number of parent sample nodes
 	void newNeighbors();	// add unique neighbors of a node
@@ -85,18 +62,18 @@ private:
 	IoData *ioData;	
 	TsInput *tInput;
 
-	const int Residual;	// refer to Residual as 0
-	const int Jacobian;
+	const int residual;	// refer to residual as 0
+	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
 	int * cpuSet, * locSubSet, * locNodeSet, * globalNodeSet;	// info for master sample nodes
 
 	int nPodBasis;	// either 1 or 2
-	ArrayVecDist<dim> pod;	// pod bases for Residual and Jacobian
+	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
 	SetOfVec podRes, podJac;
-	ArrayVecDist<dim> podHat;	// restricted pod bases for Residual and Jacobian
+	ArrayVecDist<dim> podHat;	// restricted pod bases for residual and jacobian
 	SetOfVec podHatRes, podHatJac;
-	ArrayVecDist<dim> error;	// restricted pod bases for Residual and Jacobian
+	ArrayVecDist<dim> error;	// restricted pod bases for residual and jacobian
 	SetOfVec errorRes, errorJac;
 
 	// greedy data
@@ -130,6 +107,24 @@ private:
 	DistInfo &nodeDistInfo;
 	SubDomain** subD; 
 	
+	// mesh construction
+	// each of these arrays has nSampleNodes elements
+	std::vector <int> *nodes;	// nodes[iObsNode][iNode] is the global node number of the iNode in the iObsNode island 
+	std::vector <int> *elements;		// elements[iObsNode][iEle] is the global element number of the iNode in the iObsNode island 
+	std::map<int, int [3] > nodesXYZ;	// key: global node #, values: x, y, z
+	std::map <int, int [4] > elemToNode;	// key: global elem #, values: global node #s
+		// then, when outputting the TOP file, need another key that maps global
+		// node # to reduced mesh node #... this mapping will be different for
+		// each island!
+	void computeXYZ(int iSub, int iLocNode, double *xyz);
+
+
+	void addTwoNodeLayers();
+	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
+	void communicateMesh( std::vector <int> *nodeOrEle );
+	void makeUnique( std::vector <int>  *nodeOrEle, int length);
+	void outputTopFile();
+
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, TsInput *);
 	~GappyOffline();

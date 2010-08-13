@@ -14,7 +14,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2,ParallelRom<dim>(dom,_com)),
-	Residual(0), Jacobian(1)
+	residual(0), jacobian(1)
 {
 	// intialize vectors to point to the approprite bases
 
@@ -51,7 +51,7 @@ void GappyOffline<dim>::buildGappy() {
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
 
-	if (nPod[1] == 0) {	// only need one basis (shared between Jacobian and residual)
+	if (nPod[1] == 0) {	// only need one basis (shared between jacobian and residual)
 		nPodBasis = 1;
 		pod.a[1] = &podRes;
 		podHat.a[1] = &podHatRes;	// make pod point to res and jac
@@ -84,7 +84,7 @@ void GappyOffline<dim>::buildGappy() {
 
 	// compute matries A and B required online
 
-   // buildGappyMatrices();
+   buildGappyMatrices();
 
 // STRATEGY
 // compute the mesh for the masked domain
@@ -101,7 +101,7 @@ void GappyOffline<dim>::buildGappy() {
 // -how to specify PODData?
 
 // INPUT NOTES
-// nPod[1] = 0 indicates that the same basis is used for the Jacobian and Residual
+// nPod[1] = 0 indicates that the same basis is used for the jacobian and residual
 
 } 
 
@@ -177,7 +177,19 @@ void GappyOffline<dim>::buildGappyMesh() {
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
 		greedy(greedyIt);
 
-	// STOPPING HERE! David doesn't care about anything after this point
+	//==============================================
+	// add required node neighbors to the node set
+	// NOTE: adding two layers of neighbors!
+	//==============================================
+
+	addTwoNodeLayers();	// add two layers of nodes 
+
+	//==============================================
+	// output TOP file
+	//==============================================
+	
+	// KTC TO DO
+	outputTopFile();
 }
 
 
@@ -250,6 +262,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
+	double xyz [3] = {0.0, 0.0, 0.0};
 
 	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
 
@@ -264,6 +277,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 		locSubSet[handledNodes] = locSub;
 		locNodeSet[handledNodes] = locNode;
 		globalNodeSet[handledNodes] = globalNode;
+		computeXYZ(locSub, locNode, xyz);
 
 		// fill out restricted matrices (all columns for the current rows)
 
@@ -288,6 +302,8 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	com->globalSum(1, locSubSet + handledNodes);
 	com->globalSum(1, locNodeSet + handledNodes);
 	com->globalSum(1, globalNodeSet + handledNodes);
+	com->globalSum(3, xyz);
+	nodesXYZ.insert(pair<int, int [3]>(globalNode, xyz[0], xyz[1], xyz[2]));
 
 	++handledNodes;
 }
@@ -516,4 +532,192 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 template<int dim>
 void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double *lsCoeff) {
 		parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis], handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
+}
+template<int dim>
+void GappyOffline<dim>::addTwoNodeLayers() {
+
+	// another option: compute H2, find which nodes the nonzeros correspond to, then find which elements have all their nodes in that set
+
+	// nodes[iIsland][iNode] is the iNode neighbor of iIsland.
+	// nodes[iIsland][0] is the sample node itself 
+
+	nodes = new std::vector <int> [nSampleNodes];
+	
+	for (int iIslands = 0; iIslands < nSampleNodes; ++iIslands) {
+		// add the sample node itself
+		nodes[iIslands].push_back(globalNodeSet[iIslands]);	// first entry is the sample node itself
+		// add all neighbor nodes and elements of the sample node itself
+		addNeighbors(iIslands);
+		// add all neighbor nodes and elements of the sample node's neighbors 
+		addNeighbors(iIslands, 1);
+	}
+
+	// globally sum them up (make consistent across all cpus)
+
+	communicateMesh(nodes);
+	communicateMesh(elements);
+
+	// remove redundant entries from the nodes and elements
+
+	makeUnique(nodes);
+	makeUnique(elements);
+
+	// ISSUE: HOW TO OUTPUT DIFFERENT ELEMENT SETS???
+} 
+template<int dim>
+void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0) {
+
+	// add all global neighbor nodes/elements in the iIslands row of and elements to the iIsland node set
+	
+	Connectivity *nodeToNode, *nodeToEle;
+	int globalNodeNum;	// NOTE: must work with global node numbers because the greedy selection only operated on master nodes. Here, we care about the node even if it wasn't a master node.
+	int locNodeNum, locEleNum;	// local node number of the node/element to be added
+	int nNodesToAdd, nEleToAdd;	// number of nodes that should be added
+	bool elemBasedConnectivityCreated;	// indicates whether or not createElemBasedConnectivity has been created
+	int *nToNpointer, *nToEpointer;	// pointers to connectivity information
+
+	int nNodeWithNeigh = nodes[iIslands].size();	// number of nodes whose neighbors will be added
+
+	for (int iSub = 0 ; iSub < numLocSub ; ++iSub) {	//subdomains
+		int *locToGlobNodeMap = subD[iSub]->getNodeMap();
+		int *locToGlobElemMap = subD[iSub]->getElemMap();
+		elemBasedConnectivityCreated = false;
+		for (int iLocNode = 0; iLocNode < subD[iSub]->numNodes(); ++iLocNode) {	//local nodes in subdomain
+			globalNodeNum = locToGlobNodeMap[iLocNode];	// global node number
+			for (int iNodeWithNeigh = startingNodeWithNeigh; iNodeWithNeigh < nNodeWithNeigh; ++iNodeWithNeigh) {	// check if this local node's neighbors should be added
+				if (globalNodeNum == nodes[iIslands][iNodeWithNeigh]) {// add all neighbors of this node
+					if (!elemBasedConnectivityCreated) {
+						// taken from createElemBasedConnectivity
+						nodeToNode = subD[iSub]->createElemBasedConnectivity();
+						nodeToEle = subD[iSub]->createNodeToElementConnectivity();
+						elemBasedConnectivityCreated = true;
+					}
+
+					// add neighbors of iLocNode
+
+					nToNpointer = nodeToNode->ptr();
+					nToEpointer = nodeToEle->ptr();
+					nNodesToAdd = nToNpointer[iLocNode+1] - nToNpointer[iLocNode];	// number of neighbors this node has
+					nEleToAdd = nToEpointer[iLocNode+1] - nToEpointer[iLocNode];	// number of neighbors this node has
+
+					for (int iNodeToAdd = 0; iNodeToAdd < nNodesToAdd; ++iNodeToAdd) { 
+						locNodeNum = *((*nodeToNode)[iLocNode]+iNodeToAdd);
+						nodes[iIslands].push_back(locToGlobNodeMap[locNodeNum]);
+					}
+					for (int iEleToAdd = 0; iEleToAdd < nEleToAdd; ++iEleToAdd) { 
+						locEleNum = (*((*nodeToEle)[iLocNode]+iEleToAdd));
+						elements[iIslands].push_back(locToGlobElemMap[locEleNum]);
+					}
+				}
+			}
+		}
+	}
+}
+
+template<int dim>
+void GappyOffline<dim>::communicateMesh(std::vector <int> * nodeOrEle){
+	
+	// loop over iIslands
+		// figure out how many total entries each cpu has for the iIsland
+		// 	numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
+		// initiate memory for the total number of nodes (using last entry in above vector)
+		// fill out entries [iCpu] to [iCpu+1] in above array using vector
+		// do a global sum
+		// overwrite node and element vectors with this global data
+	int* numNeigh = new int [nTotCpus];
+	numNeigh[0] = 0;
+	for (int iIslands = 0; iIslands < nSampleNodes; ++iIslands) {
+		numNeigh[thisCPU+1] = nodeOrEle[iIslands].size();	// number of entries on this cpu
+		com->globalSum(nTotCpus+1,numNeigh);
+
+		int *nodeOrEleArray = new int [numNeigh[nTotCpus]];
+		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) {
+			if (iNeighbor >= numNeigh[thisCPU] || iNeighbor < numNeigh[thisCPU+1]) 
+				nodeOrEleArray[iNeighbor] = nodeOrEle[iIslands][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
+			else
+				nodeOrEleArray[iNeighbor] = 0.0;
+		}
+
+		com->globalSum(numNeigh[nTotCpus],nodeOrEleArray);
+
+		// fill in the array with all global entries
+		nodeOrEle[iIslands].clear();
+		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) 
+			nodeOrEle[iIslands].push_back(nodeOrEleArray[iNeighbor]);
+
+		delete [] nodeOrEleArray;
+		
+	}
+}
+
+template<int dim>
+void GappyOffline<dim>::makeUnique( std::vector <int> * nodeOrEle, int length = -1) {
+	// remove redundant entries from a vector <int> nodeOrEle *
+	// apply to nodeOrEle and elements
+
+	if (length == -1) length = nSampleNodes;
+	vector<int>::iterator it;
+
+	for (int iNodes = 0; iNodes < length; ++iNodes) {
+		sort(nodeOrEle[iNodes].begin(), nodeOrEle[iNodes].end());	// sort
+		it = unique(nodeOrEle[iNodes].begin(), nodeOrEle[iNodes].end()); // remove redundant entries
+		nodeOrEle[iNodes].resize(it - nodeOrEle[iNodes].begin());	// remove extra entries
+	}
+
+}
+//
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::outputTopFile() {
+
+   com->fprintf(stderr," ... Printing TOP file ...\n");
+   int sp = strlen(ioData->output.transient.prefix);
+   char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
+   sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
+   FILE *reducedMesh = fopen(outMeshFile, "w");
+
+	 // begin writing the top file
+   fprintf(reducedMesh,"Nodes FluidNodes\n");
+	 int nodeCount = 0;
+   for (int i = 0; i < nSampleNodes; ++i) {
+     for (int j = 0; j < nodes[i].size(); ++j) {
+			 ++nodeCount;
+			 // XXX COMPUTE X,Y,Z POSITION OF THE NODE XXX
+       fprintf(reducedMesh, "%e  ", nodeCount);	
+     }
+     fprintf(reducedMesh, "\n");
+   }
+
+}
+//---------------------------------------------------------------------------------------
+template<int dim>
+void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
+	
+	// input: iSub, iLocNode
+	// output: x,y,z coordinates of the iLocNode located on iSub
+
+	SVec<double,dim>& Xsub = X(iSub);	// X is of type DistSVec<double,dim>
+	for (int i = 0; i < 3; ++i) xyz[i] = Xsub[iLocNode][i];	
+}
+
+template<int dim>
+void GappyOffline<dim>::buildGappyMatrices() {
+
+//======================================
+// Inputs
+// 	full domain decomposition: pod[0], pod[1]
+// 	reduced domain decomposition: podHat[0], podHat[1]
+// Outputs
+// 	reduced domain decomposition: A, B
+//======================================
+
+// RD = reduced domain decomposition; FD = full domain decomposition
+// (2-3) compute pseudo-inverses of podHat[0], podHat[1] (compute QR, then solve least-squares problems with identity matrix). RD
+// (4a) assemble C. This might need to be done by hand since it mixes two decompositions. FD
+// (4b) compute QR factorization of C. FD
+// (5) save A (which is RC). RD
+// (6a) compute F=QC^T pod[0]. simple since both matrices are distributed using full decomp. make sure F is in RD
+// (6b) compute B = FD. B is RD
+
 }

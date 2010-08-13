@@ -38,6 +38,7 @@ InputData::InputData()
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
+	mesh = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -66,6 +67,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
+  new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
@@ -180,6 +182,7 @@ TransientData::TransientData()
   conservation = "";
   podFile = "";
   romFile = "";
+  mesh = "";
   philevel = "";
   controlvolume = "";
   philevel_structure = "";
@@ -220,7 +223,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 81, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -286,6 +289,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TransientData>(ca, "ZM", this, &TransientData::z0);
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
+  new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
@@ -426,7 +430,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22);
+     "SparseGridGeneration", 22, "ReducedMesh", 23);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
