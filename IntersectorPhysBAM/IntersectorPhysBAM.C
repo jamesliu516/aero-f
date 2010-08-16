@@ -614,8 +614,10 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   //get current struct coordinates.
   double alpha = 1.0;
   //double alpha = (dts - dtfLeft + dtf)/dts;
-  for (int i=0; i<numStNodes; i++) 
-    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
+  double max_dist=-1.0;
+  for (int i=0; i<numStNodes; i++) {
+    max_dist=std::max(max_dist,(Xs_n[i]-Xs_np1[i]).norm());
+    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];}
 
   // for hasCloseTriangle
   DistVec<bool> tId(X->info());
@@ -685,7 +687,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
 
   for(int iSub = 0; iSub < numLocSub; ++iSub) intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
 
-  for(int iSub = 0; iSub < numLocSub; ++iSub) intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);
+  for(int iSub = 0; iSub < numLocSub; ++iSub) intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com,max_dist);
 
   findActiveNodes(tId);
 }
@@ -836,13 +838,13 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 
 //----------------------------------------------------------------------------
 
-int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com)
+int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com,const double max_dist)
 {
   const double TOL=1e-4;
   ARRAY<bool> swept;
 
   swept.Resize(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(swept,false);
-  distIntersector.getInterface().computeSweptNodes(xyz,swept,(double).1,TOL);
+  distIntersector.getInterface().computeSweptNodes(xyz,swept,(double).1,max_dist,TOL);
 
   int numSweptNodes=0;
   for(int i=1;i<=nFirstLayer;++i){swept_node[reverse_mapping(i)] = swept(i);

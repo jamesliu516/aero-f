@@ -145,7 +145,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     int hasCloseTriangle(SVec<double,3>& X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);
     int findIntersections(SVec<double,3>& X,Vec<bool>& tId,Communicator&);
-    int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&);
+    int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double max_dist);
 
   public:
     IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, Vec<bool>& occluded_node,Vec<bool>& swept_node, DistIntersectorPhysBAM &);
