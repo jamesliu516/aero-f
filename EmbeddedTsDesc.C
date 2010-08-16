@@ -89,7 +89,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
     case EmbeddedFramework::PHYSBAM : //TODO: discuss with Jon. 
-      fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
+      this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
       distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
     default:
@@ -191,7 +191,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
   this->geoState->setup2(this->timeState->getData());
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), 
-                         *U, ioData, &nodeTag);
+                         *U, ioData, &nodeTag); //populate U by i.c. or restart data.
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;
