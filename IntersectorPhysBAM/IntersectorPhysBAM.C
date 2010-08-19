@@ -34,7 +34,8 @@ const int IntersectorPhysBAM::UNDECIDED, IntersectorPhysBAM::INSIDE, Intersector
 
 //----------------------------------------------------------------------------
 
-DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm)
+DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
+                                               double (*xyz)[3], int nElems, int (*abc)[3])
 {
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
@@ -71,7 +72,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm)
   boxMax = 0;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
-  init(struct_mesh, struct_restart_pos);
+  if(nNodes && xyz && nElems && abc)
+    init(nNodes, xyz, nElems, abc, struct_restart_pos);
+  else
+    init(struct_mesh, struct_restart_pos);
   comm->barrier();
 
   delete[] struct_mesh;
@@ -217,7 +221,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
     FILE* resTopFile = fopen(restartSolidSurface, "r");
-    if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+    if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist: \"%s\".\n",restartSolidSurface); exit(1);}
     int ndMax2 = 0;
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
@@ -262,31 +266,111 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
 }
 
 //----------------------------------------------------------------------------
+/** Intersector initialization method
+*
+* \param dataTree the data read from the input file for this intersector.
+*/
+void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+
+  // node set
+  numStNodes = nNodes;
+  // feed data to Xss. 
+  Xs      = new Vec3D[numStNodes];
+  Xs0     = new Vec3D[numStNodes];
+  Xs_n    = new Vec3D[numStNodes];
+  Xs_np1  = new Vec3D[numStNodes];
+  Xsdot   = new Vec3D[numStNodes];
+  solidX  = new Vec<Vec3D>(numStNodes, Xs);
+  solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
+  solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+
+  for (int k=0; k<numStNodes; k++) {
+    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
+    Xs0[k]    = Xs[k];
+    Xs_n[k]   = Xs[k];
+    Xs_np1[k] = Xs[k];
+    Xsdot[k]  = Vec3D(0.0, 0.0, 0.0);
+  }
+
+  // elem set
+  numStElems = nElems;
+  stElem = new int[numStElems][3];
+  for (int i=0; i<numStElems; i++)
+    for (int k=0; k<3; k++)
+      stElem[i][k] = abc[i][k];
+
+  // load solid nodes at restart time.
+  if (restartSolidSurface[0] != 0) {
+    FILE* resTopFile = fopen(restartSolidSurface, "r");
+    if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
+    int ndMax2 = 0;
+    std::list<std::pair<int,Vec3D> > nodeList2;
+    std::list<std::pair<int,Vec3D> >::iterator it2;
+
+    int ndMax;
+    while(1) {
+      int nInputs, num1;
+      double x1, x2, x3;
+      char *endptr, c1[200];
+
+      nInputs = fscanf(resTopFile,"%s", c1);
+      if(nInputs!=1) break;
+      num1 = strtol(c1, &endptr, 10);
+      if(endptr == c1) break;
+
+      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
+      ndMax = std::max(num1, ndMax);
+    }
+    if (ndMax!=numStNodes) {
+      com->fprintf(stderr,"ERROR: number of nodes in restart top-file is wrong.\n");
+      exit(1);
+    }
+
+    for (int k=0; k<numStNodes; k++)
+      Xs[k] = Vec3D(0,0,0);
+
+    for (it2=nodeList2.begin(); it2!=nodeList2.end(); it2++)
+      Xs[it2->first-1] = it2->second;
+
+    for (int k=0; k<numStNodes; k++) {
+      Xs_n[k]   = Xs[k];
+      Xs_np1[k] = Xs[k];
+    }
+    fclose(resTopFile);
+  }
+
+  // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
+  com->fprintf(stderr,"Checking the solid surface...\n");
+  if (checkTriangulatedSurface())
+    com->fprintf(stderr,"Ok.\n");
+  else
+    exit(-1);
+
+  initializePhysBAM();
+}
+
+//----------------------------------------------------------------------------
 
 void
 DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index starts from 1 instead of 0
-// Initialize the Particles list
-  PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*PhysBAM::TRIANGULATED_SURFACE<double>::Create();
-
-  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >& physbam_solids_particle = physbam_triangulated_surface.particles;
-  physbam_solids_particle.array_collection.Resize(numStNodes);
-  for (int i=0; i<numStNodes; i++) 
-    physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
+  // Initialize the Particles list
+  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle=new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
+  physbam_solids_particle->array_collection.Resize(numStNodes);
+  for (int i=0; i<numStNodes; i++) physbam_solids_particle->X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
   
-  // Initialize the Triangle list
-  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > & physbam_stElem=physbam_triangulated_surface.mesh.elements;
-  physbam_stElem.Resize(numStElems);
-  for (int i=0; i<numStElems; i++)
-    physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
+  // Initialize the Triangle list.
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(numStElems);
+  for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
 
-  // Construct TRIANGLE_MESH triangle_mesh.
-  physbam_triangulated_surface.Update_Number_Nodes();
-  physbam_triangulated_surface.mesh.Initialize_Adjacent_Elements();
+  // Initialize the mesh.
+  PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(numStNodes,physbam_stElem);
+  mesh->Initialize_Adjacent_Elements();mesh->Set_Number_Nodes(numStNodes);
 
   // Construct TRIANGULATED_SURFACE.
-  physbam_triangulated_surface.Update_Triangle_List();
   if(physInterface) delete physInterface;
-  physInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
+  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
+  physInterface->SetThickness(1e-10,false);
 }
 
 //----------------------------------------------------------------------------
@@ -428,12 +512,18 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   // for hasCloseTriangle
   DistVec<bool> tId(domain->getNodeDistInfo());
 
+#pragma omp parallel for
+  for(int i = 0; i < numLocSub; ++i){
+    intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*occluded_node)(i), (*swept_node)(i), *this);}
+
+  updatePhysBAMInterface(Xs, numStNodes,X,true);
+
   buildSolidNormals();
   d->findNodeBoundingBoxes(X,*boxMin,*boxMax);
 
   int numIntersectedEdges=0;
+#pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i) {
-    intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*occluded_node)(i), (*swept_node)(i), *this);
     intersector[i]->hasCloseTriangle(X(i), (*boxMin)(i), (*boxMax)(i), tId(i));
     numIntersectedEdges += intersector[i]->findIntersections(X(i),tId(i),*com);}
 
@@ -460,29 +550,6 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
 
   findActiveNodesUsingFloodFill(tId,points);
   *status0=*status;
-
-/*
-  //Kevin's debug
-  char myName[20] = "Xedges_A.top";
-  myName[7] += com->cpuNum();
-  FILE* myFile = fopen(myName,"w");
-  int count = 0;
-  myName[8] = '\0'; //get Xedges_A
-  for(int i = 0; i < numLocSub; ++i) {
-    fprintf(myFile, "Elements %s using FluidNodes\n", myName);
-    Vec<bool>& edgeX = intersector[i]->edgeIntersections;
-    int (*ptr)[2] = intersector[i]->edges.getPtr();
-    int *locToGlob = intersector[i]->locToGlobNodeMap;
-    for(int i=0; i<edgeX.size(); i++) {
-      if(edgeX[i]) {
-        int ni = ptr[i][0], nj = ptr[i][1];
-        fprintf(myFile, "%d 1 %d %d\n", ++count, locToGlob[ni]+1, locToGlob[nj]+1);
-      }
-    }
-  }
-  fclose(myFile);
-*/
-
 }
 
 //----------------------------------------------------------------------------
@@ -514,7 +581,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
       globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;}}
 
   for(int iSub=0;iSub<numLocSub;++iSub){
-    SubDomain& sub=*(domain->getSubDomain()[iSub]);
+    SubDomain& sub=intersector[iSub]->subD;
     for(int iElem=0; iElem<sub.numElems(); iElem++)
       for(list<pair<Vec3D,int> >::const_iterator iP=points.begin(); iP!=points.end(); iP++){
         if(sub.isINodeinITet(iP->first, iElem, (*X)(iSub))){ // TODO(jontg): Use a robust implementation of this routine
@@ -526,7 +593,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 // Compute node status (occluded nodes are OUTSIDE the fluid regime)
 #pragma omp parallel for
   for(int iSub=0;iSub<numLocSub;++iSub){
-      SubDomain& sub=*(domain->getSubDomain()[iSub]);
+      SubDomain& sub=intersector[iSub]->subD;
       for(int i=0;i<(*status)(iSub).size();++i){int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
           if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end())
               (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;
@@ -540,7 +607,7 @@ void
 DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
 #pragma omp parallel for
     for(int iSub=0;iSub<numLocSub;++iSub){
-        SubDomain& sub=*(domain->getSubDomain()[iSub]);
+        SubDomain& sub=intersector[iSub]->subD;
         Connectivity &nToN = *(sub.getNodeToNode());
         for(int i=0;i<(*status)(iSub).size();++i){
             if((*occluded_node)(iSub)[i]) (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;
@@ -562,18 +629,13 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
 
  //Debug
 #pragma omp parallel for
-    for(int iSub=0;iSub<numLocSub;++iSub) {
-        SubDomain& sub=*(domain->getSubDomain()[iSub]);
+    for(int iSub=0;iSub<numLocSub;++iSub){
+        SubDomain& sub=intersector[iSub]->subD;
         Connectivity &nToN = *(sub.getNodeToNode());
-        for(int i=0;i<(*status)(iSub).size();++i) 
-//          if(intersector[iSub]->locToGlobNodeMap[i]==246960-1)
-//            fprintf(stderr,"****** status0 [%d], status [%d], occluded [%d], swept [%d]\n",
-//			    (*status0)(iSub)[i],(*status)(iSub)[i],(*occluded_node)(iSub)[i],(*swept_node)(iSub)[i]);
-          if((*status)(iSub)[i]==-5) {
-            (*status)(iSub)[i]=-2;
-            (*occluded_node)(iSub)[i]=true;
-          }
-    }
+        for(int i=0;i<(*status)(iSub).size();++i)
+            if((*status)(iSub)[i]==-5){
+                (*occluded_node)(iSub)[i]=true;
+                (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;}}
 }
 
 //----------------------------------------------------------------------------
@@ -592,14 +654,71 @@ DistIntersectorPhysBAM::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
 
 //----------------------------------------------------------------------------
 
+void DistIntersectorPhysBAM::expandScope()
+{
+  SubDomain **subs = domain->getSubDomain();
+
+  // 1. setup communication pattern
+  int numLocSub = domain->getNumLocSub();
+  SubDTopo *subTopo = domain->getSubTopo();
+  CommPattern<int> trader(subTopo, com, CommPattern<int>::CopyOnSend, CommPattern<int>::NonSym);
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+    int *sndChannel = subs[iSub]->getSndChannel();
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++)
+      trader.setLen(sndChannel[iNei], 1+intersector[iSub]->package[iNei].size());     
+  }    
+  trader.finalize();
+
+  // 2. send packages to neighbour subdomains.
+  set<int>::iterator it;
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+    int *sndChannel = subs[iSub]->getSndChannel();
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++) {
+      SubRecInfo<int> sInfo = trader.getSendBuffer(sndChannel[iNei]);
+      int *buffer = reinterpret_cast<int*>(sInfo.data);
+      buffer[0] = intersector[iSub]->package[iNei].size(); 
+      int count = 0;
+      for(it=intersector[iSub]->package[iNei].begin(); it!= intersector[iSub]->package[iNei].end(); it++)
+        buffer[++count] = *it;
+    }
+  }
+
+  // 3. exchange
+  trader.exchange();
+
+  // 4. expand scope
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+
+    int *rcvChannel = subs[iSub]->getRcvChannel();
+    std::set<int>& scope=physInterface->getScope(iSub+1);
+    for(int iNei=0; iNei<subs[iSub]->getNumNeighb(); iNei++) {
+      SubRecInfo<int> sInfo = trader.recData(rcvChannel[iNei]);
+      int *buffer = reinterpret_cast<int*>(sInfo.data);
+      for(int j=0; j<buffer[0]; j++) scope.insert(buffer[j+1]);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------
+
 void
-DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const DistSVec<double,3>& fluid_nodes) {
+DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const DistSVec<double,3>& fluid_nodes,const bool fill_scope) {
   physInterface->SaveOldState();
   for (int i=0; i<size; i++)
-    physInterface->triangulated_surface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0],
-                                                                     particles[i][1], particles[i][2]);
+    physInterface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(particles[i][0], particles[i][1], particles[i][2]);
 
-  physInterface->Update(true);
+  if(fill_scope){
+    physInterface->Update(numLocSub,true);
+    for(int iSub=0;iSub<numLocSub;++iSub){
+      std::set<int>& scope=physInterface->getScope(iSub+1);
+      for(int i=1;i<=numStElems;++i) scope.insert(i);}}
+  else expandScope();
+
+  for(int iSub=0;iSub<numLocSub;++iSub)
+    physInterface->UpdateScope(iSub+1);
 }
 
 //----------------------------------------------------------------------------
@@ -614,80 +733,22 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   //get current struct coordinates.
   double alpha = 1.0;
   //double alpha = (dts - dtfLeft + dtf)/dts;
-  double max_dist=-1.0;
-  for (int i=0; i<numStNodes; i++) {
-    max_dist=std::max(max_dist,(Xs_n[i]-Xs_np1[i]).norm());
-    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];}
+  for (int i=0; i<numStNodes; i++) 
+    Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
   // for hasCloseTriangle
   DistVec<bool> tId(X->info());
   
   updatePhysBAMInterface(Xs, numStNodes,*X);
 
-/*
-  map<int,int> glob2loc;
-  glob2loc[902] = 1;
-  glob2loc[906] = 2;
-  glob2loc[908] = 3; 
-  glob2loc[909] = 4; 
-  glob2loc[762] = 5; 
-  glob2loc[907] = 6; 
-  glob2loc[946] = 7; 
-  glob2loc[901] = 8; 
-  glob2loc[926] = 9; 
-  glob2loc[1035] = 10; 
-  glob2loc[1042] = 11; 
-  glob2loc[1045] = 12; 
-  glob2loc[1044] = 13; 
-  glob2loc[1094] = 14; 
-  glob2loc[1043] = 15; 
-  glob2loc[1238] = 16; 
-  glob2loc[1036] = 17; 
-  glob2loc[1205] = 18; 
-
-
-  // Debug
-  static int count = 0;
-  if(com->cpuNum()==0) {
-    FILE *myFile = fopen("particles.top","a");
-    fprintf(myFile, "Its %d\n", ++count);
-    for(int i=0; i<numStNodes; i++) {
-      map<int,int>::iterator it = glob2loc.find(i+1);
-      if(it!=glob2loc.end())
-        fprintf(myFile,"%d %e %e %e\n", it->second, Xs[i][0], Xs[i][1], Xs[i][2]);
-    }
-    fclose(myFile);
-  }
-
-
-  if(com->cpuNum()==0 && count==1) {
-    FILE *myFile = fopen("topology.top","w");
-    fprintf(myFile,"#Id TypeOfElement Node1 Node2 Node3\n");
-    for(int i=0; i<numStElems; i++) {
-      int id = 0;
-      int A = stElem[i][0]+1;
-      int B = stElem[i][1]+1;
-      int C = stElem[i][2]+1;
-      map<int,int>::iterator it1 = glob2loc.find(A);
-      map<int,int>::iterator it2 = glob2loc.find(B);
-      map<int,int>::iterator it3 = glob2loc.find(C);
-      if(it1==glob2loc.end()||it2==glob2loc.end()||it3==glob2loc.end())
-        continue;
-      fprintf(myFile, "%d %d %d %d %d\n", ++id, 4, it1->second, it2->second, it3->second);
-    }
-  }
-*/
-
-
   buildSolidNormals();
 
+#pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
       intersector[iSub]->reset();
-      intersector[iSub]->hasCloseTriangle((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub));}
-
-  for(int iSub = 0; iSub < numLocSub; ++iSub) intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
-
-  for(int iSub = 0; iSub < numLocSub; ++iSub) intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com,max_dist);
+      intersector[iSub]->hasCloseTriangle((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), tId(iSub));
+      intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
+      intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
 
   findActiveNodes(tId);
 }
@@ -701,12 +762,12 @@ void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int T
   int (*ptr)[2] = edges.getPtr();
   Connectivity &nToN = *(sub.getNodeToNode());
   std::string fileName = PhysBAM::STRING_UTILITIES::string_sprintf("firstLayer/%d/firstLayer%d.top",mySub);
-  std::string nodesName = PhysBAM::STRING_UTILITIES::string_sprintf("Nodes InsideNodes%d\n",mySub);
+  std::string nodesName = PhysBAM::STRING_UTILITIES::string_sprintf("InsideNodes%d\n",mySub);
 
   FILE* firstLayer = fopen(fileName.c_str(),"w");
-  fprintf(firstLayer, "Nodes InsideNodes%s\n", nodesName.c_str());
+  fprintf(firstLayer, "Nodes %s\n", nodesName.c_str());
   for (int i=0; i<sub.numNodes(); i++) fprintf(firstLayer,"%d %e %e %e\n", i+1, X[i][0], X[i][1], X[i][2]);
-  fprintf(firstLayer, "Elements FirstLayer%s using InsideNodes%s\n", nodesName.c_str(), nodesName.c_str());
+  fprintf(firstLayer, "Elements FirstLayer%d using %s\n", mySub, nodesName.c_str());
   for (int l=0; l<edges.size(); l++){
     int x1 = ptr[l][0], x2 = ptr[l][1];
     if(edgeIntersectsStructure(0.0,x1,x2)) fprintf(firstLayer,"%d %d %d %d\n", l+1, (int)1, x1+1, x2+1);}
@@ -717,8 +778,8 @@ void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int T
 
 IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X,
                     Vec<int> &stat, Vec<int> &stat0, Vec<bool>& occ_node, Vec<bool>& swe_node, DistIntersectorPhysBAM &distInt) :
-                      edgeIntersections(sub.numEdges()),distIntersector(distInt),
-                      status(stat),status0(stat0), occluded_node(occ_node), swept_node(swe_node), edges(sub.getEdges()), globIndex(sub.getGlobSubNum())
+                      edgeIntersections(sub.numEdges()),subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),nodeToSubD(*sub.getNodeToSubD()),
+                      status(stat),status0(stat0),occluded_node(occ_node),swept_node(swe_node),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 
@@ -727,13 +788,28 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X,
 
   locToGlobNodeMap = sub.getNodeMap();
 
+  package = new set<int>[sub.getNumNeighb()];
+  int *neighb = sub.getNeighb();
+  for(int i=0; i<sub.getNumNeighb(); i++)
+    sub2pack[neighb[i]] = i;
+
   nFirstLayer = 0;
+}
+
+
+//----------------------------------------------------------------------------
+
+IntersectorPhysBAM::~IntersectorPhysBAM()
+{
+    delete []package;
 }
 
 //----------------------------------------------------------------------------
 
 void IntersectorPhysBAM::reset()
 {
+  for(int i=0; i<subD.getNumNeighb(); i++) package[i].clear();
+
   status0 = status;
   status = UNDECIDED;
   occluded_node = false;
@@ -753,21 +829,27 @@ void IntersectorPhysBAM::reset()
 */
 int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId) 
 {
-  const double TOL=1e-4;
   PhysBAMInterface<double>& physbam_interface=*distIntersector.physInterface;
-  int numCloseNodes=0;
-  for(int i=0;i<boxMin.size();++i){
-    VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
-    tId[i]=physbam_interface.HasCloseTriangle(VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),min_corner,max_corner,i,TOL,&occluded_node[i]);
-    if(tId[i]) ++numCloseNodes;}
-  nFirstLayer += numCloseNodes;
 
-  reverse_mapping.Resize(nFirstLayer);
+  int numCloseNodes=0;
   forward_mapping.Resize(X.size()+1);  PhysBAM::ARRAYS_COMPUTATIONS::Fill(forward_mapping,-1);
-  xyz.Preallocate(nFirstLayer);
-  for(int i=0;i<X.size();++i) if(tId[i]){
-      int shrunk_index=xyz.Append(VECTOR<double,3>(X[i][0],X[i][1],X[i][2]));
-      reverse_mapping(shrunk_index) = i;forward_mapping(i+1) = shrunk_index;}
+  reverse_mapping.Resize(X.size()+1);  PhysBAM::ARRAYS_COMPUTATIONS::Fill(reverse_mapping,-1);
+  xyz.Resize(X.size()+1);
+  for(int i=0;i<boxMin.size();++i){
+    ARRAY<int> candidates;
+    VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
+    int shrunk_index;bool is_occluded;
+    tId[i]=physbam_interface.HasCloseTriangle(locIndex+1,VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),min_corner,max_corner,&shrunk_index,&is_occluded,&candidates);
+    if(tId[i]){
+        forward_mapping(i+1)=shrunk_index;
+        occluded_node[i]=is_occluded;
+        xyz(forward_mapping(i+1))=VECTOR<double,3>(X[i][0],X[i][1],X[i][2]);
+        reverse_mapping(forward_mapping(i+1))=i;
+        ++numCloseNodes;
+        for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));}
+    else{occluded_node[i]=false;}}
+  nFirstLayer += numCloseNodes;
+  reverse_mapping.Resize(nFirstLayer); xyz.Resize(nFirstLayer); // Trim the fat.
 
   return numCloseNodes;
 }
@@ -777,8 +859,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
 int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Communicator& com)
 {
   int (*ptr)[2] = edges.getPtr();
-  const double TOL=1e-4;
-  ARRAY<bool> occludedNode(nFirstLayer);
+  ARRAY<bool> occludedNode(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(occludedNode,false);
   for(int i=1;i<=nFirstLayer;++i) occludedNode(i) = occluded_node[reverse_mapping(i)];
 
 #if 0 // Debug output
@@ -790,6 +871,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 
   for(int i=0;i<tId.size();++i)
       if(tId[i] && occludedNode(forward_mapping(i+1)) != occluded_node[i]) fprintf(stderr,"OCC ERR, %d -> %d, %d -> %d\n",i,forward_mapping(i+1),occluded_node[i],occludedNode(forward_mapping(i+1)));
+      else if(!tId[i] && occluded_node[i]) fprintf(stderr,"OCC ERR!!!\n");
 #endif
 
   ARRAY<TRIPLE<VECTOR<int,3>,IntersectionResult<double>,IntersectionResult<double> > > edgeRes;
@@ -798,7 +880,8 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
     if(tId[p] && tId[q])
         edgeRes.Append(TRIPLE<VECTOR<int,3>,IntersectionResult<double>,IntersectionResult<double> >(VECTOR<int,3>(forward_mapping(p+1),forward_mapping(q+1),l),
                                                                                                     IntersectionResult<double>(),IntersectionResult<double>()));}
-  distIntersector.getInterface().Intersect(xyz,occludedNode,edgeRes,TOL);
+
+  distIntersector.getInterface().Intersect(locIndex+1,xyz,occludedNode,edgeRes);
 
   int intersectedEdgeCount=0;
   edgeIntersections=false;
@@ -838,13 +921,12 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 
 //----------------------------------------------------------------------------
 
-int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com,const double max_dist)
+int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator& com)
 {
-  const double TOL=1e-4;
   ARRAY<bool> swept;
 
   swept.Resize(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(swept,false);
-  distIntersector.getInterface().computeSweptNodes(xyz,swept,(double).1,max_dist,TOL);
+  distIntersector.getInterface().computeSweptNodes(locIndex+1,xyz,swept,(double)1);
 
   int numSweptNodes=0;
   for(int i=1;i<=nFirstLayer;++i){swept_node[reverse_mapping(i)] = swept(i);
@@ -917,4 +999,14 @@ double IntersectorPhysBAM::isPointOnSurface(Vec3D pt, int N1, int N2, int N3)
   normal /=  normal.norm();
 
   return fabs((pt-X1)*normal);
+}
+
+//----------------------------------------------------------------------------
+
+void IntersectorPhysBAM::addToPackage(const int i, const int candidate)
+{
+  int nSub=nodeToSubD.num(i);
+  for(int n=0;n<nSub;n++){
+    if(nodeToSubD[i][n]==globIndex) continue;
+    package[sub2pack[nodeToSubD[i][n]]].insert(candidate);}
 }

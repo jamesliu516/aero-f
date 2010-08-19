@@ -90,7 +90,15 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       break;
     case EmbeddedFramework::PHYSBAM : //TODO: discuss with Jon. 
       this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
-      distLSS = new DistIntersectorPhysBAM(ioData, this->com);
+      if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
+        this->com->fprintf(stderr,"Using dynamic nodal transfer to get data from the solid node\n");
+        int nNodes = dynNodalTransfer->numStNodes();
+        int nElems = dynNodalTransfer->numStElems();
+        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        int (*abc)[3] = dynNodalTransfer->getStElems();
+        distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+      } else
+        distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
     default:
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");

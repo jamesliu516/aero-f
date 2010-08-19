@@ -10,7 +10,6 @@
 #include "PHYSBAM_INTERFACE.h"
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
-#include <PhysBAM_Geometry/Topology_Based_Geometry/TRIANGULATED_SURFACE.h>
 #include <set>
 #include <map>
 
@@ -89,10 +88,11 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void findActiveNodes(const DistVec<bool>& tId);
 
   public: //TODO: a lot of them can be moved to "protected".
-    DistIntersectorPhysBAM(IoData &iod, Communicator *comm);
+    DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes = 0, double (*xyz)[3] = 0, int nElems = 0, int (*abc)[3] = 0);
     ~DistIntersectorPhysBAM();
 
     void init(char *meshfile, char *restartfile);
+    void init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
@@ -100,7 +100,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
-    void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes);
+    void expandScope();
+    void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false);
     void recompute(double dtf, double dtfLeft, double dts);
 
     LevelSetStructure & operator()(int subNum) const;
@@ -123,32 +124,37 @@ class IntersectorPhysBAM : public LevelSetStructure {
   public:
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid, any positive number is the fluid model number
 
-  protected:
-  public:
     Vec<bool> edgeIntersections;
 
-    int globIndex;
+    int locIndex,globIndex;
     int *locToGlobNodeMap;
 
     std::map<int,IntersectionResult<double> > CrossingEdgeRes;
     std::map<int,IntersectionResult<double> > ReverseCrossingEdgeRes;
 
+    SubDomain &subD;
+    EdgeSet &edges;
     DistIntersectorPhysBAM &distIntersector;
+
+    std::set<int> *package;
+    map<int,int> sub2pack;
+    Connectivity &nodeToSubD;
+
     Vec<int> &status; //<! Whether a node is inside the fluid domain or not
     Vec<int> &status0; //<! status at the previous time-step.
     Vec<bool> &occluded_node; //<! Whether a node is occluded by the solid surface.
     Vec<bool> &swept_node; //<! Whether a node is swept by the solid surface, over the present time-step.
-    EdgeSet &edges;
     int nFirstLayer;
     ARRAY<int> reverse_mapping,forward_mapping;
     ARRAY<VECTOR<double,3> > xyz;
 
     int hasCloseTriangle(SVec<double,3>& X,SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<bool> &tId);
     int findIntersections(SVec<double,3>& X,Vec<bool>& tId,Communicator&);
-    int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&,const double max_dist);
+    int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&);
 
   public:
     IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, Vec<bool>& occluded_node,Vec<bool>& swept_node, DistIntersectorPhysBAM &);
+    ~IntersectorPhysBAM();
     int numOfFluids() {return distIntersector.numOfFluids();}
 
     void reset(); //<! set status0=status and reset status and nFirstLayer.
@@ -167,6 +173,9 @@ class IntersectorPhysBAM : public LevelSetStructure {
     bool isOccluded(double t, int n) const {return occluded_node[n];}
     bool isSwept(double t, int n) const {return swept_node[n];}
     int fluidModel(double t, int n) const {return status[n];}
+
+  private:
+    void addToPackage(const int i,const int candidate);
 };
 
 #endif
