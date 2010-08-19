@@ -50,7 +50,6 @@ int main(int argc, char **argv)
 #endif
 
   //sleep(20);
-
   signal(SIGUSR1, processSignal);
 
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW );

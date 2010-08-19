@@ -1477,7 +1477,10 @@ void LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper(
 }
 
 //----------------------------------------------------------------------------
-
+//----------------------------------------------------------------------------
+// Adam 2010.08.17
+// This Local Riemann is now templated by dim. It can now handle Turbulent simulations
+template<int dim>
 class LocalRiemannFluidStructure : public LocalRiemann {
 
 public:
@@ -1502,15 +1505,16 @@ private:
 
 //------------------------------------------------------------------------------
 
+template<int dim>
 inline
-void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vstar,
+void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatej,
                             double &weightj, int it, int Id)
 {
-  if(Id < 0) return;
-
-  int dim = 5;
+  if(Id < 0) return;  // TODO: shouldn't get called in this case.
+  // Commented by Adam on 2010.08.17 because it has to handle dim > 5
+  //int dim = 5;
 
   double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
   double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
@@ -1532,6 +1536,11 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   Wstar[2]  = vti[1]+U_i*nphi[1];
   Wstar[3]  = vti[2]+U_i*nphi[2];
   Wstar[4]  = P_i;
+  if(dim > 5)
+    {
+      Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+    }
+
 
   //---------------------------------------------------------------
 
@@ -1556,25 +1565,37 @@ void LocalRiemannFluidStructure::computeRiemannSolution(double *Vi, double *Vsta
   Wstar[dim+2]  = vti[1]+U_i*nphi[1];
   Wstar[dim+3]  = vti[2]+U_i*nphi[2];
   Wstar[dim+4]  = P_i;
+  if(dim > 5)
+    {
+      Wstar[dim+5]  = 0.0; // Boundary Condition: nuTilde = 0
+    }
 
   //-----------------------------------------------------------------
 
   if(it==1){
     weightj += 1.0;
-    for (int k=0; k<5; k++)
-      rupdatej[k] += Wstar[k]; //TODO: rupdate is never used for FSI. (only used for MPF)
+    for (int k=0; k<dim; k++)
+      rupdatej[k] += Wstar[k];  //TODO: rupdate is never used for FSI. (only used for MPF)
   }
 
 }
 //------------------------------------------------------------------------------
 
+template<int dim>
 inline
-void LocalRiemannFluidStructure::computeRiemannSolution(int tag, double *Vi, double *Vstar,
+void LocalRiemannFluidStructure<dim>::computeRiemannSolution(int tag, double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatej,
                             double &weightj, int it)
 {
-  int dim = 5;
+  // Adam 2010.08.18
+  // This function doesn't seem to be used anymore.
+  // To be removed in a couple of months
+  fprintf(stderr,"Oh Sorry ! Please uncomment the function (LocalRiemmannDesc.h:1596). I thought it wasn't needed anymore\n");
+  exit(-1);
+  /*
+  // Commented by Adam on 2010.08.17 because it has to handle dim > 5
+  //  int dim = 5;
 
   double P_1, U_1, R_1; // pass to 1D-FSI Riemann solver
   double P_i, U_i, R_i; // solution given by 1D-FSI Riemann solver
@@ -1595,23 +1616,28 @@ void LocalRiemannFluidStructure::computeRiemannSolution(int tag, double *Vi, dou
   Wstar[2]  = vti[1]+U_i*nphi[1];      Wstar[dim+2]  = Wstar[2];
   Wstar[3]  = vti[2]+U_i*nphi[2];      Wstar[dim+3]  = Wstar[3];
   Wstar[4]  = P_i;                     Wstar[dim+4]  = Wstar[4];
+  if(dim > 5)
+    {
+      Wstar[5]  = 0.0;                 Wstar[dim+5]  = 0.0; // Boundary Condition: nuTilde = 0
+    }
 
   if(it==1){
     weightj += 1.0;
-    for (int k=0; k<5; k++)
+    for (int k=0; k<dim; k++)
       rupdatej[k] += Wstar[k];
   }
-
+  */
 }
 
 //------------------------------------------------------------------------------
 
+template<int dim>
 inline
-void LocalRiemannFluidStructure::eriemannfs(double rho, double u, double p,
+void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int Id) //Caution: "ui" will not be modified!
 {
-  if(Id < 0) return;
+  if(Id < 0) return; //TODO: shouldn't be called in this case
 
   // assume structure on the left of the fluid
   // using the notation of Toro's paper

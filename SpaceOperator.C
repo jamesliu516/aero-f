@@ -191,6 +191,10 @@ SpaceOperator<dim>::~SpaceOperator()
     if (bcFcn) delete bcFcn;
     if (fluxFcn) {
         fluxFcn += BC_MIN_CODE;
+	for(int i=0;i<BC_MAX_CODE - BC_MIN_CODE + 1;++i)
+	  {
+	    delete fluxFcn[i];
+	  }
         delete [] fluxFcn;
     }
     if (recFcn) delete recFcn;
@@ -905,7 +909,8 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar, int it, DistVec<GhostPoint<dim>*> *ghostPoints)
+                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, 
+					 DistSVec<double,3> *Nsbar, int it, DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
@@ -1149,7 +1154,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
         if (subWeights[i]<=0.0) {
           fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: %d->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), iWasActive, iIsActive, subWeights[i]);
-          exit(-1);
+	  assert(false);
+	  exit(-1);
         }
         for (int iDim=0; iDim<dim; iDim++)
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];

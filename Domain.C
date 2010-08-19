@@ -65,7 +65,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
     double (*ireynolds) = irey.subData(iSub);
     double (*volume) = ctrlVol.subData(iSub);
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
-//      idtimev[i] = idtimev[i] / volume[i];
+      //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }
@@ -148,11 +148,13 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
 
-  // TODO(jontg)
+  // TODO(jontg) NEED TO BE FIXED
   // dt = -cfl * ctrlVol / dt;
   for (iSub = 0; iSub < numLocSub; ++iSub) for(int i = 0; i < dt(iSub).size(); ++i)
       if(fluidId(iSub)[i] >= 0) dt(iSub)[i] = -cfl * ctrlVol(iSub)[i] / dt(iSub)[i]; 
       else dt(iSub)[i] = 1e10;
+  // (EVENTUALLY WE SHOULD USE THIS)
+  // t = -cfl * ctrlVol / dt;
 
 }
 

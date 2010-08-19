@@ -96,10 +96,10 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
 
     //update nodeTags (only for numFluid>1)
-    if(this->numFluid>1) {
+ //   if(this->numFluid>1) {
       this->nodeTag0 = this->nodeTag;
       this->nodeTag = this->distLSS->getStatus();
-    }
+ //   }
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
@@ -142,7 +142,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->nullifyPointers();
+      this->ghostPoints->deletePointers();
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
     }
 }
@@ -174,6 +174,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
+  // Ghost-Points Population
+  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+    {
+      this->ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);

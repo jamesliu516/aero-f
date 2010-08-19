@@ -168,6 +168,11 @@ DistTimeState<dim>::~DistTimeState()
   if (UnBar) delete UnBar;
   if (Unm1Bar) delete Unm1Bar;
   if (Unm2Bar) delete Unm2Bar;
+
+  delete dt;
+  delete idti;
+  delete idtv; 
+  delete irey;
                                                                                                                           
   if (subTimeState) {
 #pragma omp parallel for

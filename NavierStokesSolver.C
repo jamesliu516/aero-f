@@ -10,7 +10,37 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     com->fprintf(stderr, "*** NOTE: Running an Embedded %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
-    NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+    if (ioData.eqs.type == EquationsData::EULER) 
+      {
+	com->fprintf(stderr,"*** Euler Simulation ***\n");
+	NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);	
+      }
+    else if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
+      {
+	com->fprintf(stderr,"*** Navier-Stokes Simulation ");
+	if(ioData.eqs.tc.type == TurbulenceClosureData::NONE)
+	  {
+	    com->fprintf(stderr,"--- No Turbulent Model Used ***\n");
+	    NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);
+	  }
+	else if(ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY &&
+		ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)
+	  {
+	    com->fprintf(stderr,"--- Spalart-Allmaras Turbulent Model Used ***\n");
+	    com->fprintf(stderr,"****** Wow! Embedded Turbulent Simulation! *****\n");
+	    NavierStokesEmbedded<6>::solve(ioData, geoSource, domain);
+	  }
+	else
+	  {
+	    com->fprintf(stderr, "*** Error: wrong turbulence closure type\n");
+	    exit(1);
+	  }
+      }
+    else
+      {
+	com->fprintf(stderr, "*** Error: wrong equation type\n");
+	exit(1);
+      }
   } 
   else if (ioData.eqs.numPhase == 1){
     if (ioData.eqs.type == EquationsData::EULER) 

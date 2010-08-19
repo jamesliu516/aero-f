@@ -115,11 +115,10 @@ public:
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
 			     DistSVec<double,dim> &, DistVec<double> &, 
                              DistVec<double> &, DistTimeState<dim> *);
-  template<int dimLS>
   void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
                              DistSVec<double,dim> &, DistVec<double> &,
                              DistVec<double> &, DistTimeState<dim> *,
-                             DistSVec<double,dimLS> &, DistVec<int> &);
+                             DistVec<int> &);
    void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
   //void computeScalarQuantity(PostFcn::ScalarType, DistSVec<double,3> &,
   //                           DistSVec<double,dim> &, DistVec<double> &,

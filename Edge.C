@@ -176,6 +176,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
   Vec<Vec3D> &normal = geoState.getEdgeNormal();
   Vec<double> &normalVel = geoState.getEdgeNormalVel();
 
+
   for (int l=0; l<numEdges; ++l) {
 
     if (!masterFlag[l]) continue;
@@ -207,7 +208,7 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }else{
-        if(fluidId[i] >= 0){
+        if(fluidId[i] >= 0){   //TODO: SHOULDN'T NEED THIS
             u = varFcn->getVelocity(V[i]);
             a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
             un = u * n - ndot;
@@ -782,7 +783,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{// interface
 
       // for node i
-      if(fluidId[i] >= 0) {
+      if(fluidId[i] >= 0) { //TODO should be isActive(...)
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
 
         switch (Nriemann) {
@@ -815,7 +816,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       // for node j
-      if(fluidId[j] >= 0){
+      if(fluidId[j] >= 0){ //TODO should be isActive(...)
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
 
         switch (Nriemann) {

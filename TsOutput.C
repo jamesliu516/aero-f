@@ -1922,10 +1922,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<int dimLS>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
-                                             DistTimeState<dim> *timeState, DistSVec<double,dimLS> &Phi,
+                                             DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId)
 {
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
@@ -1948,7 +1947,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (scalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, Phi, fluidId);
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, fluidId);
         DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
         domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
       }

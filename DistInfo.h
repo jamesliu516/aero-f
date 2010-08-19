@@ -117,9 +117,35 @@ struct DistInfo {
     if(masterFlag)   { delete [] masterFlag;   masterFlag  = 0; }
     if(invNdWeight)  { delete [] invNdWeight;  invNdWeight = 0; }
     */
+    // Adam 2010.07.29 
+    // It is needed though to detect memory leaks. Otherwise Valgrind complains…
+    // Adam 2010.08.04 (Update)
+    // Someone has to spend some time on the Valgrind errors. The objects are not destroyed correctly at the end of the simulation. 
+    // If the following lines are uncommented, the simulation get stuck forever into this destructor... Memory seems to be corrupted somehow and this is not a good sign.
+    /*
+    delete [] subLen; 
+    delete [] invNdWeight;
+    delete [] subOffset;
+    delete [] subLenReg;
+    delete [] subOffsetReg;
+    delete [] masterFlag;
+    */
+    /*
+    fprintf(stderr,"yep!1\n");
+    fprintf(stderr,"%p %i \n",invNdWeight,totLen);
+    fprintf(stderr,"yep!2\n");
+    for(int i=0;i<totLen;++i) {fprintf(stderr,"%f ",invNdWeight[i]);}
+    fprintf(stderr,"\nyep!3\n");
+    */
   }
+
+  // Copy Constructor and Assignement Operator are declared Private
+  // Compiler will return an error if used.
+private:
+  DistInfo(const DistInfo &);
+  DistInfo& operator=(const DistInfo &);
+
 };
 
 //------------------------------------------------------------------------------
-
 #endif
