@@ -11,7 +11,6 @@
 #include "PHYSBAM_INTERFACE.h"
 #include <PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.h>
 #include <PhysBAM_Geometry/Topology/TRIANGLE_MESH.h>
-#include <PhysBAM_Geometry/Topology_Based_Geometry/TRIANGULATED_SURFACE.h>
 
 using std::pair;
 using std::map;
@@ -119,7 +118,7 @@ class IntersectorFRG : public LevelSetStructure {
   friend class DistIntersectorFRG;
 
   public:
-    static const int UNDECIDED = -1, INSIDE = 0, OUTSIDE = -2; //INSIDE: inside real fluid, OUTSIDE: ~~
+    static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: ~~
 
   protected:
     int globIndex;
@@ -144,10 +143,6 @@ class IntersectorFRG : public LevelSetStructure {
     Vec<int> &status0; //<! status at the previous time-step.
 
     PhysBAMInterface<double> *physInterface;
-    PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle;
-    ARRAY<VECTOR<int,3> > *physbam_stElem;
-    PhysBAM::TRIANGLE_MESH *physbam_triangle_mesh;
-    PhysBAM::TRIANGULATED_SURFACE<double> *physbam_triangulated_surface;
 
     void reset(); //<! set status0=status and reset status and nFirstLayer.
     void rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem);

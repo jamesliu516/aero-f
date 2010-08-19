@@ -4494,11 +4494,13 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
   for (int i=0; i<6; i++) nextEdge[i] = -1;
   int firstEdge = -1;
 
-  //TODO: discuss with Jon
+  int outside_status=-5;
+  for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) if(LSS.fluidModel(0,T[facet[iFacet][j]])==0) outside_status=0;
+  if(outside_status != 0) for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) outside_status=std::max(outside_status,LSS.fluidModel(0,T[facet[iFacet][j]]));
   for (int iFacet=0; iFacet<4; iFacet++) {
     int status = 0;
     for (int j=0; j<3; j++)
-      if (LSS.isActive(0,T[facet[iFacet][j]]))
+      if(LSS.fluidModel(0,T[facet[iFacet][j]])==outside_status) // TODO(jontg): This DOES NOT WORK for thin-shells.
          status |= 1 << j;  //KW: set the j-th (counting from 0) binary digit to 1
     switch (status) {
       case 1:
@@ -4544,7 +4546,7 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
       fprintf(stderr,"Error in getPolygon. edgeCount = %d > 4, Abort...\n", edgeCount);
       exit(-1);
     }
-    if (LSS.isActive(0,T[edgeToNodes[curEdge][0]])) {
+    if (LSS.fluidModel(0,T[edgeToNodes[curEdge][0]])==outside_status) {
       polygon[edgeCount][0] = T[edgeToNodes[curEdge][0]];
       polygon[edgeCount][1] = T[edgeToNodes[curEdge][1]];
     }else {

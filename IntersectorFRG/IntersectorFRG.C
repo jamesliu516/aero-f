@@ -1,4 +1,3 @@
-//#include "../LevelSet/LevelSetStructure.C"
 #include <stdio.h>
 #include <iostream>
 #include "IntersectorFRG.h"
@@ -271,6 +270,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 {
   this->numFluid = iod.eqs.numPhase;
   com = comm;
+  com->fprintf(stderr,"Using Intersector FRG\n");
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -597,26 +597,22 @@ void DistIntersectorFRG::getBoundingBox() {
 void
 DistIntersectorFRG::initializePhysBAM() { //NOTE: In PhysBAM array index starts from 1 instead of 0
   // Initialize the Particles list
-  PhysBAM::TRIANGULATED_SURFACE<double>& physbam_triangulated_surface=*PhysBAM::TRIANGULATED_SURFACE<double>::Create();
-  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >& physbam_solids_particle = physbam_triangulated_surface.particles;
-  physbam_solids_particle.array_collection.Resize(numStNodes);
-  for (int i=0; i<numStNodes; i++) 
-    physbam_solids_particle.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
+  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle=new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
+  physbam_solids_particle->array_collection.Resize(numStNodes);
+  for (int i=0; i<numStNodes; i++) physbam_solids_particle->X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0],Xs[i][1], Xs[i][2]);
   
-  // Initialize the Triangle list
-  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > & physbam_stElem=physbam_triangulated_surface.mesh.elements;
-  physbam_stElem.Resize(numStElems);
-  for (int i=0; i<numStElems; i++)
-    physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
+  // Initialize the Triangle list.
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem(numStElems);
+  for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
 
-  // Construct TRIANGLE_MESH triangle_mesh.
-  physbam_triangulated_surface.Update_Number_Nodes();
-  physbam_triangulated_surface.mesh.Initialize_Adjacent_Elements();
+  // Initialize the mesh.
+  // fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
+  PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(numStNodes,physbam_stElem);
+  mesh->Initialize_Adjacent_Elements();mesh->Set_Number_Nodes(numStNodes);
 
   // Construct TRIANGULATED_SURFACE.
-  physbam_triangulated_surface.Update_Triangle_List();
   if(globPhysInterface) delete globPhysInterface;
-  globPhysInterface = new PhysBAMInterface<double>(physbam_triangulated_surface);
+  globPhysInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
 }
 
 //----------------------------------------------------------------------------
@@ -866,7 +862,7 @@ void DistIntersectorFRG::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes)
 void DistIntersectorFRG::updatePhysBAMInterface() 
 {
   for (int i=0; i<numStNodes; i++)
-    globPhysInterface->triangulated_surface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0], Xs[i][1], Xs[i][2]);
+    globPhysInterface->particles.X(i+1) = PhysBAM::VECTOR<double,3>(Xs[i][0], Xs[i][1], Xs[i][2]);
   globPhysInterface->Update(false); //also rebuild the topology (not really needed for now).
 }
 
@@ -1110,8 +1106,6 @@ void IntersectorFRG::floodFill(SubDomain& sub, int& nUndecided)
   // next: out pointer (of FIFO)
   int next = 0, lead = 0;
   for(int i = 0; i < numNodes; ++i) {
-//    if(locToGlobNodeMap[i]+1==1531336)
-//      fprintf(stderr,"For node %d (on Sub %d): status = %d\n", locToGlobNodeMap[i]+1, sub.getGlobSubNum(), status[i]);
     if(status[i] != UNDECIDED) {
       seed[lead++] = i;
       level[i] = 0;
@@ -1145,10 +1139,6 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
                       subD(&sub), distIntersector(distInt), status(stat), status0(stat0),
                       edges(sub.getEdges()), globIndex(sub.getGlobSubNum()), nodeToSubD(*sub.getNodeToSubD())
 {
-  physbam_solids_particle = 0;
-  physbam_stElem = 0;
-  physbam_triangle_mesh = 0;
-  physbam_triangulated_surface = 0;
   physInterface = 0;
 
   status = UNDECIDED;
@@ -1172,10 +1162,6 @@ IntersectorFRG::~IntersectorFRG()
   delete[] package;
   if(iscope) delete[] iscope;
 
-  if(physbam_solids_particle) delete physbam_solids_particle;
-  if(physbam_stElem) delete physbam_stElem;
-  if(physbam_triangle_mesh) delete physbam_triangle_mesh;
-  if(physbam_triangulated_surface) delete physbam_triangulated_surface;
   if(physInterface) delete physInterface;
 }
 
@@ -1195,12 +1181,6 @@ void IntersectorFRG::reset()
 
   status0 = status;
   status = UNDECIDED;
-  
-  //TODO: discuss with Jon
-  if(physbam_solids_particle) {physbam_solids_particle = 0;}
-  if(physbam_stElem) {physbam_stElem = 0;}
-  if(physbam_triangle_mesh) {physbam_triangle_mesh = 0;}
-  if(physbam_triangulated_surface) {physbam_triangulated_surface = 0;}
   if(physInterface) {delete physInterface; physInterface = 0;}
 
   nFirstLayer = 0;
@@ -1217,25 +1197,25 @@ void IntersectorFRG::rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem
 
   int count = 0;
   // Initialize the Particles list
-  physbam_triangulated_surface = PhysBAM::TRIANGULATED_SURFACE<double>::Create();
-  physbam_solids_particle = &(physbam_triangulated_surface->particles);
+  PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> > *physbam_solids_particle=new PhysBAM::GEOMETRY_PARTICLES<PhysBAM::VECTOR<double,3> >();
   physbam_solids_particle->array_collection.Resize(nPar);
   for (list<int>::iterator lit=particle.begin(); lit!=particle.end(); lit++)
     physbam_solids_particle->X(++count) = PhysBAM::VECTOR<double,3>(Xs[*lit][0],Xs[*lit][1], Xs[*lit][2]);
 
   // Initialize the Triangle list
-  physbam_stElem = &(physbam_triangulated_surface->mesh.elements);
-  physbam_stElem->Preallocate(nTri);
+  PhysBAM::ARRAY<PhysBAM::VECTOR<int,3> > physbam_stElem;
+  physbam_stElem.Preallocate(nTri);
   for (set<int>::iterator it=scope.begin(); it!=scope.end(); it++)
-    physbam_stElem->Append(PhysBAM::VECTOR<int,3>(n2p[sElem[*it][0]]+1, n2p[sElem[*it][1]]+1, n2p[sElem[*it][2]]+1));
+    physbam_stElem.Append(PhysBAM::VECTOR<int,3>(n2p[sElem[*it][0]]+1, n2p[sElem[*it][1]]+1, n2p[sElem[*it][2]]+1));
 
-  // Construct TRIANGLE_MESH triangle_mesh.
-  physbam_triangulated_surface->Update_Number_Nodes();
-  physbam_triangulated_surface->mesh.Initialize_Adjacent_Elements();
+  // Initialize the mesh.
+  // fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
+  PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(count,physbam_stElem);
+  mesh->Initialize_Adjacent_Elements();mesh->Set_Number_Nodes(count);
 
   // Construct TRIANGULATED_SURFACE.
-  physbam_triangulated_surface->Update_Triangle_List();
-  physInterface = new PhysBAMInterface<double>(*physbam_triangulated_surface);
+  if(physInterface) delete physInterface;
+  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
 
 
 
