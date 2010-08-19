@@ -3662,10 +3662,8 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 					  SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q)
 {
-  double phi = 1.0;
-  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], &phi, fluidId);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], 0);
 }
 
 //------------------------------------------------------------------------------
@@ -3686,11 +3684,9 @@ SubDomain::computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType t
 template<int dim>
 void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &Q, int dir)
 {
-  double phi = 1.0;
-  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
     if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
-      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], &phi, fluidId);
+      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], 0);
       Q[i] *= X[i][dir];
     }
   }
@@ -3699,14 +3695,14 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 
 //------------------------------------------------------------------------------
 
-template<int dim, int dimLS>
+template<int dim>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-                                          Vec<double> &Q, SVec<double,dimLS> &phi, Vec<int> &fluidId)
+                                          Vec<double> &Q, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i], fluidId[i]);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i],fluidId[i]);
 
 }
 
@@ -3832,7 +3828,7 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   int ierr = 0;
 
   for (int i=0; i<U.size(); ++i) {
-    if(fluidId[i] < 0) continue; //TODO: discuss with Jon
+    if(fluidId[i] < 0) continue; //TODO: should be (!isActive)
 
     double V[dim];
     varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
@@ -4401,14 +4397,16 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 
 	  Vec<double> Vi(dim);
 	  Vec<double> Vj(dim);
-	  varFcn[tagI].conservativeToPrimitive(U[i],Vi.v);
-	  varFcn[tagJ].conservativeToPrimitive(U[j],Vj.v);
+	  varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+	  varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
 	  if(!ghostPoints[i]) // GP has not been created
 	    {ghostPoints[i]=new GhostPoint<dim>;}
 	  if(!ghostPoints[j]) // GP has not been created
 	    {ghostPoints[j]=new GhostPoint<dim>;}
-	  ghostPoints[i]->addNeighbour(Vj,1.0,tagJ);
-	  ghostPoints[j]->addNeighbour(Vi,1.0,tagI);
+	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+	  
+	  ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);
+	  ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);
 	}
     } 
 }

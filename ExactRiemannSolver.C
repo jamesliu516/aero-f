@@ -25,7 +25,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 
 // FSI Riemann problem
   if(iod.problem.framework==ProblemData::EMBEDDED) 
-    fsiRiemann = new LocalRiemannFluidStructure(); //NOTE(KW): The following lines will still be 
+    fsiRiemann = new LocalRiemannFluidStructure<dim>(); //NOTE(KW): The following lines will still be 
                                                    //  executed. Currently they are never used but in
                                                    //  future if we have both FS and FF, they are needed.
 
@@ -153,8 +153,15 @@ void ExactRiemannSolver<dim>::computeFSIRiemannSolution(int tag, double *Vi, dou
       double *nphi, VarFcn *vf, double *Wstar, int nodej)
 
 {
+  // Adam 2010.08.18
+  // This function doesn't seem to be used anymore.
+  // To be removed in a couple of months
+  fprintf(stderr,"Oh Sorry ! Please uncomment the function (ExactRiemannSolver.C:159). I thought it wasn't needed anymore\n");
+  exit(-1);
+  /*
   fsiRiemann->computeRiemannSolution(tag, Vi,Vstar,nphi,vf,
          Wstar,rupdate[nodej],weight[nodej],iteration);
+  */
 }
 //------------------------------------------------------------------------------
 template<int dim>

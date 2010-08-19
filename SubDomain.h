@@ -657,10 +657,10 @@ public:
   template<int dim>
   void computeXP(PostFcn *, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &XP, int);
 
-  template<int dim, int dimLS>
+  template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-                                 Vec<double> &, SVec<double,dimLS> &, Vec<int> &);
+                                 Vec<double> &, Vec<int> &);
 
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,

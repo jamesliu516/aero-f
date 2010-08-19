@@ -1,8 +1,9 @@
 #ifndef _GHOST_POINT_H_
 #define _GHOST_POINT_H_
-  
+
 //#include<VarFcn.h>
 #include<Vector.h>
+#include<Vector3D.h>
 #include<iostream>
 using std::cout;
 using std::endl;
@@ -22,7 +23,7 @@ class GhostPoint {
     ng = 0;
     Vg = 0.0;
   }
-  void addNeighbour(Vec<double> &Vi,double distanceRate, int tag=0)
+  void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag=0)
   {
     // Ui is the state at the neighbour. 
     // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
@@ -32,8 +33,12 @@ class GhostPoint {
     // We want the velocity to be zero at the interface and we obtain the 
     // state at the GP by linear interpolation.
     Vg[0]   += Vi[0];
-    for(int i=1;i<dim-1;++i) Vg[i] -= distanceRate*Vi[i];
-    Vg[dim-1] += Vi[dim-1];
+    for(int i=1;i<4;++i) Vg[i] += interfaceVelocity[i-1] - distanceRate*(Vi[i]-interfaceVelocity[i-1]);
+    Vg[4]   += Vi[4];
+    if(dim == 6) // Turbulent Viscosity
+      {
+	Vg[5] -= distanceRate*Vi[5];
+      }
   }
   double* getPrimitiveState()
   {

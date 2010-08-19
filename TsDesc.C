@@ -95,6 +95,7 @@ TsDesc<dim>::~TsDesc()
   if (V) delete V;
   if (R) delete R;
   if (Rinlet) delete Rinlet;
+  if (Rreal) delete Rreal;
   if (data) delete data;
   if (input) delete input;
   if (output) delete output;
@@ -109,7 +110,7 @@ TsDesc<dim>::~TsDesc()
   if (mmh) delete mmh;
   if (hth) delete hth;
   if (forceNorms) delete forceNorms;
-
+  if (riemann1) delete riemann1;
 }
 
 //------------------------------------------------------------------------------

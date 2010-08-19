@@ -90,6 +90,7 @@ class DynamicNodalTransfer {
 
 	Communicator &com;
         Timer *timer;
+        EmbeddedStructure structure;
 
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
@@ -99,7 +100,6 @@ class DynamicNodalTransfer {
         double dts;
         double tMax;
 public:
-        EmbeddedStructure structure;
 	DynamicNodalTransfer(IoData& iod, Communicator &, Communicator &, Timer *);
 	~DynamicNodalTransfer();
 

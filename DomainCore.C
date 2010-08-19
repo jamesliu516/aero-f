@@ -104,7 +104,7 @@ Domain::Domain()
 
 Domain::~Domain()
 {
-  return; //BUG omp
+  //  return; //BUG omp
 
   if (subDomain) {
 #pragma omp parallel for
@@ -145,7 +145,7 @@ Domain::~Domain()
   if (PrT) delete(PrT);
   if (WCsDelSq) delete(WCsDelSq);
   if (WPrT) delete(WPrT);
-  if (tag) delete(tag);
+  // (TODO) if (tag) delete(tag);
   if (tagBar) delete(tagBar);
 
 // Included (MB)
@@ -153,6 +153,17 @@ Domain::~Domain()
 
   //if (com) delete com;
   if(meshMotionBCs) delete meshMotionBCs;
+
+  //communication Structures
+  // The delete 
+  delete com;
+  delete strCom;
+  delete heatCom;
+  delete embedCom;
+  delete globCom;
+
+
+  delete timer;
 }
 
 //------------------------------------------------------------------------------

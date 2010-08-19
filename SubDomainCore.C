@@ -118,6 +118,16 @@ SubDomain::~SubDomain()
   if (NodeToNode) delete NodeToNode;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
+  delete &nodes;
+  delete &faces;
+  delete &elems;  
+  for(int i=0;i<3;i++) 
+    {
+      delete[] dGradP[i];
+      delete[] gradP[i];
+    }
+  delete[] rotOwn;
+//  if (triaSurf) delete triaSurf;
 
 }
 
@@ -536,6 +546,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     double volume = elems[i].computeControlVolumes(X, ctrlVol);
 
     if (volume <= 0.0) {
+      fprintf(stderr,"Element %i has a negative volume…\n",i+1);
       ++ierr;
       if (numInvElem)
 	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
@@ -3094,6 +3105,8 @@ int SubDomain::setFaceToElementConnectivity()
     }
   }
 
+  delete[] fm;
+
   return nswap;
 
 }
@@ -4299,9 +4312,9 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
     if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
        LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
        LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
-      continue; // this tet is away from interface.
+      continue; // this tet is away from interface. (Doesn't work for membranes.)
 
-    for (int i=0; i<4; i++) {
+        for (int i=0; i<4; i++) {
       x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
     count = getPolygon(iElem, LSS, polygon);
 
