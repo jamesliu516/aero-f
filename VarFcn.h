@@ -50,7 +50,7 @@ private:
 
 
   void check(int& tag) const{ 
-    if(0 > tag || tag>=numPhases){fprintf(stderr,"check(%d) failed\n",tag);exit(-1);}
+    if(0 > tag || tag>=numPhases){tag=numPhases;};//}fprintf(stderr,"check(%d) failed\n",tag);exit(-1);}
 //    assert(0 <= tag && tag<numPhases);
   }
 

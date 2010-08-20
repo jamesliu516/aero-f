@@ -4394,19 +4394,26 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 	{ //at interface
 	  int tagI = tag[i];
 	  int tagJ = tag[j];
-
-	  Vec<double> Vi(dim);
-	  Vec<double> Vj(dim);
-	  varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
-	  varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
-	  if(!ghostPoints[i]) // GP has not been created
-	    {ghostPoints[i]=new GhostPoint<dim>;}
-	  if(!ghostPoints[j]) // GP has not been created
-	    {ghostPoints[j]=new GhostPoint<dim>;}
+	  bool iIsActive = LSS.isActive(0.0,i);
+	  bool jIsActive = LSS.isActive(0.0,j);
 	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
 	  
-	  ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);
-	  ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);
+	  if(iIsActive) 
+	    {
+	      Vec<double> Vi(dim);
+	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+	      if(!ghostPoints[j]) // GP has not been created
+		{ghostPoints[j]=new GhostPoint<dim>;}
+	      ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);
+	    }
+	  if(jIsActive)
+	    {
+	      Vec<double> Vj(dim);
+	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+	      if(!ghostPoints[i]) // GP has not been created
+		{ghostPoints[i]=new GhostPoint<dim>;}
+	      ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);
+	    }
 	}
     } 
 }
