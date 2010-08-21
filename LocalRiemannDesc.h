@@ -7,6 +7,8 @@
 #include "IoData.h"
 #include "SparseGridCluster.h"
 #include <cmath>
+#include "ImplicitRiemann.h"
+#include "DenseMatrixOps.h"
 
 //----------------------------------------------------------------------------
 // First the derived classes of LocalRiemannGfmp (no exact Riemann problem)
@@ -232,6 +234,12 @@ public:
                               double &weighti, double &weightj,
                               double dx[3], int it);
 
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
+
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
@@ -334,6 +342,151 @@ void LocalRiemannGfmparGasGas::computeRiemannSolution(double *Vi, double *Vj,
 
 }
 
+inline 
+void LocalRiemannGfmparGasGas::computeRiemannJacobian(double *Vi, double *Vj,
+				                      int IDi, int IDj, double *nphi,
+				                      double *Wi, double *Wj,
+				                      double dx[3],int it,
+						      double* dWidWi,double*  dWidWj,
+						      double* dWjdWi,double*  dWjdWj) {
+  
+  int dim = 5;
+  int k,l;
+  
+  double P_1, P_2, U_1, U_2, R_1, R_2;
+  double P_i, U_i, R_i1, R_i2;
+
+  double gam1  = vf_->getGamma(fluid1);
+  double pref1 = vf_->getPressureConstant(fluid1);
+  double gam2  = vf_->getGamma(fluid2);
+  double pref2 = vf_->getPressureConstant(fluid2);
+
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+
+  if (IDi==fluid1) {
+
+    // cell i is fluid1
+    // cell j is fluid2
+    R_2  = Vj[0];     R_1 = Vi[0];
+    U_2  = vnj;       U_1 = vni;
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
+
+    ImplicitRiemann::computeGasGasJacobian(Wi[4], gam2,pref2,P_2,R_2, gam1, pref1, P_1,R_1, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
+
+    /*const double eps = 1.0e-5;
+    double r2p = R_2+eps;
+    double u2p = U_2+eps;
+    double p2p = P_2+eps;
+    double r1p = R_1+eps;
+    double u1p = U_1+eps;
+    double p1p = P_1+eps;
+    double vn[4];
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    F77NAME(eriemanngg)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<< "dUj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpj/duj=" << dWjdWj3[1] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<<  "dpi/duj=" << dWidWj3[1] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<<"dpj/dPj=" << dWjdWj3[2] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<< "duj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<<"dPj/dPj=" <<  dWjdWj3[8] << " " << dWidWj3[8] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dui/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[2]-R_i2)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpi/dUi=" <<dWidWi3[1] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUi/dUi=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPi/dUi=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpj/dUi=" << dWjdWi3[1] << " " << (vn[2]-R_i2)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpi/dPi=" <<dWidWi3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUi/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPi/dPi=" << dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[2]-R_i2)/eps << std::endl;*/
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+    R_2  = Vi[0];     R_1  = Vj[0];
+    U_2  = vni;       U_1  = vnj;
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
+
+    ImplicitRiemann::computeGasGasJacobian(Wi[4], gam2, pref2, P_2,R_2,gam1,pref1,P_1,R_1, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+    /*const double eps = 1.0e-5;
+    double r2p = R_2+eps;
+    double u2p = U_2+eps;
+    double p2p = P_2+eps;
+    double r1p = R_1+eps;
+    double u1p = U_1+eps;
+    double p1p = P_1+eps;
+    double vn[4];
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    F77NAME(eriemanngg)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/eps << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/eps << std::endl;
+    
+    F77NAME(eriemanngg)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],gam2,pref2,gam1,pref1);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/eps << std::endl;*/
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
+}
+
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
@@ -351,11 +504,93 @@ public:
                               double &weighti, double &weightj, 
                               double dx[3], int it);
 
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
 private:
   LocalRiemannGfmparGasTait();
 };
 
 //----------------------------------------------------------------------------
+
+inline void solveSGTait(double Rg,double Ug,double Pg, 
+			double Rw,double Uw,double Pw,
+			double &Pi,double &Ui, 
+			double &Rig, double &Riw,
+			double alpha,double beta,
+			double pref, double gamma,
+			double Pinf) {
+
+  double Q,f,m,n,dQ,df,g,dg,db;
+  double ag = sqrt(gamma/Rg*(Pg+Pinf));
+  double aw = sqrt(alpha*beta*pow(Rw,beta-1.0)),b;
+  Pi = sqrt(Pw*Pg);
+  Riw = pow((Pi-pref)/alpha,1.0/beta);
+  double dpdrho = alpha*beta*pow(Riw,beta-1.0);
+  
+  int k = 0;
+  while (++k < 100) {
+
+    // Gas relations
+    if (Pi > Pg) {
+
+      // Shock
+      m = 2.0/((gamma+1.0)*Rg);
+      n = (Pg+Pinf)*(gamma-1.0)/(gamma+1.0);
+      Q = sqrt( (Pi+Pinf+n)/m );
+      dQ = 0.5/(Q*m);
+      f = (Pi-Pg)/Q;
+      df = 1.0/Q - (Pi-Pg)/(Q*Q)*dQ;
+    } else {
+
+      // Rarefaction
+      f = 2.0*ag/(gamma-1.0)*( pow((Pi+Pinf)/(Pg+Pinf), (gamma-1.0)/(2.0*gamma) )-1.0 );
+      df = 2.0*ag/(gamma-1.0)*((gamma-1.0)/(2.0*gamma)/(Pg+Pinf)*pow((Pi+Pinf)/(Pg+Pinf), (gamma-1.0)/(2.0*gamma)-1.0 ));
+    }
+
+    // Liquid relations
+    if (Pi > Pw) {
+
+      g = sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) );
+      dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0))*(Riw-Rw)/(Riw*Rw) + 
+		  (pow(Riw,beta)-pow(Rw,beta))/(Riw*Rw) - 
+		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw));
+    } else {
+
+      g = 2.0*aw/(beta-1.0)*( pow(Riw/Rw, (beta-1.0)*0.5) - 1.0);
+      dg = 2.0*aw/(beta-1.0)*(beta-1.0)*0.5/Rw*pow(Riw/Rw, (beta-1.0)*0.5-1.0);
+    }
+
+    b = f+g+Uw-Ug;
+    //std::cout << Pi << " " << b << std::endl;
+    db = df+dg/dpdrho;   
+    if (fabs(b/db) < 1.0e-6*Pi)
+      break;
+    Pi -= b/db;
+    if (Pi < 1.0e-10)
+      Pi = 1.0e-10;
+
+    Riw = pow((Pi-pref)/alpha,1.0/beta);
+    dpdrho = alpha*beta*pow(Riw,beta-1.0);
+    
+  }
+
+  if (k == 100) {
+    std::cout << "No convergence in Newton iteration for gas-tait ERS" << std::endl;
+    exit(1);
+  }
+
+  Ui = 0.5*(Uw+Ug)+0.5*(g-f);
+  if (Pi > Pg) {
+    double h = (gamma-1.0)/(gamma+1.0);
+    double j = (Pi+Pinf)/(Pg+Pinf);
+    Rig = Rg*(j+h)/(j*h+1.0);
+  } else {
+    Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
+  }
+}
 
 inline
 void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
@@ -371,6 +606,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double beta    = vf_->getBetaWater(fluid1);
   double pref    = vf_->getPrefWater(fluid1);
   double gam     = vf_->getGamma(fluid2);
+  double Pinf    = vf_->getPressureConstant(fluid2);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir;
@@ -388,7 +624,15 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     P_g  = vf_->getPressure(Vj, IDj);
     P_w  = vf_->getPressure(Vi, IDi);
 
-    F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+    solveSGTait(R_g,U_g,P_g, 
+		R_w,U_w,P_w,
+		P_i,U_i, 
+		R_il,R_ir,
+		alpha,beta,
+		pref,gam,
+		Pinf);
 
     Wi[0]  = R_ir;                    Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
@@ -413,7 +657,16 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
     P_g  = vf_->getPressure(Vi, IDi);
     P_w  = vf_->getPressure(Vj, IDj);
 
-    F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+    solveSGTait(R_g,U_g,P_g, 
+		R_w,U_w,P_w,
+		P_i,U_i, 
+		R_il,R_ir,
+		alpha,beta,
+		pref,gam,
+		Pinf);
+
+    //std::cout << "P_i = " << P_i << " " << R_il << " " << R_ir << std::endl;
 
     Wi[0]  = R_il;                      Wi[dim]    = Wi[0];
     Wi[1]  = vti[0]+U_i*nphi[0];        Wi[dim+1]  = Wi[1];
@@ -449,6 +702,301 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 
 }
 //----------------------------------------------------------------------------
+
+inline 
+void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
+						       int IDi, int IDj, double *nphi,
+						       double *Wi, double *Wj,
+						       double dx[3],int it,
+						       double* dWidWi,double*  dWidWj,
+						       double* dWjdWi,double*  dWjdWj) {
+  int dim = 5;
+
+  double alpha   = vf_->getAlphaWater(fluid1);
+  double beta    = vf_->getBetaWater(fluid1);
+  double pref    = vf_->getPrefWater(fluid1);
+  double gam     = vf_->getGamma(fluid2);
+
+  double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
+  double P_i, U_i, R_il, R_ir,R_i1,R_i2;
+
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+  double dTdrho,dTdp;
+
+  if (IDi==fluid1) {
+    // cell j is gas
+    // cell i is tait
+    R_g  = Vj[0];     R_w  = Vi[0];
+    U_g  = vnj;       U_w  = vni;
+    P_g  = vf_->getPressure(Vj, IDj);
+    P_w  = vf_->getPressure(Vi, IDi);
+
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+
+    ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, 0.0, P_g, R_g, alpha,
+					    beta, pref, P_w, R_w, 
+					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3);
+
+    /*dTdrho = 1.0/(Wj[0]*(vf_->getGamma(IDj)-1.0));
+    dTdp = -vf_->computeTemperature(Wj,IDj)/Wj[0];
+
+    dWidWi3[6] = dTdrho*dWjdWi3[0]+dTdp*dWjdWi[2];
+    dWidWi3[7] = dTdrho*dWjdWi3[3]+dTdp*dWjdWi[5];
+    dWidWi3[8] = dTdrho*dWjdWi3[6]+dTdp*dWjdWi[8];
+
+    dWidWj3[6] = dTdrho*dWjdWj3[0]+dTdp*dWjdWj[2];
+    dWidWj3[7] = dTdrho*dWjdWj3[3]+dTdp*dWjdWj[5];
+    dWidWj3[8] = dTdrho*dWjdWj3[6]+dTdp*dWjdWj[8];
+    */   
+    /* alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);  
+    solveSGTait(r2p,U_g,P_g, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(r2p,U_g,P_g,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout << "H1" << std::endl;
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_g) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_g) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_g) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_g) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,u2p,P_g, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,u2p,P_g,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_g) << std::endl;
+    std::cout<<  "dUi/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_g) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_g) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_g) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,p2p, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,p2p,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_g) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_g) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_g) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_g) << std::endl;
+    
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,P_g, 
+		r1p,U_w,p1p,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,r1p,U_w,p1p,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_w) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_w) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_w) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_w) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,P_g, 
+		R_w,u1p,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,u1p,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_w) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_w) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_w) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_w) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,p1p,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/eps << std::endl;
+    */
+  }else{
+    // cell j is tait
+    // cell i is gas
+    R_g  = Vi[0];     R_w  = Vj[0];
+    U_g  = vni;       U_w  = vnj;
+    P_g  = vf_->getPressure(Vi, IDi);
+    P_w  = vf_->getPressure(Vj, IDj);
+
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
+
+    ImplicitRiemann::computeGasTaitJacobian(Wi[4], gam, 0.0, P_g, R_g, alpha,
+					    beta, pref, P_w, R_w, 
+					    dWidWi3, dWidWj3, dWjdWj3, dWjdWi3);
+
+    /*dTdrho = 1.0/(Wi[0]*(vf_->getGamma(IDi)-1.0));
+    dTdp = -vf_->computeTemperature(Wi,IDi)/Wi[0];
+
+    dWjdWj3[6] = dTdrho*dWidWj3[0]+dTdp*dWidWj[2];
+    dWjdWj3[7] = dTdrho*dWidWj3[3]+dTdp*dWidWj[5];
+    dWjdWj3[8] = dTdrho*dWidWj3[6]+dTdp*dWidWj[8];
+
+    dWjdWi3[6] = dTdrho*dWidWi3[0]+dTdp*dWidWi[2];
+    dWjdWi3[7] = dTdrho*dWidWi3[3]+dTdp*dWidWi[5];
+    dWjdWi3[8] = dTdrho*dWidWi3[6]+dTdp*dWidWi[8];
+    */
+    /*const double eps = 1.0+1.0e-7,eps2=1.0e-6;
+    double r2p = R_g*eps+eps2;
+    double u2p = U_g*eps+eps2;
+    double p2p = P_g*eps+eps2;
+    double r1p = R_w*eps+eps2;
+    double u1p = U_w*eps+eps2;
+    double p1p = pref+alpha*pow(r1p,beta);
+    double vn[4];   
+    solveSGTait(R_g,U_g,P_g, 
+		R_w,U_w,P_w,
+		P_i,U_i, 
+		R_i2,R_i1,
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_i2,R_i1,alpha,beta,pref,gam);
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);  
+    solveSGTait(r2p,U_g,P_g, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(r2p,U_g,P_g,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout << "H1" << std::endl;
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_g) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_g) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_g) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_g) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,u2p,P_g, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,u2p,P_g,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_g) << std::endl;
+    std::cout<<  "dUi/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_g) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_g) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_g) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,p2p, 
+		R_w,U_w,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,p2p,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_g) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_g) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_g) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_g) << std::endl;
+    
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,P_g, 
+		r1p,U_w,p1p,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,r1p,U_w,p1p,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_w) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_w) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_w) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_w) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    solveSGTait(R_g,U_g,P_g, 
+		R_w,u1p,P_w,
+		vn[0],vn[1], 
+		vn[2],vn[3],
+		alpha,beta,
+		pref,gam,
+		0.0);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,u1p,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_w) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_w) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_w) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_w) << std::endl;
+    
+    alpha   = vf_->getAlphaWater(fluid1);
+    beta    = vf_->getBetaWater(fluid1);
+    pref    = vf_->getPrefWater(fluid1);
+    gam     = vf_->getGamma(fluid2);
+    //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,p1p,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/eps << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/eps << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/eps << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/eps << std::endl;
+    */
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
+}
+
 //----------------------------------------------------------------------------
 
 class LocalRiemannGfmparTaitTait: public LocalRiemannGfmpar {
@@ -464,6 +1012,12 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
 
 private:
   LocalRiemannGfmparTaitTait();
@@ -569,6 +1123,162 @@ void LocalRiemannGfmparTaitTait::computeRiemannSolution(double *Vi, double *Vj,
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
 }
+
+inline 
+void LocalRiemannGfmparTaitTait::computeRiemannJacobian(double *Vi, double *Vj,
+							int IDi, int IDj, double *nphi,
+							double *Wi, double *Wj,
+							double dx[3],int it,
+							double* dWidWi,double*  dWidWj,
+							double* dWjdWi,double*  dWjdWj) {
+  
+  int dim = 5;
+  int k,l;
+  
+  double alpha1   = vf_->getAlphaWater(fluid1);
+  double beta1    = vf_->getBetaWater(fluid1);
+  double pref1    = vf_->getPrefWater(fluid1);
+  double alpha2   = vf_->getAlphaWater(fluid2);
+  double beta2    = vf_->getBetaWater(fluid2);
+  double pref2    = vf_->getPrefWater(fluid2);
+
+  double P_1, P_2, U_1, U_2, R_1, R_2;
+  double P_i, U_i, R_i1, R_i2;
+
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+
+  if (IDi==fluid1) {
+
+    //std::cout << "ij" << std::endl << std::endl ;
+    // cell i is fluid1
+    // cell j is fluid2
+    R_2  = Vj[0];     R_1 = Vi[0];
+    U_2  = vnj;       U_1 = vni;
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+
+    ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2,P_2,R_2, alpha1, beta1,pref1, P_1,R_1, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
+    
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+                        alpha2,beta2,pref2,alpha1,beta1,pref1);//R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/duj=" << dWjdWj3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "duj/duj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpi/duj=" << dWidWj3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<<"dpj/dPj=" << dWjdWj3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "duj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPj/dPj=" <<  dWjdWj3[8] << " " << dWidWj3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "dui/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dUi=" <<dWidWi3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUi/dUi=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPi/dUi=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpj/dUi=" << dWjdWi3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dPi=" <<dWidWi3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUi/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPi/dPi=" << dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+    //std::cout << "ji" << std::endl << std::endl ;
+    R_2  = Vi[0];     R_1  = Vj[0];
+    U_2  = vni;       U_1  = vnj;
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+                        alpha2,beta2,pref2,alpha1,beta1,pref1);
+
+    ImplicitRiemann::computeTaitTaitJacobian(P_i, alpha2,beta2,pref2, P_2,R_2,alpha1, beta1,pref1,P_1,R_1, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,alpha2,beta2,pref2,alpha1,beta1,pref1);
+    F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "dui/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+    
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
+}
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
@@ -585,6 +1295,13 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidWi,double*  dWidWj,
+			      double* dWjdWi,double*  dWjdWj);
 
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
@@ -682,6 +1399,139 @@ void LocalRiemannGfmparJWLJWL::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+}
+//----------------------------------------------------------------------------
+
+inline 
+void LocalRiemannGfmparJWLJWL::computeRiemannJacobian(double *Vi, double *Vj,
+							int IDi, int IDj, double *nphi,
+							double *Wi, double *Wj,
+							double dx[3],int it,
+							double* dWidWi,double*  dWidWj,
+							double* dWjdWi,double*  dWjdWj) {
+  
+  int dim = 5;
+  int k,l;
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+
+  if (IDi==fluid1) {
+
+    //std::cout << "ij" << std::endl << std::endl ;
+    // cell i is fluid1
+    // cell j is fluid2
+
+    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+    
+    /*const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+                        alpha2,beta2,pref2,alpha1,beta1,pref1);//R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/duj=" << dWjdWj3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "duj/duj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpi/duj=" << dWidWj3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<<"dpj/dPj=" << dWjdWj3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "duj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPj/dPj=" <<  dWjdWj3[8] << " " << dWidWj3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "dui/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dUi=" <<dWidWi3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUi/dUi=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPi/dUi=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpj/dUi=" << dWjdWi3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dPi=" <<dWidWi3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUi/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPi/dPi=" << dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;*/
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+
+    ImplicitRiemann::computeJwlJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+
+    /*const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,alpha2,beta2,pref2,alpha1,beta1,pref1);
+    F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "dui/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+    */
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
 }
 
 //----------------------------------------------------------------------------
@@ -833,6 +1683,14 @@ public:
                               double *rupdatei, double *rupdatej, 
                               double &weighti, double &weightj,
                               double dx[3], int it);
+
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidWi,double*  dWidWj,
+			      double* dWjdWi,double*  dWjdWj);
+
   void eriemann(double rhol, double ul, double pl, 
                 double rhor, double ur, double pr, 
                 double &pi, double &ui, double &rhoil, double &rhoir){
@@ -903,7 +1761,8 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vj, IDj);
     P_1  = vf_->getPressure(Vi, IDi);
 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWj[0],initWi[0]); 
+    //eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWj[0],initWi[0]); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i1;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -931,7 +1790,8 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
     P_2  = vf_->getPressure(Vi, IDi);
     P_1  = vf_->getPressure(Vj, IDj);
 
-    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWi[0],initWj[0]); 
+    //eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,initWi[0],initWj[0]); 
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
     initWi[0] = R_i2;
     initWi[1] = U_i;
     initWi[2] = P_i;
@@ -967,6 +1827,201 @@ void LocalRiemannGfmparGasJWL::computeRiemannSolution(double *Vi, double *Vj,
   if (it == 1)
     updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
 
+}
+inline 
+void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
+							int IDi, int IDj, double *nphi,
+							double *Wi, double *Wj,
+							double dx[3],int it,
+							double* dWidWi,double*  dWidWj,
+							double* dWjdWi,double*  dWjdWj) {
+  
+	
+  double P_1, P_2, U_1, U_2, R_1, R_2;
+  double P_i, U_i, R_i1, R_i2;
+
+  int dim = 5;
+  int k,l;
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+
+  if (IDi==fluid1) {
+
+    //std::cout << "ij" << std::endl << std::endl ;
+    // cell i is fluid1
+    // cell j is fluid2
+
+    ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+
+    dWidWi3[1] *= -1.0;
+    dWidWi3[3] *= -1.0;
+    dWidWi3[5] *= -1.0;
+    dWidWi3[7] *= -1.0;
+    dWidWj3[1] *= -1.0;
+    dWidWj3[3] *= -1.0;
+    dWidWj3[5] *= -1.0;
+    dWidWj3[7] *= -1.0;
+    dWjdWi3[1] *= -1.0;
+    dWjdWi3[3] *= -1.0;
+    dWjdWi3[5] *= -1.0;
+    dWjdWi3[7] *= -1.0;
+    dWjdWj3[1] *= -1.0;
+    dWjdWj3[3] *= -1.0;
+    dWjdWj3[5] *= -1.0;
+    dWjdWj3[7] *= -1.0;
+
+    
+    /*R_2  = Vj[0];     R_1 = Vi[0];
+    U_2  = vnj;       U_1 = vni;
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
+
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+    //                    alpha2,beta2,pref2,alpha1,beta1,pref1);//R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1);
+    eriemanngj_selector(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    //F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/duj=" << dWjdWj3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "duj/duj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpi/duj=" << dWidWj3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<<"dpj/dPj=" << dWjdWj3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "duj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPj/dPj=" <<  dWjdWj3[8] << " " << dWidWj3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "dui/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dUi=" <<dWidWi3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUi/dUi=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPi/dUi=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpj/dUi=" << dWjdWi3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dPi=" <<dWidWi3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUi/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPi/dPi=" << dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;*/
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+
+    //std::cout << "ji" << std::endl << std::endl ;
+
+    ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
+
+    dWidWi3[1] *= -1.0;
+    dWidWi3[3] *= -1.0;
+    dWidWi3[5] *= -1.0;
+    dWidWi3[7] *= -1.0;
+    dWidWj3[1] *= -1.0;
+    dWidWj3[3] *= -1.0;
+    dWidWj3[5] *= -1.0;
+    dWidWj3[7] *= -1.0;
+    dWjdWi3[1] *= -1.0;
+    dWjdWi3[3] *= -1.0;
+    dWjdWi3[5] *= -1.0;
+    dWjdWi3[7] *= -1.0;
+    dWjdWj3[1] *= -1.0;
+    dWjdWj3[3] *= -1.0;
+    dWjdWj3[5] *= -1.0;
+    dWjdWj3[7] *= -1.0;
+
+    /*R_2  = Vi[0];     R_1  = Vj[0];
+    U_2  = vni;       U_1  = vnj;
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1);
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    //F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "dui/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanngj_selector(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+    */
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
 }
 
 //----------------------------------------------------------------------------

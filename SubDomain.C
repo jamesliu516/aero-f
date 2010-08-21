@@ -1041,10 +1041,10 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
 {
   if (!flag){
     edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId);
   }else{
     edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId, nodeType);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, nodeType);
   }
 
   for (int i=0; i<ctrlVol.size(); ++i) {
@@ -1054,7 +1054,33 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
       Aii[k] *= voli;
   }
 }
+//-------------------------------------------------------------------------------
 
+template<int dim, class Scalar, int dimLS>
+void SubDomain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+						  GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
+						  NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
+						  EdgeGrad<dim>* egrad,Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
+						  GenMat<Scalar,dimLS> &A, CommPattern<double> * flag)
+{
+
+  if (!flag){
+    edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
+					    egrad, ctrlVol , Phi, A);
+    faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
+  }else{
+    edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
+					    egrad,ctrlVol , Phi, A);
+    faces.computeJacobianFiniteVolumeTermLS(geoState, V, A );
+  }
+
+  for (int i=0; i<ctrlVol.size(); ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<dimLS*dimLS; ++k)
+      Aii[k] *= voli;
+  }
+}
 //-------------------------------------------------------------------------------
 
 template<class Scalar, int neq>

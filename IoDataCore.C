@@ -2057,8 +2057,8 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ImplicitData>
     (ca, "FiniteDifferenceOrder", this,
-      reinterpret_cast<int ImplicitData::*>(&ImplicitData::startup), 2,
-      "FirstOrder", 0, "SecondOrder", 1);
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::fdOrder), 2,
+      "FirstOrder", FIRST_ORDER, "SecondOrder", SECOND_ORDER);
 
 
 

@@ -22,6 +22,7 @@ domain(dom)
 
   numLocSub = dom->getNumLocSub();
 
+  oldV = new DistSVec<double,dim>(dom->getNodeDistInfo());
   riemannupdate = new DistSVec<double,dim>(dom->getNodeDistInfo());
   weight        = new DistVec<double>(dom->getNodeDistInfo());
 
@@ -75,6 +76,7 @@ DistExactRiemannSolver<dim>::~DistExactRiemannSolver()
   delete weight;
   delete interfacialWi;
   delete interfacialWj;
+  delete oldV;
 
   if (subExactRiemannSolver) {
 #pragma omp parallel for
@@ -100,6 +102,13 @@ void DistExactRiemannSolver<dim>::updatePhaseChange(DistSVec<double,dim> &V,
   }
 
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void DistExactRiemannSolver<dim>::storeOldV(DistSVec<double,dim> &V) {
+
+  *oldV = V;
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 void DistExactRiemannSolver<dim>::storePreviousPrimitive(DistSVec<double,dim> &V,

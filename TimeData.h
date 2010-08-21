@@ -46,6 +46,8 @@ public:
   void computeVelocities(DGCLData::Velocities, DistSVec<double,3> &,
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
+  double getTauN() const { return tau_n; }
+
 // Included
   void rstVar(IoData &);
 

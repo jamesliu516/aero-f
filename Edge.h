@@ -141,6 +141,14 @@ public:
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
                                FluidSelector &, Vec<int> &, int * );
 
+  template<class Scalar, int dim, int dimLS>
+    void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   GeoState& geoState, SVec<double,3>& X,
+					   SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+					   NodalGrad<dimLS> &ngradLS,
+					   EdgeGrad<dim>* egrad,
+					   Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
+					   GenMat<Scalar,dimLS> &A);
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
                               SVec<double,dim> &V, double Phii, double Phij,

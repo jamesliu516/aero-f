@@ -18,8 +18,8 @@ class Timer {
     romSol, romConstr, romTimeInteg,
     comm, localCom, globalCom, interCom, rmaCom,
     io, binread, binwrite,
-    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,
-    waitrec, timeStep, intersect, embedPhaseChange, eulerFSI
+    levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,lsPrecSetup,lsJac,
+    waitrec, timeStep, intersect, embedPhaseChange, eulerFSI, NUMTIMINGS
   };
 
   int numTimings;
@@ -88,6 +88,8 @@ public:
   double addLSNodalWeightsAndGradTime(double);
   double addLSFiniteVolumeTermTime(double);
   double addLSKspTime(double);
+  double addLSPrecSetupTime(double);
+  double addLSFiniteVolumeJacTime(double);
 
   // Embedded FSI Timer Functions
   double addIntersectionTime(double);

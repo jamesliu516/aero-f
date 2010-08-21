@@ -454,6 +454,15 @@ public:
                                        DistSVec<double,3> &,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, FluidSelector &);
+
+  template<int dim, class Scalar, int dimLS>
+    void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
+					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
+					   DistEdgeGrad<dim>* egrad,
+					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
+					   DistMat<Scalar,dimLS> &A);
+  
   template<int dim>
   void recomputeRHS(VarFcn*, DistSVec<double,dim> &, DistSVec<double,dim> &, DistExtrapolation<dim>*,
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);
