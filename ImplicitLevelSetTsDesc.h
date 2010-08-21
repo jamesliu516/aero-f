@@ -69,6 +69,8 @@ public:
   //-- new functions for solving LevelSet equation
   void computeFunctionLS(int, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
   void computeJacobianLS(int, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+  void setOperatorsLS(DistSVec<double,dimLS> &Q);
+
   int solveLinearSystemLS(int, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
 

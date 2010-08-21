@@ -119,6 +119,7 @@ ADD_LIBRARY(FluidBase
              GeoSource.C 
              GeoState.C 
              HeatTransferHandlerCore.C 
+						 ImplicitRiemann.C
              InletNodeCore.C 
              IoDataCore.C 
              KspConvCriterion.C 

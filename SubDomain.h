@@ -403,6 +403,17 @@ public:
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
                                        FluidSelector &, 
                                        Vec<int> &, CommPattern<double> *);
+
+
+  template<int dim, class Scalar, int dimLS>
+    void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
+					   NodalGrad<dim>& ngrad,
+					   NodalGrad<dimLS> &ngradLS,
+					   EdgeGrad<dim>* egrad,
+					   Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
+					   GenMat<Scalar,dimLS> &A, CommPattern<double> * flag);
+
   template<int dim>
   void recomputeRHS(VarFcn*, SVec<double,dim>& ,SVec<double,dim>& , Extrapolation<dim>*,
                                         BcData<dim>&, GeoState&, SVec<double,3> &);

@@ -566,7 +566,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
-    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac, fluidId[nodeNum(l)]);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<neq*neq; ++k) 
       Aii[k] += jac[k];
@@ -592,7 +592,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
       Vec3D normal = getNormal(normals, l);
       double normVel= getNormalVel(normalVel, l);
 
-      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac, fluidId[nodeNum(l)]);
       Scalar *Aii = A.getElem_ii(nodeNum(l));
       for (int k=0; k<neq*neq; ++k)
         Aii[k] += jac[k];
@@ -610,7 +610,27 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 					     GenMat<Scalar,dimLS> &A)
 {
 
-  double jac;
+  double Uf = 0.0;
+  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+      code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
+      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED       ||
+      code == BC_SYMMETRY
+      ) {
+    //at wall either U.n = Uwall.n (Euler) or U = Uwall (Navier-Stokes)
+    //and thus the flux is 0.0
+  }else{
+    for (int l=0; l<numNodes(); ++l) {
+      Scalar *Aii = A.getElem_ii(nodeNum(l));
+      Vec3D normal = getNormal(normals, l);
+      Uf   = ( V[nodeNum(l)][1]*normal[0] +
+               V[nodeNum(l)][2]*normal[1] +
+               V[nodeNum(l)][3]*normal[2] ) -
+             getNormalVel(normalVel, l);
+      *Aii /*+= PhiF[ nodeNum(l) ]*/ += Uf;
+    }
+
+  }
+  /*  double jac;
   for (int l=0; l<numNodes(); ++l) {
     Vec3D normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
@@ -621,7 +641,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<dimLS*dimLS; ++k)
       Aii[k] += jac;
-  }
+      }*/
 }
 
 //------------------------------------------------------------------------------

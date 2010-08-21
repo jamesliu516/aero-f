@@ -65,7 +65,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
         }
         else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
                 it->second->fluid == FluidModelData::GAS){
-          lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,iPhase+1,0, iod.mf.typePhaseChange);
+	  lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
+          //lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,iPhase+1,0, iod.mf.typePhaseChange);
           //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasTait\n", iPhase);
         }
         else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
@@ -75,7 +76,8 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
         }
         else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
                 it->second->fluid == FluidModelData::LIQUID){
-          lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
+	  lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,iPhase+1,0, iod.mf.typePhaseChange);
+          //lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
           //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasTait\n", iPhase);
         }
         else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
@@ -138,6 +140,19 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
           dx,iteration);
 
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
+						     int IDi, int IDj, double *nphi, VarFcn *vf,
+						     double *Wi, double *Wj,
+						     int i, int j, int edgeNum, double dx[3],
+						     double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj) {
+
+  lriemann[IDi+IDj-1]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
+          Wi,Wj,
+          dx,iteration, dWidUi, dWidUj,dWjdUi, dWjdUj);
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vstar,

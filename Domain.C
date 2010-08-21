@@ -1345,6 +1345,69 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
 }
 
 //------------------------------------------------------------------------------
+template<int dim, class Scalar, int dimLS>
+void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
+					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
+					   DistEdgeGrad<dim>* egrad,
+					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
+					   DistMat<Scalar,dimLS> &A)
+{
+
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+
+	std::cout << "Num Subdomains = " << numLocSub << std::endl;
+
+  if(inletRhsPat){
+    fprintf(stdout, "with inletRhsPat\n");
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
+							 geoState(iSub),
+							 X(iSub),V(iSub),ngrad(iSub),
+							 ngradLS(iSub),
+							 legrad,
+							 ctrlVol(iSub),
+							 Phi(iSub), 
+							 A(iSub),
+							 inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addLSFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagInletBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+
+  }else{
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
+							 geoState(iSub),
+							 X(iSub),V(iSub),ngrad(iSub),
+							 ngradLS(iSub),
+							 legrad,
+							 ctrlVol(iSub),
+							 Phi(iSub), 
+							 A(iSub),
+							 inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addLSFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+  }
+}
 
 template<int dim>
 void Domain::recomputeRHS(VarFcn* vf, DistSVec<double,dim> &V, DistSVec<double,dim> &rhs,

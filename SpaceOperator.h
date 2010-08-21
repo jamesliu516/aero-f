@@ -321,6 +321,10 @@ public:
                        DistSVec<double,dim> &, DistMat<Scalar,neq> &,
                        FluidSelector &, DistExactRiemannSolver<dim> *);
 
+  template<class Scalar>
+  void computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
+			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId);
+
 };
 //------------------------------------------------------------------------------
 

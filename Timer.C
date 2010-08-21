@@ -15,7 +15,7 @@ Timer::Timer(Communicator *communicator) : com(communicator)
   ioData = 0;
   initialTime = getTime();
 
-  numTimings = 47;
+  numTimings = (int)NUMTIMINGS;
   
   counter = new int[numTimings];
   data = new double[numTimings];
@@ -661,6 +661,34 @@ double Timer::addLSKspTime(double t0)
 
 //------------------------------------------------------------------------------
 
+double Timer::addLSPrecSetupTime(double t0) 
+{ 
+
+  double t = getTime() - t0;
+
+  counter[lsPrecSetup]++;
+  data[lsPrecSetup] += t; 
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addLSFiniteVolumeJacTime(double t0) 
+{ 
+
+  double t = getTime() - t0;
+
+  counter[lsJac]++;
+  data[lsJac] += t; 
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
 double Timer::addWaitAndReceiveDisp(double t0)
 {
 
@@ -844,6 +872,12 @@ void Timer::print(Timer *str, FILE *fp)
                counter[lsNodalWeightsAndGrad]);
     com->fprintf(fp, "  FV Fluxes                   : %10.2f %10.2f %10.2f %9d\n",
                tmin[lsFvTerm], tmax[lsFvTerm], tavg[lsFvTerm], counter[lsFvTerm]);
+    com->fprintf(fp, "  FV Jacobian                 : %10.2f %10.2f %10.2f %9d\n", 
+		 tmin[lsJac], tmax[lsJac], tavg[lsJac], 
+		 counter[lsJac]);
+    com->fprintf(fp, "  Preconditioner Setup        : %10.2f %10.2f %10.2f %9d\n", 
+		 tmin[lsPrecSetup], tmax[lsPrecSetup], tavg[lsPrecSetup], 
+		 counter[lsPrecSetup]);
     com->fprintf(fp, "  Linear Solver               : %10.2f %10.2f %10.2f %9d\n", tmin[lsKsp], tmax[lsKsp], tavg[lsKsp], counter[lsKsp]);
     com->fprintf(fp, "\n");
   }

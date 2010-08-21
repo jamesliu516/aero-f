@@ -44,6 +44,12 @@ class ExactRiemannSolver{
                               double *Wi, double *Wj,
                               int i, int j, int edgeNum, double dx[3]);
 
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi, VarFcn *vf,
+			      double *Wi, double *Wj,
+			      int i, int j, int edgeNum, double dx[3],
+			      double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj);
+  
   // for structure-fluid "half-Riemann" problem
   void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej, int Id = 0);

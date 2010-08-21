@@ -298,12 +298,14 @@ class MatVecProdFDMultiPhase : public MatVecProdMultiPhase<dim,dimLS> {
 
   double computeEpsilon(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  int fdOrder;
+
 public:
 
 // Included (MB)
   MatVecProdFDMultiPhase(DistTimeState<dim> *, DistGeoState *, 
-	       MultiPhaseSpaceOperator<dim,dimLS> *, DistExactRiemannSolver<dim> *,
-               FluidSelector *, Domain *);
+			 MultiPhaseSpaceOperator<dim,dimLS> *, DistExactRiemannSolver<dim> *,
+			 FluidSelector *, Domain *,IoData& ioData);
 
   ~MatVecProdFDMultiPhase();
 
@@ -346,7 +348,7 @@ public:
 //----------------------------------------------------------------------------//
 // Finite Difference MatVecProd for LevelSet equation
 template<int dim, int dimLS>
-class MatVecProdLS {
+class MatVecProdLS : public DistMat<double,dimLS> {
                                                                                                                       
   DistTimeState<dim> *timeState;
   MultiPhaseSpaceOperator<dim,dimLS> *spaceOp;
@@ -358,6 +360,7 @@ class MatVecProdLS {
   DistSVec<double,dim> *U;
   DistVec<int> *FluidId;
   DistSVec<double,dimLS> *Q;
+  DistSVec<double,dim> *V;
   DistSVec<double,dimLS> *F;
   DistSVec<double,dimLS> Qeps;
   DistSVec<double,dimLS> Feps;
@@ -366,7 +369,10 @@ class MatVecProdLS {
 
   double computeEpsilon(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
+  MvpMat<double,dimLS> **A;
 public:
+  DistMat<double,dimLS> &operator= (const double);
+  GenMat<double,dimLS> &operator() (int i) { return *A[i]; }
 
   MatVecProdLS(DistTimeState<dim> *, DistGeoState *,
                MultiPhaseSpaceOperator<dim,dimLS> *, Domain *, LevelSet<dimLS> *);
@@ -374,6 +380,7 @@ public:
                                                                                                                       
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dimLS> &, DistSVec<double,dim> &,
+		DistSVec<double,dim> &,
                 DistSVec<double,dimLS> &, DistVec<int> &);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);

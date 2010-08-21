@@ -997,7 +997,8 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
                                    DistTimeState<dim> *ts, DistGeoState *gs,
                                    MultiPhaseSpaceOperator<dim,dimLS> * spo,
                                    DistExactRiemannSolver<dim> * rsolver,
-                                   FluidSelector *fs, Domain *dom) :
+                                   FluidSelector *fs, Domain *dom,
+				   IoData& ioData) :
   MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver,fs), geoState(gs),
   Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()),
   Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo())
@@ -1008,6 +1009,7 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
   Phi = 0;
   com = dom->getCommunicator();
 
+  fdOrder = ioData.ts.implicit.fdOrder;
 }
 
 //----------------------------------------------------------------------------//
@@ -1043,7 +1045,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
   Qeps = q;
   Phi = &phi;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -1067,14 +1069,32 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
 
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
 
-  prod = (1.0/eps) * (Feps - F);
+  if (fdOrder == 1) {
+    
+    prod = (1.0/eps) * (Feps - F);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qeps = Q - eps * p;
+    
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, 1);
+
+    if (this->timeState)
+      this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
+
+    this->spaceOp->applyBCsToResidual(Qeps, F);
+
+    prod = (0.5/eps) * (Feps - F);
+
+  }
 
 }
 
@@ -1259,10 +1279,27 @@ MatVecProdLS<dim,dimLS>::MatVecProdLS(DistTimeState<dim> *ts, DistGeoState *gs,
                                       MultiPhaseSpaceOperator<dim,dimLS> *spo, 
                                       Domain *dom, LevelSet<dimLS> *ls) :
   timeState(ts), spaceOp(spo), levelSet(ls), geoState(gs), 
-  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo())
+  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()), DistMat<double,dimLS>(dom)
 {
   X = 0; ctrlVol = 0; Q = 0; U = 0; F = 0; FluidId = 0;
   com = dom->getCommunicator();
+
+
+  // H1 stuff
+  A = new MvpMat<double,dimLS>*[this->numLocSub];
+
+  double size = 0.0;
+
+#pragma omp parallel for reduction (+: size)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<double,dimLS>();
+    size += double(A[iSub]->numNonZeroBlocks()*dimLS*dimLS*sizeof(double)) / (1024.*1024.);
+  }
+
+  this->com->globalSum(1, &size);
+
+  this->com->printf(2, "Memory required for MultiPhaseMatVec with H1 (dim=%d): %3.2f MB\n", dim, size);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1280,26 +1317,32 @@ MatVecProdLS<dim,dimLS>::~MatVecProdLS()
 
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,dimLS> &prod)
-{
-  double eps = computeEpsilon(*Q, p);
+{  
 
-  Qeps = (*Q) + eps * p;
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
+					 p(iSub), prod(iSub));
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.subData(iSub));
+  }
 
-  spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *FluidId, *U, Feps);
+  this->vecPat->exchange();
 
-  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, levelSet->Phin, 
-                          levelSet->Phinm1, levelSet->Phinm2, Feps);
-
-  prod = (1.0/eps) * (Feps - (*F));
-
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.subData(iSub));
+  
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
-                                DistSVec<double,dimLS> &f, DistVec<int> &fluidId)
+				       DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
+				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f, 
+				       DistVec<int> &fluidId)
 {
 
   X       = &x;
@@ -1307,14 +1350,16 @@ void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<do
   Q       = &q;
   U       = &u;
   F       = &f;
+  V = &v;
   FluidId = &fluidId;
 
-  spaceOp->computeResidualLS(*X, *ctrlVol, *Q, fluidId, *U, *F);
+  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId);
 
-  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, levelSet->Phin, 
-                          levelSet->Phinm1, levelSet->Phinm2, *F);
+  if (timeState)
+    timeState->addToJacobian(cv, *this, u);
 
 }
+
 //------------------------------------------------------------------------------
 // WARNING: this routine is very different from MatVecProdFD<dim,neq>::computeEpsilon(...)
 template<int dim, int dimLS>
@@ -1370,3 +1415,15 @@ double MatVecProdLS<dim, dimLS>::computeEpsilon(DistSVec<double,dimLS> &U, DistS
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+DistMat<double,dimLS> &MatVecProdLS<dim,dimLS>::operator= (const double x)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    *A[iSub] = x;
+
+  return *this;
+
+}
