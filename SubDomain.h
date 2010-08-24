@@ -171,6 +171,7 @@ public:
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
   Connectivity *createElementToElementConnectivity();
+  Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
@@ -185,7 +186,6 @@ public:
 	FaceSet& getFaces() {return faces;};
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
-
 
   // geometry
 

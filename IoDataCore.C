@@ -39,6 +39,7 @@ InputData::InputData()
   embeddedSurface= "";
   oneDimensionalSolution = "";
 	mesh = "";
+	sampleNodes = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -68,6 +69,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
+  new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
@@ -183,6 +185,7 @@ TransientData::TransientData()
   podFile = "";
   romFile = "";
   mesh = "";
+  sampleNodes = "";
   philevel = "";
   controlvolume = "";
   philevel_structure = "";
@@ -290,6 +293,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODData", this, &TransientData::podFile);
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
+  new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
@@ -422,7 +426,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 23,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 24,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -430,7 +434,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22, "ReducedMesh", 23);
+     "SparseGridGeneration", 22, "GappyPODConstruction", 23 );
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,

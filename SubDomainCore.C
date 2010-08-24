@@ -205,6 +205,13 @@ Connectivity *SubDomain::createElementToElementConnectivity()
 
 //------------------------------------------------------------------------------
 
+Connectivity *SubDomain::createElementToNodeConnectivity()
+{
+  Connectivity eToN(&elems);
+  return &eToN;
+}
+//------------------------------------------------------------------------------
+
 Connectivity *SubDomain::createEdgeBasedConnectivity()
 {
 
