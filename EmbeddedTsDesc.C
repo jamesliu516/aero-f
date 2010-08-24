@@ -4,7 +4,7 @@
 
 #ifdef DO_EMBEDDED
 #include <IntersectorFRG/IntersectorFRG.h>
-#include <IntersectorPhysBAM/IntersectorPhysBAM.h>
+//#include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
 #include <math.h>
@@ -90,6 +90,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       break;
     case EmbeddedFramework::PHYSBAM : 
       this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
+      this->com->fprintf(stderr,"Option Suppressed for WithoutMPI compilation. Uncomment the Line\n"); exit(-1);
+      /*
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
         this->com->fprintf(stderr,"Using dynamic nodal transfer to get data from the solid node\n");
         int nNodes = dynNodalTransfer->numStNodes();
@@ -99,6 +101,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
       } else
         distLSS = new DistIntersectorPhysBAM(ioData, this->com);
+      */
       break;
     default:
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
