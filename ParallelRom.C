@@ -50,7 +50,7 @@ void ParallelRom<dim>::scalapackCpuDecomp(int nCol) {
 
  // specify the block size (in terms of nodes), and require nodesPerBlock > nCol 
 
- int nodesPerBlock = int(ceil(double(nCol)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes
+ nodesPerBlock = int(ceil(double(nCol)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes
  rowsPerBlock = nodesPerBlock * dim;	// number of entries per block (there are dim entries per node)
 
  //===============================
@@ -154,9 +154,6 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  transferDataBack(U, Utrue , nSnaps);
 
  com->barrier();
- delete[] cpuMasterNodes;
- delete[] cpuNodes;
- delete[] locSendReceive;
  delete[] work;
  delete[] U;
 
@@ -529,7 +526,9 @@ void ParallelRom<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, doub
      }
    }
  }
+
  delete[] totalSentNodes;
+ delete[] cpuMasterNodesCopy;
 
 	// NOTE: max size of subMat is (nSnap-1)* subMatRowsNum * + K*dim
 }

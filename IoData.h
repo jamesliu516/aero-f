@@ -31,6 +31,7 @@ struct InputData {
   const char *podFile;
   const char *podFile2;
   const char *mesh;
+  const char *sampleNodes;
   const char *snapFile;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -113,6 +114,7 @@ struct TransientData {
   const char *podFile;
   const char *romFile;
   const char *mesh;
+  const char *sampleNodes;
   const char *philevel;
   const char *controlvolume;
   const char *philevel_structure;

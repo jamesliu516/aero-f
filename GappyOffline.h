@@ -6,7 +6,7 @@ class Domain;
 #include <Communicator.h>
 #include <DistVector.h>
 #include <VectorSet.h>
-#include <ParallelRom.h> // KTC
+#include <ParallelRom.h>
 
 template <int dim>
 class ArrayVecDist {
@@ -41,6 +41,19 @@ struct VecSubDomainData {
 	void resize (int *size) {a[0].resize(size[0]); a[1].resize(size[1]); };	// within constructor, specify maximum size
 };
 
+template <int size>
+class StaticArray {	//used for the value of a map
+	private:
+		double a [size];
+	public:
+		// use a to access pointer to vecset, use [] to access the vecset itself
+		StaticArray() { for (int i=0; i<size; ++i) a[i] = 0.0;}
+		StaticArray(double b [size]){ for (int i=0; i<size; ++i) a[i] = b[i];}
+		StaticArray(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
+		StaticArray& operator=(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
+		double& operator[] (int i){ return a[i];}
+		const double &operator[] (int i) const{ return a[i];}
+};
 
 template <int dim>
 class GappyOffline {
@@ -61,6 +74,8 @@ private:
 	Communicator *com;
 	IoData *ioData;	
 	TsInput *tInput;
+	DistGeoState *geoState;
+	DistSVec<double,3> X;
 
 	const int residual;	// refer to residual as 0
 	const int jacobian;
@@ -111,22 +126,35 @@ private:
 	// each of these arrays has nSampleNodes elements
 	std::vector <int> *nodes;	// nodes[iObsNode][iNode] is the global node number of the iNode in the iObsNode island 
 	std::vector <int> *elements;		// elements[iObsNode][iEle] is the global element number of the iNode in the iObsNode island 
-	std::map<int, int [3] > nodesXYZ;	// key: global node #, values: x, y, z
-	std::map <int, int [4] > elemToNode;	// key: global elem #, values: global node #s
-		// then, when outputting the TOP file, need another key that maps global
+	std::vector< int > *(bcFaces [2][3]);	// boundary faces. faces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
+	std::vector< int > *(bcIsland [2]);	// bcIsland[iSign][BCtype][iFace] returns the island to which the face belongs
+	double *sampleToReducedNodeNumbering;	// nodes[iObsNode][iNode] is the global node number of the iNode in the iObsNode island 
+
+	std::map<int, StaticArray <3> > nodesXYZ;	// key: global node #, values: x, y, z
+	std::map <int, StaticArray <4> > elemToNode;	// key: global elem #, values: global node #s
+	std::map <int, string > boundaryConditions;	// mapping between BC numbers in BcDef.h and Sower's identification
+
+		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
 		// each island!
+
+		// also create a pointer of vectors to handle the faces that might be
+		// boundary conditions
+
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
 
 
 	void addTwoNodeLayers();
+	void computeBCFaces();
+	void checkFaceInMesh(FaceSet& currentFaces, int iFace, int iSub, int *locToGlobNodeMap , bool &faceInMesh, int &whichIsland);
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
-	void communicateMesh( std::vector <int> *nodeOrEle );
+	void communicateMesh( std::vector <int> *nodeOrEle , int arraySize);
+	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
 	void outputTopFile();
 
 public:
-	GappyOffline(Communicator *, IoData &, Domain &, TsInput *);
+	GappyOffline(Communicator *, IoData &, Domain &, TsInput *, DistGeoState *);
 	~GappyOffline();
 	void buildGappy();	// build all offline info (do everything)
 

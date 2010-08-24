@@ -23,9 +23,9 @@ class DistGeoState {
 
   GeoData data;
 
-  DistSVec<double,3> *Xn;
-  DistSVec<double,3> *Xnm1;
-  DistSVec<double,3> *Xnm2;
+  DistSVec<double,3> *Xn;	// nodal positions at time n
+  DistSVec<double,3> *Xnm1;	// nodal positions at time n-1
+  DistSVec<double,3> *Xnm2;	// nodal positions at time n-2
   DistSVec<double,3> *Xdot;
   DistSVec<double,3> *Xsave;
 
