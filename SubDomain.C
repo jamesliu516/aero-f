@@ -3854,7 +3854,6 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &flui
   int ierr = 0;
 
   for (int i=0; i<U.size(); ++i) {
-    if(fluidId[i] < 0) continue; //TODO: should be (!isActive)
 
     double V[dim];
     varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);

@@ -14,7 +14,6 @@
 #include <Communicator.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-// MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 #include <LevelSet/FluidTypeCriterion.h>
 #include <GeoState.h>
 #include <NodalGrad.h>
@@ -148,13 +147,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
 
-  // TODO(jontg) NEED TO BE FIXED
-  // dt = -cfl * ctrlVol / dt;
-  for (iSub = 0; iSub < numLocSub; ++iSub) for(int i = 0; i < dt(iSub).size(); ++i)
-      if(fluidId(iSub)[i] >= 0) dt(iSub)[i] = -cfl * ctrlVol(iSub)[i] / dt(iSub)[i]; 
-      else dt(iSub)[i] = 1e10;
-  // (EVENTUALLY WE SHOULD USE THIS)
-  // t = -cfl * ctrlVol / dt;
+  dt = -cfl * ctrlVol / dt;
 
 }
 

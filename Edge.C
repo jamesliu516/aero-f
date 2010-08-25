@@ -184,8 +184,6 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
     i = ptr[l][0];
     j = ptr[l][1];
-    //TODO: discuss with Jon
-    if(fluidId[i] < 0 && fluidId[j] < 0) continue;
 
     S = sqrt(normal[l] * normal[l]);
     invS = 1.0/S;
@@ -209,31 +207,29 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }else{
-        if(fluidId[i] >= 0){   //TODO: SHOULDN'T NEED THIS
-            u = varFcn->getVelocity(V[i]);
-            a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
-            un = u * n - ndot;
-            mach = varFcn->computeMachNumber(V[i],fluidId[i]);
+      u = varFcn->getVelocity(V[i]);
+      a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
+      un = u * n - ndot;
+      mach = varFcn->computeMachNumber(V[i],fluidId[i]);
 
-            locbeta = tprec.getBeta(mach);
-            beta2 = locbeta * locbeta;
-            coeff1 = (1.0+beta2)*un;
-            coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
+      coeff1 = (1.0+beta2)*un;
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
-            dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;}
+      dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
 
-        if(fluidId[j] >= 0){
-            u = varFcn->getVelocity(V[j]);
-            a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
-            un = u * n - ndot;
-            mach = varFcn->computeMachNumber(V[j],fluidId[j]);
+      u = varFcn->getVelocity(V[j]);
+      a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
+      un = u * n - ndot;
+      mach = varFcn->computeMachNumber(V[j],fluidId[j]);
 
-            locbeta = tprec.getBeta(mach);
-            beta2 = locbeta * locbeta;
-            coeff1 = (1.0+beta2)*un;
-            coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
+      locbeta = tprec.getBeta(mach);
+      beta2 = locbeta * locbeta;
+      coeff1 = (1.0+beta2)*un;
+      coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
-            dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;}
+      dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
     }
   }
 
@@ -691,7 +687,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<double,dim>& fluxes, int it,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
-  int farfieldFluid = 0; // This is the basic rule. But shouldn't be hard-coded here. (TODO)
+  int farfieldFluid = 0; 
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -718,7 +714,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool intersect = LSS.edgeIntersectsStructure(0,i,j);
-    if(!LSS.isActive(0.0,i) && !LSS.isActive(0.0,j)) continue;
+    bool iActive = LSS.isActive(0.0,i);
+    bool jActive = LSS.isActive(0.0,j);
+    
+    if(!iActive && !jActive) continue;
 
     // ------------------------------------------------
     //  Reconstruction without crossing the interface.
@@ -784,7 +783,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{// interface
 
       // for node i
-      if(fluidId[i] >= 0) { //TODO should be isActive(...)
+      if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
 
         switch (Nriemann) {
@@ -817,7 +816,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
 
       // for node j
-      if(fluidId[j] >= 0){ //TODO should be isActive(...)
+      if(jActive){
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
 
         switch (Nriemann) {
@@ -1164,7 +1163,6 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 {
 	// it is assumed that dim=5, ie no turbulence possible
   int k,m,q;
-  int fluid1=0, fluid2=1; // TODO: Fix
 
   double gradphi[3];
   double gphii[3];

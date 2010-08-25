@@ -119,6 +119,7 @@ class IntersectorFRG : public LevelSetStructure {
 
   public:
     static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: ~~
+    static int OUTSIDECOLOR;
 
   protected:
     int globIndex;
@@ -170,7 +171,7 @@ class IntersectorFRG : public LevelSetStructure {
 
     int numOfFluids()                                            {return distIntersector.numOfFluids();}
     int fluidModel(double t, int n) const                        {return status[n];}
-    bool isActive(double t, int n) const                         {return status[n] >= 0;}
+    bool isActive(double t, int n) const                         {return (status[n]>=0 && status[n]!=OUTSIDECOLOR);}
     bool isOccluded(double t, int n) const                       {return false;} /* no occluded nodes */
     bool isSwept(double t, int n) const                          {return status[n] != status0[n];}
     bool edgeIntersectsStructure(double t, int ni, int nj) const {return status[ni]!=status[nj];}

@@ -122,7 +122,8 @@ class IntersectorPhysBAM : public LevelSetStructure {
   friend class DistIntersectorPhysBAM;
 
   public:
-    static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid, any positive number is the fluid model number
+    static const int OUTSIDE = -2, UNDECIDED = -1, INSIDE = 0; //INSIDE: inside real fluid, OUTSIDE: not a fluid
+    static int OUTSIDECOLOR;
 
     Vec<bool> edgeIntersections;
 
@@ -169,7 +170,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
     bool edgeIntersectsStructure(double t, int edge_num) const;
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
-    bool isActive(double t, int n) const {return status[n] >= 0;}
+    bool isActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
     bool isOccluded(double t, int n) const {return occluded_node[n];}
     bool isSwept(double t, int n) const {return swept_node[n];}
     int fluidModel(double t, int n) const {return status[n];}

@@ -23,6 +23,7 @@ typedef pair<int, bool> ibpair;
 typedef pair<iipair, ibpair> EdgePair;
 
 const int IntersectorFRG::UNDECIDED, IntersectorFRG::INSIDE, IntersectorFRG::OUTSIDE;
+int IntersectorFRG::OUTSIDECOLOR;
 
 //----------------------------------------------------------------------------
 
@@ -787,7 +788,6 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
   domain = d;
   numLocSub = d->getNumLocSub();
   intersector = new IntersectorFRG*[numLocSub];
-  pseudoPhi = new DistVec<double>(X.info()); //TODO: not needed at all!
 
   status = new DistVec<int>(domain->getNodeDistInfo());  
   status0 = new DistVec<int>(domain->getNodeDistInfo());  
@@ -921,7 +921,7 @@ void DistIntersectorFRG::findInAndOut()
       break; 
 
     //2. try to get a seed from neighbor subdomains, then floodFill
-    status_temp = *status + one; //status_temp = 0,1,or 2.
+    status_temp = *status + one; //status_temp = 0(UNDECIDED),1(INSIDE),or -1(OUTSIDE).
     domain->assemble(domain->getLevelPat(),status_temp);
     status_temp -= one;
 
@@ -972,14 +972,12 @@ void IntersectorFRG::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE)
 
 void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
 {
-  if(numFluid==1)
-    return;
-  if(numFluid==2) {
+  if((numFluid==1 || numFluid==2) && iod.embed.embedIC.pointMap.dataMap.empty()) {
 #pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; iSub++) 
+    for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++)
-        if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) 
-          (*status)(iSub)[i]=1; //TODO: return ?
+        if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE)
+          (*status)(iSub)[i]=IntersectorFRG::OUTSIDECOLOR; 
     return;
   }
 
@@ -999,13 +997,13 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
       } 
     }
   } else {
-    com->fprintf(stderr, "ERROR: (INTERSECTOR) Point-based initial conditions could not be found.\n");
+    com->fprintf(stderr, "ERROR: (INTERSECTOR) Point-based initial conditions are required for multi-phase FSI.\n");
     exit(-1);
   }
 
   list< pair<Vec3D,int> >::iterator iter;
   for(iter = Points.begin(); iter!=Points.end(); iter++)
-    com->fprintf(stderr,"found point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
+    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
   
 
   int nUndecided[numLocSub], total;
@@ -1031,17 +1029,19 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
       intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
   }   
 
+  int total0 = 0;
   while(1) { //get out only when all nodes are decided
-
     //1. check if all the nodes (globally) are determined
     total = 0;
+#pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       total += nUndecided[iSub];
     com->globalMax(1,&total);
-//    com->fprintf(stderr,"max of total = %d\n", total);
-    if(total==0) //done!
+    
+    if(total==0 || total==total0) //done!
       break;
 
+    total0 = total;
     //2. try to get a seed from neighbor subdomains
     status_temp = *status + one; //status_temp = 0,1,2,3,....
     domain->assemble(domain->getLevelPat(),status_temp);
@@ -1049,14 +1049,17 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++) {
       int nNewSeed = intersector[iSub]->findNewSeedsAfterMerging(status_temp(iSub), (*poly)(iSub), nUndecided[iSub]);
-
-//      fprintf(stderr,"CPU %d: nUndecided = %d, newSeeds = %d\n",com->cpuNum(), nUndecided[iSub], nNewSeed);
-
       if(nNewSeed)
         intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
     }
-
   }
+
+  if(total) //still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++)
+        if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) 
+          (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
 }
 
 //----------------------------------------------------------------------------
@@ -1143,6 +1146,8 @@ IntersectorFRG::IntersectorFRG(SubDomain &sub, SVec<double,3> &X,
 
   status = UNDECIDED;
   status0 = UNDECIDED;
+
+  OUTSIDECOLOR = distInt.numOfFluids();
 
   locToGlobNodeMap = sub.getNodeMap();
 

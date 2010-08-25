@@ -40,6 +40,8 @@ friend class FluxFcn;
 
 private:
   int numPhases;
+  int ghostPhase;
+  int ghostId;
   VarFcnBase **varFcn;
   
   Vec3D meshVel;
@@ -48,11 +50,10 @@ private:
   double gravity_norm;
   double depth;
 
-
-  void check(int& tag) const{ 
-    if(0 > tag || tag>=numPhases){tag=numPhases;};//}fprintf(stderr,"check(%d) failed\n",tag);exit(-1);}
-//    assert(0 <= tag && tag<numPhases);
-  }
+  int size()                {return numPhases;}
+  int structPhase()          {return ghostPhase;}
+  int structId()             {return ghostId;}
+  void check(int tag) const {assert(0<=tag && tag<numPhases);} 
 
   VarFcnBase *createVarFcnBase(IoData &iod, FluidModelData& fluidModel);
 
@@ -234,21 +235,24 @@ public:
 //------------------------------------------------------------------------------
 
 inline
-VarFcn::VarFcn(IoData &iod){
-  // Modified by Kevin and Adam 2010.08.05
+VarFcn::VarFcn(IoData &iod)
+{
   numPhases = iod.eqs.numPhase;
-  // In the case of a Embedded Simulation, adds a VarFcn for Ghost
-  // numRealFluid++ then points on the structure...
   int numRealFluid = numPhases;
+
+  // In the case of Embedded Framework, add a VarFcn for Ghost
   if(iod.problem.framework == ProblemData::EMBEDDED)
-    {
-      numPhases++;
-    }
+    numPhases++;
+
   varFcn = new VarFcnBase *[numPhases];
-  for(int iPhase = 0; iPhase < numPhases; iPhase++) varFcn[iPhase] = 0;
+  for(int iPhase = 0; iPhase < numPhases; iPhase++) 
+    varFcn[iPhase] = 0;
 
   if(numRealFluid>0){
     varFcn[0] = createVarFcnBase(iod, iod.eqs.fluidModel);
+  } else {
+    fprintf(stderr,"*** Error: No FluidModel specified!\n");
+    exit(1);
   }
 
   for(int iPhase=1; iPhase<numRealFluid; iPhase++){
@@ -260,6 +264,14 @@ VarFcn::VarFcn(IoData &iod){
     varFcn[iPhase] = createVarFcnBase(iod, *it->second);
   }
 
+  // In the case of a Embedded Simulation, Structure VarFcn points on VarFcn[0]
+  // by default. It is just convienient. This can be changed eventually.
+  if(iod.problem.framework == ProblemData::EMBEDDED) {
+    ghostId = numPhases - 1;
+    varFcn[ghostId] = createVarFcnBase(iod, iod.eqs.fluidModel);
+    ghostPhase = 0; //same as varFcn[0]
+  }
+
   meshVel = 0.0;
 
   gravity[0] = iod.eqs.gravity_x;
@@ -267,14 +279,6 @@ VarFcn::VarFcn(IoData &iod){
   gravity[2] = iod.eqs.gravity_z;
   gravity_norm = sqrt(gravity[0]*gravity[0]+gravity[1]*gravity[1]+gravity[2]*gravity[2]);
   depth = iod.bc.hydro.depth;
-
-  // In the case of a Embedded Simulation, Structure VarFcn points on VarFcn[0]
-  // by default. It is just convienient. This can be changed eventually.
-  if(iod.problem.framework == ProblemData::EMBEDDED)
-    {
-      varFcn[numPhases-1] = createVarFcnBase(iod, iod.eqs.fluidModel);
-    }
-
 }  
   
 //------------------------------------------------------------------------------
@@ -321,8 +325,8 @@ template<int dim>
 void VarFcn::conservativeToPrimitive(SVec<double,dim> &U, SVec<double,dim> &V, Vec<int> *tag)
 {
   if(tag)
-    for (int i=0; i<U.size(); ++i){ //TODO: shouldn't need it.
-      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->conservativeToPrimitive(U[i], V[i]);}
+    for (int i=0; i<U.size(); ++i)
+      varFcn[(*tag)[i]]->conservativeToPrimitive(U[i], V[i]);
   else
     for (int i=0; i<U.size(); ++i)
       varFcn[0]->conservativeToPrimitive(U[i], V[i]);
@@ -342,11 +346,9 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int    *loctag   = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i){
-        if(loctag[i] >= 0) varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]); //TODO: shouldn't need it.
-        //fprintf(stdout, "vf[%d] -> U = (%e %e %e %e %e) into V = (%e %e %e %e %e)\n", loctag[i],u[i][0],u[i][1],u[i][2],u[i][3],u[i][4],v[i][0],v[i][1],v[i][2],v[i][3],v[i][4]);
-        //fflush(stdout);
-      }
+      for (int i=0; i<U.subSize(iSub); ++i)
+        varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
+
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitive(u[i], v[i]);
@@ -361,8 +363,8 @@ template<int dim>
 void VarFcn::primitiveToConservative(SVec<double,dim> &V, SVec<double,dim> &U, Vec<int> *tag)
 {
   if(tag)
-    for (int i=0; i<U.size(); ++i){  //TODO: shouldn't need it.
-      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->primitiveToConservative(V[i], U[i]);}
+    for (int i=0; i<U.size(); ++i)
+      varFcn[(*tag)[i]]->primitiveToConservative(V[i], U[i]);
   else
     for (int i=0; i<U.size(); ++i)
       varFcn[0]->primitiveToConservative(V[i], U[i]);
@@ -381,8 +383,8 @@ void VarFcn::primitiveToConservative(DistSVec<double,dim> &V, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i){  //TODO: shouldn't need it.
-        if(loctag[i] >= 0) varFcn[loctag[i]]->primitiveToConservative(v[i], u[i]);}
+      for (int i=0; i<U.subSize(iSub); ++i)
+        varFcn[loctag[i]]->primitiveToConservative(v[i], u[i]);
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->primitiveToConservative(v[i], u[i]);
@@ -398,8 +400,8 @@ void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,
 {
 
  if (tag){
-    for (int i=0; i<U.size(); ++i){  //TODO: shouldn't need it.
-      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);}
+    for (int i=0; i<U.size(); ++i)
+      varFcn[(*tag)[i]]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
@@ -424,8 +426,8 @@ void VarFcn::conservativeToPrimitiveDerivative(DistSVec<double,dim> &U, DistSVec
     double (*dv)[dim] = dV.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i){  //TODO: shouldn't need it.
-        if(loctag[i] >= 0) varFcn[loctag[i]]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);}
+      for (int i=0; i<U.subSize(iSub); ++i)
+        varFcn[loctag[i]]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitiveDerivative(u[i], du[i], v[i], dv[i]);
@@ -441,8 +443,8 @@ void VarFcn::primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,
 {
 
  if (tag){
-    for (int i=0; i<U.size(); ++i){  //TODO: shouldn't need it.
-      if((*tag)[i] >= 0) varFcn[(*tag)[i]]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);}
+    for (int i=0; i<U.size(); ++i)
+      varFcn[(*tag)[i]]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
@@ -466,8 +468,8 @@ void VarFcn::primitiveToConservativeDerivative(DistSVec<double,dim> &V, DistSVec
     double (*dv)[dim] = dV.subData(iSub);
     if(tag){
       int *loctag = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i){  //TODO: shouldn't need it.
-        if(loctag[i] >= 0) varFcn[loctag[i]]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);}
+      for (int i=0; i<U.subSize(iSub); ++i)
+        varFcn[loctag[i]]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->primitiveToConservativeDerivative(v[i], dv[i], u[i], du[i]);

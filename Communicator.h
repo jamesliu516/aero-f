@@ -51,7 +51,7 @@ class Communicator {
   int thisCPU;
   int numCPU;
 
-public: //TODO: discuss with Jon
+public: //Needed by IntersectorPhysBAM
 #ifdef USE_MPI
   MPI_Comm comm;
   int nPendReq;

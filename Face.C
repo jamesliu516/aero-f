@@ -180,7 +180,6 @@ void Face::computeTimeStep(VarFcn *varFcn, Vec<Vec3D> &normals, Vec<double> &nor
   NOT_CORRECTED("Divide by numNodes? Or take surface into account ?");
 
   for (int l=0; l<numNodes(); ++l) {
-    if(fluidId[nodeNum(l)] < 0) continue;    //TODO: discuss with Jon
     Vec3D u = varFcn->getVelocity(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
     double a = varFcn->computeSoundSpeed(V[ nodeNum(l) ], fluidId[nodeNum(l)]);
     double un = u * n - ndot;
@@ -416,7 +415,6 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
-      if(fluidId[nodeNum(l)] < 0) continue;  //TODO: should be (!isActive(...))
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
                              V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
@@ -461,10 +459,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
   if(fluxFcn[code]){
     double flux[dim];
     for (int l=0; l<numNodes(); ++l) {
-      if(fluidId[nodeNum(l)] < 0) continue;  //TODO: (!isActive(...))
-//      if(code==BC_OUTLET_MOVING || code==BC_OUTLET_FIXED) {
-//        fprintf(stderr,"V(%d) = %e %e %e %e %e (%d)\n", nodeNum(l)+1, V[nodeNum(l)][0], V[nodeNum(l)][1], V[nodeNum(l)][2], V[nodeNum(l)][3], V[nodeNum(l)][4], fluidId[nodeNum(l)]);
-//      }
+      if(!LSS.isActive(0.0, nodeNum(l))) continue;
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
@@ -562,7 +557,6 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
-    if(fluidId[nodeNum(l)] < 0) continue;   //TODO: (!isActive(...))
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
@@ -586,7 +580,6 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
 
   double jac[neq*neq];
   for (int l=0; l<numNodes(); ++l) {
-    if(fluidId[nodeNum(l)] < 0) continue;   //TODO: (!isActive(...))
     if(!(code == BC_INLET_MOVING || code == BC_OUTLET_MOVING ||
          code == BC_INLET_FIXED  || code == BC_OUTLET_FIXED)) {
       Vec3D normal = getNormal(normals, l);

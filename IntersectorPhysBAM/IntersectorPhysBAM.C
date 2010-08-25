@@ -31,6 +31,7 @@ typedef pair<int, bool> ibpair;
 typedef pair<iipair, ibpair> EdgePair;
 
 const int IntersectorPhysBAM::UNDECIDED, IntersectorPhysBAM::INSIDE, IntersectorPhysBAM::OUTSIDE;
+int IntersectorPhysBAM::OUTSIDECOLOR;
 
 //----------------------------------------------------------------------------
 
@@ -67,7 +68,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   status0 = 0;
   occluded_node = 0;
   swept_node = 0;
-  pseudoPhi = 0;
   boxMin = 0;
   boxMax = 0;
 
@@ -505,7 +505,6 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   status0 = new DistVec<int>(domain->getNodeDistInfo());  
   occluded_node = new DistVec<bool>(domain->getNodeDistInfo());  
   swept_node = new DistVec<bool>(domain->getNodeDistInfo());  
-  pseudoPhi = new DistVec<double>(domain->getNodeDistInfo());  
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
 
@@ -528,7 +527,7 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     numIntersectedEdges += intersector[i]->findIntersections(X(i),tId(i),*com);}
 
   list< pair<Vec3D,int> > points; //pair points with fluid model ID.
-#if 1
+
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
@@ -543,10 +542,6 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
         exit(-1);}}}
   else
     com->fprintf(stderr, "Point-based initial conditions could not be found.  Assuming single-phase flow\n");
-#else
-  // TODO(jontg): Hack that only specifically works for IMP45 simulation
-  points.push_back(pair<Vec3D,int>(Vec3D(1.000000e-03, 2.500000e+00, 0.000000e+00),IntersectorPhysBAM::INSIDE));
-#endif
 
   findActiveNodesUsingFloodFill(tId,points);
   *status0=*status;
@@ -596,7 +591,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
       SubDomain& sub=intersector[iSub]->subD;
       for(int i=0;i<(*status)(iSub).size();++i){int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
           if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end())
-              (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;
+              (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;
           else 
               (*status)(iSub)[i]=globalColorToGlobalStatus[color];}}
 }
@@ -610,7 +605,7 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
         SubDomain& sub=intersector[iSub]->subD;
         Connectivity &nToN = *(sub.getNodeToNode());
         for(int i=0;i<(*status)(iSub).size();++i){
-            if((*occluded_node)(iSub)[i]) (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;
+            if((*occluded_node)(iSub)[i]) (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;
             else if(!(*swept_node)(iSub)[i]) (*status)(iSub)[i]=(*status0)(iSub)[i];
             else{
               int stat=-5;
@@ -635,7 +630,7 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
         for(int i=0;i<(*status)(iSub).size();++i)
             if((*status)(iSub)[i]==-5){
                 (*occluded_node)(iSub)[i]=true;
-                (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDE;}}
+                (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;}}
 }
 
 //----------------------------------------------------------------------------
@@ -785,6 +780,7 @@ IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X,
 
   status = UNDECIDED;
   status0 = UNDECIDED;
+  OUTSIDECOLOR = distInt.numOfFluids();
 
   locToGlobNodeMap = sub.getNodeMap();
 

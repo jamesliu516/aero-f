@@ -1381,7 +1381,7 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
       if (refVal->mode == RefVal::NON_DIMENSIONAL) { 
         F *= 2.0 * refVal->length*refVal->length / surface;
         M *= 2.0 * refVal->length*refVal->length*refVal->length / (surface * length);
-      }//TODO(KW): what does it do? 
+      }
       else {
         F *= refVal->force;
         M *= refVal->energy;
