@@ -1448,7 +1448,6 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
       break;
   }
 
-  // TODO: In future the following information should be obtained from the structure codes.
   Vec<Vec3D> &solidX0 = distLSS->getStructPosition_0();
   Vec<Vec3D> &solidXn = distLSS->getStructPosition_n();
   int numStructNodes = solidX0.size();

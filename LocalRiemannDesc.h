@@ -2567,7 +2567,6 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
                             double *Wstar, double *rupdatej,
                             double &weightj, int it, int Id)
 {
-  if(Id < 0) return;  // TODO: shouldn't get called in this case.
   // Commented by Adam on 2010.08.17 because it has to handle dim > 5
   //int dim = 5;
 
@@ -2692,8 +2691,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
                                             double &rhoi, double ui, double &pi,
                                             VarFcn *vf, int Id) //Caution: "ui" will not be modified!
 {
-  if(Id < 0) return; //TODO: shouldn't be called in this case
-
   // assume structure on the left of the fluid
   // using the notation of Toro's paper
 

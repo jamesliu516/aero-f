@@ -1707,7 +1707,7 @@ void FluxFcnSGRoeKEturb3D::computeJacobians(double length, double irey, double *
                                           double *jacL, double *jacR, bool useLimiter)
 {
 
-  F77NAME(roejac2)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey,useLimiter ? sprec.getPrecTag() : 0);
+  F77NAME(roejac2)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey,useLimiter ? sprec.getPrecTag() : 0);
 
 }
 

@@ -21,7 +21,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 
 {
   timer = tim;
-  com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
+//  com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
 
 {  Communication::Window<double> window(com, 1, &dts);
   window.fence(true);
@@ -39,7 +39,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   dts /= tScale;
   tMax /= tScale;
   com.barrier();
-  com.fprintf(stderr,"dts = %e, tMax = %e\n", dts, tMax);
+  com.fprintf(stderr,"Structure Time-step: %e, Final Time: %e\n", dts, tMax);
 
   winForce = 0;
   winDisp  = 0;

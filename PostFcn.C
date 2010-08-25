@@ -133,7 +133,6 @@ void PostFcnEuler::rstVar(IoData &iod, Communicator *com)
 
 double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
-  if(fluidId < 0) fluidId=0; //TODO: fix this
   double q = 0.0;
   double n[3];
 
@@ -1085,7 +1084,7 @@ double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *
     q = computeTurbulentViscosity(V, mul);
   }
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 
@@ -1138,7 +1137,7 @@ double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double 
     q = computeTurbulentViscosity(V, mul);
   }
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 
@@ -1195,7 +1194,7 @@ double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *
   if (type == EDDY_VISCOSITY)
     q = computeTurbulentViscosity(V);
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 
