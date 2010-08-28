@@ -177,6 +177,7 @@ public:
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
   CommPattern<double> *getEngPat() const { return engPat; }
+  CommPattern<int> *getFsPat() const { return fsPat; }
 
 
   template<int dim>
