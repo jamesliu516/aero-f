@@ -93,7 +93,7 @@ public:
 
 // Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 
-	       SpaceOperator<dim> *, Domain *, IoData &, bool = false);
+	       SpaceOperator<dim> *, Domain *, IoData &);
 
   ~MatVecProdFD();
 

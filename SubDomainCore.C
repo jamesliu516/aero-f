@@ -3654,24 +3654,34 @@ void SubDomain::finalizeTags(SVec<int,2> &tag)
 void SubDomain::checkVec(SVec<double,3> &V)
 {
 
-  for (int i=0; i<V.size(); ++i) {
-    if ((nodeType[i] != BC_ADIABATIC_WALL_MOVING)  && (nodeType[i] != BC_ISOTHERMAL_WALL_MOVING))  {
-//      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) {
-//        fprintf(stderr,"*** Error: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+  for (int i=0; i<V.size(); ++i) 
+  {
+
+    if ((nodeType[i] != BC_ADIABATIC_WALL_MOVING)  && (nodeType[i] != BC_ISOTHERMAL_WALL_MOVING))  
+    {
+      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) 
+      {
+        fprintf(stderr,"*** Error: Vector dXdsb is different from zero");
+        fprintf(stderr," at a point %d in the interior of the mesh\n", i);
 //        exit(1);
-//      }
-      if (V[i][0] != 0.0) {
-//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      }
+      //----
+      if (V[i][0] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the x-direction to 0\n";
         V[i][0] = 0.0;
       }
-      if (V[i][1] != 0.0) {
-//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      if (V[i][1] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the y-direction to 0\n";
         V[i][1] = 0.0;
       }
-      if (V[i][2] != 0.0) {
-//        fprintf(stderr,"*** Warnig: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      if (V[i][2] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the z-direction to 0\n";
         V[i][2] = 0.0;
       }
+
     }
   }
 

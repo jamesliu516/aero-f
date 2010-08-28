@@ -25,7 +25,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
   Xs = new DistSVec<double,3>(getVecInfo());
-  
+ 
+  // Initialize the values
+  *X = 0.0;
+  *A = 0.0;
+  *Xs = 0.0;
+ 
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
