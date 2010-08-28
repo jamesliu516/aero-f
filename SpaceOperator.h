@@ -243,39 +243,99 @@ public:
   void printAllVariable(DistSVec<double,3>&, DistSVec<double,dim> &, int);
   void printVariable(DistSVec<double,dim> &);
 
-// Included (MB)
+
+  // Included (MB)
   void rstFluxFcn(IoData &);
+
+
+  // Included (MB)
   void computeDerivativeOfResidual(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &,
                                DistSVec<double,dim> &, double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0);
 
+
+  // Included (MB)
   void applyBCsToDerivativeOfResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  void rstVarFet(IoData &ioData) {fet->rstVar(ioData, com);}
 
-  bool useModal() {return use_modal;}
+  // Included (MB)
+  void rstVarFet(IoData &ioData) 
+  {
+    if (fet) fet->rstVar(ioData, com);
+  }
 
+
+  // Included (MB)
+  bool useModal() 
+  {return use_modal;}
+
+
+  // Included (MB)
+  /// \note This function is implemented.
+  /// It is called only from MatVecProdFD::evaluateInviscid and
+  /// MatVecProdFD::applyInviscid.
   void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
 
+
+  // Included (MB)
+  /// \note This function is implemented.
+  /// It is called only from MatVecProdFD::evaluateViscous and
+  /// MatVecProdFD::applyViscous.
   void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> * = 0, bool=true);
 
-  void computeInviscidResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &, bool=true);
 
-  void computeViscousResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistVec<double> &,
-                       DistSVec<double,dim> &, bool=true);
+  // Included (MB)
+  /// \note This routine is not implemented.
+  //void computeInviscidResidual
+  //(
+  //  DistSVec<double,3> &, DistVec<double> &,
+  //  DistSVec<double,dim> &, DistVec<double> &,
+  //  DistSVec<double,dim> &, bool=true
+  //);
 
+
+  // Included (MB)
+  /// \note This routine is not implemented.
+  //void computeViscousResidual
+  //(
+  //  DistSVec<double,3> &, DistVec<double> &,
+  //  DistSVec<double,dim> &, DistVec<double> &,
+  //  DistSVec<double,dim> &, bool=true
+  //);
+
+
+  // Included (MB)
+  /// \note 
+  /// This routine is similar to the template applyBCsToH2Jacobian<Scalar,neq = dim>.
   template<class Scalar>
   void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
+
+  // Included (MB)
+  /// \note This routine is called from FluidSensitivityAnalysis.
   void computeGradP(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
-  void computeDerivativeOfGradP(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  void computeDerivativeOfGradP(DistSVec<double,3> &, DistSVec<double,3> &, DistVec<double> &, DistVec<double> &, DistSVec<double,dim> &);
+  // Included (MB)
+  /// \note This routine is called from FluidSensitivityAnalysis.
+  void computeDerivativeOfGradP
+  (
+    DistSVec<double,3> &X, DistSVec<double,3> &dX,
+    DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
+    DistSVec<double,dim> &U, DistSVec<double,dim> &dU
+  );
+
+
+  // Included (MB)
+  /// \note This routine is redundant. It is never called.
+  //void computeDerivativeOfGradP
+  //(
+  //  DistSVec<double,3> &X, DistSVec<double,3> &dX,
+  //  DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
+  //  DistSVec<double,dim> &U
+  //);
+
 
   void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,

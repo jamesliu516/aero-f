@@ -67,6 +67,7 @@ template<class ProblemDescriptor>
 int
 NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q )
 {
+
   double res, target;
   double qnorm;
 
@@ -88,7 +89,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       probDesc->printf(1, "*** negative residual\n");
       exit(1);
     }
-    res = sqrt(F*F-res2);
+
+    // UH (08/10) After the test, it is safe to take the square root.
+    //res = sqrt(F*F-res2);
+    res = sqrt(res);
 
     if (it == 0) {
       target = eps*res; 
@@ -128,9 +132,10 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       }
     }
 
-  }
-    if (fsIt > 0 && probDesc->checkFailSafe(Q) == 1)
-      probDesc->resetFixesTag();
+  } // for (it=0; it<maxIts; ++it)
+
+  if (fsIt > 0 && probDesc->checkFailSafe(Q) == 1)
+    probDesc->resetFixesTag();
 
   if (it == maxIts && maxIts != 1) {
     probDesc->printf(1, "*** Warning: Newton solver reached %d its", maxIts);

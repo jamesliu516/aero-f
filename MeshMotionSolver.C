@@ -23,10 +23,12 @@
 
 //------------------------------------------------------------------------------
 
-TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
-		                         Domain *dom, MemoryPool *mp) : domain(dom)
-// Included (MB)
-, Data(data)
+TetMeshMotionSolver::TetMeshMotionSolver
+(
+  DefoMeshMotionData &data, MatchNodeSet **matchNodes, 
+  Domain *dom, MemoryPool *mp
+) 
+: domain(dom)
 {
 
   com = domain->getCommunicator();
@@ -85,11 +87,6 @@ TetMeshMotionSolver::TetMeshMotionSolver(DefoMeshMotionData &data, MatchNodeSet 
   ns = new NewtonSolver<TetMeshMotionSolver>(this);
 
   volStiff = data.volStiff;
-
-// Included (MB)
-  dXic = new DistSVec<double,3>(domain->getNodeDistInfo());
-
-  *dXic = 0.0;
 
 }  
 
@@ -165,6 +162,7 @@ void TetMeshMotionSolver::printf(int verbose, const char *format, ...)
 void TetMeshMotionSolver::computeFunction(int it, DistSVec<double,3> &X, 
 					  DistSVec<double,3> &F) 
 {
+
   DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
 
   // PJSA FIX
@@ -238,38 +236,3 @@ int TetMeshMotionSolver::solveLinearSystem(int it, DistSVec<double,3> &rhs,
 
 //--------------------------------------------------------------------------------------------------
 
-// Included (MB)
-int TetMeshMotionSolver::optSolve(IoData &ioData, int it, DistSVec<double,3> &dXb, DistSVec<double,3> &dX, DistSVec<double,3> &X)
-{
-
-  applyProjector(dXb);
-  
-  if (it == 0) {
-    *dXic = 0.0;
-  
-    DistMat<PrecScalar,3> *_pc = dynamic_cast<DistMat<PrecScalar,3> *>(pc);
-
-    domain->computeStiffAndForce(typeElement, X, *F0, *mvp, _pc, volStiff);
-
-    pc->setup();
-  }
-
-  *F0 = 0.0;
-
-  mvp->apply(dXb, *F0);
-
-  *F0 *= -1.0;
-
-  ksp->setup(0, 0, *F0);
-
-  ksp->solve(*F0, *dXic);
- 
-  dX = *dXic;
-
-  dX += dXb;
-
-  return 0;
-
-}
-
-//------------------------------------------------------------------------------

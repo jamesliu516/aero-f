@@ -1087,8 +1087,18 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   else {
     dmaxmutilde = dmutilde;
   }
+
   double mu5 = oosigma * (mul + absmutilde);
-  double dmu5 = oosigma * (dmul + dabsmutilde);
+
+  // These values can be non-zero.
+  double d_oosigma = (SATerm::oosigma / NavierStokesTerm::ooreynolds) * dooreynolds_mu;
+  double d_cw1 = 0.0;
+  d_cw1 += ((1.0 + cb2) * d_oosigma) * NavierStokesTerm::ooreynolds;
+  d_cw1 += (cb1*oovkcst2 + (1.0 + cb2) * SATerm::oosigma) * dooreynolds_mu;
+  //----
+
+  double dmu5 = oosigma * (dmul + dabsmutilde) + d_oosigma * (mul + absmutilde);
+
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] +
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
   double ddnutildedx = ddp1dxj[0][0]*V[0][5] + dp1dxj[0][0]*dV[0][5] + ddp1dxj[1][0]*V[1][5] + dp1dxj[1][0]*dV[1][5] +
@@ -1111,9 +1121,10 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
   dS[2] = 0.0;
   dS[3] = 0.0;
   dS[4] = 0.0;
+  dS[5] = 0.0;
 
   double d2wall = 0.25 * (d2w[0] + d2w[1] + d2w[2] + d2w[3]);
-  if (d2wall < 1.e-15) {
+  if (d2wall >= 1.e-15) {
     if (mutilde/mul == 0.001) {
       fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the varibles in the function max are equal *****\n");
       //exit(1);
@@ -1165,12 +1176,19 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
 
 //  double AA = oosigma * cb2 * rho *
 //    (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
-    double dAA = oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz) +
-                            oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
+    double dAA = 0.0;
+    dAA += d_oosigma * cb2 * rho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    dAA += oosigma * cb2 * drho * (dnutildedx*dnutildedx + dnutildedy*dnutildedy + dnutildedz*dnutildedz);
+    dAA += oosigma * cb2 * rho * (2.0*dnutildedx*ddnutildedx + 2.0*dnutildedy*ddnutildedy + 2.0*dnutildedz*ddnutildedz);
 //  double BB = cb1 * Stilde * absmutilde;
     double dBB = cb1 * dStilde * absmutilde + cb1 * Stilde * dabsmutilde;
 //  double CC = - cw1 * fw * oorho * maxmutilde*maxmutilde * ood2wall2;
-    double dCC = - cw1 * dfw * oorho * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * doorho * maxmutilde*maxmutilde * ood2wall2 - cw1 * fw * oorho * 2.0*maxmutilde*dmaxmutilde * ood2wall2;
+    double dCC = 0.0;
+    dCC -= d_cw1 * fw * oorho * maxmutilde * maxmutilde * ood2wall2;
+    dCC -= cw1 * dfw * oorho * maxmutilde * maxmutilde * ood2wall2;
+    dCC -= cw1 * fw * doorho * maxmutilde * maxmutilde * ood2wall2;
+    dCC -= cw1 * fw * oorho * 2.0 * maxmutilde * dmaxmutilde * ood2wall2;
+    //-----
     dS[5] = dAA + dBB + dCC;
   }
   else {
@@ -2551,7 +2569,9 @@ bool FemEquationTermDES::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doub
 
   bool porousmedia = false;
 
-  fprintf(stderr, "***** Inside the file FemEquationTermDesc.C the derivative related to porus media is not implemented *****\n");
+  fprintf(stderr, "***** FemEquationTermDesc::computeDerivativeOfVolumeTerm");
+  fprintf(stderr, " >> Function not defined for TermDES *****\n");
+
   exit(1);
 
   return (porousmedia);

@@ -559,6 +559,13 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
       }
     }
   }
+
+  // Delete the pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
   irey = 0;
 
 }
@@ -648,6 +655,13 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
       }
     }
   }
+
+  // Delete pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
   irey = 0;
 
 }
@@ -656,7 +670,15 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
 
 // Included (MB)
 template<int dim>
-void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U, double dMach, DistSVec<double,dim> &R, DistSVec<double,dim> &dR, DistTimeState<dim> *timeState)
+void SpaceOperator<dim>::computeDerivativeOfResidual
+(
+  DistSVec<double,3> &X, DistSVec<double,3> &dX
+  , DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol
+  , DistSVec<double,dim> &U
+  , double dMach
+  , DistSVec<double,dim> &R, DistSVec<double,dim> &dR
+  , DistTimeState<dim> *timeState
+)
 {
 
   dR = 0.0;
@@ -665,7 +687,7 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
 
 //Remark: Error mesage for pointers
   if (dV == 0) {
-    fprintf(stderr, "*** Error: Varible dV does not exist!\n");
+    fprintf(stderr, "*** Error: Variable dV does not exist!\n");
     exit(1);
   }
 
@@ -703,18 +725,21 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
 
   DistVec<double> *irey;
   DistVec<double> *direy;
-  if(timeState) {
+  if(timeState) 
+  {
     irey = timeState->getInvReynolds();
     direy = timeState->getDerivativeOfInvReynolds(*geoState, X, dX, ctrlVol, dCtrlVol, *V, *dV, dMach);
   }
-  else {
+  else 
+  {
     irey = new DistVec<double>(domain->getNodeDistInfo());
     direy = new DistVec<double>(domain->getNodeDistInfo());
     *irey = 0.0;
     *direy = 0.0;
   }
 
-  if (fet) {
+  if (fet) 
+  {
     domain->computeDerivativeOfGalerkinTerm(fet, *bcData, *geoState, X, dX, *V, *dV, dMach, dR);
     bcData->computeNodeValue(X);
     bcData->computeDerivativeOfNodeValue(X, dX);
@@ -728,12 +753,17 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
 //    ngrad->limit(recFcn, X, ctrlVol, *V);
   }
 
-  domain->computeDerivativeOfFiniteVolumeTerm(ctrlVol, dCtrlVol, *irey, *direy, fluxFcn, recFcn, *bcData, *geoState, X, dX, *V, *dV, *ngrad, egrad, dMach, dR);
+  domain->computeDerivativeOfFiniteVolumeTerm
+  (
+    ctrlVol, dCtrlVol, *irey, *direy, fluxFcn, recFcn, *bcData, *geoState, 
+    X, dX, *V, *dV, *ngrad, egrad, dMach, dR
+  );
 
   domain->getGradP(*ngrad);
   domain->getDerivativeOfGradP(*ngrad);
 
-  if (volForce) {
+  if (volForce) 
+  {
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
     domain->computeDerivativeOfVolumicForceTerm(volForce, ctrlVol, dCtrlVol, *V, *dV, dR);
   }
@@ -760,8 +790,18 @@ void SpaceOperator<dim>::computeDerivativeOfResidual(DistSVec<double,3> &X, Dist
       }
     }
   }
+
+  // Delete pointers for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+    if (direy)
+      delete direy;
+  }
   irey = 0;
   direy = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -834,7 +874,16 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
       }
     }
   }
+
+  // Delete pointer for consistency
+  if (timeState == 0)
+  {
+    if (irey)
+      delete irey;
+  }
+
   irey = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -1234,7 +1283,15 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     if (volForce)
       domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
   }
+
+  // Delete pointer for consistency
+  if (timeState == 0) 
+  {
+    if (irey)
+      delete irey;
+  }
   irey = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -1614,7 +1671,12 @@ void SpaceOperator<dim>::computeGradP(DistSVec<double,3> &X, DistVec<double> &ct
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
+void SpaceOperator<dim>::computeDerivativeOfGradP
+(
+  DistSVec<double,3> &X, DistSVec<double,3> &dX,
+  DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
+  DistSVec<double,dim> &U, DistSVec<double,dim> &dU
+)
 {
 
   varFcn->conservativeToPrimitive(U, *V);
@@ -1632,22 +1694,28 @@ void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVe
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void SpaceOperator<dim>::computeDerivativeOfGradP(DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &U)
-{
-
-  varFcn->conservativeToPrimitive(U, *V);
-  *dV = 0.0;
-
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
-    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
-    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
-    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
-  }
-
-  domain->getDerivativeOfGradP(*ngrad);
-
-}
+// UH (08/10) The following function is never called.
+//template<int dim>
+//void SpaceOperator<dim>::computeDerivativeOfGradP
+//(
+//  DistSVec<double,3> &X, DistSVec<double,3> &dX,
+//  DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol,
+//  DistSVec<double,dim> &U
+//)
+//{
+//
+//  varFcn->conservativeToPrimitive(U, *V);
+//  *dV = 0.0;
+//
+//  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)  {
+//    ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
+//    ngrad->computeDerivative(geoState->getConfigSA(), X, dX, ctrlVol, dCtrlVol, *V, *dV);
+//    ngrad->limitDerivative(recFcn, X, dX, ctrlVol, dCtrlVol, *V, *dV);
+//  }
+//
+//  domain->getDerivativeOfGradP(*ngrad);
+//
+//}
 
 //------------------------------------------------------------------------------
 

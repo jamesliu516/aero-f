@@ -200,6 +200,11 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
     q = varFcn->getTurbulentNuTilde(dV);
   else if (type == DERIVATIVE_VELOCITY_SCALAR)
     q = varFcn->getDerivativeOfVelocityNorm(V, dV);
+  else
+  {
+    // Error message
+    fprintf(stderr, "*** Warning: PostFcnEuler::computeDerivativeOfNodeScalarQuantity does not define the type %d\n", type);
+  }
 
   return q;
 
@@ -1105,6 +1110,14 @@ double PostFcnSA::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType typ
     double dmul = viscoFcn->compute_muDerivative(T, dT, dS[0]);
     dq = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul);
   }
+  else
+  {
+    dq = PostFcnEuler::computeDerivativeOfNodeScalarQuantity
+         (type, dS, V, dV, X, dX);
+  }
+
+  return dq;
+
 }
 
 // Included (MB)

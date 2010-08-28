@@ -60,6 +60,17 @@ int TsSolver<ProblemDescriptor>::fsaSolve(IoData &ioData)
 
   typename ProblemDescriptor::SolVecType U(probDesc->getVecInfo());
 
+
+  //
+  // Check that an input file for the solution is specified
+  //
+  if (ioData.input.solutions[0] == 0)
+  {
+    probDesc->fsaPrintTextOnScreen("\n !!! SensitivityAnalysis requires an input solution !!!\n\n");
+    exit(1);
+  }
+
+
   // initialize solutions and geometry
   probDesc->setupTimeStepping(&U, ioData);
 

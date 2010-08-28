@@ -163,9 +163,6 @@ public:
 
   double getTime()  { return data->dt_n; }
 
-// Included (MB)
-  TimeData* getDataOpt() { return data; }
-
   template<class Scalar, int neq>
   void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
