@@ -270,6 +270,8 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
                                                double (*xyz)[3], int nElems, int (*abc)[3])
 {
   this->numFluid = iod.eqs.numPhase;
+  twoPhase = false;
+
   com = comm;
   com->fprintf(stderr,"Using Intersector FRG\n");
 
@@ -876,16 +878,31 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
   buildSolidNormals();
   expandScope();
 
+  int subdXing = 0;
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub) {
     intersector[iSub]->reset(); 
     intersector[iSub]->rebuildPhysBAMInterface(Xs, numStNodes, stElem, numStElems);
     intersector[iSub]->getClosestTriangles((*X)(iSub), (*boxMin)(iSub), (*boxMax)(iSub), (*tId)(iSub), (*distance)(iSub), true);
     intersector[iSub]->computeFirstLayerNodeStatus((*tId)(iSub), (*distance)(iSub));
-    intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])); 
-//    intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1); 
-    intersector[iSub]->findIntersections((*X)(iSub), true);
+    subdXing += !(intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])));
+    if(twoPhase) {
+//      intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1);
+      intersector[iSub]->findIntersections((*X)(iSub), true);
+    }
   }
+
+  if(!twoPhase) {
+    com->globalMax(1,&subdXing);
+    if(subdXing) { //this happens if the structure is entering/leaving a subdomain. Rarely happens but needs to be delt with...
+      com->fprintf(stderr,"FS Interface entering/leaving a subdomain...\n");
+      finalizeStatus(); //contains a local communication
+    }
+#pragma omp parallel for
+    for(int iSub = 0; iSub < numLocSub; ++iSub)
+      intersector[iSub]->findIntersections((*X)(iSub), true);
+  }
+
 }
 
 //----------------------------------------------------------------------------
@@ -977,7 +994,9 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++)
         if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE)
-          (*status)(iSub)[i]=IntersectorFRG::OUTSIDECOLOR; 
+          (*status)(iSub)[i]=1; 
+
+    twoPhase = true; 
     return;
   }
 
@@ -1038,8 +1057,8 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
       total += nUndecided[iSub];
     com->globalMax(1,&total);
     
-    if(total==0 || total==total0) //done!
-      break;
+    if(total==0/* || total==total0*/) //TODO: KW: fix this!
+      break; //done
 
     total0 = total;
     //2. try to get a seed from neighbor subdomains
@@ -1054,22 +1073,75 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     }
   }
 
-  if(total) //still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+  if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+    fprintf(stderr,"I'm here.\n");
+    twoPhase = false;
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++)
         if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) 
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
+  } else 
+    twoPhase = (numFluid<3) ? true : false;
+    
 }
 
 //----------------------------------------------------------------------------
 
-void IntersectorFRG::finishStatusByHistory(SubDomain& sub)
+void DistIntersectorFRG::finalizeStatus()
 {
+  DistSVec<int,2> status_and_weight(domain->getNodeDistInfo());
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++)
+    for(int i=0; i<status_and_weight(iSub).size(); i++) {
+      if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) {//this means its real status hasn't been decided.
+        status_and_weight(iSub)[i][0] = 0;
+        status_and_weight(iSub)[i][1] = 0;
+      } else {
+        status_and_weight(iSub)[i][0] = (*status)(iSub)[i];
+        status_and_weight(iSub)[i][1] = 1;
+      }
+    
+//      if(intersector[iSub]->locToGlobNodeMap[i]+1==151870)
+//        fprintf(stderr,"Before Assemble: CPU%d: status/weight of 151870 is %d/%d...\n", com->cpuNum(), status_and_weight(iSub)[i][0],status_and_weight(iSub)[i][1]);
+    }  
+
+
+  domain->assemble(domain->getFsPat(),status_and_weight);
+
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++)
+    for(int i=0; i<(*status)(iSub).size(); i++) {
+//      if(intersector[iSub]->locToGlobNodeMap[i]+1==151870)
+//        fprintf(stderr,"After Assemble: CPU%d: status/weight of 151870 is %d/%d...\n", com->cpuNum(), status_and_weight(iSub)[i][0],status_and_weight(iSub)[i][1]);
+      if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) {
+        (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
+
+        if((*status)(iSub)[i]<=0 || (*status)(iSub)[i]>numFluid)
+          fprintf(stderr,"ERROR: failed at determining status for node %d. Structure may have crossed two or more layers of nodes in one time-step!\n", 
+                  (intersector[iSub]->locToGlobNodeMap)[i]+1);
+      }
+//      if((intersector[iSub]->locToGlobNodeMap)[i]+1==81680)
+//        fprintf(stderr,"Node 81680 has status %d.....\n", (*status)(iSub)[i]);
+    }
+}
+
+//----------------------------------------------------------------------------
+
+bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
+{
+  bool good = true;
+  bool two_phase = distIntersector.twoPhase;
+
   int numNodes = status.size();
   Connectivity &nToN = *(sub.getNodeToNode());
   for(int i=0; i<numNodes; i++) {
     if(status[i]==OUTSIDE){
+      if(two_phase) {
+        status[i] = 1;
+        continue;
+      }
+
       if(status0[i]!=INSIDE)
         status[i] = status0[i];
       else {//status0[i]==INSIDE
@@ -1080,8 +1152,13 @@ void IntersectorFRG::finishStatusByHistory(SubDomain& sub)
             done = true;
             break;
           }
-        if(!done) 
-          fprintf(stderr,"ERROR: F-S Interface moved over 2 (or more) layers of nodes in 1 time-step!\n"); 
+        if(!done) {
+          good = false; 
+//          fprintf(stderr,"ERROR(CPU %d): F-S Interface moved over 2 (or more) layers of nodes in 1 time-step!\n", distIntersector.com->cpuNum()); 
+//          fprintf(stderr,"Node %d: status = %d, status0 = %d\n",locToGlobNodeMap[i]+1,status[i],status0[i]);
+//          for(int iNei=0; iNei<nToN.num(i); iNei++) 
+//            fprintf(stderr,"Neighbor %d: status = %d, status0 = %d\n", locToGlobNodeMap[nToN[i][iNei]]+1, status[nToN[i][iNei]], status0[nToN[i][iNei]]);
+        }
       }
     } 
     else if(status[i]==UNDECIDED)
@@ -1089,7 +1166,13 @@ void IntersectorFRG::finishStatusByHistory(SubDomain& sub)
         status[i] = status0[i];
       else  
         fprintf(stderr,"Still have undecided nodes...\n");
+
+//    if(locToGlobNodeMap[i]+1==151870)
+//      fprintf(stderr,"CPU%d: status of 151870 is %d...\n", distIntersector.com->cpuNum(), status[i]);
+
   }
+
+  return good;
 }
 
 //----------------------------------------------------------------------------

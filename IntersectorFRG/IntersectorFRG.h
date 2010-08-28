@@ -45,6 +45,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     DistVec<double> *distance;
     DistVec<int> *tId;
 
+    bool twoPhase; //including fluid-shell-fluid and fluid-solid
+    
     // struct node coords
     Vec3D *Xs;
     Vec3D *Xs0;
@@ -81,6 +83,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void expandScope();
     void findInAndOut();
     void finishStatusByPoints(IoData &iod);
+    void finalizeStatus(); //contains a local communication
     void updateStructCoords(double, double);
 
   public: //TODO: a lot of them can be moved to "protected".
@@ -149,7 +152,7 @@ class IntersectorFRG : public LevelSetStructure {
     void rebuildPhysBAMInterface(Vec3D *Xs, int nsNodes, int (*sElem)[3], int nsElem);
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope);
     void computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist);
-    void finishStatusByHistory(SubDomain& sub);
+    bool finishStatusByHistory(SubDomain& sub);
     void findIntersections(SVec<double,3>&X, bool useScope);
 
     int buildScopeTopology(int (*sElem)[3], int nsElems);
