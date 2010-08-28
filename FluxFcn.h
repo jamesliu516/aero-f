@@ -81,12 +81,25 @@ public:
   }
 
   //----- Sensitivity Analysis Functions -----//
-  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df, int tag=0){
+  void computeDerivative
+  (
+     double ire, double dIre, double *n, double *dn, double nv, double dnv, 
+     double *vl, double *dvl, double *vr, double *dvr, double dmach, 
+     double *f, double *df, int tag=0
+  )
+  {
     assert(numPhases_==1);
     check(tag);
     ff_[tag]->computeDerivative(ire,dIre,n,dn,nv,dnv,vl,dvl,vr,dvr,dmach,f,df);
   }
-  void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df, int tag=0){
+
+  void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv, 
+    double *v, double *ub, double *dub, double *f, double *df,
+    int tag=0
+  )
+  {
     assert(numPhases_==1);
     check(tag);
     ff_[tag]->computeDerivative(ire,dIre,n,dn,nv,dnv,v,ub,dub,f,df);
@@ -319,16 +332,26 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
         case BC_INTERNAL:
           if (iod.schemes.ns.flux == SchemeData::VANLEER)
+          {
             localff = new FluxFcnSGVanLeerEuler3D(iod, vfsgeuler, typeJac);
-          else if (iod.schemes.ns.flux == SchemeData::ROE) {
-            if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
-              localff = new FluxFcnSGFDJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
-            else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
-              localff = new FluxFcnSGApprJacRoeEuler3D(rshift, gamma, iod, vfsgeuler, typeJac);
-            else if (iod.ts.implicit.jacobian == ImplicitData::EXACT)
-              localff = new FluxFcnSGExactJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
           }
-          else if (iod.schemes.ns.flux == SchemeData::HLLE) {
+          else if (iod.schemes.ns.flux == SchemeData::ROE) 
+          {
+            if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            {
+              localff = new FluxFcnSGFDJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
+            }
+            else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+            {
+              localff = new FluxFcnSGApprJacRoeEuler3D(rshift, gamma, iod, vfsgeuler, typeJac);
+            }
+            else if (iod.ts.implicit.jacobian == ImplicitData::EXACT)
+            {
+              localff = new FluxFcnSGExactJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
+            }
+          }
+          else if (iod.schemes.ns.flux == SchemeData::HLLE) 
+          {
             if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
               localff = new FluxFcnSGFDJacHLLEEuler3D(gamma, iod, vfsgeuler, typeJac);
             else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {

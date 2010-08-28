@@ -95,12 +95,22 @@ public:
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     return V[4]*pow(opmach, gam*invgam1);
   }
+
   double computeDerivativeOfTemperature(double *V, double *dV) const {
-    return invgam1 * ( dV[4]*V[0] - V[4]*dV[0] ) / ( V[0]*V[0] );
+    // Fix when Pstiff is non-zero.
+    return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
   }
-  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const {
+
+  double computeDerivativeOfMachNumber(double *V, double *dV, double dMach) const 
+  {
+    // Fix when the speed is 0
+    double MyMach = computeMachNumber(V);
+    if (MyMach == 0.0)
+      return 0.0;
+    //----
     return 1/(2.0*sqrt((V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] / (gam * (V[4]+Pstiff)))) * ( ( (2.0*(V[1]*dV[1] + V[2]*dV[2] + V[3]*dV[3]) * V[0] + (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * dV[0]) * (V[4]+Pstiff) - (V[1]*V[1] + V[2]*V[2] + V[3]*V[3]) * V[0] * (dV[4] + dPstiff*dMach) ) / ( (V[4]+Pstiff) * (V[4]+Pstiff) ) );
   }
+
   double computeDerivativeOfSoundSpeed(double *V, double *dV, double dMach) const {
     return 1.0/( 2.0*sqrt(gam * (V[4]+Pstiff) / V[0]) ) * gam * ( (dV[4]+dPstiff*dMach) * V[0] - (V[4]+Pstiff) * dV[0] ) / ( V[0] * V[0] );
   }

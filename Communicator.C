@@ -451,7 +451,7 @@ namespace Communication {
 
   template <typename Scalar>
   Window<Scalar>::Window(Communicator &c, int size, Scalar *s) : com(c) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
     MPI_Win_create(s, size, sizeof(Scalar), MPI_INFO_NULL,
         com.comm, &win);
 #endif
@@ -459,14 +459,14 @@ namespace Communication {
 
   template <typename Scalar>
     Window<Scalar>::~Window() {
-  #ifdef USE_MPI
+  #ifdef USE_MPI_WIN
       MPI_Win_free(&win);
   #endif
   }
 
   template <typename Scalar>
   void Window<Scalar>::put(Scalar *a, int locOff, int size, int prNum, int remOff) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
     double t0;
     if (com.timer) t0 = com.timer->getTime();
  
@@ -483,7 +483,7 @@ namespace Communication {
 
   template <typename Scalar>
   void Window<Scalar>::accumulate(Scalar *a, int locOff, int size, int prNum, int remOff, int op) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
     double t0;
     if (com.timer) t0 = com.timer->getTime();
 
@@ -500,7 +500,7 @@ namespace Communication {
 
   template <typename Scalar>
     void Window<Scalar>::fence(bool isBeginning) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
       double t0;
       if (com.timer) t0 = com.timer->getTime();
 

@@ -2735,7 +2735,7 @@ void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<dou
 
   double t0 = timer->getTime();
 
-  CommPattern<S2>* matPat;
+  CommPattern<S2>* matPat = 0;
   if (P) matPat = P->getDiagMatPat();
 
   int iSub;

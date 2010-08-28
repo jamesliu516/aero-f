@@ -32,6 +32,7 @@ BCApplier::applyP(DistSVec<double,dim> &X)
       it++;
     }
   }
+
 }
 
 template<int dim>
@@ -53,8 +54,12 @@ BCApplier::applyD(DistSVec<double,dim> &X)
         for(int l=0; l<dim; l++)
           //PJSA FIX: this projector should be for the constraints from the fluid-structure interface
           // and not the sliding planes which are dealt with in applyP
-          if(subDofType[i][l]==BC_MATCHED || subDofType[i][l]==BC_FIXED) { nn++; x[i][l] = 0.0; } 
-          // if(subDofType[i][l]!=BC_FREE) { nn++; x[i][l] = 0.0; }
+          if(subDofType[i][l]==BC_MATCHED || subDofType[i][l]==BC_FIXED) 
+          { 
+            nn++; 
+            x[i][l] = 0.0; 
+          } 
+          //if(subDofType[i][l]!=BC_FREE) { nn++; x[i][l] = 0.0; }
   
       //fprintf(stderr, "sub %d zeroed %d of %d dofs\n", subD[iSub]->getGlobSubNum(), nn, X.subSize(iSub)*dim);
     }

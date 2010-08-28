@@ -253,6 +253,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(6, *weightPat);
     subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
+    // Initialize pointer
+    if (weightDerivativePat)
+      subDomain[iSub]->setComLenNodes(6, *weightDerivativePat);
   }
 
   nodeDistInfo->finalize(true);

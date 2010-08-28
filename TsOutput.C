@@ -2185,8 +2185,13 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   }
 
   if (lastIt) {
-    for (i=0; i<PostFcn::AVSSIZE; ++i) delete AvQs[i];
-    for (i=0; i<PostFcn::AVVSIZE; ++i) delete AvQv[i];
+    // Before deletion, check that pointers have been allocated
+    for (i=0; i<PostFcn::AVSSIZE; ++i) 
+      if ((avscalars[i]) && (AvQs[i]))
+        delete AvQs[i];
+    for (i=0; i<PostFcn::AVVSIZE; ++i) 
+      if ((avvectors[i]) && (AvQv[i]))
+        delete AvQv[i];
   }
 
   counter += 1; // increment the counter for keeping track of the averaging

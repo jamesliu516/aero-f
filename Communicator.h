@@ -120,7 +120,7 @@ namespace Communication {
 
   template<typename Scalar>
   class Window {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
     MPI_Win win;
 #endif
     Communicator &com;
