@@ -22,9 +22,29 @@ public:
   virtual void computeJacobian(double, double, double *, double, double *, double *, double *, bool) {}
   virtual void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool) {}
 
-// Included (MB)
-  virtual void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *vl, double *dvl, double *vr, double *dvr, double dmach, double *f, double *df) {}
-  virtual void computeDerivative(double ire, double dIre, double *n, double *dn, double nv, double dnv, double *v, double *ub, double *dub, double *f, double *df) {}
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv, 
+    double *vl, double *dvl, double *vr, double *dvr, 
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  ) 
+  {
+    std::cout << "\n !!! FluxFcnBase::computeDerivative (14 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv, 
+    double *v, double *ub, double *dub, double *f, double *df
+  ) 
+  {
+    std::cout << "\n !!! FluxFcnBase::computeDerivative (11 arg.) is not implemented !!!\n\n";
+    exit(1);
+  }
 
 };
 

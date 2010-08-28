@@ -2188,7 +2188,6 @@ SensitivityAnalysis::SensitivityAnalysis()
 {
   method  = DIRECT;
   scFlag = ANALYTICAL;
-  mvp = FD;
   eps = 0.00001;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
@@ -2197,14 +2196,12 @@ SensitivityAnalysis::SensitivityAnalysis()
   si = 0;
   sf = -1;
 
-// For debugging purposes
+  // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
   homotopy = OFF_HOMOTOPY;
   comp3d = ON_COMPATIBLE3D;
   angleRad = OFF_ANGLERAD;
   viscJacContrib = EXACT_JACOBIAN;
-  mvpfdOrdera = FIRST_ORDER_A;
-  mvpfdOrdersa = SECOND_ORDER_SA;
   machref = -1.0;
   alpharef = 400.0;
   betaref = 400.0;
@@ -2225,7 +2222,6 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 2, "FiniteDifference", 0, "Exact", 1);
   new ClassDouble<SensitivityAnalysis>(ca, "FiniteDifferenceEps", this, &SensitivityAnalysis::eps);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
@@ -2240,8 +2236,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "Compatible3D", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "AngleRadians", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "ExactViscousJacobian", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::viscJacContrib), 3, "None", 0, "Exact", 1, "FiniteDifference", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdera), 2, "FirstOrder", 1, "SecondOrder", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDSA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdersa), 2, "FirstOrder", 1, "SecondOrder", 2);
+
   new ClassDouble<SensitivityAnalysis>(ca, "MachReference", this, &SensitivityAnalysis::machref);
   new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference", this, &SensitivityAnalysis::alpharef);
   new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
@@ -3258,52 +3253,84 @@ void IoData::resetInputValues()
 
   // part 2
 
-// Included (MB)
+  // Included (MB)
   if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
 
-    if (ts.implicit.coupling == ImplicitData::WEAK) {
-      com->fprintf(stderr, " ----- Time.Implicit.Coupling set to Strong -----\n");
-      ts.implicit.coupling = ImplicitData::STRONG;
+    //
+    // Check that the code is running within the "correct" limits
+    //
+
+    if (sa.method == SensitivityAnalysis::ADJOINT)
+    {
+      com->fprintf(stderr, " ----- SensitivityAnalysis.Method has to be set to Direct -----\n");
+      exit(1);
     }
 
-    if (ts.implicit.mvp != ImplicitData::FD) {
-      com->fprintf(stderr, " ----- Time.Implicit.MatrixVectorProduct set to FiniteDifference -----\n");
-      ts.implicit.mvp = ImplicitData::FD;
-    }
-
-    if (ts.implicit.mvp != ImplicitData::FD) {
-      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
-      ts.implicit.jacobian = ImplicitData::EXACT;
-    }
-
-    if (ts.implicit.jacobian != ImplicitData::EXACT) {
-      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
-      ts.implicit.jacobian = ImplicitData::EXACT;
-    }
-
-    ts.implicit.newton.ksp.ns.numVectors = 30;
-
-    ts.implicit.newton.ksp.ns.pc.fill = 0;
-
-    if (dmesh.type != DefoMeshMotionData::BASIC) {
+    if (dmesh.type != DefoMeshMotionData::BASIC) 
+    {
       com->fprintf(stderr, " ----- MeshMotion.Type has to be set to Basic -----\n");
       exit(1);
     }
 
-    if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) {
+    if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) 
+    {
       com->fprintf(stderr, " ----- Boundaries.Type has to be set to StegerWarming -----\n");
       exit(1);
     }
 
-    if (eqs.fluidModel.fluid != FluidModelData::GAS) {
+    if (eqs.fluidModel.fluid != FluidModelData::GAS) 
+    {
       com->fprintf(stderr, " ----- Equations.FluidModel.Type has to be set to Gas -----\n");
       exit(1);
     }
 
-    if (problem.mode == ProblemData::NON_DIMENSIONAL) {
+    if (problem.mode == ProblemData::NON_DIMENSIONAL) 
+    {
       com->fprintf(stderr, " ----- Problem.Mode has to be set to Dimensional -----\n");
       exit(1);
     }
+
+    //
+    // Overwite some parameters if needed
+    //
+
+
+    if (problem.prec == ProblemData::PRECONDITIONED)
+    {
+      if (ts.implicit.mvp != ImplicitData::FD)
+        com->fprintf(stderr, " ----- SA >> Time.Implicit.Mvp set to FiniteDifference for Problems with Low-Mach Preconditioning -----\n");
+      ts.implicit.mvp = ImplicitData::FD;
+    }
+
+
+    if (eqs.type == EquationsData::NAVIER_STOKES)
+    {
+      if (ts.implicit.mvp != ImplicitData::FD)
+      {
+        com->fprintf(stderr, " ----- SA >> Time.Implicit.Mvp set to FiniteDifference for Navier-Stokes Problems -----\n");
+      }
+      ts.implicit.mvp = ImplicitData::FD;
+      if (ts.implicit.fdOrder == ImplicitData::FIRST_ORDER)
+      {
+        com->fprintf(stderr, " ----- SA >> Second-Order Finite Differencing is Recommended -----\n");
+      }
+    }
+
+
+    if (ts.implicit.coupling == ImplicitData::WEAK) 
+    {
+      // The overwriting is silent because the feature is not documented.
+      //com->fprintf(stderr, " ----- SA >> Time.Implicit.Coupling set to Strong -----\n");
+      ts.implicit.coupling = ImplicitData::STRONG;
+    }
+
+
+    if (ts.implicit.jacobian != ImplicitData::EXACT) {
+      // The overwriting is silent because the feature is not documented.
+      //com->fprintf(stderr, " ----- SA >> Time.Implicit.FluxJacobian set to Exact -----\n");
+      ts.implicit.jacobian = ImplicitData::EXACT;
+    }
+
 
     int trip;
     if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 ||
@@ -3313,14 +3340,17 @@ void IoData::resetInputValues()
     else
       trip = 1;
 
-    if (sa.mvp == SensitivityAnalysis::H2 && trip) {
+
+    if (ts.implicit.mvp == ImplicitData::H2 && trip) 
+    {
       com->fprintf(stderr,
-		   " ----- SensitivityAnalysis.MatrixVectorProduct set to"
+		   " ----- SensitivityAnalysis >> MatrixVectorProduct set to"
 		   " FiniteDifference to account for tripping -----\n");
-      sa.mvp = SensitivityAnalysis::FD;
+      ts.implicit.mvp = ImplicitData::FD;
     }
 
-  }
+
+  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||

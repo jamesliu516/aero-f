@@ -1247,17 +1247,20 @@ struct SensitivityAnalysis {
 
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
-  enum Mvp {FD = 0, H2 = 1} mvp;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
   enum viscousJacobianContribution {NONE = 0, EXACT_JACOBIAN = 1, FINITE_DIFFERENCE_JACOBIAN = 2} viscJacContrib;
-  enum OrderMVPFDA {FIRST_ORDER_A = 1, SECOND_ORDER_A = 2} mvpfdOrdera;
-  enum OrderMVPFDSA {FIRST_ORDER_SA = 1, SECOND_ORDER_SA = 2} mvpfdOrdersa;
+
   enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+
+  // This flag repeats the linear solves until the number of iterations
+  // is smaller than the maximum allowed.
+  // Default Value = OFF_EXACTSOLUTION
   enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
 

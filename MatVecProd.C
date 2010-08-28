@@ -18,10 +18,15 @@
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
-// Included (MB)
-MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
-				DistGeoState *gs, SpaceOperator<dim> *spo, 
-				Domain *domain, IoData &ioData, bool fdsa) 
+MatVecProdFD<dim, neq>::MatVecProdFD
+(
+  ImplicitData &data, 
+  DistTimeState<dim> *ts,
+  DistGeoState *gs, 
+  SpaceOperator<dim> *spo, 
+  Domain *domain, 
+  IoData &ioData
+)
   : geoState(gs), Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo())
                 , Qepstmp(domain->getNodeDistInfo()), Fepstmp(domain->getNodeDistInfo())
                 , Q(domain->getNodeDistInfo()), F(domain->getNodeDistInfo())
@@ -49,11 +54,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
     }
   }
 
-// Included (MB)
-  if (fdsa)
-    fdOrder = ioData.sa.mvpfdOrdersa; 
-  else
-    fdOrder = ioData.ts.implicit.fdOrder; 
+  fdOrder = ioData.ts.implicit.fdOrder; 
 
 }
 

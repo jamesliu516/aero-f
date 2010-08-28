@@ -21,8 +21,14 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -39,8 +45,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -57,8 +69,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -132,8 +150,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -148,9 +172,14 @@ public:
   
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 //------------------------------------------------------------------------------
@@ -179,8 +208,12 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -197,8 +230,12 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -214,8 +251,12 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -232,8 +273,12 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -266,8 +311,14 @@ class FluxFcnSGFDJacRoeSA3D : public FluxFcnFDJacRoeSA3D {
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -284,8 +335,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -302,8 +359,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -348,9 +411,14 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -366,8 +434,12 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -384,8 +456,12 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -402,8 +478,12 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -490,8 +570,14 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -507,8 +593,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -553,8 +645,14 @@ public:
   void compute(double, double, double *, double, double *, double *, double *, bool);
   void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *vl, double *dvl, double *vr, double *dvr,
+    double dmach, double *f, double *df
+    , bool useLimiter = false
+  );
 
 };
 
@@ -570,9 +668,14 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB*)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
   void computeJacobian(double, double, double *, double, double *, double *, double *, bool);
+
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 
@@ -588,8 +691,12 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
-// Included (MB)
-  void computeDerivative(double, double, double *, double *, double, double, double *, double *, double *, double *, double *, bool);
+  //--- Sensitivity Analysis Function
+  virtual void computeDerivative
+  (
+    double ire, double dIre, double *n, double *dn, double nv, double dnv,
+    double *v, double *ub, double *dub, double *f, double *df
+  );
 
 };
 

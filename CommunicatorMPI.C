@@ -266,7 +266,7 @@ void Communicator::waitForAllReq()
 
 void* operator new(size_t size, Communicator &) {
   void *a;
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
 	MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
 
 #else // USE_MPI
@@ -282,7 +282,7 @@ void* operator new(size_t size, Communicator &) {
 }
 
 void operator delete(void *p, Communicator &) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
 	MPI_Free_mem(p);
 #else // USE_MPI
 	free(p);
@@ -291,7 +291,7 @@ void operator delete(void *p, Communicator &) {
 
 void* operator new[](size_t size, Communicator &) {
 	void *a;
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
         MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
 #else // USE_MPI
 	a = malloc(size);
@@ -306,7 +306,7 @@ void* operator new[](size_t size, Communicator &) {
 }
 
 void operator delete[](void *p, Communicator &) {
-#ifdef USE_MPI
+#ifdef USE_MPI_WIN
 	MPI_Free_mem(p);
 #else // USE_MPI
 	free(p);

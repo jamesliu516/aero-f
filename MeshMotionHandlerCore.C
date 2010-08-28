@@ -1762,7 +1762,9 @@ double RbmExtractor::update(bool *lastIt, int it,double t,
   double amp = 10.0;
 
   int i = 0;
-  double tag;
+
+  // Initialize the tag value
+  double tag = 0.0;
 
   DistSVec<double,3> Xrigid(domain->getNodeDistInfo());
 

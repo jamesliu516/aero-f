@@ -26,6 +26,9 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   if (data.use_n) {
     Xn = new DistSVec<double,3>(domain->getNodeDistInfo());
     ctrlVol_n = new DistVec<double>(domain->getNodeDistInfo());
+    // Initialize the values
+    *Xn = 0.0;
+    *ctrlVol_n = 0.0;
   }
   else {
     Xn = 0;
@@ -35,6 +38,9 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   if (data.use_nm1) {
     Xnm1 = new DistSVec<double,3>(domain->getNodeDistInfo());
     ctrlVol_nm1 = new DistVec<double>(domain->getNodeDistInfo());
+    // Initialize the values
+    *Xnm1 = 0.0;
+    *ctrlVol_nm1 = 0.0;
   }
   else {
     Xnm1 = 0;
@@ -44,6 +50,9 @@ DistGeoState::DistGeoState(IoData &ioData, Domain *dom) : data(ioData), domain(d
   if (data.use_nm2) {
     Xnm2 = new DistSVec<double,3>(domain->getNodeDistInfo());
     ctrlVol_nm2 = new DistVec<double>(domain->getNodeDistInfo());
+    // Initialize the values
+    *Xnm2 = 0.0;
+    *ctrlVol_nm2 = 0.0;
   }
   else {
     Xnm2 = 0;

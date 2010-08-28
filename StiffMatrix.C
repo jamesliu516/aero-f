@@ -67,6 +67,7 @@ DistMat<Scalar,dim> &StiffMat<Scalar,dim>::operator= (const Scalar x)
 }
 
 //------------------------------------------------------------------------------
+#include <iostream>
 
 template<class Scalar, int dim>
 void StiffMat<Scalar,dim>::apply(DistSVec<double,dim> &x, DistSVec<double,dim> &Ax)
