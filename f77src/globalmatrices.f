@@ -1,9 +1,7 @@
-      subroutine globalmatrices(nprow, npcol, m_a, n_a, n_b, rowblock, colblock,
-     $           locLLD,
-     $           desc_a, desc_b)
+      subroutine globalmatrices(nprow, npcol, m_a, n_a, n_b, 
+     $           rowblock, colblock, locLLD, icpu, desc_a, desc_b)
       integer ictxt, nprow, npcol, myrow, mycol, m, n, rowblock
-      integer colblock, info, locLLD, icpu, rowindex, lwork
-      integer maxLLD, k, j, locLLD_V
+      integer icpu,m_a, n_a, n_b, colblock, info, locLLD 
 c			===================
 c			purpose: initialize process grid and descriptor vectors for global
 c							matrices A, B
@@ -39,7 +37,7 @@ c
 c			input: m_a, n_a, rowblock, colblock, ictxt, locLLD
 c			output: desc_a, desc_b, info
 c
-      CALL DESCINIT(desc_a, m_a, n_a, rowblock, colblock, 0, 0, 
+      CALL DESCINIT(desc_a, m_a, n_a, rowblock, colblock, 0, 0,
      $              ictxt, locLLD, info)
 c
       CALL DESCINIT(desc_b, m_a, n_b, rowblock, colblock, 0, 0, 

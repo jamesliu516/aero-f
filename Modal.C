@@ -2,7 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <algorithm>
-#include <cstdlib> // DJA
+#include <cstdlib>
 using std::sort;
 
 
@@ -217,9 +217,9 @@ void ModalSolver<dim>::solveInTimeDomain()  {
    int modeNum = ioData->linearizedData.modeNumber - 1;
 
    if (ioData->linearizedData.type == LinearizedData::FORCED)
-     com->fprintf(stderr, " ... Running Forced Oscillations w/no initializaitons\n");
+     com->fprintf(stderr, " ... Running Forced Oscillations w/no initializations\n");
    else if (ioData->problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_)
-     com->fprintf(stderr, " ... Running Unsteady Linearized w/no structural initializaitons\n");
+     com->fprintf(stderr, " ... Running Unsteady Linearized w/no structural initializations\n");
    else if (ioData->linearizedData.initCond == LinearizedData::DISPLACEMENT)  {
      com->fprintf(stderr, " ... Initializing with Displacement Mode: %d\n", ioData->linearizedData.modeNumber);
      delU[modeNum] = ioData->linearizedData.amplification;
@@ -390,7 +390,7 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  double t0;
 
  DistSVec<double,dim> FF(domain.getNodeDistInfo());
- VarFcn *varFcn = new VarFcn(*ioData); // DJA 
+ VarFcn *varFcn = new VarFcn(*ioData);  
  spaceOp->computeResidual(Xref, controlVol, Uref, FF, tState);
 
  // basic initializations
@@ -474,8 +474,8 @@ void ModalSolver<dim>::timeIntegrate(VecSet<DistSVec<double, dim> > &snaps,
  int cntp1;
 
  // every step corresponds to solving for 2x each member of the BDF scheme //
- // DJA
- FF *= (-2.0); // DJA
+ 
+ FF *= (-2.0); 
 
  for (int cnt = 0; cnt < nSteps; ++cnt) {
 
@@ -694,7 +694,7 @@ void
 ModalSolver<dim>::timeIntegrateROM(double *romOp, VecSet<Vec<double> > &romOp0, double *romOp1, double *romOp2, VecSet<Vec<double> > &ecMat, VecSet<Vec<double> > &gMat, VecSet<DistSVec<double, dim> > &podVecs, int nSteps, int nPodVecs, double *delU, double *delY, double sdt)  {
 
 #ifdef DO_MODAL
- VarFcn *varFcn = new VarFcn(*ioData); //DJA 
+ VarFcn *varFcn = new VarFcn(*ioData);  
 
  // basic initializations
  DistSVec<double,3> deltmp(domain.getNodeDistInfo());
@@ -967,7 +967,7 @@ template<int dim>
 void ModalSolver<dim>::preProcess()  {
 
  // setup solvers
- VarFcn *varFcn = new VarFcn(*ioData); //DJA 
+ VarFcn *varFcn = new VarFcn(*ioData);  
  geoState = new DistGeoState(*ioData, &domain);
  geoState->setup1(tInput->positions, &Xref, &controlVol);
  bcData = new DistBcDataEuler<dim>(*ioData, varFcn, &domain, Xref);
@@ -977,17 +977,16 @@ void ModalSolver<dim>::preProcess()  {
 
  // Temporal operator contains Uref for us
  tState = new DistTimeState<dim>(*ioData, spaceOp, varFcn, &domain);
- //tState->setup(tInput->solutions,  bcData->getInletBoundaryVector(), Xref, Uref); //DJA
- tState->setup(tInput->solutions,  Xref, bcData->getInletBoundaryVector(), Uref, *ioData); // DJA
+ tState->setup(tInput->solutions,  Xref, bcData->getInletBoundaryVector(), Uref, *ioData); 
  RefVal *refVal = new RefVal(ioData->ref.rv);
  tOutput = new TsOutput<dim>(*ioData, refVal, &domain, postOp);
  tRestart = new TsRestart(*ioData, refVal);
 
- HOp = new MatVecProdH2<double, 5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
- HOp2 = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); // DJA
- HOp2step1 = new MatVecProdH2<double, 5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
- HOpstep2 = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
- HOpstep3 = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
+ HOp = new MatVecProdH2<double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOp2 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOp2step1 = new MatVecProdH2<double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOpstep2 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOpstep3 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
 
  // Stuff for solver
  PcData pcData = ioData->ts.implicit.newton.ksp.ns.pc;
@@ -1003,45 +1002,45 @@ void ModalSolver<dim>::preProcess()  {
 
 
  if (kspData.type == KspData::GMRES) {
-   ksp = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>,
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOp, pc, com); //DJA
-   ksp2 = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>,
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep2, pc, com); //DJA
-   ksp3 = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, 
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep3, pc, com); //DJA
+   ksp = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, dim>,
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOp, pc, com); 
+   ksp2 = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, dim>,
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep2, pc, com); 
+   ksp3 = new GmresSolver<DistSVec<double,dim>, MatVecProd<dim, dim>, 
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep3, pc, com); 
    }
  else if (kspData.type == KspData::GCR) {
-   ksp = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, 5>,
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOp, pc, com); //DJA
-   ksp2 = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, 5>,
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep2, pc, com); //DJA
-   ksp3 = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, 5>,
-       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep3, pc, com); //DJA
+   ksp = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, dim>,
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOp, pc, com); 
+   ksp2 = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, dim>,
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep2, pc, com); 
+   ksp3 = new GcrSolver<DistSVec<double,dim>, MatVecProd<dim, dim>,
+       KspPrec<dim, double>, Communicator>((&domain)->getNodeDistInfo(), kspData, HOpstep3, pc, com); 
  }
 
  if (ioData->linearizedData.domain == LinearizedData::FREQUENCY)  {
-   HOpC = new MatVecProdH2<bcomp,5>(*ioData,  varFcn, tState, spaceOp, &domain); // DJA
+   HOpC = new MatVecProdH2<bcomp,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
 
    pcComplex = new IluPrec<bcomp ,dim, bcomp>(pcData, &domain);
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
 
 
-    kspCompGcr = new GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>,
+    kspCompGcr = new GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim,dim>,
                    KspPrec<dim, bcomp>, Communicator, bcomp>
-                   ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); //DJA
+                   ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); 
    }
    else {
 
      if (kspData.type == KspData::GMRES)
 
-       kspComp = new GmresSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>,
+       kspComp = new GmresSolver<DistSVec<bcomp,dim>, MatVecProd<dim, dim>,
                      KspPrec<dim, bcomp>, Communicator, bcomp>
-                    ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); //DJA
+                    ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); 
      else if (kspData.type == KspData::GCR)
 
-       kspComp = new GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>,
+       kspComp = new GcrSolver<DistSVec<bcomp,dim>, MatVecProd<dim, dim>,
                      KspPrec<dim, bcomp>, Communicator, bcomp>
-                    ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); //DJA
+                    ((&domain)->getNodeDistInfo(), kspData, HOpC, pcComplex, com); 
 
 
    }
@@ -1276,8 +1275,8 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
  DistSVec<double,dim> FF(domain.getNodeDistInfo());
 
  // Allocate ROM operators
- VarFcn *varFcn = new VarFcn(*ioData); //DJA
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
+ VarFcn *varFcn = new VarFcn(*ioData); 
+ MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  double r = dt/(2.0*dt0);
@@ -1538,7 +1537,6 @@ void ModalSolver<dim>::freqIntegrate(VecSet<DistSVec<double, dim> >&snaps,
 
  DistSVec<bcomp, dim> rhs(domain.getNodeDistInfo());
  DistSVec<bcomp, dim> delW(domain.getNodeDistInfo());
- //DistSVec<double, dim> delWReal(domain.getNodeDistInfo()); DJA
  Vec3D x0(0.0, 0.0, 0.0);
 
  Vec<double> modalF(nStrMode);
@@ -1990,7 +1988,6 @@ void ModalSolver<dim>::interpolatePOD()  {
    pod[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
    // read in Pod Vectors
    double *eig = new double[numPod];
-
    domain.readVectorFromFile(podFile[iData], 0, &eig[0], (*pod[iData])[0] );
    if (numPod > eig[0])  {
      com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig[0]);
@@ -2030,6 +2027,7 @@ void ModalSolver<dim>::interpolatePOD()  {
       radMinSq = radSq;
     }
   }
+
  //store the reference pod basis
  VecSet< DistSVec<double, dim> > podRef(*(pod[iDataMin]));
 
@@ -2041,11 +2039,13 @@ void ModalSolver<dim>::interpolatePOD()  {
  for (int iData=0; iData < nData; ++iData){
    if (iData!=iDataMin) {
      for (int j = 0; j < numPod; ++j) {
-       for (int k = 0; k < numPod; ++k)
+       for (int k = 0; k < numPod; ++k) {
          matVals[j][ k] = podRef[j] * ((*pod[iData])[k]);
-     }
+			 }
+		 }	 
      com->barrier();
-     matVals.invert();
+		
+		 matVals.invert();
 
      //compute the projection mapping = Phi*(Phi0'*Phi)^(-1)-Phi0
      projMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
@@ -2072,6 +2072,9 @@ void ModalSolver<dim>::interpolatePOD()  {
  com->barrier();
  delete [] pod;
  //SVD decomposition of projMap
+
+
+
  VecSet<DistSVec<double, dim> > U(numPod, domain.getNodeDistInfo());
  double *Sigma = new double[numPod];
  FullM V(numPod);
@@ -2084,16 +2087,16 @@ void ModalSolver<dim>::interpolatePOD()  {
  for (int iData=0; iData < nData; ++iData) {
    if (iData!=iDataMin) {
      //compute SVD
-		 ParallelRom<dim> parallelRom(domain,com);
-     parallelRom.parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here
-     com->barrier();
+		 ParallelRom<dim> parallelRom(domain,com); 
+     parallelRom.parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here 
+
+		 com->barrier();
      delete projMap[iData];
 
      //compute tan^(-1) Sigma
      for (int iPod = 0; iPod < numPod; ++iPod)
        Theta[iPod] = atan(Sigma[iPod]);
      //compute the logarithmic mapping
-
      //build logMap
      logMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
      for (int iPod = 0; iPod < numPod; ++iPod) {
@@ -2193,7 +2196,9 @@ void ModalSolver<dim>::interpolatePOD()  {
  delete[] podFile;
  delete[] outFile;
 
- modalTimer->setRunTime();
+
+  com->fprintf(stderr,"End of InterpolatePOD\n'");
+  modalTimer->setRunTime();
 
 
 }
@@ -2202,8 +2207,8 @@ template<int dim>
 void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs)  {
 
  // Allocate ROM operators
- VarFcn *varFcn = new VarFcn(*ioData); // DJA
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
+ VarFcn *varFcn = new VarFcn(*ioData); 
+ MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > romOperator(nPodVecs, nPodVecs);
@@ -2257,8 +2262,8 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
                       VecSet<DistSVec<double, dim> > &podVecs, int nPodVecs)  {
 
  // Allocate ROM operators
- VarFcn *varFcn = new VarFcn(*ioData);  // DJA
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,5>(*ioData,  varFcn, tState, spaceOp, &domain); //DJA
+ VarFcn *varFcn = new VarFcn(*ioData);  
+ MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > ecVecs(nStrMode, nPodVecs);
@@ -2325,7 +2330,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
  for (iVec = 0; iVec < nStrMode; iVec++)  {
    for (jVec = 0; jVec < nPodVecs; jVec++)
-     sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = ecVecs[iVec][jVec]; //DJA
+     sysVals[sysSize*nPodVecs + iVec*sysSize + jVec] = ecVecs[iVec][jVec]; 
    for (jVec = 0; jVec < nStrMode; jVec++) {
      if (jVec == iVec)
        sysVals[sysSize*nPodVecs + iVec*sysSize + nPodVecs+nStrMode + jVec] = 1.0;

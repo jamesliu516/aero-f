@@ -85,18 +85,18 @@ private:
 	IoData *ioData;	
 	TsInput *tInput;
 
-	const int Residual;	// refer to Residual as 0
-	const int Jacobian;
+	const int residual;	// refer to residual as 0
+	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
 	int * cpuSet, * locSubSet, * locNodeSet, * globalNodeSet;	// info for master sample nodes
 
 	int nPodBasis;	// either 1 or 2
-	ArrayVecDist<dim> pod;	// pod bases for Residual and Jacobian
+	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
 	SetOfVec podRes, podJac;
-	ArrayVecDist<dim> podHat;	// restricted pod bases for Residual and Jacobian
+	ArrayVecDist<dim> podHat;	// restricted pod bases for residual and jacobian
 	SetOfVec podHatRes, podHatJac;
-	ArrayVecDist<dim> error;	// restricted pod bases for Residual and Jacobian
+	ArrayVecDist<dim> error;	// restricted pod bases for residual and jacobian
 	SetOfVec errorRes, errorJac;
 
 	// greedy data
@@ -107,7 +107,7 @@ private:
 	int *nodesToHandle;	// how many nodes are handled at each greedy iteration
 	VecSubDomainData<dim> locError;
 
-	void parallelLSMultiRHSGap(int iPodBasis, double *lsCoeff);
+	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
 
 	// greedy functions
 
