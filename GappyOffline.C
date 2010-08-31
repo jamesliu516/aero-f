@@ -3,34 +3,34 @@
 template<int dim>
 GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom, TsInput *_tInput) : 
 	domain(dom), 	com(_com), ioData(&_ioData), tInput(_tInput),
-	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podHatRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podHatJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	errorRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	errorJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
+	podRes(0, dom.getNodeDistInfo() ), podJac(0, dom.getNodeDistInfo() ),
+	podHatRes(0, dom.getNodeDistInfo() ),	podHatJac(0, dom.getNodeDistInfo() ),	
+	errorRes(0, dom.getNodeDistInfo() ),	errorJac(0, dom.getNodeDistInfo() ),	
 	handledNodes(0), nPodBasis(2),
 	debugging(1),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2,ParallelRom<dim>(dom,_com)),
-	Residual(0), Jacobian(1)
+	residual(0), jacobian(1)
 {
-	// intialize vectors to point to the approprite bases
+	// initialize vectors to point to the approprite bases
 
-	pod.a[0] = &podRes;	// make pod point to res and jac
-	pod.a[1] = &podJac;
-	podHat.a[0] = &podHatRes;	// make pod point to res and jac
-	podHat.a[1] = &podHatJac;
-	error.a[0] = &errorRes;	// make pod point to res and jac
-	error.a[1] = &errorJac;
+	pod.a[0] = &podRes;	// make pod point to res and jac 
+	pod.a[1] = &podJac; 
+	podHat.a[0] = &podHatRes;	// make pod point to res and jac 
+	podHat.a[1] = &podHatJac; 
+	error.a[0] = &errorRes;	// make pod point to res and jac 
+	error.a[1] = &errorJac; 
 
 	handledVectors[0] = 0;	// have not yet handled any vectors
 	handledVectors[1] = 0;	// have not yet handled any vectors
 	// scalapack least-squares info
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+
+		
+  for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 		parallelRom[iPodBasis].parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]);
-	}
+	} 
+	
 }
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
@@ -43,15 +43,12 @@ void GappyOffline<dim>::buildGappy() {
 
 	// determine whether one or two pod bases are used
 
-	nPod[0] = ioData->Rob.numROB;	// number of POD basis vectors DA
-	nPod[1] = ioData->Rob2.numROB;//DA
-
-        //nPod[0] = 10; //DA debug
-        //nPod[1] = 10; //Da debug
+	nPod[0] = ioData->Rob.numROB;	
+	nPod[1] = ioData->Rob2.numROB;
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
 
-	if (nPod[1] == 0) {	// only need one basis (shared between Jacobian and residual)
+	if (nPod[1] == 0) {	// only need one basis (shared between jacobian and residual)
 		nPodBasis = 1;
 		pod.a[1] = &podRes;
 		podHat.a[1] = &podHatRes;	// make pod point to res and jac
@@ -64,27 +61,24 @@ void GappyOffline<dim>::buildGappy() {
 		error.a[0] = &errorJac;	
 	}
 
-	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");//DA
-        //com->fprintf(stderr, " ... Bypassing reading of POD bases for R and JV\n"); //DA debug
-	// XXX: nSampleNodes will be an input
-        //int nSampleNodes = 36; //DA debug 
-	int nSampleNodes = ceil(double(nPodMax)/double(dim));//DA // this will give interpolation or the smallest possible least squares
+	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");
+	int nSampleNodes = ceil(double(nPodMax)/double(dim)); // this will give interpolation or the smallest possible least squares
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
 
-	for (int i = 0 ; i < nPodBasis ; ++i)//DA // only do for number of required bases
-		pod[i].resize(nPod[i]);//DA
+	for (int i = 0 ; i < nPodBasis ; ++i)// only do for number of required bases
+		pod[i].resize(nPod[i]);
 
 	//	read in both Pod bases
 	//	tInput->podFile: file containing file names of multiple bases
-  domain.readMultiPodBasis(tInput->podFile, pod.a, nPod, nPodBasis);//DA
+  domain.readMultiPodBasis(tInput->podFile, pod.a, nPod, nPodBasis);
 
 	// compute the reduced mesh used by Gappy POD
 
-   buildGappyMesh();
+   //buildGappyMesh(); 
 
 	// compute matries A and B required online
 
-   // buildGappyMatrices();
+   //buildGappyMatrices();
 
 // STRATEGY
 // compute the mesh for the masked domain
@@ -101,7 +95,7 @@ void GappyOffline<dim>::buildGappy() {
 // -how to specify PODData?
 
 // INPUT NOTES
-// nPod[1] = 0 indicates that the same basis is used for the Jacobian and Residual
+// nPod[1] = 0 indicates that the same basis is used for the jacobian and residual
 
 } 
 
@@ -156,12 +150,12 @@ void GappyOffline<dim>::buildGappyMesh() {
 
 	// initialize restricted pod basis and error vectors
 
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
-		podHat[iPodBasis].resize(nPod[iPodBasis]);
-		for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
-		error[iPodBasis].resize(nRhsMax);
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){ 
+		podHat[iPodBasis].resize(nPod[iPodBasis]); 
+		for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0; 
+		error[iPodBasis].resize(nRhsMax); 
 		for (int i = 0; i < nRhsMax; ++i) error[iPodBasis][i] = pod[iPodBasis][i];	// for the first iteration, just pick out largest element
-	}
+	} 
 
 	//===============================================
 	// initialize the least squares problems
@@ -363,7 +357,7 @@ void GappyOffline<dim>::initializeGappyLeastSquares() {
 	// initialize least squares problems
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		parallelRom[iPodBasis].parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]);
+		parallelRom[iPodBasis].parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]); 
 	}
 
 }
@@ -453,22 +447,23 @@ void GappyOffline<dim>::leastSquaresReconstruction() {
 	// INPUT
 	// 	Global: nPodBasis, nRhs, error, podHat, error
 	//
-	double * (lsCoeff[2]);
+	double ** (lsCoeff[2]);
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		lsCoeff[iPodBasis] = new double [handledVectors[iPodBasis]];
+		lsCoeff[iPodBasis] = new double * [nRhs[iPodBasis]];
 		for (int iPod = 0; iPod < nRhs[iPodBasis]; ++iPod)  {
 			// temporarily fill the error vector with the RHS (solving nRhs[iPodBasis] problems)
 			error[iPodBasis][iPod] = podHat[iPodBasis][handledVectors[iPodBasis] + iPod];	// NOTE: PODHAT
+      lsCoeff[iPodBasis][nRhs[iPodBasis]] = new double [handledVectors[iPodBasis]];
 		}
 
-		parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);	//XXX KTC will it work?
+		parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);	
 
 		// compute reconstruction error
 
-		for (int iPod = 0; iPod < nRhs[iPodBasis]; ++iPod) { 
-			error[iPodBasis][iPod] = pod[iPodBasis][handledVectors[iPodBasis] + iPod];	// NOTE: POD
+		for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs) { 
+			error[iPodBasis][iRhs] = pod[iPodBasis][handledVectors[iPodBasis] + iRhs];	// NOTE: POD
 			for (int jPod = 0; jPod < handledVectors[iPodBasis]; ++jPod) {
-				error[iPodBasis][iPod] -= error[iPodBasis][jPod] * lsCoeff[iPodBasis][jPod];
+				error[iPodBasis][iRhs] -= error[iPodBasis][jPod] * lsCoeff[iPodBasis][iRhs][jPod];
 			}
 		}
 	}
@@ -514,6 +509,6 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 }
 
 template<int dim>
-void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double *lsCoeff) {
+void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 		parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis], handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 }

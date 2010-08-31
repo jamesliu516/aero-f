@@ -28,7 +28,7 @@ class ParallelRom {
 	void scalapackCpuDecomp(int nCol);	// transfer data from VecSet<DistSVec> to scalapack format
 	void transferData(VecSet< DistSVec<double, dim> > &snaps, double* subMat, int nSnaps);
 	void transferDataBack(double *U, VecSet< DistSVec<double, dim> > &Utrue , int nSnaps);
-	void transferDataBackLS(double *subMatB, int n, double *lsSol); 
+	void transferDataBackLS(double *subMatB, int n, double **lsSol, int nRhs, int subMatLLD); 
 	void setTransfer();
 
 	public:
@@ -38,7 +38,7 @@ class ParallelRom {
 	// Parallel operations
 	void parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps);
 	void parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B); 	// initialization
-	void parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double *lsSol); // least-squares
+	void parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol); // least-squares
 			// via QR with multiple RHS
 };
 #include "ParallelRom.C"

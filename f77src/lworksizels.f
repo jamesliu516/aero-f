@@ -1,5 +1,4 @@
-      subroutine lworksizels( desc_a, desc_b, ia, ja, m, n, nrhs 
-     $           lwork)
+      subroutine lworksizels( desc_a, desc_b, ia, ja, m, n, nrhs,lwork)
 c 
 c     =======================================
 c			PURPOSE: compute LWORK >= LTAU + MAX( LWF, LWS ) which is the size of the work array required for the current least squares problem(from pdgels.f comments)
@@ -10,7 +9,7 @@ c
       integer desc_a (9), desc_b (9), ia, ja, m, n, nrhs, lwork 
      $        m_a, n_a, mb_a, nb_a, rsrc_a, csrc_a, mb_b, nb_b, rsrc_b
      $        csrc_b, iroffa, icoffa, iarow, iacol, mpa0, nqa0, iroffb
-     $        ibrow, ibcol, mpb0, npb0, nrhsqb0, lwf, lws, ltau, lwork
+     $        ibrow, ibcol, mpb0, npb0, nrhsqb0, lwf, lws, ltau
 c     
 c     external subroutines
       EXTERNAL BLACS_GRIDINFO
@@ -49,7 +48,7 @@ c
       iacol = INDXG2P( ja, nb_a, mycol, csrc_a, npcol )
       mpa0 = NUMROC( m+iroffa, mb_a, myrow, iarow, nprow )
       nqa0 = NUMROC( n+icoffa, nb_a, mycol, iacol, npcol )
-
+c
       iroffb = mod( ib-1, mb_b )
       icoffb = mod( jb-1, nb_b )
       ibrow = INDXG2P( ib, mb_b, myrow, rsrc_b, nprow )
@@ -59,7 +58,7 @@ c
       nrhsqb0 = NUMROC( nrhs+icoffb, nb_b, mycol, ibcol, npcol )
 c
       lwf  = nb_a * ( mpa0 + nqa0 + nb_a )
-      lws  = max( (nb_a*(nb_a-1))/2, (nrhsqb0 + mpb0)*nb_a ) + nb_a * nb_a
+      lws  = max((nb_a*(nb_a-1))/2,(nrhsqb0 + mpb0)*nb_a )+nb_a * nb_a
       ltau = NUMROC( ja+min(m,n)-1, nb_a, mycol, csrc_a, npcol )
       lwork = ltau + max(lwf, lws) + 1
 c
