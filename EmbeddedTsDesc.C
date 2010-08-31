@@ -280,9 +280,10 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   if(numFluid==1)
     dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
                             &numSubCycles, *this->geoState, *this->X, *this->A, U);
-  else //numFLuid>1
+  else {//numFLuid>1
     dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
                             &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+  }
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",

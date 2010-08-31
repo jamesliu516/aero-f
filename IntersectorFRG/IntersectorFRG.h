@@ -77,8 +77,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     PhysBAMInterface<double> *globPhysInterface;
     Domain *domain;
 
-    DistVec<bool> *poly; //true if a node lies in n>2 subdomains
-    void findPoly();
+    DistVec<bool> *poly; //true if a node lies in n>2 subdomains (not used!)
+    void findPoly(); //not used!
     void buildSolidNormals();
     void expandScope();
     void findInAndOut();
@@ -159,7 +159,8 @@ class IntersectorFRG : public LevelSetStructure {
     void projection(Vec3D, int, double&, double&, double&);
     void floodFill(SubDomain& sub, int& nUndecided);
     void noCheckFloodFill(SubDomain& sub, int& nUndecided);
-    int findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& poly, int& nUndecided);
+    int findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& poly, int& nUndecided); //not used!
+    int findNewSeedsAfterMerging(SVec<int,2>& status_and_weight, int& nUndecided);
     int findSeedsByPoints(SubDomain& sub, SVec<double,3>& X, list< pair<Vec3D,int> > P, int& nUndecided);
     void addToPackage(int node, int trID);
 

@@ -68,7 +68,7 @@ public:
   double computeRhoEpsilon(double *V) const { 
     return invgam1 * (V[4]+gam*Pstiff); 
   }
-  double computeSoundSpeed(double *V) const { 
+  double computeSoundSpeed(double *V) const {
     return sqrt(gam * (V[4]+Pstiff) / V[0]); 
   }
   double computeSoundSpeed(double density, double entropy) const {
