@@ -650,17 +650,6 @@ bool DistIntersectorFRG::checkTriangulatedSurface()
       if(it != edgeMap.end()) { // we found this edge
          if(it->second.second == ep[i].second.second)
            {com->fprintf(stderr,"ERROR: surface is not closed or a triangle orientation problem. exit.\n"); return false;}
-         else {
-             int oTriangle = it->second.first;
-             int n1 = it->second.second ? ep[i].first.first : ep[i].first.second;
-             int edgeIndex;
-             if(stElem[oTriangle][0] == n1)
-               edgeIndex = 0;
-             else if(stElem[oTriangle][1] == n1)
-               edgeIndex = 1;
-             else
-               edgeIndex = 2;
-         }
       } else
         edgeMap[ep[i].first] = ep[i].second;
     }
@@ -918,9 +907,9 @@ void DistIntersectorFRG::updateStructCoords(double c_n, double c_np1)
 void DistIntersectorFRG::findInAndOut()
 {
   int nUndecided[numLocSub], total;
-  DistVec<int> status_temp(domain->getNodeDistInfo());
-  DistVec<int> one(domain->getNodeDistInfo());
-  one = 1;
+  DistSVec<int,2> status_and_weight(domain->getNodeDistInfo());
+//  DistVec<int> one(domain->getNodeDistInfo());
+//  one = 1;
 
 #pragma omp parallel for
   for(int iSub=0; iSub<numLocSub; iSub++) 
@@ -938,6 +927,50 @@ void DistIntersectorFRG::findInAndOut()
       break; 
 
     //2. try to get a seed from neighbor subdomains, then floodFill
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<status_and_weight(iSub).size(); i++) {
+        status_and_weight(iSub)[i][0] = (*status)(iSub)[i] + 1; 
+          //status(temp) = 0(UNDECIDED),1(INSIDE),or -1(OUTSIDE).
+        status_and_weight(iSub)[i][1] = ((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) ? 0 : 1;
+      } 
+         
+    domain->assemble(domain->getFsPat(),status_and_weight);
+
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++) {
+      int nNewSeed = intersector[iSub]->findNewSeedsAfterMerging(status_and_weight(iSub), nUndecided[iSub]);
+      if(nNewSeed)
+        intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);      
+    }
+  }
+}
+
+//----------------------------------------------------------------------------
+/*
+void DistIntersectorFRG::findInAndOut()
+{
+  int nUndecided[numLocSub], total;
+  DistVec<int> status_temp(domain->getNodeDistInfo());
+  DistVec<int> one(domain->getNodeDistInfo());
+  one = 1;
+
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++)
+    intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
+
+  while(1) { //get out only when all nodes are decided
+
+    //1. check if all the nodes (globally) are determined
+    total = 0;
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      total += nUndecided[iSub];
+    com->globalMax(1,&total);
+//    com->fprintf(stderr,"total = %d\n",total);
+    if(total==0) //done!
+      break;
+
+    //2. try to get a seed from neighbor subdomains, then floodFill
     status_temp = *status + one; //status_temp = 0(UNDECIDED),1(INSIDE),or -1(OUTSIDE).
     domain->assemble(domain->getLevelPat(),status_temp);
     status_temp -= one;
@@ -946,11 +979,11 @@ void DistIntersectorFRG::findInAndOut()
     for(int iSub=0; iSub<numLocSub; iSub++) {
       int nNewSeed = intersector[iSub]->findNewSeedsAfterMerging(status_temp(iSub), (*poly)(iSub), nUndecided[iSub]);
       if(nNewSeed)
-        intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);      
+        intersector[iSub]->floodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
     }
   }
 }
-
+*/
 //----------------------------------------------------------------------------
 
 void IntersectorFRG::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE)
@@ -1026,6 +1059,113 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   
 
   int nUndecided[numLocSub], total;
+  DistSVec<int,2> status_and_weight(domain->getNodeDistInfo());
+
+  // first round
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; iSub++) {
+    nUndecided[iSub] = 0;
+
+    // 1. move "OUTSIDE" nodes to "UNDECIDED".
+    for(int i=0; i<(*status)(iSub).size(); i++)
+      if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) {
+        (*status)(iSub)[i] = IntersectorFRG::UNDECIDED;
+        nUndecided[iSub]++;
+      }
+    // 2. find seeds by points
+    int nSeeds = intersector[iSub]->findSeedsByPoints(*(domain->getSubDomain()[iSub]), (*X)(iSub), Points, nUndecided[iSub]);
+    // 3. flood fill if seeds are found
+    if(nSeeds>0)
+      intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
+  }   
+
+  int total0 = 0;
+  while(1) { //get out only when all nodes are decided
+    //1. check if all the nodes (globally) are determined
+    total = 0;
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      total += nUndecided[iSub];
+    com->globalSum(1,&total);
+    if(total==0 || total==total0)
+      break; //done
+    total0 = total;
+
+    //2. try to get a seed from neighbor subdomains
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<status_and_weight(iSub).size(); i++) {
+        status_and_weight(iSub)[i][0] = (*status)(iSub)[i] + 1;
+          //status(temp) = 0(UNDECIDED),1(INSIDE),or 2,3, ...
+        status_and_weight(iSub)[i][1] = ((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) ? 0 : 1;
+      }
+
+    domain->assemble(domain->getFsPat(),status_and_weight);
+
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++) {
+      int nNewSeed = intersector[iSub]->findNewSeedsAfterMerging(status_and_weight(iSub), nUndecided[iSub]);
+      if(nNewSeed)
+        intersector[iSub]->noCheckFloodFill(*(domain->getSubDomain()[iSub]),nUndecided[iSub]);
+    }
+  }
+
+  if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+    twoPhase = false;
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++) {
+        if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) {
+//          fprintf(stderr,"CPU %d: Node %d is undecided!!!\n", com->cpuNum(), intersector[iSub]->locToGlobNodeMap[i]+1);
+          (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
+        }
+      }
+  } else 
+    twoPhase = (numFluid<3) ? true : false;
+
+}
+
+//----------------------------------------------------------------------------
+/*
+void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
+{
+  if((numFluid==1 || numFluid==2) && iod.embed.embedIC.pointMap.dataMap.empty()) {
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++)
+        if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE)
+          (*status)(iSub)[i]=1; 
+
+    twoPhase = true; 
+    return;
+  }
+
+  list< pair<Vec3D,int> > Points; //pair points with fluid model ID.
+  if(!iod.embed.embedIC.pointMap.dataMap.empty()){
+    map<int, PointData *>::iterator pointIt;
+    for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
+        pointIt != iod.embed.embedIC.pointMap.dataMap.end();
+        pointIt ++){
+      int myID = pointIt->second->fluidModelID;
+      Vec3D xyz(pointIt->second->x, pointIt->second->y,pointIt->second->z);
+      Points.push_back(pair<Vec3D,int>(xyz, myID));
+
+      if(myID>=numFluid) { //myID should start from 0
+        com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
+        exit(-1);
+      } 
+    }
+  } else {
+    com->fprintf(stderr, "ERROR: (INTERSECTOR) Point-based initial conditions are required for multi-phase FSI.\n");
+    exit(-1);
+  }
+
+  list< pair<Vec3D,int> >::iterator iter;
+  for(iter = Points.begin(); iter!=Points.end(); iter++)
+    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
+  
+
+  int nUndecided[numLocSub], total;
   DistVec<int> status_temp(domain->getNodeDistInfo());
   DistVec<int> one(domain->getNodeDistInfo());
   one = 1;
@@ -1055,9 +1195,9 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       total += nUndecided[iSub];
-    com->globalMax(1,&total);
-    
-    if(total==0/* || total==total0*/) //TODO: KW: fix this!
+    com->globalSum(1,&total);
+    com->fprintf(stderr,"Total number of undecided nodes = %d\n", total);    
+    if(total==0 || total==total0)
       break; //done
 
     total0 = total;
@@ -1074,18 +1214,33 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   }
 
   if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
-    fprintf(stderr,"I'm here.\n");
     twoPhase = false;
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
-      for(int i=0; i<(*status)(iSub).size(); i++)
-        if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) 
+      for(int i=0; i<(*status)(iSub).size(); i++) {
+
+        if(com->cpuNum()==154&&intersector[iSub]->locToGlobNodeMap[i]==700111-1) {
+          fprintf(stderr,"Node 700111 belongs to %d subdomains.\n", intersector[iSub]->nodeToSubD.num(i));
+          Connectivity &nToN = *(intersector[iSub]->subD->getNodeToNode());
+          for(int j=0; j<nToN.num(i); j++)
+            fprintf(stderr,"  -- Neighbour: %d\n", intersector[iSub]->locToGlobNodeMap[nToN[i][j]]+1);
+        }
+
+        if(intersector[iSub]->locToGlobNodeMap[i]==700111-1)
+          fprintf(stderr,"CPU %d has ndoe 700111 with status %d.\n", com->cpuNum(), (*status)(iSub)[i]);
+
+
+        if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) {
+          fprintf(stderr,"CPU %d: Node %d is undecided!!!\n", com->cpuNum(), intersector[iSub]->locToGlobNodeMap[i]+1);
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
+        }
+      }
   } else 
     twoPhase = (numFluid<3) ? true : false;
-    
-}
 
+  exit(-1);
+}
+*/
 //----------------------------------------------------------------------------
 
 void DistIntersectorFRG::finalizeStatus()
@@ -1517,6 +1672,21 @@ void IntersectorFRG::computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist)
 
 //----------------------------------------------------------------------------
 
+int IntersectorFRG::findNewSeedsAfterMerging(SVec<int,2>& status_and_weight, int& nUndecided)
+{
+  int numNewSeeds = 0;
+  for(int i=0; i<status.size(); i++){
+    if(status[i]!=UNDECIDED || status_and_weight[i][1]==0)
+      continue; //already decided || didn't get anything from neighbours
+    status[i] = status_and_weight[i][0] / status_and_weight[i][1] - 1;//back to normal conventional
+    nUndecided--;
+    numNewSeeds++;
+  }
+  return numNewSeeds;
+}
+
+//----------------------------------------------------------------------------
+
 int IntersectorFRG::findNewSeedsAfterMerging(Vec<int>& status_temp, Vec<bool>& poly, int& nUndecided)
 {
   int numNodes = status.size();
@@ -1643,9 +1813,33 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       }
     }
 
-    if (res1.triangleID<0)
-    fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
-                    locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
+    if (res1.triangleID<0 && useScope) { // try global intersector as a 'fail-safe'.
+      if(!GlobPhysBAMUpdated) {
+        distIntersector.updatePhysBAMInterface();
+        GlobPhysBAMUpdated = true;
+        fprintf(stderr,"Now using the global intersector...\n");
+      }
+
+      for (int iter=0; iter<MAX_ITER; iter++) {
+        double coeff = iter*iter*TOL;
+        Vec3D xpPrime = xp - coeff*dir;
+        Vec3D xqPrime = xq + coeff*dir;
+        VECTOR<double,3> xyz1(xpPrime[0],xpPrime[1],xpPrime[2]), 
+                         xyz2(xqPrime[0],xqPrime[1],xqPrime[2]);
+        res1 = distIntersector.getInterface().Intersect(xyz1,xyz2, coeff*dir.norm()); 
+
+        if (res1.triangleID>0 /*|| edgeRes(2).y.triangleID>0*/) {
+          CrossingEdgeRes[l] = res1;
+          ReverseCrossingEdgeRes[l] = res1; //TODO: redundent!
+          if (iter>max_iter) max_iter = iter;
+          break;
+        }
+      }
+ 
+      if(res1.triangleID<0)
+         fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
+                        locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
+    }
   }
 }
 
