@@ -11,11 +11,11 @@ extern "C"      {
                        int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
                        int &, double *, int &);
   void F77NAME(lworksizesvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
-  void F77NAME(lworksizels)(int *, int *,int, int, int, int, int, int);    
-	void F77NAME(globalmatrices)(int, int, int, int, int, int, int, int,
-     int *, int *);	
+  void F77NAME(lworksizels)(int *, int *,int &, int &, int &, int &, int &, int &);    
+	void F77NAME(globalmatrices)(int &, int &, int &, int &, int &, int&, int &, int &,int &, int *, int *);	
+
 	void F77NAME(leastsquares)(int &, int &, int &, double *, int &, int &, int *,
-	double *, int &, int &, int *, double *, int &, int &);
+	double *, int &, int &, int *, double *, int &, int &, int &, int &);
 };
 
 template<int dim> 
@@ -50,8 +50,9 @@ void ParallelRom<dim>::scalapackCpuDecomp(int nCol) {
 
  // specify the block size (in terms of nodes), and require nodesPerBlock > nCol 
 
- nodesPerBlock = int(ceil(double(nCol)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes
+ nodesPerBlock = int(ceil(double(nCol)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes 
  rowsPerBlock = nodesPerBlock * dim;	// number of entries per block (there are dim entries per node)
+
 
  //===============================
  // set transfer parameters
@@ -72,12 +73,13 @@ template<int dim>
 void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps) {
 
 #ifdef DO_SCALAPACK
- int numLocSub = domain.getNumLocSub();
+ 	int numLocSub = domain.getNumLocSub();
 
  // specify the block size (in terms of nodes)
  // blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
 
  nodesPerBlock = int(floor(2*nSnaps/dim));
+
 
  //set the transfer parameters
 
@@ -87,12 +89,12 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  double *subMat = new double[nodesPerBlock*dim*maxCpuBlocks*nSnaps];
  for (int i=0; i < nodesPerBlock*dim*maxCpuBlocks*nSnaps; ++i)
    subMat[i] =0.0;
-
-
+ 
  //transfer the extra nodes where needed and fill subMat
  transferData(snaps,subMat,nSnaps);
 
  com->barrier();
+
  // Allocate for svd call
  // allocate for eigenvectors and eigenvalues
  int locLLD = dim * cpuNodes[thisCPU];
@@ -102,7 +104,7 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  int locLLD_V = 1;
  if (thisCPU == 0)
    locLLD_V = nSnaps;
-
+ 
  double *U = new double[locLLD*maxLocC];
  double *V = new double[locLLD_V*maxLocC];
  for (int iSnaps=0; iSnaps<nSnaps; ++iSnaps)
@@ -116,8 +118,7 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  int rowIndex = 1;
  int colIndex = 1;
  nodesPerBlock *= dim;
-
-
+ 
  F77NAME(lworksizesvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                   nodesPerBlock, nodesPerBlock, lwork);
 
@@ -134,7 +135,7 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
                   info);
 
  com->barrier();
-
+ 
  for (int i = 0; i < nSnaps; i++){
    for (int j = 0; j < nSnaps; j++) {
      Vtrue[i][j] = 0.0;
@@ -145,17 +146,16 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  delete[] V;
 
  com->globalSum(nSnaps*nSnaps, Vtrue.data());
-
+ 
  //Permute back matrix U
  com->barrier();
-
  for (int i = 0; i < nSnaps; ++i)
    Utrue[i] = 0.0;
  transferDataBack(U, Utrue , nSnaps);
 
  com->barrier();
- delete[] work;
- delete[] U;
+ delete[] work; 
+ delete[] U; 
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
@@ -209,11 +209,10 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 	// decomposition information
 
 	int numLocSub = domain.getNumLocSub();
-	int nTotCpus = com->size();
-	int thisCPU = com->cpuNum();
+	nTotCpus = com->size(); 
+	thisCPU = com->cpuNum(); 
 
-	int rowsPerBlock;	// number of nodes contained on CPU
-	int maxCpuBlocks=0;	// maximum number of blocks per cpu
+	maxCpuBlocks=0;	// maximum number of blocks per cpu 
 
 	// inputs: nA
 	// outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
@@ -224,27 +223,26 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
  //===============================
  // Step 2: define process grid
  //===============================
-
+ 
  int locLLD = dim * cpuNodes[thisCPU];	// number of rows in domain!
  int maxLLD = locLLD;	// find the maximum over all LLD
- com->globalMax(1, &maxLLD);
-
+ com->globalMax(1, &maxLLD); 
+ 
  // define process (cpu) grid: nTotCpus x 1 (fit all data from a single node on a processor)
  // NOTE: can have NB_A > N_A! Your block size can be bigger than the number of rows
-
+ 
  int nprow = nTotCpus;	// number of processor rows
  int npcol = 1;	// number of processor columns
  int globNumRows = dim * A[0].nonOverlapSize();
-
+	
 	//===============================
 	// Step 3
 	//===============================
 
 	// input: nprow, npcol, m_a, n_a, n_b, rowblock, colblock, locLLD
 	// output: desc_a, desc_b
-
-	F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,                                               locLLD,
-     desc_a, desc_b);	
+	
+  F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);	
 
 }
 
@@ -282,6 +280,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
 	int nSubMatB = nRhs;
 	int locLLD = dim * cpuNodes[thisCPU];
 	int subMatLLD = locLLD;
+	thisCPU = com->cpuNum();
 	//int subMatLLD = maxLLD = rowsPerBlock * maxCpuBlocks;	// this is the safe way to do it
 
  double *subMatA = new double[n * subMatLLD];
@@ -297,7 +296,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
  // 	Note that A and B use the same decomposition
  //===============================
 
- int *locSendReceive = new int[com->size()];	// how many nodes the current cpu sends to other cpu (not needed after this
+ locSendReceive = new int[com->size()];	// how many nodes the current cpu sends to other cpu (not needed after this 
 
  // input: B, cpuMasterNodes, cpuNodes, nB
  // output: locSendReceive, subMatB
@@ -321,11 +320,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
  // output: lwork
 
  F77NAME(lworksizels)(desc_a, desc_b, rowIndex, colIndex, globNumRows, n, nRhs, lwork); 
-
  com->barrier();
  // lwork *= 2;// DEBUG: if worried, can multiply by two without introducing errors
  lwork = lwork + 2;	// to be safe
-
  // allocate memory for local work array
  double *work = new double[lwork];
  work[0] = -99.0;	// ???
@@ -343,7 +340,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
 //												subMatB, rowIndex, colIndex, desc_b, work, lwork, info);
 
  F77NAME(leastsquares)(globNumRows, n, nRhs, subMatA, rowIndex, colIndex,
-	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, subMatLLD);
+	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, subMatLLD,thisCPU,info);
 
  if (info != 0) {
 	 com->fprintf(stderr, "  ... ERROR IN SCALAPACK ROUTINE PDGELS!\n");
@@ -357,6 +354,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
  //===============================
 
  // output: lsSol
+
  transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD);
 
  com->barrier();
@@ -395,8 +393,8 @@ void ParallelRom<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, doub
 
  int numLocSub = domain.getNumLocSub();
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
- int nTotCpus = com->size();
- int thisCPU = com->cpuNum();
+ nTotCpus = com->size(); 
+ thisCPU = com->cpuNum(); 
 
  int *cpuMasterNodesCopy = new int[nTotCpus];
  for (int iCpu=0; iCpu<nTotCpus; ++iCpu)
@@ -529,7 +527,6 @@ void ParallelRom<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, doub
 
  delete[] totalSentNodes;
  delete[] cpuMasterNodesCopy;
-
 	// NOTE: max size of subMat is (nSnap-1)* subMatRowsNum * + K*dim
 }
 
@@ -539,8 +536,8 @@ void ParallelRom<dim>::transferDataBack(double *U, VecSet< DistSVec<double, dim>
 
  int numLocSub = domain.getNumLocSub();
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
- int nTotCpus = com->size();
- int thisCPU = com->cpuNum();
+ nTotCpus = com->size(); 
+ thisCPU = com->cpuNum();
 
  double *recData;
  double *buffer;
@@ -686,38 +683,53 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 
 	int numLocSub = domain.getNumLocSub();
 	DistInfo &nodeDistInfo = domain.getNodeDistInfo();
-	int nTotCpus = com->size();
-	int thisCPU = com->cpuNum();
+	nTotCpus = com->size();
+	thisCPU = com->cpuNum();
 
 	// info to keep track of the subMatrixEntry for each cpu and the current cpu that is filling lsSol
 
 	int currentCpu = 0;	// start with cpu 0 then move up
 	int *subMatEntry = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
+	int *subMatLLDset = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 
 	// initialize lsSol
 
-	for (int i = 0; i < nRhs; ++i)
+	for (int i = 0; i < nRhs; ++i){
 		for (int j = 0; j < n; ++j)
-			lsSol[i][j] = 0.0;
+		  lsSol[i][j] = 0.0;
+  }
+
+	for (int i = 0; i < nTotCpus; ++i)
+		subMatLLDset[i] = 0;
+	subMatLLDset[thisCPU] = subMatLLD;
+
+	com->barrier();
+
+	com->globalSum(nTotCpus, subMatLLDset);
 
 	// compute lsSol from distributed data
 
-	for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
+  for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
 		
 		// initialize subMatEntry for this RHS
-		for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
-			subMatEntry[iCpu] = iRhs * subMatLLD;
-		for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
-			if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
-				lsSol[iRhs][lsSolCount] = subMatB[subMatEntry[currentCpu]];
-			++subMatEntry[currentCpu];
-			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu
+	  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
+		  subMatEntry[iCpu] = iRhs * subMatLLDset[iCpu];
+	  for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
+			// currentCpu: cpu which is filling up lsSol
+		  if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
+			  lsSol[iRhs][lsSolCount] = subMatB[subMatEntry[currentCpu]];
+		  ++subMatEntry[currentCpu];	// current cpu has moved on
+			//KTC CHECK 
+			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu 
 				++currentCpu;
-				if (currentCpu == nTotCpus) 	// should cycle back to zero
-					currentCpu = 0;
-			}
+			  if (currentCpu == nTotCpus) 	// should cycle back to zero 
+				  currentCpu = 0;
+		  }
 		}
+		currentCpu = 0;
+
 	}
+
 
 	com->barrier();
 
@@ -725,6 +737,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 		com->globalSum(n, lsSol[iRhs]);
 
 	delete[] subMatEntry;
+	delete[] subMatLLDset;
 
 }
 
@@ -746,12 +759,15 @@ void ParallelRom<dim>::setTransfer() {
  DistVec<int> cpuDestination(domain.getNodeDistInfo());
  cpuDestination = -1;
 
- int nTotCpus = com->size();
- int thisCPU = com->cpuNum();
+ subDomain = domain.getSubDomain();
+
+ nTotCpus = com->size(); 
+ thisCPU = com->cpuNum(); 
 
  //======================================
  // compute master nodes (non-overlapping subdomain sizes)
  //======================================
+
 
  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
    cpuMasterNodes[iCpu] = 0;
@@ -764,7 +780,7 @@ void ParallelRom<dim>::setTransfer() {
        cpuMasterNodes[thisCPU]++;	// add if it is a master node
    }
  }
-
+ 
  // maxDomainSize = maximum number of master nodes on a cpu
  int maxDomainSize = cpuMasterNodes[thisCPU];
  com->globalMax(1, &maxDomainSize);
@@ -804,8 +820,8 @@ void ParallelRom<dim>::setTransfer() {
    cpuNodes[iCpu] = cpuBlocks[iCpu]*nodesPerBlock;	// blocks * number of nodes per block assuming full blocks
  if (nNodeLastBlock < nodesPerBlock)	// last block is not full
    cpuNodes[lastCpu] += (nNodeLastBlock-nodesPerBlock);	// subtract off the missing nodes in not full block
-
- delete [] cpuBlocks;
+ 
+ delete[] cpuBlocks;
 
 }
 
