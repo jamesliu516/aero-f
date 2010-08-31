@@ -251,7 +251,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 //----------------------------------
 
 template<int dim>
-void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double *lsSol) {
+void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol) {
 
 	// each time
   // 	ScaLAPACK only operates on submatrices; these are the submatrices of interest
@@ -357,7 +357,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
  //===============================
 
  // output: lsSol
- transferDataBackLS(subMatB, n, lsSol);
+ transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD);
 
  com->barrier();
 
@@ -674,11 +674,11 @@ void ParallelRom<dim>::transferDataBack(double *U, VecSet< DistSVec<double, dim>
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double *lsSol) {
+void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSol, int nRhs, int subMatLLD) {
 
 	//====================================
 	// Purpose: fill lsSol by using appropriate data from subMatB
-	// Inputs: subMatB (scalapack fills in B with solution), n (number of columns in A)
+	// Inputs: subMatB (scalapack fills in B with solution), n (number of columns in A), subMatLLD (so you know where the data for various RHS resides on subMatB)
 	// Outputs: lsSol
 	//====================================
 
@@ -696,25 +696,33 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double *lsSol
 
 	// initialize lsSol
 
-	for (int i = 0; i < n; ++i)
-		lsSol[i] = 0.0;
+	for (int i = 0; i < nRhs; ++i)
+		for (int j = 0; j < n; ++j)
+			lsSol[i][j] = 0.0;
 
 	// compute lsSol from distributed data
 
-	for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
-		if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
-			lsSol[lsSolCount] = subMatB[(subMatEntry[currentCpu])];
-		++subMatEntry[currentCpu];
-		if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu
-			++currentCpu;
-			if (currentCpu = nTotCpus) 	// should cycle back to zero
-				currentCpu = 0;
+	for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
+		
+		// initialize subMatEntry for this RHS
+		for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
+			subMatEntry[iCpu] = iRhs * subMatLLD;
+		for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
+			if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
+				lsSol[iRhs][lsSolCount] = subMatB[subMatEntry[currentCpu]];
+			++subMatEntry[currentCpu];
+			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu
+				++currentCpu;
+				if (currentCpu == nTotCpus) 	// should cycle back to zero
+					currentCpu = 0;
+			}
 		}
 	}
 
 	com->barrier();
 
-	com->globalSum(n, lsSol);
+	for (int iRhs = 0; iRhs < nRhs; ++iRhs)
+		com->globalSum(n, lsSol[iRhs]);
 
 	delete[] subMatEntry;
 
