@@ -3294,7 +3294,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_POD_CONSTRUCTION_ ||
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
-      problem.alltype == ProblemData::_INTERPOLATION_)
+      problem.alltype == ProblemData::_INTERPOLATION_ ||
+			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2
