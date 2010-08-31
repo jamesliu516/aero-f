@@ -40,6 +40,8 @@ InputData::InputData()
   oneDimensionalSolution = "";
 	mesh = "";
 	sampleNodes = "";
+	aMatrix = "";
+	bMatrix = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -70,6 +72,8 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
   new ClassStr<InputData>(ca, "ReducedMesh", this, &InputData::mesh);
   new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
+  new ClassStr<InputData>(ca, "AMatrix", this, &InputData::aMatrix);
+  new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
@@ -186,6 +190,8 @@ TransientData::TransientData()
   romFile = "";
   mesh = "";
   sampleNodes = "";
+  aMatrix = "";
+  bMatrix = "";
   philevel = "";
   controlvolume = "";
   philevel_structure = "";
@@ -294,6 +300,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
   new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
+  new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
+  new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);

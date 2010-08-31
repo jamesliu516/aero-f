@@ -9,6 +9,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	podHatJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	errorRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	errorJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
+	pseudoInvRhs(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	handledNodes(0), nPodBasis(2),
 	debugging(1),
 	// distribution info
@@ -57,11 +58,18 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
 {
+	// KTC: MAKE SURE TO DO GARBAGE COLLECTION!
 	for (int i = 0; i < 2; ++i) {
 		delete [] bcIsland[i];
 		for (int j = 0; j < 3; ++j)
 			delete [] bcFaces[i][j];
 	}
+
+
+	for (int i = 0; i < nSampleNodes * dim; ++i)  
+		delete [] onlineMatrices[0][i];
+	delete [] onlineMatrices[0];
+	
 }
 	//---------------------------------------------------------------------------------------
 
@@ -496,24 +504,29 @@ void GappyOffline<dim>::leastSquaresReconstruction() {
 	// INPUT
 	// 	Global: nPodBasis, nRhs, error, podHat, error
 	//
-	double * (lsCoeff[2]);
+	double ** (lsCoeff[2]);
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		lsCoeff[iPodBasis] = new double [handledVectors[iPodBasis]];
-		for (int iPod = 0; iPod < nRhs[iPodBasis]; ++iPod)  {
+		lsCoeff[iPodBasis] = new double * [ nRhs[iPodBasis] ];
+		for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs)  {
 			// temporarily fill the error vector with the RHS (solving nRhs[iPodBasis] problems)
-			error[iPodBasis][iPod] = podHat[iPodBasis][handledVectors[iPodBasis] + iPod];	// NOTE: PODHAT
+			error[iPodBasis][iRhs] = podHat[iPodBasis][handledVectors[iPodBasis] + iRhs];	// NOTE: PODHAT
+			lsCoeff[iPodBasis][iRhs] = new double [handledVectors[iPodBasis]];
 		}
 
 		parallelLSMultiRHSGap(iPodBasis,lsCoeff[iPodBasis]);
 
 		// compute reconstruction error
 
-		for (int iPod = 0; iPod < nRhs[iPodBasis]; ++iPod) { 
-			error[iPodBasis][iPod] = pod[iPodBasis][handledVectors[iPodBasis] + iPod];	// NOTE: POD
+		for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs) { 
+			error[iPodBasis][iRhs] = pod[iPodBasis][handledVectors[iPodBasis] + iRhs];	// NOTE: POD
 			for (int jPod = 0; jPod < handledVectors[iPodBasis]; ++jPod) {
-				error[iPodBasis][iPod] -= error[iPodBasis][jPod] * lsCoeff[iPodBasis][jPod];
+				error[iPodBasis][iRhs] -= error[iPodBasis][jPod] * lsCoeff[iPodBasis][iRhs][jPod];
 			}
 		}
+		for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs)  
+			delete [] lsCoeff[iPodBasis][iRhs];
+		delete [] lsCoeff[iPodBasis];
+
 	}
 }
 
@@ -557,7 +570,7 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 }
 
 template<int dim>
-void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double *lsCoeff) {
+void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 		parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis], handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 }
 template<int dim>
@@ -808,7 +821,8 @@ void GappyOffline<dim>::outputTopFile() {
 	 // write out nodes
 
    fprintf(reducedMesh,"Nodes FluidNodes\n");
-	 int reducedNodeCount = 0, reducedEleCount = 0, reducedFaceCount = 0, globalNodeNum, globalEleNum;
+	 reducedNodeCount = 0;
+	 int  reducedEleCount = 0, reducedFaceCount = 0, globalNodeNum, globalEleNum;
 	 StaticArray <3> xyzVals;
 	 StaticArray <4> globalNodes, reducedNodes;
 	 std::map<int, int > globalToReducedNodeNumbering [nSampleNodes];	// one mapping for each island
@@ -906,12 +920,176 @@ void GappyOffline<dim>::buildGappyMatrices() {
 // 	reduced domain decomposition: A, B
 //======================================
 
-// RD = reduced domain decomposition; FD = full domain decomposition
-// (2-3) compute pseudo-inverses of podHat[0], podHat[1] (compute QR, then solve least-squares problems with identity matrix). RD
-// (4a) assemble C. This might need to be done by hand since it mixes two decompositions. FD
-// (4b) compute QR factorization of C. FD
-// (5) save A (which is RC). RD
-// (6a) compute F=QC^T pod[0]. simple since both matrices are distributed using full decomp. make sure F is in RD
-// (6b) compute B = FD. B is RD
+	// compute podHatPseudoInv (pseudo-inverses of podHatRes and podHatJac)
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
+		computePseudoInverse(iPodBasis);
+	
+	// compute pod[0]^Tpod[1]
+	computePodTPod();
 
+	// assemble onlineMatrices (A and B)
+	assembleOnlineMatrices();
+
+	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
+	// DistSVec defined on the reduced mesh. Each column in this VecSet
+	// corresponds to a row of A or B.
+	outputOnlineMatrices();
+
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
+
+//======================================
+// Purpose
+// 	compute pseudo inverses of podHatRes or podHatJac
+// Inputs
+// 	iPodBasis (0 or 1)
+// Outputs
+// 	the pseudo inverse
+// Approach
+// 	the ith column of the pseudo inverse solves min || podHat xi = ei ||_2
+// 	where ei is zero except 1 at the node and dim of interest
+//======================================
+
+	int numRhs = nSampleNodes * dim;	// number of RHS treated
+
+	// compute rhs matrix pseudoInvRhs
+	// 	for each column, all zeros but one if it is the [iSampleNode][iDim]
+	// 	location
+
+	computePseudoInverseRHS(); // pseudoInvRhs.resize(numRhs);
+
+	// allocate memory for pseudo-inverse with dimension: (numRhs) x nPod 
+
+	podHatPseudoInv[iPodBasis] = new double * [numRhs] ;
+	for (int i = 0; i < numRhs; ++i)  
+		podHatPseudoInv[iPodBasis][i] = new double [nPod[iPodBasis] ] ;
+
+	// compute pseudo-inverse
+	parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
+			nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]);
+
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::computePseudoInverseRHS() {
+
+	int numRhs = nSampleNodes * dim;
+
+	SubDomainData<dim> locData;
+
+	// initialize pseudoInvRhs to have numRhs columns of zeros
+	pseudoInvRhs.resize(numRhs);	// make correct size
+	for (int i = 0; i < numRhs; ++i) pseudoInvRhs[i] = 0.0;
+	
+	// determine which entries should be one
+	for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) { 
+		for (int iDim = 0; iDim < dim ; ++iDim) {
+			if (thisCPU == cpuSet[iSampleNode]) {
+				int iRhs = iSampleNode * dim + iDim;
+				// pseudoInvRhs[iVec][iSub][iLocNode][iDim] = 1.0
+				locData = pseudoInvRhs[iRhs].subData(locSubSet[iSampleNode]);
+				locData[locNodeSet[iSampleNode]][iDim] = 1.0;
+			}
+		}
+	}
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::computePodTPod() {
+
+	// podTpod is nPod[1] x nPod[0] array
+
+	podTpod = new double * [nPod[1]];
+	for (int i = 0; i < nPod[1]; ++i)
+		podTpod[i] = new double [nPod[0]];
+
+	for (int i = 0; i < nPod[1]; ++i)
+		for (int j = 0; j < nPod[0]; ++j)
+			podTpod[i][j] = pod[1][i]*pod[0][j];
+}
+
+template<int dim>
+void GappyOffline<dim>::assembleOnlineMatrices() {
+
+	// Purpose: assemble matrices that are used online
+	// Inputs: podHatPseudoInv, podTpod
+	// Outputs: onlineMatrices
+
+	int numCols = nSampleNodes * dim;
+
+	onlineMatrices[1] = podHatPseudoInv[1];	// related to the jacobian
+
+	onlineMatrices[0] = new double * [numCols] ;
+	for (int i = 0; i < numCols; ++i)  
+		onlineMatrices[0][i] = new double [nPod[1] ] ;
+
+	for (int iPod = 0; iPod < nPod[1]; ++iPod) {
+		for (int jPod = 0; jPod < nPod[0]; ++jPod) {
+			for (int k = 0; k < numCols; ++k) { 
+				onlineMatrices[0][k][iPod] += podTpod[iPod][jPod] * podHatPseudoInv[0][k][jPod];
+			}
+		}
+	}
+
+	// no longer need podTpod
+
+	for (int i = 0; i < nPod[1]; ++i)
+		delete [] podTpod[i];
+	delete [] podTpod;
+
+}
+
+template<int dim>
+void GappyOffline<dim>::outputOnlineMatrices() {
+
+   com->fprintf(stderr," ... Printing online matrices file ...\n");
+   int sp = strlen(ioData->output.transient.prefix);
+   char *(onlineMatrixFile [2]);
+	 onlineMatrixFile[0] = new char[sp + strlen(ioData->output.transient.bMatrix)+1];
+	 onlineMatrixFile[1] = new char[sp + strlen(ioData->output.transient.aMatrix)+1];
+	 sprintf(onlineMatrixFile[0], "%s%s", ioData->output.transient.prefix, ioData->output.transient.bMatrix);
+	 sprintf(onlineMatrixFile[1], "%s%s", ioData->output.transient.prefix, ioData->output.transient.aMatrix);
+
+	 // write each file
+
+	 // KTC: could make the upper limit nPodBasis because the files should be
+	 // the same if phir and phij are the same (leave it like this for now)
+	 
+	 // loop over reduced nodes and output the correct value if it is a sample
+	 // node. Otherwise, output a zero. This is to make it in DistSVec form for
+	 // the online part.
+
+	 bool isSampleNode;	// is the current node is a sample node?
+	 int iSampleNode = 0;
+	 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
+		 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "w");
+		 fprintf(onlineMatrix,"%d\n", reducedNodeCount);
+		 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// rows in A and B
+			 fprintf(onlineMatrix,"%d\n", iPod);
+			 // KTC: must output zeros if it is not a sample node!
+			 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
+				 isSampleNode = false;
+				 if (reducedNodeCount + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
+					 isSampleNode = true;
+					 ++iSampleNode;	// we have passed a sample node
+				 }
+				 for (int iDim = 0; iDim < dim; ++iDim) { 
+					 if (isSampleNode)
+						 fprintf(onlineMatrix,"%d ", onlineMatrices[iPodBasis][iSampleNode * dim + iDim][iPod]);
+					 else
+						 fprintf(onlineMatrix,"%d ", 0.0);
+
+				 }
+				 fprintf(onlineMatrix,"\n ");
+			 }
+		 }
+	 }
 }

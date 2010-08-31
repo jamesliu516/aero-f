@@ -99,7 +99,7 @@ private:
 	int *nodesToHandle;	// how many nodes are handled at each greedy iteration
 	VecSubDomainData<dim> locError;
 
-	void parallelLSMultiRHSGap(int iPodBasis, double *lsCoeff);
+	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
 
 	// greedy functions
 
@@ -133,6 +133,7 @@ private:
 	std::map<int, StaticArray <3> > nodesXYZ;	// key: global node #, values: x, y, z
 	std::map <int, StaticArray <4> > elemToNode;	// key: global elem #, values: global node #s
 	std::map <int, string > boundaryConditions;	// mapping between BC numbers in BcDef.h and Sower's identification
+	int reducedNodeCount;	// total number of nodes in the reduced mesh
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -152,6 +153,25 @@ private:
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
 	void outputTopFile();
+
+	// A and B matrices functions
+
+	// pseudo-inverse functions
+	double **(podHatPseudoInv [2]);	// dimension: (nSampleNode*dim) x nPod[i]
+	void computePseudoInverse(int iPodBasis);
+	void computePseudoInverseRHS();	// computes the RHS matrix pseudoInvRhs
+	SetOfVec pseudoInvRhs;
+
+	// podTpod
+	double **podTpod;	// stores phiJ^TphiR
+	void computePodTPod();
+	double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
+		// onlineMatrices[0] is related to the residual: 
+		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
+		// onlineMatrices[1] is related to the jacobian: 
+		// 		podHatPseudoInv[1]^T
+	void assembleOnlineMatrices();
+	void outputOnlineMatrices();
 
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, TsInput *, DistGeoState *);
