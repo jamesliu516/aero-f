@@ -493,9 +493,11 @@ template<int dim>
 void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
+  double t0 = this->timer->getTime();
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
 

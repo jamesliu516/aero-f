@@ -19,7 +19,7 @@ class Timer {
     comm, localCom, globalCom, interCom, rmaCom,
     io, binread, binwrite,
     levelSet, lsNodalWeightsAndGrad, lsFvTerm, lsKsp,lsPrecSetup,lsJac,
-    waitrec, timeStep, intersect, embedPhaseChange, eulerFSI, NUMTIMINGS
+    waitrec, timeStep, intersect, embedPhaseChange, eulerFSI, embedforce, NUMTIMINGS
   };
 
   int numTimings;
@@ -59,6 +59,7 @@ public:
   double addPrecSetupTime(double);
   double addKspTime(double);
   double addMeshMetricsTime(double);
+  double addEmbeddedForceTime(double);
   double addStructUpdTime(double);
   double addMeshSolutionTime(double);
   double addMeshAssemblyTime(double);
