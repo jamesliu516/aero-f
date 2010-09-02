@@ -312,6 +312,21 @@ double Timer::addMeshMetricsTime(double t0)
 }
 
 //------------------------------------------------------------------------------
+
+double Timer::addEmbeddedForceTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[embedforce]++;
+  data[embedforce] += t;
+  data[eulerFSI] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
                                                                                                                              
 double Timer::addStructUpdTime(double t0)
 {
@@ -917,6 +932,9 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  F-S Intersections           : %10.2f %10.2f %10.2f %9d\n", 
   	         tmin[intersect], tmax[intersect], tavg[intersect], 
   	         counter[intersect]);
+    com->fprintf(fp, "  Force calculation           : %10.2f %10.2f %10.2f %9d\n",
+                 tmin[embedforce], tmax[embedforce], tavg[embedforce],
+                 counter[embedforce]);
     com->fprintf(fp,"\n");
   }
 
