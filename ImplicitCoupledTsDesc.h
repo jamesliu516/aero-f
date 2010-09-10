@@ -20,10 +20,13 @@ class ImplicitCoupledTsDesc : public ImplicitTsDesc<dim> {
 
 protected:
   MatVecProd<dim,dim> *mvp;
-  MatVecProd<dim,dim> *mvpfd1;
   KspPrec<dim> *pc;
   KspSolver<DistSVec<double,dim>, MatVecProd<dim,dim>, KspPrec<dim>, Communicator> *ksp;
   
+#ifdef MVP_CHECK
+  MatVecProd<dim,dim> *mvpfd1;
+#endif
+
 public:
 
   ImplicitCoupledTsDesc(IoData &, GeoSource &, Domain *);

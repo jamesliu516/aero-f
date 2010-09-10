@@ -560,9 +560,9 @@ public:
   void computeH1(FluxFcn **, BcData<dim> &, GeoState &, Vec<double> &,
                  SVec<double,dim> &, GenMat<Scalar,dim> &);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int neq>
   void computeH2(FluxFcn **, RecFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
-		 SVec<double,dim> &, NodalGrad<dim> &, GenMat<Scalar,dim> &);
+		 SVec<double,dim> &, NodalGrad<dim> &, GenMat<Scalar,neq> &);
 
   template<class Scalar, int dim>
   void precomputeRec(RecFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -991,9 +991,6 @@ public:
 
   template<int dim>
   void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
-
-  template<int dim, class Scalar>
-  void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobianWallValues(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);

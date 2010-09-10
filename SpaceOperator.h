@@ -218,9 +218,9 @@ public:
   template<class Scalar>
   void computeH1(DistSVec<double,3> &, DistVec<double> &,
                  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
-  template<class Scalar>
+  template<class Scalar, int neq>
   void computeH2(DistSVec<double,3> &, DistVec<double> &,
-		 DistSVec<double,dim> &, DistMat<Scalar,dim> &,
+		 DistSVec<double,dim> &, DistMat<Scalar,neq> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
@@ -303,13 +303,6 @@ public:
   //  DistSVec<double,dim> &, DistVec<double> &,
   //  DistSVec<double,dim> &, bool=true
   //);
-
-
-  // Included (MB)
-  /// \note 
-  /// This routine is similar to the template applyBCsToH2Jacobian<Scalar,neq = dim>.
-  template<class Scalar>
-  void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
 
   // Included (MB)

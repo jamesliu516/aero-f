@@ -89,7 +89,7 @@ Uc(dom->getNodeDistInfo())
   {
     if (ioData.ts.implicit.mvp == ImplicitData::H2)
     {
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
     }
     else
     {
@@ -100,7 +100,7 @@ Uc(dom->getNodeDistInfo())
   {
     if (ioData.ts.implicit.mvp == ImplicitData::H2)
     {
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
     }
     else
     {
@@ -1147,7 +1147,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver
   if (_pc) {
 
     MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-    MatVecProdH2<MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<MatScalar,dim> *>(mvp);
+    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
 
     if (mvpfd || mvph2) 
     {

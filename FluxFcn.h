@@ -206,20 +206,20 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
           case BC_INTERNAL:
             if (iod.schemes.ns.flux == SchemeData::ROE) {
-              if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacRoeSA3D(gamma, iod, vfsgsa, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
                 localff = new FluxFcnSGApprJacRoeSA3D(rshift, gamma, iod, vfsgsa, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::EXACT)
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT)
                 localff = new FluxFcnSGExactJacRoeSA3D(gamma, iod, vfsgsa, typeJac);
             }
             else if (iod.schemes.ns.flux == SchemeData::HLLE) {
-              if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLESA3D(gamma, iod, vfsgsa, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
                 localff = new FluxFcnSGApprJacHLLESA3D(rshift, gamma, iod, vfsgsa, typeJac);
               }
-              else if (iod.ts.implicit.jacobian == ImplicitData::EXACT) {
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT) {
                 fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
                 exit(1);
               }
@@ -256,20 +256,20 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
   
           case BC_INTERNAL:
             if (iod.schemes.ns.flux == SchemeData::ROE) {
-              if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacRoeKE3D(gamma, iod, vfsgke, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
                 localff = new FluxFcnSGApprJacRoeKE3D(rshift, gamma, iod, vfsgke, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::EXACT)
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT)
                 localff = new FluxFcnSGExactJacRoeKE3D(gamma, iod, vfsgke, typeJac);
             }
             else if (iod.schemes.ns.flux == SchemeData::HLLE) {
-              if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+              if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
                 localff = new FluxFcnSGFDJacHLLEKE3D(gamma, iod, vfsgke, typeJac);
-              else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
                 localff = new FluxFcnSGApprJacHLLEKE3D(rshift, gamma, iod, vfsgke, typeJac);
               }
-              else if (iod.ts.implicit.jacobian == ImplicitData::EXACT) {
+              else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT) {
                 fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
                 exit(1);
               }
@@ -337,27 +337,27 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
           }
           else if (iod.schemes.ns.flux == SchemeData::ROE) 
           {
-            if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
             {
               localff = new FluxFcnSGFDJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
             }
-            else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
             {
               localff = new FluxFcnSGApprJacRoeEuler3D(rshift, gamma, iod, vfsgeuler, typeJac);
             }
-            else if (iod.ts.implicit.jacobian == ImplicitData::EXACT)
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT)
             {
               localff = new FluxFcnSGExactJacRoeEuler3D(gamma, iod, vfsgeuler, typeJac);
             }
           }
           else if (iod.schemes.ns.flux == SchemeData::HLLE) 
           {
-            if (iod.ts.implicit.jacobian == ImplicitData::FINITE_DIFFERENCE)
+            if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
               localff = new FluxFcnSGFDJacHLLEEuler3D(gamma, iod, vfsgeuler, typeJac);
-            else if (iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE) {
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
               localff = new FluxFcnSGApprJacHLLEEuler3D(rshift, gamma, iod, vfsgeuler, typeJac);
             }
-            else if (iod.ts.implicit.jacobian == ImplicitData::EXACT) {
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT) {
               fprintf(stderr,"Error... HLLE with Exact Jacobian not Implemented.. Aborting !!");
               exit(1);
             }
@@ -414,7 +414,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
       case BC_INTERNAL:
         if (iod.schemes.ns.flux == SchemeData::ROE &&
-            iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE)
+            iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE)
           localff = new FluxFcnTaitApprJacRoeEuler3D(rshift, gamma, iod, vftait, typeJac);
         else{
           fprintf(stderr, "*** Error: only the Roe flux is available for Tait\n");
@@ -452,7 +452,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
 
       case BC_INTERNAL:
         if (iod.schemes.ns.flux == SchemeData::ROE &&
-            iod.ts.implicit.jacobian == ImplicitData::APPROXIMATE){
+            iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE){
           localff = new FluxFcnJwlApprJacRoeEuler3D(rshift, gamma, iod, vfjwl, typeJac);
         }else{
           fprintf(stderr, "*** Error: only the Roe flux is available for JWL\n");

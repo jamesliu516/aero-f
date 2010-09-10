@@ -131,17 +131,17 @@ public:
   template<class Scalar, int neq>
   void addToH1(DistVec<double> &, DistMat<Scalar,neq> &, Scalar);
 
-  template<class Scalar>
-  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
+  template<class Scalar, int neq>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
-  template<class Scalar>
-  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar);
+  template<class Scalar, int neq>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &, Scalar);
 
-  template<class Scalar>
-  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &, Scalar, double);
+  template<class Scalar, int neq>
+  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &, Scalar, double);
   
-  template<class Scalar>
-  void addToH2Minus(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
+  template<class Scalar, int neq>
+  void addToH2Minus(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
   void computeBar(bool, DistMacroCellSet *, DistGeoState &, int);
                                                                                                                           
@@ -162,9 +162,6 @@ public:
   DistSVec<double,dim> &getUn() const { return *Un; }
 
   double getTime()  { return data->dt_n; }
-
-  template<class Scalar, int neq>
-  void addToH2(DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,neq> &);
 
   void rstVar(IoData &);
 

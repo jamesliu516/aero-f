@@ -609,10 +609,10 @@ public:
   void computeH1(FluxFcn **, DistBcData<dim> &, DistGeoState &,
                  DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int neq>
   void computeH2(FluxFcn **, RecFcn *, DistBcData<dim> &, DistGeoState &,
 		 DistSVec<double,3> &, DistSVec<double,dim> &, DistNodalGrad<dim, double> &,
-		 DistMat<Scalar,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+		 DistMat<Scalar,neq> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<class Scalar1, class Scalar2, int dim>
@@ -798,10 +798,6 @@ public:
   void computeOnlyGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
 			   DistGeoState &, DistSVec<double,3> &,
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  template<int dim, class Scalar>
-  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &,
-			  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   template<int dim>
   void computeBCsJacobianWallValues(FemEquationTerm *, DistBcData<dim> &,

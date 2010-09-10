@@ -38,24 +38,30 @@ ImplicitSegTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   spaceOp1 = createSpaceOperator1(ioData, this->spaceOp);
   spaceOp2 = createSpaceOperator2(ioData, this->spaceOp);
 
+#ifdef MVP_CHECK
   ImplicitData fddata;
   fddata.mvp = ImplicitData::FD;
   mvpfd = new MatVecProdFD<dim, dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+#endif
 
-  if (implicitData.mvp == ImplicitData::H2) {
-    this->com->printf(6,
-		      "*** Warning: Exact Jacobian not supported for Segregated Implicit Solver.\n"
-		      "             FiniteDifference will be used.\n");
-    implicitData.mvp = ImplicitData::FD;
-  }
-
-  if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)  {
-    mvp1 = new MatVecProdFD<dim,neq1>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
-    mvp2 = new MatVecProdFD<dim,neq2>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
-  }
-  else  {
-    mvp1 = new MatVecProdH1<dim,MatScalar,neq1>(this->timeState, spaceOp1, this->domain, ioData);
-    mvp2 = new MatVecProdH1<dim,MatScalar,neq2>(this->timeState, spaceOp2, this->domain, ioData);
+  switch (implicitData.mvp)
+  {
+    case ImplicitData::H2 :
+      mvp1 = new MatVecProdH2<dim,MatScalar,neq1>(ioData, this->varFcn, this->timeState, spaceOp1, this->domain, this->geoState);
+      mvp2 = new MatVecProdH1<dim,MatScalar,neq2>(this->timeState, spaceOp2, this->domain, ioData);
+      break;
+    //---------------------
+    case ImplicitData::H1 :
+      mvp1 = new MatVecProdH1<dim,MatScalar,neq1>(this->timeState, spaceOp1, this->domain, ioData);
+      mvp2 = new MatVecProdH1<dim,MatScalar,neq2>(this->timeState, spaceOp2, this->domain, ioData);
+      break;
+    //---------------------
+    case ImplicitData::FD :
+    case ImplicitData::H1FD :
+    default :
+      mvp1 = new MatVecProdFD<dim,neq1>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+      mvp2 = new MatVecProdFD<dim,neq2>(implicitData, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+      break;
   }
 
   pc1 = ImplicitTsDesc<dim>::template 
@@ -84,11 +90,14 @@ ImplicitSegTsDesc<dim,neq1,neq2>::~ImplicitSegTsDesc()
   if (spaceOp2) delete spaceOp2;
   if (mvp1) delete mvp1;
   if (mvp2) delete mvp2;
-  if (mvpfd) delete mvpfd;
   if (pc1) delete pc1;
   if (pc2) delete pc2;
   if (ksp1) delete ksp1;
   if (ksp2) delete ksp2;
+
+#ifdef MVP_CHECK
+  if (mvpfd) delete mvpfd;
+#endif
 
 }
 
@@ -210,7 +219,6 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::computeJacobian(int it, DistSVec<double,d
   mvp1->evaluate(it, *this->X, *this->A, Q, F);
   mvp2->evaluate(it, *this->X, *this->A, Q, F);
 
-  //#define MVP_CHECK
 #ifdef MVP_CHECK
   DistSVec<double,dim> p(this->getVecInfo());
   DistSVec<double,dim> prod(this->getVecInfo());
@@ -258,10 +266,10 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
   if (_pc) {
 
     MatVecProdFD<dim, neq> *mvpfdtmp = dynamic_cast<MatVecProdFD<dim, neq> *>(mvp);
-    MatVecProdH1<dim,MatScalar,neq> *mvph1 = 
-      dynamic_cast<MatVecProdH1<dim,MatScalar,neq> *>(mvp);
+    MatVecProdH1<dim,MatScalar,neq> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,neq> *>(mvp);
+    MatVecProdH2<dim,MatScalar,neq> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,neq> *>(mvp);
 
-    if (mvpfdtmp)  {
+    if ((mvpfdtmp) || (mvph2))  {
       if (neq > 2)  {
         spaceOp1->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
         this->timeState->addToJacobian(*this->A, *_pc, Q);
@@ -273,10 +281,10 @@ void ImplicitSegTsDesc<dim,neq1,neq2>::setOperator(MatVecProd<dim,neq> *mvp, Ksp
         spaceOp2->applyBCsToJacobian(Q, *_pc);
       }
     }
-    else {
+    else if (mvph1) 
+    {
       JacobiPrec<PrecScalar,neq> *jac = dynamic_cast<JacobiPrec<PrecScalar,neq> *>(pc);
       IluPrec<PrecScalar,neq> *ilu = dynamic_cast<IluPrec<PrecScalar,neq> *>(pc);
-      
       if (jac) 
         jac->getData(*mvph1);
       else if (ilu) 
