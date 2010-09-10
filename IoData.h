@@ -1286,7 +1286,7 @@ struct SensitivityAnalysis {
   double eps;
   double fres;
 
-  KspFluidData ksp;
+  KspData ksp;
 
   SensitivityAnalysis();
   ~SensitivityAnalysis() {}
