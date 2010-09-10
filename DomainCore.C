@@ -156,14 +156,24 @@ Domain::~Domain()
 
   //communication Structures
   // The delete 
-  delete com;
-  delete strCom;
-  delete heatCom;
-  delete embedCom;
-  delete globCom;
 
+  int numCpu = globCom->size();
+
+  if (com) delete com;
+  com = 0;
+  if (strCom) delete strCom;
+  strCom = 0;
+  if (heatCom) delete heatCom;
+  heatCom = 0;
+  if (embedCom) delete embedCom;
+  embedCom = 0;
+
+  // When running on 1 processor, the pointer has already been deleted.
+  if ((numCpu > 1) && (globCom)) delete globCom;
+  globCom = 0;
 
   delete timer;
+
 }
 
 //------------------------------------------------------------------------------

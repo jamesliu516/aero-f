@@ -1173,11 +1173,16 @@ struct ImplicitData {
 
   enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3} type;
   enum Startup {REGULAR = 0, MODIFIED = 1} startup;
-  enum Coupling {WEAK = 0, STRONG = 1} coupling;
+  enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
-  enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   NewtonData<KspFluidData> newton;
+
+  /// UH (09/10)
+  /// This flag is not visible from the input file.
+  /// It governs the computation of the Jacobian of the flux function,
+  /// a component of the 'H' matrix (from the MatrixVectorProduct).
+  enum FluxFcnJacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} ffjacobian;
 
   ImplicitData();
   ~ImplicitData() {}
@@ -1249,7 +1254,6 @@ struct SensitivityAnalysis {
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
-  enum viscousJacobianContribution {NONE = 0, EXACT_JACOBIAN = 1, FINITE_DIFFERENCE_JACOBIAN = 2} viscJacContrib;
 
   enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;

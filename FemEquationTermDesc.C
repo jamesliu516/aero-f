@@ -717,7 +717,7 @@ FemEquationTermSA::FemEquationTermSA(IoData &iod, VarFcn *vf) :
   if (x0>x1 || y0>y1 || z0>z1) trip = 0;
   else   trip = 1;
 
-  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip==1) { 
+  if (iod.ts.implicit.tmcoupling == ImplicitData::STRONG && trip==1) { 
     fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-SA simulation \n");
     trip = 0;
   }
@@ -2277,7 +2277,7 @@ FemEquationTermDES::FemEquationTermDES(IoData &iod, VarFcn *vf) :
   if (x0>x1 || y0>y1 || z0>z1) trip = 0;
   else   trip = 1;
 
-  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip == 1) { 
+  if (iod.ts.implicit.tmcoupling == ImplicitData::STRONG && trip == 1) { 
     fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-DES simulation \n");
     trip = 0;
   }
@@ -3281,7 +3281,7 @@ FemEquationTermKE::FemEquationTermKE(IoData &iod, VarFcn *vf) :
   if (x0>x1 || y0>y1 || z0>z1) trip = 0;
   else   trip = 1;
 
-  if (iod.ts.implicit.coupling == ImplicitData::STRONG && trip == 1) { 
+  if (iod.ts.implicit.tmcoupling == ImplicitData::STRONG && trip == 1) { 
     fprintf(stderr,"** Warning: Laminar-turbulent trip not implemented for Strongly Coupled NS-KEpsilon simulation \n");
     trip = 0;
   }
