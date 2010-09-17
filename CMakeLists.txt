@@ -287,16 +287,11 @@ FIND_LIBRARY(PhysBAM_Base_Lib NAMES physbam PATHS ${PHYSBAM_BASE})
 #MESSAGE("Found PHYSBAM_BASE at: " ${PHYSBAM_BASE})
 IF(PhysBAM_Base_Lib)
   MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
+  SET (DO_EMBEDDED 1)
 ELSE(PhysBAM_Base_Lib)
   MESSAGE("-- Looking for PhysBAM_Base_Lib: not found")
-ENDIF(PhysBAM_Base_Lib)
-
-
-IF (PHYSBAM_BASE)
-  SET (DO_EMBEDDED 1)
-ELSE (PHYSBAM_BASE)
   SET (DO_EMBEDDED 0)
-ENDIF (PHYSBAM_BASE)
+ENDIF(PhysBAM_Base_Lib)
 
 OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
 
