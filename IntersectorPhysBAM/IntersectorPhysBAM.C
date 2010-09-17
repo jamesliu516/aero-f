@@ -889,7 +889,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
           ++intersectedEdgeCount;}}
 
-#if 1 // Debug output
+#if 0 // Debug output
   bool should_quit=false;
   for(int l=0;l<edges.size();++l){
       int p = ptr[l][0], q = ptr[l][1];
