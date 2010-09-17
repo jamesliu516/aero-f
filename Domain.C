@@ -2768,18 +2768,20 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
   int iSub;
 
   double scale[dim];
-  if (dim == 5)  {
 
-    scale[0] = refVal->density;
-    scale[1] = refVal->density*refVal->velocity;
-    scale[2] = refVal->density*refVal->velocity;
-    scale[3] = refVal->density*refVal->velocity;
-    scale[4] = refVal->energy;
+  scale[0] = refVal->density;
+  scale[1] = refVal->density*refVal->velocity;
+  scale[2] = refVal->density*refVal->velocity;
+  scale[3] = refVal->density*refVal->velocity;
+  scale[4] = refVal->energy;
+  
+  if (dim == 6) {
+    scale[5] = refVal->density*refVal->nutilde;
   }
-  else  {
 
-    com->fprintf(stderr, " ... ERROR: Solution Scaling only implemented Fluid System of Dimension 5\n");
-    exit(-1);
+  if (dim == 7) {
+    scale[5] = refVal->density*refVal->kenergy;
+    scale[6] = refVal->density*refVal->epsilon;
   }
 
 #pragma omp parallel for
