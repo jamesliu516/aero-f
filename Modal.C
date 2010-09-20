@@ -130,15 +130,11 @@ void ModalSolver<dim>::solve()  {
    modalTimer->addPodConstrTime(t0);
  }
  else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_){
+	 geoState = new DistGeoState(*ioData, &domain);
+	 geoState->setup1(tInput->positions, &Xref, &controlVol);
 	 GappyOffline<dim> gappy(com,*ioData,domain,tInput, geoState);
 	 gappy.buildGappy();	// do all the gappy offline work
  }
- else if (ioData->problem.alltype == ProblemData::_FOM_PROJECTION_){	// this is no longer supported
-   //t0 = modalTimer->getTime(); //CBM--check
-   //projectFullSoltn();
-   //modalTimer->addProjectTime(t0);
- }
-
  else  {
    preProcess();
 

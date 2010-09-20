@@ -25,6 +25,10 @@ domain(_domain), com(_com), subDomain(_domain.getSubDomain()), maxCpuBlocks(0), 
 	cpuNodes = new int[nTotCpus];
 	cpuMasterNodes = new int[nTotCpus];
 	locSendReceive = new int[nTotCpus];
+	for (int i = 0; i < 9; ++i) {
+		desc_a[i] = -1;
+		desc_b[i] = -1;
+	}
 }
 
 template<int dim> 
@@ -169,9 +173,10 @@ template<int dim>
 void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B) {
 
 	//====================================
-	// PURPOSE: initialize the least squares problems for scalapack when matrices are in the form VecSet< DistSVec <> >
-	// INPUTS: A, B 
-	// OUTPUTS: cpuMasterNodes, cpuNodes, desc_a, desc_b
+	// PURPOSE: initialize the least squares problems for scalapack when
+	// matrices are in the form VecSet< DistSVec <> > 
+	// INPUTS: A, B OUTPUTS:
+	// cpuMasterNodes, cpuNodes, desc_a, desc_b
 	//====================================
 
 	//====================================
@@ -203,7 +208,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 	//====================================
 
 	//===============================
-	// Step 1
+	// Step 1 - depends on # cols in A
 	//===============================
 
 	// decomposition information
@@ -217,11 +222,10 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 	// inputs: nA
 	// outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
 	int nA = A.numVectors();
-	int nB = B.numVectors();
 	scalapackCpuDecomp(nA); 
 
  //===============================
- // Step 2: define process grid
+ // Step 2: define process grid - depends on # cols in A
  //===============================
  
  int locLLD = dim * cpuNodes[thisCPU];	// number of rows in domain!
@@ -236,12 +240,13 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
  int globNumRows = dim * A[0].nonOverlapSize();
 	
 	//===============================
-	// Step 3
+	// Step 3 - depends on # cols in A and # cols in B
 	//===============================
 
 	// input: nprow, npcol, m_a, n_a, n_b, rowblock, colblock, locLLD
 	// output: desc_a, desc_b
 	
+	int nB = B.numVectors();
   F77NAME(globalmatrices)(nprow, npcol, globNumRows, nA, nB, rowsPerBlock, rowsPerBlock,locLLD, thisCPU, desc_a, desc_b);	
 
 }
@@ -249,7 +254,8 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 //----------------------------------
 
 template<int dim>
-void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol) {
+void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
+		VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol) {
 
 	// each time
   // 	ScaLAPACK only operates on submatrices; these are the submatrices of interest
@@ -272,12 +278,22 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, Ve
 	//===============================
 
 	//===============================
-	// initialize the matrices with the right distribution
+	// check for any changes in the dimensions of the least squares problem
 	//===============================
+	
+	if (n != desc_a[4] || nRhs != desc_b[4])
+		parallelLSMultiRHSInit(A, B);	// (re)-initialization needed
 
+	// KTC: can make this more elegant if needed
+	
 	int globNumRows = desc_a[2];	// the third entry has number of global rows. This is m in the submatrix
 	int nSubMatA = n;	// only choose number of columns actually used
 	int nSubMatB = nRhs;
+
+	//===============================
+	// initialize the matrices with the right distribution
+	//===============================
+
 	int locLLD = dim * cpuNodes[thisCPU];
 	int subMatLLD = locLLD;
 	thisCPU = com->cpuNum();

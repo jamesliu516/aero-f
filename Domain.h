@@ -657,7 +657,7 @@ public:
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
 	template<int dim>
-	void readMultiPodBasis(char *, VecSet< DistSVec<double, dim> > **, int *, int); 	//KTC
+	void readMultiPodBasis(char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
 
   template<int dim>
   void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &);
