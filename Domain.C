@@ -3588,15 +3588,20 @@ void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0) {	
+void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0, int *whichFiles = NULL) {	
 
 	//	multiPodFile: file containing names of bases
 	//	pod: array of pointers to POD bases. Each one is individually uninitialized
 	//	nPod: vector of number of required POD basis vectors
 	//	nBasesNeeded: number of bases needed for the problem (default is zero, meaning ignore)
+	//	whichFiles: indicates which files should be read. if [1 -1], it means
+		//	you should read only second file in the list of files. if [0 1], it
+		//	means you should read both
 
-	// file with all bases
-	// copied/modified from ../*Saved*/Modal.C::buildGappyPODMatrix
+
+	if (whichFiles == NULL) 	// by default, just take the files in the order prescribed
+		for (int i = 0; i < nBasesNeeded; ++i)
+			whichFiles[i] = i;
 
 	char *vecFile = multiPodFile;	// already read into the function
 	if (!vecFile)
@@ -3611,7 +3616,7 @@ void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> >
 	// read in file containing filenames for multiple bases
 	// =====================================================
 
-	int nData; // number of bases in the file
+	int nData; // number of available bases in the file
 	fscanf(inFP, "%d",&nData);	// first entry is the number of bases in the file
 
 	if (nBasesNeeded > 0 && nData < nBasesNeeded) {
@@ -3622,12 +3627,11 @@ void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> >
 
 	com->fprintf(stderr," ... reading in %d POD files\n",nBasesNeeded);
 
-	char **podFile = new char *[nBasesNeeded];
+	char **podFile = new char *[nData];	// files as they appear in the list input file
 
-	for (int iData = 0; iData < nBasesNeeded; ++iData){
+	for (int iData = 0; iData < nData; ++iData){
 		podFile[iData] = new char[1000];
 		fscanf(inFP, "%s", podFile[iData]);
-		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
 	}
 
 	// ================================
@@ -3635,7 +3639,8 @@ void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> >
 	// ================================
 
 	for (int iData=0; iData < nBasesNeeded; ++iData){	// loop over bases
-		readPodBasis(podFile[iData], nPod[iData],*(pod[iData]));
+		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[whichFiles[iData]]);
+		readPodBasis(podFile[whichFiles[iData]], nPod[iData],*(pod[iData]));
 	}
 }
 //------------------------------------------------------------------------------

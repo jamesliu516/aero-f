@@ -131,6 +131,7 @@ struct TransientData {
   const char *interpMatrixFileAJ;
   const char *pgromresiduals;
   const char *pgjacxdurom;
+  const char *statevectorchange;
 
 // Included (MB)
   const char *velocitynorm;
@@ -238,7 +239,7 @@ struct ProblemData {
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-			_SPARSEGRIDGEN_ = 22, _FOM_PROJECTION_ = 23, _UNSTEADY_ROM_ = 24, _GAPPY_POD_CONSTRUCTION_ = 25} alltype;
+			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ = 24} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1566,7 +1567,10 @@ struct ROB {
 
   double tolerance;
   int numROB;
+  int numROB2;	// just used to store the input
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2} romsolver;
+
+	ROB & operator=(const ROB &Rob1) {tolerance = Rob1.tolerance; numROB = Rob1.numROB; numROB2 = Rob1.numROB2; romsolver = Rob1.romsolver;};
 
   ROB();
   ~ROB() {}
@@ -1785,6 +1789,7 @@ public:
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   void printDebug();
+  void setupRob2();
 
 };
 

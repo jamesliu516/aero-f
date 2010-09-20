@@ -207,8 +207,7 @@ Connectivity *SubDomain::createElementToElementConnectivity()
 
 Connectivity *SubDomain::createElementToNodeConnectivity()
 {
-  Connectivity eToN(&elems);
-  return &eToN;
+  return new Connectivity (&elems);
 }
 //------------------------------------------------------------------------------
 

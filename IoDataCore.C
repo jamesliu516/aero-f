@@ -434,7 +434,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 24,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 25,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -442,7 +442,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22, "GappyPODConstruction", 23 );
+     "SparseGridGeneration", 22, "UnsteadyRom", 23, "GappyPODConstruction", 24 );
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2665,6 +2665,7 @@ ROB::ROB()
 
   tolerance = 1e-8;
   numROB = 0;
+  numROB2 = 0;
   romsolver = PG; 
 
 }
@@ -2678,6 +2679,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
   new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
+  new ClassInt<ROB>(ca, "NumROB2", this, &ROB::numROB2);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2);
 
 }
@@ -3204,6 +3206,8 @@ void IoData::readCmdFile()
     exit(error);
   }
   fclose(cmdFilePtr);
+
+	setupRob2();	// set up Rob 2
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
@@ -4721,3 +4725,11 @@ void IoData::printDebug(){
 }
 
 //------------------------------------------------------------------------------
+
+void IoData::setupRob2(){
+
+	// set the number of bases in Rob2 to numROB2
+	Rob2 = Rob;
+	Rob2.numROB = Rob2.numROB2;
+
+}
