@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <map>
 #include "parser/ParseTree.h"
+#include "parser/Dictionary.h"
 
 using std::map;
 
@@ -511,6 +512,13 @@ public:
 
   map<int, DataType *> dataMap;
   void setup(const char *name, ClassAssigner *);
+  ~ObjectMap()
+    {
+      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
+	{
+	  delete it->second;
+	}
+    }
 };
 
 //------------------------------------------------------------------------------

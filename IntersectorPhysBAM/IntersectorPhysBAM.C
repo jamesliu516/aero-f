@@ -53,7 +53,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   if(iod.input.positions[0] != 0)
     sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
   else //no restart position file provided
-    struct_restart_pos = ""; 
+    strcpy(struct_restart_pos,""); 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
                         true : false;
   

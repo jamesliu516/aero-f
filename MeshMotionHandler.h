@@ -39,7 +39,7 @@ protected:
 public:
 
   MeshMotionHandler(IoData &, Domain *);
-  ~MeshMotionHandler() {}
+  virtual ~MeshMotionHandler() {}
 
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
   virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;} 
@@ -302,7 +302,7 @@ private:
 public:
 
   RigidRollMeshMotionHandler(IoData &, double *, Domain *);
-  ~RigidRollMeshMotionHandler();
+  ~RigidRollMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
@@ -360,7 +360,7 @@ class RbmExtractor : public MeshMotionHandler {
 public:
 
   RbmExtractor(IoData &, Domain *);
-  ~RbmExtractor();
+  ~RbmExtractor(){}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);

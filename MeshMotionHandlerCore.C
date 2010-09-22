@@ -1468,10 +1468,10 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
 
 EmbeddedMeshMotionHandler::~EmbeddedMeshMotionHandler()
 {
-  if(structX0) delete[] structX0;
-  if(structXn) delete[] structXn;
-  if(structXnPlus1) delete[] structXnPlus1;
-  if(structVel) delete[] structVel;
+  delete[] structX0;
+  delete[] structXn;
+  delete[] structXnPlus1;
+  delete[] structVel;
 }
 
 //------------------------------------------------------------------------------

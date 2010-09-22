@@ -43,6 +43,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(structPos, "");
 
   if (iod.output.restart.type == RestartData::SINGLE) {
+    deleteCharStar = false;
     for (int i=1; i<3; ++i) {
       solutions[i] = solutions[0];
       positions[i] = positions[0];
@@ -54,6 +55,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     index = 0;
   }
   else {
+    deleteCharStar = true;
     for (int i=1; i<3; ++i) {
       solutions[i] = new char[strlen(solutions[0]) + 5 + 1];
       if (solutions[0][0] != 0)

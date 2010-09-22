@@ -2174,7 +2174,13 @@ void ModalSolver<dim>::interpolatePOD()  {
 
   char *vecFile = tInput->podFile;
   if (!vecFile)
-    vecFile = "podFiles.in";
+    {
+      string str = "podFiles.in";
+      vecFile    =  new char [str.size()+1];
+      strcpy (vecFile, str.c_str());
+      // vecFile now contains a c-string copy of str. Adam 2010.08.23 : g++4.3 was complaining
+    }
+
   FILE *inFP = fopen(vecFile, "r");
   if (!inFP)  {
     com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);

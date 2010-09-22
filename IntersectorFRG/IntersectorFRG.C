@@ -317,11 +317,15 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 
 DistIntersectorFRG::~DistIntersectorFRG() 
 {
+  delete [] stElem;
   if(Xs)          delete[] Xs;
   if(Xs0)         delete[] Xs0;
   if(Xs_n)        delete[] Xs_n;
   if(Xs_np1)      delete[] Xs_np1;
   if(Xsdot)       delete[] Xsdot;
+  delete solidX;
+  delete solidX0;
+  delete solidXn;
   if(status)      delete   status;
   if(status0)     delete   status0;
   if(triNorms)    delete[] triNorms;
@@ -331,6 +335,12 @@ DistIntersectorFRG::~DistIntersectorFRG()
   if(distance)    delete   distance;
   if(tId)         delete   tId;
   if(poly)        delete   poly;
+  delete globPhysInterface;
+  for(int i=0;i<domain->getNumLocSub();++i)
+    {
+      delete intersector[i];
+    }
+  delete[] intersector;
 }
 
 //----------------------------------------------------------------------------

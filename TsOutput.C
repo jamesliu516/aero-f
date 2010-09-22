@@ -19,12 +19,19 @@ template<int dim>
 TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
   refVal(rv), domain(dom), postOp(po), rmmh(0)
 {
+  int i;
+
   modeFile = 0;
   TavF = 0;
   TavM = 0;
   TavL = 0;
   Qs = 0;
   Qv = 0;
+  for (i=0; i<PostFcn::AVSSIZE; ++i) 
+    {
+      AvQs[i] = 0;
+      AvQv[i] = 0;
+    }
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -38,7 +45,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     solutions = 0;
 
-  int i;
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
@@ -365,7 +371,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       mX = 0;
   }
   else 
-    generalizedforces = 0;
+    {
+      generalizedforces = 0;
+      modeFile =0;
+    }
   
   if (iod.output.transient.generalizedforces[0] != 0 && !(iod.problem.type[ProblemData::FORCED]) && strcmp(iod.input.strModesFile, "") == 0)
     fprintf(stderr, "Error : StrModes file for Generalized Forces not given.. Aborting !! \n");
@@ -571,6 +580,10 @@ template<int dim>
 TsOutput<dim>::~TsOutput()
 {
 
+  for (int i=0; i<PostFcn::AVSSIZE; ++i) {
+    delete AvQs[i];
+    delete AvQv[i];
+  }
   if (Qs) delete Qs;
   if (Qv) delete Qv;
   if(TavF) delete [] TavF;
@@ -578,6 +591,64 @@ TsOutput<dim>::~TsOutput()
   if(TavL) delete [] TavL;
   if(modeFile) delete [] modeFile;
   if(mX) delete mX;
+
+  if (switchOpt) //STEADY_SENSITIVITY_ANALYSIS
+    {
+      delete[] dForces;
+      
+      int i;
+      for (i=0; i<PostFcn::DSSIZE; ++i) {
+	delete[]  dScalars[i];
+      }
+      for (i=0; i<PostFcn::DVSIZE; ++i) {
+	delete[] dVectors[i];
+      }
+      delete[] dSolutions;
+    }
+
+  delete[]  fpForces            ;
+  delete[]  fpLift              ;
+  delete[]  fpTavForces         ;
+  delete[]  fpTavLift           ;
+  delete[]  fpHydroStaticForces ;
+  delete[]  fpHydroDynamicForces;
+  delete[]  fpHydroStaticLift   ;
+  delete[]  fpHydroDynamicLift  ;
+  delete[]  fpHeatFluxes        ; 
+
+  delete[] heatfluxes;
+  delete[] residuals;
+  delete[] conservation;
+
+  delete[] lift;
+  delete[] tavlift;
+  delete[] hydrostaticlift;
+  delete[] hydrodynamiclift;
+
+  delete mX;
+
+  delete[] generalizedforces;
+  delete[] modeFile;
+
+  delete[] forces;
+  delete[] tavforces;
+  delete[] hydrostaticforces;
+  delete[] hydrodynamicforces;
+
+  int i;
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    delete[] scalars[i];
+  }
+  for (i=0; i<PostFcn::AVSSIZE; ++i) {
+     delete[]  avscalars[i];
+  }
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+     delete[]  vectors[i];
+  }
+  for (i=0; i<PostFcn::AVVSIZE; ++i) {
+     delete[]  avvectors[i];
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -1772,7 +1843,7 @@ template<int dim>
 
   double *HF = new double[nSurfs];
   for(int index =0; index < nSurfs; index++){
-    HF[index] = 0;
+    HF[index] = 0.0;
   }
 
   double time = refVal->time * t;
@@ -1792,6 +1863,7 @@ template<int dim>
       fflush(fpHeatFluxes[iSurf]);
     }
   }
+  delete[] HF;
 }
 
 //------------------------------------------------------------------------------
@@ -2078,8 +2150,6 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 // in binary format
 
   int i;
-  static DistVec<double> *AvQs[PostFcn::AVSSIZE];
-  static DistSVec<double,3> *AvQv[PostFcn::AVVSIZE];
   static double tprev,tinit;
   double time = refVal->time*t;
   double del_t;

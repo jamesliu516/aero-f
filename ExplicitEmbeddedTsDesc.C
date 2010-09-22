@@ -38,11 +38,19 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   } // if RK4 and FE are both false, do RK2.
 
   //initialize mmh (EmbeddedMeshMotionHandler).
-  if(this->dynNodalTransfer) {
-    MeshMotionHandler *_mmh = 0;
-    _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
-    this->mmh = _mmh;
-  } else this->mmh = 0;
+  if(this->dynNodalTransfer) 
+    {
+      /*
+      MeshMotionHandler *_mmh = 0;
+      _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+      this->mmh = _mmh;
+      */
+      this->mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+    } 
+  else
+    { 
+      this->mmh = 0;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -110,7 +118,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
                                                          *this->VWeights, this->distLSS);
         else //numFluid>1
           this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
         break;
       case 1:
         if(this->numFluid==1)
@@ -120,7 +128,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
         else //numFluid>1
           this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
                                                          *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->distLSS, &this->nodeTag);
+                                                         this->distLSS, &this->nodeTag0);
         break;
     }
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -178,7 +186,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,U0,this->varFcn,this->distLSS,this->nodeTag);
     }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);

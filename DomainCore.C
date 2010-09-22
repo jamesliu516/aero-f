@@ -117,12 +117,6 @@ Domain::~Domain()
   if (nodeType) delete [] nodeType;
   if (nodeFaceType) delete [] nodeFaceType;
 
-  if (nodeDistInfo) delete nodeDistInfo;
-  if (edgeDistInfo) delete edgeDistInfo;
-  if (faceDistInfo) delete faceDistInfo;
-  if (faceNormDistInfo) delete faceNormDistInfo;
-  if (inletNodeDistInfo) delete inletNodeDistInfo;
-
   if (vecPat) delete vecPat;
   if (phiVecPat) delete phiVecPat;
   if (compVecPat) delete compVecPat;
@@ -145,31 +139,36 @@ Domain::~Domain()
   if (PrT) delete(PrT);
   if (WCsDelSq) delete(WCsDelSq);
   if (WPrT) delete(WPrT);
-  // (TODO) if (tag) delete(tag);
   if (tagBar) delete(tagBar);
 
+  if (tag) delete(tag);
 // Included (MB)
   if (weightDerivativePat) delete weightDerivativePat;
 
   //if (com) delete com;
   if(meshMotionBCs) delete meshMotionBCs;
 
+  if (nodeDistInfo) delete nodeDistInfo;
+  if (edgeDistInfo) delete edgeDistInfo;
+  if (faceDistInfo) delete faceDistInfo;
+  if (faceNormDistInfo) delete faceNormDistInfo;
+  if (inletNodeDistInfo) delete inletNodeDistInfo;
+
   //communication Structures
-  // The delete 
-
   int numCpu = globCom->size();
-
-  if (com) delete com;
-  com = 0;
-  if (strCom) delete strCom;
+  if(globCom != com) // When only 1 CPU is used, globCom = com.
+  {
+    delete com;
+    com = 0;
+  }
+  delete strCom;
   strCom = 0;
-  if (heatCom) delete heatCom;
+  delete heatCom;
   heatCom = 0;
-  if (embedCom) delete embedCom;
+  delete embedCom;
   embedCom = 0;
 
-  // When running on 1 processor, the pointer has already been deleted.
-  if ((numCpu > 1) && (globCom)) delete globCom;
+  delete globCom;
   globCom = 0;
 
   delete timer;

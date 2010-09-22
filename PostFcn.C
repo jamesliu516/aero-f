@@ -719,9 +719,7 @@ PostFcnNS::PostFcnNS(IoData &iod, VarFcn *vf)
 
 PostFcnNS::~PostFcnNS()
 {
-
   if (wallFcn) delete wallFcn;
-
 }
 
 //------------------------------------------------------------------------------
@@ -1061,9 +1059,13 @@ double PostFcnNS::computeInterfaceWork(double dp1dxj[4][3], Vec3D& n, double ndo
 
 PostFcnSA::PostFcnSA(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), SATerm(iod)
 {
-
 }
 
+//------------------------------------------------------------------------------
+
+PostFcnSA::~PostFcnSA()
+{
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)
