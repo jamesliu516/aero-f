@@ -731,11 +731,11 @@ FluidModelData::FluidModelData()
 
 //------------------------------------------------------------------------------
 
-static RootClassAssigner nullAssigner;
+RootClassAssigner *nullAssigner = new RootClassAssigner;
 Assigner *FluidModelData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
@@ -1335,7 +1335,7 @@ SphereData::SphereData()
 Assigner *SphereData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 6, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
   new ClassInt<SphereData> (ca, "FluidModelID", this, &SphereData::fluidModelID);
 
@@ -1369,7 +1369,7 @@ PlaneData::PlaneData()
 Assigner *PlaneData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
   new ClassInt<PlaneData> (ca, "FluidModelID", this, &PlaneData::fluidModelID);
 
@@ -1401,7 +1401,7 @@ PointData::PointData()
 Assigner *PointData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassInt<PointData>
     (ca, "FluidModelID", this, &PointData::fluidModelID);
@@ -2772,7 +2772,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 12, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 12, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -2841,7 +2841,7 @@ RotationData::RotationData()  {
 
 Assigner *RotationData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
   new ClassDouble<RotationData>(ca, "Nx", this, &RotationData::nx);
   new ClassDouble<RotationData>(ca, "Ny", this, &RotationData::ny);
@@ -2870,7 +2870,7 @@ VolumeData::VolumeData()  {
 
 Assigner *VolumeData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 4, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 4, nullAssigner);
 
   new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
@@ -2916,7 +2916,7 @@ PorousMedia::PorousMedia()  {
 //Assigner *PorousMedia::getAssigner()  {
 void PorousMedia::setup(const char *name, ClassAssigner *father)  {
 
-  //ClassAssigner *ca = new ClassAssigner("normal", 17, &nullAssigner);
+  //ClassAssigner *ca = new ClassAssigner("normal", 17, nullAssigner);
   ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassDouble<PorousMedia>(ca, "Ix", this, &PorousMedia::iprimex);
@@ -4009,7 +4009,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
         //com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
       ref.dRe_mudMach = dvelocitydMach * ref.length * ref.density / viscosity;
       ref.dRe_lambdadMach = -3.0 * ref.dRe_mudMach/2.0;
-
+            
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
       ref.rv.velocity = velocity;
@@ -4033,7 +4033,17 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 // Included (MB)
       ref.rv.dvelocitydMach = dvelocitydMach;
       ref.rv.dtimedMach = - ref.length / (velocity * velocity) * dvelocitydMach;
-
+      /*
+      fprintf(stderr,"Reference State Calculated in IoDataCore.C\n");
+      fprintf(stderr,"You are asking for a Dimensional Simulation for a Gas\n");
+      fprintf(stderr,"Constants      : gamma   = %f, R        = %f, Pstiff   = %f, Length  = %f\n",gamma, R, Pstiff,ref.length);
+      fprintf(stderr,"State          : density = %f, velocity = %f, pressure = %f, temp    = %f, viscosity = %f\n",
+	      ref.density, velocity, ref.pressure, ref.temperature, viscosity);
+      fprintf(stderr,"Flow Parameters: mach    = %f, reynolds = %f\n", ref.mach,ref.reynolds_mu);
+      fprintf(stderr,"Ref Values     : length  = %f, density  = %f, velocity = %f, pressure = %f, temp = %f, viscosity = %f\n",
+	      ref.length,ref.rv.density, ref.rv.velocity, ref.rv.pressure, ref.rv.temperature, ref.rv.viscosity_mu);
+      fprintf(stderr,"\n");
+      */
     }
     else if(eqs.fluidModel.fluid == FluidModelData::JWL){
       if (ref.density < 0.0)

@@ -54,6 +54,12 @@ SubDTopo::SubDTopo(int myCPU, Connectivity *subToSub, Connectivity *CPUToSub)
  }
 }
 
+SubDTopo::~SubDTopo()
+{
+  delete[] glSubToLocal;
+  delete[] glSubToCPU;
+  delete[] allPairs;
+}
 /******************************************************************************
   makeConnect creates the send and receive connectivities for neighboring
   CPUs 

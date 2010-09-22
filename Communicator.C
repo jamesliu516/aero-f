@@ -1,6 +1,8 @@
 #include <Communicator.h>
 #include <Connectivity.h>
 
+#include <algorithm>
+
 template <class T>
 CommPattern<T>::CommPattern(SubDTopo *topo, Communicator *_com,
 			    Mode _mode, Symmetry _sym)
@@ -454,6 +456,8 @@ namespace Communication {
 #ifdef USE_MPI
     MPI_Win_create(s, size, sizeof(Scalar), MPI_INFO_NULL,
         com.comm, &win);
+#else
+    data = s;
 #endif
   }
 
@@ -478,7 +482,10 @@ namespace Communication {
         win);
 
     if (com.timer) com.timer->addRMAComTime(t0);
-#endif
+#else
+    const double * bufferBegin = a + locOff;
+    std::copy(bufferBegin, bufferBegin + size, data + remOff);
+#endif 
   }
 
   template <typename Scalar>
@@ -495,6 +502,38 @@ namespace Communication {
         win);
 
     if (com.timer) com.timer->addRMAComTime(t0);
+#else
+    switch(op)
+      {
+      case Add:
+	{
+	  for(int i=0;i<size;++i)
+	    {
+	      data[remOff+i] += a[locOff+i];
+	    }
+	  break;
+	}
+      case Min:
+	{
+	  for(int i=0;i<size;++i)
+	    {
+	      data[remOff+i] = std::min(data[remOff+i],a[locOff+i]);
+	    }
+	  break;
+	}
+      case Max:
+	{
+	  for(int i=0;i<size;++i)
+	    {
+	      data[remOff+i] = std::max(data[remOff+i],a[locOff+i]);
+	    }
+	  break;
+	}
+      default:
+	{
+	fprintf(stderr,"WOW! Stop\n");exit(-1);
+	}
+      }
 #endif
   }
 

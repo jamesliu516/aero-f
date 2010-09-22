@@ -35,6 +35,8 @@ public:
 
   int frequency;
 
+  bool deleteCharStar;
+
 public:
 
   TsRestart(IoData &, RefVal *);
@@ -49,7 +51,18 @@ public:
  
 // Included (MB)
   void rstVar(IoData &);
-
+  ~TsRestart()
+    {
+      int last=deleteCharStar ? 3 : 1;
+      for(int i=0;i<last;++i)
+	{
+	  delete[] data[i];
+	  delete[] solutions[i];
+	  delete[] positions[i];
+	  delete[] levelsets[i];
+	}
+      delete[] structPos;
+    }
 };
 
 //------------------------------------------------------------------------------

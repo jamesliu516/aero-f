@@ -242,7 +242,7 @@ ENDMACRO(ADD_FLEX_FILES)
 ADD_FLEX_FILES(MyLib parser/Lexer.l)
 ADD_BISON_FILES(MyLib parser/Parser.y)
 
-ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
+ADD_LIBRARY(Parser parser/Dictionary.C parser/StringManager.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 

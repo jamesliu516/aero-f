@@ -15,7 +15,15 @@ class Assigner;
 
 typedef map<string, int> DictMap;
 typedef map<int, string> TokenMap;
-typedef map<int, Assigner *> SysSmbMap;
+
+// SysSmbMap is now a structure so that it can be properly deleted.
+class SysSmbMap
+{
+public:
+  map<int, Assigner *> forest;
+  SysSmbMap(){}
+  ~SysSmbMap();
+};
 
 class Dictionary {
    int nToken;
@@ -31,6 +39,8 @@ class Dictionary {
       return nToken++;
    }
    string &word(int tk) { return tkm[tk]; }
+   ~Dictionary() {}
+ private:
 };
 
 extern Dictionary *dictionary;
