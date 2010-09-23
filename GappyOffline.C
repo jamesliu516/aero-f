@@ -73,6 +73,12 @@ GappyOffline<dim>::~GappyOffline()
 template<int dim>
 void GappyOffline<dim>::buildGappy() {
 
+	// KTC DEBUG
+	int debugWait = 1;
+	int thisCPU = com->cpuNum();
+	if (thisCPU == 0)
+		while (debugWait);
+	
 	setUpPodBases();
 
 	// compute the reduced mesh used by Gappy POD
@@ -697,9 +703,9 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 			}
 		}
 	}
-	delete nodeToNode; 
-	delete nodeToEle; 
-	delete eleToNode; 
+	// delete nodeToNode; 
+	// delete nodeToEle; 
+	// delete eleToNode; 
 }
 
 template<int dim>
@@ -753,9 +759,9 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		// overwrite node and element vectors with this global data
 
 	int* numNeigh = new int [nTotCpus + 1];
-	for (int i = 0; i <=nTotCpus; ++i)	// initialize
-		numNeigh[i] = 0;
 	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
+		for (int i = 0; i <=nTotCpus; ++i)	// initialize
+			numNeigh[i] = 0;
 		numNeigh[thisCPU+1] = nodeOrEle[iArraySize].size();	// number of entries on this cpu
 		com->globalSum(nTotCpus+1,numNeigh);
 		for (int i = 1; i <=nTotCpus; ++i)	// accumulate
@@ -766,7 +772,7 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 			if (iNeighbor >= numNeigh[thisCPU] || iNeighbor < numNeigh[thisCPU+1]) 
 				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
 			else
-				nodeOrEleArray[iNeighbor] = 0.0;
+				nodeOrEleArray[iNeighbor] = 0;
 		}
 
 		com->globalSum(numNeigh[nTotCpus],nodeOrEleArray);
@@ -779,6 +785,7 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		delete [] nodeOrEleArray;
 		
 	}
+	delete [] numNeigh;
 }
 
 template<int dim>
