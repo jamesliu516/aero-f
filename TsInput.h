@@ -13,6 +13,10 @@ struct TsInput {
   char *podFile;
 	char *snapFile;
 
+// Gappy POD
+	char *sampleNodes;
+	char *aMatrix;
+	char *bMatrix;
 // Included
   char *shapederivatives;
 

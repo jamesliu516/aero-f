@@ -35,13 +35,14 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
 
   RomSolver = ioData.Rob.romsolver;
 
-//  if (RomSolver == 0) {
-  dom->readInterpNode(ioData.input.interpNodeFile, nIntNodes, globalSubSet, locNodeSet);
-  if (ioData.input.interpMatrixFileAJ) dom->readInterpMatrix(ioData.input.interpMatrixFileAJ, dimInterpMat, interpMat1);
-  if (ioData.input.interpMatrixFileRes) dom->readInterpMatrix(ioData.input.interpMatrixFileRes, dimInterpMat, interpMat2);  //TODO: get rid of dimInterpMat. KTC: NO! this can be useful.
+  if (RomSolver == 2) {
+	// KEVIN FIX!
+		dom->readInterpNode(ioData.input.sampleNodes, nIntNodes, globalSubSet, locNodeSet);
+		if (ioData.input.aMatrix) dom->readInterpMatrix(ioData.input.aMatrix, dimInterpMat, interpMat1);
+		if (ioData.input.bMatrix) dom->readInterpMatrix(ioData.input.bMatrix, dimInterpMat, interpMat2);
 
-  computeRestrictInfo();
-//  }
+		computeRestrictInfo();
+  }
 
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);

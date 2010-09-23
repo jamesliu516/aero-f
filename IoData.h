@@ -30,10 +30,6 @@ struct InputData {
   const char *rstdata;
   const char *podFile;
   const char *podFile2;
-  const char *mesh;
-  const char *sampleNodes;
-  const char *aMatrix;
-  const char *bMatrix;
   const char *snapFile;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -43,9 +39,10 @@ struct InputData {
 
 	// Gappy POD
 
-  const char *interpNodeFile;
-  const char *interpMatrixFileRes;
-  const char *interpMatrixFileAJ;
+  const char *mesh;
+  const char *sampleNodes;
+  const char *aMatrix;
+  const char *bMatrix;
 
 // Included (MB)
   const char *shapederivatives;
@@ -115,10 +112,6 @@ struct TransientData {
   const char *conservation;
   const char *podFile;
   const char *romFile;
-  const char *mesh;
-  const char *sampleNodes;
-  const char *aMatrix;
-  const char *bMatrix;
   const char *philevel;
   const char *controlvolume;
   const char *philevel_structure;
@@ -126,12 +119,13 @@ struct TransientData {
 
 // Gappy POD 
   const char *newtonresiduals;
-  const char *interpNodeFile;
-  const char *interpMatrixFileRes;
-  const char *interpMatrixFileAJ;
   const char *pgromresiduals;
   const char *pgjacxdurom;
   const char *statevectorchange;
+  const char *mesh;
+  const char *sampleNodes;
+  const char *aMatrix;
+  const char *bMatrix;
 
 // Included (MB)
   const char *velocitynorm;
