@@ -31,9 +31,19 @@ struct InputData {
   const char *rstdata;
   const char *podFile;
   const char *podFile2;
+  const char *snapFile;
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
+
+  const char *stateVecFile;//CBM
+
+	// Gappy POD
+
+  const char *mesh;
+  const char *sampleNodes;
+  const char *aMatrix;
+  const char *bMatrix;
 
 // Included (MB)
   const char *shapederivatives;
@@ -106,6 +116,18 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char *philevel_structure;
+
+
+// Gappy POD 
+  const char *newtonresiduals;
+  const char *pgromresiduals;
+  const char *pgjacxdurom;
+  const char *statevectorchange;
+  const char *mesh;
+  const char *sampleNodes;
+  const char *aMatrix;
+  const char *bMatrix;
+
 // Included (MB)
   const char *velocitynorm;
   const char *dSolutions;
@@ -212,7 +234,7 @@ struct ProblemData {
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-                  _SPARSEGRIDGEN_ = 22} alltype;
+			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ = 24} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1164,6 +1186,7 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
+	int JacSkip;
   double epsAbsRes, epsAbsInc;
 
   GenericKrylov ksp;
@@ -1549,6 +1572,24 @@ struct PadeData {
 
 //------------------------------------------------------------------------------
 
+struct ROB {
+
+  double tolerance;
+  int numROB;
+  int numROB2;	// just used to store the input
+  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2} romsolver;
+
+	ROB & operator=(const ROB &Rob1) {tolerance = Rob1.tolerance; numROB = Rob1.numROB; numROB2 = Rob1.numROB2; romsolver = Rob1.romsolver;};
+
+  ROB();
+  ~ROB() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct LinearizedData {
 
   enum PadeReconstruction {TRUE = 1, FALSE = 0} padeReconst;
@@ -1719,6 +1760,8 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
+	ROB Rob;
+	ROB Rob2;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -1755,6 +1798,7 @@ public:
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   void printDebug();
+  void setupRob2();
 
 };
 

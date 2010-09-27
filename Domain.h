@@ -668,6 +668,16 @@ public:
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
 
+	template<int dim>
+	void readMultiPodBasis(char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
+
+  template<int dim>
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &);
+
+  void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
+
+  void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
+
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
 

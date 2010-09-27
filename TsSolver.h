@@ -128,7 +128,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // Fluid Solution
       bool solveOrNot = probDesc->IncreasePressure(dt,t,U);
       if(solveOrNot){
-        itNl += probDesc->solveNonLinearSystem(U);
+        itNl += probDesc->solveNonLinearSystem(U,it);
       }
       // compute the current aerodynamic force
       probDesc->updateOutputToStructure(dt, dtLeft, U);

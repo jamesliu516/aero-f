@@ -113,7 +113,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
 
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
   void getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<double,3> &X,
                                            double F[3], double M[3]);

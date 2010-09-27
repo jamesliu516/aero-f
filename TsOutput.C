@@ -27,6 +27,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
+  output_step = 0;
+  output_step2 = 0;
+  output_step_pgromresiduals = 0; //CBM--TEMP
+  output_step_pgjacxdurom = 0; //CBM--TEMP
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -1909,6 +1913,94 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 
 }
 
+//------------------------------------------------------------------------------
+
+// GAPPY POD (CBM+KTC)---IMPROVE--IMPROVE--IMPROVE
+template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, DistSVec<double,dim> &U1, DistSVec<double,dim> &U2)
+{
+  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+/*    int step = 0;
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+        ++step;
+    }
+*/
+
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+
+    if (newtonresiduals)  {
+      DistSVec<double,dim> soltn(U1);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(newtonresiduals, output_step, tag, U1);
+      ++output_step;
+    }
+
+/*
+    if (statevectorchange)  {
+      DistSVec<double,dim> soltn(U1);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(statevectorchange, output_step, tag, U1);
+      ++output_step;
+    }
+*/
+
+    if (pgromresiduals && U1.norm())  {
+      DistSVec<double,dim> soltn(U1);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(pgromresiduals, output_step_pgromresiduals, tag, U1);
+      ++output_step_pgromresiduals;
+    }
+
+    if (pgjacxdurom && U2.norm())  {
+      DistSVec<double,dim> soltn(U2);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(pgjacxdurom, output_step_pgjacxdurom, tag, U2);
+      ++output_step_pgjacxdurom;
+    }
+    if (output_step_pgromresiduals != output_step_pgjacxdurom) 
+      com->fprintf(stderr,"WARNING: PGRomResiduals and PGJacxdUrom output sizes do not match (%d vs %d)\n", output_step_pgromresiduals, output_step_pgjacxdurom);//CBM
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDisk2(bool lastIt, int it, double t, DistSVec<double,dim> &U)
+{
+  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+/*    int step = 0;
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+	++step;
+    }
+
+*/
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+
+    if (statevectorchange)  {
+      DistSVec<double,dim> soltn(U);
+      if (refVal->mode == RefVal::DIMENSIONAL)
+        domain->scaleSolution(soltn, refVal);
+      domain->writeVectorToFile(statevectorchange, output_step2, tag, U);
+      ++output_step2;
+    }
+  }
+}
 //------------------------------------------------------------------------------
 
 template<int dim>

@@ -71,7 +71,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
-  virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
 
  protected:
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi);

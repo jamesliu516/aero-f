@@ -1462,3 +1462,66 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
 }
 
 //-------------------------------------------------------------------------------
+
+void Domain::readInterpNode(const char *interpNodeFile, int &nIntNodes, int *&globalSubSet, int *&locNodeSet) { // for Gappy Pod
+
+  // read in nIntNodes, globalSubSet and locNodeSet
+  com->fprintf(stderr," ... Reading InterpNode File \n");
+  const char *vecFile = interpNodeFile;
+
+  if (!vecFile) vecFile = "interpNodeFile.in";
+  FILE *interpNodeFP = fopen(vecFile, "r");
+  if (!interpNodeFP)  {
+    com->fprintf(stderr, "*** Warning: No Data in %s\n", vecFile);
+    exit (-1);
+  }
+
+  int globalSub, locNode;
+  fscanf(interpNodeFP, "%d",&nIntNodes);
+
+  if(globalSubSet == 0)
+    globalSubSet = new int[nIntNodes];
+  else fprintf(stderr, "globalSubSet in DomainCore is not zero!\n");
+  if(locNodeSet == 0)
+    locNodeSet = new int[nIntNodes];
+  else fprintf(stderr, "locNodeSet in DomainCore is not zero!\n");
+
+  for (int iData = 0; iData < nIntNodes; ++iData){
+    fscanf(interpNodeFP, "%d %d", &globalSub, &locNode);
+    globalSubSet[iData] = globalSub;
+    locNodeSet[iData] = locNode;
+  }
+
+}
+
+//-------------------------------------------------------------------------------
+
+void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, FullM &interpMat) { // for Gappy Pod
+
+
+  // Read interpMat
+  com->fprintf(stderr," ... Reading InterpMatrix File \n");
+  const char *vecFile = interpMatrixFile;
+  if (!vecFile) vecFile = "interpMatrixFile.in";
+  FILE *interpMatrixFP = fopen(vecFile, "r");
+  if (!interpMatrixFP)  {
+    com->fprintf(stderr, "*** Warning: No Data in %s\n", vecFile);
+    exit (-1);
+  }
+
+  double MatrixEntry;
+  fscanf(interpMatrixFP, "%d",&dimInterpMat);
+  interpMat.setNewSize(dimInterpMat,dimInterpMat);
+  //if (dimInterpMat != nIntNodes*dim) {
+  //  com->fprintf(stderr, "*** ERROR: dimInterpMat =  %d, but nNode*dim = %d\n", dimInterpMat, nIntNodes*dim);
+  //  exit (-1);
+  //}
+
+  for (int i = 0; i < dimInterpMat; ++i) {
+    for (int j = 0; j < dimInterpMat; ++j) {
+      fscanf(interpMatrixFP, "%le  ", &MatrixEntry);
+      interpMat[i][j] = MatrixEntry;
+    }
+  }
+
+}

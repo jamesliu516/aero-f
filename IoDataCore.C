@@ -35,12 +35,16 @@ InputData::InputData()
   rstdata = "";
   podFile = "";
   podFile2 = "";
-  strModesFile = "";
-  embeddedSurface= "";
-  oneDimensionalSolution = "";
+	snapFile = "";
+	sampleNodes = "";
+	aMatrix = "";
+	bMatrix = "";
 
 // Included (MB)
   shapederivatives = "";
+  strModesFile = "";
+  embeddedSurface= "";
+  oneDimensionalSolution = "";
 
 }
 
@@ -66,6 +70,10 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
   new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
+  new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
+  new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
+  new ClassStr<InputData>(ca, "AMatrix", this, &InputData::aMatrix);
+  new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
@@ -184,6 +192,17 @@ TransientData::TransientData()
   controlvolume = "";
   philevel_structure = "";
 
+// Gappy POD
+
+  mesh = "";
+  sampleNodes = "";
+  aMatrix = "";
+  bMatrix = "";
+  newtonresiduals = "";
+  pgromresiduals = "";
+  pgjacxdurom = "";
+  statevectorchange = "";
+
 // Included (MB)
   velocitynorm = "";
   dSolutions = "";
@@ -220,7 +239,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 81, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -290,6 +309,16 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
   new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
+
+	// Gappy POD offline
+  new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
+  new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
+  new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
+  new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
+	// Gappy POD snapshots
+  new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
+  new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
+  new ClassStr<TransientData>(ca, "StateVectorChange", this, &TransientData::statevectorchange);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
@@ -418,7 +447,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 23,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 25,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -426,7 +455,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22);
+     "SparseGridGeneration", 22, "UnsteadyROM", 23, "GappyPODConstruction", 24 );
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -2634,6 +2663,32 @@ void DeformingData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+ROB::ROB()
+{
+
+  tolerance = 1e-8;
+  numROB = 0;
+  numROB2 = 0;
+  romsolver = PG; 
+
+}
+
+//------------------------------------------------------------------------------
+
+void ROB::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+
+  new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
+  new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
+  new ClassInt<ROB>(ca, "NumROB2", this, &ROB::numROB2);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2);
+
+}
+
+//------------------------------------------------------------------------------
+
 LinearizedData::LinearizedData()
 {
 
@@ -3122,6 +3177,7 @@ void IoData::setupCmdFileVariables()
   rmesh.setup("Accelerated");
   aero.setup("Aeroelastic");
   forced.setup("Forced");
+	Rob.setup("ROB");
   linearizedData.setup("Linearized");
   surfaces.setup("Surfaces");
   rotations.setup("Velocity");
@@ -3153,6 +3209,8 @@ void IoData::readCmdFile()
     exit(error);
   }
   fclose(cmdFilePtr);
+
+	setupRob2();	// set up Rob 2
 
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
@@ -3243,7 +3301,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_POD_CONSTRUCTION_ ||
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
-      problem.alltype == ProblemData::_INTERPOLATION_)
+      problem.alltype == ProblemData::_INTERPOLATION_ ||
+			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2
@@ -4751,3 +4810,11 @@ void IoData::printDebug(){
 }
 
 //------------------------------------------------------------------------------
+
+void IoData::setupRob2(){
+
+	// set the number of bases in Rob2 to numROB2
+	Rob2 = Rob;
+	Rob2.numROB = Rob2.numROB2;
+
+}

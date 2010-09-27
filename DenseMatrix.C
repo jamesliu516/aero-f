@@ -3,6 +3,21 @@
 
 #include "DenseMatrix.h"
 
+// CBM: for Factor and ReSolve
+// ---------------------------
+#include <LinkF77.h>
+
+extern "C" {
+
+  // triangular factorization of a real general matrix using Gaussian elimination with complete pivoting
+  void F77NAME(dgecp)(const int &, double *, const int &, const double &, const int &, int &, int *, int *, int &);
+
+  // solves a real general linear system using the triangular factorization computed by dgecp
+  void F77NAME(dgers)(const int &, const int &, double *, const int &, const int &, const int *,
+                       const int *, double *, const int &, int &);
+
+}
+// ---------------------------
 template<class Scalar>
 GenFullM<Scalar>::GenFullM() 
 {
@@ -282,6 +297,33 @@ GenFullM<Scalar>::factor()
  }
 }
 
+//CBM: Factor and ReSolve are copied from the FEM code
+
+template<class Scalar>
+void
+GenFullM<Scalar>::Factor(double tol)
+{ // triangular factorization of a real general matrix using Gaussian elimination with complete pivoting
+  if(nrow != ncolumn) cerr << " *** WARNING: GenFullM<Scalar>::Factor(double tol), nrow != ncolumn \n";
+
+  if(iprow) { delete [] iprow; iprow = 0; }
+  if(ipcol) { delete [] ipcol; ipcol = 0; }
+  iprow = new int[nrow]; // output: row permutation
+  ipcol = new int[ncolumn]; // output: column permutation
+  int info; // output: error flag
+
+  // change ordering of v to be [column][row] instead of [row][column]
+  Scalar *v_copy = new Scalar[nrow*ncolumn];
+  for(int i=0; i<nrow*ncolumn; ++i) v_copy[i] = v[i];
+  for(int i=0; i<nrow; ++i)
+    for(int j=0; j<ncolumn; ++j)
+      v[i*nrow+j] = v_copy[j*ncolumn+i];
+  delete [] v_copy;
+
+  F77NAME(dgecp)(nrow, v, ncolumn, tol, 0, ndef, iprow, ipcol, info);
+
+  if(info != 0) cerr << " *** WARNING: error in dgecp, info = " << info << endl;
+  else if(ndef > 0) cerr << " GenFullM is rank deficient, ndef = " << ndef << endl;
+}
 
 template<class Scalar>
 void
@@ -300,6 +342,18 @@ GenFullM<Scalar>::reSolve(double *x)
      x[i] -= (*this)[i][j]*x[j];
    x[i] *= (*this)[i][i];
  }
+}
+
+template<class Scalar>
+void
+GenFullM<Scalar>::ReSolve(double *b)
+{
+ // solves a real general linear system using the triangular factorization computed by Factor(int)
+  int info;
+  F77NAME(dgers)(nrow, 1, v, nrow, ndef, iprow, ipcol, b, nrow, info);
+
+
+  if(info != 0) cerr << " *** WARNING: error in dgers, info = " << info << endl;
 }
 
 template<class Scalar>

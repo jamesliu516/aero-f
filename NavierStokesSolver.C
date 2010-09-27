@@ -2,6 +2,7 @@
 #include <Domain.h>
 #include "Solvers/Solvers.h"
 #include <SparseGridGeneratorDesc.h>
+#include <ImplicitRomTsDesc.h>
 
 //-----------------------------------------------------------------------------
 
@@ -55,6 +56,10 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	    ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
 	  if (ioData.ts.type == TsData::IMPLICIT &&
               ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
+            if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_) {
+               com->fprintf(stderr,"*** WANRING: Seg solver not implemented for UnsteadyROM, starting the coupled solver\n"); //CBM
+               NavierStokesCoupledSolver<6>::solve(ioData, geoSource, domain);
+            } else
 	   // startNavierStokesSegSolver<6,5,1>(ioData, geoSource, domain);
 	    NavierStokesSegSolver<6,5,1>::solve(ioData, geoSource, domain);
 	  else

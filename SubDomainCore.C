@@ -215,6 +215,12 @@ Connectivity *SubDomain::createElementToElementConnectivity()
 
 //------------------------------------------------------------------------------
 
+Connectivity *SubDomain::createElementToNodeConnectivity()
+{
+  return new Connectivity (&elems);
+}
+//------------------------------------------------------------------------------
+
 Connectivity *SubDomain::createEdgeBasedConnectivity()
 {
 

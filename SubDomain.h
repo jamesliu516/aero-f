@@ -162,6 +162,7 @@ public:
 
   // topology
   int *getNodeMap()    { return locToGlobNodeMap; }
+  int *getElemMap()  { return locToGlobElemMap; }
   int getGlobSubNum()  { return globSubNum; }
   int getLocSubNum()   { return locSubNum; }
   int getNumNeighb()   { return numNeighb; }
@@ -174,6 +175,7 @@ public:
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
   Connectivity *createElementToElementConnectivity();
+  Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
   Connectivity *createNodeToSubDomainConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
@@ -186,9 +188,9 @@ public:
   int numFaces() { return(faces.size()); }
   int numElems() { return(elems.size()); }
   int numEdges() { return(edges.size()); }
+	FaceSet& getFaces() {return faces;};
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
-
 
   // geometry
 
