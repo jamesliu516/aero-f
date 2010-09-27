@@ -363,9 +363,7 @@ IF (USE_SCALAPACK)
 	ADD_LIBRARY(FortranScalapack
 		 f77src/thinsvd.f
 		 f77src/lworksizesvd.f
-		 f77src/leastsquares.f
-		 f77src/globalmatrices.f
-		 f77src/lworksizels.f)
+		 f77src/globalmatrices.f)
 ENDIF(USE_SCALAPACK)
 
 SET_TARGET_PROPERTIES(FortranScalapack

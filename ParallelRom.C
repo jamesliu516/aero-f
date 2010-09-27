@@ -11,11 +11,10 @@ extern "C"      {
                        int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
                        int &, double *, int &);
   void F77NAME(lworksizesvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
-  void F77NAME(lworksizels)(int *, int *,int &, int &, int &, int &, int &, int &);    
 	void F77NAME(globalmatrices)(int &, int &, int &, int &, int &, int&, int &, int &,int &, int *, int *);	
 
-	void F77NAME(leastsquares)(int &, int &, int &, double *, int &, int &, int *,
-	double *, int &, int &, int *, double *, int &, int &, int &, int &);
+	void F77NAME(pdgels)(char &, int &, int &, int &, double *, int &, int &, int *,
+											 double *, int &, int &, int *, double *, int &, int & );
 };
 
 template<int dim> 
@@ -325,8 +324,6 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
  // compute local workspace array needed for least squares problem
  //===============================
 
- // determine size of array
- int lwork = 0;	// size of local workspace array
 
  // always start with the top left corner of the matrix
  int rowIndex = 1;	// IA in PDGELS.f: row index in global array A indicating first row of submatrix
@@ -334,14 +331,23 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
 
  // inputs: desc_a, desc_b, rowIndex, colIndex, info for submatrix problem (m, n, nRhs)
  // output: lwork
+ // determine size of array
 
- F77NAME(lworksizels)(desc_a, desc_b, rowIndex, colIndex, globNumRows, n, nRhs, lwork); 
+ int lwork = -1;	// size of local workspace array
+ double worktmp;
+ int info;
+ char normalChar = 'N';
+
+ // when lwork = -1, pdgels returns the optimal lworksize in worktmp
+
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex, desc_a, 
+		 								subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork, info);
+
+ lwork = static_cast<int>(worktmp);
+
  com->barrier();
- // lwork *= 2;// DEBUG: if worried, can multiply by two without introducing errors
- lwork = lwork + 2;	// to be safe
  // allocate memory for local work array
  double *work = new double[lwork];
- work[0] = -99.0;	// ???
 
  com->barrier();
 
@@ -349,14 +355,10 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
  // solve least squares problem in scalapack
  //===============================
 
- int info;
-
  // output: subMatB has been changed to contain the solution
- //F77NAME(PDGELS)('N', globNumRows, n, nRhs, subMatA, rowIndex, colIndex, desc_a,
-//												subMatB, rowIndex, colIndex, desc_b, work, lwork, info);
-
- F77NAME(leastsquares)(globNumRows, n, nRhs, subMatA, rowIndex, colIndex,
-	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, subMatLLD,thisCPU,info);
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex,
+	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, info);
+	//what about rowIndex and colIndex for A and B???
 
  if (info != 0) {
 	 com->fprintf(stderr, "  ... ERROR IN SCALAPACK ROUTINE PDGELS!\n");
