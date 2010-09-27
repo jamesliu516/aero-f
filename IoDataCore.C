@@ -308,7 +308,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
-  new ClassStr<TransientData>(ca, "Philevel_structure", this, &TransientData::philevel_structure);
+  new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
 
 	// Gappy POD offline
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
@@ -760,11 +760,11 @@ FluidModelData::FluidModelData()
 
 //------------------------------------------------------------------------------
 
-static RootClassAssigner nullAssigner;
+RootClassAssigner *nullAssigner = new RootClassAssigner;
 Assigner *FluidModelData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
@@ -1364,7 +1364,7 @@ SphereData::SphereData()
 Assigner *SphereData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 6, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
   new ClassInt<SphereData> (ca, "FluidModelID", this, &SphereData::fluidModelID);
 
@@ -1398,7 +1398,7 @@ PlaneData::PlaneData()
 Assigner *PlaneData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
   new ClassInt<PlaneData> (ca, "FluidModelID", this, &PlaneData::fluidModelID);
 
@@ -1430,7 +1430,7 @@ PointData::PointData()
 Assigner *PointData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassInt<PointData>
     (ca, "FluidModelID", this, &PointData::fluidModelID);
@@ -2041,13 +2041,15 @@ ImplicitData::ImplicitData()
 
   type = BACKWARD_EULER;
   startup = REGULAR;
-  coupling = WEAK;
+  tmcoupling = WEAK;
   mvp = H1;
-  jacobian = APPROXIMATE;
   fdOrder = FIRST_ORDER;
   //normals = AUTO;
   //velocities = AUTO_VEL;
  
+  // (Slave) Flag for the Jacobian of the flux function
+  ffjacobian = APPROXIMATE;
+
 }
 
 //------------------------------------------------------------------------------
@@ -2069,8 +2071,8 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      "Regular", 0, "Modified", 1);
 
   new ClassToken<ImplicitData>
-    (ca, "Coupling", this,
-     reinterpret_cast<int ImplicitData::*>(&ImplicitData::coupling), 2,
+    (ca, "TurbulenceModelCoupling", this,
+     reinterpret_cast<int ImplicitData::*>(&ImplicitData::tmcoupling), 2,
      "Weak", 0, "Strong", 1);
 
   new ClassToken<ImplicitData>
@@ -2080,14 +2082,9 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
      "ApproximateFiniteDifference", 3);
 
   new ClassToken<ImplicitData>
-    (ca, "FluxJacobian", this,
-     reinterpret_cast<int ImplicitData::*>(&ImplicitData::jacobian), 3,
-     "FiniteDifference", 0, "Approximate", 1, "Exact", 2);
-
-  new ClassToken<ImplicitData>
     (ca, "FiniteDifferenceOrder", this,
       reinterpret_cast<int ImplicitData::*>(&ImplicitData::fdOrder), 2,
-      "FirstOrder", 1, "SecondOrder", 2);
+      "FirstOrder", FIRST_ORDER, "SecondOrder", SECOND_ORDER);
 
 
 
@@ -2217,7 +2214,6 @@ SensitivityAnalysis::SensitivityAnalysis()
 {
   method  = DIRECT;
   scFlag = ANALYTICAL;
-  mvp = FD;
   eps = 0.00001;
   sensMesh = OFF_SENSITIVITYMESH;
   sensMach = OFF_SENSITIVITYMACH;
@@ -2226,14 +2222,11 @@ SensitivityAnalysis::SensitivityAnalysis()
   si = 0;
   sf = -1;
 
-// For debugging purposes
+  // For debugging purposes
   excsol = OFF_EXACTSOLUTION;
   homotopy = OFF_HOMOTOPY;
   comp3d = ON_COMPATIBLE3D;
   angleRad = OFF_ANGLERAD;
-  viscJacContrib = EXACT_JACOBIAN;
-  mvpfdOrdera = FIRST_ORDER_A;
-  mvpfdOrdersa = SECOND_ORDER_SA;
   machref = -1.0;
   alpharef = 400.0;
   betaref = 400.0;
@@ -2254,7 +2247,6 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "MatrixVectorProduct", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvp), 2, "FiniteDifference", 0, "Exact", 1);
   new ClassDouble<SensitivityAnalysis>(ca, "FiniteDifferenceEps", this, &SensitivityAnalysis::eps);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
@@ -2268,9 +2260,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
   new ClassToken<SensitivityAnalysis>(ca, "HomotopyComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::homotopy), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "Compatible3D", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::comp3d), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "AngleRadians", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::angleRad), 2, "Off", 0, "On", 1);
-  new ClassToken<SensitivityAnalysis>(ca, "ExactViscousJacobian", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::viscJacContrib), 3, "None", 0, "Exact", 1, "FiniteDifference", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdera), 2, "FirstOrder", 1, "SecondOrder", 2);
-  new ClassToken<SensitivityAnalysis>(ca, "OrderMVPFDSA", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::mvpfdOrdersa), 2, "FirstOrder", 1, "SecondOrder", 2);
+
   new ClassDouble<SensitivityAnalysis>(ca, "MachReference", this, &SensitivityAnalysis::machref);
   new ClassDouble<SensitivityAnalysis>(ca, "AlphaReference", this, &SensitivityAnalysis::alpharef);
   new ClassDouble<SensitivityAnalysis>(ca, "BetaReference", this, &SensitivityAnalysis::betaref);
@@ -2837,7 +2827,7 @@ SurfaceData::SurfaceData()  {
 //------------------------------------------------------------------------------
 Assigner *SurfaceData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 12, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 12, nullAssigner);
 
   new ClassDouble<SurfaceData>(ca, "Nx", this, &SurfaceData::nx);
   new ClassDouble<SurfaceData>(ca, "Ny", this, &SurfaceData::ny);
@@ -2906,7 +2896,7 @@ RotationData::RotationData()  {
 
 Assigner *RotationData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 8, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
   new ClassDouble<RotationData>(ca, "Nx", this, &RotationData::nx);
   new ClassDouble<RotationData>(ca, "Ny", this, &RotationData::ny);
@@ -2935,7 +2925,7 @@ VolumeData::VolumeData()  {
 
 Assigner *VolumeData::getAssigner()  {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 4, &nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 4, nullAssigner);
 
   new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
@@ -2981,7 +2971,7 @@ PorousMedia::PorousMedia()  {
 //Assigner *PorousMedia::getAssigner()  {
 void PorousMedia::setup(const char *name, ClassAssigner *father)  {
 
-  //ClassAssigner *ca = new ClassAssigner("normal", 17, &nullAssigner);
+  //ClassAssigner *ca = new ClassAssigner("normal", 17, nullAssigner);
   ClassAssigner *ca = new ClassAssigner(name, 17, father);
 
   new ClassDouble<PorousMedia>(ca, "Ix", this, &PorousMedia::iprimex);
@@ -3046,7 +3036,7 @@ void InitialConditions::setup(const char *name, ClassAssigner *father) {
 
 EmbeddedFramework::EmbeddedFramework() {
 
-  intersectorName = PHYSBAMLITE;
+  intersectorName = PHYSBAM;
   structNormal = ELEMENT_BASED;
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
@@ -3055,7 +3045,7 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
-  riemannNormal = FLUID;
+  riemannNormal = AUTO;
   structVelocity = COMPUTED_BY_STRUCTURE;
 
 }
@@ -3067,7 +3057,7 @@ void EmbeddedFramework::setup(const char *name) {
   ClassAssigner *ca = new ClassAssigner(name, 5, 0); //father);
 
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
-                                      "PhysBAMLite", 0, "FRG", 1);
+                                      "PhysBAM", 0, "FRG", 1);
   new ClassToken<EmbeddedFramework> (ca, "StructureNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structNormal), 2,
                                       "ElementBased", 0, "NodeBased", 1);
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
@@ -3085,7 +3075,7 @@ void EmbeddedFramework::setup(const char *name) {
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
-                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
+                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
   new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
                                       "ComputedByStructure", 0, "FiniteDifference", 1);
 }
@@ -3317,69 +3307,141 @@ void IoData::resetInputValues()
 
   // part 2
 
-// Included (MB)
-  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
+  // Included (MB)
+  if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) 
+  {
 
-    if (ts.implicit.coupling == ImplicitData::WEAK) {
-      com->fprintf(stderr, " ----- Time.Implicit.Coupling set to Strong -----\n");
-      ts.implicit.coupling = ImplicitData::STRONG;
+    //
+    // Check that the code is running within the "correct" limits
+    //
+
+    if (sa.method == SensitivityAnalysis::ADJOINT)
+    {
+      com->fprintf(stderr, " ----- SA >> SensitivityAnalysis.Method has to be set to Direct -----\n");
+      exit(1);
     }
 
-    if (ts.implicit.mvp != ImplicitData::FD) {
-      com->fprintf(stderr, " ----- Time.Implicit.MatrixVectorProduct set to FiniteDifference -----\n");
+    if (dmesh.type != DefoMeshMotionData::BASIC) 
+    {
+      com->fprintf(stderr, " ----- SA >> MeshMotion.Type has to be set to Basic -----\n");
+      exit(1);
+    }
+
+    if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) 
+    {
+      com->fprintf(stderr, " ----- SA >> Boundaries.Type has to be set to StegerWarming -----\n");
+      exit(1);
+    }
+
+    if (eqs.fluidModel.fluid != FluidModelData::GAS) 
+    {
+      com->fprintf(stderr, " ----- SA >> Equations.FluidModel.Type has to be set to Gas -----\n");
+      exit(1);
+    }
+
+    if (problem.mode == ProblemData::NON_DIMENSIONAL) 
+    {
+      com->fprintf(stderr, " ----- SA >> Problem.Mode has to be set to Dimensional -----\n");
+      exit(1);
+    }
+
+    //
+    // Overwite some parameters if needed
+    //
+
+
+    if (problem.prec == ProblemData::PRECONDITIONED)
+    {
+      if (ts.implicit.mvp != ImplicitData::FD)
+        com->fprintf(stderr, " ----- SA >> Time.Implicit.Mvp set to FiniteDifference of Order 2 for Problems with Low-Mach Preconditioning -----\n");
+      ts.implicit.mvp = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    }
+
+    if ((eqs.type == EquationsData::NAVIER_STOKES) &&
+        (eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY))
+    {
+      //---------------
+      if (ts.implicit.tmcoupling == ImplicitData::WEAK)
+      {
+        com->fprintf(stderr, " ----- SA >> Time.Implicit.TurbulenceModelCoupling set to Strong -----\n");
+        ts.implicit.tmcoupling = ImplicitData::STRONG;
+      }
+      //---------------
+      if (ts.implicit.mvp != ImplicitData::FD)
+      {
+        com->fprintf(stderr, " ----- SA >> Time.Implicit.Mvp set to FiniteDifference for Navier-Stokes Problems with Turbulence -----\n");
+      }
+      //---------------
+      ts.implicit.mvp = ImplicitData::FD;
+      //---------------
+      if (ts.implicit.fdOrder == ImplicitData::FIRST_ORDER)
+      {
+        com->fprintf(stderr, " ----- SA >> Second-Order Finite Differencing is Recommended -----\n");
+      }
+    }
+
+
+    if ((ts.implicit.mvp == ImplicitData::H1) || (ts.implicit.mvp == ImplicitData::H1FD))
+    {
+      com->fprintf(stderr, " ----- SA >> Time.Implicit.MatrixVectorProduct set to FiniteDifference -----\n");
       ts.implicit.mvp = ImplicitData::FD;
     }
 
-    if (ts.implicit.mvp != ImplicitData::FD) {
-      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
-      ts.implicit.jacobian = ImplicitData::EXACT;
+
+    if (ts.implicit.ffjacobian != ImplicitData::EXACT) {
+      // The overwriting is silent because the feature is not documented.
+      //com->fprintf(stderr, " ----- SA >> Time.Implicit.FluxJacobian set to Exact -----\n");
+      ts.implicit.ffjacobian = ImplicitData::EXACT;
     }
 
-    if (ts.implicit.jacobian != ImplicitData::EXACT) {
-      com->fprintf(stderr, " ----- Time.Implicit.FluxJacobian set to FiniteDifference -----\n");
-      ts.implicit.jacobian = ImplicitData::EXACT;
-    }
-
-    ts.implicit.newton.ksp.ns.numVectors = 30;
-
-    ts.implicit.newton.ksp.ns.pc.fill = 0;
-
-    if (dmesh.type != DefoMeshMotionData::BASIC) {
-      com->fprintf(stderr, " ----- MeshMotion.Type has to be set to Basic -----\n");
-      exit(1);
-    }
-
-    if (schemes.bc.type != BoundarySchemeData::STEGER_WARMING) {
-      com->fprintf(stderr, " ----- Boundaries.Type has to be set to StegerWarming -----\n");
-      exit(1);
-    }
-
-    if (eqs.fluidModel.fluid != FluidModelData::GAS) {
-      com->fprintf(stderr, " ----- Equations.FluidModel.Type has to be set to Gas -----\n");
-      exit(1);
-    }
-
-    if (problem.mode == ProblemData::NON_DIMENSIONAL) {
-      com->fprintf(stderr, " ----- Problem.Mode has to be set to Dimensional -----\n");
-      exit(1);
-    }
 
     int trip;
     if ( eqs.tc.tr.bfix.x0 > eqs.tc.tr.bfix.x1 ||
-	 eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 ||
-	 eqs.tc.tr.bfix.z0 > eqs.tc.tr.bfix.z1 )
+         eqs.tc.tr.bfix.y0 > eqs.tc.tr.bfix.y1 ||
+         eqs.tc.tr.bfix.z0 > eqs.tc.tr.bfix.z1 )
       trip = 0;
     else
       trip = 1;
 
-    if (sa.mvp == SensitivityAnalysis::H2 && trip) {
+
+    if (ts.implicit.mvp == ImplicitData::H2 && trip)
+    {
       com->fprintf(stderr,
-		   " ----- SensitivityAnalysis.MatrixVectorProduct set to"
-		   " FiniteDifference to account for tripping -----\n");
-      sa.mvp = SensitivityAnalysis::FD;
+                   " ----- SA >> MatrixVectorProduct set to"
+                   " FiniteDifference to account for tripping -----\n");
+      ts.implicit.mvp = ImplicitData::FD;
     }
 
+
+  } // END if (problem.alltype == ProblemData::_STEADY_SENSITIVITY_ANALYSIS_)
+
+  //
+  // Check parameters for the matrix-vector product in implicit simulations.
+  //
+
+  if ((problem.prec == ProblemData::PRECONDITIONED) ||
+      (ts.prec == TsData::PREC))
+  {
+    if (ts.implicit.mvp == ImplicitData::H2)
+    {
+      com->fprintf(stderr, " *** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "              Second Order Finite Difference will be used.\n");
+      ts.implicit.mvp = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    }
+  } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
+
+
+  if (ts.implicit.mvp == ImplicitData::H2)
+  {
+    // The overwriting is silent because ffjacobian is a "slave" flag.
+    ts.implicit.ffjacobian = ImplicitData::EXACT;
   }
+
+  //
+  // Part 3
+  //
 
   if (problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO] ||
       problem.alltype == ProblemData::_UNSTEADY_LINEARIZED_AEROELASTIC_ ||
@@ -3513,7 +3575,7 @@ int IoData::checkFileNames()
     ++error;
   }
   if ((problem.type[ProblemData::AERO] || problem.type[ProblemData::THERMO]) &&
-       strcmp(input.match, "") == 0) {
+       problem.framework!=ProblemData::EMBEDDED && strcmp(input.match, "") == 0) {
     com->fprintf(stderr, "*** Error: no matcher file given\n");
     ++error;
   }
@@ -4006,7 +4068,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
         //com->fprintf(stderr, "\n\n Reynolds = %e \n\n",ref.reynolds_mu);
       ref.dRe_mudMach = dvelocitydMach * ref.length * ref.density / viscosity;
       ref.dRe_lambdadMach = -3.0 * ref.dRe_mudMach/2.0;
-
+            
       ref.rv.mode = RefVal::DIMENSIONAL;
       ref.rv.density = ref.density;
       ref.rv.velocity = velocity;
@@ -4030,7 +4092,17 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
 // Included (MB)
       ref.rv.dvelocitydMach = dvelocitydMach;
       ref.rv.dtimedMach = - ref.length / (velocity * velocity) * dvelocitydMach;
-
+      /*
+      fprintf(stderr,"Reference State Calculated in IoDataCore.C\n");
+      fprintf(stderr,"You are asking for a Dimensional Simulation for a Gas\n");
+      fprintf(stderr,"Constants      : gamma   = %f, R        = %f, Pstiff   = %f, Length  = %f\n",gamma, R, Pstiff,ref.length);
+      fprintf(stderr,"State          : density = %f, velocity = %f, pressure = %f, temp    = %f, viscosity = %f\n",
+	      ref.density, velocity, ref.pressure, ref.temperature, viscosity);
+      fprintf(stderr,"Flow Parameters: mach    = %f, reynolds = %f\n", ref.mach,ref.reynolds_mu);
+      fprintf(stderr,"Ref Values     : length  = %f, density  = %f, velocity = %f, pressure = %f, temp = %f, viscosity = %f\n",
+	      ref.length,ref.rv.density, ref.rv.velocity, ref.rv.pressure, ref.rv.temperature, ref.rv.viscosity_mu);
+      fprintf(stderr,"\n");
+      */
     }
     else if(eqs.fluidModel.fluid == FluidModelData::JWL){
       if (ref.density < 0.0)

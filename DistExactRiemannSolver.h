@@ -20,6 +20,7 @@ class DistExactRiemannSolver {
   int numLocSub;
   Domain *domain;
 
+  DistSVec<double,dim> *oldV;
   DistSVec<double,dim> *riemannupdate; //node based
   DistVec<double> *weight;             //node based
   // riemannupdate is used only when using GFMPAR
@@ -36,8 +37,11 @@ public:
   DistExactRiemannSolver(IoData &iod, Domain *dom, VarFcn *vf);
   ~DistExactRiemannSolver();
 
+  DistSVec<double,dim> *getOldV() const { return oldV; }
   DistSVec<double,dim> *getRiemannUpdate() const { return riemannupdate; }
   DistVec<double> *getRiemannWeight() const { return weight; }
+  
+  void storeOldV(DistSVec<double,dim> &V);
 
   void updatePhaseChange(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistVec<int> &fluidIdn); 
   void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistSVec<double,3> &X);

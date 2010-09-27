@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 
 
 //------------------------------------------------------------------------------
@@ -584,8 +585,12 @@ void FluxFcnSGWallEuler3D::compute(double length, double irey, double *normal, d
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGWallEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGWallEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal, 
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   dFlux[0] = 0.0;
@@ -673,8 +678,12 @@ void FluxFcnSGInflowEuler3D::compute(double length, double irey, double *normal,
 
 // Included (MB)
 inline
-void FluxFcnSGInflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGInflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   F77NAME(gxboundflux5)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -695,8 +704,12 @@ void FluxFcnSGOutflowEuler3D::compute(double length, double irey, double *normal
 
 // Included (MB)
 inline
-void FluxFcnSGOutflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGOutflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   F77NAME(gxboundflux5)(0, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1033,8 +1046,12 @@ void FluxFcnSGInternalInflowEuler3D::compute(double length, double irey, double 
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGInternalInflowEuler3D::computeDerivative(double vfgam, double vfp, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGInternalInflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1064,8 +1081,12 @@ void FluxFcnSGInternalOutflowEuler3D::compute(double length, double irey, double
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGInternalOutflowEuler3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGInternalOutflowEuler3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   influx3DDerivative<5>(0, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1217,8 +1238,12 @@ void FluxFcnSGWallSA3D::compute(double length, double irey, double *normal, doub
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGWallSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGWallSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   dFlux[0] = 0.0;
@@ -1309,8 +1334,12 @@ void FluxFcnSGOutflowSA3D::compute(double length, double irey, double *normal, d
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGOutflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGOutflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   F77NAME(gxboundflux5)(1, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1330,8 +1359,12 @@ void FluxFcnSGInternalInflowSA3D::compute(double length, double irey, double *no
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGInternalInflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                             double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGInternalInflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1361,8 +1394,12 @@ void FluxFcnSGInternalOutflowSA3D::compute(double length, double irey, double *n
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGInternalOutflowSA3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                             double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGInternalOutflowSA3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   influx3DDerivative<6>(1, vf, normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1582,8 +1619,12 @@ void FluxFcnSGWallKE3D::compute(double length, double irey, double *normal, doub
 //------------------------------------------------------------------------------
 
 // Included (MB)
-void FluxFcnSGWallKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                   double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGWallKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   dFlux[0] = 0.0;
@@ -1691,8 +1732,12 @@ void FluxFcnSGOutflowKE3D::compute(double length, double irey, double *normal, d
 
 // Included (MB)
 inline
-void FluxFcnSGOutflowKE3D::computeDerivative(double irey, double dIrey, double *normal, double *dNormal, double normalVel, double dNormalVel, double *V,
-                                      double *Ub, double *dUb, double *flux, double *dFlux, bool useLimiter)
+void FluxFcnSGOutflowKE3D::computeDerivative
+(
+  double irey, double dIrey, double *normal, double *dNormal,
+  double normalVel, double dNormalVel, double *V,
+  double *Ub, double *dUb, double *flux, double *dFlux
+)
 {
 
   F77NAME(gxboundflux5)(2, vf->getGamma(), normal, dNormal, normalVel, dNormalVel, V, Ub, dUb, flux, dFlux);
@@ -1707,7 +1752,7 @@ void FluxFcnSGRoeKEturb3D::computeJacobians(double length, double irey, double *
                                           double *jacL, double *jacR, bool useLimiter)
 {
 
-  F77NAME(roejac2)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey,useLimiter ? sprec.getPrecTag() : 0);
+  F77NAME(roejac2)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VR, jacL, jacR, sprec.getMinMach(),sprec.getSlope(),sprec.getCutOffMach(),irey,useLimiter ? sprec.getPrecTag() : 0);
 
 }
 

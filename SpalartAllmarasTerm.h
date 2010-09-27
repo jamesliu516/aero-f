@@ -150,7 +150,8 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double *dV[4]
   double dchi = (dmutilde * mul - mutilde * dmul ) / ( mul * mul );
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
-  double dfv1 = ( 3.0*chi*chi * dchi * (chi3 + cv1_pow3) - chi3 * 3.0*chi*chi * dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
+  double dfv1 = cv1_pow3 * 3.0 * chi * chi * dchi / ((chi3 + cv1_pow3) * (chi3 + cv1_pow3));
+
 
   return dmutilde*fv1 + mutilde*dfv1;
 
@@ -169,7 +170,8 @@ double SATerm::computeDerivativeOfTurbulentViscosity(double *V[4], double mul, d
   double dchi = (dmutilde * mul - mutilde * dmul ) / ( mul * mul );
   double chi3 = chi*chi*chi;
   double fv1 = chi3 / (chi3 + cv1_pow3);
-  double dfv1 = ( 3.0*chi*chi * dchi * (chi3 + cv1_pow3) - chi3 * 3.0*chi*chi * dchi ) / ( (chi3 + cv1_pow3) * (chi3 + cv1_pow3) );
+  double dfv1 = cv1_pow3 * 3.0 * chi * chi * dchi / ((chi3 + cv1_pow3) * (chi3 + cv1_pow3));
+
 
   return dmutilde*fv1 + mutilde*dfv1;
 

@@ -17,7 +17,6 @@ class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 
-template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistTimeState;
@@ -100,9 +99,12 @@ private:
   FILE *fpGnForces;
 
 
-  DistVec<double> *Qs;
+  DistVec<double>    *Qs;
   DistSVec<double,3> *Qv;
   
+  DistVec<double>    *AvQs[PostFcn::AVSSIZE];
+  DistSVec<double,3> *AvQv[PostFcn::AVVSIZE];
+
 // Included (MB)
   bool switchOpt;
 
@@ -160,10 +162,9 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
-  template<int dimLS>
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistSVec<double,dimLS> &, DistVec<int> &);
+                                DistVec<int> &);
   //void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
   //                              DistVec<double> &, DistSVec<double,dim> &,
   //                              DistSVec<double,1> &, DistVec<int> &);

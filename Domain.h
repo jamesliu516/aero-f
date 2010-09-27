@@ -177,6 +177,7 @@ public:
   CommPattern<double> *getMomPat() const { return momPat; }
   CommPattern<double> *getCsPat() const { return csPat; }
   CommPattern<double> *getEngPat() const { return engPat; }
+  CommPattern<int> *getFsPat() const { return fsPat; }
 
 
   template<int dim>
@@ -454,6 +455,15 @@ public:
                                        DistSVec<double,3> &,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, FluidSelector &);
+
+  template<int dim, class Scalar, int dimLS>
+    void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
+					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
+					   DistEdgeGrad<dim>* egrad,
+					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
+					   DistMat<Scalar,dimLS> &A);
+  
   template<int dim>
   void recomputeRHS(VarFcn*, DistSVec<double,dim> &, DistSVec<double,dim> &, DistExtrapolation<dim>*,
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);
@@ -599,10 +609,10 @@ public:
   void computeH1(FluxFcn **, DistBcData<dim> &, DistGeoState &,
                  DistVec<double> &, DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int neq>
   void computeH2(FluxFcn **, RecFcn *, DistBcData<dim> &, DistGeoState &,
 		 DistSVec<double,3> &, DistSVec<double,dim> &, DistNodalGrad<dim, double> &,
-		 DistMat<Scalar,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
+		 DistMat<Scalar,neq> &, DistSVec<double,dim> &, DistSVec<double,dim> &,
 		 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   template<class Scalar1, class Scalar2, int dim>
@@ -636,6 +646,8 @@ public:
   template<class Scalar>
   void assemble(CommPattern<Scalar> *, DistVec<Scalar> &);
 
+  template<class Scalar, class OpType >
+  void assemble(CommPattern<Scalar> *, DistVec<Scalar> &, const OpType &);
 
   void assemble(DistVec<double> &v) {
     assemble(getVecPat(), v);
@@ -796,10 +808,6 @@ public:
   void computeOnlyGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
 			   DistGeoState &, DistSVec<double,3> &,
 			   DistSVec<double,dim> &, DistSVec<double,dim> &);
-
-  template<int dim, class Scalar>
-  void applyBCsToH2Jacobian(BcFcn *, DistBcData<dim> &,
-			  DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   template<int dim>
   void computeBCsJacobianWallValues(FemEquationTerm *, DistBcData<dim> &,

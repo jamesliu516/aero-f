@@ -91,11 +91,22 @@ public:
   // otherwise call nullify and Scalar::nullify must be defined.
   void nullifyPointers() 
   {
-    for(int i=0;i<this->len;++i) this->v[i]=0;
+    for(int i=0;i<this->len;++i) 
+      {
+        this->v[i]=0;
+      }
   }
   void nullify() 
   {
     for(int i=0;i<this->len;++i) this->v[i].nullify();
+  }
+  void deletePointers() 
+  {
+    for(int i=0;i<this->len;++i) 
+      {
+	delete this->v[i];
+	this->v[i] = 0;
+      }
   }
 };
 
@@ -882,7 +893,6 @@ DistSVec<Scalar,dim>::~DistSVec()
       if (subVec[iSub]) delete subVec[iSub];
     delete [] subVec;
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -1141,7 +1151,8 @@ DistSVec<Scalar,dim>::operator/=(const DistVec<Scalar> &y)
     if (y.subSize(iSub) != locLen)
       fprintf(stderr, "WARNING %d vs %d\n", y.subSize(iSub), locLen);
 
-    InfoType yInfo = y.info();
+    // Suppressed by Adam 2010.07.30
+    //    InfoType yInfo = y.info();
 
     for (int i = 0; i < locLen; ++i)
       for (int j = 0; j < dim; j++)

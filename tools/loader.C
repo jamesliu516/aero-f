@@ -12,7 +12,7 @@
 int processInputFile(char *, int *&, int *&, char ***&);
 int processInputLine(int, char **, int *&, int *&, char ***&);
 void decodeArgumentLine(char *, int &, int &, char **&);
-int startCode(int, char **, char * = "entrypoint");
+int startCode(int, char **, const char * = "entrypoint");
 
 //------------------------------------------------------------------------------
 
@@ -263,7 +263,7 @@ void decodeArgumentLine(char *line, int &size, int &argc, char **&argv)
 
 //------------------------------------------------------------------------------
 
-int startCode(int argc, char **argv, char *routine)
+int startCode(int argc, char **argv, const char *routine)
 {
 
   char *name = argv[0];

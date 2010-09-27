@@ -3,6 +3,7 @@
 
 #include <IoData.h>
 #include "VarFcn.h"
+#include "ODEIntegrator.h"
 
 //----------------------------------------------------------------------------
 // Virtual base class to provide nodal values to compute fluxes at the interface
@@ -33,6 +34,13 @@ public:
                             double *rupdatei, double *rupdatej,
                             double &weighti, double &weightj, 
                             double dx[3], int it) {} 
+
+  virtual void computeRiemannJacobian(double *Vi, double *Vj,
+				      int IDi, int IDj, double *nphi,
+				      double *Wi, double *Wj,
+				      double dx[3],int it,
+				      double* dWidWi,double*  dWidWj,
+				      double* dWjdWi,double*  dWjdWj) {} 
 
   // FS Riemann problem
   virtual void computeRiemannSolution(double *Vi, double *Vstar,
@@ -93,6 +101,15 @@ protected:
   void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
   void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
 
+  struct RiemannInvParams {
+
+    RiemannInvParams(int fluidId,double ent, VarFcn* v) : myFluidId(fluidId), entropy(ent), vf_(v) { }
+    int myFluidId;
+    double entropy;
+    VarFcn* vf_;
+  };
+  double riemannInvariantKernel1(double density, const RiemannInvParams& J) ;
+
   void shockJWL(double phi, double omega,
                 double omp1oom, double frho, double frhoi, 
                 double frhopi,
@@ -117,6 +134,13 @@ protected:
                                      double * const Wi, double * const Wj,
                                      double &weighti, double *rupdatei, 
                                      double &weightj, double *rupdatej);
+
+  // Helper function for Riemann problem jacobians
+  void oneDtoThreeD(const double* dWidWi3, const double* dWidWj3,
+		    const double* dWjdWi3, const double* dWjdWj3,
+		    const double* nphi,
+		    double* dWidWi,double*  dWidWj,
+		    double* dWjdWi,double*  dWjdWj);
 
 };
 
@@ -189,15 +213,26 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
 //----------------------------------------------------------------------------
 
 inline
+double LocalRiemannGfmpar::riemannInvariantKernel1(double density, const RiemannInvParams& J) {
+
+  double c = J.vf_->computeSoundSpeed(density, J.entropy, J.myFluidId);
+  return -c/density;
+}
+
+inline
 void LocalRiemannGfmpar::riemannInvariantGeneral1stOrder(double *in, double *res,
                                                    double *phi){
 // in contains density and pressure and density
 // res is the output result and contains the variation of velocity
 // integrates an ODE with first order integration
 
+  ODEIntegrator myIntegrator(in[2],in[0],5000);
+
   int myFluidId = (*phi>=0) ? fluid1 : fluid2;
   res[0] = 0.0;
-  int N  = 5000;
+  myIntegrator.integrateFE(*this, res[0], &LocalRiemannGfmpar::riemannInvariantKernel1, 
+  RiemannInvParams(myFluidId, in[1], vf_));
+  /*int N  = 5000;
   double density = in[2]; double entropy = in[1];
   double ddensity = (in[0] - in[2])/N;
   double c = vf_->computeSoundSpeed(density,entropy,myFluidId);
@@ -216,7 +251,7 @@ void LocalRiemannGfmpar::riemannInvariantGeneral1stOrder(double *in, double *res
     it++;
     if(it==N) break;
   }
-
+  */
 }
 
 //----------------------------------------------------------------------------
@@ -227,9 +262,14 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
 // in contains density and entropy and density
 // res is the output result and contains the variation of velocity
 // integrates an ODE with second order integration (Mid-Point Rule)
+
   int myFluidId = (*phi>=0) ? fluid1 : fluid2;
+  ODEIntegrator myIntegrator(in[2],in[0],2000);
   res[0] = 0.0;
-  int N  = 2000;
+  myIntegrator.integrateMidpoint(*this, res[0], &LocalRiemannGfmpar::riemannInvariantKernel1, 
+  				 RiemannInvParams(myFluidId, in[1], vf_));
+
+  /*int N  = 2000;
   double density = in[2]; double entropy = in[1];
   double ddensity = (in[0] - in[2])/N;
   double c = vf_->computeSoundSpeed(density,entropy,myFluidId);
@@ -237,36 +277,19 @@ void LocalRiemannGfmpar::riemannInvariantGeneral2ndOrder(double *in, double *res
   bool continueCondition = true;
   int it=0;
   while(continueCondition){
-    density += 0.5*ddensity;
-    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
     res[0] -= c/density*ddensity;
-    density += 0.5*ddensity;
-
+    density  += ddensity;
+    if(ddensity>0.0) density = density>in[0] ? in[0] : density;
+    else             density = density<in[0] ? in[0] : density;
+    //advance by second half density-step
+    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
     if(ddensity>0.0)
       continueCondition = (density<in[0]-ddensity/2.0);
     else continueCondition = (density>in[0]-ddensity/2.0);
     it++;
     if(it==N) break;
-
-    /* RK-type
-    //advance by first half density-step
-    res[0] -= c/density*ddensity/2.0;
-
-    density += ddensity;
-    if(ddensity>0.0) density = density>in[0] ? in[0] : density;
-    else             density = density<in[0] ? in[0] : density;
-    //advance by second half density-step
-    c = vf_->computeSoundSpeed(density,entropy,myFluidId);
-    res[0] -= c/density*ddensity/2.0;
-
-    if(ddensity>0.0)
-      continueCondition = (density<in[0]-ddensity/4.0);
-    else continueCondition = (density>in[0]-ddensity/4.0);
-    fprintf(stdout, "adim = %e %e %e %e\n", density, ddensity, c, res[0]);
-    it++;
-    if(it==N) break;*/
-  }
-
+    }*/
+  
 }
 
 //----------------------------------------------------------------------------
@@ -395,6 +418,99 @@ void LocalRiemannGfmpar::updatePhaseChangingNodeValues( double * const dx,
   }
 
 }
+
+inline
+void LocalRiemannGfmpar::oneDtoThreeD(const double* dWidWi3, const double* dWidWj3,
+				      const double* dWjdWi3, const double* dWjdWj3,
+				      const double* nphi,
+				      double* dWidWi,double*  dWidWj,
+				      double* dWjdWi,double*  dWjdWj) {
+
+  int k,l;
+  dWidWi[0]  = dWidWi3[0];
+  for (k = 0; k < 3; ++k)
+    dWidWi[k+1] = dWidWi3[1]*nphi[k];
+  dWidWi[4] = dWidWi3[2];
+  for (k = 0; k < 3; ++k)
+    dWidWi[k*5+5] = dWidWi3[3]*nphi[k];
+  for (k = 0; k < 3; ++k) {
+    for (l = 0; l < 3; ++l) {
+      
+      dWidWi[(k+1)*5+(l+1)] = (k==l?1.0:0.0)+(-1.0+dWidWi3[4])*nphi[k]*nphi[l];
+    }
+  }
+  for (k = 0; k < 3; ++k)
+    dWidWi[k*5+5+4] = dWidWi3[5]*nphi[k];
+  
+  dWidWi[20] = dWidWi3[6];
+  for (k = 0; k < 3; ++k)
+    dWidWi[k+21] = dWidWi3[7]*nphi[k];
+  dWidWi[24] = dWidWi3[8];
+  
+  // Dwi/dwJ
+  dWidWj[0]  = dWidWj3[0];
+  for (k = 0; k < 3; ++k)
+    dWidWj[k+1] = dWidWj3[1]*nphi[k];
+  dWidWj[4] = dWidWj3[2];
+  for (k = 0; k < 3; ++k)
+    dWidWj[k*5+5] = dWidWj3[3]*nphi[k];
+  for (k = 0; k < 3; ++k) {
+    for (l = 0; l < 3; ++l) {
+      
+      dWidWj[(k+1)*5+(l+1)] = (dWidWj3[4])*nphi[k]*nphi[l];
+    }
+  }
+  for (k = 0; k < 3; ++k)
+    dWidWj[k*5+5+4] = dWidWj3[5]*nphi[k];
+  
+  dWidWj[20] = dWidWj3[6];
+  for (k = 0; k < 3; ++k)
+    dWidWj[k+21] = dWidWj3[7]*nphi[k];
+  dWidWj[24] = dWidWj3[8];
+  
+  // DwJ/dWi
+  dWjdWi[0]  = dWjdWi3[0];
+  for (k = 0; k < 3; ++k)
+    dWjdWi[k+1] = dWjdWi3[1]*nphi[k];
+  dWjdWi[4] = dWjdWi3[2];
+  for (k = 0; k < 3; ++k)
+    dWjdWi[k*5+5] = dWjdWi3[3]*nphi[k];
+  for (k = 0; k < 3; ++k) {
+    for (l = 0; l < 3; ++l) {
+      
+      dWjdWi[(k+1)*5+(l+1)] = (dWjdWi3[4])*nphi[k]*nphi[l];
+    }
+  }
+  for (k = 0; k < 3; ++k)
+    dWjdWi[k*5+5+4] = dWjdWi3[5]*nphi[k];
+  
+  dWjdWi[20] = dWjdWi3[6];
+  for (k = 0; k < 3; ++k)
+    dWjdWi[k+21] = dWjdWi3[7]*nphi[k];
+  dWjdWi[24] = dWjdWi3[8];
+  
+  // Dwj/Dwj
+  dWjdWj[0]  = dWjdWj3[0];
+  for (k = 0; k < 3; ++k)
+    dWjdWj[k+1] = dWjdWj3[1]*nphi[k];
+  dWjdWj[4] = dWjdWj3[2];
+  for (k = 0; k < 3; ++k)
+    dWjdWj[k*5+5] = dWjdWj3[3]*nphi[k];
+  for (k = 0; k < 3; ++k) {
+    for (l = 0; l < 3; ++l) {
+      
+      dWjdWj[(k+1)*5+(l+1)] = (k==l?1.0:0.0)+(-1.0+dWjdWj3[4])*nphi[k]*nphi[l];
+    }
+  }
+  for (k = 0; k < 3; ++k)
+    dWjdWj[k*5+5+4] = dWjdWj3[5]*nphi[k];
+  
+  dWjdWj[20] = dWjdWj3[6];
+  for (k = 0; k < 3; ++k)
+    dWjdWj[k+21] = dWjdWj3[7]*nphi[k];
+  dWjdWj[24] = dWjdWj3[8];
+}
+
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 #endif

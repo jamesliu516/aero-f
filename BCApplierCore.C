@@ -111,7 +111,7 @@ BCApplier::~BCApplier()
       if(dofType[iSub]) { delete [] dofType[iSub]; dofType[iSub] = 0; }
     delete [] dofType; dofType = 0;
   }
-  if(proj) { delete proj; proj = 0; }
+  if(proj) { delete[] proj; proj = 0; }
   numLocSub = 0;
   domain    = 0;
 }

@@ -93,7 +93,7 @@ public:
 
 // Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 
-	       SpaceOperator<dim> *, Domain *, IoData &, bool = false);
+	       SpaceOperator<dim> *, Domain *, IoData &);
 
   ~MatVecProdFD();
 
@@ -112,7 +112,16 @@ public:
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
+
   void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
+
+  void applyViscous(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)
+  {
+    std::cout << " ... ERROR: MatVecProdFD::applyViscous function not implemented";
+    std::cout << " for complex arguments." << std::endl;
+    exit(1);
+  }
+
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
   
 };
@@ -133,8 +142,14 @@ class MatVecProdH1 : public MatVecProd<dim,neq>, public DistMat<Scalar,neq> {
 
 public:
 
+  /// Constructor.
+  /// \note UH (09/10) This constructor is only called from MatVecProdH2.
   MatVecProdH1(DistTimeState<dim> *, SpaceOperator<dim> *, Domain *);
+
+  /// Constructor.
   MatVecProdH1(DistTimeState<dim> *, SpaceOperator<dim> *, Domain *, IoData &);
+
+  /// Destructor.
   ~MatVecProdH1();
 
   DistMat<Scalar,neq> &operator= (const Scalar);
@@ -162,8 +177,20 @@ public:
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-class MatVecProdH2 : public MatVecProd<dim,dim>, public DistMat<Scalar,dim> {
+///
+/// The MatVecProdH2 class enables matrix vector product based on the exact
+/// Jacobian matrix.
+/// For turbulent problems with weak coupling, the parameters dim and neq will
+/// be different.
+///
+/// \note (09/10) The implementation for weak turbulence-model coupling is
+/// not optimal because it uses a vector of local length 'dim' for the
+/// inviscid part.
+/// For the viscous part (laminar + turbulent), the product is using
+/// an object MatVecProdH1.
+///
+template<int dim, class Scalar, int neq>
+class MatVecProdH2 : public MatVecProd<dim,neq>, public DistMat<Scalar,dim> {
 
 #ifdef _OPENMP
   int numLocSub; //BUG omp
@@ -191,12 +218,77 @@ class MatVecProdH2 : public MatVecProd<dim,dim>, public DistMat<Scalar,dim> {
   DistSVec<double,dim> *F;
 
   // viscous flux jacobian and/or 1st order jac terms(ie face flux jac)
-  MatVecProdH1<dim, Scalar ,dim> *R;
+  MatVecProdH1<dim, Scalar, neq> *R;
 
-// Included (MB)
-  MatVecProdFD<dim,dim> *RFD;
-  DistSVec<double,dim> *vProd;
-  int viscJacContrib;
+  // Included (MB)
+  MatVecProdFD<dim, neq> *RFD;
+  DistSVec<double, neq> *vProd;
+
+  //--------------------------------------
+  /// \note (09/10) UH
+  /// This nested class allows to specialize the matrix-vector product.
+  /// In particular, we differentiate the cases where dim and neq are different
+  /// for turbulent problems with weak coupling.
+  template<int dd, int nn, class Scalar1, class Scalar2> struct Multiplier
+  {
+    void Apply
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+      , MatVecProdH1<dd, Scalar1, nn> *R
+      , MatVecProdFD<dd, nn> *RFD
+      , DistSVec<Scalar2, nn> *vProd
+    );
+    void ApplyT
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+    );
+  };
+
+  template<int dd, class Scalar1, class Scalar2>
+  struct Multiplier<dd,dd,Scalar1,Scalar2>
+  {
+    void Apply
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+      , MatVecProdH1<dd, Scalar1, dd> *R
+      , MatVecProdFD<dd, dd> *RFD
+      , DistSVec<Scalar2, dd> *vProd
+    );
+    void ApplyT
+    (
+      SpaceOperator<dd> *spaceOp
+      , DistSVec<double,3> &X
+      , DistVec<double> &ctrlVol
+      , DistSVec<double,dd> &U
+      , DistMat<Scalar1,dd> &H2
+      , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+      , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+      , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+    );
+  };
+  //--------------------------------------
+
 
 public:
 
@@ -210,40 +302,51 @@ public:
 
   GenMat<Scalar,dim> &operator() (int i) { return *A[i]; }
 
-/*  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
+/*
+  void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &, 
-		 DistSVec<double,dim> &, DistSVec<double,dim> &); */
+		 DistSVec<double,dim> &, DistSVec<double,dim> &); 
+*/
+
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluate(int , DistSVec<double,3> &, DistVec<double> &, 
                 DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
-  void evaluate(int , DistSVec<double,3> &, DistVec<double> &, DistVec<int> &,
-                DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
+
+  // UH (09/10)
+  // The following function is never called and not implemented.
+  //void evaluate(int , DistSVec<double,3> &, DistVec<double> &, DistVec<int> &,
+  //              DistSVec<double,dim> &, DistSVec<double,dim> &, Scalar);
 
   void evaluate2(int, DistSVec<double,3> &, DistVec<double> &,
                  DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void evaluate2step1(int, DistSVec<double,3> &, DistVec<double> &,
-                 DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  // UH (09/10)
+  // The following functions are never called and not implemented.
+  //
+  //void evaluatestep1(int, DistSVec<double,3> &, DistVec<double> &,
+  //               DistSVec<double,dim> &, DistSVec<double,dim> &);
+  //void evaluate2step1(int, DistSVec<double,3> &, DistVec<double> &,
+  //               DistSVec<double,dim> &, DistSVec<double,dim> &);
 
   void evalH(int , DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
 
-  void apply(DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void apply(DistSVec<bcomp,dim> &, DistSVec<bcomp,dim> &);
+  void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &);
 
-  void applyT(DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void applyT(DistSVec<bcomp,dim> &x, DistSVec<bcomp,dim> &y);
+  void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y);
 
 // Included (MB)
   void evaluateInviscid(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
   void evaluateViscous(int, DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void applyInviscid(DistSVec<double,dim> &, DistSVec<double,dim> &);
-  void applyViscous(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  //void applyInviscid(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  //void applyViscous(DistSVec<double,neq> &, DistSVec<double,neq> &);
+
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
 
 };
@@ -298,12 +401,14 @@ class MatVecProdFDMultiPhase : public MatVecProdMultiPhase<dim,dimLS> {
 
   double computeEpsilon(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  int fdOrder;
+
 public:
 
 // Included (MB)
   MatVecProdFDMultiPhase(DistTimeState<dim> *, DistGeoState *, 
-	       MultiPhaseSpaceOperator<dim,dimLS> *, DistExactRiemannSolver<dim> *,
-               FluidSelector *, Domain *);
+			 MultiPhaseSpaceOperator<dim,dimLS> *, DistExactRiemannSolver<dim> *,
+			 FluidSelector *, Domain *,IoData& ioData);
 
   ~MatVecProdFDMultiPhase();
 
@@ -346,7 +451,7 @@ public:
 //----------------------------------------------------------------------------//
 // Finite Difference MatVecProd for LevelSet equation
 template<int dim, int dimLS>
-class MatVecProdLS {
+class MatVecProdLS : public DistMat<double,dimLS> {
                                                                                                                       
   DistTimeState<dim> *timeState;
   MultiPhaseSpaceOperator<dim,dimLS> *spaceOp;
@@ -358,6 +463,7 @@ class MatVecProdLS {
   DistSVec<double,dim> *U;
   DistVec<int> *FluidId;
   DistSVec<double,dimLS> *Q;
+  DistSVec<double,dim> *V;
   DistSVec<double,dimLS> *F;
   DistSVec<double,dimLS> Qeps;
   DistSVec<double,dimLS> Feps;
@@ -366,7 +472,10 @@ class MatVecProdLS {
 
   double computeEpsilon(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 
+  MvpMat<double,dimLS> **A;
 public:
+  DistMat<double,dimLS> &operator= (const double);
+  GenMat<double,dimLS> &operator() (int i) { return *A[i]; }
 
   MatVecProdLS(DistTimeState<dim> *, DistGeoState *,
                MultiPhaseSpaceOperator<dim,dimLS> *, Domain *, LevelSet<dimLS> *);
@@ -374,6 +483,7 @@ public:
                                                                                                                       
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dimLS> &, DistSVec<double,dim> &,
+		DistSVec<double,dim> &,
                 DistSVec<double,dimLS> &, DistVec<int> &);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);

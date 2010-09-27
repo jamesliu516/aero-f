@@ -128,7 +128,7 @@ dim);
     d  = 1.0;
     ludec(a,index,d,n);
     ludfdbksb(a,index,b,n);
-                                                                                                                 
+    delete [] index;
   }
                                                         
                                                         

@@ -65,7 +65,7 @@ SysDoubleObj::SysDoubleObj(const char *n, double *p)
 SysStrObj::SysStrObj(const char *n, const char **p)
 : Assigner(n)
 {
- val = p;
+ val = *p;
  addSysSymbol(n, this);
 }
 

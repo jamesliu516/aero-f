@@ -14,7 +14,6 @@
 #include <Communicator.h>
 #include <PostFcn.h>
 #include <LowMachPrec.h>
-// MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 #include <LevelSet/FluidTypeCriterion.h>
 #include <GeoState.h>
 #include <NodalGrad.h>
@@ -65,7 +64,7 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
     double (*ireynolds) = irey.subData(iSub);
     double (*volume) = ctrlVol.subData(iSub);
     for (int i = 0; i < ctrlVol.subSize(iSub); ++i) {
-//      idtimev[i] = idtimev[i] / volume[i];
+      //   idtimev[i] = idtimev[i] / volume[i];
       dtime[i] = cfl *volume[i]/(-1.0*idtimei[i] + viscous*idtimev[i]);
       ireynolds[i] = -sprec.getViscousRatio()*idtimev[i] / idtimei[i];
     }
@@ -1339,6 +1338,69 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
 }
 
 //------------------------------------------------------------------------------
+template<int dim, class Scalar, int dimLS>
+void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
+					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
+					   DistEdgeGrad<dim>* egrad,
+					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
+					   DistMat<Scalar,dimLS> &A)
+{
+
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+
+	std::cout << "Num Subdomains = " << numLocSub << std::endl;
+
+  if(inletRhsPat){
+    fprintf(stdout, "with inletRhsPat\n");
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
+							 geoState(iSub),
+							 X(iSub),V(iSub),ngrad(iSub),
+							 ngradLS(iSub),
+							 legrad,
+							 ctrlVol(iSub),
+							 Phi(iSub), 
+							 A(iSub),
+							 inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addLSFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagInletBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+
+  }else{
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
+							 geoState(iSub),
+							 X(iSub),V(iSub),ngrad(iSub),
+							 ngradLS(iSub),
+							 legrad,
+							 ctrlVol(iSub),
+							 Phi(iSub), 
+							 A(iSub),
+							 inletRhsPat);
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addLSFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+    com->printf(6, "FV Jacobian matrix computation: %f s\n", t);
+  }
+}
 
 template<int dim>
 void Domain::recomputeRHS(VarFcn* vf, DistSVec<double,dim> &V, DistSVec<double,dim> &rhs,
@@ -2381,20 +2443,6 @@ void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim, class Scalar>
-void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
-	                          DistSVec<double,dim> &U, DistMat<Scalar,dim> &A)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToH2Jacobian(bcFcn, bcData(iSub), U(iSub), A(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToJacobianWallValues(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
@@ -2454,11 +2502,11 @@ void Domain::computeH1(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
+template<int dim, class Scalar, int neq>
 void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 		       DistBcData<dim> &bcData, DistGeoState &geoState,
 		       DistSVec<double,3> &X, DistSVec<double,dim> &V,
-		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,dim> &H2,
+		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,neq> &H2,
 		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
 {
@@ -2622,6 +2670,26 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
     subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
 
 }
+//------------------------------------------------------------------------------
+
+template<class Scalar, class OpType >
+void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const OpType& oper)
+{
+
+  int iSub;
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+  }
+
+  commPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
+
+}
 
 //------------------------------------------------------------------------------
 
@@ -2700,18 +2768,20 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
   int iSub;
 
   double scale[dim];
-  if (dim == 5)  {
 
-    scale[0] = refVal->density;
-    scale[1] = refVal->density*refVal->velocity;
-    scale[2] = refVal->density*refVal->velocity;
-    scale[3] = refVal->density*refVal->velocity;
-    scale[4] = refVal->energy;
+  scale[0] = refVal->density;
+  scale[1] = refVal->density*refVal->velocity;
+  scale[2] = refVal->density*refVal->velocity;
+  scale[3] = refVal->density*refVal->velocity;
+  scale[4] = refVal->energy;
+  
+  if (dim == 6) {
+    scale[5] = refVal->density*refVal->nutilde;
   }
-  else  {
 
-    com->fprintf(stderr, " ... ERROR: Solution Scaling only implemented Fluid System of Dimension 5\n");
-    exit(-1);
+  if (dim == 7) {
+    scale[5] = refVal->density*refVal->kenergy;
+    scale[6] = refVal->density*refVal->epsilon;
   }
 
 #pragma omp parallel for
@@ -2735,7 +2805,7 @@ void Domain::computeStiffAndForce(DefoMeshMotionData::Element type, DistSVec<dou
 
   double t0 = timer->getTime();
 
-  CommPattern<S2>* matPat;
+  CommPattern<S2>* matPat = 0;
   if (P) matPat = P->getDiagMatPat();
 
   int iSub;

@@ -1448,7 +1448,6 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
       break;
   }
 
-  // TODO: In future the following information should be obtained from the structure codes.
   Vec<Vec3D> &solidX0 = distLSS->getStructPosition_0();
   Vec<Vec3D> &solidXn = distLSS->getStructPosition_n();
   int numStructNodes = solidX0.size();
@@ -1469,10 +1468,10 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
 
 EmbeddedMeshMotionHandler::~EmbeddedMeshMotionHandler()
 {
-  if(structX0) delete[] structX0;
-  if(structXn) delete[] structXn;
-  if(structXnPlus1) delete[] structXnPlus1;
-  if(structVel) delete[] structVel;
+  delete[] structX0;
+  delete[] structXn;
+  delete[] structXnPlus1;
+  delete[] structVel;
 }
 
 //------------------------------------------------------------------------------
@@ -1762,7 +1761,9 @@ double RbmExtractor::update(bool *lastIt, int it,double t,
   double amp = 10.0;
 
   int i = 0;
-  double tag;
+
+  // Initialize the tag value
+  double tag = 0.0;
 
   DistSVec<double,3> Xrigid(domain->getNodeDistInfo());
 

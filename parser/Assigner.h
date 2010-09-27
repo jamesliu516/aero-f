@@ -29,6 +29,7 @@ class Assigner {
    virtual Assigner *findSubToken(int);
 
    virtual Assigner *findIndexObject(int);
+   virtual ~Assigner() {}
 };
 
 class SysIntObj : public Assigner {
@@ -57,10 +58,13 @@ class SysTokenObj : public Assigner {
 };
 
 class SysStrObj : public Assigner {
-  const char **val;
+  std::string val;
+  //  const char **val;
 public:
-  SysStrObj(const char *n, const char **p);
-  virtual void assignString(const char *p) { *val = p; }
+  SysStrObj(const char *n, const char **p); 
+  virtual void assignString(const char *p) {
+    val = p; 
+  }
 };
 
 template<class Target>
@@ -71,6 +75,7 @@ class SysMapObj : public Assigner  {
   public:
     SysMapObj(const char *n, map<int, Target *> *);
     Assigner *findIndexObject(int);
+    
 };
 
 
@@ -82,13 +87,19 @@ class ClassAssigner : public Assigner {
     ClassAssigner(const char *n, ClassAssigner * = 0);
     virtual void addSmb(const char *, Assigner *);
     Assigner *findSubToken(int);
+    virtual ~ClassAssigner()
+      {
+	for(map<int, Assigner *>::iterator it=subAssigner.begin();it!=subAssigner.end();++it)
+	  {
+	    delete it->second;
+	  }
+      }
 };
 
+// Dummy class for the top of the tree
 class RootClassAssigner: public ClassAssigner  {
-
   public:
     RootClassAssigner() : ClassAssigner("", 0)  {};
-    void addSmb(const char *, Assigner *) {};
 };
 
 
@@ -129,7 +140,10 @@ class ClassStr  : public Assigner {
   const char *T::*str;
 public:
     ClassStr(ClassAssigner *, const char *n, T *ptr, const char *T::*sp);
-    void assignString(const char *str);
+    void assignString(const char *str);  // CAUTION :: *str should not be changed
+ private: 
+    ClassStr(const ClassStr &);
+    ClassStr& operator=(const ClassStr &);
 };
 
 #ifdef TEMPLATE_FIX

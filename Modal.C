@@ -978,11 +978,11 @@ void ModalSolver<dim>::preProcess()  {
  tOutput = new TsOutput<dim>(*ioData, refVal, &domain, postOp);
  tRestart = new TsRestart(*ioData, refVal);
 
- HOp = new MatVecProdH2<double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
- HOp2 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
- HOp2step1 = new MatVecProdH2<double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
- HOpstep2 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
- HOpstep3 = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOp = new MatVecProdH2<dim,double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOp2 = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOp2step1 = new MatVecProdH2<dim,double, dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOpstep2 = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+ HOpstep3 = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
 
  // Stuff for solver
  PcData pcData = ioData->ts.implicit.newton.ksp.ns.pc;
@@ -1015,7 +1015,7 @@ void ModalSolver<dim>::preProcess()  {
  }
 
  if (ioData->linearizedData.domain == LinearizedData::FREQUENCY)  {
-   HOpC = new MatVecProdH2<bcomp,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+   HOpC = new MatVecProdH2<dim,bcomp,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
 
    pcComplex = new IluPrec<bcomp ,dim, bcomp>(pcData, &domain);
   if (ioData->linearizedData.padeReconst == LinearizedData::TRUE) {
@@ -1272,7 +1272,7 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData); 
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  double r = dt/(2.0*dt0);
@@ -1933,7 +1933,13 @@ void ModalSolver<dim>::interpolatePOD()  {
 
  char *vecFile = tInput->podFile;
  if (!vecFile)
-   vecFile = "podFiles.in";
+    {
+      string str = "podFiles.in";
+      vecFile    =  new char [str.size()+1];
+      strcpy (vecFile, str.c_str());
+      // vecFile now contains a c-string copy of str. Adam 2010.08.23 : g++4.3 was complaining
+    }
+
  FILE *inFP = fopen(vecFile, "r");
  if (!inFP)  {
    com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
@@ -2204,7 +2210,7 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData); 
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > romOperator(nPodVecs, nPodVecs);
@@ -2259,7 +2265,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData);  
- MatVecProdH2<double, dim> *onlyHOp = new MatVecProdH2<double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); 
+  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > ecVecs(nStrMode, nPodVecs);

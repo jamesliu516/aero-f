@@ -22,7 +22,7 @@ PostFcn::PostFcn(VarFcn *vf)
 
 //------------------------------------------------------------------------------
 
-double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
+double PostFcn::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
 
   fprintf(stderr, "*** Warning: computeNodeScalarQuantity not defined\n");
@@ -131,9 +131,8 @@ void PostFcnEuler::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
+double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
-
   double q = 0.0;
   double n[3];
 
@@ -169,14 +168,9 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
     q = static_cast<double>(fluidId);
-    //q  = phi[0]/varFcn->getDensity(V, fluidId);
-  else if(type == PHILEVEL_STRUCTURE){
-    if (phi)
-      q = phi[0];  //NOTE: In this case phi stores the distance to the structure. 
-    else q = 0.0;
-  }
-
-// Included (MB)
+  else if(type == PHILEVEL_STRUCTURE)
+    q = static_cast<double>(fluidId);
+ // Included (MB)
   else if (type == VELOCITY_NORM)
     q = varFcn->getVelocityNorm(V,fluidId);
 
@@ -206,6 +200,11 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
     q = varFcn->getTurbulentNuTilde(dV);
   else if (type == DERIVATIVE_VELOCITY_SCALAR)
     q = varFcn->getDerivativeOfVelocityNorm(V, dV);
+  else
+  {
+    // Error message
+    fprintf(stderr, "*** Warning: PostFcnEuler::computeDerivativeOfNodeScalarQuantity does not define the type %d\n", type);
+  }
 
   return q;
 
@@ -720,9 +719,7 @@ PostFcnNS::PostFcnNS(IoData &iod, VarFcn *vf)
 
 PostFcnNS::~PostFcnNS()
 {
-
   if (wallFcn) delete wallFcn;
-
 }
 
 //------------------------------------------------------------------------------
@@ -1062,9 +1059,13 @@ double PostFcnNS::computeInterfaceWork(double dp1dxj[4][3], Vec3D& n, double ndo
 
 PostFcnSA::PostFcnSA(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), SATerm(iod)
 {
-
 }
 
+//------------------------------------------------------------------------------
+
+PostFcnSA::~PostFcnSA()
+{
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -1079,7 +1080,7 @@ void PostFcnSA::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
+double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
 
   double q = 0.0;
@@ -1090,7 +1091,7 @@ double PostFcnSA::computeNodeScalarQuantity(ScalarType type, double *V, double *
     q = computeTurbulentViscosity(V, mul);
   }
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 
@@ -1111,6 +1112,14 @@ double PostFcnSA::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType typ
     double dmul = viscoFcn->compute_muDerivative(T, dT, dS[0]);
     dq = computeDerivativeOfTurbulentViscosity(V, dV, mul, dmul);
   }
+  else
+  {
+    dq = PostFcnEuler::computeDerivativeOfNodeScalarQuantity
+         (type, dS, V, dV, X, dX);
+  }
+
+  return dq;
+
 }
 
 // Included (MB)
@@ -1132,7 +1141,7 @@ PostFcnDES::PostFcnDES(IoData &iod, VarFcn *vf) : PostFcnNS(iod, vf), DESTerm(io
 //------------------------------------------------------------------------------
 
                                                                                                 
-double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
+double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
 
   double q = 0.0;
@@ -1143,7 +1152,7 @@ double PostFcnDES::computeNodeScalarQuantity(ScalarType type, double *V, double 
     q = computeTurbulentViscosity(V, mul);
   }
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 
@@ -1192,7 +1201,7 @@ void PostFcnKE::rstVar(IoData &iod, Communicator *com)
 
 //------------------------------------------------------------------------------
 
-double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, double *phi, int fluidId)
+double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *X, int fluidId)
 {
 
   double q = 0.0;
@@ -1200,7 +1209,7 @@ double PostFcnKE::computeNodeScalarQuantity(ScalarType type, double *V, double *
   if (type == EDDY_VISCOSITY)
     q = computeTurbulentViscosity(V);
   else
-    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X);
+    q = PostFcnEuler::computeNodeScalarQuantity(type, V, X, fluidId);
 
   return q;
 

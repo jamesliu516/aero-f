@@ -129,6 +129,7 @@ class SubDomain {
   Connectivity *sharedNodes;
   Connectivity *sharedInletNodes;
   Connectivity** nodesToMCNodes;
+  Connectivity *NodeToSubD;
   int *numSharedEdges;
   EdgeDef **sharedEdges;
   int (*nodeRanges)[3];
@@ -153,8 +154,6 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
-//  TriangulatedSurface *triaSurf;
-
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -162,10 +161,15 @@ public:
   ~SubDomain();
 
   // topology
-  int *getNodeMap()  { return locToGlobNodeMap; }
+  int *getNodeMap()    { return locToGlobNodeMap; }
   int *getElemMap()  { return locToGlobElemMap; }
   int getGlobSubNum()  { return globSubNum; }
-  int getLocSubNum()  { return locSubNum; }
+  int getLocSubNum()   { return locSubNum; }
+  int getNumNeighb()   { return numNeighb; }
+  int *getNeighb()     { return neighb; }
+  int *getSndChannel() { return sndChannel; }
+  int *getRcvChannel() { return rcvChannel; }
+  Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
   Connectivity *createElemBasedConnectivity();
@@ -173,6 +177,7 @@ public:
   Connectivity *createElementToElementConnectivity();
   Connectivity *createElementToNodeConnectivity();
   Connectivity *createEdgeBasedConnectivity();
+  Connectivity *createNodeToSubDomainConnectivity();
   Connectivity *createNodeToMacroCellNodeConnectivity(MacroCellSet *);
   Connectivity *agglomerate(Connectivity &, int, bool *);
   void createSharedInletNodeConnectivity(int);
@@ -400,6 +405,17 @@ public:
                                        SVec<double,dim> &, GenMat<Scalar,neq> &,
                                        FluidSelector &, 
                                        Vec<int> &, CommPattern<double> *);
+
+
+  template<int dim, class Scalar, int dimLS>
+    void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+					   GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
+					   NodalGrad<dim>& ngrad,
+					   NodalGrad<dimLS> &ngradLS,
+					   EdgeGrad<dim>* egrad,
+					   Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
+					   GenMat<Scalar,dimLS> &A, CommPattern<double> * flag);
+
   template<int dim>
   void recomputeRHS(VarFcn*, SVec<double,dim>& ,SVec<double,dim>& , Extrapolation<dim>*,
                                         BcData<dim>&, GeoState&, SVec<double,3> &);
@@ -546,9 +562,9 @@ public:
   void computeH1(FluxFcn **, BcData<dim> &, GeoState &, Vec<double> &,
                  SVec<double,dim> &, GenMat<Scalar,dim> &);
 
-  template<int dim, class Scalar>
+  template<int dim, class Scalar, int neq>
   void computeH2(FluxFcn **, RecFcn *, BcData<dim> &, GeoState &, SVec<double,3> &,
-		 SVec<double,dim> &, NodalGrad<dim> &, GenMat<Scalar,dim> &);
+		 SVec<double,dim> &, NodalGrad<dim> &, GenMat<Scalar,neq> &);
 
   template<class Scalar, int dim>
   void precomputeRec(RecFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -654,10 +670,10 @@ public:
   template<int dim>
   void computeXP(PostFcn *, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &XP, int);
 
-  template<int dim, int dimLS>
+  template<int dim>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-                                 Vec<double> &, SVec<double,dimLS> &, Vec<int> &);
+                                 Vec<double> &, Vec<int> &);
 
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -978,9 +994,6 @@ public:
   template<int dim>
   void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
 
-  template<int dim, class Scalar>
-  void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
-
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobianWallValues(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
@@ -1065,6 +1078,7 @@ public:
 
   EdgeSet &getEdges() { return edges; }
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
+  Connectivity *getNodeToSubD() { if(!NodeToSubD) NodeToSubD = createNodeToSubDomainConnectivity();  return NodeToSubD; }
   int findFarfieldNode();
 };
 //------------------------------------------------------------------------------

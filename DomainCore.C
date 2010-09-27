@@ -104,7 +104,7 @@ Domain::Domain()
 
 Domain::~Domain()
 {
-  return; //BUG omp
+  //  return; //BUG omp
 
   if (subDomain) {
 #pragma omp parallel for
@@ -116,12 +116,6 @@ Domain::~Domain()
   if (subTopo) delete subTopo;
   if (nodeType) delete [] nodeType;
   if (nodeFaceType) delete [] nodeFaceType;
-
-  if (nodeDistInfo) delete nodeDistInfo;
-  if (edgeDistInfo) delete edgeDistInfo;
-  if (faceDistInfo) delete faceDistInfo;
-  if (faceNormDistInfo) delete faceNormDistInfo;
-  if (inletNodeDistInfo) delete inletNodeDistInfo;
 
   if (vecPat) delete vecPat;
   if (phiVecPat) delete phiVecPat;
@@ -145,14 +139,40 @@ Domain::~Domain()
   if (PrT) delete(PrT);
   if (WCsDelSq) delete(WCsDelSq);
   if (WPrT) delete(WPrT);
-  if (tag) delete(tag);
   if (tagBar) delete(tagBar);
 
+  if (tag) delete(tag);
 // Included (MB)
   if (weightDerivativePat) delete weightDerivativePat;
 
   //if (com) delete com;
   if(meshMotionBCs) delete meshMotionBCs;
+
+  if (nodeDistInfo) delete nodeDistInfo;
+  if (edgeDistInfo) delete edgeDistInfo;
+  if (faceDistInfo) delete faceDistInfo;
+  if (faceNormDistInfo) delete faceNormDistInfo;
+  if (inletNodeDistInfo) delete inletNodeDistInfo;
+
+  //communication Structures
+  int numCpu = globCom->size();
+  if(globCom != com) // When only 1 CPU is used, globCom = com.
+  {
+    delete com;
+    com = 0;
+  }
+  delete strCom;
+  strCom = 0;
+  delete heatCom;
+  heatCom = 0;
+  delete embedCom;
+  embedCom = 0;
+
+  delete globCom;
+  globCom = 0;
+
+  delete timer;
+
 }
 
 //------------------------------------------------------------------------------
@@ -253,6 +273,9 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setComLenNodes(6, *weightPat);
     subDomain[iSub]->setComLenNodes(8, *engPat);
     subDomain[iSub]->setComLenNodes(16, *momPat);
+    // Initialize pointer
+    if (weightDerivativePat)
+      subDomain[iSub]->setComLenNodes(6, *weightDerivativePat);
   }
 
   nodeDistInfo->finalize(true);

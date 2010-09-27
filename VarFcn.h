@@ -40,6 +40,8 @@ friend class FluxFcn;
 
 private:
   int numPhases;
+  int ghostPhase;
+  int ghostId;
   VarFcnBase **varFcn;
   
   Vec3D meshVel;
@@ -48,15 +50,10 @@ private:
   double gravity_norm;
   double depth;
 
-
-  void check(int tag=0) const{ 
-/*    if(tag>=numPhases){
-      fprintf(stdout, "*** Error: there is no VarFcn with that tag %d\n", tag);
-      fflush(stdout);
-      exit(1);
-    }*/
-    assert(tag<numPhases);
-  }
+  int size()                {return numPhases;}
+  int structPhase()          {return ghostPhase;}
+  int structId()             {return ghostId;}
+  void check(int tag) const {assert(0<=tag && tag<numPhases);} 
 
   VarFcnBase *createVarFcnBase(IoData &iod, FluidModelData& fluidModel);
 
@@ -177,6 +174,7 @@ public:
     return v1*v1+v2*v2+v3*v3;
   }
   double computeWtMachNumber(double *V, int tag=0) {
+    check(tag);
     double m = sqrt(computeWtU2(V)) / computeSoundSpeed(V,tag);
     if (isnan(m))  {
       fprintf(stderr, "Nan: %e %e %e\n", meshVel[0], meshVel[1], meshVel[2]);
@@ -190,6 +188,7 @@ public:
   double hydrostaticPressure(const double density, double *X) const{ 
     return density*(gravity_norm*depth + gravity[0]*X[0]+gravity[1]*X[1]+gravity[2]*X[2]); }
   double hydrodynamicPressure(double *V, double *X, int tag=0) const{ 
+    check(tag);
     double localP = varFcn[tag]->getPressure(V);
     return localP - hydrostaticPressure(V[0],X); }
   double DerivativeHydrostaticPressure(const double density, const double ddensity, 
@@ -236,23 +235,41 @@ public:
 //------------------------------------------------------------------------------
 
 inline
-VarFcn::VarFcn(IoData &iod){
-
+VarFcn::VarFcn(IoData &iod)
+{
   numPhases = iod.eqs.numPhase;
-  varFcn = new VarFcnBase *[numPhases];
-  for(int iPhase = 0; iPhase < numPhases; iPhase++) varFcn[iPhase] = 0;
+  int numRealFluid = numPhases;
 
-  if(numPhases>0){
+  // In the case of Embedded Framework, add a VarFcn for Ghost
+  if(iod.problem.framework == ProblemData::EMBEDDED)
+    numPhases++;
+
+  varFcn = new VarFcnBase *[numPhases];
+  for(int iPhase = 0; iPhase < numPhases; iPhase++) 
+    varFcn[iPhase] = 0;
+
+  if(numRealFluid>0){
     varFcn[0] = createVarFcnBase(iod, iod.eqs.fluidModel);
+  } else {
+    fprintf(stderr,"*** Error: No FluidModel specified!\n");
+    exit(1);
   }
 
-  for(int iPhase=1; iPhase<numPhases; iPhase++){
+  for(int iPhase=1; iPhase<numRealFluid; iPhase++){
     map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(iPhase);
     if(it == iod.eqs.fluidModelMap.dataMap.end()){
       fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", iPhase);
       exit(1);
     }
     varFcn[iPhase] = createVarFcnBase(iod, *it->second);
+  }
+
+  // In the case of a Embedded Simulation, Structure VarFcn points on VarFcn[0]
+  // by default. It is just convienient. This can be changed eventually.
+  if(iod.problem.framework == ProblemData::EMBEDDED) {
+    ghostId = numPhases - 1;
+    varFcn[ghostId] = createVarFcnBase(iod, iod.eqs.fluidModel);
+    ghostPhase = 0; //same as varFcn[0]
   }
 
   meshVel = 0.0;
@@ -262,7 +279,6 @@ VarFcn::VarFcn(IoData &iod){
   gravity[2] = iod.eqs.gravity_z;
   gravity_norm = sqrt(gravity[0]*gravity[0]+gravity[1]*gravity[1]+gravity[2]*gravity[2]);
   depth = iod.bc.hydro.depth;
-
 }  
   
 //------------------------------------------------------------------------------
@@ -330,11 +346,9 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int    *loctag   = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i){
+      for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
-        //fprintf(stdout, "vf[%d] -> U = (%e %e %e %e %e) into V = (%e %e %e %e %e)\n", loctag[i],u[i][0],u[i][1],u[i][2],u[i][3],u[i][4],v[i][0],v[i][1],v[i][2],v[i][3],v[i][4]);
-        //fflush(stdout);
-      }
+
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)
         varFcn[0]->conservativeToPrimitive(u[i], v[i]);
@@ -386,9 +400,8 @@ void VarFcn::conservativeToPrimitiveDerivative(SVec<double,dim> &U, SVec<double,
 {
 
  if (tag){
-    for (int i=0; i<U.size(); ++i){
+    for (int i=0; i<U.size(); ++i)
       varFcn[(*tag)[i]]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
-    }
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->conservativeToPrimitiveDerivative(U[i], dU[i], V[i], dV[i]);
@@ -430,9 +443,8 @@ void VarFcn::primitiveToConservativeDerivative(SVec<double,dim> &V, SVec<double,
 {
 
  if (tag){
-    for (int i=0; i<U.size(); ++i){
+    for (int i=0; i<U.size(); ++i)
       varFcn[(*tag)[i]]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);
-    }
   }else{
     for (int i=0; i<U.size(); ++i){
       varFcn[0]->primitiveToConservativeDerivative(V[i], dV[i], U[i], dU[i]);

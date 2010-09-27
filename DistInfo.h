@@ -32,8 +32,9 @@ struct DistInfo {
     com             = _com;
     subLen          = new int[numLocSub]; 
     subOffset       = new int[numLocSub];
-    subLenReg       = new int[numLocThreads]; 
-    subOffsetReg    = new int[numLocThreads];
+
+    subLenReg      = 0;
+    subOffsetReg   = 0;
 
     masterFlag     = 0;
     invNdWeight    = 0;
@@ -109,17 +110,19 @@ struct DistInfo {
 
   ~DistInfo() 
   {
-    /* HB: according to Thuan, this causes troubles when running Linearized/Modal analysis
-    if(subLen)       { delete [] subLen;       subLen      = 0; }
-    if(subOffset)    { delete [] subOffset;    subOffset   = 0; }
-    if(subLenReg)    { delete [] subLenReg;    subLenReg   = 0; }
-    if(subOffsetReg) { delete [] subOffsetReg; subOffsetReg= 0; }
-    if(masterFlag)   { delete [] masterFlag;   masterFlag  = 0; }
-    if(invNdWeight)  { delete [] invNdWeight;  invNdWeight = 0; }
-    */
+    delete [] invNdWeight;
+    delete [] masterFlag;
+    delete [] subOffset;
+    delete [] subLen; 
   }
+
+  // Copy Constructor and Assignement Operator are declared Private
+  // Compiler will return an error if used.
+private:
+  DistInfo(const DistInfo &);
+  DistInfo& operator=(const DistInfo &);
+
 };
 
 //------------------------------------------------------------------------------
-
 #endif

@@ -3,8 +3,8 @@
 #include <FSI/DynamicNodalTransfer.h>
 
 #ifdef DO_EMBEDDED
-#include <IntersectorFRG/PhysBAMIntersect.h>
-//#include <IntersectorPhysBAM/blablabla>
+#include <IntersectorFRG/IntersectorFRG.h>
+#include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
 #include <math.h>
@@ -44,15 +44,16 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   this->postOp->setForceGenerator(this);
   if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-SHELL-FLUID SIMULATION --------\n");
+  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED MULTI FLUID-STRUCTURE SIMULATION --------\n");
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  riemannNormal      = (int)ioData.embed.riemannNormal;
-
-//  this->com->fprintf(stderr,"my riemannNormal = %d\n", riemannNormal);
-
+  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
+    riemannNormal = (int)ioData.embed.riemannNormal;
+  else //auto
+    riemannNormal = simType ? 1 : 0;
+      
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 
 
@@ -60,15 +61,45 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
+  //for phase-change update
+  Weights = 0;
+  VWeights = 0;
+
+//------------- For Fluid-Structure Interaction ---------------
+  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
+    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
+                                                this->domain->getTimer());
+    //for updating phase change
+    Weights  = new DistVec<double>(this->getVecInfo());
+    VWeights = new DistSVec<double,dim>(this->getVecInfo());
+  } else
+    dynNodalTransfer = 0;
+//-------------------------------------------------------------
+
 #ifdef DO_EMBEDDED
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG :
-      distLSS = new DistPhysBAMIntersector(ioData, this->com);
+      if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
+        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        int nNodes = dynNodalTransfer->numStNodes();
+        int nElems = dynNodalTransfer->numStElems();
+        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        int (*abc)[3] = dynNodalTransfer->getStElems();
+        distLSS = new DistIntersectorFRG(ioData, this->com, nNodes, xyz, nElems, abc);
+      } else
+        distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
-    case EmbeddedFramework::PHYSBAMLITE :  
-      //distLSS = new ....
-      this->com->fprintf(stderr,"ERROR: PhysBAM-Lite Intersector hasn't been integrated into the code.\n");
-      exit(-1);
+    case EmbeddedFramework::PHYSBAM : 
+//      this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
+      if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
+        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        int nNodes = dynNodalTransfer->numStNodes();
+        int nElems = dynNodalTransfer->numStElems();
+        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        int (*abc)[3] = dynNodalTransfer->getStElems();
+        distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+      } else
+        distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
     default:
       this->com->fprintf(stderr,"ERROR: No valid intersector specified! Check input file\n");
@@ -105,10 +136,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   globIt = -1;
   inSubCycling = false;
 
-  //for phase-change update
-  Weights = 0;
-  VWeights = 0;
-
   //store farfield state for phase-change update for fluid-fullbody
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
@@ -128,18 +155,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   FsComputed = false;
 //-------------------------------------------------------------
 
-//------------- For Fluid-Structure Interaction ---------------
-  if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
-    dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
-                                                this->domain->getTimer());
-    //for updating phase change
-    Weights  = new DistVec<double>(this->getVecInfo());
-    VWeights = new DistSVec<double,dim>(this->getVecInfo());
-  } else
-    dynNodalTransfer = 0;
-
-//-------------------------------------------------------------
-
   // Adam 04/06/2010
   ghostPoints = 0;
   switch (ioData.eqs.type)
@@ -150,9 +165,12 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     case EquationsData::NAVIER_STOKES:
       eqsType = EmbeddedTsDesc<dim>::NAVIER_STOKES;
       ghostPoints  = new DistVec<GhostPoint<dim> *>(this->getVecInfo());
+      ghostPoints->nullifyPointers();
       break;
     }
+
 }
+
 
 //------------------------------------------------------------------------------
 
@@ -168,7 +186,11 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
 
   if (dynNodalTransfer) delete dynNodalTransfer;
   if (Fs) delete[] Fs;
-  if(ghostPoints) delete ghostPoints;
+  if(ghostPoints) 
+    {
+      ghostPoints->deletePointers();
+      delete ghostPoints;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -177,15 +199,16 @@ template<int dim>
 void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
   distLSS->initialize(this->domain,*this->X, ioData);
-  if(riemannNormal==2)
+  if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
-
-  if(this->numFluid>1) //initialize nodeTags for multi-phase flow
-    nodeTag0 = nodeTag = distLSS->getStatus();
+  }
+  // Adam and Kevin 2010.08.04 Node Tag needed for FS interaction
+  // if(this->numFluid>1) //initialize nodeTags for multi-phase flow
+  nodeTag0 = nodeTag = distLSS->getStatus();
 
   this->geoState->setup2(this->timeState->getData());
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), 
-                         *U, ioData, &nodeTag);
+                         *U, ioData, &nodeTag); //populate U by i.c. or restart data.
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;
@@ -238,7 +261,7 @@ template<int dim>
 double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
                                                   DistSVec<double,dim> &U)
 {
-  if(!FsComputed&&simType) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
+  if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
 
   //check if it's in subcycling with iCycle>1.
@@ -257,9 +280,10 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   if(numFluid==1)
     dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
                             &numSubCycles, *this->geoState, *this->X, *this->A, U);
-  else //numFLuid>1
+  else {//numFLuid>1
     dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
                             &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+  }
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -314,26 +338,27 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    if (numFluid>=2) {
-      this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-      this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-      this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-      this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-    } else {
+    /*    if (numFluid>=2) {*/
+    this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+    this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+    this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
+      /*    } else {
       this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
       this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
       this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
       this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-    }
+      }*/
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
+    /*
     if (numFluid>=2){
-      DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
-      tempPhi = distLSS->getPhi();
-      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, tempPhi, nodeTag);
-      //this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+      //   DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
+      //      tempPhi = distLSS->getPhi();
+      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
     }
-    else 
-      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+    else
+    */ 
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
@@ -353,26 +378,25 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  if (numFluid>=2) {
+  /*  if (numFluid>=2) {*/
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
-    tempPhi = distLSS->getPhi();
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, tempPhi, nodeTag);
-    //this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, distLSS->getPhi(), nodeTag);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+    /*
   } 
-  else { //numFluid == 1
+    else { //numFluid == 1
 
     this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
     this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
     this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,0,nodeTag); // 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
+  */
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
@@ -420,7 +444,7 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->nullifyPointers();
+      this->ghostPoints->deletePointers();
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
     }
   if(this->numFluid==1)
@@ -469,9 +493,11 @@ template<int dim>
 void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji)
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
+  double t0 = this->timer->getTime();
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
 
@@ -525,7 +551,7 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     return true;
   } 
 
-  // max pressure not reached, so we do not solve. Instead, we just increase pressure and let structure react
+  // max pressure not reached, so we do not solve and we increase pressure and let structure react
   
   // construct Wij, Wji from U. 
   DistSVec<double,dim> VV(this->getVecInfo());
@@ -550,8 +576,22 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
   }
 
   if(this->mmh && !inSubCycling) {
+    //get structure timestep dts
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    //recompute intersections
     double tw = this->timer->getTime();
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+    this->timer->addIntersectionTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+    //update nodeTags (only for numFluid>1)
+    //Adam and Kevin 2010.08.04 node tag for F/S interaction is needed
+    //if(numFluid>1) {
+      nodeTag0 = this->nodeTag;
+      nodeTag = this->distLSS->getStatus();
+   // }
+
     //store previous states for phase-change update
+    tw = this->timer->getTime();
     if(this->numFluid==1)
       this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
                                                      *this->VWeights, this->distLSS);
@@ -560,19 +600,6 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
                                                          *this->VWeights, this->distLSS, &this->nodeTag);
     this->timer->addEmbedPhaseChangeTime(tw);
     this->timer->removeIntersAndPhaseChange(tw);
-
-    //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-    //recompute intersections
-    tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
-    this->timer->addIntersectionTime(tw);
-    this->timer->removeIntersAndPhaseChange(tw);
-    //update nodeTags (only for numFluid>1)
-    if(numFluid>1) {
-      nodeTag0 = this->nodeTag;
-      nodeTag = this->distLSS->getStatus();
-    }
 
     //update phase-change
     tw = this->timer->getTime();

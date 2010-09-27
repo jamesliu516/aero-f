@@ -9,7 +9,7 @@
 
 class IoData;
 class Domain;
-template<class Scalar, int dim> class MatVecProdH2;
+template<int dim, class Scalar, int neq> class MatVecProdH2;
 template<int dim, int neq> class MatVecProd;
 template<int dim> class PostOperator;
 
@@ -53,12 +53,12 @@ class ModalSolver {
     SpaceOperator<dim> *spaceOp;
     PostOperator<dim> *postOp;
     //MatVecProd<dim, dim> *HOp;
-    MatVecProdH2<double, dim> *HOp;
-    MatVecProdH2<double, dim> *HOp2step1;
-    MatVecProdH2<double, dim> *HOp2;
-    MatVecProdH2<double, dim> *HOpstep2;
-    MatVecProdH2<double, dim> *HOpstep3;
-    MatVecProdH2<bcomp, dim> *HOpC;
+    MatVecProdH2<dim, double, dim> *HOp;
+    MatVecProdH2<dim, double, dim> *HOp2step1;
+    MatVecProdH2<dim, double, dim> *HOp2;
+    MatVecProdH2<dim, double, dim> *HOpstep2;
+    MatVecProdH2<dim, double, dim> *HOpstep3;
+    MatVecProdH2<dim, bcomp, dim> *HOpC;
 
     /*GmresSolver<DistSVec<double,dim>, MatVecProd<dim, 5>, KspPrec<dim, double>, Communicator> *ksp;
     GmresSolver<DistSVec<bcomp,dim>, MatVecProd<dim, 5>, KspPrec<dim, bcomp>, Communicator, bcomp> *kspComp;*/

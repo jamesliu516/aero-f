@@ -3,7 +3,6 @@
 #include <RefVal.h>
 #include <GeoSource.h>
 #include <DistBcData.h>
-// TODO Remove MLX #include "Ghost/DistEulerStructGhostFluid.h"
 #include <DistTimeState.h>
 #include <DistGeoState.h>
 #include <SpaceOperator.h>
@@ -26,7 +25,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
   Xs = new DistSVec<double,3>(getVecInfo());
-  
+ 
+  // Initialize the values
+  *X = 0.0;
+  *A = 0.0;
+  *Xs = 0.0;
+ 
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
   Rinlet = new DistSVec<double,dim>(getVecInfo());
@@ -88,13 +92,13 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
 template<int dim>
 TsDesc<dim>::~TsDesc()
 {
-
   if (X) delete X;
   if (Xs) delete Xs;
   if (A) delete A;
   if (V) delete V;
   if (R) delete R;
   if (Rinlet) delete Rinlet;
+  if (Rreal) delete Rreal;
   if (data) delete data;
   if (input) delete input;
   if (output) delete output;
@@ -109,7 +113,7 @@ TsDesc<dim>::~TsDesc()
   if (mmh) delete mmh;
   if (hth) delete hth;
   if (forceNorms) delete forceNorms;
-
+  if (riemann1) delete riemann1;
 }
 
 //------------------------------------------------------------------------------
@@ -406,9 +410,14 @@ bool TsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double
 
   if (!problemType[ProblemData::AERO] && !problemType[ProblemData::THERMO] && it >= data->maxIts) return true;
 
-  if (problemType[ProblemData::UNSTEADY] && (t >= data->maxTime - 0.01 * dt))
-    return true;
-
+  if (problemType[ProblemData::UNSTEADY] )
+    {
+      if(t >= data->maxTime 
+       - 0.01 * dt)
+	{
+	  return true;
+	}
+    }
   return false;
 
 }

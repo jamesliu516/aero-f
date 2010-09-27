@@ -96,6 +96,7 @@ ADD_LIBRARY(FluidBase
              Solvers/LevelSetSolver5.C
              Solvers/NavierStokesCoupledSolver5.C
              Solvers/NavierStokesEmbedded5.C
+             Solvers/NavierStokesEmbedded6.C
              Solvers/NavierStokesCoupledSolver6.C
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
@@ -123,6 +124,7 @@ ADD_LIBRARY(FluidBase
              GeoSource.C 
              GeoState.C 
              HeatTransferHandlerCore.C 
+						 ImplicitRiemann.C
              InletNodeCore.C 
              IoDataCore.C 
              KspConvCriterion.C 
@@ -153,7 +155,6 @@ ADD_LIBRARY(FluidBase
              BCApplierCore.C 
 	     BCond.C 
              BlockAlloc.C 
-             LevelSet/LevelSetStructure.C
              TriangulatedSurface.C
              FluidSelector.C
              OneDimensionalSolver.C
@@ -246,7 +247,7 @@ ENDMACRO(ADD_FLEX_FILES)
 ADD_FLEX_FILES(MyLib parser/Lexer.l)
 ADD_BISON_FILES(MyLib parser/Parser.y)
 
-ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
+ADD_LIBRARY(Parser parser/Dictionary.C parser/StringManager.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
@@ -280,41 +281,45 @@ IF(EXTRALIB)
   SET(EXTRALIBRARIES ${EXTRALIBRARIES} ${EXTRALIB})
 ENDIF(EXTRALIB)
 
+SET(INC_DIR .)
+
 ##############################
 # For the embedded framework #
 ##############################
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS /lustre/home/kevinwgy/PhysBAM)
-FIND_LIBRARY(INTERSECTOR NAMES IntersectorFRG PATHS ${CMAKE_CURRENT_SOURCE_DIR}/IntersectorFRG)
-
-IF (PHYSBAM_BASE AND INTERSECTOR)
-  SET(DO_EMBEDDED 1)
-ELSE (PHYSBAM_BASE AND INTERSECTOR)
-  SET(DO_EMBEDDED 0)
-ENDIF (PHYSBAM_BASE AND INTERSECTOR)
+SET(INC_DIR_TMP ${INC_DIR} ./PhysBAM_Interface)
+FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ${INC_DIR_TMP}) 
+FIND_LIBRARY(PhysBAM_Base_Lib NAMES physbam PATHS ${PHYSBAM_BASE})
+#MESSAGE("Found PHYSBAM_BASE at: " ${PHYSBAM_BASE})
+IF(PhysBAM_Base_Lib)
+  MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
+  SET (DO_EMBEDDED 1)
+ELSE(PhysBAM_Base_Lib)
+  MESSAGE("-- Looking for PhysBAM_Base_Lib: not found")
+  SET (DO_EMBEDDED 0)
+ENDIF(PhysBAM_Base_Lib)
 
 OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
 
-IF (DO_EMBEDDED)
-  IF (NOT PHYSBAM_BASE)
-    MESSAGE("WARNING: Couldn't find PhysBAM-Base!")
-    SET(DO_EMBEDDED 0)
-  ENDIF (NOT PHYSBAM_BASE) 
-  IF (NOT INTERSECTOR)
-    MESSAGE("WARNING: Couldn't find Intersector!")
-    SET(DO_EMBEDDED 0)
-  ENDIF (NOT INTERSECTOR)  
-ENDIF (DO_EMBEDDED)
+if (DO_EMBEDDED)
+  SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
+  INCLUDE_DIRECTORIES(${INC_DIR_TMP})
 
-IF (DO_EMBEDDED)
+#same definitions as AERO-F main code
+  add_definitions(-fPIC -DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
+  add_library(Intersector SHARED
+              IntersectorFRG/IntersectorFRG.C
+              IntersectorPhysBAM/IntersectorPhysBAM.C
+              IntersectorPhysBAM/FloodFill.C
+              IntersectorPhysBAM/Mpi_Utilities.C)
+  TARGET_LINK_LIBRARIES(Intersector ${PhysBAM_Base_Lib})
+
+  MESSAGE("PHYSBAM_BASE: " ${PHYSBAM_BASE})
+  MESSAGE("PHYSBAM_BASE: " ${Intersector})
+
   ADD_DEFINITIONS(-DDO_EMBEDDED)
-  INCLUDE_DIRECTORIES(${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
-  SET (EXTRALIBRARIES ${EXTRALIBRARIES} ${INTERSECTOR})
+  SET (EXTRALIBRARIES ${EXTRALIBRARIES} Intersector)
 ENDIF (DO_EMBEDDED)
-
 ##############################
-
-
-SET(INC_DIR .)
 
 ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
 

@@ -217,13 +217,13 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
     double un = u * n - ndot;
 
     // Low-Mach Preconditioner
-    /*
     double locMach = varFcn->computeMachNumber(V[ nodeNum(l) ]);
     double locbeta = tprec.getBeta(locMach);
     double beta2 = locbeta * locbeta;
     double coeff1 = (1.0+beta2)*un;
     double coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
-    */
+
+    idti[ nodeNum(l) ] += min(0.5*(coeff1-coeff2), 0.0)* S/numNodes();
 
     // Adam 2010.06.09 Correction
 
@@ -231,9 +231,11 @@ void Face::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, Vec<Vec3D> &nor
     //   double oldDt = 15.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S/numNodes();
     //double oldDt = 15.0*min(0.5*(coeff1-coeff2),0.0)*S/numNodes();
     // double newDt = 5.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S;
-    double veryNewDt =  -(fabs(u*n)+a)*S;
+ 
 
-    idti[ nodeNum(l) ] += veryNewDt;
+
+    //   double veryNewDt =  -(sqrt(u*u)+a)*S/3.0;
+    //idti[ nodeNum(l) ] += veryNewDt;
 
     // idti[ nodeNum(l) ] += 5.0*min(0.5*(coeff1-coeff2),-(fabs(u*n)+a))*S;///numNodes();
     
@@ -457,9 +459,7 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
   if(fluxFcn[code]){
     double flux[dim];
     for (int l=0; l<numNodes(); ++l) {
-//      if(code==BC_OUTLET_MOVING || code==BC_OUTLET_FIXED) {
-//        fprintf(stderr,"V(%d) = %e %e %e %e %e (%d)\n", nodeNum(l)+1, V[nodeNum(l)][0], V[nodeNum(l)][1], V[nodeNum(l)][2], V[nodeNum(l)][3], V[nodeNum(l)][4], fluidId[nodeNum(l)]);
-//      }
+      if(!LSS.isActive(0.0, nodeNum(l))) continue;
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l),
                              V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
@@ -560,7 +560,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
-    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+    fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac, fluidId[nodeNum(l)]);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<neq*neq; ++k) 
       Aii[k] += jac[k];
@@ -585,7 +585,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
       Vec3D normal = getNormal(normals, l);
       double normVel= getNormalVel(normalVel, l);
 
-      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac);
+      fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac, fluidId[nodeNum(l)]);
       Scalar *Aii = A.getElem_ii(nodeNum(l));
       for (int k=0; k<neq*neq; ++k)
         Aii[k] += jac[k];
@@ -603,7 +603,27 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
 					     GenMat<Scalar,dimLS> &A)
 {
 
-  double jac;
+  double Uf = 0.0;
+  if (code == BC_ISOTHERMAL_WALL_MOVING || code == BC_ISOTHERMAL_WALL_FIXED ||
+      code == BC_ADIABATIC_WALL_MOVING  || code == BC_ADIABATIC_WALL_FIXED  ||
+      code == BC_SLIP_WALL_MOVING       || code == BC_SLIP_WALL_FIXED       ||
+      code == BC_SYMMETRY
+      ) {
+    //at wall either U.n = Uwall.n (Euler) or U = Uwall (Navier-Stokes)
+    //and thus the flux is 0.0
+  }else{
+    for (int l=0; l<numNodes(); ++l) {
+      Scalar *Aii = A.getElem_ii(nodeNum(l));
+      Vec3D normal = getNormal(normals, l);
+      Uf   = ( V[nodeNum(l)][1]*normal[0] +
+               V[nodeNum(l)][2]*normal[1] +
+               V[nodeNum(l)][3]*normal[2] ) -
+             getNormalVel(normalVel, l);
+      *Aii /*+= PhiF[ nodeNum(l) ]*/ += Uf;
+    }
+
+  }
+  /*  double jac;
   for (int l=0; l<numNodes(); ++l) {
     Vec3D normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
@@ -614,7 +634,7 @@ void Face::computeJacobianFiniteVolumeTermLS(Vec<Vec3D> &normals,
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<dimLS*dimLS; ++k)
       Aii[k] += jac;
-  }
+      }*/
 }
 
 //------------------------------------------------------------------------------

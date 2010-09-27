@@ -18,10 +18,15 @@
 //------------------------------------------------------------------------------
 
 template<int dim, int neq>
-// Included (MB)
-MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
-				DistGeoState *gs, SpaceOperator<dim> *spo, 
-				Domain *domain, IoData &ioData, bool fdsa) 
+MatVecProdFD<dim, neq>::MatVecProdFD
+(
+  ImplicitData &data, 
+  DistTimeState<dim> *ts,
+  DistGeoState *gs, 
+  SpaceOperator<dim> *spo, 
+  Domain *domain, 
+  IoData &ioData
+)
   : geoState(gs), Qeps(domain->getNodeDistInfo()), Feps(domain->getNodeDistInfo())
                 , Qepstmp(domain->getNodeDistInfo()), Fepstmp(domain->getNodeDistInfo())
                 , Q(domain->getNodeDistInfo()), F(domain->getNodeDistInfo())
@@ -49,11 +54,7 @@ MatVecProdFD<dim, neq>::MatVecProdFD(ImplicitData &data, DistTimeState<dim> *ts,
     }
   }
 
-// Included (MB)
-  if (fdsa)
-    fdOrder = ioData.sa.mvpfdOrdersa; 
-  else
-    fdOrder = ioData.ts.implicit.fdOrder; 
+  fdOrder = ioData.ts.implicit.fdOrder; 
 
 }
 
@@ -360,6 +361,10 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
   int iSub, size = 0;
   double eps0 = 1.e-6;
 
+  double norm = sqrt(p*p);
+  if (norm < 1.0e-14)
+    return eps0;
+
   const DistInfo &distInfo = U.info();
 
   double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
@@ -396,10 +401,7 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
   double eps = 0.0;
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) eps += alleps[iSub];
 
-  double norm = sqrt(p*p);
-
-  if (norm > 1.e-14) eps /= double(size) * norm;
-  else eps = eps0;
+  eps /= double(size) * norm;
  
   return eps;
 
@@ -411,6 +413,9 @@ double MatVecProdFD<dim, neq>::computeEpsilon(DistSVec<double,neq> &U, DistSVec<
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
 {
+
+  // UH (09/10) -> Check for memory leak?
+  // No FluxFcn pointer is deleted.
 
   spaceOp->rstFluxFcn(ioData);
 
@@ -471,6 +476,7 @@ MatVecProdH1<dim,Scalar,neq>::MatVecProdH1(DistTimeState<dim> *ts, SpaceOperator
   this->com->globalSum(1, &size);
 
   this->com->printf(2, "Memory required for matvec with H1 (dim=%d): %3.2f MB\n", neq, size);
+
 }
 
 //------------------------------------------------------------------------------
@@ -539,6 +545,7 @@ template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &X,
                                    DistVec<double> &cv)  {
 
+  // Compute the Jacobian of viscous terms
   spaceOp->computeViscousJacobian(X, cv, *this);
 
 }
@@ -575,19 +582,36 @@ template<int dim, class Scalar, int neq>
 void MatVecProdH1<dim,Scalar,neq>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
 {
 
+  // UH (09/10) -> Check for memory leak
+  // No FluxFcn pointer is deleted.
+
   spaceOp = spo;
 
 }
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-// Included (MB)
-MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeState<dim> *ts,
-				       SpaceOperator<dim> *spo, Domain *domain, DistGeoState *gs) :
-  DistMat<Scalar,dim>(domain), timeState(ts),
-  aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()), 
-  bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo())
+template<int dim, class Scalar, int neq>
+MatVecProdH2<dim,Scalar,neq>::MatVecProdH2
+(
+  IoData &ioData, VarFcn *varFcn, DistTimeState<dim> *ts,
+  SpaceOperator<dim> *spo, Domain *domain, DistGeoState *gs
+) :
+  MatVecProd<dim,neq>(),
+  DistMat<Scalar,dim>(domain),
+  A(0),
+  aij(domain->getEdgeDistInfo()), aji(domain->getEdgeDistInfo()),
+  bij(domain->getEdgeDistInfo()), bji(domain->getEdgeDistInfo()),
+  timeState(ts),
+  spaceOp(0),
+  fluxFcn(0),
+  X(0),
+  ctrlVol(0),
+  Q(0),
+  F(0)
+  , R(0)
+  , RFD(0)
+  , vProd(0)
 {
 
 #ifdef _OPENMP 
@@ -607,14 +631,16 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
   if ((ioData.eqs.type == EquationsData::NAVIER_STOKES) && (ioData.bc.wall.integration != BcsWallData::WALL_FUNCTION))
     nsFlag = true;
 
-// Original
 /*
-  if (ioData.eqs.type == EquationsData::NAVIER_STOKES)  {
-    R = new MatVecProdH1<dim, Scalar ,dim>(ts, spo, domain);
-    nsFlag = true;
-  }
-  else
-    R = 0;
+//
+// Original
+//
+//  if (ioData.eqs.type == EquationsData::NAVIER_STOKES)  {
+//    R = new MatVecProdH1<dim, Scalar ,dim>(ts, spo, domain);
+//    nsFlag = true;
+//  }
+//  else
+//    R = 0;
 */
 
 #pragma omp parallel for reduction (+: size)
@@ -652,40 +678,35 @@ MatVecProdH2<Scalar,dim>::MatVecProdH2(IoData &ioData, VarFcn *varFcn, DistTimeS
   fluxFcn[BC_INTERNAL] = new FluxFcn(0,BC_INTERNAL,ioData,varFcn,FluxFcnBase::PRIMITIVE);
   spaceOp->setFluxFcn(fluxFcn); //TODO: should avoid doing this!
 
-// Included (MB)
-  if (ioData.eqs.type == EquationsData::NAVIER_STOKES)  {
-    viscJacContrib = ioData.sa.viscJacContrib;
-    vProd = new DistSVec<double,dim>(domain->getNodeDistInfo());
-
-    if (viscJacContrib == 1) {
-      R = new MatVecProdH1<dim, Scalar ,dim>(ts, spo, domain);
-      RFD = 0;
+  // Included (MB)
+  // (09/10) UH >> Modification
+  // The flag viscJacContrib was previously controlled by the sensitivity module.
+  // It governs the computation of the Jacobian for the viscous term
+  // (laminar flux and, possibly, turbulent flux).
+  // The case viscJacContrib == 1 gives an "exact" computation
+  // (exact for the laminar part and, possibly, approximate for the turbulent flux).
+  // The case viscJacContrib == 2 gives a finite difference approximation.
+  // It is not activated but kept for reference.
+  int viscJacContrib = 1;
+  if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
+  {
+    vProd = new DistSVec<double,neq>(domain->getNodeDistInfo());
+    if (viscJacContrib == 1)
+    {
+      R = new MatVecProdH1<dim, Scalar, neq>(ts, spo, domain);
     }
-    else if (viscJacContrib == 2) {
-      R = 0;
-      if (gs)
-        RFD = new MatVecProdFD<dim,dim>(ioData.ts.implicit, ts, gs, spo, domain, ioData);
-      else
-        RFD = 0;
+    else if ((viscJacContrib == 2) && (gs))
+    {
+      RFD = new MatVecProdFD<dim,neq>(ioData.ts.implicit, ts, gs, spo, domain, ioData);
     }
-    else {
-      vProd = 0;
-      R = 0;
-      RFD = 0;
-    }
-  }
-  else {
-    vProd = 0;
-    R = 0;
-    RFD = 0;
   }
 
 }
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-MatVecProdH2<Scalar,dim>::~MatVecProdH2()
+template<int dim, class Scalar, int neq>
+MatVecProdH2<dim,Scalar,neq>::~MatVecProdH2()
 { 
 
   if (spaceOp) delete spaceOp;
@@ -699,11 +720,23 @@ MatVecProdH2<Scalar,dim>::~MatVecProdH2()
     delete [] A;
   }
 
+  if (vProd)
+    delete vProd;
+  vProd = 0;
+
+  if (R)
+    delete R;
+  R = 0;
+
+  if (RFD)
+    delete RFD;
+  RFD = 0;
+
 }
 
 //------------------------------------------------------------------------------
-template<class Scalar, int dim>
-DistMat<Scalar,dim> &MatVecProdH2<Scalar,dim>::operator= (const Scalar x)
+template<int dim, class Scalar, int neq>
+DistMat<Scalar,dim> &MatVecProdH2<dim,Scalar,neq>::operator= (const Scalar x)
 {
 
 #pragma omp parallel for
@@ -716,8 +749,8 @@ DistMat<Scalar,dim> &MatVecProdH2<Scalar,dim>::operator= (const Scalar x)
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -751,8 +784,8 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x, DistVec<d
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -772,8 +805,8 @@ void MatVecProdH2<Scalar,dim>::evaluateInviscid(int it, DistSVec<double,3> &x, D
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluateViscous(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
 					DistSVec<double,dim> &q, DistSVec<double,dim> &f)
 {
 
@@ -792,8 +825,8 @@ void MatVecProdH2<Scalar,dim>::evaluateViscous(int it, DistSVec<double,3> &x, Di
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x, 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &x, 
                                DistVec<double> &cv, DistSVec<double,dim> &q, 
                                DistSVec<double,dim> &F, Scalar shift)
 {
@@ -839,8 +872,8 @@ void MatVecProdH2<Scalar,dim>::evaluate(int it, DistSVec<double,3> &x,
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evaluate2(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evaluate2(int it, DistSVec<double,3> &x, DistVec<double> &cv, 
                                          DistSVec<double,dim> &q, DistSVec<double,dim> &F)
 {
 
@@ -858,9 +891,10 @@ void MatVecProdH2<Scalar,dim>::evaluate2(int it, DistSVec<double,3> &x, DistVec<
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::evalH(int it, DistSVec<double,3> &x,
-                               DistVec<double> &cv, DistSVec<double,dim> &q)  {
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::evalH(int it, DistSVec<double,3> &x,
+                               DistVec<double> &cv, DistSVec<double,dim> &q)  
+{
 
   X = &x;
   ctrlVol = &cv;
@@ -872,13 +906,9 @@ void MatVecProdH2<Scalar,dim>::evalH(int it, DistSVec<double,3> &x,
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::apply(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
 {
-
-// Included (MB)
-  applyInviscid(p,prod);
-  applyViscous(p,prod);
 
 // Original
 /*
@@ -892,34 +922,78 @@ void MatVecProdH2<Scalar,dim>::apply(DistSVec<double,dim> &p, DistSVec<double,di
   }
 */
 
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::applyInviscid(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
-{
-
-  spaceOp->applyH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+  Multiplier<dim,neq,Scalar,double> Operator;
+  Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
+                 R, RFD, vProd);
 
 }
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::applyViscous(DistSVec<double,dim> &p, DistSVec<double,dim> &prod)
+template<int dim, class Scalar, int neq>
+template<int dd, int nn, class Scalar1, class Scalar2>
+void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,nn,Scalar1,Scalar2>::Apply
+(
+  SpaceOperator<dd> *spaceOp
+  , DistSVec<double,3> &X
+  , DistVec<double> &ctrlVol
+  , DistSVec<double,dd> &U
+  , DistMat<Scalar1,dd> &H2
+  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+  , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+  , MatVecProdH1<dd, Scalar1, nn> *R
+  , MatVecProdFD<dd, nn> *RFD
+  , DistSVec<Scalar2, nn> *vProd
+)
 {
 
-  if (R)  {
-    *vProd = 0.0;
+  if (nn > dd)
+  {
+    std::cout << "\n !!! Apply Not Implemented for dd = " << dd;
+    std::cout << " nn = " << nn << std::endl;
+    exit(-1);
+  }
+
+  DistSVec<Scalar2,dd> pExt(p.info());
+  pExt = (Scalar2) 0;
+
+  int numLocSub = p.numLocSub();
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+  {
+    Scalar2 (*locp)[nn] = p.subData(iSub);
+    Scalar2 (*locExt)[dd] = pExt.subData(iSub);
+    for (int i = 0; i < p.subSize(iSub); ++i)
+    {
+      for (int jj = 0; jj < nn; ++jj)
+        locExt[i][jj] = locp[i][jj];
+    }
+  } // for (int iSub = 0; iSub < numLocSub; ++iSub)
+
+  spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, pExt, pExt);
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+  {
+    Scalar2 (*locp)[nn] = prod.subData(iSub);
+    Scalar2 (*locExt)[dd] = pExt.subData(iSub);
+    for (int i = 0; i < p.subSize(iSub); ++i)
+    {
+      for (int jj = 0; jj < nn; ++jj)
+        locp[i][jj] = locExt[i][jj];
+    }
+  } // for (int iSub = 0; iSub < numLocSub; ++iSub)
+
+  if (R)
+  {
+    *vProd = (Scalar2) 0;
     R->apply(p, *vProd);
     prod += *vProd;
   }
-
-  if (RFD)  {
-    *vProd = 0.0;
+  else if (RFD)
+  {
+    *vProd = (Scalar2) 0;
     RFD->applyViscous(p, *vProd);
     prod += *vProd;
   }
@@ -928,43 +1002,144 @@ void MatVecProdH2<Scalar,dim>::applyViscous(DistSVec<double,dim> &p, DistSVec<do
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::apply(DistSVec<bcomp,dim> &p,
-                DistSVec<bcomp,dim> &prod)
+template<int dim, class Scalar, int neq>
+template<int dd, class Scalar1, class Scalar2>
+void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::Apply
+(
+  SpaceOperator<dd> *spaceOp
+  , DistSVec<double,3> &X
+  , DistVec<double> &ctrlVol
+  , DistSVec<double,dd> &U
+  , DistMat<Scalar1,dd> &H2
+  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+  , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+  , MatVecProdH1<dd, Scalar1, dd> *R
+  , MatVecProdFD<dd, dd> *RFD
+  , DistSVec<Scalar2, dd> *vProd
+)
 {
 
-  spaceOp->applyH2(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+  spaceOp->applyH2(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
+
+  if (R)
+  {
+    *vProd = (Scalar2) 0;
+    R->apply(p, *vProd);
+    prod += *vProd;
+  }
+  else if (RFD)
+  {
+    *vProd = (Scalar2) 0;
+    RFD->applyViscous(p, *vProd);
+    prod += *vProd;
+  }
 
 }
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::applyT(DistSVec<double,dim> &p,
-        DistSVec<double,dim> &prod)
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::apply(DistSVec<bcomp,neq> &p,
+                DistSVec<bcomp,neq> &prod)
 {
 
-  spaceOp->applyH2T(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+  Multiplier<dim,neq,Scalar,bcomp> Operator;
+  Operator.Apply(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod,
+                 0, 0, 0);
 
 }
 
 //------------------------------------------------------------------------------
 
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::applyT(DistSVec<bcomp,dim> &p,
-        DistSVec<bcomp,dim> &prod)
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::applyT(DistSVec<double,neq> &p,
+        DistSVec<double,neq> &prod)
 {
 
-  spaceOp->applyH2T(*X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+  Multiplier<dim,neq,Scalar,double> Operator;
+  Operator.ApplyT(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::applyT(DistSVec<bcomp,neq> &p,
+        DistSVec<bcomp,neq> &prod)
+{
+
+  Multiplier<dim,neq,Scalar,bcomp> Operator;
+  Operator.ApplyT(spaceOp, *X, *ctrlVol, *Q, *this, aij, aji, bij, bji, p, prod);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+template<int dd, int nn, class Scalar1, class Scalar2>
+void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,nn,Scalar1,Scalar2>::ApplyT
+(
+  SpaceOperator<dd> *spaceOp
+  , DistSVec<double,3> &X
+  , DistVec<double> &ctrlVol
+  , DistSVec<double,dd> &U
+  , DistMat<Scalar1,dd> &H2
+  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+  , DistSVec<Scalar2,nn> &p, DistSVec<Scalar2,nn> &prod
+)
+{
+
+  std::cout << "\n !!! ApplyT Not Implemented !!\n";
+  exit(-1);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, class Scalar, int neq>
+template<int dd, class Scalar1, class Scalar2>
+void MatVecProdH2<dim,Scalar,neq>::Multiplier<dd,dd,Scalar1,Scalar2>::ApplyT
+(
+  SpaceOperator<dd> *spaceOp
+  , DistSVec<double,3> &X
+  , DistVec<double> &ctrlVol
+  , DistSVec<double,dd> &U
+  , DistMat<Scalar1,dd> &H2
+  , DistSVec<double,dd> &aij, DistSVec<double,dd> &aji
+  , DistSVec<double,dd> &bij, DistSVec<double,dd> &bji
+  , DistSVec<Scalar2,dd> &p, DistSVec<Scalar2,dd> &prod
+)
+{
+
+  spaceOp->applyH2T(X, ctrlVol, U, H2, aij, aji, bij, bji, p, prod);
 
 }
 
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<class Scalar, int dim>
-void MatVecProdH2<Scalar,dim>::rstSpaceOp(IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, bool typeAlloc, SpaceOperator<dim> *spofd)
+template<int dim, class Scalar, int neq>
+void MatVecProdH2<dim,Scalar,neq>::rstSpaceOp
+(
+  IoData & ioData, VarFcn *varFcn, SpaceOperator<dim> *spo, 
+  bool typeAlloc, SpaceOperator<dim> *spofd
+)
 {
+
+  if (dim != neq)
+  {
+    // UH (09/10) This function is only called from the sensitivity module.
+    // The sensitivity module assumes a strong turbulence model coupling
+    // (i.e. dim == neq).
+    this->com->fprintf(stderr, "\n *** MatVecProdH2<dim,Scalar,neq>::rstSpaceOp");
+    this->com->fprintf(stderr, " is not verified for weakly coupled systems.\n\n");
+    exit(1);
+  }
+
+  // UH (09/10) -> Check for memory leak
+  // No FluxFcn pointer is deleted.
 
   fluxFcn = new FluxFcn*[BC_MAX_CODE - BC_MIN_CODE + 1]; 
   fluxFcn -= BC_MIN_CODE;
@@ -997,7 +1172,8 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
                                    DistTimeState<dim> *ts, DistGeoState *gs,
                                    MultiPhaseSpaceOperator<dim,dimLS> * spo,
                                    DistExactRiemannSolver<dim> * rsolver,
-                                   FluidSelector *fs, Domain *dom) :
+                                   FluidSelector *fs, Domain *dom,
+				   IoData& ioData) :
   MatVecProdMultiPhase<dim,dimLS>(ts,spo,rsolver,fs), geoState(gs),
   Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()),
   Q(dom->getNodeDistInfo()), F(dom->getNodeDistInfo())
@@ -1008,6 +1184,7 @@ MatVecProdFDMultiPhase<dim,dimLS>::MatVecProdFDMultiPhase(
   Phi = 0;
   com = dom->getCommunicator();
 
+  fdOrder = ioData.ts.implicit.fdOrder;
 }
 
 //----------------------------------------------------------------------------//
@@ -1043,7 +1220,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
   Qeps = q;
   Phi = &phi;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
@@ -1067,14 +1244,32 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 0);
+  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
 
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
 
-  prod = (1.0/eps) * (Feps - F);
+  if (fdOrder == 1) {
+    
+    prod = (1.0/eps) * (Feps - F);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qeps = Q - eps * p;
+    
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, 1);
+
+    if (this->timeState)
+      this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
+
+    this->spaceOp->applyBCsToResidual(Qeps, F);
+
+    prod = (0.5/eps) * (Feps - F);
+
+  }
 
 }
 
@@ -1259,10 +1454,27 @@ MatVecProdLS<dim,dimLS>::MatVecProdLS(DistTimeState<dim> *ts, DistGeoState *gs,
                                       MultiPhaseSpaceOperator<dim,dimLS> *spo, 
                                       Domain *dom, LevelSet<dimLS> *ls) :
   timeState(ts), spaceOp(spo), levelSet(ls), geoState(gs), 
-  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo())
+  Qeps(dom->getNodeDistInfo()), Feps(dom->getNodeDistInfo()), DistMat<double,dimLS>(dom)
 {
   X = 0; ctrlVol = 0; Q = 0; U = 0; F = 0; FluidId = 0;
   com = dom->getCommunicator();
+
+
+  // H1 stuff
+  A = new MvpMat<double,dimLS>*[this->numLocSub];
+
+  double size = 0.0;
+
+#pragma omp parallel for reduction (+: size)
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub] = this->subDomain[iSub]->template createMaskMatVecProd<double,dimLS>();
+    size += double(A[iSub]->numNonZeroBlocks()*dimLS*dimLS*sizeof(double)) / (1024.*1024.);
+  }
+
+  this->com->globalSum(1, &size);
+
+  this->com->printf(2, "Memory required for MultiPhaseMatVec with H1 (dim=%d): %3.2f MB\n", dim, size);
+
 }
 
 //------------------------------------------------------------------------------
@@ -1280,26 +1492,32 @@ MatVecProdLS<dim,dimLS>::~MatVecProdLS()
 
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::apply(DistSVec<double,dimLS> &p, DistSVec<double,dimLS> &prod)
-{
-  double eps = computeEpsilon(*Q, p);
+{  
 
-  Qeps = (*Q) + eps * p;
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.getMasterFlag(iSub), *A[iSub],
+					 p(iSub), prod(iSub));
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.subData(iSub));
+  }
 
-  spaceOp->computeResidualLS(*X, *ctrlVol, Qeps, *FluidId, *U, Feps);
+  this->vecPat->exchange();
 
-  timeState->add_dAW_dtLS(-1, *geoState, *ctrlVol, Qeps, levelSet->Phin, 
-                          levelSet->Phinm1, levelSet->Phinm2, Feps);
-
-  prod = (1.0/eps) * (Feps - (*F));
-
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.subData(iSub));
+  
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
-                                DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
-                                DistSVec<double,dimLS> &f, DistVec<int> &fluidId)
+				       DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
+				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f, 
+				       DistVec<int> &fluidId)
 {
 
   X       = &x;
@@ -1307,14 +1525,16 @@ void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<do
   Q       = &q;
   U       = &u;
   F       = &f;
+  V = &v;
   FluidId = &fluidId;
 
-  spaceOp->computeResidualLS(*X, *ctrlVol, *Q, fluidId, *U, *F);
+  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId);
 
-  timeState->add_dAW_dtLS(it, *geoState, *ctrlVol, *Q, levelSet->Phin, 
-                          levelSet->Phinm1, levelSet->Phinm2, *F);
+  if (timeState)
+    timeState->addToJacobian(cv, *this, u);
 
 }
+
 //------------------------------------------------------------------------------
 // WARNING: this routine is very different from MatVecProdFD<dim,neq>::computeEpsilon(...)
 template<int dim, int dimLS>
@@ -1370,3 +1590,15 @@ double MatVecProdLS<dim, dimLS>::computeEpsilon(DistSVec<double,dimLS> &U, DistS
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+DistMat<double,dimLS> &MatVecProdLS<dim,dimLS>::operator= (const double x)
+{
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub)
+    *A[iSub] = x;
+
+  return *this;
+
+}

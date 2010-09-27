@@ -45,10 +45,14 @@ public:
 
   StructExc(IoData&, MatchNodeSet**, int, Communicator*strCom, Communicator *flCom, int nSub);
   ~StructExc();
+  void updateMNS(MatchNodeSet **mns) {matchNodes = mns;}
 
   void negotiate();
   void negotiateStopping(bool*);
   double getInfo();
+  void getEmbeddedWetSurfaceInfo(int&, int&);
+  void getEmbeddedWetSurface(int, double*, int, int*);
+
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
 		       DistSVec<double,3> &, DistSVec<double,3> &);
   void getTemperature(DistVec<double>&);

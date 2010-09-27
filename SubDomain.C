@@ -1041,10 +1041,10 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
 {
   if (!flag){
     edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId);
   }else{
     edges.computeJacobianFiniteVolumeTerm(riemann, fluxFcn, geoState, ngrad, ngradLS, X, ctrlVol, V, A, fluidSelector, fluidId, nodeType);
-    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, nodeType);
+    faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, nodeType);
   }
 
   for (int i=0; i<ctrlVol.size(); ++i) {
@@ -1054,7 +1054,33 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
       Aii[k] *= voli;
   }
 }
+//-------------------------------------------------------------------------------
 
+template<int dim, class Scalar, int dimLS>
+void SubDomain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
+						  GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
+						  NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
+						  EdgeGrad<dim>* egrad,Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
+						  GenMat<Scalar,dimLS> &A, CommPattern<double> * flag)
+{
+
+  if (!flag){
+    edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
+					    egrad, ctrlVol , Phi, A);
+    faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
+  }else{
+    edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
+					    egrad,ctrlVol , Phi, A);
+    faces.computeJacobianFiniteVolumeTermLS(geoState, V, A );
+  }
+
+  for (int i=0; i<ctrlVol.size(); ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<dimLS*dimLS; ++k)
+      Aii[k] *= voli;
+  }
+}
 //-------------------------------------------------------------------------------
 
 template<class Scalar, int neq>
@@ -1922,75 +1948,6 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 // Included (MB)
 template<int dim, class Scalar>
-void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
-				   SVec<double,dim> &U, GenMat<Scalar,dim> &A)
-{
-
-  SVec<double,dim> &Vwall = bcs.getNodeStateVector();
-
-  int (*edgePtr)[2] = edges.getPtr();
-
-  int k;
-  for (int l=0; l<edges.size(); ++l) {
-
-    if (bcMap.find(l) != bcMap.end())  {
-      int i = edgePtr[l][0];
-      int j = edgePtr[l][1];
-
-      if (nodeType[i] != BC_INTERNAL)  {
-        Scalar *Aij = A.getBcElem_ij(bcMap[l]);
-        Scalar *Aij_orig = A.getElem_ij(l);  // the Aij is the off-diagonal term for this equation
-        if (Aij && Aij_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aij[k] = Aij_orig[k];
-        }
-
-        Scalar *Aji = A.getBcElem_ji(bcMap[l]);
-        Scalar *Aji_orig = A.getElem_ji(l);  // Aij is the diag term for the ith eq.
-        if (Aji && Aji_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aji[k] = Aji_orig[k];
-        }
-
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aij);
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aji);
-
-      }
-      if (nodeType[j] != BC_INTERNAL) {
-        Scalar *Aij = A.getBcElem_ij(bcMap[l]+numBcNodes[l]);
-        Scalar *Aij_orig = A.getElem_ij(l);  // Aij is the diag term for the jth eq.
-        if (Aij && Aij_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aij[k] = Aij_orig[k];
-        }
-
-        Scalar *Aji = A.getBcElem_ji(bcMap[l]+numBcNodes[l]);
-        Scalar *Aji_orig = A.getElem_ji(l);  // Aji is the off-diag term for the jth eq.
-        if (Aji && Aji_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aji[k] = Aji_orig[k];
-        }
-
-        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aij);
-        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aji);
-
-      }
-    }
-  }
-  for (int i=0; i<nodes.size(); ++i) {
-    if (nodeType[i] != BC_INTERNAL) {
-      Scalar *Aii = A.getElem_ii(i);
-      if (Aii)
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);
-    }
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim, class Scalar>
 void SubDomain::applyBCsToProduct(BcFcn *bcFcn, BcData<dim> &bcs, SVec<double,dim> &U, SVec<Scalar,dim> &Prod)
 {
 
@@ -2240,10 +2197,10 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
+template<int dim, class Scalar, int neq>
 void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
 			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
-			  NodalGrad<dim> &ngrad, GenMat<Scalar,dim> &A)
+			  NodalGrad<dim> &ngrad, GenMat<Scalar,neq> &A)
 {
 
   double ddVij[dim], ddVji[dim], Vi[dim], Vj[dim], dfdVi[dim*dim], dfdVj[dim*dim];
@@ -2284,7 +2241,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
     Aji = A.getElem_ji(l);
 
     if (Aij && Aji)  {
-      for (k=0; k<dim*dim; ++k) {
+      for (k=0; k<neq*neq; ++k) {
         Aij[k] += dfdVj[k];
         Aji[k] += dfdVi[k];
       }
@@ -3662,10 +3619,8 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 					  SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q)
 {
-  double phi = 1.0;
-  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], &phi, fluidId);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], 0);
 }
 
 //------------------------------------------------------------------------------
@@ -3686,11 +3641,9 @@ SubDomain::computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType t
 template<int dim>
 void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &Q, int dir)
 {
-  double phi = 1.0;
-  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
     if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
-      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], &phi, fluidId);
+      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], 0);
       Q[i] *= X[i][dir];
     }
   }
@@ -3699,14 +3652,14 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 
 //------------------------------------------------------------------------------
 
-template<int dim, int dimLS>
+template<int dim>
 void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
                                           SVec<double,dim> &V, SVec<double,3> &X,
-                                          Vec<double> &Q, SVec<double,dimLS> &phi, Vec<int> &fluidId)
+                                          Vec<double> &Q, Vec<int> &fluidId)
 {
 
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], phi[i], fluidId[i]);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i],fluidId[i]);
 
 }
 
@@ -4316,6 +4269,30 @@ template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
 {
+  const Connectivity &nToN = *getNodeToNode(); 
+  for(int currentNode=0;currentNode<numNodes();++currentNode)
+    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
+          continue;}
+        else if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+//          fprintf(stderr,"%02d Found a swept node %d, accumulating to weight %e, [%e %e %e %e %e]\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
+          for(int i=0;i<5;++i) 
+            VWeights[currentNode][i] = V[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=0;i<5;++i) 
+            VWeights[currentNode][i] += V[neighborNode][i];
+//            fprintf(stderr,"\t\t(%02d, %d), accumulating to weight %e, [%e %e %e %e %e] (now [%e %e %e %e %e])\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4],VWeights[currentNode][0],VWeights[currentNode][1],VWeights[currentNode][2],VWeights[currentNode][3],VWeights[currentNode][4]);
+        }
+      }
+    }
+
+
+
+/* (Old, works only with IntersectorFRG)
 
   int i, j, k;
 
@@ -4350,7 +4327,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
     }
 
   } 
-
+*/
 }
 
 
@@ -4373,17 +4350,26 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 	{ //at interface
 	  int tagI = tag[i];
 	  int tagJ = tag[j];
-
-	  Vec<double> Vi(dim);
-	  Vec<double> Vj(dim);
-	  varFcn[tagI].conservativeToPrimitive(U[i],Vi.v);
-	  varFcn[tagJ].conservativeToPrimitive(U[j],Vj.v);
-	  if(!ghostPoints[i]) // GP has not been created
-	    {ghostPoints[i]=new GhostPoint<dim>;}
-	  if(!ghostPoints[j]) // GP has not been created
-	    {ghostPoints[j]=new GhostPoint<dim>;}
-	  ghostPoints[i]->addNeighbour(Vj,1.0,tagJ);
-	  ghostPoints[j]->addNeighbour(Vi,1.0,tagI);
+	  bool iIsActive = LSS.isActive(0.0,i);
+	  bool jIsActive = LSS.isActive(0.0,j);
+	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+	  
+	  if(iIsActive) 
+	    {
+	      Vec<double> Vi(dim);
+	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+	      if(!ghostPoints[j]) // GP has not been created
+		{ghostPoints[j]=new GhostPoint<dim>;}
+	      ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);
+	    }
+	  if(jIsActive)
+	    {
+	      Vec<double> Vj(dim);
+	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+	      if(!ghostPoints[i]) // GP has not been created
+		{ghostPoints[i]=new GhostPoint<dim>;}
+	      ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);
+	    }
 	}
     } 
 }
@@ -4421,7 +4407,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
     j = edgePtr[l][1];
 
     if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
-      if (LSS.isActive(0.0,i)||numPhase>1) {// add Wstarij on node j.
+      if (LSS.isActive(0.0,i)) {// add Wstarij on node j.
         if(Weights[j]<1.e-6) {
           Weights[j] = 1.0;
           if(Wstarij[l][0]>1.0e-8) //use Wstarij.
@@ -4445,7 +4431,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
         }
       }
  
-      if (LSS.isActive(0.0,j)||numPhase>1) {// add Wstarji on node i
+      if (LSS.isActive(0.0,j)) {// add Wstarji on node i
         if(Weights[i]<1.e-6) {
           Weights[i] = 1.0;
           if(Wstarji[l][0]>1.0e-8) //use Wstarji.

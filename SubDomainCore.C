@@ -70,6 +70,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodesToMCNodes = 0;
   sharedInletNodes = 0;
   NodeToNode = 0;
+  NodeToSubD = 0;
   NodeToElem = 0;
   ElemToElem = 0;
 
@@ -85,8 +86,6 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   numOffDiagEntries = 0;
   for(int i=0;i<3;i++)
    dGradP[i] = new double[locNodes->size()];
-
-//  triaSurf = new TriangulatedSurface;   // construct an empty TriangulatedSurface.
 
 }
 
@@ -118,8 +117,19 @@ SubDomain::~SubDomain()
   if (nodesToMCNodes) delete [] nodesToMCNodes;
   if (sharedInletNodes) delete sharedInletNodes;
   if (NodeToNode) delete NodeToNode;
+  if (NodeToSubD) delete NodeToSubD;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
+  delete &nodes;
+  delete &faces;
+  delete &elems;  
+  for(int i=0;i<3;i++) 
+    {
+      delete[] dGradP[i];
+      delete[] gradP[i];
+    }
+  delete[] rotOwn;
+  delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
 
 }
@@ -281,6 +291,52 @@ Connectivity *SubDomain::createEdgeBasedConnectivity()
 }
 
 //------------------------------------------------------------------------------
+
+Connectivity *SubDomain::createNodeToSubDomainConnectivity()
+{
+  int numNodes = nodes.size();
+  int *numOwner = reinterpret_cast<int *>(alloca(sizeof(int) * numNodes));
+  for (int i=0; i<numNodes; i++)
+    numOwner[i] = 1;
+
+  for(int iSub=0; iSub<numNeighb; iSub++)
+    for(int i=0; i<sharedNodes->num(iSub); i++)
+      ++numOwner[(*sharedNodes)[iSub][i]];
+
+  int nnz = 0;
+  for(int i=0; i<numNodes; i++)
+    nnz += numOwner[i];
+
+  // construction of ia
+  int *ia = new int[numNodes+1];
+  ia[0] = 0;
+  for(int i=0; i<numNodes; i++)
+    ia[i+1] = ia[i] + numOwner[i];
+
+  // construction of ja
+  int *ja = new int[nnz];
+  for (int i=0; i<numNodes; i++) {
+    ja[ia[i]] = globSubNum;
+    numOwner[i] = 1;
+  }
+
+  for(int iSub=0; iSub<numNeighb; iSub++)
+    for(int i=0; i<sharedNodes->num(iSub); i++) {
+      int me = (*sharedNodes)[iSub][i];
+      ja[ia[me]+numOwner[me]] = neighb[iSub];
+      ++numOwner[me];
+    }
+
+  // no need to sort.
+  
+  Connectivity *nodeToSubD = new Connectivity(numNodes, ia, ja);
+
+  return nodeToSubD;
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::createSharedInletNodeConnectivity(int subd)
 {        /* this function creates a connectivity for the shared inlet nodes but in the
          * indexation of the inletnodes in the subdomain we are considering/
@@ -499,6 +555,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
     double volume = elems[i].computeControlVolumes(X, ctrlVol);
 
     if (volume <= 0.0) {
+      fprintf(stderr,"Element %i has a negative volume…\n",i+1);
       ++ierr;
       if (numInvElem)
 	elems[i].printInvalidElement(numInvElem, lscale, i, locToGlobNodeMap,
@@ -3057,6 +3114,8 @@ int SubDomain::setFaceToElementConnectivity()
     }
   }
 
+  delete[] fm;
+
   return nswap;
 
 }
@@ -3604,24 +3663,34 @@ void SubDomain::finalizeTags(SVec<int,2> &tag)
 void SubDomain::checkVec(SVec<double,3> &V)
 {
 
-  for (int i=0; i<V.size(); ++i) {
-    if ((nodeType[i] != BC_ADIABATIC_WALL_MOVING)  && (nodeType[i] != BC_ISOTHERMAL_WALL_MOVING))  {
-//      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) {
-//        fprintf(stderr,"*** Error: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+  for (int i=0; i<V.size(); ++i) 
+  {
+
+    if ((nodeType[i] != BC_ADIABATIC_WALL_MOVING)  && (nodeType[i] != BC_ISOTHERMAL_WALL_MOVING))  
+    {
+      if ((V[i][0] != 0.0) || ((V[i][1] != 0.0) || (V[i][2] != 0.0))) 
+      {
+        fprintf(stderr,"*** Error: Vector dXdsb is different from zero");
+        fprintf(stderr," at a point %d in the interior of the mesh\n", i);
 //        exit(1);
-//      }
-      if (V[i][0] != 0.0) {
-//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      }
+      //----
+      if (V[i][0] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the x-direction to 0\n";
         V[i][0] = 0.0;
       }
-      if (V[i][1] != 0.0) {
-//        fprintf(stderr,"*** Warning: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      if (V[i][1] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the y-direction to 0\n";
         V[i][1] = 0.0;
       }
-      if (V[i][2] != 0.0) {
-//        fprintf(stderr,"*** Warnig: Vector dXdsb is different from zero at a point in the interior of the mesh\n");
+      if (V[i][2] != 0.0)
+      {
+        std::cerr << "*** Overwrite the value in the z-direction to 0\n";
         V[i][2] = 0.0;
       }
+
     }
   }
 
@@ -4155,15 +4224,12 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     if (!masterFlag[l]) continue;
     i = ptr[l][0];
     j = ptr[l][1];
-    if(LSS.numOfFluids()==1) {
-      iActive = LSS.isActive(0,i);
-      jActive = LSS.isActive(0,j);
-    } else 
-      iActive = jActive = true; //no one is "inactive"
+    iActive = LSS.isActive(0,i);
+    jActive = LSS.isActive(0,j);
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue; //both outside, no "double intersections".
+    if (iActive && jActive && !intersect) continue; 
 
     // now (i,j) must intersect the structure.
     LevelSetResult lsRes;
@@ -4260,14 +4326,14 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   // -----------------------------------------------
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
-    nPos = nNeg = 0;
-    for (int i=0; i<4; i++) {
+    for (int i=0; i<4; i++) 
       T[i] = elems[iElem][i];
-      (LSS.isActive(0,T[i])) ? nPos++ : nNeg++;
-    }
-    if (nPos==0 || nPos==4) continue; // this tet is away from interface.
+    if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
+       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
+       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
+      continue; // this tet is away from interface. (Doesn't work for membranes.)
 
-    for (int i=0; i<4; i++) {
+        for (int i=0; i<4; i++) {
       x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
     count = getPolygon(iElem, LSS, polygon);
 
@@ -4460,10 +4526,13 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
   for (int i=0; i<6; i++) nextEdge[i] = -1;
   int firstEdge = -1;
 
+  int outside_status=-5;
+  for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) if(LSS.fluidModel(0,T[facet[iFacet][j]])==0) outside_status=0;
+  if(outside_status != 0) for (int iFacet=0; iFacet<4; iFacet++) for (int j=0; j<3; j++) outside_status=std::max(outside_status,LSS.fluidModel(0,T[facet[iFacet][j]]));
   for (int iFacet=0; iFacet<4; iFacet++) {
     int status = 0;
     for (int j=0; j<3; j++)
-      if (LSS.isActive(0,T[facet[iFacet][j]]))
+      if(LSS.fluidModel(0,T[facet[iFacet][j]])==outside_status) // TODO(jontg): This DOES NOT WORK for thin-shells.
          status |= 1 << j;  //KW: set the j-th (counting from 0) binary digit to 1
     switch (status) {
       case 1:
@@ -4509,7 +4578,7 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
       fprintf(stderr,"Error in getPolygon. edgeCount = %d > 4, Abort...\n", edgeCount);
       exit(-1);
     }
-    if (LSS.isActive(0,T[edgeToNodes[curEdge][0]])) {
+    if (LSS.fluidModel(0,T[edgeToNodes[curEdge][0]])==outside_status) {
       polygon[edgeCount][0] = T[edgeToNodes[curEdge][0]];
       polygon[edgeCount][1] = T[edgeToNodes[curEdge][1]];
     }else {

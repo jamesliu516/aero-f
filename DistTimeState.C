@@ -32,6 +32,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   irey  = new DistVec<double>(dom->getNodeDistInfo());
   viscousCst = ioData.ts.viscousCst;
   Un  = new DistSVec<double,dim>(domain->getNodeDistInfo());
+  Vn = new DistSVec<double,dim>(domain->getNodeDistInfo());
 
   if (data->use_nm1)
     Unm1 = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -46,7 +47,6 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   if (ioData.eqs.tc.les.type == LESModelData::DYNAMICVMS) {
     QBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
     VnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
-    Vn = new DistSVec<double,dim>(domain->getNodeDistInfo());
     UnBar = new DistSVec<double,dim>(domain->getNodeDistInfo());
     if (data->use_nm1)
       Unm1Bar = new DistSVec<double,dim>(domain->getNodeDistInfo());
@@ -60,7 +60,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   else {
     QBar = 0;
     VnBar = 0;
-    Vn = 0;
+    //Vn = 0;
     UnBar = 0;
     Unm1Bar = 0;
     Unm2Bar = 0;
@@ -169,6 +169,11 @@ DistTimeState<dim>::~DistTimeState()
   if (Unm1Bar) delete Unm1Bar;
   if (Unm2Bar) delete Unm2Bar;
                                                                                                                           
+  delete dt;
+  delete idti;
+  delete idtv; 
+  delete irey;
+                                                                                                                          
   if (subTimeState) {
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub)
@@ -213,6 +218,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   }
 
   U = *Un;
+  *Vn = *Un;
   if (data->use_nm1 && !data->exist_nm1)
     *Unm1 = *Un;
   if (data->use_nm2 && !data->exist_nm2)
@@ -782,26 +788,6 @@ void DistTimeState<dim>::addToH1(DistVec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
-void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
-				 DistMat<Scalar,dim> &A)
-{
-
-#ifdef DOUBLE_CHECK
-  varFcn->conservativeToPrimitive(U, *V);
-#endif
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
-				(*V)(iSub), A(iSub)); 
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim>
 template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
 				 DistMat<Scalar,neq> &A)
@@ -821,9 +807,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
-                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar shift)
+                DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar shift)
 {
 
 #ifdef DOUBLE_CHECK
@@ -840,9 +826,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
-                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+                DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar coefVol, double coefA)
 {
 
 #ifdef DOUBLE_CHECK
@@ -861,9 +847,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 
 
 template<int dim>
-template<class Scalar>
+template<class Scalar,int neq>
 void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
-                                      DistMat<Scalar,dim> &A)
+                                      DistMat<Scalar,neq> &A)
 {
 
 #ifdef DOUBLE_CHECK
@@ -1107,16 +1093,26 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
-    //fprintf(stderr, "*** Error: 3pt-BDF for multiphase must be reviewed\n");
-    //exit(1);
-    //varFcn->conservativeToPrimitive(*Un, *V, fluidIdnm1);
-    //TODO: to be fixed for 3pt-BDF!!!
-    //varFcn->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1, Vgf, Vgfweight, riemann);
-    //riemann->updatePhaseChange(*V, *Unm1, fluidId, fluidIdnm1);
-    *Unm1 = *Un;
+    double tau_n = data->getTauN();
+    *Unm1 = *Vn;
+    *Vn = Q;
+    double f1 = (1.0+tau_n)*(1.0+tau_n);
+    *Un = (1.0+2.0*tau_n)/f1*Q+tau_n*tau_n/f1*(*riemann->getOldV());
+    //*Un = (1.0+2.0*tau_n)/f1*(*riemann->getOldV())+tau_n*tau_n/f1*Q;
+    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
+    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
+    //domain->extrapolateGhost(*riemann,*V, *Vn,fluidId,
+    //			     *fluidIdnm1,varFcn);
+    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
+    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
+    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
+    //domain->extrapolateGhost(*V, *Vn,fluidId,
+    //			     *fluidIdnm1,varFcn);
+    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
     data->exist_nm1 = true;
+  } else {
+    *Vn = *Un = Q;
   }
-  *Un = Q;
 
 }
 

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <map>
 #include "parser/ParseTree.h"
+#include "parser/Dictionary.h"
 
 using std::map;
 
@@ -533,6 +534,13 @@ public:
 
   map<int, DataType *> dataMap;
   void setup(const char *name, ClassAssigner *);
+  ~ObjectMap()
+    {
+      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
+	{
+	  delete it->second;
+	}
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -1196,11 +1204,16 @@ struct ImplicitData {
 
   enum Type {BACKWARD_EULER = 0, CRANK_NICOLSON = 1, THREE_POINT_BDF = 2, FOUR_POINT_BDF = 3} type;
   enum Startup {REGULAR = 0, MODIFIED = 1} startup;
-  enum Coupling {WEAK = 0, STRONG = 1} coupling;
+  enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
-  enum Jacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} jacobian;
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
   NewtonData<KspFluidData> newton;
+
+  /// UH (09/10)
+  /// This flag is not visible from the input file.
+  /// It governs the computation of the Jacobian of the flux function,
+  /// a component of the 'H' matrix (from the MatrixVectorProduct).
+  enum FluxFcnJacobian {FINITE_DIFFERENCE = 0, APPROXIMATE = 1, EXACT = 2} ffjacobian;
 
   ImplicitData();
   ~ImplicitData() {}
@@ -1270,17 +1283,19 @@ struct SensitivityAnalysis {
 
   enum Method {DIRECT = 0, ADJOINT = 1} method;
   enum SensitivityComputation {ANALYTICAL = 0, SEMIANALYTICAL = 1,  FINITEDIFFERENCE = 2} scFlag;
-  enum Mvp {FD = 0, H2 = 1} mvp;
   enum Compatible3D {OFF_COMPATIBLE3D = 0, ON_COMPATIBLE3D = 1} comp3d;
   enum AngleRadians {OFF_ANGLERAD = 0, ON_ANGLERAD = 1} angleRad;
-  enum viscousJacobianContribution {NONE = 0, EXACT_JACOBIAN = 1, FINITE_DIFFERENCE_JACOBIAN = 2} viscJacContrib;
-  enum OrderMVPFDA {FIRST_ORDER_A = 1, SECOND_ORDER_A = 2} mvpfdOrdera;
-  enum OrderMVPFDSA {FIRST_ORDER_SA = 1, SECOND_ORDER_SA = 2} mvpfdOrdersa;
+
   enum SensitivityMesh {OFF_SENSITIVITYMESH = 0, ON_SENSITIVITYMESH = 1} sensMesh;
   enum SensitivityMach {OFF_SENSITIVITYMACH = 0, ON_SENSITIVITYMACH = 1} sensMach;
   enum SensitivityAOA {OFF_SENSITIVITYALPHA = 0, ON_SENSITIVITYALPHA = 1} sensAlpha;
   enum SensitivityYAW {OFF_SENSITIVITYBETA = 0, ON_SENSITIVITYBETA = 1} sensBeta;
+
+  // This flag repeats the linear solves until the number of iterations
+  // is smaller than the maximum allowed.
+  // Default Value = OFF_EXACTSOLUTION
   enum ExactSolution {OFF_EXACTSOLUTION = 0, ON_EXACTSOLUTION = 1} excsol;
+
   enum HomotopyComputation {OFF_HOMOTOPY = 0, ON_HOMOTOPY = 1} homotopy;
   enum FixSolution {NONEFIX = 0, PREVIOUSVALEUSFIX = 1} fixsol;
 
@@ -1302,7 +1317,7 @@ struct SensitivityAnalysis {
   double eps;
   double fres;
 
-  KspFluidData ksp;
+  KspData ksp;
 
   SensitivityAnalysis();
   ~SensitivityAnalysis() {}
@@ -1676,7 +1691,7 @@ struct Velocity  {
 
 struct EmbeddedFramework { 
 
-  enum IntersectorName {PHYSBAMLITE = 0, FRG = 1} intersectorName;
+  enum IntersectorName {PHYSBAM = 0, FRG = 1} intersectorName;
   enum StructureNormal {ELEMENT_BASED = 0, NODE_BASED = 1} structNormal;
   enum EOSChange {NODAL_STATE = 0, RIEMANN_SOLUTION = 1} eosChange;
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
@@ -1687,7 +1702,7 @@ struct EmbeddedFramework {
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
-  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2} riemannNormal;
+  enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2, AUTO = 3} riemannNormal;
   enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   
   EmbeddedFramework();

@@ -19,6 +19,8 @@ template<int dim>
 TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> *po) : 
   refVal(rv), domain(dom), postOp(po), rmmh(0)
 {
+  int i;
+
   modeFile = 0;
   TavF = 0;
   TavM = 0;
@@ -29,6 +31,11 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   output_step2 = 0;
   output_step_pgromresiduals = 0; //CBM--TEMP
   output_step_pgjacxdurom = 0; //CBM--TEMP
+  for (i=0; i<PostFcn::AVSSIZE; ++i) 
+    {
+      AvQs[i] = 0;
+      AvQv[i] = 0;
+    }
 
   steady = !iod.problem.type[ProblemData::UNSTEADY];
   com = domain->getCommunicator();
@@ -42,7 +49,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     solutions = 0;
 
-  int i;
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
@@ -369,7 +375,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
       mX = 0;
   }
   else 
-    generalizedforces = 0;
+    {
+      generalizedforces = 0;
+      modeFile =0;
+    }
   
   if (iod.output.transient.generalizedforces[0] != 0 && !(iod.problem.type[ProblemData::FORCED]) && strcmp(iod.input.strModesFile, "") == 0)
     fprintf(stderr, "Error : StrModes file for Generalized Forces not given.. Aborting !! \n");
@@ -575,6 +584,10 @@ template<int dim>
 TsOutput<dim>::~TsOutput()
 {
 
+  for (int i=0; i<PostFcn::AVSSIZE; ++i) {
+    delete AvQs[i];
+    delete AvQv[i];
+  }
   if (Qs) delete Qs;
   if (Qv) delete Qv;
   if(TavF) delete [] TavF;
@@ -582,6 +595,64 @@ TsOutput<dim>::~TsOutput()
   if(TavL) delete [] TavL;
   if(modeFile) delete [] modeFile;
   if(mX) delete mX;
+
+  if (switchOpt) //STEADY_SENSITIVITY_ANALYSIS
+    {
+      delete[] dForces;
+      
+      int i;
+      for (i=0; i<PostFcn::DSSIZE; ++i) {
+	delete[]  dScalars[i];
+      }
+      for (i=0; i<PostFcn::DVSIZE; ++i) {
+	delete[] dVectors[i];
+      }
+      delete[] dSolutions;
+    }
+
+  delete[]  fpForces            ;
+  delete[]  fpLift              ;
+  delete[]  fpTavForces         ;
+  delete[]  fpTavLift           ;
+  delete[]  fpHydroStaticForces ;
+  delete[]  fpHydroDynamicForces;
+  delete[]  fpHydroStaticLift   ;
+  delete[]  fpHydroDynamicLift  ;
+  delete[]  fpHeatFluxes        ; 
+
+  delete[] heatfluxes;
+  delete[] residuals;
+  delete[] conservation;
+
+  delete[] lift;
+  delete[] tavlift;
+  delete[] hydrostaticlift;
+  delete[] hydrodynamiclift;
+
+  delete mX;
+
+  delete[] generalizedforces;
+  delete[] modeFile;
+
+  delete[] forces;
+  delete[] tavforces;
+  delete[] hydrostaticforces;
+  delete[] hydrodynamicforces;
+
+  int i;
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    delete[] scalars[i];
+  }
+  for (i=0; i<PostFcn::AVSSIZE; ++i) {
+     delete[]  avscalars[i];
+  }
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+     delete[]  vectors[i];
+  }
+  for (i=0; i<PostFcn::AVVSIZE; ++i) {
+     delete[]  avvectors[i];
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -1385,7 +1456,7 @@ void TsOutput<dim>::writeForcesToDisk(bool lastIt, int it, int itSc, int itNl, d
       if (refVal->mode == RefVal::NON_DIMENSIONAL) { 
         F *= 2.0 * refVal->length*refVal->length / surface;
         M *= 2.0 * refVal->length*refVal->length*refVal->length / (surface * length);
-      }//TODO(KW): what does it do? 
+      }
       else {
         F *= refVal->force;
         M *= refVal->energy;
@@ -1776,7 +1847,7 @@ template<int dim>
 
   double *HF = new double[nSurfs];
   for(int index =0; index < nSurfs; index++){
-    HF[index] = 0;
+    HF[index] = 0.0;
   }
 
   double time = refVal->time * t;
@@ -1796,6 +1867,7 @@ template<int dim>
       fflush(fpHeatFluxes[iSurf]);
     }
   }
+  delete[] HF;
 }
 
 //------------------------------------------------------------------------------
@@ -2014,10 +2086,9 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<int dimLS>
 void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
                                              DistVec<double> &A, DistSVec<double,dim> &U, 
-                                             DistTimeState<dim> *timeState, DistSVec<double,dimLS> &Phi,
+                                             DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId)
 {
   if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
@@ -2040,7 +2111,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (scalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, Phi, fluidId);
+        postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState, fluidId);
         DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
         domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
       }
@@ -2171,8 +2242,6 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 // in binary format
 
   int i;
-  static DistVec<double> *AvQs[PostFcn::AVSSIZE];
-  static DistSVec<double,3> *AvQv[PostFcn::AVVSIZE];
   static double tprev,tinit;
   double time = refVal->time*t;
   double del_t;
@@ -2277,8 +2346,13 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
   }
 
   if (lastIt) {
-    for (i=0; i<PostFcn::AVSSIZE; ++i) delete AvQs[i];
-    for (i=0; i<PostFcn::AVVSIZE; ++i) delete AvQv[i];
+    // Before deletion, check that pointers have been allocated
+    for (i=0; i<PostFcn::AVSSIZE; ++i) 
+      if ((avscalars[i]) && (AvQs[i]))
+        delete AvQs[i];
+    for (i=0; i<PostFcn::AVVSIZE; ++i) 
+      if ((avvectors[i]) && (AvQv[i]))
+        delete AvQv[i];
   }
 
   counter += 1; // increment the counter for keeping track of the averaging

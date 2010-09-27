@@ -209,7 +209,7 @@ void PostOperator<dim>::computeDerivativeOfNodalForce(DistSVec<double,3> &X, Dis
 
 //Remark: Error mesage for pointers
   if (dV == 0) {
-    fprintf(stderr, "*** Error: Varible dV does not exist!\n");
+    com->fprintf(stderr, "*** Error: PostOperator::Variable dV does not exist!\n");
     exit(1);
   }
 
@@ -942,14 +942,12 @@ void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
                                               DistSVec<double,dim>& U,
                                               DistVec<double>& A,
                                               DistVec<double>& Q,
                                               DistTimeState<dim> *timeState,
-                                              DistSVec<double,dimLS> &Phi,
                                               DistVec<int>& fluidId)
 {
   int iSub;
@@ -1117,14 +1115,12 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-/*
   else if (type == PostFcn::PHILEVEL_STRUCTURE) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub));
     }
   }
-*/
   else if (type == PostFcn::CONTROL_VOLUME) 
     Q = A;
 
@@ -1132,7 +1128,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &(fluidId(iSub)));
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), Phi(iSub), fluidId(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub));
     }
   }
 
@@ -1321,6 +1317,11 @@ void PostOperator<dim>::computeDerivativeOfVectorQuantity(PostFcn::VectorDerivat
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub)
       dQ(iSub) = dX(iSub);
+  }
+  else
+  {
+    // Error message
+    com->fprintf(stderr, "*** Warning: PostOperator<dim>::computeDerivativeOfVectorQuantity does not study the type %d\n", type);
   }
 
 }

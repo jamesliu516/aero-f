@@ -7,7 +7,6 @@
 #include <Domain.h>
 #include <PostOperator.h>
 #include <GhostPoint.h>
-// MLX TODO REMOVE #include "Ghost/DistEulerStructGhostFluid.h"
 
 struct DistInfo;
 class DynamicNodalTransfer;

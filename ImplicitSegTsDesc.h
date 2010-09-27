@@ -24,7 +24,10 @@ class ImplicitSegTsDesc : public ImplicitTsDesc<dim> {
 
   MatVecProd<dim,neq1> *mvp1;
   MatVecProd<dim,neq2> *mvp2;
+
+#ifdef MVP_CHECK
   MatVecProd<dim,dim> *mvpfd;
+#endif
 
   KspPrec<neq1> *pc1;
   KspPrec<neq2> *pc2;

@@ -389,9 +389,9 @@ void TimeState<dim>::addToH1(bool *nodeFlag, Vec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
-			     SVec<double,dim> &V, GenMat<Scalar,dim> &A)
+			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
   double dfdUi[dim*dim], dfdVi[dim*dim];
@@ -422,7 +422,7 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
   
     Scalar *Aii = A.getElem_ii(i);
 
-    for (k=0; k<dim*dim; ++k) Aii[k] += dfdVi[k];
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
 
   }
 
@@ -430,9 +430,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
 //------------------------------------------------------------------------------
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
-                             SVec<double,dim> &V, GenMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+                             SVec<double,dim> &V, GenMat<Scalar,neq> &A, Scalar coefVol, double coefA)
 {
 
   Scalar dfdUi[dim*dim], dfdVi[dim*dim];
@@ -463,66 +463,21 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVo
 
     Scalar *Aii = A.getElem_ii(i);
 
-    for (k=0; k<dim*dim; ++k) Aii[k] += dfdVi[k];
-
-  }
-
-}
-
-
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim>
-template<class Scalar, int neq>
-void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
-			     SVec<double,dim> &V, GenMat<Scalar,neq> &A)
-{
-
-// Remark: This function is not valid if neq is different from 5
-
-  double dfdUi[neq*neq], dfdVi[neq*neq];
-
-  if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON) A *= 0.5;
-
-  double coef = data.alpha_np1;
-  if (data.use_modal == true && data.use_freq == false) {
-    A *= 2.0;
-    coef *= 3.0;
-  }
-  
-  double c_np1;
-  for (int i=0; i<dt.size(); ++i) {
-
-    if (nodeFlag && !nodeFlag[i]) continue;
-
-    if (data.use_freq == true)
-      c_np1 = data.alpha_np1 * ctrlVol[i];
-    else
-      c_np1 = coef * ctrlVol[i] / dt[i];
-
-    int k;
-    for (k=0; k<neq*neq; ++k) dfdUi[k] = 0.0;
-    for (k=0; k<neq; ++k) dfdUi[k + k*neq] = c_np1;
-
-    varFcn->postMultiplyBydUdV(V[i], dfdUi, dfdVi);
-  
-    Scalar *Aii = A.getElem_ii(i);
-
     for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
 
   }
 
 }
 
+
+
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
                 Vec<double> &ctrlVol, SVec<double,dim> &V,
-                GenMat<Scalar,dim> &A, Scalar shift)
+                GenMat<Scalar,neq> &A, Scalar shift)
 {
 
   Scalar dfdUi[dim*dim], dfdVi[dim*dim];
@@ -548,7 +503,7 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
 
     Scalar *Aii = A.getElem_ii(i);
 
-    for (k=0; k<dim*dim; ++k) Aii[k] += dfdVi[k];
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
 
   }
 
@@ -556,9 +511,9 @@ void TimeState<dim>::addToH2(bool *nodeFlag, VarFcn *varFcn,
 
 //------------------------------------------------------------------------------
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &ctrlVol,
-                                  SVec<double,dim> &V, GenMat<Scalar,dim> &A)
+                                  SVec<double,dim> &V, GenMat<Scalar,neq> &A)
 {
 
   double dfdUi[dim*dim], dfdVi[dim*dim];
@@ -585,7 +540,7 @@ void TimeState<dim>::addToH2Minus(bool *nodeFlag, VarFcn *varFcn, Vec<double> &c
 
     Scalar *Aii = A.getElem_ii(i);
 
-    for (k=0; k<dim*dim; ++k) Aii[k] += dfdVi[k];
+    for (k=0; k<neq*neq; ++k) Aii[k] += dfdVi[k];
 
   }
 

@@ -5,8 +5,7 @@
 #include <GeoSource.h>
 #include <DistVector.h>
 #include <MeshMotionSolver.h>
-#include <StructExc.h>
-#include <TimeData.h>
+//#include <StructExc.h>
 #include <MatVecProd.h>
 #include <KspPrec.h>
 #include <KspSolver.h>
@@ -14,20 +13,40 @@
 
 #include <math.h>
 
+#include <iostream>
 #include <string>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-FluidSensitivityAnalysisHandler<dim>::FluidSensitivityAnalysisHandler(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom), domain(dom),
-dXdS(dom->getNodeDistInfo()), dXdSb(dom->getNodeDistInfo()), Xc(dom->getNodeDistInfo()), 
-dAdS(dom->getNodeDistInfo()), dFdS(dom->getNodeDistInfo()), dUdS(dom->getNodeDistInfo()), 
-p(dom->getNodeDistInfo()), dPdS(dom->getNodeDistInfo()), Flux(dom->getNodeDistInfo()), 
-FluxFD(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), Uc(dom->getNodeDistInfo())
+FluidSensitivityAnalysisHandler<dim>::FluidSensitivityAnalysisHandler
+(
+  IoData &ioData,
+  GeoSource &geoSource,
+  Domain *dom
+) :
+ImplicitCoupledTsDesc<dim>(ioData, geoSource, dom),
+domain(dom),
+dXdS(dom->getNodeDistInfo()),
+dXdSb(dom->getNodeDistInfo()),
+Xc(dom->getNodeDistInfo()),
+dAdS(dom->getNodeDistInfo()),
+dFdS(dom->getNodeDistInfo()),
+dUdS(dom->getNodeDistInfo()),
+p(dom->getNodeDistInfo()),
+dPdS(dom->getNodeDistInfo()),
+Flux(dom->getNodeDistInfo()),
+FluxFD(dom->getNodeDistInfo()),
+Pin(dom->getFaceDistInfo()),
+Uc(dom->getNodeDistInfo())
 // Tests
-,Xplus(dom->getNodeDistInfo()), Xminus(dom->getNodeDistInfo()), dX(dom->getNodeDistInfo())
+, Xplus(dom->getNodeDistInfo())
+, Xminus(dom->getNodeDistInfo())
+, dX(dom->getNodeDistInfo())
 {
+
+  // Initialize
+  step = 0;
 
   if ( ioData.sa.scFlag == SensitivityAnalysis::FINITEDIFFERENCE ) {
     Xp = new DistSVec<double,3>(domain->getNodeDistInfo());
@@ -66,32 +85,41 @@ FluxFD(dom->getNodeDistInfo()), Pin(dom->getFaceDistInfo()), Uc(dom->getNodeDist
 
   Z = new DistSVec<double,3>(domain->getNodeDistInfo());
 
-  timeDataOpt = this->timeState->getDataOpt();
-
-  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)  {
-    if (ioData.sa.mvp == SensitivityAnalysis::FD)
-      mvp = new MatVecProdFD<dim,dim>(ioData.ts.implicit, this->timeState, this->geoState, this->spaceOp, domain, ioData, true);
-    else if (ioData.sa.mvp == SensitivityAnalysis::H2)
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
+  if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)  
+  {
+    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    {
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
+    }
+    else
+    {
+      mvp = new MatVecProdFD<dim,dim>(ioData.ts.implicit, this->timeState, this->geoState, this->spaceOp, domain, ioData);
+    }
   }
-  else {
-    if (ioData.sa.mvp == SensitivityAnalysis::FD)
-      mvp = new MatVecProdFD<dim,dim>(ioData.ts.implicit,  0, this->geoState, this->spaceOp, domain, ioData, true);
-    else if (ioData.sa.mvp == SensitivityAnalysis::H2)
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
+  else 
+  {
+    if (ioData.ts.implicit.mvp == ImplicitData::H2)
+    {
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
+    }
+    else
+    {
+      mvp = new MatVecProdFD<dim,dim>(ioData.ts.implicit,  0, this->geoState, this->spaceOp, domain, ioData);
+    }
   }
 
   pc = ImplicitTsDesc<dim>::template
-    createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.ns.pc, domain);
+    createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.pc, domain);
 
-  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp.ns, mvp, pc, this->com);
+  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
 
   MemoryPool mp;
 
   mvp->exportMemory(&mp);
   pc->exportMemory(&mp);
 
-  mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(), domain, 0);
+  if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH)
+    mms = new TetMeshMotionSolver(ioData.dmesh, geoSource.getMatchNodes(),domain,0);
 
   length = ioData.output.transient.length;
   surface = ioData.output.transient.surface;
@@ -119,8 +147,6 @@ FluidSensitivityAnalysisHandler<dim>::~FluidSensitivityAnalysisHandler()
 {
 
   if (mms) delete mms;
-
-  if (timeDataOpt) delete timeDataOpt;
 
   if (mvp) delete mvp;
 
@@ -157,7 +183,14 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
 //  this->com->fprintf(stderr, "\n\n Outlet Alpha = %20.17e \n\n",ioData.bc.outlet.alpha);
 //  this->com->fprintf(stderr, "\n\n Outlet Beta = %20.17e \n\n",ioData.bc.outlet.beta);
       
-  if (ioData.problem.mode == ProblemData::NON_DIMENSIONAL) {
+  if (ioData.problem.mode == ProblemData::NON_DIMENSIONAL) 
+  {
+
+    //
+    // UH (08/10)
+    // From IoDataCore::resetInputValues, the code does not allow NON_DIMENSIONAL.
+    // The following lines will not be executed.
+    //
 
     ioData.ref.mach = xmach;
     ioData.ref.dRe_mudMach = 0.0;
@@ -195,6 +228,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
   }
   else if (ioData.problem.mode == ProblemData::DIMENSIONAL) {
     
+    //
+    // Step 1: Re-scale all the parameters
+    //
+
     ioData.eqs.fluidModel.pmin *= ioData.ref.rv.pressure;
 
     ioData.bc.inlet.density *= ioData.ref.rv.density;
@@ -240,6 +277,11 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     ioData.eqs.gravity_z *= ioData.ref.rv.velocity / ioData.ref.rv.time;
     ioData.bc.hydro.depth *= ioData.ref.length;
 
+    //
+    // Step 2: Restart all values based on new inlet values
+    // Step 2.1: Reset values in ioData.ref
+    //
+
     ioData.ref.mach = ioData.bc.inlet.mach;
     ioData.ref.density = ioData.bc.inlet.density;
     ioData.ref.pressure = ioData.bc.inlet.pressure;
@@ -256,6 +298,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     double dvelocitydMach = sqrt(gamma * ioData.ref.pressure / ioData.ref.density);
     ioData.ref.dRe_mudMach = dvelocitydMach * ioData.ref.length * ioData.ref.density / viscosity;
     ioData.ref.dRe_lambdadMach = -3.0 * ioData.ref.dRe_mudMach/2.0;
+
+    //
+    // Step 2.2: Reset values in ioData.ref.rv
+    //
 
     ioData.ref.rv.mode = RefVal::DIMENSIONAL;
     ioData.ref.rv.density = ioData.ref.density;
@@ -280,12 +326,21 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
 
     ioData.eqs.fluidModel.pmin /= ioData.ref.rv.pressure;
 
+    //
+    // Step 2.3: Reset values of bc.inlet
+    //
+
     ioData.bc.inlet.density /= ioData.ref.rv.density;
     ioData.bc.inlet.pressure /= ioData.ref.rv.pressure;
     ioData.bc.inlet.temperature /= ioData.ref.rv.temperature;
     ioData.bc.inlet.nutilde /= ioData.ref.rv.nutilde;
     ioData.bc.inlet.kenergy /= ioData.ref.rv.kenergy;
     ioData.bc.inlet.eps /= ioData.ref.rv.epsilon;
+
+    //
+    // Step 2.4: Reset values of bc.outlet
+    //
+
     ioData.bc.outlet.density /= ioData.ref.rv.density;
     ioData.bc.outlet.pressure /= ioData.ref.rv.pressure;
     ioData.bc.outlet.temperature /= ioData.ref.rv.temperature;
@@ -349,7 +404,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaRestartBcFluxs(IoData &ioData)
     
     this->bcData->rstVar(ioData);
 
-    timeDataOpt->rstVar(ioData);
+    (this->timeState->getData()).rstVar(ioData);
 
     this->timeState->rstVar(ioData);
 
@@ -420,29 +475,32 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
                                                           Vec3D &dForces, Vec3D &dMoments)
 {
 
-//Remark: Error mesage for pointers
+  //
+  //Remark: Error mesage for pointers
+  //
+
   if (Up == 0) {
-    fprintf(stderr, "*** Error: Varible Fp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Up does not exist!\n");
     exit(1);
   }
   if (Um == 0) {
-    fprintf(stderr, "*** Error: Varible Fm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Um does not exist!\n");
     exit(1);
   }
   if (Xp == 0) {
-    fprintf(stderr, "*** Error: Varible Xp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xp does not exist!\n");
     exit(1);
   }
   if (Xm == 0) {
-    fprintf(stderr, "*** Error: Varible Xm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xm does not exist!\n");
     exit(1);
   }
   if (Ap == 0) {
-    fprintf(stderr, "*** Error: Varible Ap does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Ap does not exist!\n");
     exit(1);
   }
   if (Am == 0) {
-    fprintf(stderr, "*** Error: Varible Am does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Am does not exist!\n");
     exit(1);
   }
 
@@ -500,6 +558,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   alpradc=alprad;
   tetac=teta;
 
+  //
+  // Evaluate efforts at U + eps * dU
+  //
+
   Xc=X;
 
   *Xp=X+eps*dX;
@@ -530,6 +592,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   Fplus = Fip[0] + Fvp[0];
   Mp = Mip[0] + Mvp[0];
 
+  //
+  // Evaluate efforts at U - eps * dU
+  //
+  
   X=Xc;
 
   *Xm=X-eps*dX;
@@ -560,8 +626,16 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfEffortsFiniteDiffer
   Fminus = Fim[0] + Fvm[0];
   Mm = Mim[0] + Mvm[0];
 
+  //
+  // Compute the derivatives
+  //
+
   dF=1.0/(2.0*eps)*(Fplus-Fminus);
   dM=1.0/(2.0*eps)*(Mp-Mm);
+
+  //
+  // Reset values to the steady state
+  //
 
   X=Xc;
 
@@ -674,36 +748,36 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadFiniteDifferenc
 
 //Remark: Error mesage for pointers
   if (Up == 0) {
-    fprintf(stderr, "*** Error: Varible Up does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Up does not exist!\n");
     exit(1);
   }
   if (Um == 0) {
-    fprintf(stderr, "*** Error: Varible Um does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Um does not exist!\n");
     exit(1);
   }
   if (Xp == 0) {
-    fprintf(stderr, "*** Error: Varible Xp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xp does not exist!\n");
     exit(1);
   }
   if (Xm == 0) {
-    fprintf(stderr, "*** Error: Varible Xm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xm does not exist!\n");
     exit(1);
   }
   if (Lp == 0) {
-    fprintf(stderr, "*** Error: Varible Lp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Lp does not exist!\n");
     exit(1);
   }
   if (Lm == 0) {
-    fprintf(stderr, "*** Error: Varible Lm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Lm does not exist!\n");
     exit(1);
   }
   if (Ap == 0) {
-    fprintf(stderr, "*** Error: Varible Ap does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Ap does not exist!\n");
     exit(1);
   }
   if (Am == 0) {
 
-    fprintf(stderr, "*** Error: Varible Am does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Am does not exist!\n");
     exit(1);
   }
 
@@ -846,38 +920,43 @@ void FluidSensitivityAnalysisHandler<dim>::fsaGetDerivativeOfLoadAnalytical(IoDa
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, DistSVec<double,3> &X,
-                                                                                         DistVec<double> &A,
-
-
-                                                                                         DistSVec<double,dim> &U,
-                                                                                         DistSVec<double,dim> &dF)
+void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical
+(
+  IoData &ioData, 
+  DistSVec<double,3> &X,
+  DistVec<double> &A,
+  DistSVec<double,dim> &U,
+  DistSVec<double,dim> &dF
+)
 {
 
-//Remark: Error mesage for pointers
+  //
+  // Error mesage for pointers
+  //
+
   if (Fp == 0) {
-    fprintf(stderr, "*** Error: Varible Fp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Fp does not exist!\n");
     exit(1);
   }
   if (Fm == 0) {
-    fprintf(stderr, "*** Error: Varible Fm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Fm does not exist!\n");
     exit(1);
   }
   if (Xp == 0) {
-    fprintf(stderr, "*** Error: Varible Xp does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xp does not exist!\n");
 
     exit(1);
   }
   if (Xm == 0) {
-    fprintf(stderr, "*** Error: Varible Xm does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Xm does not exist!\n");
     exit(1);
   }
   if (Ap == 0) {
-    fprintf(stderr, "*** Error: Varible Ap does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Ap does not exist!\n");
     exit(1);
   }
   if (Am == 0) {
-    fprintf(stderr, "*** Error: Varible Am does not exist!\n");
+    fprintf(stderr, "*** Error: Variable Am does not exist!\n");
     exit(1);
   }
 
@@ -898,6 +977,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
   *Xm = 0.0;
   *Ap = 0.0;
   *Am = 0.0;
+
+  //
+  // Compute the first flux for the FD approach
+  //
 
   Xc=X;
 
@@ -923,6 +1006,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
   this->spaceOp->computeResidual(*Xp, *Ap, U, *Fp, this->timeState);
 
   this->spaceOp->applyBCsToResidual(U, *Fp);
+
+  //
+  // Compute the second flux for the FD approach
+  //
 
   X=Xc;
 
@@ -953,6 +1040,10 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 
   dF=1.0/(2.0*eps)*((*Fp)-(*Fm));
 
+  //
+  // Reset the steady state
+  //
+
   X=Xc;
 
   xmach=xmachc;
@@ -981,32 +1072,55 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSemiAnalytical(IoData &ioData, Dis
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical(IoData &ioData, DistSVec<double,3> &X,
-                                             DistVec<double> &A,
-                                             DistSVec<double,dim> &U,
-                                             DistSVec<double,dim> &dFdS)
+void FluidSensitivityAnalysisHandler<dim>::fsaAnalytical
+(
+  IoData &ioData, 
+  DistSVec<double,3> &X,
+  DistVec<double> &A,
+  DistSVec<double,dim> &U,
+  DistSVec<double,dim> &dFdS
+)
 {
  
-// Computing the normal, derivative of the normal and of the control volume
-    this->geoState->computeDerivatives(X, dXdS, this->bcData->getVelocityVector(), this->bcData->getDerivativeOfVelocityVector(), dAdS);
+  //
+  // Computing the normal, derivative of the normal and of the control volume
+  //
+  this->geoState->computeDerivatives
+  (
+    X, dXdS, this->bcData->getVelocityVector(),
+    this->bcData->getDerivativeOfVelocityVector(), dAdS
+  );
 
-// Computing the derivatives of the boundary fluxs
-    this->bcData->initializeSA(ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]);
+  //
+  // Computing the derivatives of the boundary fluxes
+  //
+  this->bcData->initializeSA
+  (
+    ioData, X, dXdS, DFSPAR[0], DFSPAR[1], DFSPAR[2]
+  );
 
-// Computing the partial derivative of the flux with respect to the fsaimization variables
-    this->spaceOp->computeDerivativeOfResidual(X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState);
+  //
+  // Computing the partial derivative of the flux with respect to the variables
+  //
+  this->spaceOp->computeDerivativeOfResidual
+  (
+    X, dXdS, A, dAdS, U, DFSPAR[0], Flux, dFdS, this->timeState
+  );
 
-    this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
-    
+  this->spaceOp->applyBCsToDerivativeOfResidual(U, dFdS);
+
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver(IoData &ioData, DistSVec<double,3> &X,
-                                                                                     DistVec<double> &A,
-                                                                                     DistSVec<double,dim> &U,
-                                                                                     DistSVec<double,dim> &dFdS)
+void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver
+(
+  IoData &ioData, DistSVec<double,3> &X,
+  DistVec<double> &A,
+  DistSVec<double,dim> &U,
+  DistSVec<double,dim> &dFdS
+)
 {
 
 // Prepraring the linear solver
@@ -1030,21 +1144,24 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver(IoData &ioData, 
 
   DistMat<PrecScalar,dim> *_pc = dynamic_cast<DistMat<PrecScalar,dim> *>(pc);
 
-  MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-  MatVecProdH2<MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<MatScalar,dim> *>(mvp);
+  if (_pc) {
 
-  if (mvpfd || mvph2) {
-    this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
+    MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
+    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
 
-    if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
-      this->timeState->addToJacobian(A, *_pc, U);
+    if (mvpfd || mvph2) 
+    {
+      this->spaceOp->computeJacobian(X, A, U, *_pc, this->timeState);
+      if (ioData.sa.homotopy == SensitivityAnalysis::ON_HOMOTOPY)
+        this->timeState->addToJacobian(A, *_pc, U);
+      this->spaceOp->applyBCsToJacobian(U, *_pc);
+    }
 
-    this->spaceOp->applyBCsToJacobian(U, *_pc);
-  }
+  } // END if (_pc)
 
   pc->setup();
 
-// Computing flux for compatibility correction of the derivative of the flux   
+  // Computing flux for compatibility correction of the derivative of the flux   
   this->spaceOp->computeResidual(X, A, U, Flux, this->timeState, false);
 
 }
@@ -1053,25 +1170,31 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver(IoData &ioData, 
 
 
 template<int dim>
-int FluidSensitivityAnalysisHandler<dim>::fsaLinearSolver(IoData &ioData, DistVec<double> &A, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS)
+void FluidSensitivityAnalysisHandler<dim>::fsaLinearSolver
+(
+  IoData &ioData, 
+  DistSVec<double,dim> &dFdS, DistSVec<double,dim> &dUdS
+)
 {
 
-  int numberIteration;
+  dUdS = 0.0;
 
   dFdS *= (-1.0);
-
   ksp->setup(0, 0, dFdS);
 
-  numberIteration = ksp->solve(dFdS, dUdS);
+  int numberIteration;
+  bool istop = false;
+  int iter = 0;
 
-  if (ioData.sa.excsol) {
-    if (numberIteration < ioData.sa.ksp.ns.maxIts)
-      return 1;
-    else
-      return 0;
+  while ((istop == false) && (iter < 100))
+  {
+    numberIteration = ksp->solve(dFdS, dUdS);
+    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
+      istop = true; 
+    iter += 1;
   }
-  else
-    return 1;
+
+  dFdS *= (-1.0);
 
 }
 
@@ -1164,6 +1287,9 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
   // DFSPAR(2)  -  angle of attack differential
   // DFSPAR(3)  -  yaw angle differential
 
+  // Start basic timer
+  double MyLocalTimer = -this->timer->getTime();
+
   this->output->openAsciiFiles();
 
 // Reseting the configuration control of the geometry datas
@@ -1186,13 +1312,13 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
   updateStateVectors(U);  
 
-// Setting up the linear solver
+  // Setting up the linear solver
   fsaSetUpLinearSolver(ioData, *this->X, *this->A, U, dFdS);
 
   if (ioData.sa.sensMesh == SensitivityAnalysis::ON_SENSITIVITYMESH) {
 
     bool stepStop = false;
-    double tag;
+    double tag = 0.0;
 
     step = ioData.sa.si;
     dXdS = 0.0;
@@ -1205,44 +1331,45 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
     while (!stepStop) {
 
-// Reading derivative of the overall deformation
+      // Reading derivative of the overall deformation
       domain->readVectorFromFile(this->input->shapederivatives, step, &tag, dXdSb);
 
 // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
 
-      if (dXdSb.norm() != 0.0) {
-
-        this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
-
-// Updating the mesh
-        mms->optSolve(ioData, 0, dXdSb, dXdS, *this->X);
-
-        fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
-  
-        fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
-
-        dXdS = 0.0;
-        dXdSb = 0.0;
-
-        if ((ioData.sa.sf >= 0) && (ioData.sa.sf == step)) {
-          stepStop = true;
-          fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
-        }
-        else {
-          step = step + 1;
-        }
-
+      if (dXdSb.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
+        exit(1);
       }
-      else {
 
+      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
+
+      // Updating the mesh
+      dXdS = *this->X;
+      mms->solve(dXdSb, dXdS);
+      dXdS -= *this->X;
+
+      // Check that the mesh perturbation is propagated
+      if (dXdS.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
+      }
+
+      fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+  
+      fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
+
+      dXdSb = 0.0;
+
+      step = step + 1;
+
+      if ((ioData.sa.sf >= 0) && (ioData.sa.sf < step))
         stepStop = true;
 
-        fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
-
-      }
-
     }
+
+    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
 
   }
 
@@ -1255,7 +1382,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     DFSPAR[2] = 0.0;
     actvar = 2;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the Mach number:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1276,11 +1403,11 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad) 
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
 
-    fsaComputeSensitivities(ioData, "Derivatives with respect to the algle of attck:", ioData.sa.sensoutput, *this->X, U);
+    fsaComputeSensitivities(ioData, "Derivatives with respect to the angle of attack:", ioData.sa.sensoutput, *this->X, U);
 
-    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the algle of attck were computed! \n");
+    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the angle of attack were computed! \n");
 
     step = step + 1;
 
@@ -1300,7 +1427,7 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
     if (!ioData.sa.angleRad)
       ioData.sa.eps *= acos(-1.0) / 180.0;
 
-    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U);
+    fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
 
     fsaComputeSensitivities(ioData, "Derivatives with respect to the yaw angle:", ioData.sa.sensoutput, *this->X, U);
 
@@ -1314,6 +1441,15 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 
   this->output->closeAsciiFiles();
 
+  this->com->barrier();
+  MyLocalTimer += this->timer->getTime();
+  if (this->com->cpuNum() == 0)
+  {
+    std::cout << "\n *** FluidSensityAnalysisHandler::fsaHandler >> Exit";
+    std::cout << " (" << MyLocalTimer << " s)";
+    std::cout << "\n\n";
+  }
+
   return -1;
 
 }
@@ -1321,25 +1457,28 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 //------------------------------------------------------------------------------
 
 template<int dim>
-void FluidSensitivityAnalysisHandler<dim>::fsaComputeDerivativesOfFluxAndSolution(IoData &ioData, DistSVec<double,3> &X, DistVec<double> &A, DistSVec<double,dim> &U)
+void FluidSensitivityAnalysisHandler<dim>::fsaComputeDerivativesOfFluxAndSolution
+(
+  IoData &ioData, 
+  DistSVec<double,3> &X, 
+  DistVec<double> &A, 
+  DistSVec<double,dim> &U,
+  int step
+)
 {
 
   dFdS = 0.0;
 
-  dUdS = 0.0;
-
-// Derivative of the Flux, either analytical or semi-analytical
+  // Derivative of the Flux, either analytical or semi-analytical
   if ( ioData.sa.scFlag == SensitivityAnalysis::ANALYTICAL )
     fsaAnalytical(ioData, X, A, U, dFdS);
   else
     fsaSemiAnalytical(ioData, X, A, U, dFdS);
 
-// Computing the derivative of the fluid variables with respect to the fsaimization variables
-  int istop = 0;
-  while (!istop) {
-    istop = fsaLinearSolver(ioData, A, X, U, dFdS, dUdS);
-    dFdS *= (-1.0);
-  }
+  // Computing the derivative of the fluid variables 
+  // with respect to the fsaimization variables
+  fsaLinearSolver(ioData, dFdS, dUdS);
+
 
 }
 
@@ -1391,10 +1530,23 @@ void FluidSensitivityAnalysisHandler<dim>::fsaComputeSensitivities(IoData &ioDat
   double sboom = 0.0;
   double dSboom = 0.0;
 
+  //
+  // This function is simply writing to the disk.
+  //
   this->output->writeDerivativeOfForcesToDisk(step, actvar, F, dFds, M, dMds, sboom, dSboom);
   
+  //
+  // This function is writing to the disk quantities of interest in binary files.
+  // The possible quantities of interest include
+  // - dUdS
+  // - Derivative of Scalar Quantities: Density, Mach, Pressure, Temperature, TotPressure,
+  //   NutTurb, EddyViscosity, VelocityScalar
+  // - Derivative of Vector Quantities: VelocityVector, Displacement
+  //
+  //
   this->output->writeBinaryDerivativeOfVectorsToDisk(step+1, actvar, DFSPAR, *this->X, dXdS, U, dUdS, this->timeState);
 
 }
 
 //------------------------------------------------------------------------------
+

@@ -324,6 +324,7 @@ GmresSolver(const typename VecType::InfoType &info, KspData &data,
   pages = "856--869",
 } 
 */
+
 template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class ScalarT>
 int 
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solve(VecType &b, VecType &x)
@@ -449,7 +450,7 @@ template<class VecType, class MatVecProdOp, class PrecOp, class IoOp, class Scal
 int
 GmresSolver<VecType,MatVecProdOp,PrecOp,IoOp, ScalarT>::solveLS(VecType &b, VecType &x)
 {
-  int typePrec = 0;
+  int typePrec = 2;
   double beta, l2res, target;
 
   int iter = 0;

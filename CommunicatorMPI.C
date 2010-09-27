@@ -294,7 +294,9 @@ void* operator new[](size_t size, Communicator &) {
 #ifdef USE_MPI
         MPI_Alloc_mem(size, MPI_INFO_NULL, &a);
 #else // USE_MPI
-	a = malloc(size);
+	// Changed by Adam and Julien 2010.07.30
+	//	a = malloc(size);
+	a = operator new[](size);
 #endif // USE_MPI
 	if( !a ) {
 
@@ -309,6 +311,8 @@ void operator delete[](void *p, Communicator &) {
 #ifdef USE_MPI
 	MPI_Free_mem(p);
 #else // USE_MPI
-	free(p);
+	// Changed by Adam and Julien 2010.07.30
+	//	free(p);
+	operator delete[] (p);
 #endif // USE_MPI
 }

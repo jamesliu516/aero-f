@@ -30,15 +30,27 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 {
   timeType = ioData.ts.expl.type;
 
-  if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
-  else FE = false;
+  if(ioData.ts.expl.type == ExplicitData::RUNGE_KUTTA_4) RK4 = true;
+  else {
+    RK4 = false;
+    if(ioData.ts.expl.type == ExplicitData::FORWARD_EULER) FE = true;
+    else FE = false;
+  } // if RK4 and FE are both false, do RK2.
 
   //initialize mmh (EmbeddedMeshMotionHandler).
-  if(this->dynNodalTransfer) {
-    MeshMotionHandler *_mmh = 0;
-    _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
-    this->mmh = _mmh;
-  } else this->mmh = 0;
+  if(this->dynNodalTransfer) 
+    {
+      /*
+      MeshMotionHandler *_mmh = 0;
+      _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+      this->mmh = _mmh;
+      */
+      this->mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+    } 
+  else
+    { 
+      this->mmh = 0;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -66,10 +78,9 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLSystemOneBlock(DistSVec<double,dim> &U)
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
   commonPart(U);
-  if(!FE) 
-    solveNLAllRK2(U,t0,Ubc);
-  else
-    solveNLAllFE(U,t0,Ubc); 
+  if(RK4)     solveNLAllRK4(U,t0,Ubc);
+  else if(FE) solveNLAllFE(U,t0,Ubc);
+  else        solveNLAllRK2(U,t0,Ubc);
 } 
 
 //------------------------------------------------------------------------------
@@ -80,8 +91,26 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
   if(this->mmh && !this->inSubCycling) {
-    //store previous states for phase-change update
+    //get structure timestep dts
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+
+    //recompute intersections
     double tw = this->timer->getTime();
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
+    this->timer->addIntersectionTime(tw);
+    this->com->barrier();
+    this->timer->removeIntersAndPhaseChange(tw);
+    if(this->riemannNormal==2)
+      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
+
+    //update nodeTags (only for numFluid>1)
+ //   if(this->numFluid>1) {
+      this->nodeTag0 = this->nodeTag;
+      this->nodeTag = this->distLSS->getStatus();
+ //   }
+
+    //store previous states for phase-change update
+    tw = this->timer->getTime();
     switch(this->phaseChangeChoice) {
       case 0:
         if(this->numFluid==1)
@@ -89,7 +118,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
                                                          *this->VWeights, this->distLSS);
         else //numFluid>1
           this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
         break;
       case 1:
         if(this->numFluid==1)
@@ -99,31 +128,12 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
         else //numFluid>1
           this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
                                                          *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->distLSS, &this->nodeTag);
+                                                         this->distLSS, &this->nodeTag0);
         break;
     }
     this->timer->addEmbedPhaseChangeTime(tw);
     this->com->barrier();
     this->timer->removeIntersAndPhaseChange(tw);
-
-    //get structure timestep dts
-    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
-
-    //recompute intersections
-    tw = this->timer->getTime();
-    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts); 
-    this->timer->addIntersectionTime(tw);
-    this->com->barrier();
-    this->timer->removeIntersAndPhaseChange(tw);
-    if(this->riemannNormal==2)
-      this->spaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
-
-
-    //update nodeTags (only for numFluid>1)
-    if(this->numFluid>1) {
-      this->nodeTag0 = this->nodeTag;
-      this->nodeTag = this->distLSS->getStatus();
-    }
 
     //update phase-change
     tw = this->timer->getTime();
@@ -140,7 +150,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
-      this->ghostPoints->nullifyPointers();
+      this->ghostPoints->deletePointers();
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
     }
 }
@@ -172,6 +182,12 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
+  // Ghost-Points Population
+  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+    {
+      this->ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->ghostPoints,U0,this->varFcn,this->distLSS,this->nodeTag);
+    }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);
@@ -186,8 +202,41 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
 //-----------------------------------------------------------------------------
 
 template<int dim>
+void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc)
+{
+  computeRKUpdate(U, k1, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - k1;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k2, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - 0.5 * k2;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k3, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U0 = U - k3;
+  this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+
+  computeRKUpdate(U0, k4, 1);
+  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
+  this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
+
+  this->spaceOp->applyBCsToSolutionVector(U);
+
+  checkSolution(U);
+  this->timer->addFluidSolutionTime(t0);
+}
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
 void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
                                   DistSVec<double,dim>& dU, int it)
+//KW: 'it', positive or not, determines if Wstar, the Riemann solution (per edge), will be updated.
+//    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal); //KW: (?)only for Navier-Stokes.
 

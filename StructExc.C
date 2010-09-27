@@ -18,6 +18,11 @@
 #define NEGO_NUM_TAG 10000
 #define NEGO_BUF_TAG 10001
 
+#define WET_SURF_TAG1 555
+#define WET_SURF_TAG2 666
+#define WET_SURF_TAG3 888
+
+
 //------------------------------------------------------------------------------
 
 StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Communicator* fluidCom, int nSub)
@@ -182,6 +187,31 @@ double StructExc::getInfo()
 
   return mppFactor;
 
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getEmbeddedWetSurfaceInfo(int& nNodes, int& nElems)
+{
+  int info[2];
+  if(strCom->cpuNum()==0) 
+    strCom->recFrom(WET_SURF_TAG1, info, 2);
+  com->broadcast(2, info);
+  nNodes = info[0];
+  nElems = info[1];
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getEmbeddedWetSurface(int nNodes, double *nodes, int nElems, int *elems)
+{
+  if(strCom->cpuNum()==0)
+    strCom->recFrom(WET_SURF_TAG2, nodes, nNodes*3);
+  com->broadcast(nNodes*3, nodes);
+
+  if(strCom->cpuNum()==0)
+    strCom->recFrom(WET_SURF_TAG3, elems, nElems*3);
+  com->broadcast(nElems*3, elems);
 }
 
 //------------------------------------------------------------------------------

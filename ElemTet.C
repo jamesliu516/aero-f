@@ -44,14 +44,14 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   double *v[4]  = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
 
   // Embedded Case. Replace states in the structure by Ghost States
-  if(ghostPoints) // Then LSS is also a non null pointer. It has already been checked in Domain.C
+  if(ghostPoints && isAtTheInterface) // Then LSS is also a non null pointer. It has already been checked in Domain.C
     {
       GhostPoint<dim> *gp;
       for(int i=0;i<4;++i)
 	{
-	  gp = ghostPoints->operator[](nodeNum(i));
 	  if(!(LSS->isActive(0,nodeNum(i))))
 	    {
+	      gp   = ghostPoints->operator[](nodeNum(i));
 	      v[i] = gp->getPrimitiveState();
 	    }
 	}
@@ -71,7 +71,7 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
   bool porousTermExists =  fet->computeVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(r),
                                                   s, pr, vol, X, nodeNum(), volume_id);
 
-  if(ghostPoints) // We don't want to update States associated to ghost points
+  if(ghostPoints && isAtTheInterface) // We don't want to update States associated to ghost points
     {
       for (int j=0; j<4; ++j) {
 	int idx = nodeNum(j);
