@@ -38,35 +38,40 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 		for (int j = 0; j < 3; ++j)
 			bcFaces[i][j] = new std::vector< int > [BC_CODE_EXTREME];
 	}
-
-	// from sower user manual
-	
-	boundaryConditionsMap.insert(pair<int, std::string > (-5, "OutletMoving"));
-	boundaryConditionsMap.insert(pair<int, std::string > (-4, "InletMoving"));
-	boundaryConditionsMap.insert(pair<int, std::string > (-3, "StickMoving"));
-	boundaryConditionsMap.insert(pair<int, std::string > (0, "Internal"));
-	boundaryConditionsMap.insert(pair<int, std::string > (2, "SlipFixed"));
-	boundaryConditionsMap.insert(pair<int, std::string > (3, "StickFixed"));
-	boundaryConditionsMap.insert(pair<int, std::string > (4, "InletFixed"));
-	boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
-	boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
 	
 }
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
 {
-	// KTC: MAKE SURE TO DO GARBAGE COLLECTION!
 	for (int i = 0; i < 2; ++i) {
-		delete [] bcIsland[i];
 		for (int j = 0; j < 3; ++j)
 			delete [] bcFaces[i][j];
+		delete [] bcIsland[i];
 	}
-
 
 	for (int i = 0; i < nSampleNodes * dim; ++i)  
 		delete [] onlineMatrices[0][i];
 	delete [] onlineMatrices[0];
 	
+	delete [] cpuSet;
+	delete [] locSubSet;
+	delete [] locNodeSet;
+	delete [] globalNodeSet;
+	delete [] nodesToHandle;
+	delete [] nodes;
+
+	for (int i = 0; i < 3; ++i)
+		delete [] nodesXYZ[i];
+	delete [] elements;
+	for (int i = 0; i < 4; ++i)
+		delete [] elemToNode[i];
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)
+			delete [] podHatPseudoInv[iPodBasis][iRhs];
+		delete [] podHatPseudoInv[iPodBasis];
+	}
+	// ktc: failing in destruction of vecset<distsvec>
 }
 	//---------------------------------------------------------------------------------------
 
@@ -74,10 +79,10 @@ template<int dim>
 void GappyOffline<dim>::buildGappy() {
 
 	// KTC DEBUG
-	int debugWait = 1;
+	int dbgwait = 0;
 	int thisCPU = com->cpuNum();
 	if (thisCPU == 0)
-		while (debugWait);
+		while (dbgwait);
 	
 	setUpPodBases();
 
@@ -87,7 +92,10 @@ void GappyOffline<dim>::buildGappy() {
 
 	// compute matries A and B required online
 
+	 com->barrier();
    buildGappyMatrices();
+
+   com->fprintf(stderr," ... finished with buildGappy ...\n");
 
 // STRATEGY
 // compute the mesh for the masked domain
@@ -141,7 +149,7 @@ void GappyOffline<dim>::setUpPodBases() {
 	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");//DA
 	// XXX: nSampleNodes will be an input
 
-	nSampleNodes = ceil(double(nPodMax)/double(dim));	// this will give interpolation or the smallest possible least squares
+	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
 
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
 	assert(nSampleNodes * dim >= max(nPod[0],nPod[1])); // KTC debug
@@ -241,7 +249,7 @@ void GappyOffline<dim>::buildGappyMesh() {
 	// output TOP file
 	//==============================================
 	
-	outputTopFile();
+	if (thisCPU == 0) outputTopFile();
 }
 
 
@@ -269,11 +277,11 @@ void GappyOffline<dim>::computeGreedyIterationInfo() {
 
 	if (nSampleNodes * dim < nPodMax) {	
 		int nSampleNodesOld = nSampleNodes; 
-		nSampleNodes = ceil(double(nPodMax)/double(dim)); 
+		nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim))); 
 		com->fprintf(stderr,"Warning: not enough sample nodes! Increasing number of sample nodes from %d to %d",nSampleNodesOld,nSampleNodes);
 	}
 
-	nRhsMax = ceil(double(nPodMax)/double(nSampleNodes)); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
+	nRhsMax = static_cast<int>(ceil(double(nPodMax)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
 
 	// the following should always hold !this should always be true because of the above fix (safeguard)!
 	
@@ -769,7 +777,7 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 
 		Scalar *nodeOrEleArray = new Scalar [numNeigh[nTotCpus]];
 		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) {
-			if (iNeighbor >= numNeigh[thisCPU] || iNeighbor < numNeigh[thisCPU+1]) 
+			if (iNeighbor >= numNeigh[thisCPU] && iNeighbor < numNeigh[thisCPU+1]) 
 				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
 			else
 				nodeOrEleArray[iNeighbor] = 0;
@@ -932,7 +940,17 @@ void GappyOffline<dim>::outputTopFile() {
 
 	 // write out boundary faces
 
-	 std::string boundaryCond;	// boundary condition name in sower format
+		// from sower user manual
+		
+		boundaryConditionsMap.insert(pair<int, std::string > (-5, "OutletMoving"));
+		boundaryConditionsMap.insert(pair<int, std::string > (-4, "InletMoving"));
+		boundaryConditionsMap.insert(pair<int, std::string > (-3, "StickMoving"));
+		boundaryConditionsMap.insert(pair<int, std::string > (0, "Internal"));
+		boundaryConditionsMap.insert(pair<int, std::string > (2, "SlipFixed"));
+		boundaryConditionsMap.insert(pair<int, std::string > (3, "StickFixed"));
+		boundaryConditionsMap.insert(pair<int, std::string > (4, "InletFixed"));
+		boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
+		boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
 
 	 for (int iSign = 0; iSign < 2; ++iSign) {
 		 for (int iBCtype = 0; iBCtype < max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
@@ -941,7 +959,7 @@ void GappyOffline<dim>::outputTopFile() {
 				 ++reducedFaceCount;
 				 if (iFace == 0) {	// only output the first time (and only if size > 0)
 					 int boundaryCondNumber = iBCtype * ((iSign > 0)*2 - 1) ;	// returns boundary condition number
-					 boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
+					 std::string boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
 					 com->fprintf(reducedMesh,"Elements %sSurface using FluidNodes\n",boundaryCond.c_str());
 				 }
 				 int whichIsland = bcIsland[iSign][iBCtype][iFace];	// island defines global to reduced node mapping
@@ -968,6 +986,7 @@ void GappyOffline<dim>::outputTopFile() {
 	 
 	 delete [] outMeshFile;
 	 delete [] outSampleNodeFile;
+	 delete [] sampleToReducedNodeNumbering;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1009,8 +1028,7 @@ void GappyOffline<dim>::buildGappyMatrices() {
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
 	// DistSVec defined on the reduced mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
-	outputOnlineMatrices();
-
+	if (thisCPU == 0) outputOnlineMatrices();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1049,6 +1067,8 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 	// A: (nSampleNodes * dim) x nPod
 	parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
 			nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]);
+	//parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
+//				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 
 	if (iPodBasis == 0)	// set them equal by default
 		podHatPseudoInv[1] = podHatPseudoInv[0];
@@ -1176,4 +1196,6 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 			 }
 		 }
 	 }
+	 delete [] onlineMatrixFile[0];
+	 delete [] onlineMatrixFile[1];
 }

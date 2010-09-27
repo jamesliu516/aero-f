@@ -47,7 +47,7 @@ class StaticArray {	//used for the value of a map
 		Scalar a [size];
 	public:
 		// use a to access pointer to vecset, use [] to access the vecset itself
-		StaticArray() { for (int i=0; i<size; ++i) a[i] = 0.0;}
+		StaticArray() { for (int i=0; i<size; ++i) a[i] = static_cast<Scalar>(0);}
 		StaticArray(Scalar b [size]){ for (int i=0; i<size; ++i) a[i] = b[i];}
 		StaticArray(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
 		StaticArray& operator=(const StaticArray &other){ for (int i=0; i<size; ++i) a[i] = other.a[i];}
@@ -76,7 +76,7 @@ private:
 	IoData *ioData;	
 	TsInput *tInput;
 	DistGeoState *geoState;
-	DistSVec<double,3> X;
+	DistSVec<double,3> &X;
 
 	const int residual;	// refer to residual as 0
 	const int jacobian;
