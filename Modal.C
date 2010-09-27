@@ -2210,7 +2210,7 @@ void ModalSolver<dim>::evalFluidSys(VecSet<DistSVec<double, dim> > &podVecs, int
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData); 
-  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+ MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain);
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > romOperator(nPodVecs, nPodVecs);
@@ -2265,7 +2265,7 @@ void ModalSolver<dim>::evalAeroSys(VecSet<Vec<double> > &outRom,
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData);  
-  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain);
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  VecSet<Vec<double> > ecVecs(nStrMode, nPodVecs);
