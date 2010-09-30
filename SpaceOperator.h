@@ -364,17 +364,21 @@ public:
   MultiPhaseSpaceOperator(const MultiPhaseSpaceOperator<dim,dimLS> &, bool);
   ~MultiPhaseSpaceOperator();
 
-
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                        FluidSelector &, DistSVec<double,dim> &,
                        DistExactRiemannSolver<dim> *, int it,
                        DistSVec<double,dim> * = 0,
                        DistSVec<double,dim> * = 0);
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
+                       DistSVec<double,dim> &, DistLevelSetStructure *, bool, DistExactRiemannSolver<dim> *, 
+                       int, DistSVec<double,3> *, DistSVec<double,dimLS> &, FluidSelector &, 
+                       DistSVec<double,dim> &, int, DistSVec<double,dim> *, DistSVec<double,dim> *, 
+                       DistVec<GhostPoint<dim>*> *);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 
-                         DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+                         DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true);
 
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
@@ -384,6 +388,18 @@ public:
   template<class Scalar>
   void computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
 			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId);
+
+  // for phase-change update
+  void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
+  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                                       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                                       DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
+                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, 
+                                       DistVec<int> *fluidId);
+  void updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
+                         DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
+                         DistSVec<double,dimLS> *PhiWeights,
+                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
 
 };
 //------------------------------------------------------------------------------

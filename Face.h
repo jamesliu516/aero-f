@@ -602,14 +602,15 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
 			       double *Ub, Vec<int> &fluidId, 
-			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux);
+			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux, 
+                               LevelSetStructure* = 0);
 
-  template<int dim>
+  template<int dim>  //TODO: not needed!
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
                                Vec<double> &normalVel, LevelSetStructure &LSS, SVec<double,dim> &V,
                                double *Ub, SVec<double,dim> &fluxes);
 
-  template<int dim>
+  template<int dim>  //TODO: not needed!
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, LevelSetStructure &LSS, SVec<double,dim> &V,
 			       double *Ub, SVec<double,dim> &fluxes, Vec<int> &fluidId);
@@ -1000,13 +1001,14 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &, Vec<int> &, 
-                               SVec<double,dim> &, SVec<double,dim> *);
+                               SVec<double,dim> &, SVec<double,dim>* =0,
+                               LevelSetStructure* =0);
 
-  template<int dim>
+  template<int dim> //TODO: not needed!
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &, 
 			       SVec<double,dim> &, SVec<double,dim> &);
 
-  template<int dim>
+  template<int dim> //TODO: not needed!
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &,
 			       Vec<int> &, SVec<double,dim> &, SVec<double,dim> &);
 

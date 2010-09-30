@@ -110,7 +110,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
                                                          *this->VWeights, this->distLSS);
         else //numFluid>1
           this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
-                                                         *this->VWeights, this->distLSS, &this->nodeTag);
+                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
         break;
       case 1:
         if(this->numFluid==1)
@@ -120,7 +120,7 @@ void ExplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
         else //numFluid>1
           this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
                                                          *this->Wstarji, *this->Weights, *this->VWeights,
-                                                         this->distLSS, &this->nodeTag);
+                                                         this->distLSS, &this->nodeTag0);
         break;
     }
     this->timer->addEmbedPhaseChangeTime(tw);
@@ -181,7 +181,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
     }
   computeRKUpdate(U0, k2, 1);
-  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 
@@ -195,24 +195,24 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
 
 template<int dim>
 void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double t0, DistSVec<double,dim> &Ubc)
-{
+{ //TODO: no Ghost-Points Population ???
   computeRKUpdate(U, k1, 1);
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
   computeRKUpdate(U0, k2, 1);
-  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
   computeRKUpdate(U0, k3, 1);
-  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
 
   computeRKUpdate(U0, k4, 1);
-  this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
+  this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 

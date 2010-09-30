@@ -1119,6 +1119,7 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 { return domain->computeRealFluidResidual(F, Freal, dLSS); }
 
 //------------------------------------------------------------------------------
+
 template<int dim>
 void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -1877,7 +1878,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0)
     this->ngrad->limit(this->recFcn, X, ctrlVol, *(this->V));
-  //if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
+  //if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)  /*TODO: WHY? */
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
@@ -1906,7 +1907,8 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                            DistSVec<double,dimLS> &Phi, DistVec<int> &fluidId, DistSVec<double,dim> &U,
-                                           DistSVec<double,dimLS> &PhiF)
+                                           DistSVec<double,dimLS> &PhiF, DistLevelSetStructure *distLSS,
+                                           bool linRecAtFSInterface)
 {
   PhiF = 0.0;
 
@@ -1919,7 +1921,11 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   }
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
-    ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, Phi);
+    if(distLSS)
+      ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), Phi, linRecAtFSInterface);
+    else
+      ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, Phi);
+
   if (this->egrad)
     this->egrad->compute(this->geoState->getConfig(), X);
 
@@ -1931,7 +1937,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 
 
   this->domain->computeFiniteVolumeTermLS(this->fluxFcn, this->recFcn, recFcnLS, *(this->bcData), *(this->geoState), X, *(this->V),
-                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF);
+                                    *(this->ngrad), *ngradLS, this->egrad, Phi, PhiF, distLSS);
 
   if (this->use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
@@ -1943,6 +1949,74 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
         double invcv = 1.0 / cv[i];
         for (int idim=0; idim<dimLS; idim++)
           r[i][idim] *= invcv;
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol, DistSVec<double,dim> &U, 
+                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                     DistLevelSetStructure *distLSS, bool linRecAtInterface, DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar,
+                     DistSVec<double,dimLS> &PhiV, FluidSelector &fluidSelector, DistSVec<double,dim> &R, int it,
+                     DistSVec<double,dim> *bcFlux, DistSVec<double,dim> *interfaceFlux, DistVec<GhostPoint<dim>*> *ghostPoints)
+{
+  R = 0.0;
+  this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
+    double t0 = this->timer->getTime();
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V), linRecAtInterface);
+    this->timer->addNodalGradTime(t0);
+  }
+
+  if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0){
+    double t0 = this->timer->getTime();
+    ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), PhiV, linRecAtInterface);
+    //fluid Id (status) is used only to distinguish different materials. By using distLSS->getStatus(), we allow crossing FF interface but not FS interface.
+    //  One can alternatively try to use fluidSelector.fluidId, which avoids crossing both FF and FS interfaces.
+    this->timer->addNodalGradTime(t0);
+  }
+
+  if (this->egrad)
+    this->egrad->compute(this->geoState->getConfig(), X);
+
+  if (this->xpol)
+    this->xpol->compute(this->geoState->getConfig(),this->geoState->getInletNodeNorm(), X);
+
+  if (this->fet) {
+    this->domain->computeGalerkinTerm(this->fet,*(this->bcData),*(this->geoState),X,*(this->V),R,ghostPoints,distLSS);
+    this->bcData->computeNodeValue(X);
+  }
+
+  if (this->volForce)
+    this->domain->computeVolumicForceTerm(this->volForce, ctrlVol, *(this->V), R);
+
+  if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0)
+    this->ngrad->limit(this->recFcn, X, ctrlVol, *(this->V));
+
+//  if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
+//    ngradLS->limit(recFcnLS, X, ctrlVol, PhiV);
+
+  //Now compute the FV fluxes!
+  this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
+                                  *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
+                                  Nriemann, Nsbar, *(this->ngrad), this->egrad,
+                                  *ngradLS, R, it, bcFlux, interfaceFlux,
+                                  this->failsafe,this->rshift);
+
+  if (this->use_modal == false)  {
+    int numLocSub = R.numLocSub();
+#pragma omp parallel for
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      double *cv = ctrlVol.subData(iSub);
+      double (*r)[dim] = R.subData(iSub);
+      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
+        double invcv = 1.0 / cv[i];
+        for (int j=0; j<dim; ++j)
+          r[i][j] *= invcv;
       }
     }
   }
@@ -1987,3 +2061,115 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobianLS(DistSVec<double,3> &X
   A = 0.0;
   this->domain->computeJacobianFiniteVolumeTermLS(this->recFcn, recFcnLS,*(this->geoState),X,V,*(this->ngrad), *ngradLS,this->egrad,ctrlVol, Phi,A);
 }
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV)
+{
+  DistVec<int> &fsId(distLSS->getStatus());
+
+// set PhiV = 0 for 1) isolated regions, and 2) nodes under phase-change, because they will not be used.
+// this might be redundant. but it's safer to do it.
+#pragma omp parallel for
+  for(int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<double,dimLS>& subPhiV(PhiV(iSub));
+    Vec<int>& subId(fsId(iSub));
+
+    for(int i=0; i<subPhiV.size(); i++)
+      if(subId[i]!=0 || LSS.isSwept(0.0,i))
+        for(int k=0; k<dimLS; k++)
+          subPhiV[i][k] = 0.0;
+  }
+
+  this->domain->extrapolatePhiV(distLSS,PhiV);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U,
+                           DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistSVec<double,dimLS> &Phi,
+                           DistSVec<double,dimLS> &PhiWeights, DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
+{
+  this->varFcn->conservativeToPrimitive(U, V, fluidId0);
+  Weights = 0.0;
+  VWeights = 0.0;
+  PhiWeights = 0.0;
+  this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights, distLSS, fluidId);
+}
+
+//------------------------------------------------------------------------------
+
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange(DistSVec<double,dim> &V,
+                             DistSVec<double,dim> &U,
+                             DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
+                             DistSVec<double,dimLS> *Phi, DistSVec<double,dimLS> *PhiWeights,
+                             DistLevelSetStructure *distLSS, double* vfar,
+                             DistVec<int> *fluidId)
+{
+  SubDomain **subD = this->domain->getSubDomain();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<double,dim> &subV(V(iSub));
+    Vec<double> &subWeights((*Weights)(iSub));
+    SVec<double,dim> &subVWeights((*VWeights)(iSub));
+    SVec<double,dimLS> &subPhi((*Phi)(iSub));
+    SVec<double,dimLS> &subPhiWeights((*PhiWeights)(iSub));
+
+    for(int i=0;i<subV.size();++i){
+      if(!LSS.isSwept(0.0,i)) 
+        continue;
+      if(!LSS.isActive(0.0,i)) {
+        for(int iDim=0; iDim<dim; iDim++) 
+          subV[i][iDim] = vfar[iDim];
+        for(int iDim=0; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = -1.0; //not really needed.
+        continue;
+      }
+
+      if(subWeights[i] <= 0.0){
+        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
+        exit(-1);
+      } else {
+        for (int iDim=0; iDim<dim; iDim++) 
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
+        for (int iDim=0; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = subPhiWeights[i][iDim] / subWeights[i];
+      }
+    }
+  }
+  this->varFcn->primitiveToConservative(V, U, fluidId);
+}
+
+//-----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

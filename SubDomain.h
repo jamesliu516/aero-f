@@ -54,7 +54,6 @@ class MatchNodeSet; // HB
 class VolumicForceTerm;
 class TriangulatedSurface;
 class TimeLowMachPrec;
-class EulerStructGhostFluid;
 class FluidSelector;
 
 struct V6NodeData;
@@ -265,6 +264,8 @@ public:
   void avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight);
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], SVec<double,dim> &U);
+
+  void setupFluidIdVolumesInitialConditions(const int volid, const int myId, Vec<int> &fluidId);
   //template<int dim>
   //void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
   //           SphereData &ic, SVec<double,3> &X, SVec<double,dim> &U);
@@ -362,7 +363,20 @@ public:
                               SVec<double,dim>&, int, SVec<double,dim> *,
                               SVec<double,dim> *,
                               SVec<int,2>&, int, int);
-  template<int dim>
+
+  template<int dim, int dimLS>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&,
+                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure&, bool,
+                              Vec<int> &, int, SVec<double,3>*, FluidSelector &,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              NodalGrad<dimLS>&,
+                              SVec<double,dim>&, int, SVec<double,dim> *,
+                              SVec<double,dim> *,
+                              SVec<int,2>&, int, int);
+
+  template<int dim> //to be deleted!
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&,
@@ -380,7 +394,7 @@ public:
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, BcData<dim>&, GeoState&,
                                SVec<double,3>&, SVec<double,dim>&,
                                NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*, SVec<double,dimLS>&,
-                               SVec<double,dimLS>&);
+                               SVec<double,dimLS>&, LevelSetStructure* =0);
   template<int dim>
   int computeFiniteVolumeBar_Step1(Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&, SVec<double,3>& ,
                                     SVec<double,dim>&, NodalGrad<dim> &, EdgeGrad<dim>* , SVec<double,dim>&,
@@ -837,6 +851,12 @@ public:
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
+  template<int dim, int dimLS>
+  void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
+                      SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, Vec<double> &Weights, 
+                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId);
+  template<int dimLS>
+  void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);

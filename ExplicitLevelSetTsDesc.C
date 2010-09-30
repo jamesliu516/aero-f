@@ -302,6 +302,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
     //                                 this->Vgfweight, this->riemann);
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
+       //TODO(KW): Why is it U0 instead of U ???
   }
 
   checkSolution(U);
@@ -435,7 +436,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
 template<int dim, int dimLS>
 void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> &U)
 {
-
+//TODO(KW): Don't need the mumbo jumbo "computePrdtPhi..." ???
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);

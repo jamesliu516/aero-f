@@ -2625,13 +2625,13 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
     }
 
   //-----------------------------------------------------------------
-
+/*
   if(it==1){
     weightj += 1.0;
     for (int k=0; k<dim; k++)
       rupdatej[k] += Wstar[k];  //TODO: rupdate is never used for FSI. (only used for MPF)
   }
-
+*/
 }
 //------------------------------------------------------------------------------
 

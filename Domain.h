@@ -331,6 +331,9 @@ public:
 
   template<int dim>
   void setupUVolumesInitialConditions(const int volid, double UU[dim], DistSVec<double,dim> &U);
+
+  void setupFluidIdVolumesInitialConditions(const int volid, const int myId, DistVec<int> &fluidId);
+
   //template<int dim>
   //void setupUMultiFluidInitialConditionsSphere(FluidModelData &fm,
   //           SphereData &ic, DistSVec<double,3> &X, DistSVec<double,dim> &U);
@@ -348,6 +351,13 @@ public:
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                           DistLevelSetStructure *distLSS);
+  template<int dim, int dimLS>
+  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
+                          DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+                          DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
+                          DistLevelSetStructure *distLSS, DistVec<int> *fluidId);
+  template<int dimLS>
+  void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
 
   template<int dim>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
@@ -409,8 +419,17 @@ public:
                                int, DistSVec<double,dim> *, DistSVec<double,dim> *,
                                int, int);
 
+  // for multi-phase fluid-structure interaction under embedded framework 
+  template<int dim, int dimLS>
+  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&, 
+                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+                               DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
+                               DistSVec<double,dim>&, DistLevelSetStructure*, bool, FluidSelector&,
+                               int, DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+                               DistNodalGrad<dimLS>&, DistSVec<double,dim>&, int, DistSVec<double,dim>*,
+                               DistSVec<double,dim>*, int, int);
 
- template<int dim>
+  template<int dim> //TODO: should delete this one!
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
                                FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
@@ -432,7 +451,8 @@ public:
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, DistBcData<dim>&, DistGeoState&,
                                DistSVec<double,3>&, DistSVec<double,dim>&,
                                DistNodalGrad<dim>&, DistNodalGrad<dimLS>&, DistEdgeGrad<dim>*,
-                               DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
+                               DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,
+                               DistLevelSetStructure * = 0);
 
   template<int dim>
   void computeFiniteVolumeBarTerm(DistVec<double> &, DistVec<double> &, FluxFcn**,
