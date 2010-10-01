@@ -247,7 +247,7 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
                           nz*(x[i][2]-planeIt->second->cen_z); // positive in the direction of n
           if(planeIt->second->fluidModelID > 0)
             if(scalar>0.0) {
-              int myId = planeIt->second->fluidModelID-1;
+              int myId = planeIt->second->fluidModelID;
               if(fId[i]>0 && fId[i]!=myId)
                 fprintf(stderr,"WARNING: Overwriting determined fluid Id (%d) by plane data (%d).\n", fId[i], myId);
               fId[i] = myId;
@@ -277,7 +277,7 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
                           (x[i][2] - z0)*(x[i][2] - z0)) - r0;//positive outside the sphere
           if(sphereIt->second->fluidModelID > 0)
             if(scalar<0.0) {//inside the sphere
-              int myId = sphereIt->second->fluidModelID-1;
+              int myId = sphereIt->second->fluidModelID;
               if(fId[i]>0 && fId[i]!=myId)
                 fprintf(stderr,"WARNING: Overwriting determined fluid Id (%d) by sphere data (%d).\n", fId[i], myId);
               fId[i] = myId;

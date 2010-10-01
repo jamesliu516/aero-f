@@ -1423,10 +1423,9 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
-
-  sphereMap.setup("Sphere", 0);
-  planeMap.setup("Plane", 0);
-  pointMap.setup("Point", 0);
+  sphereMap.setup("Sphere", ca);
+  planeMap.setup("Plane", ca);
+  pointMap.setup("Point", ca);
 
 }
 

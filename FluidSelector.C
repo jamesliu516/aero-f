@@ -92,15 +92,15 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 
       if(Id==0) { // not isolated by structure. need to consider level-set
         if(swept) {
-          fluidId[i] = 0;
+          subId[i] = 0;
           for(int k=0; k<dim; k++)
             if(subPhiV[i][k]>0.0) {
-              fluidId[i] = k+1;
+              subId[i] = k+1;
               break;
             }
-        } else {/* not swept. nothing to be done :) */}
+        } 
       } else // isolated by structure. Id determined by intersector
-        fluidId[i] = Id;
+        subId[i] = Id;
     }
   }
 }

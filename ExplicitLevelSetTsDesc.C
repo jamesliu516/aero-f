@@ -424,7 +424,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
   this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = ratioTimesPhi - p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);  //TODO: why not Phi0???
   this->fluidSelector.getFluidId(fluidId0,Phi0);
 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
@@ -436,7 +436,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
 template<int dim, int dimLS>
 void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> &U)
 {
-//TODO(KW): Don't need the mumbo jumbo "computePrdtPhi..." ???
+//TODO(KW): Don't need the "computePrdtPhi..." ???
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);

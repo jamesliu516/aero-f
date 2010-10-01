@@ -770,7 +770,7 @@ void DistIntersectorFRG::expandScope()
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
+DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
@@ -800,7 +800,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
     intersector[i]->computeFirstLayerNodeStatus((*tId)(i), (*distance)(i));
   }
   findInAndOut();
-  finishStatusByPoints(iod);   
+  finishStatusByPoints(iod, point_based_id);   
  
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)  
@@ -1020,7 +1020,7 @@ void IntersectorFRG::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE)
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
+void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_based_id)
 {
   if((numFluid==1 || numFluid==2) && iod.embed.embedIC.pointMap.dataMap.empty()) {
 #pragma omp parallel for
@@ -1034,14 +1034,23 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   }
 
   list< pair<Vec3D,int> > Points; //pair points with fluid model ID.
+  map<int,int> pid2id;
+
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
+    int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
         pointIt != iod.embed.embedIC.pointMap.dataMap.end();
         pointIt ++){
       int myID = pointIt->second->fluidModelID;
+      int myPID = ++count;
       Vec3D xyz(pointIt->second->x, pointIt->second->y,pointIt->second->z);
-      Points.push_back(pair<Vec3D,int>(xyz, myID));
+
+      if(point_based_id) {
+        Points.push_back(pair<Vec3D,int>(xyz, myPID));
+        pid2id[myPID] = myID;
+      } else
+        Points.push_back(pair<Vec3D,int>(xyz, myID));
 
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
@@ -1110,6 +1119,20 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     }
   }
 
+  if(point_based_id) {
+    *point_based_id = -999;
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++) {
+        int myPID = (*status)(iSub)[i];
+        map<int,int>::iterator pit = pid2id.find(myPID);
+        if(pit!=pid2id.end()) {
+          (*point_based_id)(iSub)[i] = myPID;
+          (*status)(iSub)[i] = pit->second;
+        }
+      }
+  }
+
   if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
     twoPhase = false;
 #pragma omp parallel for
@@ -1123,6 +1146,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   } else 
     twoPhase = (numFluid<3) ? true : false;
 
+  
 }
 
 //----------------------------------------------------------------------------
