@@ -82,7 +82,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void buildSolidNormals();
     void expandScope();
     void findInAndOut();
-    void finishStatusByPoints(IoData &iod);
+    void finishStatusByPoints(IoData &iod, DistVec<int> *point_based_id = 0);
     void finalizeStatus(); //contains a local communication
     void updateStructCoords(double, double);
 
@@ -97,7 +97,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
+    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
     void updatePhysBAMInterface();
     void recompute(double dtf, double dtfLeft, double dts);

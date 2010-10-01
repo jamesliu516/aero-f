@@ -245,13 +245,14 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Setup fluid mesh geometry
   this->geoState->setup2(this->timeState->getData());
   // Initialize intersector and compute intersections
-  distLSS->initialize(this->domain,*this->X, ioData);
+  DistVec<int> point_based_id(this->domain->getNodeDistInfo());
+  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
   if(riemannNormal==2){
     this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
-                         *U, ioData, &(distLSS->getStatus())); //populate U by i.c. or restart data.
+                         *U, ioData, &point_based_id); //populate U by i.c. or restart data.
   // Initialize level-sets 
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
   // Initialize fluid Ids 

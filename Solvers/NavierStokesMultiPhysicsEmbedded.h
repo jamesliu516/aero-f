@@ -12,6 +12,7 @@ void startNavierStokesMultiPhysicsEmbedded(IoData &ioData, GeoSource &geoSource,
   Communicator *com = domain.getCommunicator();
 
   domain.createVecPat(dim, &ioData);
+  domain.createPhiVecPat(dimLS, &ioData);
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
