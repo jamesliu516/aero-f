@@ -1064,7 +1064,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
 
   list< pair<Vec3D,int> >::iterator iter;
   for(iter = Points.begin(); iter!=Points.end(); iter++)
-    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
+    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], pid2id[iter->second]);
   
 
   int nUndecided[numLocSub], total;
@@ -1134,12 +1134,12 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
   }
 
   if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+    com->fprintf(stderr,"IntersectorFRG: Ghost node(s) detected...\n");
     twoPhase = false;
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++) {
         if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) {
-//          fprintf(stderr,"CPU %d: Node %d is undecided!!!\n", com->cpuNum(), intersector[iSub]->locToGlobNodeMap[i]+1);
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
         }
       }

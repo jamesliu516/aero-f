@@ -255,8 +255,12 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
   // Initialize level-sets 
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
-  // Initialize fluid Ids 
-  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
+
+  // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
+  if(this->input->levelsets[0] == 0) // init
+    fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
+  else //restart
+    fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
 
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);

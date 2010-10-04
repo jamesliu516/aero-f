@@ -14,6 +14,17 @@ void FluidSelector::initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<doub
 //------------------------------------------------------------------------------
 
 template<int dim>
+void FluidSelector::reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin)
+{
+  getFluidId(*fluidId, Phin, &fsId);
+  *fluidIdn = *fluidId;
+  if(fluidIdnm1) *fluidIdnm1 = *fluidId;
+  if(fluidIdnm2) *fluidIdnm2 = *fluidId;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void FluidSelector::getFluidId(DistSVec<double,dim> &Phi){
   assert(dim<=numPhases-1);
   int numLocSub = Phi.numLocSub();
@@ -121,7 +132,7 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
     for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
       if(fsid[iNode]!=0) {
         if(fsid[iNode]!=tag[iNode]){
-          fprintf(stderr,"This is WRONG!\n"); exit(-1);}
+          fprintf(stderr,"This must be a bug!\n"); exit(-1);}
         continue;
       }
       tag[iNode] = 0;

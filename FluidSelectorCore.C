@@ -291,6 +291,18 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
 
 //------------------------------------------------------------------------------
 
+void FluidSelector::printFluidId(){
+  int numLocSub = fluidId->numLocSub();
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; ++iSub) {
+    int    *tag = fluidId->subData(iSub);
+    for (int i=0; i<fluidId->subSize(iSub); i++)
+      fprintf(stdout, "fluidId[%d] = %d\n", i, tag[i]);
+  }
+}
+
+//------------------------------------------------------------------------------
+
 
 
 

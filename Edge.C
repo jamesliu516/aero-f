@@ -605,10 +605,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     //    Step 3. Otherwise, the usual single-phase flux. 
     // --------------------------------------------------------
     if(intersect) {
+
       // for node i
       if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-
         switch (Nriemann) { // normal should point to this node (i). TODO: better to compute a projection to determine the sign.
           case 0: //structure normal
             if(LSS.fluidModel(0.0,i)==farfieldFluid)  normalDir =      resij.gradPhi;
@@ -639,7 +639,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       // for node j
       if(jActive){
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
-
         switch (Nriemann) {
           case 0: //structure normal
             if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      resji.gradPhi;
@@ -665,6 +664,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
           for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
         }
+
       }
     }
 

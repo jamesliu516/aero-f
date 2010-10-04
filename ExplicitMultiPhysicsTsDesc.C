@@ -65,6 +65,7 @@ int ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
+  //this->fluidSelector.printFluidId();
   if(this->mmh && !this->inSubCycling) {
     // get structural time-step and recompute FS intersections.
     this->com->fprintf(stderr,"recompute intersections ...\n");
@@ -182,7 +183,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokes(DistSVec<double,
   }
 
   // for FF phase-change update using extrapolation
-  this->varFcn->conservativeToPrimitive(U/*TODO:U or U0???*/,this->V0,this->fluidSelector.fluidId);
+  this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
   this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
 
   this->timer->addFluidSolutionTime(t0);
@@ -340,7 +341,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,d
 {
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
@@ -355,17 +356,17 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,d
 {
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
   Phi0 = this->Phi - 0.5 * p2;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
   computeRKUpdateLS(Phi0, fluidId0, p3, U);
   Phi0 = this->Phi - p3;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
   computeRKUpdateLS(Phi0, fluidId0, p4, U);
@@ -382,7 +383,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdateLS(DistSVec<double,di
 {
   this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Philocal, localFluidId, U, dPhi, this->distLSS, this->linRecAtInterface);
   this->timeState->multiplyByTimeStep(dPhi);
-  this->LS->checkTrueLevelSetUpdate(dPhi); //TODO: Why doing this???
+  this->LS->checkTrueLevelSetUpdate(dPhi);
 }
 
 //------------------------------------------------------------------------------

@@ -323,7 +323,7 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 template<int dimLS>
 void LevelSet<dimLS>::checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi)
 {
-  //TODO(KW): Is it efficient to first loop thru dimLS and then dphi.size()???
+  //TODO(KW): Is it efficient to first loop thru dimLS and then dphi.size()??? NO!!!
   for(int idim=0; idim<dimLS; idim++)
     if(!trueLevelSet[idim]){
       //fprintf(stdout, "setting dphi[%d] to zero\n", idim);
