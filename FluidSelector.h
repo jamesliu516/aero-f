@@ -58,6 +58,7 @@ public:
   void getFluidId(Vec<int> &tag, Vec<double> &phi);
   void getFluidId(DistVec<int> &Tag, DistVec<double> &Phi);
   int getLevelSetDim(int fluidId1, int fluidId2, int node1 = 0, int node2 = 0);
+  void printFluidId();
   void update(){
     if(fluidIdnm2) *fluidIdnm2 = *fluidIdnm1;
     if(fluidIdnm1) *fluidIdnm1 = *fluidIdn;
@@ -68,6 +69,9 @@ public:
 
   template<int dim>
   void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2);
+
+  template<int dim>
+  void reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin);
 
   template<int dim> /*this dim is actually dimLS*/
   void updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
@@ -86,19 +90,6 @@ public:
 
   template<int dim>
   void getFluidId(int &tag, double *phi);
-
-//------------------------------------------------------------------------------
-// Debug
-  void printFluidId(){
-    int numLocSub = fluidId->numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      int    *tag = fluidId->subData(iSub);
-      for (int i=0; i<fluidId->subSize(iSub); i++)
-        fprintf(stdout, "fluidId[%d] = %d\n", i, tag[i]);
-    }
-  }
-
 };
 
 //------------------------------------------------------------------------------

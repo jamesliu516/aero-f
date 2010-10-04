@@ -1878,7 +1878,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0)
     this->ngrad->limit(this->recFcn, X, ctrlVol, *(this->V));
-  //if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)  /*TODO: WHY? */
+  //if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)  
   //  ngradLS->limit(recFcnLS, X, ctrlVol, PhiS);
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
