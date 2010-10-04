@@ -22,8 +22,8 @@ void startModalSolver(Communicator *com, IoData &ioData, Domain &domain)
     else if (ioData.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
             ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
-        if (ioData.ts.type == TsData::IMPLICIT &&
-            ioData.ts.implicit.coupling == ImplicitData::WEAK) {
+        if (false/*ioData.ts.type == TsData::IMPLICIT &&
+            ioData.ts.implicit.coupling == ImplicitData::WEAK*/) {
           com->fprintf(stderr, "*** Error: weak coupling not supported in model reduction\n");
           exit(1);
         }
