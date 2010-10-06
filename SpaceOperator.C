@@ -1974,7 +1974,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0){
     double t0 = this->timer->getTime();
-    ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), PhiV, linRecAtInterface);
+    ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), PhiV, 1/* need to compute grad near FS Interface*/);
     //fluid Id (status) is used only to distinguish different materials. By using distLSS->getStatus(), we allow crossing FF interface but not FS interface.
     //  One can alternatively try to use fluidSelector.fluidId, which avoids crossing both FF and FS interfaces.
     this->timer->addNodalGradTime(t0);
