@@ -3436,7 +3436,7 @@ void SubDomain::multiPointsDeltaFreq(int mFreqStart, double *freqCoarse, int nPo
 {
   int i;
   if (nPoints % 2 == 1)
-    midFreq[0] = int(floor(nPoints/2)+1)-1;
+    midFreq[0] = int(floor(nPoints/2.0)+1)-1;
   else
     midFreq[0] = nPoints/2-1;
   for (i=0; i<nPoints; i++) {
@@ -3582,7 +3582,7 @@ void SubDomain::buildDeltaFreq(double *deltaFreqCoarse,int numFreqCoarse, double
 
   int i;
   if (numFreqCoarse % 2 == 1)
-    midFreq[0] = int(floor(numFreqCoarse/2)+1)-1;
+    midFreq[0] = int(floor(numFreqCoarse/2.0)+1)-1;
   else
     midFreq[0] = numFreqCoarse/2-1;
   for (i=0; i<numFreqCoarse; i++)

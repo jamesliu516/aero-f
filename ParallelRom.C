@@ -81,7 +81,7 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
  // specify the block size (in terms of nodes)
  // blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
 
- nodesPerBlock = int(floor(2*nSnaps/dim));
+ nodesPerBlock = int(floor(2.0*nSnaps/dim));
 
 
  //set the transfer parameters

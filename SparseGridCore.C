@@ -1060,7 +1060,7 @@ void SparseGrid::Heap::sort(int index, const double *value){
 
   int parent, temp;
   while(index>0){
-    parent = static_cast<int>(floor((index-1)/2));
+    parent = static_cast<int>(floor((index-1)/2.0));
     if(value[elem_[index]]>value[elem_[parent]]){
       temp = elem_[parent];
       elem_[parent] = elem_[index];

@@ -1017,10 +1017,10 @@ void ImplicitRomTsDesc<dim>::rowPartition(int &myMinIndex, int &myMaxIndex, int 
      int *minVal = new int[nTotCpus];
      int *maxVal = new int[nTotCpus];
      minVal[0] = 0;
-     maxVal[0] = sqrt(loadBal);
+     maxVal[0] = (int) sqrt(double(loadBal));
      for (int i = 1; i < nTotCpus; ++i){
        minVal[i] = maxVal[i-1];
-       maxVal[i] = sqrt(loadBal+ minVal[i]*minVal[i] );
+       maxVal[i] = (int) sqrt(double(loadBal+ minVal[i]*minVal[i]));
      }    
      maxVal[nTotCpus - 1] = nRow;
      myMinIndex = minVal[thisCPU];

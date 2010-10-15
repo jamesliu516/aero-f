@@ -1850,8 +1850,8 @@ void ElemTet::computeDistanceCloseNodes(int lsdim, Vec<int> &Tag, SVec<double,3>
                                     SVec<double,dim> &ddz,
                                     SVec<double,dim> &Phi,SVec<double,1> &Psi)
 {
-  if (!(fabs(Tag[nodeNumTet[0]])==1 && fabs(Tag[nodeNumTet[1]])==1 &&
-      fabs(Tag[nodeNumTet[2]])==1 && fabs(Tag[nodeNumTet[3]])==1))
+  if (!(abs(Tag[nodeNumTet[0]])==1 && abs(Tag[nodeNumTet[1]])==1 &&
+      abs(Tag[nodeNumTet[2]])==1 && abs(Tag[nodeNumTet[3]])==1))
     return;
 
   // We want to get the values of Psi for the nodes that are closest to 
