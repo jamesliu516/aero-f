@@ -112,7 +112,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     int itNl = 0;
     int itNlLS = 0;
 
-    iteration = it; //TODO: delete me
     // initialize remaining time in fluid subcycling
     double dtLeft = dts;
     it++;
