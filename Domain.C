@@ -3618,11 +3618,11 @@ void Domain::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,
 
 //------------------------------------------------------------------------------
 template<int dimLS>
-void Domain::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistVec<double> &weight){
+void Domain::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistVec<double> &weight, DistLevelSetStructure *distLSS){
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub));
+    subDomain[iSub]->avoidNewPhaseCreation(Phi(iSub), Phin(iSub),weight(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
 }
 //------------------------------------------------------------------------------
 
