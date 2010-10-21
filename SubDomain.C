@@ -4970,12 +4970,14 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight)
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS)
 {
 
   for(int i=0; i<nodes.size(); i++){
+    int fModel = LSS ? LSS->fluidModel(0.0, i) : 0;  //if fModel>0 (isolated), Phi is not used at all
+    bool swept = LSS ? LSS->isSwept(0.0, i) : 0; // if swept, Phin is not reliable!
     for(int j=0; j<dimLS; j++){
-      if(Phi[i][j]*Phin[i][j]<0.0){
+      if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
         // check if node i HAD a neighbour with a different levelset sign
         if(weight[i] <= 0.0){
           fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"

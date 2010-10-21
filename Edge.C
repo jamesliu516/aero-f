@@ -24,6 +24,7 @@ using std::min;
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 
+static int iteration;
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -542,7 +543,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double gradphi[3], gphii[3], gphij[3];
 
   // ------------------------------------------------
-  //  THE FAMOUS, MOUTH-WATERING EDGE LOOP...
+  //  THE MAIN EDGE LOOP...
   // ------------------------------------------------
   for (int l=0; l<numEdges; ++l) {
 
@@ -691,6 +692,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                     Vi, Wi, fluxi, fluidId[i]);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
                                     Wj, Vj, fluxj, fluidId[j]);
+
       for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
@@ -1120,8 +1122,8 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
     for (k=0; k<dimLS; ++k) {
-      ddPij[k] = dx[k]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
-      ddPji[k] = dx[k]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
+      ddPij[k] = dx[0]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
+      ddPji[k] = dx[0]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
     }
 
     if(!iCovered && !jCovered) { //the usual linear reconstruction
