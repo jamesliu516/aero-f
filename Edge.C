@@ -24,7 +24,6 @@ using std::min;
 #include "FluidSelector.h"
 #include "DenseMatrixOps.h"
 
-static int iteration;
 //------------------------------------------------------------------------------
 
 template<int dim>
