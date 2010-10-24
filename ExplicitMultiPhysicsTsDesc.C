@@ -65,33 +65,24 @@ int ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
 template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
-  //this->fluidSelector.printFluidId();
   if(this->mmh && !this->inSubCycling) {
     // get structural time-step and recompute FS intersections.
-//    this->com->fprintf(stderr,"recompute intersections ...\n");
     recomputeIntersections();
     // update fluidId.
-//    this->com->fprintf(stderr,"updateFluidIdFS ...\n");
     updateFluidIdFS(U);
     // update the phase-change (U & Phi) caused by the motion of FS interface
-//    this->com->fprintf(stderr,"update Phase-change FS ...\n");
     updatePhaseChangeFS(U);
   }
   // populate ghost nodes (only for Navier-Stokes.)
-//  this->com->fprintf(stderr,"populate Ghost Points for Navier-Stokes ...\n");
   populateGhostPointsForNavierStokes(U);
   // evolve the fluid equation using FE, RK2, or potentially RK4
-//  this->com->fprintf(stderr,"solve NonLinear Navier-Stokes ...\n");
   solveNLNavierStokes(U);
   // evolve the level-set equation using FE, RK2, or RK4.
-//  this->com->fprintf(stderr,"solve NonLinear Level-set ...\n");
   solveNLLevelSet(U);
   // update fluidId (fluidId0 = fluidId, fluidId = new).
-//  this->com->fprintf(stderr,"update FluidIdFF ...\n");
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
   this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
   // update the phase-change (only U) caused by the motion of FF interface
-//  this->com->fprintf(stderr,"update Phase-Change FF ...\n");
   updatePhaseChangeFF(U);
 }
 

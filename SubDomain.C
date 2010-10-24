@@ -4399,12 +4399,19 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
                                                 Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId)
 {
   const Connectivity &nToN = *getNodeToNode();
-  for(int currentNode=0;currentNode<nodes.size();++currentNode)
+  for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
+//    bool bug = (locToGlobNodeMap[currentNode]+1==150516) ? true : false;
+//    if(bug)
+//      fprintf(stderr,"*** Node 150516: Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d.\n", fluidId[currentNode], LSS.fluidModel(0.0,currentNode), LSS.isSwept(0.0,currentNode), LSS.isActive(0.0,currentNode), LSS.isOccluded(0.0,currentNode));
+
     if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         int yourId = fluidId[neighborNode];
+//        if(bug)
+//          fprintf(stderr,"     - Neighbour of 150516: Node %d, Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d, X = %d.\n", locToGlobNodeMap[neighborNode]+1, yourId, LSS.fluidModel(0.0,neighborNode), LSS.isSwept(0.0,neighborNode), LSS.isActive(0.0,neighborNode), LSS.isOccluded(0.0,currentNode), LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode));
+
         if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode) ||
            myId!=yourId){
           continue;}
@@ -4423,6 +4430,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
         }
       }
     }
+  }
 }
 
 //------------------------------------------------------------------------------
