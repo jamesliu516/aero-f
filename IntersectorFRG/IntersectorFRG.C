@@ -109,6 +109,7 @@ ClosestTriangle::start(Vec3D xp) {
   n1 = n2 = -1;
   mode = -1;
   nPairs = 0;
+  minDist = 1.0e10;
 }
 //----------------------------------------------------------------------------
 double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
@@ -1145,8 +1146,6 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
       }
   } else 
     twoPhase = (numFluid<3) ? true : false;
-
-  
 }
 
 //----------------------------------------------------------------------------
@@ -1860,9 +1859,15 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
         }
       }
  
-      if(res1.triangleID<0)
-         fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
-                        locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
+      if(res1.triangleID<0) {
+         fprintf(stderr,"ERROR: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
+                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
+         if(status[p]!=status0[p] || status[q]!=status0[q]) {
+           status[p] = status0[p];
+           status[q] = status0[q];
+         } else
+           status[p] = status[q] = 0; //TODO: this is not a fix!
+      }
     }
   }
 }

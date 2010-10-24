@@ -518,7 +518,7 @@ double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
       return 0.0;
     strExc->getDisplacement(X0, X, Xdot, dX);
   }
-  else if (algNum == 10 && (it == 0 || *lastIt) )
+  else if (algNum == 10 && (/*it == 0 ||*/ *lastIt) ) // change to align B0 with manual description
     strExc->sendForce(F);
   else if (it > it0 && algNum != 10)
     strExc->sendForce(F);
