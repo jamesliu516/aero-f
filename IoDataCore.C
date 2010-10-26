@@ -4265,7 +4265,7 @@ int IoData::checkInputValuesEssentialBC()
 void IoData::checkInputValuesTurbulence()
 {
    if (bc.inlet.nutilde < 0.0)
-    bc.inlet.nutilde = 0.1;
+    bc.inlet.nutilde = 3.0;  //KW: used to be 0.1
   double theta_k = 1.0;
   double theta_w = 10.0;
   if (bc.inlet.kenergy < 0.0)
