@@ -429,6 +429,7 @@ SubDomain *GeoSource::getSubDomain(int iSub)
   if (faceRanges) delete [] faceRanges;
   if (matchRanges) delete [] matchRanges;
   if (locToClusNodeMap) delete [] locToClusNodeMap;
+  delete[] suffix;
   return sub;
 
 }
@@ -441,6 +442,7 @@ void GeoSource::distributeBCs(SubDomain *sub, MapType &cl2LocNodeMap)
   BCondSet *subBC;
   getBC(subBC, cl2LocNodeMap);
   if(subBC->size() > 0) sub->setBCond(subBC);
+  else delete subBC;
 }
 
 template<class MapType>

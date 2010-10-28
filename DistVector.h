@@ -91,7 +91,10 @@ public:
   // otherwise call nullify and Scalar::nullify must be defined.
   void nullifyPointers() 
   {
-    for(int i=0;i<this->len;++i) {if(this->v[i]) this->v[i]=0;}
+    for(int i=0;i<this->len;++i) 
+      {
+        this->v[i]=0;
+      }
   }
   void nullify() 
   {

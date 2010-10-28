@@ -2561,20 +2561,6 @@ void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim, class Scalar>
-void Domain::applyBCsToH2Jacobian(BcFcn *bcFcn, DistBcData<dim> &bcData,
-	                          DistSVec<double,dim> &U, DistMat<Scalar,dim> &A)
-{
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToH2Jacobian(bcFcn, bcData(iSub), U(iSub), A(iSub));
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
 template<int dim, class Scalar, int neq>
 void Domain::applyBCsToJacobianWallValues(BcFcn *bcFcn, DistBcData<dim> &bcData,
 				DistSVec<double,dim> &U, DistMat<Scalar,neq> &A)
@@ -2634,11 +2620,11 @@ void Domain::computeH1(FluxFcn **fluxFcn, DistBcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
+template<int dim, class Scalar, int neq>
 void Domain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn,
 		       DistBcData<dim> &bcData, DistGeoState &geoState,
 		       DistSVec<double,3> &X, DistSVec<double,dim> &V,
-		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,dim> &H2,
+		       DistNodalGrad<dim, double> &ngrad, DistMat<Scalar,neq> &H2,
 		       DistSVec<double,dim> &aij, DistSVec<double,dim> &aji,
 		       DistSVec<double,dim> &bij, DistSVec<double,dim> &bji)
 {
@@ -2900,18 +2886,20 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
   int iSub;
 
   double scale[dim];
-  if (dim == 5)  {
 
-    scale[0] = refVal->density;
-    scale[1] = refVal->density*refVal->velocity;
-    scale[2] = refVal->density*refVal->velocity;
-    scale[3] = refVal->density*refVal->velocity;
-    scale[4] = refVal->energy;
+  scale[0] = refVal->density;
+  scale[1] = refVal->density*refVal->velocity;
+  scale[2] = refVal->density*refVal->velocity;
+  scale[3] = refVal->density*refVal->velocity;
+  scale[4] = refVal->energy;
+  
+  if (dim == 6) {
+    scale[5] = refVal->density*refVal->nutilde;
   }
-  else  {
 
-    com->fprintf(stderr, " ... ERROR: Solution Scaling only implemented Fluid System of Dimension 5\n");
-    exit(-1);
+  if (dim == 7) {
+    scale[5] = refVal->density*refVal->kenergy;
+    scale[6] = refVal->density*refVal->epsilon;
   }
 
 #pragma omp parallel for

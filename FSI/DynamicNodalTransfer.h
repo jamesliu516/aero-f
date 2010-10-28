@@ -7,11 +7,12 @@
 
 #ifndef DYNAMICNODALTRANSFER_H_
 #define DYNAMICNODALTRANSFER_H_
-#include<Vector.h>
-#include<Communicator.h>
+#include <Vector.h>
+#include <Communicator.h>
 #include <DistInfo.h>
 #include <Timer.h>
 #include <map>
+#include <string.h>
 
 using std::pair;
 

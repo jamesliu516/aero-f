@@ -69,6 +69,7 @@ public:
 #ifdef USE_MPI
   Communicator(MPI_Comm);
 #endif
+  ~Communicator(){};
 
   void split(int, int, Communicator**);
   Communicator *merge(bool high); //<! returns the intra-communicator for the two groups of an inter-communicator
@@ -124,14 +125,15 @@ namespace Communication {
   class Window {
 #ifdef USE_MPI
     MPI_Win win;
+#else
+    Scalar *data;
 #endif
     Communicator &com;
-    Scalar *data;
   public:
     static const int Add=0, Min=1, Max=2;
     Window(Communicator &c, int size, Scalar *s);
     ~Window();
-    void get(int locOff, int size, int prNum, int remOff);
+    //void get(int locOff, int size, int prNum, int remOff);
 //    void put(int locOff, int size, int prNum, int remOff);
     void put(Scalar *s, int locOff, int size, int prNum, int remOff);
     void accumulate(Scalar *s, int locOff, int size, int prNum, int remOff, int op);
@@ -195,6 +197,8 @@ public:
   // this CPU to be correct, the connectivity of other subdomains can be
   // (and is in slave domain) ommited.
   SubDTopo (int CPU, Connectivity *subToSub, Connectivity *CPUToSub);
+  ~SubDTopo();
+
   int getChannelID(int glFrom, int glTo);
   int numChannels() { return numPairs; }
   int numNeighbCPUs();
@@ -271,6 +275,14 @@ protected:
 public:
 
   CommPattern(SubDTopo *, Communicator *, Mode = Share, Symmetry = Sym);
+  ~CommPattern()
+    {
+      delete[] cpuForChannel;
+      delete[] reverseChannel;
+      delete[] isSend;
+      delete[] sRecInfo;
+      delete[] localDBuffer;
+    }
 
 #ifdef MEM_TMPL_FUNC
   template <class TB>

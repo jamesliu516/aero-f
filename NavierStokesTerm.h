@@ -86,7 +86,7 @@ protected:
 public:
 
   NavierStokesTerm(IoData &, VarFcn *);
-  ~NavierStokesTerm();
+  virtual ~NavierStokesTerm();
 
 };
 

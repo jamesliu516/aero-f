@@ -1,30 +1,40 @@
 #include <stdio.h>
 #include "Dictionary.h"
+#include "Assigner.h"
 
 SysSmbMap *sysSmb = 0;
 Dictionary *dictionary = 0;
 
+SysSmbMap::~SysSmbMap()
+{
+  for(map<int, Assigner *>::iterator it=forest.begin();it!=forest.end();++it)
+    {
+      delete it->second;
+    }
+}
+
 int addSysSymbol(const char *name, Assigner *a)
 {
- if(sysSmb == 0)
-    sysSmb = new SysSmbMap;
- (*sysSmb)[findSysToken(name) ] = a;
- return 1;
+  static SysSmbMap theSysSmb;
+  sysSmb =  &theSysSmb;
+  map<int, Assigner *>::iterator it = sysSmb->forest.find(findSysToken(name));
+  if( it != sysSmb->forest.end()) delete it->second;
+  sysSmb->forest[findSysToken(name)] = a;
+  return 1;
 }
 
 int findSysToken(const char *str)
 {
-  if(dictionary == 0)
-    dictionary = new Dictionary;
+  static Dictionary theDictionary;
+  dictionary = &theDictionary;
   return dictionary->token(str);
 }
 
 Assigner *
 findSysObj(int tk)
 {
-  SysSmbMap::iterator it;
-  it = sysSmb->find(tk);
-  if(it == sysSmb->end()) {
+  map<int, Assigner *>::iterator it = sysSmb->forest.find(tk);
+  if(it == sysSmb->forest.end()) {
     fprintf(stderr, "Error: Symbol not found: %s\n", dictionary->word(tk).c_str());
     return 0;
   }

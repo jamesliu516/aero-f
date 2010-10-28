@@ -243,7 +243,7 @@ ENDMACRO(ADD_FLEX_FILES)
 ADD_FLEX_FILES(MyLib parser/Lexer.l)
 ADD_BISON_FILES(MyLib parser/Parser.y)
 
-ADD_LIBRARY(Parser parser/Dictionary.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
+ADD_LIBRARY(Parser parser/Dictionary.C parser/StringManager.C parser/AssignerCore.C parser/ParseTree.cpp ${MyLib})
 SET_TARGET_PROPERTIES(Parser
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
@@ -288,16 +288,11 @@ FIND_LIBRARY(PhysBAM_Base_Lib NAMES physbam PATHS ${PHYSBAM_BASE})
 #MESSAGE("Found PHYSBAM_BASE at: " ${PHYSBAM_BASE})
 IF(PhysBAM_Base_Lib)
   MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
+  SET (DO_EMBEDDED 1)
 ELSE(PhysBAM_Base_Lib)
   MESSAGE("-- Looking for PhysBAM_Base_Lib: not found")
-ENDIF(PhysBAM_Base_Lib)
-
-
-IF (PHYSBAM_BASE)
-  SET (DO_EMBEDDED 1)
-ELSE (PHYSBAM_BASE)
   SET (DO_EMBEDDED 0)
-ENDIF (PHYSBAM_BASE)
+ENDIF(PhysBAM_Base_Lib)
 
 OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
 

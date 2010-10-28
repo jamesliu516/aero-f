@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser/Dictionary.h"
+#include "parser/StringManager.h"
 #include "Parser.tab.H"
 int yyCmdfline_num = 1;
 void C_comments(void);
@@ -34,7 +35,7 @@ SPACES [ \t]+
 
 
 "\""[A-z0-9._\/\-\+]*"\""	{
-     char *string = new char[ strlen(yyCmdftext)-1]; 
+     char *string = theStringManager.stringNew(strlen(yyCmdftext)-1); 
      string[0] = 0;
      strncat(string, yyCmdftext+1, strlen(yyCmdftext)-2);
      yyCmdflval.sval = string; return String; }

@@ -89,7 +89,7 @@ Uc(dom->getNodeDistInfo())
   {
     if (ioData.ts.implicit.mvp == ImplicitData::H2)
     {
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, domain, this->geoState);
     }
     else
     {
@@ -100,7 +100,7 @@ Uc(dom->getNodeDistInfo())
   {
     if (ioData.ts.implicit.mvp == ImplicitData::H2)
     {
-      mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
+      mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, 0, this->spaceOp, domain, this->geoState);
     }
     else
     {
@@ -109,9 +109,9 @@ Uc(dom->getNodeDistInfo())
   }
 
   pc = ImplicitTsDesc<dim>::template
-    createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.ns.pc, domain);
+    createPreconditioner<PrecScalar,dim>(ioData.sa.ksp.pc, domain);
 
-  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp.ns, mvp, pc, this->com);
+  ksp = createKrylovSolver(this->getVecInfo(), ioData.sa.ksp, mvp, pc, this->com);
 
   MemoryPool mp;
 
@@ -1147,7 +1147,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaSetUpLinearSolver
   if (_pc) {
 
     MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-    MatVecProdH2<MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<MatScalar,dim> *>(mvp);
+    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
 
     if (mvpfd || mvph2) 
     {
@@ -1189,7 +1189,7 @@ void FluidSensitivityAnalysisHandler<dim>::fsaLinearSolver
   while ((istop == false) && (iter < 100))
   {
     numberIteration = ksp->solve(dFdS, dUdS);
-    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.ns.maxIts))
+    if ((!ioData.sa.excsol) || (numberIteration < ioData.sa.ksp.maxIts))
       istop = true; 
     iter += 1;
   }
@@ -1337,45 +1337,39 @@ int FluidSensitivityAnalysisHandler<dim>::fsaHandler(IoData &ioData, DistSVec<do
 // Checking if dXdSb has entries different from zero at the interior of the mesh
       this->postOp->checkVec(dXdSb);
 
-      if (dXdSb.norm() != 0.0) {
-
-        this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
-
-        // Updating the mesh
-        dXdS = *this->X;
-        mms->solve(dXdSb, dXdS);
-        dXdS -= *this->X;
-
-        // Check that the mesh perturbation is propagated
-        if (dXdS.norm() == 0.0)
-        {
-          this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
-        }
-
-        fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
-  
-        fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
-
-        dXdSb = 0.0;
-
-        if ((ioData.sa.sf >= 0) && (ioData.sa.sf == step)) {
-          stepStop = true;
-          fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
-        }
-        else {
-          step = step + 1;
-        }
-
+      if (dXdSb.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n *** ERROR *** No Mesh Perturbation \n\n");
+        exit(1);
       }
-      else {
 
+      this->com->fprintf(stderr, "\n ***** Shape variable %d\n", step);
+
+      // Updating the mesh
+      dXdS = *this->X;
+      mms->solve(dXdSb, dXdS);
+      dXdS -= *this->X;
+
+      // Check that the mesh perturbation is propagated
+      if (dXdS.norm() == 0.0)
+      {
+        this->com->fprintf(stderr, "\n !!! WARNING !!! No Mesh Perturbation !!!\n\n");
+      }
+
+      fsaComputeDerivativesOfFluxAndSolution(ioData, *this->X, *this->A, U, step);
+  
+      fsaComputeSensitivities(ioData, "Derivatives with respect to the mesh position:", ioData.sa.sensoutput, *this->X, U);
+
+      dXdSb = 0.0;
+
+      step = step + 1;
+
+      if ((ioData.sa.sf >= 0) && (ioData.sa.sf < step))
         stepStop = true;
 
-        fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
-
-      }
-
     }
+
+    fsaPrintTextOnScreen("\n ***** Derivatives with respect to the mesh position were computed! \n");
 
   }
 

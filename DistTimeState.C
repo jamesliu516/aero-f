@@ -790,26 +790,6 @@ void DistTimeState<dim>::addToH1(DistVec<double> &ctrlVol,
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
-void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
-				 DistMat<Scalar,dim> &A)
-{
-
-#ifdef DOUBLE_CHECK
-  varFcn->conservativeToPrimitive(U, *V);
-#endif
-
-#pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->addToH2(V->getMasterFlag(iSub), varFcn, ctrlVol(iSub), 
-				(*V)(iSub), A(iSub)); 
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim>
 template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
 				 DistMat<Scalar,neq> &A)
@@ -829,9 +809,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol, DistSVec<double,dim> 
 //------------------------------------------------------------------------------
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
-                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar shift)
+                DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar shift)
 {
 
 #ifdef DOUBLE_CHECK
@@ -848,9 +828,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 
 
 template<int dim>
-template<class Scalar>
+template<class Scalar, int neq>
 void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
-                DistSVec<double,dim> &U, DistMat<Scalar,dim> &A, Scalar coefVol, double coefA)
+                DistSVec<double,dim> &U, DistMat<Scalar,neq> &A, Scalar coefVol, double coefA)
 {
 
 #ifdef DOUBLE_CHECK
@@ -869,9 +849,9 @@ void DistTimeState<dim>::addToH2(DistVec<double> &ctrlVol,
 
 
 template<int dim>
-template<class Scalar>
+template<class Scalar,int neq>
 void DistTimeState<dim>::addToH2Minus(DistVec<double> &ctrlVol, DistSVec<double,dim> &U,
-                                      DistMat<Scalar,dim> &A)
+                                      DistMat<Scalar,neq> &A)
 {
 
 #ifdef DOUBLE_CHECK
