@@ -27,8 +27,6 @@ ImplicitCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
 {
 
   ImplicitData &implicitData = ioData.ts.implicit;
-  ImplicitData fddata;
-  fddata.mvp = ImplicitData::FD;
 
   if (implicitData.mvp == ImplicitData::FD || implicitData.mvp == ImplicitData::H1FD)
   {
@@ -40,11 +38,14 @@ ImplicitCoupledTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   }
   else if (implicitData.mvp == ImplicitData::H2)
   {
-// Included (MB)
-    mvp = new MatVecProdH2<MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, this->domain, this->geoState);
+    mvp = new MatVecProdH2<dim,MatScalar,dim>(ioData, this->varFcn, this->timeState, this->spaceOp, this->domain, this->geoState);
   }
 
+#ifdef MVP_CHECK
+  ImplicitData fddata;
+  fddata.mvp = ImplicitData::FD;
   mvpfd1 = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+#endif
 
   pc = ImplicitTsDesc<dim>::template 
     createPreconditioner<PrecScalar,dim>(implicitData.newton.ksp.ns.pc, this->domain);
@@ -67,9 +68,12 @@ ImplicitCoupledTsDesc<dim>::~ImplicitCoupledTsDesc()
 {
 
   if (mvp) delete mvp;
-  if (mvpfd1) delete mvpfd1;
   if (pc) delete pc;
   if (ksp) delete ksp;
+
+#ifdef MVP_CHECK
+  if (mvpfd1) delete mvpfd1;
+#endif
 
 }
 
@@ -82,7 +86,6 @@ void ImplicitCoupledTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q
 
   mvp->evaluate(it, *this->X, *this->A, Q, F);
 
-  //#define MVP_CHECK
 #ifdef MVP_CHECK
   DistSVec<double,dim> p(this->getVecInfo());
   DistSVec<double,dim> prod(this->getVecInfo());
@@ -119,7 +122,7 @@ void ImplicitCoupledTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 
     MatVecProdFD<dim, dim> *mvpfd = dynamic_cast<MatVecProdFD<dim, dim> *>(mvp);
     MatVecProdH1<dim,MatScalar,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,MatScalar,dim> *>(mvp);
-    MatVecProdH2<MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<MatScalar,dim> *>(mvp);
+    MatVecProdH2<dim,MatScalar,dim> *mvph2 = dynamic_cast<MatVecProdH2<dim,MatScalar,dim> *>(mvp);
 
     if (mvpfd || mvph2) {
       this->spaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->timeState);
@@ -176,7 +179,10 @@ template<int dim>
 void ImplicitCoupledTsDesc<dim>::rstVarImplicitCoupledTsDesc(IoData &ioData)
 {
 
+#ifdef MVP_CHECK
     mvpfd1->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
+#endif
+
     mvp->rstSpaceOp(ioData, this->varFcn, this->spaceOp, false);
 
 }

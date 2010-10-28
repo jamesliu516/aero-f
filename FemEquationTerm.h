@@ -44,7 +44,7 @@ public:
     }
   }
 
-  ~FemEquationTerm() { if (wallFcn) delete wallFcn; }
+  virtual ~FemEquationTerm() { if (wallFcn) delete wallFcn; }
 
   virtual double computeViscousTimeStep(double *, double *) = 0;
 

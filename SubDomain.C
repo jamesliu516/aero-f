@@ -1978,75 +1978,6 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 // Included (MB)
 template<int dim, class Scalar>
-void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
-				   SVec<double,dim> &U, GenMat<Scalar,dim> &A)
-{
-
-  SVec<double,dim> &Vwall = bcs.getNodeStateVector();
-
-  int (*edgePtr)[2] = edges.getPtr();
-
-  int k;
-  for (int l=0; l<edges.size(); ++l) {
-
-    if (bcMap.find(l) != bcMap.end())  {
-      int i = edgePtr[l][0];
-      int j = edgePtr[l][1];
-
-      if (nodeType[i] != BC_INTERNAL)  {
-        Scalar *Aij = A.getBcElem_ij(bcMap[l]);
-        Scalar *Aij_orig = A.getElem_ij(l);  // the Aij is the off-diagonal term for this equation
-        if (Aij && Aij_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aij[k] = Aij_orig[k];
-        }
-
-        Scalar *Aji = A.getBcElem_ji(bcMap[l]);
-        Scalar *Aji_orig = A.getElem_ji(l);  // Aij is the diag term for the ith eq.
-        if (Aji && Aji_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aji[k] = Aji_orig[k];
-        }
-
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aij);
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aji);
-
-      }
-      if (nodeType[j] != BC_INTERNAL) {
-        Scalar *Aij = A.getBcElem_ij(bcMap[l]+numBcNodes[l]);
-        Scalar *Aij_orig = A.getElem_ij(l);  // Aij is the diag term for the jth eq.
-        if (Aij && Aij_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aij[k] = Aij_orig[k];
-        }
-
-        Scalar *Aji = A.getBcElem_ji(bcMap[l]+numBcNodes[l]);
-        Scalar *Aji_orig = A.getElem_ji(l);  // Aji is the off-diag term for the jth eq.
-        if (Aji && Aji_orig)  {
-          for (k = 0; k < dim*dim; k++)
-            Aji[k] = Aji_orig[k];
-        }
-
-        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aij);
-        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aji);
-
-      }
-    }
-  }
-  for (int i=0; i<nodes.size(); ++i) {
-    if (nodeType[i] != BC_INTERNAL) {
-      Scalar *Aii = A.getElem_ii(i);
-      if (Aii)
-        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);
-    }
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-// Included (MB)
-template<int dim, class Scalar>
 void SubDomain::applyBCsToProduct(BcFcn *bcFcn, BcData<dim> &bcs, SVec<double,dim> &U, SVec<Scalar,dim> &Prod)
 {
 
@@ -2296,10 +2227,10 @@ void SubDomain::computeH1(FluxFcn **fluxFcn, BcData<dim> &bcData,
 
 //------------------------------------------------------------------------------
 
-template<int dim, class Scalar>
+template<int dim, class Scalar, int neq>
 void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData,
 			  GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
-			  NodalGrad<dim> &ngrad, GenMat<Scalar,dim> &A)
+			  NodalGrad<dim> &ngrad, GenMat<Scalar,neq> &A)
 {
 
   double ddVij[dim], ddVji[dim], Vi[dim], Vj[dim], dfdVi[dim*dim], dfdVj[dim*dim];
@@ -2340,7 +2271,7 @@ void SubDomain::computeH2(FluxFcn **fluxFcn, RecFcn *recFcn, BcData<dim> &bcData
     Aji = A.getElem_ji(l);
 
     if (Aij && Aji)  {
-      for (k=0; k<dim*dim; ++k) {
+      for (k=0; k<neq*neq; ++k) {
         Aij[k] += dfdVj[k];
         Aji[k] += dfdVi[k];
       }

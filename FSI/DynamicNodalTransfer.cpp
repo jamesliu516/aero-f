@@ -299,6 +299,8 @@ EmbeddedStructure::~EmbeddedStructure()
   if(UandUdot)  delete[] UandUdot;
   if(F)         delete[] F;
   if(structExc) delete structExc;  
+  delete[] meshFile;
+  delete[] matcherFile;
 }
 
 //------------------------------------------------------------------------------

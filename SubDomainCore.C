@@ -70,6 +70,7 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   nodesToMCNodes = 0;
   sharedInletNodes = 0;
   NodeToNode = 0;
+  NodeToSubD = 0;
   NodeToElem = 0;
   ElemToElem = 0;
 
@@ -116,6 +117,7 @@ SubDomain::~SubDomain()
   if (nodesToMCNodes) delete [] nodesToMCNodes;
   if (sharedInletNodes) delete sharedInletNodes;
   if (NodeToNode) delete NodeToNode;
+  if (NodeToSubD) delete NodeToSubD;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
   delete &nodes;
@@ -127,6 +129,7 @@ SubDomain::~SubDomain()
       delete[] gradP[i];
     }
   delete[] rotOwn;
+  delete mmsBCs;
 //  if (triaSurf) delete triaSurf;
 
 }

@@ -63,19 +63,19 @@ public:
   template<class Scalar, int neq>
   void addToH1(bool *, Vec<double> &, GenMat<Scalar,neq> &, Scalar);
 
-  template<class Scalar> 
+  template<class Scalar, int neq> 
   void addToH2(bool *, VarFcn *, Vec<double> &,
-              SVec<double,dim> &, GenMat<Scalar,dim> &, Scalar , double);
+              SVec<double,dim> &, GenMat<Scalar,neq> &, Scalar , double);
  
-  template<class Scalar>
-  void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
+  template<class Scalar, int neq>
+  void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
-  template<class Scalar>
+  template<class Scalar, int neq>
   void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &,
-               GenMat<Scalar,dim> &, Scalar);
+               GenMat<Scalar,neq> &, Scalar);
 
-  template<class Scalar>
-  void addToH2Minus(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
+  template<class Scalar, int neq>
+  void addToH2Minus(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
   void get_dW_dt(bool *, GeoState &, Vec<double> &, SVec<double,dim> &, SVec<double,dim> &);
 
@@ -83,10 +83,6 @@ public:
                     SVec<double,dim> &, SVec<double,dim> &, SVec<double,dim> &);
 
   double getTimeNorm()  {  return dt.norm(); }
-
-// Included
-  template<class Scalar, int neq>
-  void addToH2(bool *, VarFcn *, Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
 };
 

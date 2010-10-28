@@ -324,16 +324,19 @@ public:
     exit(1);
   }
   
-  
+ 
+  /// \note (09/10)
+  /// This function is only called with weak turbulence model coupling
+  /// and with the exact matrix vector product for the Jacobian (H2). 
+  /// The viscous part is contained in the H1 Jacobian component. 
+  /// So no operation is performed.
   void computeBCsJacobianWallValues
   (
    int c, Vec3D &n, double d2w[3], double *vw, double *dvw, double *v[3]
    ) 
-  {
-    fprintf(stderr, "*** Error: FemEquationTermSAmean::computeBCsJacobianWallValues should not be called\n");
-    exit(1);
-  }
-  
+  { };
+
+
   void rstVar(IoData &ioData, Communicator *com) 
   {
     fprintf(stderr, "*** Error: FemEquationTermSAmean::rstVar should not be called\n");

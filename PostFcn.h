@@ -59,7 +59,7 @@ protected:
 public:
 
   PostFcn(VarFcn *);
-  ~PostFcn() {}
+  virtual ~PostFcn() {}
 
   virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
   virtual double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
@@ -118,7 +118,7 @@ protected:
 public:
 
   PostFcnEuler(IoData &, VarFcn *);
-  ~PostFcnEuler() {}
+  virtual ~PostFcnEuler() {}
 
   virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
@@ -164,7 +164,7 @@ private:
 public:
 
   PostFcnNS(IoData &, VarFcn *);
-  ~PostFcnNS();
+  virtual ~PostFcnNS();
 
   double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 				   double*, double* [3], double* [4]);
@@ -201,7 +201,7 @@ class PostFcnSA : public PostFcnNS, public SATerm {
 public:
 
   PostFcnSA(IoData &, VarFcn *);
-  ~PostFcnSA() {}
+  virtual ~PostFcnSA();
 
   double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
   
@@ -218,7 +218,7 @@ class PostFcnDES : public PostFcnNS, public DESTerm {
 public:
 
   PostFcnDES(IoData &, VarFcn *);
-  ~PostFcnDES() {}
+  virtual ~PostFcnDES() {}
 
   double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
   
@@ -235,7 +235,7 @@ class PostFcnKE : public PostFcnNS, public KEpsilonTerm {
 public:
 
   PostFcnKE(IoData &, VarFcn *);
-  ~PostFcnKE() {}
+  virtual ~PostFcnKE() {}
 
   double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
   

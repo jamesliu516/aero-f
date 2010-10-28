@@ -2,9 +2,11 @@
 #define _GHOST_POINT_H_
 
 //#include<VarFcn.h>
-#include<Vector.h>
-#include<Vector3D.h>
-#include<iostream>
+#include <Vector.h>
+#include <Vector3D.h>
+#include <iostream>
+#include <stdlib.h>
+
 using std::cout;
 using std::endl;
 
@@ -41,7 +43,8 @@ class GhostPoint {
     Vg[4]   += Vi[4];
     if(dim == 6) // Turbulent Viscosity
       {
-	Vg[5] -= distanceRate*Vi[5];
+	//	Vg[5] -= distanceRate*Vi[5];
+	Vg[5] = 0.0;
       }
 
     // Tag check

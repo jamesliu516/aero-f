@@ -38,11 +38,19 @@ ExplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   } // if RK4 and FE are both false, do RK2.
 
   //initialize mmh (EmbeddedMeshMotionHandler).
-  if(this->dynNodalTransfer) {
-    MeshMotionHandler *_mmh = 0;
-    _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
-    this->mmh = _mmh;
-  } else this->mmh = 0;
+  if(this->dynNodalTransfer) 
+    {
+      /*
+      MeshMotionHandler *_mmh = 0;
+      _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+      this->mmh = _mmh;
+      */
+      this->mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
+    } 
+  else
+    { 
+      this->mmh = 0;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -178,7 +186,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+      this->spaceOp->populateGhostPoints(this->ghostPoints,U0,this->varFcn,this->distLSS,this->nodeTag);
     }
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);

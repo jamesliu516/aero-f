@@ -56,14 +56,14 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 	if (ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
 	    ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES) {
 	  if (ioData.ts.type == TsData::IMPLICIT &&
-              ioData.ts.implicit.coupling == ImplicitData::WEAK)
+              ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
 	   // startNavierStokesSegSolver<6,5,1>(ioData, geoSource, domain);
 	    NavierStokesSegSolver<6,5,1>::solve(ioData, geoSource, domain);
 	  else
 	    NavierStokesCoupledSolver<6>::solve(ioData, geoSource, domain);
 	}
 	else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE) {
-	  if (ioData.ts.implicit.coupling == ImplicitData::WEAK)
+	  if (ioData.ts.implicit.tmcoupling == ImplicitData::WEAK)
 	    NavierStokesSegSolver<7,5,2>::solve(ioData, geoSource, domain);
 	  else
 	    NavierStokesCoupledSolver<7>::solve(ioData, geoSource, domain);

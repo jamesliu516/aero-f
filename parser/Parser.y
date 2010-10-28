@@ -15,11 +15,11 @@ int underLevel = 0;
 
 %union
 {
- int        ival;
- double     dval;
- int	    token;
- char *sval;
- Assigner *asgn;
+  int       ival;
+  double    dval;
+  int	    token;
+  char     *sval; 
+  Assigner *asgn;
 }
 
 %token UNDER EoF IntConstant DblConstant Symbol String END BOGUS
@@ -52,7 +52,7 @@ Assignment: Assignable '=' Symbol ';'
 	| Assignable '=' DblExpr ';'
 	{ $1->assignDouble($3); }
 	| Assignable '=' String ';'
-	{ $1->assignString(strdup($3)); }
+	{ $1->assignString($3); }
 
 GroupInput: UNDER Assignable '{'
 	{

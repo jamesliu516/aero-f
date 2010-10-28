@@ -89,9 +89,12 @@ private:
   FILE *fpGnForces;
 
 
-  DistVec<double> *Qs;
+  DistVec<double>    *Qs;
   DistSVec<double,3> *Qv;
   
+  DistVec<double>    *AvQs[PostFcn::AVSSIZE];
+  DistSVec<double,3> *AvQv[PostFcn::AVVSIZE];
+
 // Included (MB)
   bool switchOpt;
 

@@ -53,7 +53,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   if(iod.input.positions[0] != 0)
     sprintf(struct_restart_pos,"%s%s", iod.input.prefix, iod.input.positions);
   else //no restart position file provided
-    struct_restart_pos = ""; 
+    strcpy(struct_restart_pos,""); 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
                         true : false;
   
@@ -370,7 +370,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
   physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
-  physInterface->SetThickness(1e-10,false);
+  physInterface->SetThickness(1e-4);
 }
 
 //----------------------------------------------------------------------------
@@ -912,7 +912,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
           ++intersectedEdgeCount;}}
 
-#if 1 // Debug output
+#if 0 // Debug output
   bool should_quit=false;
   for(int l=0;l<edges.size();++l){
       int p = ptr[l][0], q = ptr[l][1];
