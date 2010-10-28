@@ -227,7 +227,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     fscanf(nodeFile, "%s %s\n", c1, c2);
     char debug[6]="Nodes";
     for (int i=0; i<5; i++) 
-      if(debug[i]!=c1[i]) {fprintf(stderr,"Could not open file: %s\n", meshFile); exit(-1);}
+      if(debug[i]!=c1[i]) {fprintf(stderr,"Could not open the embedded surface file: %s\n", meshFile); exit(-1);}
   
     std::list<Vec3D> nodeList;
     std::list<Vec3D>::iterator it;
