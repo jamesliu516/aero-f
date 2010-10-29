@@ -6,7 +6,7 @@
 #include <Domain.h>
 #include <DistGeoState.h>
 #include <DistMatrix.h>
-
+#include <DistVectorOp.h>
 #include <math.h>
 #include <fstream>
 using namespace std;
@@ -590,11 +590,13 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,
-                                           DistSVec<double,dim> &U, DistVec<int> &fluidId)
+                                           DistSVec<double,dim> &U, DistVec<int> &fluidId,
+					   DistVec<double>* umax)
 {
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId,
+			  umax);
                                                                                                          
   double dt_glob;
   if (data->dt_imposed > 0.0)
@@ -602,6 +604,16 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
   else
     dt_glob = dt->min();
                                                                                                          
+  if (umax && isGFMPAR) {
+    double udt = umax->min();
+    if (udt < dt_glob) {
+      //dt_glob = udt;
+      //domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
+      domain->getCommunicator()->fprintf(stdout, "Clamped CFL for GFMPAR, new cfl = %lf (old = %lf)", udt/dt_glob*cfl,cfl);
+      dt_glob = udt;
+    }
+  }
+                                                                           
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
        (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
@@ -1080,6 +1092,19 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 
 //------------------------------------------------------------------------------
 
+struct MultiphaseRiemannCopy {
+  int dim;
+  MultiphaseRiemannCopy(int _dim) : dim(_dim) { }
+  void Perform(double* vin, double* vout,int id1,int id2) const  {
+
+    if (id1 != id2) {
+      for (int i = 0; i < dim; ++i) vout[i] = vin[i];
+    }
+  }
+};
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
@@ -1093,11 +1118,15 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
-    double tau_n = data->getTauN();
+    varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+    DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, MultiphaseRiemannCopy(dim) );
+    varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
     *Unm1 = *Vn;
-    *Vn = Q;
-    double f1 = (1.0+tau_n)*(1.0+tau_n);
-    *Un = (1.0+2.0*tau_n)/f1*Q+tau_n*tau_n/f1*(*riemann->getOldV());
+
+    DistVec<int> minus1(fluidId);
+    minus1 = -1;
+    riemann->updatePhaseChange(*Vn,fluidId,minus1);
+    *Un = Q;
     //*Un = (1.0+2.0*tau_n)/f1*(*riemann->getOldV())+tau_n*tau_n/f1*Q;
     //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
     //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
@@ -1112,6 +1141,9 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     data->exist_nm1 = true;
   } else {
     *Vn = *Un = Q;
+    DistVec<int> minus1(fluidId);
+    minus1 = -1;
+    riemann->updatePhaseChange(*Vn,fluidId,minus1);
   }
 
 }

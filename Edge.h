@@ -78,7 +78,7 @@ public:
                        Vec<double> &, TimeLowMachPrec &);
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<int> &, int);
+                       TimeLowMachPrec &, Vec<int> &, int,Vec<double>*);
 
   template<int dim>
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,

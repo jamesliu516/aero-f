@@ -942,13 +942,15 @@ void PostOperator<dim>::computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U
 //------------------------------------------------------------------------------
 
 template<int dim>
+template<int dimLS>
 void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
                                               DistSVec<double,3>& X,
                                               DistSVec<double,dim>& U,
                                               DistVec<double>& A,
                                               DistVec<double>& Q,
                                               DistTimeState<dim> *timeState,
-                                              DistVec<int>& fluidId)
+                                              DistVec<int>& fluidId,
+                                              DistSVec<double,dimLS> *Phi)
 {
   int iSub;
 
@@ -1118,7 +1120,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
   else if (type == PostFcn::PHILEVEL_STRUCTURE) {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub));
+      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),(SVec<double,1>*)0);
     }
   }
   else if (type == PostFcn::CONTROL_VOLUME) 
@@ -1128,7 +1130,10 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {
       varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &(fluidId(iSub)));
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub));
+      if (Phi)
+        subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),&(*Phi)(iSub));
+      else
+        subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),(SVec<double,1>*)0);
     }
   }
 

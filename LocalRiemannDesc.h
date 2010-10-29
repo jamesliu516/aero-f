@@ -2552,6 +2552,11 @@ void computeRiemannSolution(int tag, double *Vi, double *Vstar,
                             double *Wstar, double *rupdatei,
                             double &weighti, int it);//TODO:not needed!
 
+/*void computeRiemannJacobian(double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatei,
+                            double &weighti, int it, double* WstardU,int Id = 0);
+*/
 private:
   void eriemannfs(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
@@ -2634,6 +2639,13 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
 
 }
 //------------------------------------------------------------------------------
+/*inline
+void LocalRiemannFluidStructure::computeRiemannJacobian(double *Vi, double *Vstar,
+                            double *nphi, VarFcn *vf,
+                            double *Wstar, double *rupdatei,
+                            double &weighti, int it, double* WstardU,int Id = 0) {
+
+}*/
 
 template<int dim>
 inline
@@ -2716,10 +2728,73 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     temp = (gamma-1.0)/(gamma+1.0);
     double pstarbar = pi + pref;
     double pbar = p + pref;
-    rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1.0);
+    rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
   }
 }
+/*
+inline
+void LocalRiemannFluidStructure::eriemannfs_grad(double rho, double u, double p,
+                                                 double &rhoi, double ui, double &pi,
+                                                 VarFcn *vf, double* dWdWi,int Id) //Caution: "ui" will not be modified!
+{
 
+  // assume structure on the left of the fluid
+  // using the notation of Toro's paper
+
+  double gamma = vf->getGamma(Id);
+  double pref  = vf->getPressureConstant(Id);
+  memset(dWidWi, 0,sizeof(double)*9);
+  if(u==ui){ // contact
+    //rhoi = rho;
+    //pi   = p;
+    dWidWi[0] = 1.0; 
+    dWidWi[8] = 1.0;
+    return;
+  }
+
+  double power = 2*gamma/(gamma-1.0);
+  double q = (gamma-1.0)/(gamma+1.0);
+  if(ui<u){ // rarefaction
+    double a = sqrt(gamma*(p+pref)/rho);
+    double pbar = p + pref;
+
+    double eta = pbar*power*pow(0.5*(gamma-1.0)*(ui-u)/a + 1,q);
+    double xi = eta*(-1.0/(a*a)*(gamma-1.0)*(ui-u));
+ 
+    double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a*gamma*pbar/(rho*rho);
+     
+    // dpi/dp
+    dWidWi[8] = pi/pbar+xi*dadp;
+    // dpidrho
+    dWidWi[6] = xi*dadrho;
+    // dpidu
+    dWidWi[7] = eta*(-0.5/a*(gamma-1.0));
+
+    double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
+    dWidWi[0] = mu*(1.0/pbar*dWidWi[8]-(pi+pref)/(pbar*pbar));
+    dWidWi[1] = mu*dWidWi[7];
+    dWidWi[2] = rhoi/rho+mu/pbar*dWidWi[6];
+  }
+  else{ // shock
+    double t = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
+    double pstarbar = pi + pref;
+    double pbar = p + pref;
+ 
+    double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
+    double xi = sqrt(0.5*t*t+power*t*pbar);
+    double eta = 0.5*0.5/xi*(t+power*pbar);
+    dWidWi[8] = 1.0+0.5/xi*power*t;
+    dWidWi[7] = eta*dtdu;
+    dWidWi[6] = eta*dtdrho;
+
+    double s = q*pstarbar/pbar+1.0;
+    dWidWi[0] = rhoi/rho;
+    dwidWi[2] = rho*(-pstarbar/(pbar*pbar)/s-(pstarbar/pbar+q)/(s*s)*(-q*pstarbar/(pbar*pbar)));
+
+
+  }
+}
+*/
 //------------------------------------------------------------------------------
 /*
 inline

@@ -165,7 +165,8 @@ void EdgeSet::computeDerivativeOfTimeStep(FemEquationTerm *fet, VarFcn *varFcn, 
 template<int dim>
 void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
                               SVec<double,dim> &V, Vec<double> &dt,
-                              TimeLowMachPrec &tprec, Vec<int> &fluidId, int subnum)
+                              TimeLowMachPrec &tprec, Vec<int> &fluidId, int subnum,
+			      Vec<double>* umax)
 {
   double Vmid[dim];
   double S, invS, ndot;
@@ -206,6 +207,10 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
+      if (umax) {
+        (*umax)[i] += min(un,-1.0e-12)*S;
+        (*umax)[j] += min(-un,-1.0e-12)*S;
+      }
     }else{
       u = varFcn->getVelocity(V[i]);
       a = varFcn->computeSoundSpeed(V[i], fluidId[i]);
@@ -219,6 +224,9 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
 
       dt[i] += min(0.5*(coeff1-coeff2), 0.0) * S;
 
+      if (umax)
+	(*umax)[i] += min(un,-1.0e-12)*S;
+
       u = varFcn->getVelocity(V[j]);
       a = varFcn->computeSoundSpeed(V[j], fluidId[j]);
       un = u * n - ndot;
@@ -230,6 +238,9 @@ void EdgeSet::computeTimeStep(VarFcn *varFcn, GeoState &geoState,
       coeff2 = pow(pow((1.0-beta2)*un,2.0) + pow(2.0*locbeta*a,2.0),0.5);
 
       dt[j] += min(0.5*(-coeff1-coeff2), 0.0) * S;
+      
+      if (umax)
+        (*umax)[j] += min(-un,-1.0e-12)*S;
     }
   }
 
@@ -892,8 +903,8 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
     for (k=0; k<dimLS; ++k) {
-      ddPij[k] = dx[k]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
-      ddPji[k] = dx[k]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
+      ddPij[k] = dx[0]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
+      ddPji[k] = dx[0]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
     }
 
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
@@ -912,9 +923,9 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
         uroe     = (Pj[k]*Unj - Pi[k]*Uni)/(Pj[k]-Pi[k]);
       Phia = Uni*Pi[k] + Unj*Pj[k] - fabs(uroe)*(Pj[k]-Pi[k]);
       PhiF[i][k] += 0.5*Phia;
-      PhiF[j][k] -= 0.5*Phia;*/
-      
-      if (Uni > 0 && Unj > 0)
+      PhiF[j][k] -= 0.5*Phia;
+      */
+      /*if (Uni > 0 && Unj > 0)
 	Phia = (Pi[k]*Uni);
       else if (Uni < 0 && Unj < 0)
 	Phia = (Pj[k]*Unj);
@@ -923,7 +934,17 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
       
       PhiF[i][k] += Phia;
       PhiF[j][k] -= Phia;
+      */
+      double uav = 0.5*(Uni+Unj);
+      if (uav > 0.0) {
+	Phia = Pi[k]*uav;
+      } else if (uav < 0.0) {
+        Phia = Pj[k]*uav;
+      } 
 
+      PhiF[i][k] += Phia;
+      PhiF[j][k] -= Phia;
+     
     }
   }
 }
@@ -1049,17 +1070,17 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, GeoState &geoSt
         }
       }
 
-        Aij = A.getElem_ij(l);
-        Aji = A.getElem_ji(l);
-
-        if (Aij && Aji) {
-          double voli = 1.0 / ctrlVol[i];
-          double volj = 1.0 / ctrlVol[j];
-          for (k=0; k<neq*neq; ++k) {
-            Aij[k] += dfdUj[k] * voli;
-            Aji[k] -= dfdUi[k] * volj;
-          }
-        }
+      Aij = A.getElem_ij(l);
+      Aji = A.getElem_ji(l);
+      
+      if (Aij && Aji) {
+	double voli = 1.0 / ctrlVol[i];
+	double volj = 1.0 / ctrlVol[j];
+	for (k=0; k<neq*neq; ++k) {
+	  Aij[k] += dfdUj[k] * voli;
+	  Aji[k] -= dfdUi[k] * volj;
+	}
+      }
 
      }
 /* second case: node i is an interior node, but j is an inlet node
@@ -1161,7 +1182,7 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                               GenMat<Scalar,neq> &A, FluidSelector &fluidSelector,
                                               Vec<int> &fluidId)
 {
-	// it is assumed that dim=5, ie no turbulence possible
+  // it is assumed that dim=5, ie no turbulence possible
   int k,m,q;
 
   double gradphi[3];
@@ -1631,10 +1652,18 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
 
       df[0] = df[1] = 0.0;
 
-      if (Uni > 0 && Unj > 0)
-	df[0] = Uni;
-      else if (Uni < 0 && Unj < 0)
-	df[1] = Unj;
+/*      df[0] = Uni + SIGN(Pj[k]*Unj-Pi[k]*Uni)*SIGN(Pj[k]-Pi[k])*Uni+fabs(Pj[k]*Unj-Pi[k]*Uni)*SIGND(Pj[k]-Pi[k]);
+      df[1] = Unj - SIGN(Pj[k]*Unj-Pi[k]*Uni)*SIGN(Pj[k]-Pi[k])*Unj-fabs(Pj[k]*Unj-Pi[k]*Uni)*SIGND(Pj[k]-Pi[k]);
+      df[0]*=0.5;
+      df[1]*=0.5;
+*/
+      double uav = 0.5*(Uni+Unj);
+      if (uav > 0)
+	df[0] = uav;
+      else if (uav < 0)
+	df[1] = uav;
+      
+      
       
       if (masterFlag[l]) {
 	Scalar* Aii = A.getElem_ii(i);

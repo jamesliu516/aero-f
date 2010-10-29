@@ -130,14 +130,20 @@ template<int dim>
 void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, VarFcn *varFcn, DistGeoState &geoState,
                              DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
                              DistVec<double> &dt, DistVec<double> &idti, DistVec<double> &idtv,
-			     TimeLowMachPrec &tprec, DistVec<int> &fluidId)
+			     TimeLowMachPrec &tprec, DistVec<int> &fluidId, DistVec<double>* umax)
 {
 
   int iSub;
 
+  if (umax)
+    *umax = 0.0;
+
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub));
+    if (umax)
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub),&(*umax)(iSub));
+    else
+      subDomain[iSub]->computeTimeStep(fet, varFcn, geoState(iSub), V(iSub), dt(iSub), idti(iSub), idtv(iSub), tprec, fluidId(iSub));
     subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
   }
 
@@ -147,7 +153,24 @@ void Domain::computeTimeStep(double cfl, double viscous, FemEquationTerm *fet, V
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(dt.subData(iSub)));
 
+  if (umax) {
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {  
+      subDomain[iSub]->sndData(*volPat, reinterpret_cast<double (*)[1]>(umax->subData(iSub)));
+    }
+
+    volPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->addRcvData(*volPat, reinterpret_cast<double (*)[1]>(umax->subData(iSub)));
+
+  }
+
   dt = -cfl * ctrlVol / dt;
+
+  if (umax)
+    *umax = -0.333f * ctrlVol / (*umax);
 
 }
 
@@ -2875,15 +2898,20 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistVec<int> 
 
 // Included (MB)
 template<int dim>
-void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
+void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU,DistVec<int>* fluidId)
 {
 
   int verboseFlag = com->getMaxVerbose();
 
 #pragma omp parallel for reduction(+: ierr)
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->fixSolution(varFcn, U(iSub), dU(iSub), verboseFlag);
-
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    if (fluidId) {
+      subDomain[iSub]->fixSolution(varFcn, U(iSub), dU(iSub), &((*fluidId)(iSub)), verboseFlag);
+    } else {
+  
+      subDomain[iSub]->fixSolution(varFcn,U(iSub),dU(iSub),NULL,verboseFlag);
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

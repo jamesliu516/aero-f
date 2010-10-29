@@ -73,6 +73,8 @@ private:
   DistVec<double> *dIdti;
   DistVec<double> *dIdtv;
 
+  bool isGFMPAR;
+
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
 public:
@@ -102,7 +104,7 @@ public:
   double computeTimeStep(double, double*, int*, DistGeoState &, 
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   double computeTimeStep(double, double*, int*, DistGeoState &,
-                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &);
+                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
 
   void computeCoefficients(double);
 

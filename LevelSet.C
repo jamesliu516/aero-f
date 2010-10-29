@@ -453,7 +453,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     double eps = conv_eps;
     int it=0;
     for (level=2; level<bandlevel; level++){
-      com->fprintf(stdout, "*** level = %d\n", level);
+   //   com->fprintf(stdout, "*** level = %d\n", level);
       res = 1.0;
       resn = 1.0; resnm1 = 1.0;
       it = 0;

@@ -264,7 +264,7 @@ public:
   void computeTimeStep(double, double, FemEquationTerm *, VarFcn *, DistGeoState &, DistVec<double> &,
                        DistSVec<double,dim> &, DistVec<double> &, DistVec<double> &,
 		       DistVec<double> &, TimeLowMachPrec &,
-		       DistVec<int> &);
+		       DistVec<int> &, DistVec<double>* = NULL);
 
 
   template<int dim, class Scalar>
@@ -824,7 +824,7 @@ public:
                              double, TimeLowMachPrec &, SpatialLowMachPrec &);
 
   template<int dim>
-  void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void fixSolution(VarFcn *, DistSVec<double,dim> &, DistSVec<double,dim> &,DistVec<int>* fluidId = NULL);
 
   template<int dim>
   void getGradP(DistNodalGrad<dim>&);

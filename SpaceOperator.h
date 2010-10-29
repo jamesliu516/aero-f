@@ -304,6 +304,8 @@ public:
   //  DistSVec<double,dim> &, bool=true
   //);
 
+  template<class Scalar>
+  void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   // Included (MB)
   /// \note This routine is called from FluidSensitivityAnalysis.

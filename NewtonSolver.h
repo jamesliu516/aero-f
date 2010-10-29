@@ -177,6 +177,9 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::PhiVecType 
     // compute the Jacobian for the Level Set Equation 
     probDesc->computeJacobianLS(it, U, PhiF);
  
+    // Apply preconditioner
+    probDesc->setOperatorsLS(Phi);
+ 
     // Solve the linearized system of equations
     probDesc->solveLinearSystemLS(it, rhsPhi, dPhi);
 

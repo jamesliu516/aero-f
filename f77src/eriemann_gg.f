@@ -130,7 +130,7 @@ C     Shock wave
          PM     = POLD - (FL + FR + UDIFF)/(FLD + FRD)
          CHANGE = 2.0*ABS((PM- POLD)/(PM+ POLD))
          IF(CHANGE.LE.TOLPRE)GOTO 20
-         IF(PM.LT.0.0) PM = TOLPRE
+         IF(PM.LT.0.0) PM = TOLPRE*0.001;
          POLD  = PM
 
 

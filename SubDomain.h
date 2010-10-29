@@ -300,7 +300,7 @@ public:
   template<int dim>
   void computeTimeStep(FemEquationTerm *, VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
 		       Vec<double> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<int> &);
+                       TimeLowMachPrec &, Vec<int> &, Vec<double>* = NULL);
 
 
   template<int dim, class Scalar>
@@ -668,10 +668,10 @@ public:
   template<int dim>
   void computeXP(PostFcn *, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &XP, int);
 
-  template<int dim>
+  template<int dim,int dimLS>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-                                 Vec<double> &, Vec<int> &);
+                                Vec<double> &,Vec<int> &,SVec<double,dimLS>*);
 
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,
@@ -992,6 +992,9 @@ public:
   template<int dim>
   void computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType, PostFcn *, double [3], SVec<double,dim> &, SVec<double,dim> &, SVec<double,3> &, SVec<double,3> &, Vec<double> &);
 
+  template<int dim, class Scalar>
+  void applyBCsToH2Jacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,dim> &);
+
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobianWallValues(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
 
@@ -1021,7 +1024,7 @@ public:
   void checkVec(SVec<double,3> &);
 
   template<int dim>
-  int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, int);
+  int fixSolution(VarFcn *, SVec<double,dim> &, SVec<double,dim> &, Vec<int>*, int);
 
   template<int dim>
   void getGradP(NodalGrad<dim>&);

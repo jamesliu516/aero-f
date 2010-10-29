@@ -27,6 +27,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
 
+  DistVec<double> umax;
   // multiphase conservation check
   DistSVec<double,dim> boundaryFlux;
   DistSVec<double,dim> interfaceFlux;
@@ -71,6 +72,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
 
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
+  
+  void fixSolution(DistSVec<double,dim>& U, DistSVec<double,dim>& dU);
+
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
  protected:

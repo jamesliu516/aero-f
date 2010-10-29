@@ -17,6 +17,7 @@ class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 
+template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistTimeState;
@@ -150,9 +151,10 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+  template<int dimLS>
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
-                                DistVec<int> &);
+                                DistVec<int> &,DistSVec<double,dimLS>* = NULL);
   //void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
   //                              DistVec<double> &, DistSVec<double,dim> &,
   //                              DistSVec<double,1> &, DistVec<int> &);

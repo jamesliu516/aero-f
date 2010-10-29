@@ -152,13 +152,12 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   int its;
 
   double t0 = this->timer->getTime();
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
     this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
-
+    
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);
     this->riemann->storeOldV(U);
@@ -188,6 +187,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
 					   this->fluidSelector, F, this->riemann, 1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
@@ -365,7 +365,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
 
   kspLS->setup(it, this->maxItsNewton, b);
 
-  int lits = kspLS->solveLS(b, dQ);
+  int lits = kspLS->solve(b, dQ);
+
+  //mvpLS->apply(dQ, fnew);
   
   this->timer->addLSKspTime(t0);
 

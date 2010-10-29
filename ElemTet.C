@@ -11,7 +11,7 @@
 #include <GenMatrix.h>
 #include <math.h>
 #include <GeoState.h>
-
+#include <BasicGeometry.h>
 
 //------------------------------------------------------------------------------
 //--------------functions in ElemTet class
@@ -918,7 +918,7 @@ int ElemTet::findLSIntersectionPoint(int lsdim, SVec<double,dim> &Phi, SVec<doub
     scenario = 2;
     if(Phi[nodeNum(0)][lsdim]*Phi[nodeNum(1)][lsdim]<0.0){
     //swap if need be so that reorder[0] and reorder[1] have same sign
-      if(Phi[nodeNum(0)][0]*Phi[nodeNum(2)][0]>0.0){
+      if((Phi[nodeNum(0)][lsdim])*(Phi[nodeNum(2)][lsdim])>0.0){
         reorder[1] = 2;
         reorder[2] = 3;
         reorder[3] = 1;

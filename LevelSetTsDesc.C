@@ -37,7 +37,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
   computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase, ioData, dom) 
+  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()) 
 {
 
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
@@ -124,9 +124,10 @@ double LevelSetTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
 
+  umax = 0.0;
   int numSubCycles = 1;
   double dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId));
+                            &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -147,11 +148,6 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
 
   this->geoState->update(*this->X, *this->A);
 
-  LS->update(Phi);
-  fluidSelector.update();
-  
-  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
-
   if(frequencyLS > 0 && it%frequencyLS == 0){
     this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
     LS->conservativeToPrimitive(Phi,PhiV,U);
@@ -159,6 +155,12 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
     LS->primitiveToConservative(PhiV,Phi,U);
     this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
   }
+
+  LS->update(Phi);
+  fluidSelector.update();
+ 
+  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
+
 
 }
 
@@ -243,7 +245,7 @@ template<int dim, int dimLS>
 void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
                           int it, double t, DistSVec<double,dim> &U)
 {
-  conservationErrors(U,it);
+  //conservationErrors(U,it);
  
   if (it == this->data->maxIts)
     *lastIt = true;
@@ -261,7 +263,7 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId,&Phi);
     this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
     this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   }
@@ -275,7 +277,7 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
                                                int itSc, int itNl,
                                                double t, double dt, DistSVec<double,dim> &U)
 {
-  conservationErrors(U,it);
+  //conservationErrors(U,it);
 
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
@@ -288,7 +290,7 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
@@ -374,3 +376,11 @@ void LevelSetTsDesc<dim,dimLS>::avoidNewPhaseCreation(DistSVec<double,dimLS> &lo
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim,int dimLS>
+void LevelSetTsDesc<dim,dimLS>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU) {
+
+  if (this->fixSol == 1)
+    this->domain->fixSolution(this->varFcn,U,dU,fluidSelector.fluidId);
+}
+

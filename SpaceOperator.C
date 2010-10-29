@@ -1455,6 +1455,19 @@ void SpaceOperator<dim>::applyBCsToH2Jacobian(DistSVec<double,dim> &U, DistMat<S
 
 //------------------------------------------------------------------------------
 
+// Included (MB)
+template<int dim>
+template<class Scalar>
+void SpaceOperator<dim>::applyBCsToH2Jacobian(DistSVec<double,dim> &U, DistMat<Scalar,dim> &A)
+{
+
+  if (bcFcn)
+    domain->applyBCsToH2Jacobian(bcFcn, *bcData, U, A);
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 template<class Scalar>
 void SpaceOperator<dim>::computeH1(DistSVec<double,3> &X, DistVec<double> &ctrlVol,

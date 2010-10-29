@@ -93,12 +93,12 @@ void SubDomain::computeTimeStep(FemEquationTerm *fet, VarFcn *varFcn, GeoState &
                                 SVec<double,dim> &V, Vec<double> &dt,
 				Vec<double> &idti, Vec<double> &idtv,
                                 TimeLowMachPrec &tprec,
-				Vec<int> &fluidId)
+				Vec<int> &fluidId, Vec<double>* umax)
 {
 
   dt = 0.0;
 
-  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum);
+  edges.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId, globSubNum,umax);
   faces.computeTimeStep(varFcn, geoState, V, dt, tprec, fluidId);
 
 }
@@ -1948,6 +1948,75 @@ void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
 
 // Included (MB)
 template<int dim, class Scalar>
+void SubDomain::applyBCsToH2Jacobian(BcFcn *bcFcn, BcData<dim> &bcs,
+				   SVec<double,dim> &U, GenMat<Scalar,dim> &A)
+{
+
+  SVec<double,dim> &Vwall = bcs.getNodeStateVector();
+
+  int (*edgePtr)[2] = edges.getPtr();
+
+  int k;
+  for (int l=0; l<edges.size(); ++l) {
+
+    if (bcMap.find(l) != bcMap.end())  {
+      int i = edgePtr[l][0];
+      int j = edgePtr[l][1];
+
+      if (nodeType[i] != BC_INTERNAL)  {
+        Scalar *Aij = A.getBcElem_ij(bcMap[l]);
+        Scalar *Aij_orig = A.getElem_ij(l);  // the Aij is the off-diagonal term for this equation
+        if (Aij && Aij_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aij[k] = Aij_orig[k];
+        }
+
+        Scalar *Aji = A.getBcElem_ji(bcMap[l]);
+        Scalar *Aji_orig = A.getElem_ji(l);  // Aij is the diag term for the ith eq.
+        if (Aji && Aji_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aji[k] = Aji_orig[k];
+        }
+
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aij);
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aji);
+
+      }
+      if (nodeType[j] != BC_INTERNAL) {
+        Scalar *Aij = A.getBcElem_ij(bcMap[l]+numBcNodes[l]);
+        Scalar *Aij_orig = A.getElem_ij(l);  // Aij is the diag term for the jth eq.
+        if (Aij && Aij_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aij[k] = Aij_orig[k];
+        }
+
+        Scalar *Aji = A.getBcElem_ji(bcMap[l]+numBcNodes[l]);
+        Scalar *Aji_orig = A.getElem_ji(l);  // Aji is the off-diag term for the jth eq.
+        if (Aji && Aji_orig)  {
+          for (k = 0; k < dim*dim; k++)
+            Aji[k] = Aji_orig[k];
+        }
+
+        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aij);
+        bcFcn->applyToOffDiagonalTerm(nodeType[j], Aji);
+
+      }
+    }
+  }
+  for (int i=0; i<nodes.size(); ++i) {
+    if (nodeType[i] != BC_INTERNAL) {
+      Scalar *Aii = A.getElem_ii(i);
+      if (Aii)
+        bcFcn->applyToOffDiagonalTerm(nodeType[i], Aii);
+    }
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
+// Included (MB)
+template<int dim, class Scalar>
 void SubDomain::applyBCsToProduct(BcFcn *bcFcn, BcData<dim> &bcs, SVec<double,dim> &U, SVec<Scalar,dim> &Prod)
 {
 
@@ -3619,8 +3688,10 @@ void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *pos
 					  SVec<double,dim> &V, SVec<double,3> &X,
 					  Vec<double> &Q)
 {
+  double phi = 1.0;
+  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], 0);
+    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i],fluidId,&phi);
 }
 
 //------------------------------------------------------------------------------
@@ -3641,9 +3712,11 @@ SubDomain::computeDerivativeOfNodeScalarQuantity(PostFcn::ScalarDerivativeType t
 template<int dim>
 void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> &X, Vec<double> &Q, int dir)
 {
+  double phi = 1.0;
+  int fluidId = 0;
   for (int i=0; i<Q.size(); ++i) {
     if (nodeType[i] == BC_ADIABATIC_WALL_MOVING  || BC_ISOTHERMAL_WALL_MOVING)  {
-      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], 0);
+      Q[i] = postFcn->computeNodeScalarQuantity(PostFcn::DIFFPRESSURE, V[i], X[i], &phi, fluidId);
       Q[i] *= X[i][dir];
     }
   }
@@ -3652,15 +3725,19 @@ void SubDomain::computeXP(PostFcn *postFcn, SVec<double,dim> &V, SVec<double,3> 
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
-                                          SVec<double,dim> &V, SVec<double,3> &X,
-                                          Vec<double> &Q, Vec<int> &fluidId)
+template<int dim, int dimLS>
+inline void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
+                                         SVec<double,dim> &V, SVec<double,3> &X,
+                                          Vec<double> &Q, Vec<int> &fluidId,SVec<double,dimLS>* phi) 
 {
-
-  for (int i=0; i<Q.size(); ++i)
-    Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i],fluidId[i]);
-
+  
+  if (phi) {
+    for (int i=0; i<Q.size(); ++i)
+      Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],(*phi)[i]);
+  } else { 
+    for (int i=0; i<Q.size(); ++i)
+      Q[i] = postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],NULL);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -3878,7 +3955,7 @@ void SubDomain::restrictionOnPhi(SVec<double,dim> &initial, Vec<int> &fluidId,
 
 // Included (MB)
 template<int dim>
-int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim> &dU, int verboseFlag)
+int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim> &dU, Vec<int>* fluidId,int verboseFlag)
 {
 
   int ierr = 0;
@@ -3890,11 +3967,15 @@ int SubDomain::fixSolution(VarFcn *varFcn, SVec<double,dim> &U, SVec<double,dim>
     for (int j=0; j<dim; ++j)
       Un[j] = U[i][j] + dU[i][j];
 
-    varFcn->conservativeToPrimitive(Un, V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->getPressure(V);
-
-    if (rho <= 0.0) {
+      int id = 0;
+      if (fluidId)
+	id = (*fluidId)[i];
+      
+      varFcn->conservativeToPrimitive(Un, V,id);
+      double rho = varFcn->getDensity(V,id);
+      double p = varFcn->checkPressure(V,id);
+      
+      if (rho <= 0.0) {
       if (verboseFlag == 4)
         fprintf(stderr, "*** Warning: negative density (%e) was fixed for node %d\n", rho, locToGlobNodeMap[i] + 1);
 

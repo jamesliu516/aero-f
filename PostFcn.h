@@ -61,7 +61,7 @@ public:
   PostFcn(VarFcn *);
   virtual ~PostFcn() {}
 
-  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 					   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
@@ -120,7 +120,7 @@ public:
   PostFcnEuler(IoData &, VarFcn *);
   virtual ~PostFcnEuler() {}
 
-  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
@@ -203,7 +203,7 @@ public:
   PostFcnSA(IoData &, VarFcn *);
   virtual ~PostFcnSA();
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);
@@ -220,7 +220,7 @@ public:
   PostFcnDES(IoData &, VarFcn *);
   virtual ~PostFcnDES() {}
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);
@@ -237,7 +237,7 @@ public:
   PostFcnKE(IoData &, VarFcn *);
   virtual ~PostFcnKE() {}
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);
