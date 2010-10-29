@@ -361,7 +361,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if ((mmh && _mmh) || hth)
+  if ((mmh && !_mmh) || hth) 
     bcData->update(*X);
 
 }

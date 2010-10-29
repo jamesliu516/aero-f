@@ -10,11 +10,13 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     com->fprintf(stderr, "*** NOTE: Running an Embedded %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
-    if (ioData.eqs.type == EquationsData::EULER) 
-      {
-	com->fprintf(stderr,"*** Euler Simulation ***\n");
-	NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);	
-      }
+    if (ioData.eqs.type == EquationsData::EULER) {
+      com->fprintf(stderr,"*** Euler Simulation ***\n");
+      if (!ioData.mf.multiInitialConditions.sphereMap.dataMap.empty())
+        NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain);
+      else
+        NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);	
+    }
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       {
 	com->fprintf(stderr,"*** Navier-Stokes Simulation ");

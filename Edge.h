@@ -18,6 +18,7 @@ using std::pair;
 // Included (MB)
 #include <stdio.h>
 
+class FluidSelector;
 class VarFcn;
 class RecFcn;
 class FluxFcn;
@@ -26,7 +27,6 @@ class GeoState;
 class FemEquationTerm;
 class TimeLowMachPrec;
 class LevelSetStructure;
-class FluidSelector;
 
 
 struct Vec3D;
@@ -95,6 +95,17 @@ public:
                               SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
+  template<int dim, int dimLS>
+  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
+                              FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
+                              SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+                              LevelSetStructure&, bool, Vec<int> &, int, SVec<double,3>*, FluidSelector &,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              NodalGrad<dimLS>&,
+                              SVec<double,dim>&, int,
+                              SVec<double,dim>* interfaceFlux,
+                              SVec<int,2>&, int, int);
+
   /** compute flux for Riemann based FSI*/
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
@@ -115,7 +126,7 @@ public:
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                                SVec<double,dim>&, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
-                               SVec<double,dimLS>&, SVec<double,dimLS>&);
+                               SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,

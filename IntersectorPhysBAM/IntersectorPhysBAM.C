@@ -491,7 +491,7 @@ DistIntersectorPhysBAM::buildSolidNormals() {
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
+DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
     fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
     exit(-1);
@@ -526,16 +526,24 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     intersector[i]->hasCloseTriangle(X(i), (*boxMin)(i), (*boxMax)(i), tId(i));
     numIntersectedEdges += intersector[i]->findIntersections(X(i),tId(i),*com);}
 
-  list< pair<Vec3D,int> > points; //pair points with fluid model ID.
+  list< pair<Vec3D,int> > points; //pair points with fluid model ID (or point id if needed).
+  map<int,int> pid2id; //maps point id to id
 
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
+    int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
       pointIt != iod.embed.embedIC.pointMap.dataMap.end();
       pointIt ++){
       int myID = pointIt->second->fluidModelID;
+      int myPID = ++count;
       Vec3D xyz(pointIt->second->x, pointIt->second->y,pointIt->second->z);
-      points.push_back(pair<Vec3D,int>(xyz, myID));
+
+      if(point_based_id) {
+        points.push_back(pair<Vec3D,int>(xyz, myPID));
+        pid2id[myPID] = myID;
+      } else
+        points.push_back(pair<Vec3D,int>(xyz, myID));
 
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
@@ -544,6 +552,21 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     com->fprintf(stderr, "Point-based initial conditions could not be found.  Assuming single-phase flow\n");
 
   findActiveNodesUsingFloodFill(tId,points);
+
+  if(point_based_id) {
+    *point_based_id = -999;
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++) {
+        int myPID = (*status)(iSub)[i];
+        map<int,int>::iterator pit = pid2id.find(myPID);
+        if(pit!=pid2id.end()) {
+          (*point_based_id)(iSub)[i] = myPID;
+          (*status)(iSub)[i] = pit->second;
+        }
+      }
+  }
+
   *status0=*status;
 }
 
@@ -568,11 +591,11 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 // Determine the status of local colors
   map<int,int> globalColorToGlobalStatus;
   for(list<pair<Vec3D,int> >::const_iterator iter = points.begin(); iter!=points.end(); iter++)
-    com->fprintf(stderr,"found point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
+    com->fprintf(stderr,"found Point %d(%e %e %e) with specified fluid model and initial conditions.\n", iter->second, (iter->first)[0], (iter->first)[1], (iter->first)[2]);
 
   for(int iSub=0;iSub<numLocSub;++iSub){int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
     if(ffNode >= 0){
-      fprintf(stderr,"Setting global color %d to Fluid Model %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
+      fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
       globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;}}
 
   for(int iSub=0;iSub<numLocSub;++iSub){
@@ -580,7 +603,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
     for(int iElem=0; iElem<sub.numElems(); iElem++)
       for(list<pair<Vec3D,int> >::const_iterator iP=points.begin(); iP!=points.end(); iP++){
         if(sub.isINodeinITet(iP->first, iElem, (*X)(iSub))){ // TODO(jontg): Use a robust implementation of this routine
-          fprintf(stderr,"Setting global color %d to Fluid Model %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
+          fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
           globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;}}}
 
   PHYSBAM_MPI_UTILITIES::syncMap(*domain,*com,globalColorToGlobalStatus);

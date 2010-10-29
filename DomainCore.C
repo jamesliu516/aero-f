@@ -1462,3 +1462,18 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
 }
 
 //-------------------------------------------------------------------------------
+
+void Domain::setupFluidIdVolumesInitialConditions(const int volid, const int myId, DistVec<int> &fluidId)
+{
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupFluidIdVolumesInitialConditions(volid, myId, fluidId(iSub));
+}
+
+//-------------------------------------------------------------------------------

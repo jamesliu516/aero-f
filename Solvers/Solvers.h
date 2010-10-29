@@ -53,5 +53,12 @@ NavierStokesEmbedded {
      static void solve(IoData &ioData, GeoSource &geoSource, Domain &domain);
 };
 
+template<int dim, int dimLS>
+class
+NavierStokesMultiPhysicsEmbedded {
+   public:
+     static void solve(IoData &ioData, GeoSource &geoSource, Domain &domain);
+};
+
 #define _SOLVERS_H_
 #endif

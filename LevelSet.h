@@ -43,7 +43,7 @@ class LevelSet {
   double conv_eps;
   bool diff;
 
-  double invertGasLiquid; //to run Liquid in Gas Simulation....
+  double invertGasLiquid; //to run Liquid in Gas Simulation....  (TODO: Not used?)
 
   // for reinitialization
   DistSVec<double,dimLS> Phi0;

@@ -292,7 +292,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
-  new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
+  new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity
   new ClassStr<TransientData>(ca, "DensitySensitivity", this, &TransientData::dDensity);
   new ClassStr<TransientData>(ca, "MachSensitivity", this, &TransientData::dMach);
   new ClassStr<TransientData>(ca, "PressureSensitivity", this, &TransientData::dPressure);
@@ -1423,10 +1423,9 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
 
   ClassAssigner *ca = new ClassAssigner(name, 3, father);
-
-  sphereMap.setup("Sphere", 0);
-  planeMap.setup("Plane", 0);
-  pointMap.setup("Point", 0);
+  sphereMap.setup("Sphere", ca);
+  planeMap.setup("Plane", ca);
+  pointMap.setup("Point", ca);
 
 }
 

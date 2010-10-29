@@ -118,16 +118,17 @@ void DistExactRiemannSolver<dim>::storePreviousPrimitive(DistSVec<double,dim> &V
   if(phaseChangeType_ == MultiFluidData::EXTRAPOLATION){
     *riemannupdate = 0.0;
     *weight = 0.0;
-    fprintf(stdout, "*** Error: not supposed to be here for GFMP\n");
+    if(algorithmType_ == MultiFluidData::GHOSTFLUID_FOR_POOR)
+      fprintf(stdout, "*** Error: not supposed to be here for GFMP\n");
     domain->storePreviousPrimitive(V,fluidId,X,*riemannupdate, *weight);
   }
 }
 //------------------------------------------------------------------------------
 template<int dim>
 template<int dimLS>
-void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin)
+void DistExactRiemannSolver<dim>::avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistLevelSetStructure *distLSS)
 {
   if(algorithmType_ != MultiFluidData::GHOSTFLUID_FOR_POOR)
-    domain->avoidNewPhaseCreation(Phi,Phin,*weight);
+    domain->avoidNewPhaseCreation(Phi,Phin,*weight, distLSS);
 }
 //------------------------------------------------------------------------------

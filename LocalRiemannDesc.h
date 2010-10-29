@@ -2630,13 +2630,13 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
     }
 
   //-----------------------------------------------------------------
-
+/*
   if(it==1){
     weightj += 1.0;
     for (int k=0; k<dim; k++)
       rupdatej[k] += Wstar[k];  //TODO: rupdate is never used for FSI. (only used for MPF)
   }
-
+*/
 }
 //------------------------------------------------------------------------------
 /*inline
@@ -2716,10 +2716,17 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
   }
 
   if(ui<u){ // rarefaction
-    double power = 2*gamma/(gamma-1.0);
+ /*   double power = 2*gamma/(gamma-1.0);
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
     pi = pbar*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,power)-pref;
+    rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma); */
+
+    double power = gamma/(gamma-1.0);
+    double a = sqrt(gamma*(p+pref)/rho);
+    double pbar = p + pref;
+    double dee = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+    pi = pbar*pow(dee*dee,power)-pref;
     rhoi = rho*pow((pi+pref)/(p+pref), 1.0/gamma);
   }
   else{ // shock
