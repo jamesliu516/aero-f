@@ -403,8 +403,8 @@ void LocalRiemannGfmpar::updatePhaseChangingNodeValues( double * const dx,
 
   if(normdx2 > 0.0 && normWj2 > 0.0)
     temp = -(Wj[1]*dx[0]+Wj[2]*dx[1]+Wj[3]*dx[2])/sqrt(normdx2*normWj2);
-    if (temp > 0.0){
-      weighti += temp;
+  if (temp > 0.0){
+    weighti += temp;
     for (int k=0; k<dim; k++)
       rupdatei[k] += temp*Wj[k];
   }

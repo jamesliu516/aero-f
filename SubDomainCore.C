@@ -4658,3 +4658,20 @@ int SubDomain::findFarfieldNode()
 
 //-----------------------------------------------------------------------------------------------
 
+void SubDomain::setupFluidIdVolumesInitialConditions(const int volid, const int myId, Vec<int> &fluidId)
+{
+  for (int iElem = 0; iElem < elems.size(); iElem++)  {
+    if (elems[iElem].getVolumeID() == volid)  {
+      int *nodeNums = elems[iElem].nodeNum();
+      for (int iNode = 0; iNode < elems[iElem].numNodes(); iNode++) {
+        int myNode = nodeNums[iNode];
+        if(fluidId[myNode]>0 && fluidId[myNode]!=myId)
+          fprintf(stderr,"WARNING: FluidId on node %d converted from %d to %d using volume Id(s)!\n", locToGlobNodeMap[myNode]+1, fluidId[myNode], myId); 
+        fluidId[myNode] = myId;
+      }
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
+

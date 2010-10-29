@@ -840,6 +840,36 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
 
 //------------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji, 
+                                       LevelSetStructure& LSS, bool linRecAtInterface, 
+                                       Vec<int> &fluidId, int Nriemann, SVec<double,3>* Nsbar, 
+                                       FluidSelector &fluidSelector,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       NodalGrad<dimLS>& ngradLS,
+                                       SVec<double,dim>& fluxes, int it,
+                                       SVec<double,dim> *bcFlux,
+                                       SVec<double,dim> *interfaceFlux,
+                                       SVec<int,2>& tag, int failsafe, int rshift)
+{
+  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
+                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
+                                           fluidId, Nriemann, Nsbar, fluidSelector,
+                                           ngrad, egrad, ngradLS, fluxes, it,
+                                           interfaceFlux, tag, failsafe, rshift);
+
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, bcFlux, &LSS);
+
+  return ierr;
+
+}
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -894,14 +924,14 @@ void SubDomain::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, Rec
                                         SVec<double,3>& X, SVec<double,dim>& V,
                                         NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
                                         EdgeGrad<dim>* egrad,
-                                        SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF)
+                                        SVec<double,dimLS>& Phi, SVec<double,dimLS> &PhiF,
+                                        LevelSetStructure* LSS)
 {
   edges.computeFiniteVolumeTermLS(fluxFcn, recFcn, recFcnLS, elems, geoState, X, V, ngrad, ngradLS,
-                                  egrad, Phi, PhiF);
-
+                                  egrad, Phi, PhiF, LSS);
 
   faces.computeFiniteVolumeTermLS(fluxFcn, bcData, geoState, V, Phi, PhiF);
-
+    //Note: LSS is not needed because we assume that farfield nodes cannot be covered by structure.
 }
 
 //------------------------------------------------------------------------------
@@ -4345,7 +4375,7 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 }
 */
 //------------------------------------------------------------------------------
-
+// TODO: should distinguish master nodes and non-master nodes
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                       Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
@@ -4359,58 +4389,92 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
           continue;}
         else if(Weights[currentNode] < 1e-6){
           Weights[currentNode]=1.0;
-//          fprintf(stderr,"%02d Found a swept node %d, accumulating to weight %e, [%e %e %e %e %e]\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4]);
           for(int i=0;i<5;++i) 
             VWeights[currentNode][i] = V[neighborNode][i];
         } else {
           Weights[currentNode] += 1.0;
           for(int i=0;i<5;++i) 
             VWeights[currentNode][i] += V[neighborNode][i];
-//            fprintf(stderr,"\t\t(%02d, %d), accumulating to weight %e, [%e %e %e %e %e] (now [%e %e %e %e %e])\n",globSubNum,currentNode,Weights[currentNode],V[neighborNode][0],V[neighborNode][1],V[neighborNode][2],V[neighborNode][3],V[neighborNode][4],VWeights[currentNode][0],VWeights[currentNode][1],VWeights[currentNode][2],VWeights[currentNode][3],VWeights[currentNode][4]);
         }
       }
     }
-
-
-
-/* (Old, works only with IntersectorFRG)
-
-  int i, j, k;
-
-  bool* edgeFlag = edges.getMasterFlag();
-  int (*edgePtr)[2] = edges.getPtr();
-
-  for (int l=0; l<edges.size(); l++){
-    i = edgePtr[l][0];
-    j = edgePtr[l][1];
-
-    if(LSS.edgeIntersectsStructure(0.0,i,j)){ //at interface
-      if(Weights[i]<1.e-6){
-        Weights[i] = 1.0;
-        for(k=0; k<5; k++)
-          VWeights[i][k] = V[j][k];
-      }else{
-        Weights[i] += 1.0;
-        for(k=0; k<5; k++)
-          VWeights[i][k] += V[j][k];
-      }
-
-      if(Weights[j]<1.e-6){
-        Weights[j] = 1.0;
-        for(k=0; k<5; k++)
-          VWeights[j][k] = V[i][k];
-      }else{
-        Weights[j] += 1.0;
-        for(k=0; k<5; k++)
-          VWeights[j][k] += V[i][k];
-      }
-
-    }
-
-  } 
-*/
 }
 
+//------------------------------------------------------------------------------
+// who: active and "swept" nodes
+// what: phi and U
+// how: pull from neighbours which are visible, not swept, and have the same fluid Id.
+// TODO: should distinguish master nodes and non-master nodes
+template<int dim, int dimLS>
+void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
+                                                SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
+                                                Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId)
+{
+  const Connectivity &nToN = *getNodeToNode();
+  for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
+//    bool bug = (locToGlobNodeMap[currentNode]+1==150516) ? true : false;
+//    if(bug)
+//      fprintf(stderr,"*** Node 150516: Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d.\n", fluidId[currentNode], LSS.fluidModel(0.0,currentNode), LSS.isSwept(0.0,currentNode), LSS.isActive(0.0,currentNode), LSS.isOccluded(0.0,currentNode));
+
+    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+      int myId = fluidId[currentNode]; 
+      for(int j=0;j<nToN.num(currentNode);++j){
+        int neighborNode=nToN[currentNode][j];
+        int yourId = fluidId[neighborNode];
+//        if(bug)
+//          fprintf(stderr,"     - Neighbour of 150516: Node %d, Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d, X = %d.\n", locToGlobNodeMap[neighborNode]+1, yourId, LSS.fluidModel(0.0,neighborNode), LSS.isSwept(0.0,neighborNode), LSS.isActive(0.0,neighborNode), LSS.isOccluded(0.0,currentNode), LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode));
+
+        if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode) ||
+           myId!=yourId){
+          continue;}
+        else if(Weights[currentNode] < 1e-6){
+          Weights[currentNode]=1.0;
+          for(int i=0;i<5;++i)
+            VWeights[currentNode][i] = V[neighborNode][i];
+          for(int i=0;i<dimLS;++i)
+            PhiWeights[currentNode][i] = Phi[neighborNode][i];
+        } else {
+          Weights[currentNode] += 1.0;
+          for(int i=0;i<5;++i)
+            VWeights[currentNode][i] += V[neighborNode][i];
+          for(int i=0;i<dimLS;++i)
+            PhiWeights[currentNode][i] += Phi[neighborNode][i];
+        }
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV)
+{
+  int (*edgePtr)[2] = edges.getPtr();
+  bool *masterFlag = edges.getMasterFlag();
+  
+  for(int l=0; l<edges.size(); l++) {
+    if(!masterFlag[l])
+      continue;
+    int i = edgePtr[l][0];
+    int j = edgePtr[l][1];
+
+    int Idi = LSS.fluidModel(0.0,i), Idj = LSS.fluidModel(0.0,j);
+    if(Idi!=0 || Idj!=0) //meaning isolated by structure
+      continue;
+    bool iSwept = LSS.isSwept(0.0,i), jSwept = LSS.isSwept(0.0,j);
+ 
+    // pull data from j to i?
+    if(iSwept && !jSwept)
+      for(int k=0; k<dimLS; k++)
+        PhiV[i][k] += PhiV[j][k];
+
+    // pull data from i to j?
+    if(jSwept && !iSwept)
+      for(int k=0; k<dimLS; k++)
+        PhiV[j][k] += PhiV[i][k];
+  }
+}
 
 //------------------------------------------------------------------------------
 
@@ -4470,7 +4534,7 @@ void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints)
 }
 
 //--------------------------------------------------------------------------
-
+//TODO: should distinguish master edges and non-master edges.
 template<int dim>
 void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,
                       SVec<double,dim> &Wstarji, SVec<double,dim> &VWeights, Vec<double> &Weights, 
@@ -4926,12 +4990,14 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 }
 //------------------------------------------------------------------------------
 template<int dimLS>
-void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight)
+void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS> &Phin, Vec<double> &weight, LevelSetStructure *LSS)
 {
 
   for(int i=0; i<nodes.size(); i++){
+    int fModel = LSS ? LSS->fluidModel(0.0, i) : 0;  //if fModel>0 (isolated), Phi is not used at all
+    bool swept = LSS ? LSS->isSwept(0.0, i) : 0; // if swept, Phin is not reliable!
     for(int j=0; j<dimLS; j++){
-      if(Phi[i][j]*Phin[i][j]<0.0){
+      if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
         // check if node i HAD a neighbour with a different levelset sign
         if(weight[i] <= 0.0){
           fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"

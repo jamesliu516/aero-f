@@ -290,7 +290,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,d
 
   if(!(this->interfaceType==MultiFluidData::FSF)){
 
-    this->varFcn->conservativeToPrimitive(U0,this->V0,this->fluidSelector.fluidId);
+    this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
     //this->multiPhaseSpaceOp->storePreviousPrimitive(U, this->Vg, this->fluidSelector.fluidId, 
     //                                      this->Vgf, this->Vgfweight, *this->X);
     this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
@@ -423,7 +423,7 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
   this->domain->computePrdtPhiCtrlVolRatio(ratioTimesPhi, this->Phi, *this->A, *this->geoState);
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = ratioTimesPhi - p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0);
 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
@@ -435,20 +435,19 @@ void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,dim> 
 template<int dim, int dimLS>
 void ExplicitLevelSetTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,dim> &U)
 {
-
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0);
 
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
   Phi0 = this->Phi - 0.5 * p2;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0);
 
   computeRKUpdateLS(Phi0, fluidId0, p3, U);
   Phi0 = this->Phi - p3;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
+  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin);
   this->fluidSelector.getFluidId(fluidId0,Phi0);
 
   computeRKUpdateLS(Phi0, fluidId0, p4, U);

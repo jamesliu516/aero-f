@@ -6,7 +6,7 @@ class IoData;
 class Domain;
 class Communicator;
 class SparseGridCluster;
-
+class DistLevelSetStructure;
 
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class ExactRiemannSolver;
@@ -46,7 +46,7 @@ public:
   void updatePhaseChange(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistVec<int> &fluidIdn); 
   void storePreviousPrimitive(DistSVec<double,dim> &V, DistVec<int> &fluidId, DistSVec<double,3> &X);
   template<int dimLS>
-  void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin);
+  void avoidNewPhaseCreation(DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &Phin, DistLevelSetStructure *distLSS = 0);
 
   ExactRiemannSolver<dim> &operator() (int i) 
     const { return *subExactRiemannSolver[i]; }

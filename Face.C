@@ -408,13 +408,15 @@ inline
 void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 				   Vec<double> &normalVel, SVec<double,dim> &V,
 				   double *Ub, Vec<int> &fluidId, 
-				   SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux)
+				   SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux, 
+                                   LevelSetStructure *LSS)
 {
   Vec3D normal = getNormal(normals);
   double flux[dim];
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
+      if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
                              V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)
@@ -749,14 +751,14 @@ template<int dim>
 void FaceSet::computeFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 				      GeoState &geoState, SVec<double,dim> &V,
 				      Vec<int> &fluidId, SVec<double,dim> &fluxes,
-                                      SVec<double,dim> *bcFlux = 0)
+                                      SVec<double,dim> *bcFlux, LevelSetStructure *LSS)
 {
   Vec<Vec3D> &n = geoState.getFaceNormal();
   Vec<double> &ndot = geoState.getFaceNormalVel();
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
                                                                                                          
   for (int i=0; i<numFaces; ++i)  {
-    faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluidId, fluxes, bcFlux);
+    faces[i]->computeFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], fluidId, fluxes, bcFlux, LSS);
   }
 }
 

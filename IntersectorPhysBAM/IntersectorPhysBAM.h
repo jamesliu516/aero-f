@@ -98,7 +98,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
+    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int>* point_based_id = 0);
     void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false);

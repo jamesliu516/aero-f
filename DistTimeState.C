@@ -191,7 +191,7 @@ template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
                                DistSVec<double,dim> &Ufar,
                                DistSVec<double,dim> &U, IoData &iod,
-                               DistVec<int> *fluidId)
+                               DistVec<int> *point_based_id)
 {
   *Un = Ufar;
  
@@ -206,8 +206,8 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   if(iod.input.oneDimensionalSolution[0] != 0) setupUOneDimensionalSolution(iod,X);
   setupUMultiFluidInitialConditions(iod,X);
 
-  if(fluidId && iod.eqs.numPhase>=2) 
-    setupUFluidIdInitialConditions(iod, *fluidId);
+  if(point_based_id && iod.eqs.numPhase>=2) 
+    setupUFluidIdInitialConditions(iod, *point_based_id);
 
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
@@ -497,16 +497,18 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId)
+void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &pointId)
 {
   map<int, FluidModelData *>::iterator fluidIt;
 
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
+    int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
         pointIt != iod.embed.embedIC.pointMap.dataMap.end();
         pointIt ++){
 
+      count++;
       fluidIt = iod.eqs.fluidModelMap.dataMap.find(pointIt->second->fluidModelID);
       if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
         fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", pointIt->second->fluidModelID);
@@ -521,10 +523,10 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &subUn((*Un)(iSub));
-        Vec<int> &subId(fluidId(iSub));
+        Vec<int> &subId(pointId(iSub));
 
         for(int i=0; i<subUn.size(); i++)
-          if(subId[i]==fluidIt->first)
+          if(subId[i]==count)
             for(int iDim=0; iDim<dim; iDim++)
               subUn[i][iDim] = UU[iDim];
       }

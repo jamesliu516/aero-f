@@ -90,7 +90,7 @@ public:
   void setGlobalTimeStep (double t) { *dt = t; }
 
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
-             DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); //fluidId needed only for multi-phase flow (not true)
+             DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); 
   void setupUVolumesInitialConditions(IoData &iod);
   void setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
