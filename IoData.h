@@ -106,6 +106,7 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char *philevel_structure;
+  const char* fluidid;
 // Included (MB)
   const char *velocitynorm;
   const char *dSolutions;

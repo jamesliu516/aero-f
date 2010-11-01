@@ -168,7 +168,9 @@ double PostFcnEuler::computeNodeScalarQuantity(ScalarType type, double *V, doubl
     q = varFcn->computePressureCoefficient(V, pinfty, mach, dimFlag,fluidId);
   else if(type == PHILEVEL)
     //q = static_cast<double>(fluidId);
-    q  = phi[fluidId]/varFcn->getDensity(V, fluidId);
+    q = phi[0]/varFcn->getDensity(V, fluidId);
+  else if (type == FLUIDID)
+    q = static_cast<double>(fluidId);
   else if(type == PHILEVEL_STRUCTURE){
     if (phi)
       q = phi[fluidId];  //NOTE: In this case phi stores the distance to the structure. 

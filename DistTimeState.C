@@ -1143,9 +1143,9 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     data->exist_nm1 = true;
   } else {
     *Vn = *Un = Q;
-    DistVec<int> minus1(fluidId);
+    /*DistVec<int> minus1(fluidId);
     minus1 = -1;
-    riemann->updatePhaseChange(*Vn,fluidId,minus1);
+    riemann->updatePhaseChange(*Vn,fluidId,minus1);*/
   }
 
 }

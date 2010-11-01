@@ -1492,7 +1492,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
   double t0 = timer->getTime();
   CommPattern<Scalar> *matPat = A.getDiagMatPat();
 
-	std::cout << "Num Subdomains = " << numLocSub << std::endl;
+//	std::cout << "Num Subdomains = " << numLocSub << std::endl;
 
   if(inletRhsPat){
     fprintf(stdout, "with inletRhsPat\n");

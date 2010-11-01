@@ -83,9 +83,10 @@ public:
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
     if(ID == IDn) return; /* node does not change phase: nothing to do*/
-    if(weight<=0.0){ fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
-                     exit(1); }
-    for(int k=0; k<5; k++) V[k] = newV[k]/weight;
+    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
+                     exit(1);} }
+    else
+      for(int k=0; k<5; k++) V[k] = newV[k]/weight;
   }
 
 protected:
