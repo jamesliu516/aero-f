@@ -267,6 +267,12 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
   }
+  if (iod.output.transient.fluidid[0] != 0) {
+    sscale[PostFcn::FLUIDID] = 1.0;
+    scalars[PostFcn::FLUIDID] = new char[sp + strlen(iod.output.transient.fluidid)];
+    sprintf(scalars[PostFcn::FLUIDID], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.fluidid);
+  }
   if (iod.output.transient.controlvolume[0] != 0) {
     sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
     scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
@@ -2054,6 +2060,17 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
     }
   }
 
+}
+
+//----------------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+                                             DistVec<double> &A, DistSVec<double,dim> &U, 
+                                             DistTimeState<dim> *timeState,
+                                             DistVec<int> &fluidId)
+{
+  writeBinaryVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
 }
 
 //----------------------------------------------------------------------------------------

@@ -105,6 +105,7 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
   fluidSelector.initializeFluidIds(Phi, LS->Phinm1, LS->Phinm2); //setup fluidId in fluidSelector
 
+  //this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
   if (_mmh) 
     _mmh->setup(&this->restart->frequency, &this->data->maxTime, this->postOp, *this->X, *U, fluidSelector.fluidId);

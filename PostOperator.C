@@ -1131,7 +1131,7 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
     for (iSub=0; iSub<numLocSub; ++iSub) {
       varFcn->conservativeToPrimitive(U(iSub), (*V)(iSub), &(fluidId(iSub)));
       if (Phi)
-        subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),&(*Phi)(iSub));
+        subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),&((*Phi)(iSub)));
       else
         subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),(SVec<double,1>*)0);
     }

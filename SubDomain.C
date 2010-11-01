@@ -5000,9 +5000,9 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
       if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
         // check if node i HAD a neighbour with a different levelset sign
         if(weight[i] <= 0.0){
-          fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
-                          " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
-                          globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
+          //fprintf(stdout, "node %d (loc %d in %d) has weight = %f and has levelset %d"
+          //                " moving from %e to %e\n", locToGlobNodeMap[i]+1,i,
+          //               globSubNum,weight[i],j,Phin[i][j],Phi[i][j]);
           Phi[i][j] = Phin[i][j];
         }
       }

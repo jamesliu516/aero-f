@@ -38,7 +38,7 @@ FIND_PACKAGE(MPI)
 SET(TARGETS_INST fluid)
 
 IF(UNIX)
-  MESSAGE(${CMAKE_SYSTEM_NAME})
+  MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME})
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
     FIND_LIBRARY(ARPACKLIB NAMES arpack 
@@ -309,8 +309,8 @@ if (DO_EMBEDDED)
               IntersectorPhysBAM/Mpi_Utilities.C)
   TARGET_LINK_LIBRARIES(Intersector ${PhysBAM_Base_Lib})
 
-  MESSAGE("PHYSBAM_BASE: " ${PHYSBAM_BASE})
-  MESSAGE("PHYSBAM_BASE: " ${Intersector})
+#  MESSAGE("-- Found PHYSBAM_BASE: " ${PHYSBAM_BASE})
+#  MESSAGE("PHYSBAM_BASE: " ${Intersector})
 
   ADD_DEFINITIONS(-DDO_EMBEDDED)
   SET (EXTRALIBRARIES ${EXTRALIBRARIES} Intersector)

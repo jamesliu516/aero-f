@@ -34,13 +34,13 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom)
 }
 
 //------------------------------------------------------------------------------
-
+#define SAFE_DELETE(f) if (f) delete f;
 FluidSelector::~FluidSelector()
 {
-  delete fluidId;
-  delete fluidIdn;
-  delete fluidIdnm1;
-  delete fluidIdnm2;
+  SAFE_DELETE(fluidId);
+  SAFE_DELETE(fluidIdn);
+  SAFE_DELETE(fluidIdnm1);
+  SAFE_DELETE(fluidIdnm2);
 }
 
 //------------------------------------------------------------------------------

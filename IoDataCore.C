@@ -183,7 +183,7 @@ TransientData::TransientData()
   philevel = "";
   controlvolume = "";
   philevel_structure = "";
-
+  fluidid="";
 // Included (MB)
   velocitynorm = "";
   dSolutions = "";
@@ -288,6 +288,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
+  new ClassStr<TransientData>(ca, "FluidId", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
   new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
 // Included (MB)
