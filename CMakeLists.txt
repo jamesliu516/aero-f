@@ -290,7 +290,7 @@ IF(PhysBAM_Base_Lib)
   MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
   SET (DO_EMBEDDED 1)
 ELSE(PhysBAM_Base_Lib)
-  MESSAGE("-- Looking for PhysBAM_Base_Lib: not found")
+  MESSAGE("-- Looking for PhysBAM_Base_Lib: not found (needed by Embedded Framework)")
   SET (DO_EMBEDDED 0)
 ENDIF(PhysBAM_Base_Lib)
 
