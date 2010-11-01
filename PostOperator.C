@@ -1117,15 +1117,8 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
       }
     }
   }
-  else if (type == PostFcn::PHILEVEL_STRUCTURE) {
-#pragma omp parallel for
-    for (iSub=0; iSub<numLocSub; ++iSub) {
-      subDomain[iSub]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), Q(iSub), fluidId(iSub),(SVec<double,1>*)0);
-    }
-  }
   else if (type == PostFcn::CONTROL_VOLUME) 
     Q = A;
-
   else {
 #pragma omp parallel for
     for (iSub=0; iSub<numLocSub; ++iSub) {

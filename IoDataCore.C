@@ -182,7 +182,6 @@ TransientData::TransientData()
   romFile = "";
   philevel = "";
   controlvolume = "";
-  philevel_structure = "";
   fluidid="";
 // Included (MB)
   velocitynorm = "";
@@ -290,7 +289,6 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
   new ClassStr<TransientData>(ca, "FluidId", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
-  new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity

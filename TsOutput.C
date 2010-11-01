@@ -279,12 +279,6 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     sprintf(scalars[PostFcn::CONTROL_VOLUME], "%s%s",
             iod.output.transient.prefix, iod.output.transient.controlvolume);
   }
-  if (iod.output.transient.philevel_structure[0] != 0) {
-    sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;
-    scalars[PostFcn::PHILEVEL_STRUCTURE] = new char[sp + strlen(iod.output.transient.philevel_structure)];
-    sprintf(scalars[PostFcn::PHILEVEL_STRUCTURE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.philevel_structure);
-  }
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
     vectors[PostFcn::VELOCITY] = new char[sp + strlen(iod.output.transient.velocity)];
@@ -2426,17 +2420,17 @@ void TsOutput<dim>::rstVar(IoData &iod) {
     sprintf(scalars[PostFcn::PHILEVEL], "%s%s",
             iod.output.transient.prefix, iod.output.transient.philevel);
   }
+  if (iod.output.transient.fluidid[0] != 0) {
+    sscale[PostFcn::FLUIDID] = 1.0;
+    scalars[PostFcn::FLUIDID] = new char[sp + strlen(iod.output.transient.fluidid)];
+    sprintf(scalars[PostFcn::FLUIDID], "%s%s",
+            iod.output.transient.prefix, iod.output.transient.fluidid);
+  }
   if (iod.output.transient.controlvolume[0] != 0) {
     sscale[PostFcn::CONTROL_VOLUME] = iod.ref.rv.length * iod.ref.rv.length * iod.ref.rv.length;
     scalars[PostFcn::CONTROL_VOLUME] = new char[sp + strlen(iod.output.transient.controlvolume)];
     sprintf(scalars[PostFcn::CONTROL_VOLUME], "%s%s",
             iod.output.transient.prefix, iod.output.transient.controlvolume);
-  }
-  if (iod.output.transient.philevel_structure[0] != 0) {
-    sscale[PostFcn::PHILEVEL_STRUCTURE] = 1.0;
-    scalars[PostFcn::PHILEVEL_STRUCTURE] = new char[sp + strlen(iod.output.transient.philevel_structure)];
-    sprintf(scalars[PostFcn::PHILEVEL_STRUCTURE], "%s%s",
-            iod.output.transient.prefix, iod.output.transient.philevel_structure);
   }
   if (iod.output.transient.velocity[0] != 0) {
     vscale[PostFcn::VELOCITY] = iod.ref.rv.velocity;
