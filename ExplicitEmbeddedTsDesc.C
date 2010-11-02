@@ -239,17 +239,8 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 //    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
   this->spaceOp->applyBCsToSolutionVector(Ulocal); //KW: (?)only for Navier-Stokes.
-
-  if(this->numFluid==1) 
-    { 
-      this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
-    }
-  else //numFluid>1
-    {
-      this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
-                                   this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it);
-    }
+  this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
+                               this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 
   this->timeState->multiplyByTimeStep(dU);
   

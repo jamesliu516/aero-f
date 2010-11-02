@@ -400,7 +400,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
-                                     SVec<double,dim>* interfaceFlux,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
 
@@ -490,13 +489,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
-      // in order to check mass conservation
-      if(interfaceFlux)
-        for (int k=0; k<dim; k++){
-          (*interfaceFlux)[i][k] += fluxi[k];
-          (*interfaceFlux)[j][k] -= fluxj[k];
-        }
-
     }
   }
   return ierr;
@@ -515,7 +507,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                      NodalGrad<dimLS>& ngradLS,
                                      SVec<double,dim>& fluxes, int it,
-                                     SVec<double,dim>* interfaceFlux,
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
   // ------------------------------------------------
@@ -707,12 +698,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         fluxes[i][k] += fluxi[k];
         fluxes[j][k] -= fluxj[k];
       }
-      // in order to check mass conservation
-      if(interfaceFlux)
-        for (int k=0; k<dim; k++){
-          (*interfaceFlux)[i][k] += fluxi[k];
-          (*interfaceFlux)[j][k] -= fluxj[k];
-        }
     }
 
     else {
@@ -731,186 +716,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
-                                     FluxFcn** fluxFcn, RecFcn* recFcn,
-                                     ElemSet& elems, GeoState& geoState, SVec<double,3>& X,
-                                     SVec<double,dim>& V, SVec<double,dim>& Wstarij, 
-                                     SVec<double,dim>& Wstarji, LevelSetStructure &LSS,
-                                     bool linRecAtInterface, int Nriemann, SVec<double,3>* Nsbar,
-                                     NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                     SVec<double,dim>& fluxes, int it,
-                                     SVec<int,2>& tag, int failsafe, int rshift)
-{
-  Vec<Vec3D>& normal = geoState.getEdgeNormal();
-  Vec<double>& normalVel = geoState.getEdgeNormalVel();
-
-  SVec<double,dim>& dVdx = ngrad.getX();
-  SVec<double,dim>& dVdy = ngrad.getY();
-  SVec<double,dim>& dVdz = ngrad.getZ();
-
-  double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
-  double Wstar[2*dim];
-  double fluxi[dim], fluxj[dim];  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
-  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
-  double length;
-
-  Vec3D normalDir; //normal direction fed to the Riemann solver. Related to the choice of "Nriemann".
-
-  int ierr=0;
-  riemann.reset(it);
-
-  for (int l=0; l<numEdges; ++l) {
-
-    int i = ptr[l][0];
-    int j = ptr[l][1];
-    bool iIsActive = LSS.isActive(0, i);
-    bool jIsActive = LSS.isActive(0, j);
-    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
-
-    if( !iIsActive && !jIsActive ) {
-      if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
-      continue;
-    }
-
-    // ------------------------------------------------
-    //  Reconstruction without crossing the interface.
-    // ------------------------------------------------
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-    for (int k=0; k<dim; ++k) {
-      ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
-      ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
-    }
-
-    if (iIsActive && jIsActive && !intersect)
-      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
-
-    else { // now at interface
-
-      if (!linRecAtInterface) // just set Vi = V[i], Vj = V[j]
-        for(int k=0; k<dim; k++) {
-          Vi[k] = V[i][k];
-          Vj[k] = V[j][k];
-        }
-     
-      else { // linRec at interface using Wstar        
-        // Case 1: i and j are both active (but i-j intersects)
-        if (iIsActive&&jIsActive) {
-          double Vtemp[2*dim];
-          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
-            for (int k=0; k<dim; k++) Vi[k] = V[i][k]; 
-          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
-          if (Wstarji[l][0]<1e-8) {
-            for (int k=0; k<dim; k++) Vj[k] = V[j][k];
-          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
-        }
-        // Case 2: i is active, j is inactive
-        else if (iIsActive)
-          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
-            for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
-        // Case 3: i is inactive, j is active
-        else if (jIsActive)
-          if (Wstarji[l][0]<1e-8) {
-            for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
-          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
-      }
-    }
-
-    if(it>0)
-      for(int k=0;k<dim;k++)
-        Wstarij[l][k] = Wstarji[l][k] = 0.0;
-
-    // check for negative pressure or density //
-    if (!rshift)
-      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
-                                       failsafe, tag, V[i], V[j]); //also checking reconstructed values across interface.
-
-    if (ierr) continue;
-
-    for (int k=0; k<dim; ++k) {
-      Vi[k+dim] = V[i][k];
-      Vj[k+dim] = V[j][k];
-    }
-    
-
-    // --------------------------------------------------------
-    //                   Compute fluxes
-    // --------------------------------------------------------
-    if (!intersect) {  // same fluid
-      if (!masterFlag[l]) continue; //not a master edge
-
-      fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux);
-      for (int k=0; k<dim; ++k) {
-        fluxes[i][k] += flux[k];
-        fluxes[j][k] -= flux[k];
-      }
-    }
-    else{// interface
-      if (iIsActive) {
-        LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-        switch (Nriemann) {
-          case 0: //structure normal
-            normalDir = res.gradPhi;
-            break;
-          case 1: //fluid normal
-            normalDir = -1.0/(normal[l].norm())*normal[l];
-            break;
-          case 2: //cell-averaged structure normal
-            normalDir = Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
-            break;
-          default:
-            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-            exit(-1);
-        }
-        if(std::abs(1.0-normalDir.norm())>0.1)
-          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-
-        riemann.computeFSIRiemannSolution(Vi,res.normVel,normalDir,varFcn,Wstar,j);
-
-        if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
-          for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k]; 
-        if (masterFlag[l]) { 
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, 0, false);
-          for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
-        }
-      }
-      if (jIsActive) {
-        LevelSetResult res = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
-        switch (Nriemann) {
-          case 0: //structure normal
-            normalDir = res.gradPhi;
-            break;
-          case 1: //fluid normal
-            normalDir = 1.0/(normal[l].norm())*normal[l];
-            break;
-          case 2: //cell-averaged structure normal
-            normalDir = Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
-            break;
-          default:
-            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
-            exit(-1);
-        }
-        if(std::abs(1.0-normalDir.norm())>0.1)
-          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
-
-        riemann.computeFSIRiemannSolution(Vj,res.normVel,normalDir,varFcn,Wstar,i);
-        
-        if (it>0)
-          for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
-        if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, 0, false);
-          for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
-        }
-      }
-    }
-  }
-  return ierr;
-}
-
-//------------------------------------------------------------------------------
-// for FSF (fluid-shell-fluid).
 template<int dim>
 int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locToGlobNodeMap,
                                      FluxFcn** fluxFcn, RecFcn* recFcn,
@@ -950,7 +755,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
     
-    if(!iActive && !jActive) continue;
+    if( !iActive && !jActive ) {
+      if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
+      continue;
+    }
 
     // ------------------------------------------------
     //  Reconstruction without crossing the interface.
@@ -962,25 +770,36 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
 
-    if (!intersect)
+    if (iActive && jActive && !intersect)
       recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj); //Vi and Vj are reconstructed states.
 
     else { // linRec at interface using Wstar
-
       if (!linRecAtInterface) // just set Vi = V[i], Vj = V[j]
         for(int k=0; k<dim; k++) {
           Vi[k] = V[i][k];
           Vj[k] = V[j][k];
         }
-
-      else {//linRec at interface using Wstar
-        double Vtemp[2*dim];
-        if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
-          for (int k=0; k<dim; k++) Vi[k] = V[i][k];
-        } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
-        if (Wstarji[l][0]<1e-8) {
-          for (int k=0; k<dim; k++) Vj[k] = V[j][k];
-        } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
+      else { // linRec at interface using Wstar        
+        // Case 1: i and j are both active (but i-j intersects)
+        if (iActive&&jActive) {
+          double Vtemp[2*dim];
+          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
+            for (int k=0; k<dim; k++) Vi[k] = V[i][k];
+          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vtemp);
+          if (Wstarji[l][0]<1e-8) {
+            for (int k=0; k<dim; k++) Vj[k] = V[j][k];
+          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
+        }
+        // Case 2: i is active, j is inactive
+        else if (iActive)
+          if (Wstarij[l][0]<1e-8) {// no riemann sol. (first time-step)
+            for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+          } else recFcn->compute(V[i], ddVij, Wstarij[l], ddVji, Vi, Vj);
+        // Case 3: i is inactive, j is active
+        else if (jActive)
+          if (Wstarji[l][0]<1e-8) {
+            for (int k=0; k<dim; k++) {Vi[k] = V[i][k]; Vj[k] = V[j][k];}
+          } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
       }
     } 
 

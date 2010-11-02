@@ -136,30 +136,13 @@ public:
                        DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
-  //template<int dimLS>
-  //void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-  //                     DistSVec<double,dim> &, DistSVec<double,dimLS> &,
-  //                     DistVec<int> &, DistSVec<double,dim> &,
-  //                     DistExactRiemannSolver<dim> *, int it,
-  //                     DistSVec<double,dim> * = 0,
-  //                     DistSVec<double,dim> * = 0);
-// Kevin's FSI with FS Riemann solver
-  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistSVec<double,dim> &, DistLevelSetStructure *,
-                       bool, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
-		       DistVec<GhostPoint<dim>*> *ghostPoints=0);
-// Kevin's FSI with FS Riemann solver (for thin shell problems) 
+
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0);
-
-  //template<int dimLS>
-  //void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
-  //                     DistSVec<double,dimLS> &, DistVec<int> &, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
+                       DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -362,14 +345,11 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                        FluidSelector &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int it,
-                       DistSVec<double,dim> * = 0,
-                       DistSVec<double,dim> * = 0);
+                       DistExactRiemannSolver<dim> *, int it);
   void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
                        DistSVec<double,dim> &, DistLevelSetStructure *, bool, DistExactRiemannSolver<dim> *, 
                        int, DistSVec<double,3> *, DistSVec<double,dimLS> &, FluidSelector &, 
-                       DistSVec<double,dim> &, int, DistSVec<double,dim> *, DistSVec<double,dim> *, 
-                       DistVec<GhostPoint<dim>*> *);
+                       DistSVec<double,dim> &, int, DistVec<GhostPoint<dim>*> *);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 

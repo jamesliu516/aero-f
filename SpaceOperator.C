@@ -952,75 +952,14 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 
 //------------------------------------------------------------------------------
 
-// Kevin's FSI with FS Riemann solver.
-template<int dim>
-void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
-                                         DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
-                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
-                                         bool linRecAtInterface, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int Nriemann, 
-					 DistSVec<double,3> *Nsbar, int it, DistVec<GhostPoint<dim>*> *ghostPoints)
-{
-  R = 0.0;
-  varFcn->conservativeToPrimitive(U, *V);  //need to make sure the ghost states are "valid".
-
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0){
-    double t0 = timer->getTime();
-    // compute gradient of V using Phi:
-    // for node with Phi, gradient of V is computed using V-values of neighbours
-    // that have the same Phi-sign
-    ngrad->compute(geoState->getConfig(), X, ctrlVol,
-        LSS->getStatus(), *V, linRecAtInterface);  
-    timer->addNodalGradTime(t0);
-  }
-
-  if (egrad)
-    egrad->compute(geoState->getConfig(), X);
-
-  if (xpol) //boundary condition using xpol = extrapolation
-    xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
-
-  if (fet) {
-      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
-      bcData->computeNodeValue(X);
-  }
-
-  if (volForce)
-    domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
-
-  if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
-    ngrad->limit(recFcn, X, ctrlVol, *V);
-
-  domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, Nriemann, Nsbar, *ngrad, egrad,
-                                  R, it, failsafe,rshift);
-
-  if (use_modal == false)  {
-    int numLocSub = R.numLocSub();
-#pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
-      double *cv = ctrlVol.subData(iSub);
-      double (*r)[dim] = R.subData(iSub);
-      for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
-        double invcv = 1.0 / cv[i];
-        for (int j=0; j<dim; ++j)
-          r[i][j] *= invcv;
-      }
-    }
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-// Kevin's FSI with FS Riemann solver. (for thin shell problems)
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
                                          DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
                                          bool linRecAtInterface, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, DistExactRiemannSolver<dim> *riemann, 
-                                         int Nriemann, DistSVec<double,3> *Nsbar, int it)
+                                         int Nriemann, DistSVec<double,3> *Nsbar, int it,
+                                         DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   R = 0.0;
   varFcn->conservativeToPrimitive(U, *V, &fluidId);  
@@ -1034,8 +973,17 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                    fluidId, *V, linRecAtInterface);
     timer->addNodalGradTime(t0);
   }
+
+  if (egrad)
+    egrad->compute(geoState->getConfig(), X);
+
   if (xpol) //boundary condition using xpol = extrapolation
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
+
+  if (fet) {
+      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
+      bcData->computeNodeValue(X);
+  }
 
   if (volForce)
     domain->computeVolumicForceTerm(volForce, ctrlVol, *V, R);
@@ -1842,9 +1790,7 @@ template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi,
                                          FluidSelector &fluidSelector, DistSVec<double,dim> &R,
-                                         DistExactRiemannSolver<dim> *riemann, int it,
-                                         DistSVec<double,dim> *bcFlux,
-                                         DistSVec<double,dim> *interfaceFlux)
+                                         DistExactRiemannSolver<dim> *riemann, int it)
 {
 
   R = 0.0;
@@ -1883,8 +1829,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), fluidSelector, *(this->ngrad), this->egrad,
-                                  *ngradLS, R, it, bcFlux, interfaceFlux,
-                                  this->failsafe,this->rshift);
+                                  *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->use_modal == false)  {
     int numLocSub = R.numLocSub();
@@ -1899,7 +1844,6 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
       }
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
@@ -1961,7 +1905,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                      DistLevelSetStructure *distLSS, bool linRecAtInterface, DistExactRiemannSolver<dim> *riemann, int Nriemann, DistSVec<double,3> *Nsbar,
                      DistSVec<double,dimLS> &PhiV, FluidSelector &fluidSelector, DistSVec<double,dim> &R, int it,
-                     DistSVec<double,dim> *bcFlux, DistSVec<double,dim> *interfaceFlux, DistVec<GhostPoint<dim>*> *ghostPoints)
+                     DistVec<GhostPoint<dim>*> *ghostPoints)
 {
   R = 0.0;
   this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
@@ -2004,8 +1948,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
   this->domain->computeFiniteVolumeTerm(ctrlVol, *riemann, this->fluxFcn, this->recFcn, *(this->bcData),
                                   *(this->geoState), X, *(this->V), Wstarij, Wstarji, distLSS, linRecAtInterface, fluidSelector, 
                                   Nriemann, Nsbar, *(this->ngrad), this->egrad,
-                                  *ngradLS, R, it, bcFlux, interfaceFlux,
-                                  this->failsafe,this->rshift);
+                                  *ngradLS, R, it, this->failsafe,this->rshift);
 
   if (this->use_modal == false)  {
     int numLocSub = R.numLocSub();

@@ -162,13 +162,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     int itsLS = this->ns->solveLS(this->Phi, U);
     this->riemann->storeOldV(U);
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    //avoidNewPhaseCreation(this->Phi);
-    ///std::cout << "Phi prod = " << this->Phi * this->Phi << std::endl;
     (this->fluidSelector).getFluidId(this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
 
-  //this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
-  //exit(1);
     this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
     this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
   }

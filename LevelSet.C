@@ -323,18 +323,14 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 template<int dimLS>
 void LevelSet<dimLS>::checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi)
 {
-  //TODO(KW): Is it efficient to first loop thru dimLS and then dphi.size()??? NO!!!
-  for(int idim=0; idim<dimLS; idim++)
-    if(!trueLevelSet[idim]){
-      //fprintf(stdout, "setting dphi[%d] to zero\n", idim);
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        SVec<double,dimLS> &dphi(dPhi(iSub));
-        for(int i=0; i<dphi.size(); i++)
-          dphi[i][idim] = 0.0;
-      }
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dimLS> &dphi(dPhi(iSub));
+      for(int i=0; i<dphi.size(); i++)
+        for(int idim=0; idim<dimLS; idim++)
+          if(!trueLevelSet[idim])
+            dphi[i][idim] = 0.0;
     }
-
 }
 
 //---------------------------------------------------------------------------------------------------------

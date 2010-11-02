@@ -360,9 +360,7 @@ public:
                               Vec<int> &, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
-                              SVec<double,dim>&, int, SVec<double,dim> *,
-                              SVec<double,dim> *,
-                              SVec<int,2>&, int, int);
+                              SVec<double,dim>&, int, SVec<int,2>&, int, int);
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
@@ -372,17 +370,8 @@ public:
                               Vec<int> &, int, SVec<double,3>*, FluidSelector &,
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
-                              SVec<double,dim>&, int, SVec<double,dim> *,
-                              SVec<double,dim> *,
-                              SVec<int,2>&, int, int);
-
-  template<int dim> //to be deleted!
-  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
-                              FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
-                              SVec<double,3>&, SVec<double,dim>&,
-                              SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &, bool, int, 
-                              SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
                               SVec<double,dim>&, int, SVec<int,2>&, int, int);
+
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,

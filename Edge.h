@@ -92,7 +92,6 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
-                              SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
   template<int dim, int dimLS>
@@ -103,18 +102,9 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
-                              SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
   /** compute flux for Riemann based FSI*/
-  template<int dim>
-  int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
-                              FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              bool, int, SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
-                              SVec<double,dim>&, int,
-                              SVec<int,2>&, int, int);
-
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,

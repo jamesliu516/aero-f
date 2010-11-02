@@ -39,10 +39,6 @@ ExplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     _mmh = new EmbeddedMeshMotionHandler(ioData, dom, this->dynNodalTransfer, this->distLSS);
     this->mmh = _mmh;
   } else this->mmh = 0;
-
-  // for checking conservation errors only
-  if(!this->tmpDistSVec)  this->tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
-  if(!this->tmpDistSVec2) this->tmpDistSVec2 = new DistSVec<double,dim>(this->getVecInfo());
 }
 
 //------------------------------------------------------------------------------
@@ -192,8 +188,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesFE(DistSVec<doubl
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
-  this->boundaryFlux  = *this->tmpDistSVec;
-  this->interfaceFlux = *this->tmpDistSVec2;
 
   U = U0;
   checkSolution(U);
@@ -211,8 +205,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
-  this->boundaryFlux  = *this->tmpDistSVec;
-  this->interfaceFlux = *this->tmpDistSVec2;
 
   // Ghost-Points Population
   if(this->eqsType == MultiPhysicsTsDesc<dim,dimLS>::NAVIER_STOKES)
@@ -227,10 +219,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK2(DistSVec<doub
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
-  this->boundaryFlux  += *this->tmpDistSVec;
-  this->boundaryFlux  *= 0.5;
-  this->interfaceFlux += *this->tmpDistSVec2;
-  this->interfaceFlux *= 0.5;
 }
 
 //------------------------------------------------------------------------------
@@ -245,24 +233,18 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK4(DistSVec<doub
   U0 = U - k1;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
-  this->boundaryFlux  = *this->tmpDistSVec;
-  this->interfaceFlux = *this->tmpDistSVec2;
 
   computeRKUpdate(U0, k2, 2);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
-  this->boundaryFlux  += 2.0*(*this->tmpDistSVec);
-  this->interfaceFlux += 2.0*(*this->tmpDistSVec2);
 
   computeRKUpdate(U0, k3, 3);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
   checkSolution(U0);
-  this->boundaryFlux  += 2.0*(*this->tmpDistSVec);
-  this->interfaceFlux += 2.0*(*this->tmpDistSVec2);
 
   computeRKUpdate(U0, k4, 4);
   this->multiPhaseSpaceOp->getExtrapolationValue(U0, Ubc, *this->X);
@@ -270,10 +252,6 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLNavierStokesRK4(DistSVec<doub
   this->multiPhaseSpaceOp->applyExtrapolationToSolutionVector(U, Ubc);
   this->multiPhaseSpaceOp->applyBCsToSolutionVector(U);
   checkSolution(U);
-  this->boundaryFlux  += *this->tmpDistSVec;
-  this->interfaceFlux += *this->tmpDistSVec2;
-  this->boundaryFlux  *= 1.0/6.0;
-  this->interfaceFlux *= 1.0/6.0;
 }
 
 //------------------------------------------------------------------------------
@@ -286,7 +264,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::computeRKUpdate(DistSVec<double,dim>
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji,
                                            this->distLSS, this->linRecAtInterface, this->riemann, 
                                            this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,
-                                           dU, it, this->tmpDistSVec, this->tmpDistSVec2, this->ghostPoints);
+                                           dU, it, this->ghostPoints);
                                            //Q: why send PhiV?
                                            //A: Riemann solver needs gradPhi.
                                            //Note: PhiV should be pre-computed. 

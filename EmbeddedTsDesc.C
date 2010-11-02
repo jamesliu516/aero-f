@@ -447,10 +447,7 @@ double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
     this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
   }
 
-  if(this->numFluid==1)
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
-  else //numFluid>1
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0);
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
 

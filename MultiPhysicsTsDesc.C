@@ -26,8 +26,7 @@ template<int dim, int dimLS>
 MultiPhysicsTsDesc<dim,dimLS>::
 MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
-  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), boundaryFlux(this->getVecInfo()),
-  computedQty(this->getVecInfo()), interfaceFlux(this->getVecInfo()),
+  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
 {
@@ -182,24 +181,6 @@ template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::setupMultiPhaseFlowSolver(IoData &ioData)
 {
   LS = new LevelSet<dimLS>(ioData, this->domain);
-
-  //multiphase conservation check
-  boundaryFlux  = 0.0;
-  interfaceFlux = 0.0;
-  computedQty   = 0.0;
-  tmpDistSVec   = 0;
-  tmpDistSVec2  = 0;
-  expected = new double * [dimLS+2];
-  computed = new double * [dimLS+2];
-  for(int j=0; j<dimLS+2; j++){
-    expected[j] = new double[dim];
-    computed[j] = new double[dim];
-    for(int i=0; i<dim; i++){
-      expected[j][i] = 0.0;
-      computed[j][i] = 0.0;
-    }
-  }
-
   frequencyLS = ioData.mf.frequency;
 }
 
@@ -225,16 +206,6 @@ MultiPhysicsTsDesc<dim,dimLS>::~MultiPhysicsTsDesc()
 
   // Level-set
   if (LS) delete LS;
-
-  if(tmpDistSVec)  delete tmpDistSVec;
-  if(tmpDistSVec2) delete tmpDistSVec2;
-  for(int j=0; j<dimLS+2; j++){
-    delete [] expected[j];
-    delete [] computed[j];
-  }
-  delete [] expected;
-  delete [] computed;
-
 }
 
 //------------------------------------------------------------------------------
@@ -404,71 +375,8 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId);
-//    this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
 //    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
 //    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-  }
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim, int dimLS>
-void MultiPhysicsTsDesc<dim,dimLS>::conservationErrors(DistSVec<double,dim> &U, int it)
-{
-  if(!tmpDistSVec)  tmpDistSVec  = new DistSVec<double,dim>(this->getVecInfo());
-// computes the total mass, momentum and energy
-// 1- in the whole domain regardless of which phase they belong to
-// 2- in the positive phase (phi>=0.0 <=> sign= 1)
-// 3- in the negative phase (phi< 0.0 <=> sign=-1)
-// The computed total domain mass, momentum and energy can be compared
-//     to expected values (since only what goes out and comes in need to be
-//     to be accounted for).
-// When considering one phase, only the mass can be compared to an expected
-//     value since the flux is zero at the interface between the two fluids.
-//     For the momentum and the energy, the physical flux depends on the 
-//     pressure at this interface. More to be said here (numerical flux among
-//     other things)
-
-  // total mass, total mass of fluid1, total mass of fluid2
-  // note that there are two types of conservation errors:
-  // 1 - fluxes do not cancel at the interface
-  // 2 - populating of cell that changes fluid
-  // Both have an effect on the total mass
-  // Only the type-2 error has an effect on the total mass of fluid-i
-
-  computedQty = U;
-  computedQty *= *this->A;
-  computedQty.sum(computed[0]);
-
-  for(int i=1; i<dimLS+2; i++){ // for each separate fluid
-    int fluidIdTarget = i-1; //use fluidSelector to obtain them?
-    this->domain->restrictionOnPhi(computedQty, *fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
-    tmpDistSVec->sum(computed[i]);
-  }
-
-  // expected total mass, mass in fluid1, mass in fluid2
-  // an expected mass is computed iteratively, that is
-  // m_{n+1} = m_{n} + fluxes_at_boundaries
-  if(it==0){
-    for (int j=0; j<dimLS+2; j++)
-      for (int i=0; i<dim; i++)
-        expected[j][i] = computed[j][i];
-    return;
-  }
-
-  const double dt = this->timeState->getTime();
-  double bcfluxsum[dim];
-
-  boundaryFlux.sum(bcfluxsum);
-  for (int i=0; i<dim; i++)
-    expected[0][i] += dt*bcfluxsum[i];
-
-  for(int j=1; j<dimLS+2; j++){
-    int fluidIdTarget = j-1; //use fluidSelector to obtain them?
-    this->domain->restrictionOnPhi(boundaryFlux, *fluidSelector.fluidId, *tmpDistSVec, fluidIdTarget); //tmpDistSVec reinitialized to 0.0 inside routine
-    tmpDistSVec->sum(bcfluxsum);
-    for (int i=0; i<dim; i++)
-      expected[j][i] += dt*bcfluxsum[i];
   }
 }
 
@@ -479,8 +387,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
                                                int itSc, int itNl,
                                                double t, double dt, DistSVec<double,dim> &U)
 {
-//  conservationErrors(U,it); /* not checking conservations for the moment...*/
-
   this->com->globalSum(1, &interruptCode);
   if (interruptCode)
     *lastIt = true;
@@ -493,7 +399,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId);
-//  this->output->writeConservationErrors(ioData, it, t, dimLS+2, expected, computed);
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
@@ -572,7 +477,7 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeResidualNorm(DistSVec<double,dim>& 
     this->multiPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,*(this->fluidSelector.fluidId));
   }
   LS->conservativeToPrimitive(Phi,PhiV,U);
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0, 0, 0);
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, this->riemann, riemannNormal, Nsbar, PhiV, fluidSelector, *this->R, 0, 0);
 
   this->multiPhaseSpaceOp->applyBCsToResidual(U, *this->R);
 

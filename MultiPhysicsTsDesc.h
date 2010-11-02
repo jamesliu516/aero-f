@@ -82,15 +82,6 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
 
-  // MultiPhaseFlow: conservation check
-  DistSVec<double,dim> boundaryFlux;
-  DistSVec<double,dim> interfaceFlux;
-  DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> *tmpDistSVec;
-  DistSVec<double,dim> *tmpDistSVec2;
-  double **expected;//[dimLS+2][dim]; // dimLS+1 different fluids and the total
-  double **computed;//[dimLS+2][dim];
-
   //------------------------------------------------------------------------
   // buckling cylinder parameters
   // pressure is increased in the fluid at rate Prate from
@@ -104,7 +95,6 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
  protected:
   void setupEmbeddedFSISolver(IoData &ioData);
   void setupMultiPhaseFlowSolver(IoData &ioData);
-  void conservationErrors(DistSVec<double,dim> &U, int it);
   /** computes the force load. Wij and Wji must be edge-based primitive state vectors. */ 
   void computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<double,dim> *Wji);
 

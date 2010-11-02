@@ -28,14 +28,6 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dim> V0;
 
   DistVec<double> umax;
-  // multiphase conservation check
-  DistSVec<double,dim> boundaryFlux;
-  DistSVec<double,dim> interfaceFlux;
-  DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> *tmpDistSVec;
-  DistSVec<double,dim> *tmpDistSVec2;
-  double **expected;//[dimLS+2][dim]; // dimLS+1 different fluids and the total
-  double **computed;//[dimLS+2][dim];
 
   // frequency for reinitialization of level set
   int frequencyLS;
@@ -67,9 +59,6 @@ class LevelSetTsDesc : public TsDesc<dim> {
                     DistSVec<double,dim> &);
   void resetOutputToStructure(DistSVec<double,dim> &);
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
-
-  void conservationErrors(DistSVec<double,dim> &U, int it);
-
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
   

@@ -823,16 +823,14 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
-                                       SVec<double,dim> *bcFlux,
-                                       SVec<double,dim> *interfaceFlux,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, fluidId, fluidSelector,
                                            ngrad, egrad, ngradLS, fluxes, it,
-                                           interfaceFlux, tag, failsafe, rshift);
+                                           tag, failsafe, rshift);
 
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, bcFlux);
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes);
 
   return ierr;
 
@@ -852,41 +850,15 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        NodalGrad<dimLS>& ngradLS,
                                        SVec<double,dim>& fluxes, int it,
-                                       SVec<double,dim> *bcFlux,
-                                       SVec<double,dim> *interfaceFlux,
                                        SVec<int,2>& tag, int failsafe, int rshift)
 {
   int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, linRecAtInterface,
                                            fluidId, Nriemann, Nsbar, fluidSelector,
                                            ngrad, egrad, ngradLS, fluxes, it,
-                                           interfaceFlux, tag, failsafe, rshift);
-
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, bcFlux, &LSS);
-
-  return ierr;
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
-                                       FluxFcn** fluxFcn, RecFcn* recFcn,
-                                       BcData<dim>& bcData, GeoState& geoState,
-                                       SVec<double,3>& X, SVec<double,dim>& V,
-                                       SVec<double,dim>& Wstarij, SVec<double,dim>& Wstarji,
-                                       LevelSetStructure &LSS, bool linRecAtInterface, int Nriemann,
-                                       SVec<double,3>* Nsbar, NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
-                                       SVec<double,dim>& fluxes, int it,
-                                       SVec<int,2>& tag, int failsafe, int rshift)
-{
-
-  int ierr = edges.computeFiniteVolumeTerm(riemann, locToGlobNodeMap, fluxFcn,
-                                           recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS,
-                                           linRecAtInterface, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, V, fluxes); 
+
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS);
 
   return ierr;
 
@@ -910,7 +882,7 @@ int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
                                            recFcn, elems, geoState, X, V, Wstarij, Wstarji, LSS, 
                                            linRecAtInterface, fluidId, Nriemann, Nsbar, ngrad, egrad, fluxes, it,
                                            tag, failsafe, rshift);
-  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, LSS, fluidId, V, fluxes); 
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluidId, fluxes, &LSS); 
 
   return ierr;
 

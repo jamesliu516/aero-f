@@ -416,8 +416,7 @@ public:
                                FluidSelector &,
                                DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
                                DistNodalGrad<dimLS>&, DistSVec<double,dim>&,
-                               int, DistSVec<double,dim> *, DistSVec<double,dim> *,
-                               int, int);
+                               int, int, int);
 
   // for multi-phase fluid-structure interaction under embedded framework 
   template<int dim, int dimLS>
@@ -426,17 +425,7 @@ public:
                                DistSVec<double,3>&, DistSVec<double,dim>&, DistSVec<double,dim>&,
                                DistSVec<double,dim>&, DistLevelSetStructure*, bool, FluidSelector&,
                                int, DistSVec<double,3>*, DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistNodalGrad<dimLS>&, DistSVec<double,dim>&, int, DistSVec<double,dim>*,
-                               DistSVec<double,dim>*, int, int);
-
-  template<int dim> //TODO: should delete this one!
-  void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
-                               FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
-                               DistSVec<double,3>&, DistSVec<double,dim>&,
-                               DistSVec<double,dim>&, DistSVec<double,dim>&,
-                               DistLevelSetStructure *, bool, int, DistSVec<double,3>*,
-                               DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-                               DistSVec<double,dim>&, int, int, int);
+                               DistNodalGrad<dimLS>&, DistSVec<double,dim>&, int, int, int);
 
   template<int dim>
   void computeFiniteVolumeTerm(DistVec<double> &, DistExactRiemannSolver<dim>&,
