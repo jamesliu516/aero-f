@@ -1656,7 +1656,9 @@ struct EmbeddedFramework {
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
 
   MultiInitialConditionsData embedIC;
-
+  
+  int nLevelset; //number of level-sets. Currently only consider bubbles.
+  
   //Debug variables
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;

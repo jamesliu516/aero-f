@@ -31,13 +31,6 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
 {
-  if(dimLS!=1) {
-    this->com->fprintf(stderr,"ERROR: Currently only one level-set is supported in an embedded simulation!\n");
-    this->com->fprintf(stderr,"       Detected %d level-set(s)!\n",dimLS);
-    exit(-1);
-  }
-
-  this->com->fprintf(stderr,"--- RUNNING AN EMBEDDED %d PHASE FLUID-STRUCTURE SIMULATION ---\n", numFluid);
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
