@@ -16,7 +16,7 @@ void startNavierStokesMultiPhysicsEmbedded(IoData &ioData, GeoSource &geoSource,
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
-    com->fprintf(stderr, "***Error: Implicit time integrators not supported by Embedded Multi-Physics Framework.\n");   
+    com->fprintf(stderr, "*** Error: Implicit time integrators not supported by Embedded Multi-Physics Framework.\n");   
   }
   else{
     ExplicitMultiPhysicsTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);
