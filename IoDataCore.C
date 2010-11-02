@@ -10,6 +10,8 @@
 #include <math.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <set>
+using std::set;
 
 #ifdef COUGAR
 extern int optind;
@@ -2984,6 +2986,8 @@ EmbeddedFramework::EmbeddedFramework() {
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
 
+  nLevelset = 0;
+
   //debug variables
   coupling = TWOWAY;
   dim2Treatment = NO;    
@@ -3690,6 +3694,7 @@ int IoData::checkInputValuesAllInitialConditions(){
       }
     }
   }
+
   // check input values of initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator it;
@@ -3698,6 +3703,24 @@ int IoData::checkInputValuesAllInitialConditions(){
          it++)
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
   }
+  // count number levelsets (consider only bubbles!) for the embedded framework.
+  set<int> usedModels; 
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin();
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++)
+      usedModels.insert(it->second->fluidModelID);
+    int nModels = usedModels.size();
+    int minModel = *(usedModels.begin());
+    int maxModel = *(--(set<int>::iterator)(usedModels.end()));
+    if(nModels != maxModel - minModel + 1) {
+      com->fprintf(stderr,"*** Error: FluidId(s) for user-specified spheres must be consecutive starting from either 0 or 1!\n");
+      error++;
+    } else 
+      embed.nLevelset = nModels;
+  } else embed.nLevelset = 0;
+
   return error;
 
 }
