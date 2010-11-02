@@ -9,17 +9,22 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 {
   Communicator* com = domain.getCommunicator();
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
-    com->fprintf(stderr, "*** NOTE: Running an Embedded %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
     if (ioData.eqs.type == EquationsData::EULER) {
-      com->fprintf(stderr,"*** Euler Simulation ***\n");
-      if (!ioData.mf.multiInitialConditions.sphereMap.dataMap.empty())
-        NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain);
-      else
-        NavierStokesEmbedded<5>::solve(ioData, geoSource, domain);	
+      com->fprintf(stderr, "*** NOTE: Running an Embedded Inviscid %d Phase Fluid-Structure simulation with %d Level-set(s)\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
+      switch(ioData.embed.nLevelset) {
+        case 0 : NavierStokesEmbedded<5>::solve(ioData, geoSource, domain); break;
+        case 1 : NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain); break;
+        case 2 : NavierStokesMultiPhysicsEmbedded<5,2>::solve(ioData,geoSource,domain); break;
+        case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
+        // Feel free to add more here. e.g. case 4 : NavierStokesMultiPhysicsEmbedded<5,4>::solve(ioData,geoSource,domain); break;
+        default: 
+          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", ioData.embed.nLevelset); 
+          exit(-1);
+      }
     }
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       {
-	com->fprintf(stderr,"*** Navier-Stokes Simulation ");
+        com->fprintf(stderr, "*** NOTE: Running an Embedded Viscous %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
 	if(ioData.eqs.tc.type == TurbulenceClosureData::NONE)
 	  {
 	    com->fprintf(stderr,"--- No Turbulent Model Used ***\n");
@@ -29,7 +34,6 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
 		ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS)
 	  {
 	    com->fprintf(stderr,"--- Spalart-Allmaras Turbulent Model Used ***\n");
-	    com->fprintf(stderr,"****** Wow! Embedded Turbulent Simulation! *****\n");
 	    NavierStokesEmbedded<6>::solve(ioData, geoSource, domain);
 	  }
 	else
