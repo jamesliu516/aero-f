@@ -23,27 +23,28 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   timer = tim;
 //  com.fprintf(stderr,"fscale = %e, XScale = %e, tScale = %e.\n", fScale, XScale, tScale);
 
-{  Communication::Window<double> window(com, 1, &dts);
+{  Communication::Window<double> window(com, 1*sizeof(double), &dts);
   window.fence(true);
   structure.sendTimeStep(&window);
   window.fence(false);
 }
 
-{  Communication::Window<double> window2(com, 1, &tMax);
+{  Communication::Window<double> window2(com, 1*sizeof(double), &tMax);
   window2.fence(true);
   structure.sendMaxTime(&window2);
   window2.fence(false);
 }
 
   algNum = structure.getAlgorithmNumber();
+  com.fprintf(stderr,"--- Received structure Time-step: %e, Final Time: %e\n", dts, tMax);
   dts /= tScale;
   tMax /= tScale;
   com.barrier();
-  com.fprintf(stderr,"Structure Time-step: %e, Final Time: %e\n", dts, tMax);
 
   wintime  = 0;
   winForce = 0;
   winDisp  = 0;
+  dt_tmax  = 0;
   UandUdot = 0;
 }
 
@@ -54,6 +55,7 @@ DynamicNodalTransfer::~DynamicNodalTransfer() {
   if(winForce) delete   winForce;
   if(winDisp)  delete   winDisp;
   if(UandUdot) delete[] UandUdot;
+  if(dt_tmax)  delete[] dt_tmax;
 }
 
 //------------------------------------------------------------------------------
@@ -80,6 +82,7 @@ DynamicNodalTransfer::sendForce() {
 
 void
 DynamicNodalTransfer::updateInfo() {
+  if(!dt_tmax) dt_tmax = new double[2];
   if(!wintime) wintime = new Communication::Window<double> (com, 2*sizeof(double), (double*)dt_tmax);
   com.barrier(); //for timing purpose
   wintime->fence(true);
@@ -87,7 +90,7 @@ DynamicNodalTransfer::updateInfo() {
   wintime->fence(false);
   dts   = dt_tmax[0];
   tMax  = dt_tmax[1];
-  fprintf(stderr,"*** CPU %d received dts = %e, tMax = %e (dimensional)\n", com.cpuNum(), dts, tMax);
+//  fprintf(stderr,"*** CPU %d received dts = %e, tMax = %e (dimensional)\n", com.cpuNum(), dts, tMax);
   dts  /= tScale;
   tMax /= tScale;
 }
@@ -375,10 +378,9 @@ EmbeddedStructure::sendInfo(Communication::Window<double> *window)
     tMax = tScale*structExc->getMaxTime();
   } /* else: nothing to be done */
 
-  double temp[2];
-  temp[0] = dt; temp[1] = tMax;
+  dt_tmax[0] = dt; dt_tmax[1] = tMax;
   for(int i = 0; i < com.size(); ++i)
-    window->put((double*)temp, 0, 2, i, 0);
+    window->put((double*)dt_tmax, 0, 2, i, 0);
 }
 
 //------------------------------------------------------------------------------

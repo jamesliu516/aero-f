@@ -308,7 +308,7 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
   double dt = 0.0;
   if (mmh) {
     double t0 = timer->getTime();
-    dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs);
+    dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs, &data->maxTime);
     timer->addMeshSolutionTime(t0);
   }
 
@@ -327,7 +327,7 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
   if (hth) {
     hth->updateStep2(lastIt, it, bcData->getTemperatureVector());
   }
-  this->com->fprintf(stderr,"*** At It %d, get dts = %e (non-dimensionalized)\n", dt);
+
   return dt;
 
 }

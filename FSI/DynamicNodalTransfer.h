@@ -57,6 +57,7 @@ class EmbeddedStructure {
   double (*U)[3]; //displacement
   double (*Udot)[3]; //velocity
   double (*UandUdot)[3]; //displacement and velocity (TODO: this is redundant)
+  double dt_tmax[2];
   double (*F)[3]; //force (received from fluid).
   std::map<int,int> pairing;
 
@@ -98,7 +99,7 @@ class DynamicNodalTransfer {
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
         double *UandUdot;
-        double dt_tmax[2];
+        double *dt_tmax;
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
