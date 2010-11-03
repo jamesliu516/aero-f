@@ -346,7 +346,7 @@ double AccMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-				    DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+				    DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
  return dt;
@@ -483,7 +483,7 @@ double AeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 */
 
 double AeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+				     DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
   Timer *timer;
   timer = domain->getTimer();
@@ -688,7 +688,7 @@ double AccAeroMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccAeroMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   DistSVec<double,3> &Xrel = getRelativePositionVector(t, X);
@@ -843,7 +843,7 @@ double DeformingMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double DeformingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -1051,7 +1051,7 @@ double PitchingMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double PitchingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -1194,7 +1194,7 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double HeavingMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
 
   return dt;
@@ -1241,7 +1241,7 @@ double AccForcedMeshMotionHandler::update(bool *lastIt, int it, double t,
 //------------------------------------------------------------------------------
 
 double AccForcedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                          DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
  return -1e15;
 }
@@ -1489,7 +1489,7 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 //------------------------------------------------------------------------------
 
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
-                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
   Timer *timer;
   timer = domain->getTimer();
@@ -1511,6 +1511,7 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
       break;
     case 22: //C0 with XFEM3D
       step1ForC0XFEM3D(lastIt,it,t,Xdot,X);
+      *tmax = dynNodalTransfer->getStructureMaxTime();
       break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
@@ -1551,7 +1552,7 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
     // update X and Velocity
-    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
@@ -1565,7 +1566,7 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
       for (int i=0; i<numStructNodes; i++)
         structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
     else
-      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
+      fprintf(stderr,"ERROR: structure velocity not obtained.\n");
 
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
 
@@ -1594,7 +1595,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
     // update X and Velocity
-    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
@@ -1627,22 +1628,21 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
   int numStructNodes = distLSS->getNumStructNodes();
 
   if (it==0) {
-    dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at initialization (getInfo)
-    dts *= 0.5;
-
     //get displacement.
     SVec<double,3> structU(numStructNodes); //structure displacement
     SVec<double,3> structUdot(numStructNodes); //structure velocity
     dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
     // update X and Velocity
-    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
     }
 
-    if (structVelocity==0)
+    for (int i=0; i<numStructNodes; i++)
+      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+
+/*    if (structVelocity==0)
       for (int i=0; i<numStructNodes; i++)
         structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
     else if (structVelocity==1)
@@ -1650,15 +1650,21 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
         structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
     else
       fprintf(stderr,"ERROR: struct velocity not obtained.\n");
-
+*/
     distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    dynNodalTransfer->sendForce(); //send force to structure
+    dynNodalTransfer->updateInfo();
+    dts = dynNodalTransfer->getStructureTimeStep(); //dts obtained at initialization (getInfo)
+
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
+    dts *= 0.5;
 
     X = X0;
   }
 
   else if(it==it0) {
     dynNodalTransfer->sendForce(); //send force to structure
-    dynNodalTransfer->updateInfo();
     dts = dynNodalTransfer->getStructureTimeStep();
   }
 
@@ -1694,8 +1700,9 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
       break;
     case 20: //C0 with FEM
     case 21: //C0 with XFEM
-    case 22: //C0 with XFEM3D
       step2ForC0(lastIt,it,t,Xdot,X);
+    case 22: //C0 with XFEM3D
+      step2ForC0XFEM3D(lastIt,it,t,Xdot,X);
       break;
   }
   timer->removeForceAndDispComm(ttt); // do not count the communication time with the
@@ -1722,7 +1729,7 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
     // update X and Velocity
-    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
@@ -1762,7 +1769,7 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
 
     // update X and Velocity
-    if(dts<=0.0) fprintf(stderr,"structure time-step is %e !\n", dts);
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
     for (int i=0; i<numStructNodes; i++) {
       structXn[i] = structXnPlus1[i];
       structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
@@ -1786,6 +1793,47 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     dts = 0.0; 
 }
 
+//------------------------------------------------------------------------------
+
+void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
+                                             DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
+{
+  int numStructNodes = distLSS->getNumStructNodes();
+
+  if(it==0) {
+    dts = dynNodalTransfer->getStructureTimeStep();
+    dts *= 0.5;
+  } 
+  else if (!*lastIt) { //get displacement
+    dts = dynNodalTransfer->getStructureTimeStep();
+    SVec<double,3> structU(numStructNodes); //structure displacement
+    SVec<double,3> structUdot(numStructNodes); //structure velocity
+    dynNodalTransfer->getDisplacement(structU, structUdot); //receive displacement and velocity from structure.
+
+    // update X and Velocity
+    if(dts<=0.0) fprintf(stderr,"WARNING: Obtained a non-positive structural timestep (%e)!\n", dts);
+    for (int i=0; i<numStructNodes; i++) {
+      structXn[i] = structXnPlus1[i];
+      structXnPlus1[i] = structX0[i] + Vec3D(structU[i][0], structU[i][1], structU[i][2]);
+//      structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    }
+
+    if (structVelocity==0)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = Vec3D(structUdot[i][0], structUdot[i][1], structUdot[i][2]);
+    else if (structVelocity==1)
+      for (int i=0; i<numStructNodes; i++)
+        structVel[i] = (structXnPlus1[i] - structXn[i]) / dts;
+    else
+      fprintf(stderr,"ERROR: struct velocity not obtained.\n");
+
+    distLSS->updateStructure(structXnPlus1, structVel, numStructNodes);
+
+    X = X0;
+  } 
+  else // last iteration 
+    dts = 0.0; 
+}
 //------------------------------------------------------------------------------
 
 RbmExtractor::RbmExtractor(IoData &iod, Domain *dom) 

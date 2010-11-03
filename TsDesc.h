@@ -120,7 +120,7 @@ public:
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
-  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &);
+  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);

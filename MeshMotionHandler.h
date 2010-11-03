@@ -42,7 +42,7 @@ public:
   virtual ~MeshMotionHandler() {}
 
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
-  virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;} 
+  virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
 
   template<int dim>
@@ -107,7 +107,7 @@ public:
   ~AccMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -156,7 +156,7 @@ public:
   int getModalMotion(DistSVec<double,3> &);
 
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   int getAlgNum(); 
 
@@ -174,7 +174,7 @@ public:
   ~AccAeroMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -196,7 +196,7 @@ public:
   ~DeformingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -229,7 +229,7 @@ public:
   ~PitchingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -255,7 +255,7 @@ public:
   ~HeavingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -275,7 +275,7 @@ public:
   ~AccForcedMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -334,7 +334,7 @@ public:
 
   void setup(double *);
   double update(bool *lastIt, int it, double t, DistSVec<double,3> &Xdot, DistSVec<double,3> &X) {return dts;}
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); //<! just get dt.
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0); 
   void step1ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step1ForC0FEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
@@ -342,6 +342,7 @@ public:
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   /** get displacement and pass it to distLSS.  send force to structure. */
 
   int getAlgNum()  { return 0; }
