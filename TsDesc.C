@@ -327,7 +327,7 @@ double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
   if (hth) {
     hth->updateStep2(lastIt, it, bcData->getTemperatureVector());
   }
-
+  this->com->fprintf(stderr,"*** At It %d, get dts = %e (non-dimensionalized)\n", dt);
   return dt;
 
 }

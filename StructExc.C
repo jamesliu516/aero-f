@@ -180,6 +180,7 @@ double StructExc::getInfo()
   if (algNum == 6) tmax -= 0.5 * dt;
   if (algNum == 20) tmax -= 0.5 * dt;
   if (algNum == 21) tmax += 0.5 * dt;
+  if (algNum == 22) tmax += 0.5 * dt;
 
   double mppFactor = 1.0;
   if (algNum == 8)

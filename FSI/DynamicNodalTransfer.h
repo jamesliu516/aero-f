@@ -71,6 +71,7 @@ public:
   pair<double*, int> getTargetData();
   void sendTimeStep(Communication::Window<double> *window);
   void sendMaxTime(Communication::Window<double> *window);
+  void sendInfo(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
   void processReceivedForce();
 
@@ -93,9 +94,11 @@ class DynamicNodalTransfer {
         Timer *timer;
         EmbeddedStructure structure;
 
+        Communication::Window<double> *wintime;
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
         double *UandUdot;
+        double dt_tmax[2];
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
@@ -108,6 +111,8 @@ public:
 
 	/** routine to send the force to the structure. On output, f has been dimensionalized. */
 	void sendForce();
+        /** routine to receive the new time step and final time from structure. */
+        void updateInfo();
         /** routine to receive the displacement of the structure.*/
 	void getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot);
 

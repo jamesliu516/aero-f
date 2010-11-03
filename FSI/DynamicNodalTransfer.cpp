@@ -41,6 +41,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   com.barrier();
   com.fprintf(stderr,"Structure Time-step: %e, Final Time: %e\n", dts, tMax);
 
+  wintime  = 0;
   winForce = 0;
   winDisp  = 0;
   UandUdot = 0;
@@ -49,8 +50,9 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::~DynamicNodalTransfer() {
-  if(winForce) delete winForce;
-  if(winDisp) delete winDisp;
+  if(wintime)  delete   wintime;
+  if(winForce) delete   winForce;
+  if(winDisp)  delete   winDisp;
   if(UandUdot) delete[] UandUdot;
 }
 
@@ -72,6 +74,22 @@ DynamicNodalTransfer::sendForce() {
   winForce->fence(false);
 
   structure.processReceivedForce();
+}
+
+//------------------------------------------------------------------------------
+
+void
+DynamicNodalTransfer::updateInfo() {
+  if(!wintime) wintime = new Communication::Window<double> (com, 2*sizeof(double), (double*)dt_tmax);
+  com.barrier(); //for timing purpose
+  wintime->fence(true);
+  structure.sendInfo(wintime);
+  wintime->fence(false);
+  dts   = dt_tmax[0];
+  tMax  = dt_tmax[1];
+  fprintf(stderr,"*** CPU %d received dts = %e, tMax = %e (dimensional)\n", com.cpuNum(), dts, tMax);
+  dts  /= tScale;
+  tMax /= tScale;
 }
 
 //------------------------------------------------------------------------------
@@ -341,6 +359,26 @@ EmbeddedStructure::sendMaxTime(Communication::Window<double> *window)
     window->put(&tMax, 0, 1, i, 0);
   }
 }
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::sendInfo(Communication::Window<double> *window)
+{
+  if(coupled)
+    structExc->getInfo();
+  if(com.cpuNum()>0) return; // only proc. #1 will send.
+
+  if(coupled) {
+    dt = tScale*structExc->getTimeStep();
+    tMax = tScale*structExc->getMaxTime();
+  } /* else: nothing to be done */
+
+  double temp[2];
+  temp[0] = dt; temp[1] = tMax;
+  for(int i = 0; i < com.size(); ++i)
+    window->put((double*)temp, 0, 2, i, 0);
 }
 
 //------------------------------------------------------------------------------
