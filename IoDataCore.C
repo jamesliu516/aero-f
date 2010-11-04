@@ -3714,8 +3714,8 @@ int IoData::checkInputValuesAllInitialConditions(){
     int nModels = usedModels.size();
     int minModel = *(usedModels.begin());
     int maxModel = *(--(set<int>::iterator)(usedModels.end()));
-    if(nModels != maxModel - minModel + 1) {
-      com->fprintf(stderr,"*** Error: FluidId(s) for user-specified spheres must be consecutive starting from either 0 or 1!\n");
+    if(minModel!=1 || nModels != maxModel - minModel + 1) {
+      com->fprintf(stderr,"*** Error: FluidModel(s) for user-specified spheres must be consecutive starting from either 1!\n");
       error++;
     } else 
       embed.nLevelset = nModels;
