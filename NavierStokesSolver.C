@@ -88,14 +88,13 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     }
   }
   else if (ioData.eqs.numPhase == 2){
-    com->fprintf(stdout, "*** Warning: number of phases is %d\n", ioData.eqs.numPhase);
+    com->fprintf(stdout, "*** NOTE: Running a Multi(%d)-Phase Flow simulation.\n", ioData.eqs.numPhase);
     LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
   }
   else if (ioData.eqs.numPhase == 3){
-    com->fprintf(stdout, "*** Warning: number of phases is %d\n", ioData.eqs.numPhase);
+    com->fprintf(stdout, "*** NOTE: Running a Multi(%d)-Phase Flow simulation.\n", ioData.eqs.numPhase);
     LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
   }
-
 }
 
 //------------------------------------------------------------------------------
