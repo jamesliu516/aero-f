@@ -508,7 +508,8 @@ template<int dim, class Scalar, int neq>
 inline
 void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 					   Vec<double> &normalVel, SVec<double,dim> &V, 
-					   double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId)
+					   double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId,
+                                           LevelSetStructure* LSS)
 {
 
   double jac[neq*neq];
@@ -516,6 +517,7 @@ void Face::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal
     Vec3D  normal = getNormal(normals, l);
     double normVel= getNormalVel(normalVel, l);
 
+    if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;
     fluxFcn[code]->computeJacobian(1.0, 0.0, normal, normVel, V[nodeNum(l)], Ub, jac, fluidId[nodeNum(l)]);
     Scalar *Aii = A.getElem_ii(nodeNum(l));
     for (int k=0; k<neq*neq; ++k) 
@@ -768,7 +770,8 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
 template<int dim, class Scalar, int neq>
 void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bcData,
 					      GeoState &geoState, SVec<double,dim> &V, 
-					      GenMat<Scalar,neq> &A, Vec<int> &fluidId)
+					      GenMat<Scalar,neq> &A, Vec<int> &fluidId,
+                                              LevelSetStructure* LSS)
 {
 
   Vec<Vec3D> &n = geoState.getFaceNormal();
@@ -776,7 +779,7 @@ void FaceSet::computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, BcData<dim> &bc
   SVec<double,dim> &Ub = bcData.getFaceStateVector();
 
   for (int i=0; i<numFaces; ++i)
-    faces[i]->computeJacobianFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], A, fluidId);
+    faces[i]->computeJacobianFiniteVolumeTerm(fluxFcn, n, ndot, V, Ub[i], A, fluidId,LSS);
 
 }
 //------------------------------------------------------------------------------

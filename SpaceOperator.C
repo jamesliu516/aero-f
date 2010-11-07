@@ -1133,7 +1133,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
       } else {
         for (int iDim=0; iDim<dim; iDim++) 
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
-//        fprintf(stderr,"Updating node %d on SubD %d to [%e %e %e %e %e]\n",i,subD[iSub]->getGlobSubNum(),subV[i][0],subV[i][1], subV[i][2], subV[i][3], subV[i][4]);
+        //fprintf(stderr,"Updating node %d on SubD %d to [%e %e %e %e %e]\n",i,subD[iSub]->getGlobSubNum(),subV[i][0],subV[i][1], subV[i][2], subV[i][3], subV[i][4]);
       }
     }
 
@@ -1242,6 +1242,53 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
   irey = 0;
 
 }
+//------------------------------------------------------------------------------
+
+template<int dim>
+template<class Scalar,int neq>
+void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                                         DistSVec<double,dim> &U,
+                                         DistLevelSetStructure *LSS,
+                                         DistVec<int> &fluidId, 
+                                         DistExactRiemannSolver<dim> *riemann, 
+                                         int Nriemann, DistSVec<double,3> *Nsbar,
+                                         DistVec<GhostPoint<dim>*> *ghostPoints,
+                                         DistMat<Scalar,neq>& A,
+                                         DistTimeState<dim>* timeState)
+{
+  A = 0.0;
+  varFcn->conservativeToPrimitive(U, *V, &fluidId);  
+  
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  }
+  else {
+    irey = new DistVec<double>(domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+
+  // Skip viscous for now
+  // if (fet) {
+  //   domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
+  // }
+  
+  domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
+                                          X, *V, LSS, fluidId, Nriemann, Nsbar, A,*irey);
+
+  if (volForce)
+    domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
+  
+  // Delete pointer for consistency
+  if (timeState == 0) 
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
+}
+  
 
 //------------------------------------------------------------------------------
 template<int dim>
@@ -1971,7 +2018,8 @@ template<int dim, int dimLS>
 template<class Scalar, int neq>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistMat<Scalar,neq> &A,
-                                         FluidSelector &fluidSelector, DistExactRiemannSolver<dim> *riemann)
+                                         FluidSelector &fluidSelector, DistExactRiemannSolver<dim> *riemann,
+                                         DistTimeState<dim>* timeState)
 {
 
   //fprintf(stdout, "going through computeJacobian for two-phase flows\n");
@@ -1980,6 +2028,16 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
 #endif
 
   A = 0.0;
+  
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  }
+  else {
+    irey = new DistVec<double>(this->domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
 
   if (this->use_modal)  {
     fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
@@ -1992,6 +2050,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
     if (this->volForce)
       this->domain->computeJacobianVolumicForceTerm(this->volForce, ctrlVol, *(this->V), A);
   }
+  
+  // Delete pointer for consistency
+  if (timeState == 0) 
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
 }
 
 //------------------------------------------------------------------------------

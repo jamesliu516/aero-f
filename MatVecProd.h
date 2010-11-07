@@ -27,7 +27,7 @@ class MatVecProd {
 
 public:
 
-  MatVecProd() {}
+  MatVecProd() : isFSI(false) {}
   virtual ~MatVecProd() {}
 
   virtual void exportMemory(MemoryPool *mp) {}
@@ -54,6 +54,29 @@ public:
   virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0){
     std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;}
 
+  // Structure to enable fluid-structure interaction computations
+  struct _fsi {
+
+    DistLevelSetStructure* LSS;
+    DistVec<int>* fluidId;
+    DistExactRiemannSolver<dim>* riemann;
+    bool linRecAtInterface;
+    DistSVec<double,3>* Nsbar;
+    DistSVec<double,dim>* Wtemp;
+    int Nriemann;
+    DistVec<GhostPoint<dim>*>* ghostPoints;
+  };
+
+  void AttachStructure(const _fsi& f) {
+    isFSI = true;
+    fsi = f;
+  }
+ 
+protected:
+  
+  // Boolean; set to true if we are using a structure
+  bool isFSI;
+  _fsi fsi;
 };
 
 //------------------------------------------------------------------------------
@@ -85,6 +108,9 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   int fdOrder;
   double fdeps;
 
+ 
+public:
+
 private:
 
   double computeEpsilon(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -94,7 +120,7 @@ public:
 // Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 
 	       SpaceOperator<dim> *, Domain *, IoData &);
-
+  
   ~MatVecProdFD();
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
