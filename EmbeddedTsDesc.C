@@ -36,7 +36,7 @@ template<int dim>
 EmbeddedTsDesc<dim>::
 EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo())
 {
 
   simType         = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
@@ -616,6 +616,13 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU) {
+
+  if (this->fixSol == 1)
+    this->domain->fixSolution(this->varFcn,U,dU,&this->nodeTag);
+}
 
 
 

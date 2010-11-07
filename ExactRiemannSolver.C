@@ -163,6 +163,15 @@ void ExactRiemannSolver<dim>::computeFSIRiemannSolution(double *Vi, double *Vsta
 }
 //------------------------------------------------------------------------------
 template<int dim>
+void ExactRiemannSolver<dim>::computeFSIRiemannJacobian(double *Vi, double *Vstar,
+      double *nphi, VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id)
+
+{
+  fsiRiemann->computeRiemannJacobian(Vi,Vstar,nphi,vf,
+         Wstar,rupdate[nodej],weight[nodej],iteration, dWdW,Id);
+}
+//------------------------------------------------------------------------------
+template<int dim>
 void ExactRiemannSolver<dim>::computeFSIRiemannSolution(int tag, double *Vi, double *Vstar,
       double *nphi, VarFcn *vf, double *Wstar, int nodej)
 

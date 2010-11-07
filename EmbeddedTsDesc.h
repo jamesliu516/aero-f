@@ -55,7 +55,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
   // ------------------------------------------------------------------------------------
-
+  DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
 
   //buckling cylinder parameters
@@ -120,6 +120,7 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
 
+  void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
 };
 
 

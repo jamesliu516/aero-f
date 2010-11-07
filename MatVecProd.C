@@ -82,7 +82,7 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   ctrlVol = &cv;
   Qeps = q;
 
-  if (recFcnCon) {
+  if (recFcnCon && !this->isFSI) {
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     if (timeState)
@@ -168,7 +168,12 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Qepstmp.pad(Qeps);
 
-  spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  if (!this->isFSI)
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  else
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                             this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -188,8 +193,13 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     
     Qepstmp.pad(Qeps);
 
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-
+    if (!this->isFSI)
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    else
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                               this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+ 
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
 
@@ -530,7 +540,12 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 					    DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
 {
 
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
+  if (!this->isFSI)
+    spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
+  else
+    spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
+                             this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+                             this->fsi.ghostPoints, *this,timeState);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
@@ -1411,7 +1426,7 @@ void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, 
                                             DistSVec<double,dim> &F)
 {
 
-  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann);
+  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann,this->timeState);
 
   if (this->timeState)
     this->timeState->addToJacobian(ctrlVol, *this, Q);
