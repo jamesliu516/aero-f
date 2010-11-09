@@ -43,8 +43,6 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
   this->postOp->setForceGenerator(this);
-  if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED MULTI FLUID-STRUCTURE SIMULATION --------\n");
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
@@ -80,7 +78,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG :
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
         double (*xyz)[3] = dynNodalTransfer->getStNodes();
@@ -90,9 +88,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
     case EmbeddedFramework::PHYSBAM : 
-//      this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
         double (*xyz)[3] = dynNodalTransfer->getStNodes();
@@ -146,7 +143,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Fs = 0;
   numStructNodes = distLSS->getNumStructNodes();
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
+    this->com->fprintf(stderr,"- Embedded Structure Surface: %d nodes\n", numStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[numStructNodes][3];
   } else 
@@ -198,17 +195,20 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
 template<int dim>
 void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
-  distLSS->initialize(this->domain,*this->X, ioData);
+  // Setup fluid mesh geometry
+  this->geoState->setup2(this->timeState->getData());
+  // Initialize intersector and compute intersections
+  DistVec<int> point_based_id(this->domain->getNodeDistInfo());
+  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
   if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
-  // Adam and Kevin 2010.08.04 Node Tag needed for FS interaction
-  // if(this->numFluid>1) //initialize nodeTags for multi-phase flow
+  // Initialize fluid state vector
+  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
+                         *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+  // Initialize fluid Ids
   nodeTag0 = nodeTag = distLSS->getStatus();
-
-  this->geoState->setup2(this->timeState->getData());
-  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), 
-                         *U, ioData, &nodeTag); //populate U by i.c. or restart data.
+  // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;

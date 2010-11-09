@@ -195,16 +195,16 @@ template<int dim>
 void DistBcData<dim>::finalize(DistSVec<double,3> &X)
 {
   //assumption : only one phase is found at the far-field boundary
-  com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
+//  com->printf(2, "Conservative Inlet : %e %e %e\n", Uin[0],Uin[1],Uin[4]);
   this->vf->conservativeToPrimitive(this->Uin, Vin);
   this->vf->conservativeToPrimitive(this->Uout, Vout);
 
   double Pressure = this->vf->getPressure(Vin);
-  com->printf(2, "Inlet:");
+  com->printf(2, "Non-dimensionalized primitive state vector:\n");
+  com->printf(2, "Inlet: ");
   int k;
   for (k=0; k<dim; ++k)
     com->printf(2, " %g", Vin[k]);
-  com->printf(2, " %g", Pressure);
   com->printf(2, "\nOutlet:");
   for (k=0; k<dim; ++k)
     com->printf(2, " %g", Vout[k]);
