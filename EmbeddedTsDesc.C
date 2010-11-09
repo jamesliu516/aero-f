@@ -465,7 +465,6 @@ void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
   this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
-
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
     this->com->printf(2, "Getting residual norm\n");

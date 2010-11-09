@@ -269,7 +269,7 @@ void ImplicitEmbeddedTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
 template<int dim>
 int ImplicitEmbeddedTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 {
-  fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
+  this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
 /*
   if (!this->failSafeNewton) return 0;
 
