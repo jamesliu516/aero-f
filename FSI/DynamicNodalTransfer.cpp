@@ -36,7 +36,7 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
 }
 
   algNum = structure.getAlgorithmNumber();
-  com.fprintf(stderr,"--- Received structure Time-step: %e, Final Time: %e\n", dts, tMax);
+//  com.fprintf(stderr,"--- Received initial structure Time-step: %e, Final Time: %e\n", dts, tMax);
   dts /= tScale;
   tMax /= tScale;
   com.barrier();
@@ -165,7 +165,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
   getSurfFromFEM = coupled && (!strlen(iod.input.embeddedSurface));
   if(getSurfFromFEM)
-    com.fprintf(stderr,"Note: Using the embedded surface provided by structure code.\n");
+    com.fprintf(stderr,"- Using the embedded surface provided by structure code.\n");
 
   // ---- for debug ----
   dim2Treatment = (iod.embed.dim2Treatment == EmbeddedFramework::YES) ? true : false; //by default it's false
@@ -190,12 +190,12 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   dx    = iod.ref.rv.length*iod.forced.hv.ax; //tlength = length / aero.displacementScaling;
   dy    = iod.ref.rv.length*iod.forced.hv.ay;
   dz    = iod.ref.rv.length*iod.forced.hv.az;  
-  com.fprintf(stderr,"*** User Specified Embedded Structure Info ***\n");
+/*  com.fprintf(stderr,"*** User Specified Embedded Structure Info ***\n");
   com.fprintf(stderr,"  coupled = %d,  dim2Treatment = %d\n", coupled, dim2Treatment);
   if(!coupled){
     com.fprintf(stderr,"  (forced motion) mode = %d, t0 = %e, tMax = %e, dt = %e\n", mode, t0, tMax, dt);
     com.fprintf(stderr,"                  omega = %e, dx = %e, dy = %e, dz = %e.\n", omega, dx, dy, dz);
-  }
+  }*/
   // ----------------------------------
   //               End
   // ----------------------------------

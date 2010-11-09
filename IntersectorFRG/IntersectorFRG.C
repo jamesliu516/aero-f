@@ -274,7 +274,7 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
   twoPhase = false;
 
   com = comm;
-  com->fprintf(stderr,"Using Intersector FRG\n");
+  com->fprintf(stderr,"- Using Intersector: FRG\n");
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -494,11 +494,13 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorFRG: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface()) 
     com->fprintf(stderr,"Ok.\n");
-  else 
+  else {
+    com->fprintf(stderr,"\n");
     exit(-1); 
+  }
 
 //  getBoundingBox();
   initializePhysBAM();
@@ -580,11 +582,13 @@ void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*ab
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorFRG: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
-  else
+  else {
+    com->fprintf(stderr,"\n");
     exit(-1);
+  }
 
 //  getBoundingBox();
   initializePhysBAM();
@@ -1074,9 +1078,6 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
   }
 
   list< pair<Vec3D,int> >::iterator iter;
-  for(iter = Points.begin(); iter!=Points.end(); iter++)
-    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], pid2id[iter->second]);
-  
 
   int nUndecided[numLocSub], total;
   DistSVec<int,2> status_and_weight(domain->getNodeDistInfo());
@@ -1145,7 +1146,7 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_b
   }
 
   if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
-    com->fprintf(stderr,"IntersectorFRG: Ghost node(s) detected...\n");
+    com->fprintf(stderr,"- IntersectorFRG: Ghost node(s) detected...\n");
     twoPhase = false;
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)

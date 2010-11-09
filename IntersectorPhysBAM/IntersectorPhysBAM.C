@@ -41,7 +41,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
-  com->fprintf(stderr,"Using Intersector PhysBAM\n");
+  com->fprintf(stderr,"- Using Intersector: PhysBAM\n");
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -256,11 +256,13 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface()) 
     com->fprintf(stderr,"Ok.\n");
-  else 
+  else {
+    com->fprintf(stderr,"\n"); 
     exit(-1); 
+  }
 
   initializePhysBAM();
 }
@@ -341,11 +343,13 @@ void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int 
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
-  else
-    exit(-1);
+  else {
+    com->fprintf(stderr,"\n"); 
+    exit(-1); 
+  }
 
   initializePhysBAM();
 }

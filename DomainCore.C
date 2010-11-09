@@ -79,6 +79,14 @@ Domain::Domain()
   timer = new Timer(com);
   com->setTimer(timer);
 
+  com->fprintf(stdout,"\n");  
+  com->fprintf(stdout,"  _______                              __________\n");
+  com->fprintf(stdout,"  ___    |_____ ______________         ___  ____/\n");
+  com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
+  com->fprintf(stdout,"  _  ___ |/  __/_  /    / /_/ /_/_____/_  __/    \n");
+  com->fprintf(stdout,"  /_/  |_|\\___/ /_/     \\____/         /_/     \n");
+  com->fprintf(stdout,"\n");
+
   strCom = allCom[STRUC_ID];
   if (strCom) {
     strTimer = new Timer(0);

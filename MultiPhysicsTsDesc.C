@@ -94,7 +94,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG : // use IntersectorFRG
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+//        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
         double (*xyz)[3] = dynNodalTransfer->getStNodes();
@@ -105,7 +105,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
       break;
     case EmbeddedFramework::PHYSBAM : // use IntersectorPhysBAM
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+//        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
         double (*xyz)[3] = dynNodalTransfer->getStNodes();
@@ -142,7 +142,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   Fs = 0;
   numStructNodes = distLSS->getNumStructNodes();
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
+    this->com->fprintf(stderr,"- Embedded Structure Surface: %d nodes.\n", numStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
     Fs = new (*this->com) double[numStructNodes][3];
   } else

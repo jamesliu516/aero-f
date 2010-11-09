@@ -10,7 +10,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   Communicator* com = domain.getCommunicator();
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     if (ioData.eqs.type == EquationsData::EULER) {
-      com->fprintf(stderr, "*** NOTE: Running an Embedded Inviscid %d Phase Fluid-Structure simulation with %d Level-set(s)\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
+      com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure simulation with %d Level-set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
       switch(ioData.embed.nLevelset) {
         case 0 : NavierStokesEmbedded<5>::solve(ioData, geoSource, domain); break;
         case 1 : NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain); break;
@@ -24,7 +24,7 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     }
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES)
       {
-        com->fprintf(stderr, "*** NOTE: Running an Embedded Viscous %d Phase Fluid-Structure simulation\n", ioData.eqs.numPhase);
+        com->fprintf(stderr, "*** Running an Embedded Viscous %d Phase Fluid-Structure simulation ***\n", ioData.eqs.numPhase);
 	if(ioData.eqs.tc.type == TurbulenceClosureData::NONE)
 	  {
 	    com->fprintf(stderr,"--- No Turbulent Model Used ***\n");
@@ -88,11 +88,11 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     }
   }
   else if (ioData.eqs.numPhase == 2){
-    com->fprintf(stdout, "*** NOTE: Running a Multi(%d)-Phase Flow simulation.\n", ioData.eqs.numPhase);
+    com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
     LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
   }
   else if (ioData.eqs.numPhase == 3){
-    com->fprintf(stdout, "*** NOTE: Running a Multi(%d)-Phase Flow simulation.\n", ioData.eqs.numPhase);
+    com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
     LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
   }
 }
