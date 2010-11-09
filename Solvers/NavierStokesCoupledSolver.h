@@ -25,11 +25,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
     }
-		else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
-			ImplicitRomTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-			TsSolver<ImplicitRomTsDesc<dim> > tsSolver(&tsDesc);
-			tsSolver.solve(ioData);
-		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+      ImplicitRomTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+      TsSolver<ImplicitRomTsDesc<dim> > tsSolver(&tsDesc);
+      tsSolver.solve(ioData);
+    }
     else if (ioData.ts.type == TsData::IMPLICIT) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);

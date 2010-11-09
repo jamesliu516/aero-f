@@ -160,7 +160,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 */
 
 //------------------------------------------------------------------------------
-
+#define DEBUG_ROM
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _it)  {
 
@@ -177,7 +177,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
   Vec<double> Urom(nPod); // reduced coordinates
   Vec<double> rhs(nPod);
   //projectVector(pod, U, Urom);	// KTC change
-	Urom = 0.0;	// total solution increment in ROM coordinates (the unknowns for reduced problem)
+  Urom = 0.0; // total solution increment in ROM coordinates (the unknowns for reduced problem)
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
 
@@ -188,16 +188,28 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
   bool convergeFlag=0;
 
   DistSVec<double, dim> Test(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
-
+#ifdef DEBUG_ROM
+  this->com->fprintf(stderr,"ImplicitRomTsDesc<dim>::solveNonLinearSystem, dim = %d, maxItsNewton = %d, RomSolver = %d\n", dim, maxItsNewton, RomSolver);
+#endif
   for (it = 0; it < maxItsNewton; it++)  {
 
-    //this->com->fprintf(stderr," --- Newton It # %d\n",it);//CBM
+    //this->com->fprintf(stderr," --- Newton It # %d\n",it);
 
     computeFunction(it, U, F);
+#ifdef DEBUG_ROM
+    double U2 = U*U, F2 = F*F;
+    this->com->fprintf(stderr," --- Newton It # %d, U*U = %e, F*F = %e\n",it, U2, F2);
+#endif
 
     switch (RomSolver) {
       case 0: // Petrov-Galerkin
         computeJacobian(it, U, F, AJ); // KTC: instead, compute QR factorization?
+#ifdef DEBUG_ROM
+        for(int i = 0; i < AJ.numVectors(); ++i) {
+          double AJi2 = AJ[i]*AJ[i];
+          this->com->fprintf(stderr," --- i = %d, AJ[i]*AJ[i] = %e \n", i, AJi2);
+        }
+#endif
         projectVector(AJ, F, From);
         rhs = -1.0 * From;
 
@@ -239,6 +251,9 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
       target = epsNewton*res;
       res0 = res;
     }
+#ifdef DEBUG_ROM
+    this->com->fprintf(stderr," --- Newton It # %d, res = %e, res0 = %e, target = %e\n",it, res, res0, target);
+#endif
 
     if (res == 0.0 || res <= target) break;
 
@@ -256,9 +271,14 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 */
 // END LINE SEARCH
 
-    expandVector(dUrom, dUfull);	// solution increment in full coordinates
-    Urom += dUrom;// solution increment in reduced coordinates
-		U += dUfull;
+    expandVector(dUrom, dUfull); // solution increment in full coordinates
+    Urom += dUrom; // solution increment in reduced coordinates
+    U += dUfull;
+#ifdef DEBUG_ROM
+    double dUrom2 = dUrom*dUrom, dUfull2 = dUfull*dUfull, Urom2 = Urom*Urom;
+    this->com->fprintf(stderr," --- Newton It # %d, dUrom2 = %e, dUfull2 = %e, Urom2 = %e\n",it, dUrom2, dUfull2, Urom2);
+    exit(-1);
+#endif
 
 /*
 //    if (RomSolver == 0) {
@@ -752,6 +772,11 @@ void ImplicitRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, dim> &Q,
   //expandVector(From, F);
 
   mvpfd->evaluate(it, *this->X, *this->A, Q, F);
+#ifdef DEBUG_ROM
+  double X2 = (*this->X)*(*this->X), A2 = (*this->A)*(*this->A), Q2 = Q*Q, F2 = F*F;
+  this->com->fprintf(stderr," --- X2 = %e, A2 = %e, Q2 = %e, F2 = %e \n", X2, A2, Q2, F2);
+  //pod[0].print();
+#endif
   
   jac.setNewSize(nPod,nPod);
 
@@ -775,9 +800,13 @@ void ImplicitRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, dim> &Q,
   //VecSet<DistSVec<double, dim> > AJ(nPod,this->domain->getNodeDistInfo());
 
   // populate jac
-  for (int iPod = 0; iPod < nPod; iPod++)  
+  for (int iPod = 0; iPod < nPod; iPod++) { 
     mvpfd->apply(pod[iPod], AJ[iPod]);
-
+#ifdef DEBUG_ROM
+    double podi2 = pod[iPod]*pod[iPod], AJi2 = AJ[iPod]*AJ[iPod];
+    this->com->fprintf(stderr," --- iPod = %d, podi2 = %e, AJi2 = %e \n", iPod, podi2, AJi2);
+#endif
+  }
 	// KTC: LS alert!
 
   for (int iRow = 0; iRow < nPod; ++iRow) {

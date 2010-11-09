@@ -1,5 +1,6 @@
 #ifndef _VECTOR_SET_H_
 #define _VECTOR_SET_H_
+#define USE_IOSTREAM
 
 #ifdef OLD_STL
 #include <memory.h>

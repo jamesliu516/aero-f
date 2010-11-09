@@ -2708,7 +2708,7 @@ bool Domain::readVectorFromFile(const char *prefix, int step, double *tag,
   if (step >= numSteps)
     return false;
 
-  com->barrier(); //For timing (of i/o) purpose.
+//  com->barrier(); //For timing (of i/o) purpose.
   double t0 = timer->getTime();
 
 #pragma omp parallel for

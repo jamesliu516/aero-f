@@ -1272,7 +1272,8 @@ void ModalSolver<dim>::constructROM2(double *romOpPlusVals, VecSet<Vec<double> >
 
  // Allocate ROM operators
  VarFcn *varFcn = new VarFcn(*ioData); 
-  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+  //MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<5,double,5>(*ioData,  varFcn, tState, spaceOp, &domain);
+  MatVecProdH2<dim, double, dim> *onlyHOp = new MatVecProdH2<dim,double,dim>(*ioData,  varFcn, tState, spaceOp, &domain); // PJSA 11/04/2010
  onlyHOp->evalH(0, Xref, controlVol, Uref);
 
  double r = dt/(2.0*dt0);
