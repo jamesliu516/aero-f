@@ -86,7 +86,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
     if(res<0.0){
-      probDesc->printf(1, "*** negative residual\n");
+      probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
     }
 

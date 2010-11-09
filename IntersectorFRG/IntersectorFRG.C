@@ -787,7 +787,7 @@ void DistIntersectorFRG::expandScope()
 void
 DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
-    fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
+    fprintf(stderr,"ERROR: number of fluid = %d!\n", this->numFluid);
     exit(-1);
   }
   this->X = &X;
@@ -830,7 +830,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, Di
 void 
 DistIntersectorFRG::findPoly() {
   if(!poly) {
-    com->fprintf(stderr,"ERROR: poly not initialized.\n"); 
+//    com->fprintf(stderr,"ERROR: poly not initialized.\n"); 
     exit(-1);
   }
 
@@ -1851,7 +1851,7 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       if(!GlobPhysBAMUpdated) {
         distIntersector.updatePhysBAMInterface();
         GlobPhysBAMUpdated = true;
-        fprintf(stderr,"Now using the global intersector...\n");
+//        fprintf(stderr,"Now using the global intersector...\n");
       }
 
       for (int iter=0; iter<MAX_ITER; iter++) {
@@ -1871,8 +1871,8 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       }
  
       if(res1.triangleID<0) {
-         fprintf(stderr,"ERROR: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
-                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
+//         fprintf(stderr,"ERROR: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
+//                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
          if(status[p]!=status0[p] || status[q]!=status0[q]) {
            status[p] = status0[p];
            status[q] = status0[q];
