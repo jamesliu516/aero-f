@@ -250,7 +250,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd) {
 
-      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector, this->riemann);
+      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector, this->riemann,this->timeState);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }

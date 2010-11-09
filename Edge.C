@@ -1647,7 +1647,154 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
   }
 }
 
-extern double implbeta_alex;
+template<class Scalar,int dim,int neq>
+void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                             FluxFcn** fluxFcn,
+                                             GeoState& geoState, SVec<double,3>& X,
+                                             SVec<double,dim>& V, Vec<double>& ctrlVol,
+                                             LevelSetStructure &LSS,
+                                             Vec<int> &fluidId, int Nriemann, SVec<double,3> *Nsbar,
+                                             GenMat<Scalar,neq>& A,Vec<double>& irey) {
+
+  int farfieldFluid = 0; 
+
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  double Vi[2*dim], Vj[2*dim];
+  double Wstar[2*dim];
+  double dUdU[dim*dim],dfdUi[dim*dim],dfdUj[dim*dim],dkk[dim*dim],dWdW[dim*dim],dWdU[dim*dim];
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  double length;
+  Scalar * Aii,*Ajj,*Aij,*Aji;
+  Vec3D normalDir;
+  int k;
+ 
+  for (int l=0; l<numEdges; ++l) {
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+    bool intersect = LSS.edgeIntersectsStructure(0,i,j);
+    bool iActive = LSS.isActive(0.0,i);
+    bool jActive = LSS.isActive(0.0,j);
+    
+    double edgeirey = 0.5*(irey[i]+irey[j]);
+    if( !iActive && !jActive ) {
+      continue;
+    }
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    for(k=0; k<dim; k++) {
+      Vi[k] = V[i][k];
+      Vj[k] = V[j][k];
+      Vi[k+dim] = Vi[k];
+      Vj[k+dim] = Vj[k];
+    }
+ 
+    if (!intersect) {  // same fluid
+
+      fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
+      Aii = A.getElem_ii(i);
+      Ajj = A.getElem_ii(j);
+
+      if (masterFlag[l]) {
+        for (k=0; k<dim*dim; ++k) {
+          Aii[k] += dfdUi[k];
+	  Ajj[k] -= dfdUj[k];
+        }
+      }
+
+      Aij = A.getElem_ij(l);
+      Aji = A.getElem_ji(l);
+      if (Aij && Aji) {
+        double voli = 1.0 / ctrlVol[i];
+        double volj = 1.0 / ctrlVol[j];
+ 
+        for (k=0; k<dim*dim; ++k) {
+	  Aij[k] += dfdUj[k] * voli;
+	  Aji[k] -= dfdUi[k] * volj;
+	}
+      }
+    } else if (masterFlag[l]) {
+
+      if(iActive) {
+        LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      resij.gradPhi;
+            else                                normalDir = -1.0*resij.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = -1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[i]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[i][0], (*Nsbar)[i][1], (*Nsbar)[i][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+
+        riemann.computeFSIRiemannSolution(Vi,resij.normVel,normalDir,varFcn,Wstar,j,fluidId[i]);
+        riemann.computeFSIRiemannJacobian(Vi,resij.normVel,normalDir,varFcn,Wstar,j,dWdW,fluidId[i]);
+        
+        varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[i]);
+        varFcn->preMultiplyBydUdV(Vi, dWdU, dUdU,fluidId[i]);
+
+        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Wstar, dfdUi, dfdUj, fluidId[i],false);
+        DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUj,0,&dUdU, 0, &dkk,0);
+        Aii = A.getElem_ii(i);
+        for (k=0; k<dim*dim; ++k) {
+          Aii[k] += dfdUi[k]+dkk[k];
+        }
+      }
+
+      // for node j
+      if(jActive){
+        LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
+
+        switch (Nriemann) {
+          case 0: //structure normal
+            if(fluidId[j]==farfieldFluid)       normalDir =      resji.gradPhi;
+            else                                normalDir = -1.0*resji.gradPhi;
+            break;
+          case 1: //fluid normal
+            normalDir = 1.0/(normal[l].norm())*normal[l];
+            break;
+          case 2: //cell-averaged structure normal
+            if(fluidId[j]==farfieldFluid)       normalDir =      Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            else                                normalDir = -1.0*Vec3D((*Nsbar)[j][0], (*Nsbar)[j][1], (*Nsbar)[j][2]);
+            break;
+          default:
+            fprintf(stderr,"ERROR: Unknown RiemannNormal code!\n");
+            exit(-1);
+        }
+        if(std::abs(1.0-normalDir.norm())>0.1)
+          fprintf(stderr,"KW: normalDir.norm = %e. This is too bad...\n", normalDir.norm());
+  
+        riemann.computeFSIRiemannSolution(Vj,resji.normVel,normalDir,varFcn,Wstar,i,fluidId[j]);
+        riemann.computeFSIRiemannJacobian(Vj,resji.normVel,normalDir,varFcn,Wstar,i,dWdW,fluidId[j]);
+        
+        varFcn->postMultiplyBydVdU(Wstar, dWdW, dWdU,fluidId[j]);
+        varFcn->preMultiplyBydUdV(Vj, dWdU, dUdU,fluidId[j]);
+  
+        fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Wstar,Vj, dfdUi, dfdUj, fluidId[j],false); 
+        DenseMatrixOp<double, dim, dim*dim>::applyToDenseMatrix(&dfdUi,0,&dUdU, 0, &dkk,0);
+        Ajj = A.getElem_ii(j);
+        for (k=0; k<dim*dim; ++k) {
+          Ajj[k] -= dfdUj[k]+dkk[k];
+        }
+      }
+    }
+  }
+}
+
 template<class Scalar, int dim, int dimLS>
 void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 						GeoState& geoState, SVec<double,3>& X,

@@ -464,6 +464,16 @@ public:
                                        DistSVec<double,3> &,
                                        DistVec<double> &, DistSVec<double,dim> &,
                                        DistMat<Scalar,neq> &, FluidSelector &);
+  template<class Scalar,int dim,int neq>
+  void computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
+                                       DistExactRiemannSolver<dim> &riemann,
+                                       FluxFcn** fluxFcn,
+                                       DistBcData<dim>& bcData, DistGeoState& geoState,
+                                       DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                       DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
+                                       int Nriemann, DistSVec<double,3> *Nsbar, 
+                                       DistMat<Scalar,neq>& A,DistVec<double>& irey);
+
 
   template<int dim, class Scalar, int dimLS>
     void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,

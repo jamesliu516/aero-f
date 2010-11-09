@@ -1057,6 +1057,32 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   }
 }
 //-------------------------------------------------------------------------------
+template<class Scalar,int dim,int neq>
+void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, 
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
+                                       LevelSetStructure &LSS,Vec<int> &fluidId,
+                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       GenMat<Scalar,neq>& A,Vec<double>& irey)
+{
+
+  edges.computeJacobianFiniteVolumeTerm(riemann,fluxFcn,
+                                        geoState, X, V, ctrlVol, LSS, 
+                                        fluidId, Nriemann, Nsbar, A,irey);
+
+  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId, &LSS); 
+
+  for (int i=0; i<ctrlVol.size(); ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<neq*neq; ++k)
+      Aii[k] *= voli;
+  }
+  
+}
+
+//-------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int dimLS>
 void SubDomain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
