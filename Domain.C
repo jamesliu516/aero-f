@@ -1364,6 +1364,40 @@ void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim> &rieman
   }
 }
 
+template<class Scalar,int dim,int neq>
+void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
+                                             DistExactRiemannSolver<dim> &riemann,
+                                             FluxFcn** fluxFcn,
+                                             DistBcData<dim>& bcData, DistGeoState& geoState,
+                                             DistSVec<double,3>& X, DistSVec<double,dim>& V,
+                                             DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
+                                             int Nriemann, DistSVec<double,3> *Nsbar,
+                                             DistMat<Scalar,neq>& A,DistVec<double>& irey) 
+{
+
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+ 
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
+                                                     bcData(iSub), geoState(iSub),
+                                                     X(iSub), V(iSub),ctrlVol(iSub),
+                                                     (*LSS)(iSub),
+                                                     fluidId(iSub),Nriemann,
+                                                     nsbar,A(iSub),irey(iSub));
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+}
+
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int dimLS>
 void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,

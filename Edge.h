@@ -141,6 +141,13 @@ public:
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
                                FluidSelector &, Vec<int> &, int * );
+  
+  template<class Scalar,int dim,int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, GeoState&, SVec<double,3>&,
+                              SVec<double,dim>&, Vec<double>&, LevelSetStructure &,
+                              Vec<int>&, int, SVec<double,3>*,
+                              GenMat<Scalar,neq>&,Vec<double>& irey);
 
   template<class Scalar, int dim, int dimLS>
     void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,

@@ -5,6 +5,7 @@
 #include <Domain.h>
 #include <TsSolver.h>
 #include <ExplicitEmbeddedTsDesc.h>
+#include <ImplicitEmbeddedTsDesc.h>
 template<int dim>
 void startNavierStokesEmbedded(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
@@ -15,7 +16,10 @@ void startNavierStokesEmbedded(IoData &ioData, GeoSource &geoSource, Domain &dom
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
-    com->fprintf(stderr, "***Error: wrong time integrator for EulerStructGhostFluid method\n");   
+  
+    ImplicitEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ImplicitEmbeddedTsDesc<dim> > tsSolver(&tsDesc);
+    tsSolver.solve(ioData);
   }
   else{
     ExplicitEmbeddedTsDesc<dim> tsDesc(ioData, geoSource, &domain);

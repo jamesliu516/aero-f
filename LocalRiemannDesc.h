@@ -9,7 +9,7 @@
 #include <cmath>
 #include "ImplicitRiemann.h"
 #include "DenseMatrixOps.h"
-
+#include "DebugTools.h"
 //----------------------------------------------------------------------------
 // First the derived classes of LocalRiemannGfmp (no exact Riemann problem)
 // Second the derived classes of LocalRiemannGfmpar (with exact Riemann prob)
@@ -2552,15 +2552,22 @@ void computeRiemannSolution(int tag, double *Vi, double *Vstar,
                             double *Wstar, double *rupdatei,
                             double &weighti, int it);//TODO:not needed!
 
-/*void computeRiemannJacobian(double *Vi, double *Vstar,
+void computeRiemannJacobian(double *Vi, double *Vstar,
                             double *nphi, VarFcn *vf,
                             double *Wstar, double *rupdatei,
                             double &weighti, int it, double* WstardU,int Id = 0);
-*/
+
 private:
   void eriemannfs(double rhol, double ul, double pl,
                   double &rhoi, double ui, double &pi,
                   VarFcn *vf, int Id = 0); //note: ui shouldn't be changed. so the value (instead of reference) is used.
+
+  void eriemannfs_grad(double rho, double u, double p,
+                       double &rhoi, double ui, double &pi,
+                       VarFcn *vf, double* dWdWi,int Id); //Caution: "ui" will not be modified!
+  
+  template <int d>
+  friend class FSJac;
 };
 
 //------------------------------------------------------------------------------
@@ -2638,14 +2645,67 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   }
 */
 }
-//------------------------------------------------------------------------------
-/*inline
-void LocalRiemannFluidStructure::computeRiemannJacobian(double *Vi, double *Vstar,
-                            double *nphi, VarFcn *vf,
-                            double *Wstar, double *rupdatei,
-                            double &weighti, int it, double* WstardU,int Id = 0) {
 
-}*/
+template<int dim>
+class FSJac {
+ 
+  int Id;
+  VarFcn* vf;
+  double U_i;
+  LocalRiemannFluidStructure<dim>* ls; 
+  public:
+  FSJac(LocalRiemannFluidStructure<dim>* _ls,VarFcn* _vf, int _Id,double _ui) : vf(_vf), Id(_Id),ls(_ls),U_i(_ui) {}
+  void Compute(const double u[3],double f[3]) const {
+
+    ls->eriemannfs(u[0],u[1],u[2],f[0],U_i,f[2],vf,Id); //caution: U_i will not be modified!
+  }
+};
+
+//------------------------------------------------------------------------------
+template<int dim>
+inline
+void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double *Vstar,
+                                      double *nphi, VarFcn *vf,
+                                      double *Wstar, double *rupdatei,
+                                      double &weighti, int it, double* dWstardU,int Id) {
+
+  double P_1, U_1,R_1; // pass to 1D-FSI Riemann solver
+  double P_i=Wstar[4], U_i, R_i=Wstar[0]; // solution given by 1D-FSI Riemann solver
+  //---------------------------------------------------------------
+
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  double dWdW[9]={1,0,0,0,1,0,0,0,1};
+
+  R_1 = Vi[0];
+  U_1 = vni;
+  P_1  = vf->getPressure(Vi,Id);
+  U_i = Vstar[0]*nphi[0]+Vstar[1]*nphi[1]+Vstar[2]*nphi[2];
+  eriemannfs_grad(R_1,U_1,P_1,R_i,U_i,P_i,vf,dWdW,Id); //caution: U_i will not be modified!
+
+  // Checking jacobian
+  //double u[3] = {R_1,U_1,P_1};
+  //double f[3] = {R_i,U_i,P_i};
+  //DebugTools::CheckJacobian<3>(dWdW, u,f,FSJac<dim>(this,vf,Id,U_i), "FSJacobian\n-------------------------\n"); 
+
+  if(dim > 5)
+  {
+    Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+  }
+ 
+  memset(dWstardU, 0, sizeof(double)*dim*dim);
+  dWstardU[0] = dWdW[0];
+  dWstardU[dim*4+4] = dWdW[8];
+
+  for (int i = 0; i < 3; ++i) {
+    dWstardU[(i+1)] = nphi[i]*dWdW[1];
+    dWstardU[(i+1)+4*dim] = nphi[i]*dWdW[7];
+  }
+
+  dWstardU[4] = dWdW[2];
+  dWstardU[dim*4] = dWdW[6]; 
+}
 
 template<int dim>
 inline
@@ -2738,11 +2798,12 @@ void LocalRiemannFluidStructure<dim>::eriemannfs(double rho, double u, double p,
     rhoi = rho*(pstarbar/pbar+temp)/(temp*pstarbar/pbar+1);
   }
 }
-/*
+
+template<int dim>
 inline
-void LocalRiemannFluidStructure::eriemannfs_grad(double rho, double u, double p,
+void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, double p,
                                                  double &rhoi, double ui, double &pi,
-                                                 VarFcn *vf, double* dWdWi,int Id) //Caution: "ui" will not be modified!
+                                                 VarFcn *vf, double* dWidWi,int Id) //Caution: "ui" will not be modified!
 {
 
   // assume structure on the left of the fluid
@@ -2759,49 +2820,53 @@ void LocalRiemannFluidStructure::eriemannfs_grad(double rho, double u, double p,
     return;
   }
 
-  double power = 2*gamma/(gamma-1.0);
   double q = (gamma-1.0)/(gamma+1.0);
   if(ui<u){ // rarefaction
+    double power = 2*gamma/(gamma-1.0);
+    //fprintf(stderr,"Rarefaction-----\n");
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
-    double eta = pbar*power*pow(0.5*(gamma-1.0)*(ui-u)/a + 1,q);
-    double xi = eta*(-1.0/(a*a)*(gamma-1.0)*(ui-u));
+    double eta = pbar*power*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,q);
+    double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
-    double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a*gamma*pbar/(rho*rho);
+    double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;
      
     // dpi/dp
-    dWidWi[8] = pi/pbar+xi*dadp;
+    dWidWi[8] = (pi+pref)/pbar+xi*dadp;
     // dpidrho
     dWidWi[6] = xi*dadrho;
     // dpidu
     dWidWi[7] = eta*(-0.5/a*(gamma-1.0));
 
     double mu = rho/gamma*pow((pi+pref)/pbar, (1.0-gamma)/gamma); 
-    dWidWi[0] = mu*(1.0/pbar*dWidWi[8]-(pi+pref)/(pbar*pbar));
-    dWidWi[1] = mu*dWidWi[7];
-    dWidWi[2] = rhoi/rho+mu/pbar*dWidWi[6];
+    dWidWi[2] = mu*(1.0/pbar*dWidWi[8]-(pi+pref)/(pbar*pbar));
+    dWidWi[1] = mu*dWidWi[7]/pbar;
+    dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
   }
   else{ // shock
+   //fprintf(stderr,"Shock---------\n");
+    double power = 2*gamma/(gamma+1.0);
     double t = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
     double pstarbar = pi + pref;
     double pbar = p + pref;
  
     double dtdrho = t/rho, dtdu = -(gamma+1.0)*rho*(ui-u);
     double xi = sqrt(0.5*t*t+power*t*pbar);
-    double eta = 0.5*0.5/xi*(t+power*pbar);
+    double eta = 0.5+0.5/xi*(0.5*t+power*pbar);
     dWidWi[8] = 1.0+0.5/xi*power*t;
     dWidWi[7] = eta*dtdu;
     dWidWi[6] = eta*dtdrho;
 
     double s = q*pstarbar/pbar+1.0;
-    dWidWi[0] = rhoi/rho;
-    dwidWi[2] = rho*(-pstarbar/(pbar*pbar)/s-(pstarbar/pbar+q)/(s*s)*(-q*pstarbar/(pbar*pbar)));
-
-
+    double deriv = 1.0/(pbar*s)-(pstarbar/pbar+q)/(s*s)*(q/pbar);
+    double deriv2 = -pstarbar/(pbar*pbar*s)+(pstarbar/pbar+q)*(q*pstarbar/(pbar*pbar))/(s*s);
+    dWidWi[0] = rhoi/rho+rho*deriv*dWidWi[6];
+    dWidWi[1] = rho*deriv*dWidWi[7];
+    dWidWi[2] = rho*(deriv*dWidWi[8]+deriv2);
   }
 }
-*/
+
 //------------------------------------------------------------------------------
 /*
 inline
