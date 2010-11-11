@@ -149,6 +149,7 @@ void GappyOffline<dim>::setUpPodBases() {
 	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");//DA
 	// XXX: nSampleNodes will be an input
 
+	int dimDbg = dim;	// KTC debug
 	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
 
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
@@ -209,6 +210,7 @@ void GappyOffline<dim>::buildGappyMesh() {
 	locNodeSet = new int[nSampleNodes];  // set of local nodes
 	globalNodeSet = new int[nSampleNodes];  // set of global nodes
 	for (int i = 0; i < nSampleNodes; ++i){ cpuSet[i] = 0; locSubSet[i] = 0; locNodeSet[i] = 0; globalNodeSet[i] = 0; } // initialize
+		// must be zero because do a global sum later
 
 	//==================
 	// Option 1: build on a reduced mesh, which is currently unknown
@@ -238,11 +240,20 @@ void GappyOffline<dim>::buildGappyMesh() {
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
 		greedy(greedyIt);
 
+	// print global nodes
+	if (debugging){
+		com->fprintf(stderr,"globalNodeSet is:");
+		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
+			com->fprintf(stderr,"%d ",globalNodeSet[iSampleNodes]);
+	}
+
 	//==============================================
 	// add required node neighbors to the node set
 	// NOTE: adding two layers of neighbors!
 	//==============================================
 
+	//KTC OK to here
+	
 	addTwoNodeLayers();	// add two layers of nodes 
 
 	//==============================================
@@ -315,14 +326,17 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	// INPUTS
 	// 	Local: myMaxNorm, locSub, locNode, globalNode
 	// OUTPUTS
-	// 	Global: locPodHat for maximum entry, globally summed cpuSet etc.
+	// 	Global: locPodHat for maximum entry, globally summed cpuSet, locSubSet,
+	// 	locNodeSet, globalNodeSet, xyz
 	//===============================================
 		
 	int thisCPU = com->cpuNum();
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
-	double xyz [3] = {0.0, 0.0, 0.0};
+	double *xyz = new double [3];
+	for (int i=0; i<3; ++i)
+		xyz[i]=0.0;
 
 	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
 
@@ -358,13 +372,15 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 
 	// make sure all cpus have the same copy
 	
+	com->barrier();
 	com->globalSum(1, cpuSet + handledNodes);
 	com->globalSum(1, locSubSet + handledNodes);
 	com->globalSum(1, locNodeSet + handledNodes);
 	com->globalSum(1, globalNodeSet + handledNodes);
 	com->globalSum(3, xyz);
 	StaticArray<double, 3> XYZ(xyz); 
-	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNode, XYZ));
+	delete [] xyz;
+	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeSet[handledNodes], XYZ));
 
 	++handledNodes;
 }
@@ -375,6 +391,7 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 	// Differences for 1st iteration compared with other greedy iterations:
 	// 1) no least squares problem is solved (just take the maximum entry)
 	// 2) look at the inlet face to ensure boundary condition is handled
+	//
 
 	double myMaxNorm;
 	int locSub, locNode, globalNode;  // temporary global subdomain and local node
@@ -402,7 +419,6 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 		// initialize parameters
 		myMaxNorm = 0.0;	// initial maximum is zero
 		locSub = -1; locNode = -1; globalNode = -1;	// where the maximum is located
-
 
 		// loop over nodes, and add to set if it is the maximum
 		// subdomains -> nodes
@@ -566,6 +582,7 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 	int nLocNodes = nodeDistInfo.subSize(iSub);	// number of nodes in this subdomain
 	double nodeError; // the error at the node
 
+	onlyInletBC = false;//KTC TEMP
 	if (onlyInletBC) {	// consider only nodes on inlet BC
 		FaceSet& currentFaces = subD[iSub]->getFaces();
 		for (int iFace = 0; iFace < subD[iSub]->numFaces(); ++iFace) {	
@@ -613,21 +630,25 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	for (int i = 0; i < 4; ++i)
 		elemToNode[i] = new std::vector <int> [nSampleNodes];
 	
-	for (int iIslands = 0; iIslands < nSampleNodes; ++iIslands) {
+	// compute two layers of nodes
+	
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+		
 		// add the sample node itself
-		nodes[iIslands].push_back(globalNodeSet[iIslands]);	// first entry is the sample node itself
-		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalNodeSet[iIslands])->second;
+		nodes[iSampleNodes].push_back(globalNodeSet[iSampleNodes]);
+		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalNodeSet[iSampleNodes])->second;
 		for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
-			nodesXYZ[iXYZ][iIslands].push_back(xyzVals[iXYZ]);
+			nodesXYZ[iXYZ][iSampleNodes].push_back(xyzVals[iXYZ]);
 		}
+
 		// add all neighbor nodes and elements of the sample node itself
-		addNeighbors(iIslands);
+		addNeighbors(iSampleNodes);
+
 		// add all neighbor nodes and elements of the sample node's neighbors 
-		addNeighbors(iIslands, 1);
+		addNeighbors(iSampleNodes, 1);
 	}
 
 	// globally sum them up (make consistent across all cpus)
-
 	communicateMesh(nodes, nSampleNodes);
 	for (int i = 0; i < 3; ++i)
 		communicateMesh(nodesXYZ[i], nSampleNodes);
@@ -635,6 +656,37 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	for (int i = 0; i < 4; ++i)
 		communicateMesh(elemToNode[i], nSampleNodes);
 
+	//check values of everything (nodes,nodesXYZ,elements,elemToNode)
+
+	//if (debugging){
+	//	for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
+	//		if (thisCPU == iCpu) {
+	//			fprintf(stderr, "thisCPU = %d, nodes are\n",thisCPU,);
+	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+	//				for (int iNode = 0; iNode < nodes[iSampleNodes].size(); ++iNode) {
+	//					fprintf(stderr, "%d ",nodes[iSampleNodes][iNode]);
+	//				}
+	//				fprintf(stderr, "\n ");
+	//			}
+	//			fprintf(stderr, "thisCPU = %d, nodesXYZ are\n",thisCPU,);
+	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+	//				for (int iNode = 0; iNode < nodesXYZ[0][iSampleNodes].size(); ++iNode) {
+	//					fprintf(stderr, "[%e %e %e] ",nodesXYZ[0][iSampleNodes][iNode],nodesXYZ[1][iSampleNodes][iNode],nodesXYZ[2][iSampleNodes][iNode]);
+	//				}
+	//				fprintf(stderr, "\n ");
+	//			}
+	//			fprintf(stderr, "thisCPU = %d, elements are\n",thisCPU,);
+	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+	//				for (int iNode = 0; iNode < elements[iSampleNodes].size(); ++iNode) {
+	//					fprintf(stderr, "%d ",elements[iSampleNodes][iNode]);
+	//				}
+	//				fprintf(stderr, "\n ");
+	//			}
+	//		}
+	//		com->barrier()
+	//	}	
+	//
+	//}
 	defineMaps();	// must be done before makeUnique (this will sort in a different order) and after communication (all procs have same info) 
 
 	// remove redundant entries from the nodes and elements
@@ -774,20 +826,21 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		com->globalSum(nTotCpus+1,numNeigh);
 		for (int i = 1; i <=nTotCpus; ++i)	// accumulate
 			numNeigh[i] += numNeigh[i-1];
+		int totalNodeOrEle = numNeigh[nTotCpus];	// total across all processors
 
-		Scalar *nodeOrEleArray = new Scalar [numNeigh[nTotCpus]];
-		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) {
+		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
 			if (iNeighbor >= numNeigh[thisCPU] && iNeighbor < numNeigh[thisCPU+1]) 
 				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
 			else
 				nodeOrEleArray[iNeighbor] = 0;
 		}
 
-		com->globalSum(numNeigh[nTotCpus],nodeOrEleArray);
+		com->globalSum(totalNodeOrEle,nodeOrEleArray);
 
 		// fill in the array with all global entries
 		nodeOrEle[iArraySize].clear();
-		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) 
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
 			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
 
 		delete [] nodeOrEleArray;
@@ -799,18 +852,24 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 template<int dim>
 void GappyOffline<dim>::defineMaps() {
 
+	// defines nodesXYZmap and elemToNodeMap
+
 	int globalNodeNumTmp;
 	StaticArray<double, 3> nodesXYZTmp;
 	int globalEleNumTmp;
 	StaticArray<int, 4> elemToNodeTmp;
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+
+		// define nodesXYZmap
 		for (int iNeighbor = 0; iNeighbor < nodes[iSampleNodes].size(); ++iNeighbor) {
 			globalNodeNumTmp = nodes[iSampleNodes][iNeighbor];
 			for (int iXYZ = 0 ; iXYZ < 3; ++iXYZ)
 				nodesXYZTmp[iXYZ] = nodesXYZ[iXYZ][iSampleNodes][iNeighbor];
 			nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeNumTmp, nodesXYZTmp));
 		}
+
+		// define elemToNodeMap
 		for (int iEle = 0; iEle < elements[iSampleNodes].size(); ++iEle) {
 			globalEleNumTmp = elements[iSampleNodes][iEle];
 			for (int iNodesConn = 0 ; iNodesConn  < 4; ++iNodesConn)
