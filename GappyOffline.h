@@ -153,6 +153,7 @@ private:
 	void checkFaceInMesh(FaceSet& currentFaces, int iFace, int iSub, int *locToGlobNodeMap , bool &faceInMesh, int &whichIsland);
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
 	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize);
+	void communicateAll();
 	void defineMaps();
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);

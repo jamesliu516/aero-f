@@ -643,50 +643,18 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 
 		// add all neighbor nodes and elements of the sample node itself
 		addNeighbors(iSampleNodes);
-
-		// add all neighbor nodes and elements of the sample node's neighbors 
-		addNeighbors(iSampleNodes, 1);
 	}
 
+	communicateAll();
+
+	// add all neighbor nodes and elements of the sample node's neighbors 
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
+		addNeighbors(iSampleNodes, 1);
+
+	communicateAll();
+
 	// globally sum them up (make consistent across all cpus)
-	communicateMesh(nodes, nSampleNodes);
-	for (int i = 0; i < 3; ++i)
-		communicateMesh(nodesXYZ[i], nSampleNodes);
-	communicateMesh(elements, nSampleNodes);
-	for (int i = 0; i < 4; ++i)
-		communicateMesh(elemToNode[i], nSampleNodes);
 
-	//check values of everything (nodes,nodesXYZ,elements,elemToNode)
-
-	//if (debugging){
-	//	for (int iCpu = 0; iCpu < nTotCpus; ++iCpu) {
-	//		if (thisCPU == iCpu) {
-	//			fprintf(stderr, "thisCPU = %d, nodes are\n",thisCPU,);
-	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-	//				for (int iNode = 0; iNode < nodes[iSampleNodes].size(); ++iNode) {
-	//					fprintf(stderr, "%d ",nodes[iSampleNodes][iNode]);
-	//				}
-	//				fprintf(stderr, "\n ");
-	//			}
-	//			fprintf(stderr, "thisCPU = %d, nodesXYZ are\n",thisCPU,);
-	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-	//				for (int iNode = 0; iNode < nodesXYZ[0][iSampleNodes].size(); ++iNode) {
-	//					fprintf(stderr, "[%e %e %e] ",nodesXYZ[0][iSampleNodes][iNode],nodesXYZ[1][iSampleNodes][iNode],nodesXYZ[2][iSampleNodes][iNode]);
-	//				}
-	//				fprintf(stderr, "\n ");
-	//			}
-	//			fprintf(stderr, "thisCPU = %d, elements are\n",thisCPU,);
-	//			for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-	//				for (int iNode = 0; iNode < elements[iSampleNodes].size(); ++iNode) {
-	//					fprintf(stderr, "%d ",elements[iSampleNodes][iNode]);
-	//				}
-	//				fprintf(stderr, "\n ");
-	//			}
-	//		}
-	//		com->barrier()
-	//	}	
-	//
-	//}
 	defineMaps();	// must be done before makeUnique (this will sort in a different order) and after communication (all procs have same info) 
 
 	// remove redundant entries from the nodes and elements
@@ -849,6 +817,17 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 	delete [] numNeigh;
 }
 
+template<int dim>
+void GappyOffline<dim>::communicateAll() {
+
+	communicateMesh(nodes, nSampleNodes);
+	for (int i = 0; i < 3; ++i)
+		communicateMesh(nodesXYZ[i], nSampleNodes);
+	communicateMesh(elements, nSampleNodes);
+	for (int i = 0; i < 4; ++i)
+		communicateMesh(elemToNode[i], nSampleNodes);
+
+}
 template<int dim>
 void GappyOffline<dim>::defineMaps() {
 
