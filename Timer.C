@@ -910,7 +910,7 @@ void Timer::print(Timer *str, FILE *fp)
     }
     com->fprintf(fp, "  Correlation Matrix          : %10.2f %10.2f %10.2f %9d\n",
                tmin[correlMatrix], tmax[correlMatrix], tavg[correlMatrix], counter[correlMatrix]);
-    com->fprintf(fp, "  SVD Solver                : %10.2f %10.2f %10.2f %9d\n",
+    com->fprintf(fp, "  SVD Solver                  : %10.2f %10.2f %10.2f %9d\n",
                tmin[eigSolv], tmax[eigSolv], tavg[eigSolv], counter[eigSolv]);
     com->fprintf(fp, "  Gram-Schmidt                : %10.2f %10.2f %10.2f %9d\n",
                tmin[gramSchmidt], tmax[gramSchmidt], tavg[gramSchmidt], counter[gramSchmidt]);

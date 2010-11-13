@@ -63,7 +63,7 @@ private:
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
 
-	std::vector< ParallelRom<dim> > parallelRom;	// object for all parallel operations
+	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
 	void setUpPodBases();	// read in POD bases
 	void buildGappyMesh();	// build reduced mesh offline
 	void buildGappyMatrices();	// build matrices A and B

@@ -49,6 +49,35 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     solutions = 0;
 
+  // GAPPY POD STUFF (CBM+KTC)
+  if (iod.output.transient.newtonresiduals[0] != 0) {
+    newtonresiduals = new char[sp + strlen(iod.output.transient.newtonresiduals)];
+    sprintf(newtonresiduals, "%s%s", iod.output.transient.prefix, iod.output.transient.newtonresiduals);
+  }
+  else
+    newtonresiduals = 0;
+
+  if (iod.output.transient.pgromresiduals[0] != 0) {
+    pgromresiduals = new char[sp + strlen(iod.output.transient.pgromresiduals)];
+    sprintf(pgromresiduals, "%s%s", iod.output.transient.prefix, iod.output.transient.pgromresiduals);
+  }
+  else 
+    pgromresiduals = 0;
+
+  if (iod.output.transient.pgjacxdurom[0] != 0) {
+    pgjacxdurom = new char[sp + strlen(iod.output.transient.pgjacxdurom)];
+    sprintf(pgjacxdurom, "%s%s", iod.output.transient.prefix, iod.output.transient.pgjacxdurom);
+  }
+  else
+    pgjacxdurom = 0;
+
+  if (iod.output.transient.statevectorchange[0] != 0) {
+    statevectorchange = new char[sp + strlen(iod.output.transient.statevectorchange)];
+    sprintf(statevectorchange, "%s%s", iod.output.transient.prefix, iod.output.transient.statevectorchange);
+  }
+  else
+    statevectorchange = 0;
+
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;

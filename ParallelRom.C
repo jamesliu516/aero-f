@@ -786,7 +786,6 @@ void ParallelRom<dim>::setTransfer() {
  // compute master nodes (non-overlapping subdomain sizes)
  //======================================
 
-
  for (int iCpu = 0; iCpu < nTotCpus; iCpu++)
    cpuMasterNodes[iCpu] = 0;
 

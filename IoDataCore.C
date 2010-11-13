@@ -3258,6 +3258,7 @@ void IoData::resetInputValues()
     problem.type[i] = false;
 
   if (problem.alltype == ProblemData::_UNSTEADY_ ||
+      problem.alltype == ProblemData::_UNSTEADY_ROM_ || //PJSA
       problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
@@ -3448,8 +3449,9 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_)
     problem.mode = ProblemData::DIMENSIONAL;
 
-  if (!problem.type[ProblemData::UNSTEADY])
+  if (!problem.type[ProblemData::UNSTEADY]) {
     ts.implicit.type = ImplicitData::BACKWARD_EULER;
+  }
 
   if (ts.type == TsData::IMPLICIT &&
       (ts.implicit.newton.failsafe == NewtonData<KspFluidData>::YES ||
