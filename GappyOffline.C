@@ -14,12 +14,13 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	debugging(1),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
-	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2,ParallelRom<dim>(dom,_com)),
+	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
 	geoState(_geoState), X(_geoState->getXn()),
 	residual(0), jacobian(1)
 {
 	// initialize vectors to point to the approprite bases
 
+        for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
 	pod.a[0] = &podRes;	// make pod point to res and jac
 	pod.a[1] = &podJac;
 	podHat.a[0] = &podHatRes;	// make pod point to res and jac
@@ -153,7 +154,6 @@ void GappyOffline<dim>::setUpPodBases() {
 
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
 	assert(nSampleNodes * dim >= max(nPod[0],nPod[1])); // KTC debug
-	com->fprintf(stderr, " nSampleNodes is %d \n", nSampleNodes);
 
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
@@ -384,7 +384,9 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 
 	if (greedyIt == 0) {	
 		doLeastSquares = false;// don't do least squares if first iteration
+/* FIXME: this doesn't work for box example
 		onlyInletBC = true;// first iteration, only consider inlet BC
+*/
 	}
 
 	// determine number of rhs for each
@@ -435,7 +437,7 @@ void GappyOffline<dim>::initializeGappyLeastSquares() {
 	// initialize least squares problems
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		parallelRom[iPodBasis].parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]);
+		parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]);
 	}
 
 }
@@ -594,7 +596,7 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 
 template<int dim>
 void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
-		parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
+		parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
 				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 }
 template<int dim>
@@ -986,7 +988,7 @@ void GappyOffline<dim>::outputTopFile() {
 	 
 	 delete [] outMeshFile;
 	 delete [] outSampleNodeFile;
-	 delete [] sampleToReducedNodeNumbering;
+	 //delete [] sampleToReducedNodeNumbering;
 }
 
 //---------------------------------------------------------------------------------------
@@ -995,7 +997,6 @@ void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 	
 	// input: iSub, iLocNode
 	// output: x,y,z coordinates of the iLocNode located on iSub
-
 	DistSVec<double,3>& X = geoState->getXn();
 	SVec<double,3>& Xsub = X(iSub);	// X is of type DistSVec<double,3>
 	for (int i = 0; i < 3; ++i) xyz[i] = Xsub[iLocNode][i];	
@@ -1065,7 +1066,7 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 	// compute pseudo-inverse
 	// numRhs = nSampleNodes * dim
 	// A: (nSampleNodes * dim) x nPod
-	parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
+	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
 			nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]);
 	//parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
 //				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
@@ -1181,7 +1182,8 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 			 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
 				 isSampleNode = false;
 				 // determine if it is a sample node
-				 if (iReducedNode + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
+                                 // TODO check the first condition on the following line
+				 if (iSampleNode < nSampleNodes && iReducedNode + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
 					 isSampleNode = true;
 					 ++iSampleNode;	// we have passed a sample node
 				 }

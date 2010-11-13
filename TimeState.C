@@ -34,6 +34,7 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
   Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
 
   double c_np1, c_n, c_nm1, c_nm2;
+
   for (int i=0; i<dt.size(); ++i) {
 
     double invDt = 1.0 / dt[i];

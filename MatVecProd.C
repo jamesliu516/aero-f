@@ -156,7 +156,6 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
 }
 
 //------------------------------------------------------------------------------
-#define DEBUG_ROM
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
 {
@@ -172,30 +171,13 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
-#ifdef DEBUG_ROM
-  double Qeps2 = Qeps*Qeps, Feps2 = Feps*Feps;
-  this->com->fprintf(stderr," --- eps = %e, Qeps2 = %e, Feps2 = %e \n", eps, Qeps2, Feps2);
-#endif
 
   spaceOp->applyBCsToResidual(Qeps, Feps);
-#ifdef DEBUG_ROM
-  double Qeps2a = Qeps*Qeps, Feps2a = Feps*Feps;
-  this->com->fprintf(stderr," --- Qeps2a = %e, Feps2a = %e \n", Qeps2a, Feps2a);
-#endif
 
   Feps.strip(Fepstmp);
-#ifdef DEBUG_ROM
-  double Fepstmp2 = Fepstmp*Fepstmp;
-  this->com->fprintf(stderr," --- fdOrder = %d, Fepstmp2 = %e \n", fdOrder, Fepstmp2);
-#endif
-
 
   if (fdOrder == 1) {
-#ifdef DEBUG_ROM
-    DistSVec<double,neq> df(Fepstmp); df -= F;
-    double F2 = F*F, df2 = df*df;
-    this->com->fprintf(stderr," --- F2 = %e, df2 = %e \n", F2, df2);
-#endif
+
     prod = (1.0/eps) * (Fepstmp - F);
  
   }

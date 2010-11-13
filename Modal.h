@@ -30,8 +30,8 @@ template<int dim> class PostOperator;
   #include <arpack++/include/ardssym.h>
 #endif
 
-#include <complex.h>
-typedef complex<double> bcomp;
+#include <complex>
+typedef std::complex<double> bcomp;
 
 //-----------------------------------------------------------------------------------
 
