@@ -402,7 +402,6 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 	if (greedyIt == 0) {	
 		doLeastSquares = false;// don't do least squares if first iteration
 		onlyInletOutletBC = true;// first iteration, only consider inlet BC
-*/
 	}
 
 	// determine number of rhs for each
