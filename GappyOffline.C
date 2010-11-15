@@ -150,6 +150,7 @@ void GappyOffline<dim>::setUpPodBases() {
 	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");//DA
 	// XXX: nSampleNodes will be an input
 
+	int dimDbg = dim;	// KTC debug
 	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
 
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
@@ -209,6 +210,7 @@ void GappyOffline<dim>::buildGappyMesh() {
 	locNodeSet = new int[nSampleNodes];  // set of local nodes
 	globalNodeSet = new int[nSampleNodes];  // set of global nodes
 	for (int i = 0; i < nSampleNodes; ++i){ cpuSet[i] = 0; locSubSet[i] = 0; locNodeSet[i] = 0; globalNodeSet[i] = 0; } // initialize
+		// must be zero because do a global sum later
 
 	//==================
 	// Option 1: build on a reduced mesh, which is currently unknown
@@ -238,11 +240,20 @@ void GappyOffline<dim>::buildGappyMesh() {
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
 		greedy(greedyIt);
 
+	// print global nodes
+	if (debugging){
+		com->fprintf(stderr,"globalNodeSet is:");
+		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
+			com->fprintf(stderr,"%d ",globalNodeSet[iSampleNodes]);
+	}
+
 	//==============================================
 	// add required node neighbors to the node set
 	// NOTE: adding two layers of neighbors!
 	//==============================================
 
+	//KTC OK to here
+	
 	addTwoNodeLayers();	// add two layers of nodes 
 
 	//==============================================
@@ -315,14 +326,17 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	// INPUTS
 	// 	Local: myMaxNorm, locSub, locNode, globalNode
 	// OUTPUTS
-	// 	Global: locPodHat for maximum entry, globally summed cpuSet etc.
+	// 	Global: locPodHat for maximum entry, globally summed cpuSet, locSubSet,
+	// 	locNodeSet, globalNodeSet, xyz
 	//===============================================
 		
 	int thisCPU = com->cpuNum();
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
-	double xyz [3] = {0.0, 0.0, 0.0};
+	double *xyz = new double [3];
+	for (int i=0; i<3; ++i)
+		xyz[i]=0.0;
 
 	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
 
@@ -358,13 +372,15 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 
 	// make sure all cpus have the same copy
 	
+	com->barrier();
 	com->globalSum(1, cpuSet + handledNodes);
 	com->globalSum(1, locSubSet + handledNodes);
 	com->globalSum(1, locNodeSet + handledNodes);
 	com->globalSum(1, globalNodeSet + handledNodes);
 	com->globalSum(3, xyz);
 	StaticArray<double, 3> XYZ(xyz); 
-	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNode, XYZ));
+	delete [] xyz;
+	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeSet[handledNodes], XYZ));
 
 	++handledNodes;
 }
@@ -375,17 +391,17 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 	// Differences for 1st iteration compared with other greedy iterations:
 	// 1) no least squares problem is solved (just take the maximum entry)
 	// 2) look at the inlet face to ensure boundary condition is handled
+	//
 
 	double myMaxNorm;
 	int locSub, locNode, globalNode;  // temporary global subdomain and local node
 
 	bool doLeastSquares = true;
-	bool onlyInletBC = false;
+	bool onlyInletOutletBC = false;
 
 	if (greedyIt == 0) {	
 		doLeastSquares = false;// don't do least squares if first iteration
-/* FIXME: this doesn't work for box example
-		onlyInletBC = true;// first iteration, only consider inlet BC
+		onlyInletOutletBC = true;// first iteration, only consider inlet BC
 */
 	}
 
@@ -405,7 +421,6 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 		myMaxNorm = 0.0;	// initial maximum is zero
 		locSub = -1; locNode = -1; globalNode = -1;	// where the maximum is located
 
-
 		// loop over nodes, and add to set if it is the maximum
 		// subdomains -> nodes
 		for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -416,7 +431,7 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 
 			// find maximum error on the subdomain
 			
-			subDFindMaxError(iSub, onlyInletBC, myMaxNorm, locSub, locNode, globalNode);
+			subDFindMaxError(iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode);
 			
 		}
 
@@ -556,11 +571,11 @@ void GappyOffline<dim>::leastSquaresReconstruction() {
 }
 
 template<int dim>
-void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myMaxNorm, int &locSub, int &locNode, int &globalNode) {
+void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int &globalNode) {
 
 	// PURPOSE: Search the iSub subdomain for possible maximum error
 	// Inputs:
-	// 	Passed: iSub, onlyInletBC, myMaxNorm, locSub, locNode, globalNode
+	// 	Passed: iSub, onlyInletOutletBC, myMaxNorm, locSub, locNode, globalNode
 	// Outputs:
 	// 	Passed: (all can change) myMaxNorm, locSub, locNode, globalNode
 
@@ -568,11 +583,14 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletBC, double &myM
 	int nLocNodes = nodeDistInfo.subSize(iSub);	// number of nodes in this subdomain
 	double nodeError; // the error at the node
 
-	if (onlyInletBC) {	// consider only nodes on inlet BC
+	if (onlyInletOutletBC) {	// consider only nodes on inlet BC
 		FaceSet& currentFaces = subD[iSub]->getFaces();
 		for (int iFace = 0; iFace < subD[iSub]->numFaces(); ++iFace) {	
 			// only consider inlet boundary conditions
-			if (currentFaces[iFace].getCode() == BC_INLET_MOVING || currentFaces[iFace].getCode() == BC_INLET_FIXED) {
+			if (currentFaces[iFace].getCode() == BC_INLET_MOVING ||
+					currentFaces[iFace].getCode() == BC_INLET_FIXED ||
+					currentFaces[iFace].getCode() == BC_OUTLET_MOVING ||
+					currentFaces[iFace].getCode() == BC_OUTLET_MOVING) {
 			 locMasterFlag = nodeDistInfo.getMasterFlag(iSub); // master nodes on subdomain
 			 nLocNodes = currentFaces[iFace].numNodes(); // number of nodes on this face
 			 for (int iLocNode = 0; iLocNode < nLocNodes ; ++iLocNode){
@@ -615,27 +633,30 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	for (int i = 0; i < 4; ++i)
 		elemToNode[i] = new std::vector <int> [nSampleNodes];
 	
-	for (int iIslands = 0; iIslands < nSampleNodes; ++iIslands) {
+	// compute two layers of nodes
+	
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+		
 		// add the sample node itself
-		nodes[iIslands].push_back(globalNodeSet[iIslands]);	// first entry is the sample node itself
-		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalNodeSet[iIslands])->second;
+		nodes[iSampleNodes].push_back(globalNodeSet[iSampleNodes]);
+		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalNodeSet[iSampleNodes])->second;
 		for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
-			nodesXYZ[iXYZ][iIslands].push_back(xyzVals[iXYZ]);
+			nodesXYZ[iXYZ][iSampleNodes].push_back(xyzVals[iXYZ]);
 		}
+
 		// add all neighbor nodes and elements of the sample node itself
-		addNeighbors(iIslands);
-		// add all neighbor nodes and elements of the sample node's neighbors 
-		addNeighbors(iIslands, 1);
+		addNeighbors(iSampleNodes);
 	}
 
-	// globally sum them up (make consistent across all cpus)
+	communicateAll();
 
-	communicateMesh(nodes, nSampleNodes);
-	for (int i = 0; i < 3; ++i)
-		communicateMesh(nodesXYZ[i], nSampleNodes);
-	communicateMesh(elements, nSampleNodes);
-	for (int i = 0; i < 4; ++i)
-		communicateMesh(elemToNode[i], nSampleNodes);
+	// add all neighbor nodes and elements of the sample node's neighbors 
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
+		addNeighbors(iSampleNodes, 1);
+
+	communicateAll();
+
+	// globally sum them up (make consistent across all cpus)
 
 	defineMaps();	// must be done before makeUnique (this will sort in a different order) and after communication (all procs have same info) 
 
@@ -737,6 +758,7 @@ void GappyOffline<dim>::computeBCFaces() {
 			faceBCCode = currentFaces[iFace].getCode();
 			int codeIsPos = faceBCCode >0;
 			if (faceBCCode != 0) {	// only do for boundary faces
+				
 				// check if the face is in the reduced mesh
 				 checkFaceInMesh(currentFaces, iFace, iSub, locToGlobNodeMap, faceInMesh, whichIsland);
 
@@ -748,8 +770,8 @@ void GappyOffline<dim>::computeBCFaces() {
 					}
 					for (int iFaceNode = 0; iFaceNode < 3; ++iFaceNode) {
 						bcFaces[codeIsPos][iFaceNode][abs(faceBCCode)].push_back(globalFaceNodes[iFaceNode]);
-						bcIsland[codeIsPos][abs(faceBCCode)].push_back(whichIsland);
 					}
+					bcIsland[codeIsPos][abs(faceBCCode)].push_back(whichIsland);
 				}
 			}
 		}
@@ -776,20 +798,21 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		com->globalSum(nTotCpus+1,numNeigh);
 		for (int i = 1; i <=nTotCpus; ++i)	// accumulate
 			numNeigh[i] += numNeigh[i-1];
+		int totalNodeOrEle = numNeigh[nTotCpus];	// total across all processors
 
-		Scalar *nodeOrEleArray = new Scalar [numNeigh[nTotCpus]];
-		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) {
+		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
 			if (iNeighbor >= numNeigh[thisCPU] && iNeighbor < numNeigh[thisCPU+1]) 
 				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
 			else
 				nodeOrEleArray[iNeighbor] = 0;
 		}
 
-		com->globalSum(numNeigh[nTotCpus],nodeOrEleArray);
+		com->globalSum(totalNodeOrEle,nodeOrEleArray);
 
 		// fill in the array with all global entries
 		nodeOrEle[iArraySize].clear();
-		for (int iNeighbor = 0; iNeighbor < numNeigh[nTotCpus]; ++iNeighbor) 
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
 			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
 
 		delete [] nodeOrEleArray;
@@ -799,7 +822,20 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 }
 
 template<int dim>
+void GappyOffline<dim>::communicateAll() {
+
+	communicateMesh(nodes, nSampleNodes);
+	for (int i = 0; i < 3; ++i)
+		communicateMesh(nodesXYZ[i], nSampleNodes);
+	communicateMesh(elements, nSampleNodes);
+	for (int i = 0; i < 4; ++i)
+		communicateMesh(elemToNode[i], nSampleNodes);
+
+}
+template<int dim>
 void GappyOffline<dim>::defineMaps() {
+
+	// defines nodesXYZmap and elemToNodeMap
 
 	int globalNodeNumTmp;
 	StaticArray<double, 3> nodesXYZTmp;
@@ -807,12 +843,16 @@ void GappyOffline<dim>::defineMaps() {
 	StaticArray<int, 4> elemToNodeTmp;
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+
+		// define nodesXYZmap
 		for (int iNeighbor = 0; iNeighbor < nodes[iSampleNodes].size(); ++iNeighbor) {
 			globalNodeNumTmp = nodes[iSampleNodes][iNeighbor];
 			for (int iXYZ = 0 ; iXYZ < 3; ++iXYZ)
 				nodesXYZTmp[iXYZ] = nodesXYZ[iXYZ][iSampleNodes][iNeighbor];
 			nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeNumTmp, nodesXYZTmp));
 		}
+
+		// define elemToNodeMap
 		for (int iEle = 0; iEle < elements[iSampleNodes].size(); ++iEle) {
 			globalEleNumTmp = elements[iSampleNodes][iEle];
 			for (int iNodesConn = 0 ; iNodesConn  < 4; ++iNodesConn)
@@ -859,27 +899,63 @@ void GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, int iFace, int iS
 	// OUTPUT: faceInMesh = true if the face is in the reduced mesh; whichIsland
 
 	faceInMesh = false;
+	bool faceInIsland;
+	bool *nodeInIsland = new bool [currentFaces[iFace].numNodes()];	// one bool for each face node
+	int * globalNodeNum = new int [currentFaces[iFace].numNodes()];
 	for (int iIsland = 0; iIsland < nSampleNodes ; ++iIsland) { 	// islands in reduced mesh
-		bool faceInIsland = true;
 		for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace) { // nodes on face
-			bool nodeInIsland = false;
-			int globalNodeNum = locToGlobNodeMap[currentFaces[iFace][iNodeFace]];	// compute global node number 
+			nodeInIsland[iNodeFace] = false;
+		}
+		for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace) { // nodes on face
+			globalNodeNum[iNodeFace] = locToGlobNodeMap[currentFaces[iFace][iNodeFace]];
+		}
+		for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace) { // nodes on face
 			// check to see if the iNodeFace is in iIsland
 			for (int iIslandNode = 0; iIslandNode < nodes[iIsland].size(); ++iIslandNode) { // nodes on island
-				if (globalNodeNum == nodes[iIsland][iIslandNode]){ 
-					nodeInIsland = true;
+				if (globalNodeNum[iNodeFace] == nodes[iIsland][iIslandNode]){ 
+					nodeInIsland[iNodeFace] = true;
 					break;
 				}
 			}
-			faceInIsland *= nodeInIsland;	// only will remain true if all nodes are in the mesh
 		}
-		if (faceInIsland) {	// if the face is in the island
+
+		faceInIsland = true;
+		for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace)
+			faceInIsland *= nodeInIsland[iNodeFace];
+
+		//check if a given element has all the nodes
+
+		bool faceInElement = true;
+
+		// KTC: sometimes getting faces that are not part of an element
+		// 	this checks to make sure an element owns part of the face
+		
+		//if (faceInIsland) {	// if the face is in the island
+		//	for (int iEle = 0; iEle < elements[iIsland].size();++iEle) {
+		//		faceInElement = true;
+		//		for (int iNodeFace = 0; iNodeFace < currentFaces[iFace].numNodes(); ++iNodeFace){
+		//			bool nodeInElement = false;
+		//			for (int iNode = 0; iNode < 4; ++iNode) {
+		//				if (globalNodeNum[iNodeFace] == elemToNode[iNode][iIsland][iEle]){
+		//					nodeInElement = true;
+		//					break;
+		//				}
+		//			}
+		//			faceInElement *=nodeInElement;
+		//		}
+		//		if (faceInElement)
+		//			break;
+		//	}
+		//}
+		if (faceInIsland && faceInElement) {
 			faceInMesh = true;
 			whichIsland = iIsland;
 			break;
 		}
 	}
 
+	delete [] nodeInIsland;
+	delete [] globalNodeNum;
 }
 
 //
@@ -898,7 +974,7 @@ void GappyOffline<dim>::outputTopFile() {
 
 	 // write out nodes
 
-   com->fprintf(reducedMesh,"Nodes FluidNodes\n");
+   com->fprintf(reducedMesh,"Nodes FluidNodesRed\n");
 	 reducedNodeCount = 0;
 	 int  reducedEleCount = 0, reducedFaceCount = 0, globalNodeNum, globalEleNum;
 	 StaticArray <double, 3> xyzVals;
@@ -925,7 +1001,7 @@ void GappyOffline<dim>::outputTopFile() {
 
 	 // write out elements
 
-   com->fprintf(reducedMesh,"Elements FluidMesh using FluidNodes\n");
+   com->fprintf(reducedMesh,"Elements FluidMeshRed using FluidNodesRed\n");
 
    for (int i = 0; i < nSampleNodes; ++i) {
      for (int j = 0; j < elements[i].size(); ++j) {
@@ -954,25 +1030,25 @@ void GappyOffline<dim>::outputTopFile() {
 		boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
 		boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
 
-	 for (int iSign = 0; iSign < 2; ++iSign) {
-		 for (int iBCtype = 0; iBCtype < max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
-			 reducedFaceCount = 0;	// reduced faces for this bc type
-			 for (int iFace = 0; iFace < bcFaces[iSign][0][iBCtype].size() ; ++iFace) {
-				 ++reducedFaceCount;
-				 if (iFace == 0) {	// only output the first time (and only if size > 0)
-					 int boundaryCondNumber = iBCtype * ((iSign > 0)*2 - 1) ;	// returns boundary condition number
-					 std::string boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
-					 com->fprintf(reducedMesh,"Elements %sSurface using FluidNodes\n",boundaryCond.c_str());
-				 }
-				 int whichIsland = bcIsland[iSign][iBCtype][iFace];	// island defines global to reduced node mapping
-				 for (int k = 0; k < 3; ++k) {
-					 int globalNode = bcFaces[iSign][k][iBCtype][iFace];
+		for (int iSign = 0; iSign < 2; ++iSign) {
+			for (int iBCtype = 0; iBCtype < max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
+				reducedFaceCount = 0;	// reduced faces for this bc type
+				for (int iFace = 0; iFace < bcFaces[iSign][0][iBCtype].size() ; ++iFace) {
+					++reducedFaceCount;
+					if (iFace == 0) {	// only output the first time (and only if size > 0)
+						int boundaryCondNumber = iBCtype * ((iSign > 0)*2 - 1) ;	// returns boundary condition number
+						std::string boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
+						com->fprintf(reducedMesh,"Elements %sSurfaceRed using FluidNodesRed\n",boundaryCond.c_str());
+					}
+					int whichIsland = bcIsland[iSign][iBCtype][iFace];	// island defines global to reduced node mapping
+					for (int k = 0; k < 3; ++k) {
+						int globalNode = bcFaces[iSign][k][iBCtype][iFace];
 						reducedNodes[k] = globalToReducedNodeNumbering[whichIsland][globalNode];
-				 }
-				 com->fprintf(reducedMesh, "%d 4 %d %d %d \n", reducedFaceCount, reducedNodes[0], reducedNodes[1], reducedNodes[2]);	
-			 }
-		 }
-	 }
+					}
+					com->fprintf(reducedMesh, "%d 4 %d %d %d \n", reducedFaceCount, reducedNodes[0], reducedNodes[1], reducedNodes[2]);	
+				}
+			}
+		}
 
 	 // write out sample node numbers in reduced mesh node numbering system
 	 

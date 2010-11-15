@@ -3258,7 +3258,7 @@ void IoData::resetInputValues()
     problem.type[i] = false;
 
   if (problem.alltype == ProblemData::_UNSTEADY_ ||
-      problem.alltype == ProblemData::_UNSTEADY_ROM_ || //PJSA
+      problem.alltype == ProblemData::_UNSTEADY_ROM_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_ ||
       problem.alltype == ProblemData::_UNSTEADY_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ACC_UNSTEADY_AEROELASTIC_ ||
