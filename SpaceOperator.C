@@ -2111,6 +2111,18 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeWeightsForEmbeddedStruct(DistSVe
 
 //------------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
+                           DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                           DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
+{
+  fprintf(stderr,"HAVEN'T DONE THIS YET!\n");
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange(DistSVec<double,dim> &V,

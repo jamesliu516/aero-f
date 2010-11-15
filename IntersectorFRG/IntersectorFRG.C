@@ -61,10 +61,12 @@ public:
   Vec3D n;
   double minDist; //!< Signed distance to the surface
   Vec3D x;
+  map<int,int> nd2tri; //needed for the vertex case (only if isConsistent = false)
+  map<int,int> nd2tester;
 
   static const int maxNPairs = 100;
 
-  bool isConsistant, isPositive;
+  bool isConsistent, isPositive, hasBeenFixed;
   int nPairs;
   int periTri[maxNPairs];
 
@@ -73,6 +75,7 @@ public:
    */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
   void checkVertex(int vn, int trId, double trDist);
+  int registerNodes(int ip1, int trId);
   double project(Vec3D x0, int tria, double& xi1, double& xi2);
   double edgeProject(int n1, int n2, double &alpha);
   double getSignedVertexDistance() const;
@@ -110,6 +113,8 @@ ClosestTriangle::start(Vec3D xp) {
   mode = -1;
   nPairs = 0;
   minDist = 1.0e10;
+  nd2tri.clear();
+  nd2tester.clear();
 }
 //----------------------------------------------------------------------------
 double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
@@ -184,13 +189,33 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
   // If this node is already our best solution
   if(n1 == ip1 && n2 < 0) {
     if(nPairs == maxNPairs) {
-      std::cerr << "Too many peripheral triangles to a node!" << std::endl;
+      std::cerr << "WARNING: On the embedded structure surface, detected too many (>" << maxNPairs << ") peripheral triangles to a node!" << std::endl;
       throw "Too many peripheral triangles";
     }
     periTri[nPairs++] = trId;
+    int repeated_node = registerNodes(ip1,trId);
+
     bool thisSign = (trDist >= 0);
-    if(thisSign != isPositive)
-      isConsistant = false;
+
+    if((thisSign != isPositive || !isConsistent) && !hasBeenFixed) { // need to figure out the correct sign...
+      isConsistent = false;
+      if(repeated_node != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
+        //Step 1. Determine if it is a "hill" or a "dent". 
+        double xi1_temp, xi2_temp;
+        double dist2 = project(structX[nd2tester[triNodes[trId][repeated_node]]], trId, xi1_temp, xi2_temp);
+        int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
+        //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
+        Vec3D ip1_x = x - structX[ip1];
+        double alpha = ip1_x*structNorm[trId];
+        double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated_node]]];
+        if(type==1) 
+          isPositive = (alpha>=0&&beta>=0) ? true : false;
+        else
+          isPositive = (alpha<0&&beta<0) ? false : true;
+         
+        hasBeenFixed = true; //the sign is determined.
+      }
+    }
     return;
   }
   // Compute the distance to the node. Determining the sign of the distance
@@ -204,11 +229,68 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
     minDist = dist;
     periTri[0] = trId;
     bestTrId = trId;
+    nd2tri.clear();
+    nd2tester.clear();
+    registerNodes(ip1,trId);
     mode = 2;
-    isConsistant = true;
+    hasBeenFixed = false;
+    isConsistent = true;
     isPositive = trDist >= 0;
   }
 }
+
+//----------------------------------------------------------------------------
+
+int ClosestTriangle::registerNodes(int ip1, int trId)
+{
+    map<int,int>::iterator it;
+    int repeated_node = -1;
+    if(ip1==triNodes[trId][0]) {
+        it = nd2tri.find(triNodes[trId][1]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][1]] = trId;
+          nd2tester[triNodes[trId][1]] = triNodes[trId][2];
+        } else
+          repeated_node = 1;
+        it = nd2tri.find(triNodes[trId][2]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][2]] = trId;
+           nd2tester[triNodes[trId][2]] = triNodes[trId][1];
+        } else
+          repeated_node = 2;
+    }
+    else if(ip1==triNodes[trId][1]) {
+        it = nd2tri.find(triNodes[trId][2]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][2]] = trId;
+          nd2tester[triNodes[trId][2]] = triNodes[trId][0];
+        } else
+          repeated_node = 2;
+        it = nd2tri.find(triNodes[trId][0]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][0]] = trId;
+           nd2tester[triNodes[trId][0]] = triNodes[trId][2];
+        } else
+          repeated_node = 0;
+    }
+    else if(ip1==triNodes[trId][2]) {
+        it = nd2tri.find(triNodes[trId][0]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][0]] = trId;
+          nd2tester[triNodes[trId][0]] = triNodes[trId][1];
+        } else
+          repeated_node = 0;
+        it = nd2tri.find(triNodes[trId][1]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][1]] = trId;
+           nd2tester[triNodes[trId][1]] = triNodes[trId][0];
+        } else
+          repeated_node = 1;
+    } else
+      fprintf(stderr,"ERROR (for debug): node %d doesn't belong to triangle %d!\n", ip1+1, trId+1);
+
+    return repeated_node;
+} 
 
 //----------------------------------------------------------------------------
 
@@ -260,7 +342,9 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
 //----------------------------------------------------------------------------
 
 double ClosestTriangle::getSignedVertexDistance() const {
-  if(isConsistant)
+  if(isConsistent)
+    return isPositive ? minDist : -minDist;
+  else if(hasBeenFixed)
     return isPositive ? minDist : -minDist;
   return minDist;
 }
@@ -892,7 +976,13 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
     subdXing += !(intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])));
     if(twoPhase) {
 //      intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1);
-      intersector[iSub]->findIntersections((*X)(iSub), true);
+      int error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      while(error) {
+        com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
+        intersector[iSub]->CrossingEdgeRes.clear();
+        intersector[iSub]->ReverseCrossingEdgeRes.clear();
+        error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      }
     }
   }
 
@@ -903,8 +993,15 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
       finalizeStatus(); //contains a local communication
     }
 #pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub)
-      intersector[iSub]->findIntersections((*X)(iSub), true);
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      int error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      while(error) {
+        com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
+        intersector[iSub]->CrossingEdgeRes.clear();
+        intersector[iSub]->ReverseCrossingEdgeRes.clear();
+        error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      }
+    }
   }
 
 }
@@ -1662,7 +1759,7 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
   for(int i = 0; i < X.size(); ++i) {
     int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
     if(nFound > nMaxCand) {
-      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
+//      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
       nMaxCand = nFound;
       delete [] candidates;
       candidates = new MyTriangle[nMaxCand];
@@ -1803,8 +1900,9 @@ void IntersectorFRG::noCheckFloodFill(SubDomain& sub, int& nUndecided)
 
 //----------------------------------------------------------------------------
 
-void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
+int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
 {
+  int error = 0;
 
   int (*ptr)[2] = edges.getPtr();
   const double TOL = 1.0e-4;
@@ -1871,8 +1969,9 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       }
  
       if(res1.triangleID<0) {
-//         fprintf(stderr,"ERROR: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
-//                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
+         error++;
+         fprintf(stderr,"WARNING: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
+                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
          if(status[p]!=status0[p] || status[q]!=status0[q]) {
            status[p] = status0[p];
            status[q] = status0[q];
@@ -1881,6 +1980,8 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       }
     }
   }
+
+  return error;
 }
 
 //----------------------------------------------------------------------------
@@ -1902,7 +2003,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
   if (!edgeIntersectsStructure(0.0,ni,nj)) {
     fprintf(stderr,"There is no intersection between node %d(status:%d) and %d(status:%d)! Abort...\n",
-                   ni, status[ni], nj, status[nj]);
+                   locToGlobNodeMap[ni]+1, status[ni], locToGlobNodeMap[nj]+1, status[nj]);
     exit(-1);
   }
 
@@ -1928,7 +2029,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     alpha0 = (ni<nj)? 1.0-result.alpha : result.alpha;
   }
   else //we really have no intersection for this edge!
-    fprintf(stderr,"ERROR: intersection between %d and %d can not be detected.\n", ni, nj);
+    fprintf(stderr,"ERROR: intersection between node %d and node %d can not be detected.\n", locToGlobNodeMap[ni]+1, locToGlobNodeMap[nj]+1);
 
   int trueTriangleID = result.triangleID-1;
 

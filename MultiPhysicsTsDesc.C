@@ -494,7 +494,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::monitorInitialState(int it, DistSVec<double,
   this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
-    this->com->printf(2, "Getting residual norm\n");
     this->data->residual = computeResidualNorm(U);
     trhs = this->timer->getTimeSyncro() - trhs;
     if (it == 0)
