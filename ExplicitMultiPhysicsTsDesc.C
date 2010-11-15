@@ -112,11 +112,10 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFS(DistSVec<double,
                                                      this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
       break;
     case 1:
-      this->com->fprintf(stderr,"ERROR: Currently we only support NodalState for phase-change update for Multi-Phase FSI!\n");
-      exit(-1);
-//      this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-//                                                     *this->Wstarji, *this->Weights, *this->VWeights, *this->PhiWeights,
-//                                                     this->distLSS, this->fluidSelector.fluidId);
+      this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                     *this->Wstarji, *this->Weights, *this->VWeights, this->Phi,
+                                                     this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
+                                                     this->fluidSelector.fluidId);
       break;
   }
   //update phase-change

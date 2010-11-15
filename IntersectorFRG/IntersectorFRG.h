@@ -153,7 +153,7 @@ class IntersectorFRG : public LevelSetStructure {
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope);
     void computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist);
     bool finishStatusByHistory(SubDomain& sub);
-    void findIntersections(SVec<double,3>&X, bool useScope);
+    int findIntersections(SVec<double,3>&X, bool useScope);
 
     int buildScopeTopology(int (*sElem)[3], int nsElems);
     void projection(Vec3D, int, double&, double&, double&);
