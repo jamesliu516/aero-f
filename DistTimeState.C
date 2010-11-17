@@ -1111,7 +1111,6 @@ struct MultiphaseRiemannCopy {
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
-                                //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
                                 DistExactRiemannSolver<dim> *riemann)
 {
   data->update();
@@ -1130,23 +1129,9 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     minus1 = -1;
     riemann->updatePhaseChange(*Vn,fluidId,minus1);
     *Un = Q;
-    //*Un = (1.0+2.0*tau_n)/f1*(*riemann->getOldV())+tau_n*tau_n/f1*Q;
-    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
-    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
-    //domain->extrapolateGhost(*riemann,*V, *Vn,fluidId,
-    //			     *fluidIdnm1,varFcn);
-    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
-    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
-    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
-    //domain->extrapolateGhost(*V, *Vn,fluidId,
-    //			     *fluidIdnm1,varFcn);
-    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
     data->exist_nm1 = true;
   } else {
     *Vn = *Un = Q;
-    /*DistVec<int> minus1(fluidId);
-    minus1 = -1;
-    riemann->updatePhaseChange(*Vn,fluidId,minus1);*/
   }
 
 }

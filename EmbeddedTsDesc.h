@@ -45,10 +45,12 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
   // ----------------------------------------------------------------------------------
 
+  bool existsWstarnm1;
+
   // ----------- components for Fluid-Structure interface. -----------------------------
   DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
-  DistSVec<double,dim> *Wstarij;  //<! stores the FS Riemann solution (i->j) along edges
-  DistSVec<double,dim> *Wstarji;  //<! stores the FS Riemann solution (j->i) along edges
+  DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.

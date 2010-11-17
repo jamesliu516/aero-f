@@ -3242,13 +3242,13 @@ void Domain::computedWBar_dt(DistSVec<double, dim> &dWBardt, DistSVec<double, di
 
 template<int dim>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V, 
-               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS)
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS,bool ignoreSwept)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Weights(iSub),
-                                                     (*distLSS)(iSub),X(iSub));
+                                                     (*distLSS)(iSub),X(iSub),ignoreSwept);
   
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
@@ -3261,13 +3261,13 @@ template<int dim, int dimLS>
 void Domain::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                                              DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
                                              DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
-                                             DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
+                                             DistLevelSetStructure *distLSS, DistVec<int> *fluidId,bool ignoreSwept)
 {
   int iSub;
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeWeightsForEmbeddedStruct(V(iSub),VWeights(iSub),Phi(iSub), PhiWeights(iSub),
-                                                     Weights(iSub), (*distLSS)(iSub),X(iSub), (*fluidId)(iSub));
+                                                     Weights(iSub), (*distLSS)(iSub),X(iSub), (*fluidId)(iSub),ignoreSwept);
 
   assemble(vecPat, VWeights);
   assemble(phiVecPat, PhiWeights);
