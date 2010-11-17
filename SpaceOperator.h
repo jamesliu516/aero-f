@@ -146,7 +146,7 @@ public:
 
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0, bool ignoreSwept = false);
+                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
 
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
 
@@ -158,8 +158,7 @@ public:
   void updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
-                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0,
-                         bool = false, bool = false);
+                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);
 
   void computeCellAveragedStructNormal(DistSVec<double,3> &, DistLevelSetStructure *);
 
@@ -382,7 +381,7 @@ public:
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
                                        DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, 
-                                       DistVec<int> *fluidId,bool ignoreSwept = false);
+                                       DistVec<int> *fluidId);
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
