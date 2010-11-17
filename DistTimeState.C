@@ -100,6 +100,8 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     dIrey = 0;
   }
 
+  isGFMPAR = (ioData.eqs.numPhase > 1 &&
+              ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
 }
 
 //------------------------------------------------------------------------------
