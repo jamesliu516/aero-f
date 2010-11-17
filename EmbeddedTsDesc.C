@@ -117,6 +117,15 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  if (this->timeState->useNm1()) {
+    Wstarij_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1 = 0.0;
+    *Wstarji_nm1 = 0.0;
+  } else {
+    Wstarij_nm1 = 0;
+    Wstarji_nm1 = 0;
+  }
   //cell-averaged structure normals
   if(riemannNormal==2) {
     Nsbar        = new DistSVec<double,3>(this->domain->getNodeDistInfo());
@@ -182,6 +191,8 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (Wstarij_nm1) delete Wstarij_nm1;
+  if (Wstarji_nm1) delete Wstarji_nm1;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
 

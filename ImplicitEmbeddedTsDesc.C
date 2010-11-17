@@ -77,6 +77,8 @@ ImplicitEmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   };
 
   mvp->AttachStructure(fsi);
+  
+  this->existsWstarnm1 = false;
 }
 
 //------------------------------------------------------------------------------
@@ -200,12 +202,63 @@ void ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar);
     else //numFluid>1
       this->spaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
-    
-    this->timer->addEmbedPhaseChangeTime(tw);
-    this->com->barrier();
-    this->timer->removeIntersAndPhaseChange(tw);
+   
+    //this->timeState->update(U); 
+    this->timeState->getUn() = U;
+
+    // BDF update (Unm1)
+    if (this->timeState->useNm1() && this->timeState->existsNm1()) {
+      tw = this->timer->getTime();
+      DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
-    this->timeState->update(U); 
+      if (!this->existsWstarnm1) {
+        
+        this->spaceOp->computeResidual(*this->X, *this->A, Unm1, *this->Wstarij, *this->Wstarji, this->distLSS,
+                                 this->linRecAtInterface, this->nodeTag, this->Vtemp, this->riemann, 
+                                 this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+      }
+
+      switch(this->phaseChangeChoice) {
+        case 0:
+          if(this->numFluid==1)
+            this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
+                                                           *this->VWeights, this->distLSS);
+          else //numFluid>1
+            this->spaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
+                                                         *this->VWeights, this->distLSS, &this->nodeTag0);
+          break;
+      case 1:
+        if(this->numFluid==1)
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
+                                                         *this->Wstarji_nm1, *this->Weights, *this->VWeights,
+                                                         this->distLSS);
+        else //numFluid>1
+          this->spaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
+                                                         *this->Wstarji_nm1, *this->Weights, *this->VWeights,
+                                                         this->distLSS, &this->nodeTag0);
+        break;
+      }
+      this->timer->addEmbedPhaseChangeTime(tw);
+      this->com->barrier();
+      this->timer->removeIntersAndPhaseChange(tw);
+
+      //update phase-change
+      tw = this->timer->getTime();
+      if(this->numFluid==1)
+        this->spaceOp->updatePhaseChange(this->Vtemp, Unm1, this->Weights, this->VWeights, this->distLSS, this->vfar);
+      else //numFluid>1
+        this->spaceOp->updatePhaseChange(this->Vtemp, Unm1, this->Weights, this->VWeights, this->distLSS, this->vfar, &this->nodeTag);
+      this->timer->addEmbedPhaseChangeTime(tw);
+      this->com->barrier();
+      this->timer->removeIntersAndPhaseChange(tw);
+    }
+
+    if (this->timeState->useNm1()) {
+      *this->Wstarij_nm1 = *this->Wstarij;
+      *this->Wstarji_nm1 = *this->Wstarji;
+      this->existsWstarnm1 = true;
+    }
+  
   }
 
   // Ghost-Points Population

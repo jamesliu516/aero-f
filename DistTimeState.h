@@ -162,6 +162,10 @@ public:
 
   TimeData &getData() { return *data; }
   DistSVec<double,dim> &getUn() const { return *Un; }
+  DistSVec<double,dim> &getUnm1() const { return *Unm1; }
+
+  inline bool existsNm1() const { return data->exist_nm1; }
+  inline bool useNm1() const { return data->use_nm1; }
 
   double getTime()  { return data->dt_n; }
 

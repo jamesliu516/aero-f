@@ -847,11 +847,12 @@ public:
 
   template<int dim>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X);
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,bool ignoreSwept = false);
+
   template<int dim, int dimLS>
   void computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights, 
                       SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, Vec<double> &Weights, 
-                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId);
+                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId,bool ignoreSwept = false);
   template<int dimLS>
   void extrapolatePhiV(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV);
 
