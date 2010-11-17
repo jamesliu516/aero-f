@@ -4376,11 +4376,11 @@ void SubDomain::setupUMultiFluidInitialConditionsPlane(FluidModelData &fm,
 // TODO: should distinguish master nodes and non-master nodes
 template<int dim>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
-                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X,bool ignoreSwept)
+                      Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X)
 {
   const Connectivity &nToN = *getNodeToNode(); 
   for(int currentNode=0;currentNode<numNodes();++currentNode)
-    if((LSS.isSwept(0.0,currentNode)||ignoreSwept) && LSS.isActive(0.0,currentNode)){
+    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
         if(currentNode == neighborNode || LSS.isSwept(0.0,neighborNode) || LSS.edgeIntersectsStructure(0.0,currentNode,neighborNode)){
@@ -4406,8 +4406,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 template<int dim, int dimLS>
 void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &VWeights,
                                                 SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
-                                                Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId,
-                                                bool ignoreSwept)
+                                                Vec<double> &Weights, LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId)
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
@@ -4415,7 +4414,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 //    if(bug)
 //      fprintf(stderr,"*** Node 150516: Id = %d, solidId = %d, isSwept = %d, isActive = %d, isOccluded = %d.\n", fluidId[currentNode], LSS.fluidModel(0.0,currentNode), LSS.isSwept(0.0,currentNode), LSS.isActive(0.0,currentNode), LSS.isOccluded(0.0,currentNode));
 
-    if((LSS.isSwept(0.0,currentNode) || ignoreSwept) && LSS.isActive(0.0,currentNode)){
+    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];

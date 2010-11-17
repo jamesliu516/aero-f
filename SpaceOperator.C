@@ -1071,12 +1071,12 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 template<int dim>
 void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId,bool ignoreSwept)
+                          DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0;
   VWeights = 0.0;
-  domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS,ignoreSwept);
+  domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, distLSS);
 }
 
 //------------------------------------------------------------------------------
@@ -1106,7 +1106,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistSVec<double,dim> &U,
                              DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
                              DistLevelSetStructure *distLSS, double* vfar,
-                             DistVec<int> *fluidId,bool ignoreSwept,bool doNotFail)
+                             DistVec<int> *fluidId)
 {
   SubDomain **subD = domain->getSubDomain();
 
@@ -1119,7 +1119,7 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     SVec<double,dim> &subVWeights((*VWeights)(iSub));
 
     for(int i=0;i<subV.size();++i){
-      if(!LSS.isSwept(0.0,i) && !ignoreSwept) 
+      if(!LSS.isSwept(0.0,i)) 
         continue;
       if(!LSS.isActive(0.0,i)) {
         for(int iDim=0; iDim<dim; iDim++) 
@@ -1128,10 +1128,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
       }
 
       if(subWeights[i] <= 0.0){
-	if (!doNotFail) {
           fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
           exit(-1);
-        }
       } else {
         for (int iDim=0; iDim<dim; iDim++) 
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
@@ -2102,13 +2100,13 @@ void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV(DistLevelSetStructure *
 template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U,
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistSVec<double,dimLS> &Phi,
-                           DistSVec<double,dimLS> &PhiWeights, DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId,bool ignoreSwept)
+                           DistSVec<double,dimLS> &PhiWeights, DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
 {
   this->varFcn->conservativeToPrimitive(U, V, fluidId0);
   Weights = 0.0;
   VWeights = 0.0;
   PhiWeights = 0.0;
-  this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights, distLSS, fluidId,ignoreSwept);
+  this->domain->computeWeightsForEmbeddedStruct(X, V, Weights, VWeights, Phi, PhiWeights, distLSS, fluidId);
 }
 
 //------------------------------------------------------------------------------
