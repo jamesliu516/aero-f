@@ -1701,6 +1701,7 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
     case 20: //C0 with FEM
     case 21: //C0 with XFEM
       step2ForC0(lastIt,it,t,Xdot,X);
+      break;
     case 22: //C0 with XFEM3D
       step2ForC0XFEM3D(lastIt,it,t,Xdot,X);
       break;
