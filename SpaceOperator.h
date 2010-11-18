@@ -387,7 +387,7 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
-                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId0);
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId);
   void updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
                          DistSVec<double,dimLS> *PhiWeights,
