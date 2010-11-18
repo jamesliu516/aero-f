@@ -163,7 +163,6 @@ void StructExc::negotiate()
 
 double StructExc::getInfo() 
 {
-
   double info[5];
 
   if (strCom->cpuNum() == 0)
@@ -244,7 +243,6 @@ void StructExc::getEmbeddedWetSurface(int nNodes, double *nodes, int nElems, int
 
 void StructExc::negotiateStopping(bool* lastIt)
 {
-
   double xbuf;
   
   if (strCom->cpuNum() == 0) {
@@ -272,7 +270,6 @@ void StructExc::negotiateStopping(bool* lastIt)
 void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X, 
 				DistSVec<double,3> &Xdot, DistSVec<double,3> &dX) 
 {  
-
   double norms[2] = {0.0, 0.0};
 
   dX = 0.0;
@@ -314,8 +311,8 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
                   //if waiting for another cpu.
   com->globalSum(2, norms);
 
-//  com->printf(7, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
-//  com->printf(1, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
+  com->printf(7, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
+  //com->fprintf(stderr, "Received total disp=%e and vel=%e from the structure\n", sqrt(norms[0]), sqrt(norms[1]));
 }
 
 //------------------------------------------------------------------------------
@@ -355,7 +352,6 @@ void StructExc::getTemperature(DistVec<double>& Temp)
 
 void StructExc::sendForce(DistSVec<double,3> &F) 
 {
-
   if (algNum == 4 || algNum == 5) sndParity = 1 - sndParity;
 
   double norm = 0.0;
@@ -387,8 +383,7 @@ void StructExc::sendForce(DistSVec<double,3> &F)
   norm = sqrt(norm);
 
   com->printf(7, "Sent fluid force=%e to the structure\n", norm);
-  com->fprintf(stderr, "Sent fluid force=%e to the structure\n", norm);
-
+  //com->fprintf(stderr, "Sent fluid force=%e to the structure\n", norm);
 }
 
 //------------------------------------------------------------------------------
