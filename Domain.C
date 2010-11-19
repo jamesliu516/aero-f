@@ -1397,6 +1397,41 @@ void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
     for (iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
 }
+  
+template<int dim, class Scalar, int neq, int dimLS>
+void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
+                                             FluxFcn** fluxFcn, 
+                                             DistBcData<dim>& bcData, DistGeoState& geoState,
+                                             DistSVec<double,3>& X, DistSVec<double,dim>& V,DistVec<double>& ctrlVol,
+                                             DistNodalGrad<dimLS> &ngradLS,
+                                             DistLevelSetStructure *LSS,
+                                             int Nriemann, DistSVec<double,3>* Nsbar,
+                                             FluidSelector &fluidSelector,
+                                             DistMat<Scalar,neq>& A) {
+
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+ 
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
+                                                     bcData(iSub), geoState(iSub),
+                                                     X(iSub), V(iSub),ctrlVol(iSub),
+                                                     ngradLS(iSub),(*LSS)(iSub),(*(fluidSelector.fluidId))(iSub),
+                                                     Nriemann,nsbar, fluidSelector,
+                                                     A(iSub));
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+
+}
 
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int dimLS>
