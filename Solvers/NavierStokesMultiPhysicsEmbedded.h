@@ -5,6 +5,7 @@
 #include <Domain.h>
 #include <TsSolver.h>
 #include <ExplicitMultiPhysicsTsDesc.h>
+#include <ImplicitMultiPhysicsTsDesc.h>
 template<int dim, int dimLS>
 void startNavierStokesMultiPhysicsEmbedded(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
@@ -16,7 +17,12 @@ void startNavierStokesMultiPhysicsEmbedded(IoData &ioData, GeoSource &geoSource,
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
-    com->fprintf(stderr, "*** Error: Implicit time integrators not supported by Embedded Multi-Physics Framework.\n");   
+    com->fprintf(stderr, "*** Warning: Implicit Multiphysics support is in the alpha stage\n");
+    com->fprintf(stderr, "***          Proceed at your own risk!\n");
+    ImplicitMultiPhysicsTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);
+    TsSolver<ImplicitMultiPhysicsTsDesc<dim,dimLS> > tsSolver(&tsDesc);
+    tsSolver.solve(ioData);
+
   }
   else{
     ExplicitMultiPhysicsTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);

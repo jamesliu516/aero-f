@@ -1264,7 +1264,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface,
-                                   this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
                                    *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
   if (this->timeState)
@@ -1286,7 +1286,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface,
-                                   this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   this->riemann,this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
                                    *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
 
     if (this->timeState)

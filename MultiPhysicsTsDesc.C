@@ -28,7 +28,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo())
 {
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -134,6 +134,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  if (this->timeState->useNm1()) {
+    Wstarij_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1 = 0.0;
+    *Wstarji_nm1 = 0.0;
+  } else {
+    Wstarij_nm1 = 0;
+    Wstarji_nm1 = 0;
+  }
+
   //cell-averaged structure normals
   if(riemannNormal==2) {
     Nsbar = new DistSVec<double,3>(this->domain->getNodeDistInfo());
@@ -192,6 +202,8 @@ MultiPhysicsTsDesc<dim,dimLS>::~MultiPhysicsTsDesc()
   if (distLSS) delete distLSS;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (Wstarij_nm1) delete Wstarij_nm1;
+  if (Wstarji_nm1) delete Wstarji_nm1;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
   if (dynNodalTransfer) delete dynNodalTransfer;
