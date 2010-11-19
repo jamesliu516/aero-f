@@ -53,6 +53,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   Pinit = ioData.mf.Pinit;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
+  requireSpecialBDF = false;
 }
 
 //------------------------------------------------------------------------------
@@ -126,7 +127,17 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
     this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
-  }
+
+    // If we are doing 3BDF, reinitialization destroys unm1
+    // Create a new version using F(U) = dU/dt
+    if (this->timeState->useNm1()) {
+      DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
+      this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1);
+      Phinm1 = -1.0*Phinm1;
+      requireSpecialBDF = true;
+    }      
+  } else
+    requireSpecialBDF = false;
 
   LS->update(Phi);
   fluidSelector.update();

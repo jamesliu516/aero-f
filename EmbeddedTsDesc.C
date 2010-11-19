@@ -287,6 +287,7 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     inSubCycling = false;
   }
 
+  this->com->barrier();
   double t0 = this->timer->getTime();
   this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
   int numSubCycles = 1;
@@ -424,6 +425,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
   }
+
 }
 
 //------------------------------------------------------------------------------

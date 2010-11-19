@@ -473,9 +473,19 @@ public:
                                        DistLevelSetStructure *LSS, DistVec<int> &fluidId, 
                                        int Nriemann, DistSVec<double,3> *Nsbar, 
                                        DistMat<Scalar,neq>& A,DistVec<double>& irey);
+  
+  template<int dim, class Scalar, int neq, int dimLS>
+  void computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, 
+                                       DistBcData<dim>& bcData, DistGeoState& geoState,
+                                       DistSVec<double,3>& X, DistSVec<double,dim>& V,DistVec<double>& ctrlVol,
+                                       DistNodalGrad<dimLS> &ngradLS,
+                                       DistLevelSetStructure *LSS,
+                                       int Nriemann, DistSVec<double,3>* Nsbar,
+                                       FluidSelector &fluidSelector,
+                                       DistMat<Scalar,neq>& A);
 
-
-  template<int dim, class Scalar, int dimLS>
+   template<int dim, class Scalar, int dimLS>
     void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 					   DistGeoState &geoState,DistSVec<double,3>& X,DistSVec<double,dim> &V,
 					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
