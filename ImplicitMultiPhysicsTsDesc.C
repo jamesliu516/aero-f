@@ -18,16 +18,16 @@
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-ImplicitMultiPhysicsTsDesc<dim>::
+template<int dim,int dimLS>
+ImplicitMultiPhysicsTsDesc<dim,dimLS>::
 ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  MultiPhysicsTsDesc<dim>(ioData, geoSource, dom)
+  MultiPhysicsTsDesc<dim,dimLS>(ioData, geoSource, dom)
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
   
   // NewtonSolver
-  ns = new NewtonSolver<ImplicitMultiPhysicsTsDesc<dim> >(this);
+  ns = new NewtonSolver<ImplicitMultiPhysicsTsDesc<dim,dimLS> >(this);
   failSafeNewton = implicitData.newton.failsafe;
   maxItsNewton = implicitData.newton.maxIts;
   epsNewton = implicitData.newton.eps;
@@ -36,11 +36,11 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   // MatVecProd, Prec and Krylov solver for Euler equations
   if (implicitData.mvp == ImplicitData::FD)
-    mvp = new MatVecProdFDMultiPhase<dim,dim>(this->timeState, this->geoState,
-                                      this->multiPhaseSpaceOp,this->riemann,this->fluidSelector,
+    mvp = new MatVecProdFDMultiPhase<dim,dimLS>(this->timeState, this->geoState,
+                                      this->multiPhaseSpaceOp,this->riemann,&(this->fluidSelector),
                                       this->domain,ioData);
   else if (implicitData.mvp == ImplicitData::H1)
-    mvp = new MatVecProdH1Multiphase<dim,double,dim>(this->timeState, this->multiPhaseSpaceOp,this->riemann, this->riemann,this->fluidSelector,this->domain);
+    mvp = new MatVecProdH1MultiPhase<dim,dimLS>(this->timeState, this->multiPhaseSpaceOp, this->riemann,&(this->fluidSelector),this->domain);
   else{
     this->com->fprintf(stdout, "*** Error: MatVecProdH2 is not available\n");
     exit(1);
@@ -65,10 +65,10 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       this->mmh = 0;
     }
 
-  typename MatVecProd<dim,dim>::_fsi fsi = {
+  typename MatVecProdMultiPhase<dim,dimLS>::_fsi fsi = {
 
     this->distLSS,
-    &this->nodeTag,
+    this->fluidSelector.fluidId,
     this->riemann,
     this->linRecAtInterface,
     this->Nsbar,
@@ -84,8 +84,8 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-ImplicitMultiPhysicsTsDesc<dim>::~ImplicitMultiPhysicsTsDesc()
+template<int dim,int dimLS>
+ImplicitMultiPhysicsTsDesc<dim,dimLS>::~ImplicitMultiPhysicsTsDesc()
 {
   if (tag)   delete tag;
   if (mvp)   delete mvp;
@@ -99,9 +99,9 @@ ImplicitMultiPhysicsTsDesc<dim>::~ImplicitMultiPhysicsTsDesc()
 //  Internal routines to setup the class (called in constructor)
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim,int dimLS>
 template <int neq>
-KspPrec<neq> *ImplicitMultiPhysicsTsDesc<dim>::createPreconditioner(PcData &pcdata, Domain *dom)
+KspPrec<neq> *ImplicitMultiPhysicsTsDesc<dim,dimLS>::createPreconditioner(PcData &pcdata, Domain *dom)
 {
   
   KspPrec<neq> *_pc = 0;
@@ -122,10 +122,10 @@ KspPrec<neq> *ImplicitMultiPhysicsTsDesc<dim>::createPreconditioner(PcData &pcda
 
 //------------------------------------------------------------------------------
 
-template<int dim>
+template<int dim,int dimLS>
 template<int neq, class MatVecProdOp>
 KspSolver<DistSVec<double,neq>, MatVecProdOp, KspPrec<neq>, Communicator> *
-ImplicitMultiPhysicsTsDesc<dim>::createKrylovSolver(
+ImplicitMultiPhysicsTsDesc<dim,dimLS>::createKrylovSolver(
                                const DistInfo &info, KspData &kspdata,
                                MatVecProdOp *_mvp, KspPrec<neq> *_pc,
                                Communicator *_com)
@@ -147,8 +147,8 @@ ImplicitMultiPhysicsTsDesc<dim>::createKrylovSolver(
   
 }
 
-template<int dim>
-void ImplicitMultiPhysicsTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
+template<int dim,int dimLS>
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 {
   // Adam 04/06/10: Took everything in common in solveNLAllFE and solveNLAllRK2 and put it here. Added Ghost-Points treatment for viscous flows.
 
@@ -164,12 +164,6 @@ void ImplicitMultiPhysicsTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
     this->timer->removeIntersAndPhaseChange(tw);
     if(this->riemannNormal==2)
       this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
-
-    //update nodeTags (only for numFluid>1)
- //   if(this->numFluid>1) {
-      this->nodeTag0 = this->nodeTag;
-      this->nodeTag = this->distLSS->getStatus();
- //   }
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
@@ -203,7 +197,7 @@ void ImplicitMultiPhysicsTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       DistSVec<double,dim>& Unm1 = this->timeState->getUnm1();
   
       if (!this->existsWstarnm1) {
-        fprintf("*** Error: I ignored this case!\n");
+        fprintf(stderr,"*** Error: I ignored this case!\n");
         exit(1);  
       }
 
@@ -244,11 +238,12 @@ void ImplicitMultiPhysicsTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   }
 
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+/*  if(this->eqsType == TsDesc<dim>::NAVIER_STOKES)
     {
       this->ghostPoints->deletePointers();
       this->mulitPhaseSpaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
     }
+*/
 }
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -256,8 +251,8 @@ void ImplicitMultiPhysicsTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
 // It calls for the NewtonSolver ns, which in turn will
 // call routines below from this same file or from LevelSetTsDesc
 //------------------------------------------------------------------------------
-template<int dim>
-int ImplicitMultiPhysicsTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
+template<int dim,int dimLS>
+int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
 { 
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
@@ -290,12 +285,14 @@ int ImplicitMultiPhysicsTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &
 //------------------------------------------------------------------------------
 
 // this function evaluates (Aw),t + F(w,x,v)
-template<int dim>
-void ImplicitMultiPhysicsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
+template<int dim,int dimLS>
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,dim> &Q,
                                                   DistSVec<double,dim> &F)
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
+  
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->riemann,  
                                  this->riemannNormal, this->Nsbar, this->PhiV, this->fluidSelector,F, 1, this->ghostPoints);
@@ -305,8 +302,8 @@ void ImplicitMultiPhysicsDesc<dim>::computeFunction(int it, DistSVec<double,dim>
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-void ImplicitMultiPhysicsTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
+template<int dim,int dimLS>
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,dim> &Q,
                                             DistSVec<double,dim> &rhs)
 {
   this->multiPhaseSpaceOp->recomputeRHS(*this->X, Q, rhs);
@@ -314,8 +311,8 @@ void ImplicitMultiPhysicsTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
 
 //------------------------------------------------------------------------------
 
-template<int dim>
-int ImplicitMultiPhysicsTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
+template<int dim,int dimLS>
+int ImplicitMultiPhysicsTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
 {
   this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
 /*
@@ -332,8 +329,8 @@ int ImplicitMultiPhysicsTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 }
 
 //------------------------------------------------------------------------------
-template<int dim> 
-void ImplicitMultiPhysicsTsDesc<dim>::resetFixesTag()
+template<int dim,int dimLS> 
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::resetFixesTag()
 {
 
   this->multiPhaseSpaceOp->resetTag();
@@ -341,17 +338,17 @@ void ImplicitMultiPhysicsTsDesc<dim>::resetFixesTag()
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-void ImplicitMultiPhysicsTsDesc<dim>::computeJacobian(int it, DistSVec<double,dim> &Q,
+template<int dim,int dimLS>
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeJacobian(int it, DistSVec<double,dim> &Q,
 							DistSVec<double,dim> &F)
 {
 
-  mvp->evaluate(it,*(this->X) ,*(this->A), Q, F);
+  mvp->evaluate(it,*(this->X) ,*(this->A), Q,this->PhiV, F);
 
 }
 //------------------------------------------------------------------------------
-template<int dim>
-void ImplicitMultiPhysicsTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
+template<int dim,int dimLS>
+void ImplicitMultiPhysicsTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q)
 {
   
   DistMat<double,dim> *_pc = dynamic_cast<DistMat<double,dim> *>(pc);
@@ -363,8 +360,8 @@ void ImplicitMultiPhysicsTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd) {
 
-      this->multiPhaseSpaceOp->computeJacobian(this->riemann, X, Q,ctrlVol,this->LSS,
-                                   this->Nriemann, this->Nsbar,*this->fluidSelector,*_pc,this->timeState);
+      this->multiPhaseSpaceOp->computeJacobian(this->riemann, *this->X, Q,*this->A,this->distLSS,
+                                   this->riemannNormal, this->Nsbar,(this->fluidSelector),*_pc,this->timeState);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }
@@ -391,8 +388,8 @@ void ImplicitMultiPhysicsTsDesc<dim>::setOperators(DistSVec<double,dim> &Q)
 }
 
 //------------------------------------------------------------------------------
-template<int dim>
-int ImplicitMultiPhysicsTsDesc<dim>::solveLinearSystem(int it, DistSVec<double,dim> &b,
+template<int dim,int dimLS>
+int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveLinearSystem(int it, DistSVec<double,dim> &b,
 				                   DistSVec<double,dim> &dQ)
 {
   
@@ -422,7 +419,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunctionLS(int it,
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
                                 this->LS->Phin, this->LS->Phinm1,
-                                this->LS->Phinm2, PhiF,this->requireSpecialBDF);
+                                this->LS->Phinm2, PhiF,false/*this->requireSpecialBDF*/);
 
 }
 
@@ -433,7 +430,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-                  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF);
+                  U,this->V0, PhiF, *this->fluidSelector.fluidId,false/*this->requireSpecialBDF*/);
 }
 
 //------------------------------------------------------------------------------
