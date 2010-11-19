@@ -42,6 +42,7 @@ struct InputData {
 
   const char *mesh;
   const char *sampleNodes;
+  const char *sampleNodesGlob;
   const char *aMatrix;
   const char *bMatrix;
 
@@ -125,6 +126,7 @@ struct TransientData {
   const char *statevectorchange;
   const char *mesh;
   const char *sampleNodes;
+  const char *sampleNodesGlob;
   const char *aMatrix;
   const char *bMatrix;
 

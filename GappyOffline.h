@@ -162,7 +162,7 @@ private:
 	// A and B matrices functions
 
 	// pseudo-inverse functions
-	double **(podHatPseudoInv [2]);	// dimension: (nSampleNode*dim) x nPod[i]
+	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
 	void computePseudoInverse(int iPodBasis);
 	void computePseudoInverseRHS();	// computes the RHS matrix pseudoInvRhs
 	SetOfVec pseudoInvRhs;

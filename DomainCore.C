@@ -98,6 +98,8 @@ Domain::Domain()
   embedCom = allCom[EMBED_ID];
 
   meshMotionBCs = 0; //HB
+
+	numGlobNode = 0;	// only compute if needed
 }
 
 //------------------------------------------------------------------------------
@@ -1524,4 +1526,28 @@ void Domain::readInterpMatrix(const char *interpMatrixFile, int &dimInterpMat, F
     }
   }
 
+}
+
+int Domain::getNumGlobNode() {
+
+	if (numGlobNode == 0)	// has not yet been computed
+		computeNumGlobNode();
+
+	return numGlobNode;
+
+}
+
+void Domain::computeNumGlobNode() {
+
+	numGlobNode = 0;	// ensure it is zero
+	bool *locMasterFlag;	// indicates which node is master (avoid double-counting)
+	for (int iSub = 0 ; iSub < numLocSub ; ++iSub) {	// requires domain
+		locMasterFlag = nodeDistInfo->getMasterFlag(iSub); // master nodes on subdomain
+		for (int iLocNode = 0; iLocNode < subDomain[iSub]->numNodes(); ++iLocNode) {	// all local nodes in subdomain
+			if (locMasterFlag[iLocNode])
+				numGlobNode +=1;
+		}
+	}
+	com->barrier();
+	com->globalSum(1, &numGlobNode);
 }
