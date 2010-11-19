@@ -152,12 +152,16 @@ class Domain {
 // Included (MB)
   CommPattern<double> *weightDerivativePat;
 
+	int numGlobNode;
+	void computeNumGlobNode();
+
 public:
 
   Domain();
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }
+  int getNumGlobNode(); // compute if needed
   SubDomain **getSubDomain() const { return subDomain; }
   SubDTopo *getSubTopo() const { return subTopo; }
   int **getNodeType() const { return nodeType; }

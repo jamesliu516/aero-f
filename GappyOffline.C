@@ -1055,14 +1055,27 @@ void GappyOffline<dim>::outputTopFile() {
    sp = strlen(ioData->output.transient.prefix);
    char *outSampleNodeFile = new char[sp + strlen(ioData->output.transient.sampleNodes)+1];
    sprintf(outSampleNodeFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodes);
-   FILE *sampleNodeFile = fopen(outSampleNodeFile, "w");
+   FILE *sampleNodeFile = fopen(outSampleNodeFile, "wt");
 
    for (int i = 0; i < nSampleNodes; ++i) {
 		 com->fprintf(sampleNodeFile, "%d %d \n", i+1, sampleToReducedNodeNumbering[i]);	
    }
 	 
+	 // write out sample node numbers in full mesh node numbering system
+
+   com->fprintf(stderr," ... Printing sample node file with respect to full mesh...\n");
+   sp = strlen(ioData->output.transient.prefix);
+   char *outSampleNodeGlobFile = new char[sp + strlen(ioData->output.transient.sampleNodesGlob)+1];
+   sprintf(outSampleNodeGlobFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodesGlob);
+   FILE *sampleNodeGlobFile = fopen(outSampleNodeGlobFile, "wt");
+
+   for (int i = 0; i < nSampleNodes; ++i) {
+		 com->fprintf(sampleNodeGlobFile, "%d %d \n", i+1, globalNodeSet[i]+1);	
+   }
 	 delete [] outMeshFile;
 	 delete [] outSampleNodeFile;
+	 delete [] outSampleNodeGlobFile;
+
 	 //delete [] sampleToReducedNodeNumbering;
 }
 
@@ -1104,7 +1117,7 @@ void GappyOffline<dim>::buildGappyMatrices() {
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
 	// DistSVec defined on the reduced mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
-	if (thisCPU == 0) outputOnlineMatrices();
+	outputOnlineMatrices();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1246,33 +1259,104 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	 // node. Otherwise, output a zero. This is to make it in DistSVec form for
 	 // the online part.
 
-	 bool isSampleNode;	// is the current node is a sample node?
-	 int iSampleNode = 0;	// counter for passing sample nodes
-	 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
-		 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "w");
-		 com->fprintf(onlineMatrix,"%d\n", reducedNodeCount);
-		 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-			 com->fprintf(onlineMatrix,"%d\n", iPod);
-			 iSampleNode = 0;	// reset counter for sample nodes
-			 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
-				 isSampleNode = false;
-				 // determine if it is a sample node
-                                 // TODO check the first condition on the following line
-				 if (iSampleNode < nSampleNodes && iReducedNode + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
-					 isSampleNode = true;
-					 ++iSampleNode;	// we have passed a sample node
+	 bool reducedMesh = false;	// KTC: for now, output in full coordinates
+	 if (reducedMesh) {
+			 bool isSampleNode;	// is the current node is a sample node?
+			 int iSampleNode = 0;	// counter for passing sample nodes
+			 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
+				 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "wt");
+				 com->fprintf(onlineMatrix,"%d\n", reducedNodeCount);
+				 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
+					 com->fprintf(onlineMatrix,"%d\n", iPod);
+					 iSampleNode = 0;	// reset counter for sample nodes
+					 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
+						 isSampleNode = false;
+						 // determine if it is a sample node
+																		 // TODO check the first condition on the following line
+						 if (iSampleNode < nSampleNodes && iReducedNode + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
+							 isSampleNode = true;
+							 ++iSampleNode;	// we have passed a sample node
+						 }
+						 for (int iDim = 0; iDim < dim; ++iDim) { 
+							 if (isSampleNode)
+								 com->fprintf(onlineMatrix,"%e ",
+										 onlineMatrices[iPodBasis][(iSampleNode - 1) * dim + iDim][iPod]);
+							 else // must output zeros if it is not a sample node
+								 com->fprintf(onlineMatrix,"%e ", 0.0);
+						 }
+						 com->fprintf(onlineMatrix,"\n ");
+					 }
 				 }
-				 for (int iDim = 0; iDim < dim; ++iDim) { 
-					 if (isSampleNode)
-						 com->fprintf(onlineMatrix,"%e ",
-								 onlineMatrices[iPodBasis][(iSampleNode - 1) * dim + iDim][iPod]);
-					 else // must output zeros if it is not a sample node
-						 com->fprintf(onlineMatrix,"%e ", 0.0);
+			 }
+	 }
+
+	 else {	// using full mesh (for debugging)
+		 int sampleNodeNum;
+		 int numTotNodes = domain.getNumGlobNode();	// # nodes in full mesh
+		 bool isSampleNode;	// is the current node is a sample node?
+		 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files (need A,B)
+			 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "wt");
+			 com->fprintf(onlineMatrix,"%d\n", numTotNodes);
+			 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
+				 com->fprintf(onlineMatrix,"%d\n", iPod);
+				 for (int iFullNode = 0; iFullNode < numTotNodes; ++iFullNode) {
+					 isSampleNode = false;
+					 // determine if it is a sample node
+					 for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
+						 if (globalNodeSet[iSampleNode] == iFullNode){
+							 isSampleNode = true;
+							 sampleNodeNum = iSampleNode;
+							 break;
+						 }
+					 }
+					 for (int iDim = 0; iDim < dim; ++iDim) { 
+						 if (isSampleNode)
+							 com->fprintf(onlineMatrix,"%e ",
+									 onlineMatrices[iPodBasis][sampleNodeNum * dim + iDim][iPod]);
+						 else // must output zeros if it is not a sample node
+							 com->fprintf(onlineMatrix,"%e ", 0.0);
+					 }
+					 com->fprintf(onlineMatrix,"\n ");
 				 }
-				 com->fprintf(onlineMatrix,"\n ");
 			 }
 		 }
+
+
 	 }
+	 /*else {
+			 // overwrite podRes and podJac with pseudo-inverses
+			 SubDomainData<dim> locMatrix;
+			 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
+
+				 for (int iPod = 0; iPod < nPod[iPodBasis]; ++iPod)
+					 pod[iPodBasis][iPod] = 0.0;	// set to zero
+
+				 for (int iSampleNode = 0; iSampleNode < nSampleNodes; ++iSampleNode) {
+					if (thisCPU == cpuSet[iSampleNode]) {
+
+						int locSub = locSubSet[iSampleNode];
+						int locNode = locNodeSet[iSampleNode];
+
+						for (int iPod = 0; iPod < nPod[iPodBasis]; ++iPod) {
+							locMatrix = pod[iPodBasis][iPod].subData(locSub);
+							for (int iDim = 0; iDim < dim; ++iDim) {
+								locMatrix[locNode][iDim] = onlineMatrices[iPodBasis][iSampleNode * dim + iDim][iPod];
+						  }
+						}
+					}
+				 }
+				 com->barrier();
+
+				 domain.writeVectorToFile(onlineMatrixFile[iPodBasis],0,(double) nPod[iPodBasis],pod[iPodBasis][0]);
+
+				 for (int iPod = 0; iPod < nPod[iPodBasis]; ++iPod)
+					 domain.writeVectorToFile(onlineMatrixFile[iPodBasis],iPod+1,0.0,pod[iPodBasis][iPod]);
+
+
+			 }
+		}
+	*/
+
 	 delete [] onlineMatrixFile[0];
 	 delete [] onlineMatrixFile[1];
 }

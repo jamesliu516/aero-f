@@ -15,6 +15,7 @@ struct TsInput {
 
 // Gappy POD
 	char *sampleNodes;
+	char *sampleNodesGlob;
 	char *aMatrix;
 	char *bMatrix;
 // Included
