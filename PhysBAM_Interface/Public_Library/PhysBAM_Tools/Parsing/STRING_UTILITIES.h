@@ -8,6 +8,7 @@
 #define __STRING_UTILITIES__
 
 #include <PhysBAM_Tools/Arrays/ARRAYS_FORWARD.h>
+#include <cstdio>
 #include <sstream>
 #include <string>
 #include <ctype.h>

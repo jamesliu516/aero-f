@@ -1071,7 +1071,7 @@ double SpaceOperator<dim>::computeRealFluidResidual(DistSVec<double, dim> &F, Di
 template<int dim>
 void SpaceOperator<dim>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, 
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
-                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
+                          DistLevelSetStructure *distLSS, DistVec<int> *fluidId)
 {
   varFcn->conservativeToPrimitive(U, V, fluidId);
   Weights = 0.0;
@@ -1128,8 +1128,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
       }
 
       if(subWeights[i] <= 0.0){
-        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
-        exit(-1);
+          fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
+          exit(-1);
       } else {
         for (int iDim=0; iDim<dim; iDim++) 
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
