@@ -977,7 +977,9 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
     if(twoPhase) {
 //      intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1);
       int error = intersector[iSub]->findIntersections((*X)(iSub), true);
-      while(error) {
+      int nCalls = 0;
+      while(error && nCalls<100) {
+        nCalls++;
         com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
         intersector[iSub]->CrossingEdgeRes.clear();
         intersector[iSub]->ReverseCrossingEdgeRes.clear();
@@ -1451,7 +1453,7 @@ bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
       if(status0[i]!=UNDECIDED)
         status[i] = status0[i];
       else  
-        fprintf(stderr,"Still have undecided nodes...\n");
+        fprintf(stderr,"ERROR: Unable to determine node status for Node %d\n", locToGlobNodeMap[i]+1);
 
 //    if(locToGlobNodeMap[i]+1==151870)
 //      fprintf(stderr,"CPU%d: status of 151870 is %d...\n", distIntersector.com->cpuNum(), status[i]);
