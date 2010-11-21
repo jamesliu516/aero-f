@@ -1440,7 +1440,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
 					   DistEdgeGrad<dim>* egrad,
 					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
-					   DistMat<Scalar,dimLS> &A)
+					   DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS)
 {
 
   int iSub;
@@ -1453,7 +1453,8 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
     fprintf(stdout, "with inletRhsPat\n");
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
 							 geoState(iSub),
 							 X(iSub),V(iSub),ngrad(iSub),
@@ -1461,7 +1462,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 							 legrad,
 							 ctrlVol(iSub),
 							 Phi(iSub), 
-							 A(iSub),
+							 A(iSub),lss,
 							 inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
@@ -1476,7 +1477,8 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
   }else{
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
 							 geoState(iSub),
 							 X(iSub),V(iSub),ngrad(iSub),
@@ -1484,7 +1486,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 							 legrad,
 							 ctrlVol(iSub),
 							 Phi(iSub), 
-							 A(iSub),
+							 A(iSub),lss,
 							 inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }

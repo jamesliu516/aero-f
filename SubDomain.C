@@ -1111,16 +1111,16 @@ void SubDomain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcn
 						  GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
 						  NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
 						  EdgeGrad<dim>* egrad,Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
-						  GenMat<Scalar,dimLS> &A, CommPattern<double> * flag)
+						  GenMat<Scalar,dimLS> &A, LevelSetStructure* LSS, CommPattern<double> * flag)
 {
 
   if (!flag){
     edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
-					    egrad, ctrlVol , Phi, A);
+					    egrad, ctrlVol , Phi, A,LSS);
     faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
   }else{
     edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
-					    egrad,ctrlVol , Phi, A);
+					    egrad,ctrlVol , Phi, A,LSS);
     faces.computeJacobianFiniteVolumeTermLS(geoState, V, A );
   }
 

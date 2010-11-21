@@ -122,11 +122,11 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   this->geoState->update(*this->X, *this->A);
 
   if(frequencyLS > 0 && it%frequencyLS == 0){
-    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
+//    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
     LS->conservativeToPrimitive(Phi,PhiV,U);
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
-    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
+//    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
 
     // If we are doing 3BDF, reinitialization destroys unm1
     // Create a new version using F(U) = dU/dt

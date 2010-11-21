@@ -33,6 +33,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int globIt;         //<! current global(i.e. structure) iteration
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
 
+  bool requireSpecialBDF;
+
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
   int orderOfAccuracy; // consistent with the reconstruction type for space
