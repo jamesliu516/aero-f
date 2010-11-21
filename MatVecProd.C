@@ -1547,7 +1547,7 @@ template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 				       DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
 				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f, 
-				       DistVec<int> &fluidId,bool requireSpecialBDF)
+				       DistVec<int> &fluidId,bool requireSpecialBDF,DistLevelSetStructure* distLSS)
 {
 
   X       = &x;
@@ -1558,7 +1558,7 @@ void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<do
   V = &v;
   FluidId = &fluidId;
 
-  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId);
+  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId,distLSS);
 
   if (timeState)
     timeState->addToJacobianLS(cv, *this, u,requireSpecialBDF);

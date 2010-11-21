@@ -491,7 +491,7 @@ public:
 					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
 					   DistEdgeGrad<dim>* egrad,
 					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
-					   DistMat<Scalar,dimLS> &A);
+					   DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS);
   
   template<int dim>
   void recomputeRHS(VarFcn*, DistSVec<double,dim> &, DistSVec<double,dim> &, DistExtrapolation<dim>*,

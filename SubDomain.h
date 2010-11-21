@@ -434,7 +434,7 @@ public:
 					   NodalGrad<dimLS> &ngradLS,
 					   EdgeGrad<dim>* egrad,
 					   Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
-					   GenMat<Scalar,dimLS> &A, CommPattern<double> * flag);
+					   GenMat<Scalar,dimLS> &A, LevelSetStructure* LSS,CommPattern<double> * flag);
 
   template<int dim>
   void recomputeRHS(VarFcn*, SVec<double,dim>& ,SVec<double,dim>& , Extrapolation<dim>*,

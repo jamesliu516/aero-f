@@ -534,7 +534,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dimLS> &, DistSVec<double,dim> &,
 		DistSVec<double,dim> &,
-                DistSVec<double,dimLS> &, DistVec<int> &,bool = false);
+                DistSVec<double,dimLS> &, DistVec<int> &,bool = false,DistLevelSetStructure* = NULL);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 

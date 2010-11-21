@@ -165,7 +165,7 @@ public:
 					   NodalGrad<dimLS> &ngradLS,
 					   EdgeGrad<dim>* egrad,
 					   Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
-					   GenMat<Scalar,dimLS> &A);
+					   GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS);
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
                               SVec<double,dim> &V, double Phii, double Phij,

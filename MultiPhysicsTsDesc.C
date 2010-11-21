@@ -53,6 +53,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i]; //for phase-change update only
+  
+  requireSpecialBDF = false;
 }
 
 //------------------------------------------------------------------------------
@@ -332,6 +334,21 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
+  if(frequencyLS > 0 && it%frequencyLS == 0){
+ //   this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
+    LS->conservativeToPrimitive(Phi,PhiV,U);
+    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+    LS->primitiveToConservative(PhiV,Phi,U);
+   // this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
+    if (this->timeState->useNm1()) {
+      DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
+      this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1);
+      Phinm1 = -1.0*Phinm1;
+      requireSpecialBDF = true;
+    }      
+  } else
+    requireSpecialBDF = false;
+  
   this->geoState->update(*this->X, *this->A);
 
   LS->update(Phi);
@@ -339,13 +356,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
-  if(frequencyLS > 0 && it%frequencyLS == 0){
-    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
-    LS->conservativeToPrimitive(Phi,PhiV,U);
-    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
-    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
-  }
 }
 
 //------------------------------------------------------------------------------

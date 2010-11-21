@@ -49,7 +49,14 @@ ImplicitMultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc = createPreconditioner<dim>(implicitData.newton.ksp.ns.pc, this->domain);
   
   ksp = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.ns, mvp, pc, this->com);
-  
+
+  // MatVecProd, Prec and Krylov solver for LevelSet equation
+  mvpLS  = new MatVecProdLS<dim,dimLS>(this->timeState, this->geoState, this->multiPhaseSpaceOp, this->domain, this->LS);
+
+  pcLS = createPreconditioner<dimLS>(implicitData.newton.ksp.lsi.pc, this->domain);
+  kspLS = createKrylovSolver(this->getVecInfo(), implicitData.newton.ksp.lsi, mvpLS, pcLS, this->com);
+ 
+ 
   //initialize mmh (EmbeddedMeshMotionHandler).
   if(this->dynNodalTransfer) 
     {
@@ -269,8 +276,9 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   double t1 = this->timer->getTime();
   int itsLS = this->ns->solveLS(this->Phi, U);
   this->riemann->storeOldV(U);
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-  (this->fluidSelector).getFluidId(this->Phi);
+  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
+//  this->fluidSelector.getFluidId(this->Phi,&(this->distLSS->getStatus()));
+  this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
   this->timer->addLevelSetSolutionTime(t1);
 
   this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
@@ -355,8 +363,8 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q
   
   if (_pc) {
     
-    MatVecProdFD<dim,dim> *mvpfd = dynamic_cast<MatVecProdFD<dim,dim> *>(mvp);
-    MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
+    MatVecProdFDMultiPhase<dim,dimLS> *mvpfd = dynamic_cast<MatVecProdFDMultiPhase<dim,dimLS> *>(mvp);
+    MatVecProdH1MultiPhase<dim,dimLS> *mvph1 = dynamic_cast<MatVecProdH1MultiPhase<dim,dimLS> *>(mvp);
     
     if (mvpfd) {
 
@@ -415,11 +423,11 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeFunctionLS(int it,
                                                     DistSVec<double,dim> &U,
                                                     DistSVec<double,dimLS> &PhiF)
 {
-  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF);
+  this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, this->Phi, *this->fluidSelector.fluidId, U, PhiF,this->distLSS,this->linRecAtInterface);
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
                                 this->LS->Phin, this->LS->Phinm1,
-                                this->LS->Phinm2, PhiF,false/*this->requireSpecialBDF*/);
+                                this->LS->Phinm2, PhiF,this->requireSpecialBDF);
 
 }
 
@@ -430,7 +438,7 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-                  U,this->V0, PhiF, *this->fluidSelector.fluidId,false/*this->requireSpecialBDF*/);
+                  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF,this->distLSS);
 }
 
 //------------------------------------------------------------------------------
@@ -438,12 +446,12 @@ template<int dim, int dimLS>
 void ImplicitMultiPhysicsTsDesc<dim,dimLS>::setOperatorsLS(DistSVec<double,dimLS> &Q)
 {
 
-  DistMat<PrecScalar,dimLS> *_pc = dynamic_cast<DistMat<PrecScalar,dimLS> *>(pcLS);
+  DistMat<double,dimLS> *_pc = dynamic_cast<DistMat<double,dimLS> *>(pcLS);
 
   if (_pc) {
 
-      JacobiPrec<PrecScalar,dimLS> *jac = dynamic_cast<JacobiPrec<PrecScalar,dimLS> *>(pcLS);
-      IluPrec<PrecScalar,dimLS> *ilu = dynamic_cast<IluPrec<PrecScalar,dimLS> *>(pcLS);
+      JacobiPrec<double,dimLS> *jac = dynamic_cast<JacobiPrec<double,dimLS> *>(pcLS);
+      IluPrec<double,dimLS> *ilu = dynamic_cast<IluPrec<double,dimLS> *>(pcLS);
 
       if (jac)
         jac->getData(*mvpLS);

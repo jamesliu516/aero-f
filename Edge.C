@@ -2031,7 +2031,7 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
 						NodalGrad<dimLS> &ngradLS,
 						EdgeGrad<dim>* egrad,
 						Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
-						GenMat<Scalar,dimLS> &A)
+						GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS)
 {
   int k;
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
@@ -2057,6 +2057,13 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
   for (int l=0; l<numEdges; ++l) {
     int i = ptr[l][0];
     int j = ptr[l][1];
+    
+    int iCovered = LSS ? LSS->fluidModel(0.0,i) : 0;
+    int jCovered = LSS ? LSS->fluidModel(0.0,j) : 0;
+    
+    if (iCovered && jCovered)
+      continue;
+
     for(k=0; k<dim; k++){
       Vi[k] = V[i][k];
       Vj[k] = V[j][k];
@@ -2073,49 +2080,54 @@ void EdgeSet::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS
       ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
       ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
     }
-    for (k=0; k<dimLS; ++k) {
-      ddPij[k] = dx[k]*dPhidx[i][k] + dx[1]*dPhidy[i][k] + dx[2]*dPhidz[i][k];
-      ddPji[k] = dx[k]*dPhidx[j][k] + dx[1]*dPhidy[j][k] + dx[2]*dPhidz[j][k];
-    }
     
     recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
-    //recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
     
     Uni      = Vi[1]*normal[l][0]  +Vi[2]*normal[l][1]  +Vi[3]*normal[l][2] - normalVel[l];
     Unj      = Vj[1]*normal[l][0]  +Vj[2]*normal[l][1]  +Vj[3]*normal[l][2] - normalVel[l];
     //Roe averaged variables
-    for (k = 0; k < dimLS; ++k) {
+    if (!iCovered && !jCovered) {
+      for (k = 0; k < dimLS; ++k) {
 
-      df[0] = df[1] = 0.0;
+        df[0] = df[1] = 0.0;
 
-/*      df[0] = Uni + SIGN(Pj[k]*Unj-Pi[k]*Uni)*SIGN(Pj[k]-Pi[k])*Uni+fabs(Pj[k]*Unj-Pi[k]*Uni)*SIGND(Pj[k]-Pi[k]);
-      df[1] = Unj - SIGN(Pj[k]*Unj-Pi[k]*Uni)*SIGN(Pj[k]-Pi[k])*Unj-fabs(Pj[k]*Unj-Pi[k]*Uni)*SIGND(Pj[k]-Pi[k]);
-      df[0]*=0.5;
-      df[1]*=0.5;
-*/
-      double uav = 0.5*(Uni+Unj);
-      if (uav > 0)
-	df[0] = uav;
-      else if (uav < 0)
-	df[1] = uav;
+        double uav = 0.5*(Uni+Unj);
+        if (uav > 0)
+	  df[0] = uav;
+        else if (uav < 0)
+	  df[1] = uav;
       
+        if (masterFlag[l]) {
+	  Scalar* Aii = A.getElem_ii(i);
+	  Scalar* Ajj = A.getElem_ii(j);
+	  Aii[k*dimLS+k] += df[0];
+	  Ajj[k*dimLS+k] += -df[1];
+        }
       
-      
-      if (masterFlag[l]) {
-	Scalar* Aii = A.getElem_ii(i);
-	Scalar* Ajj = A.getElem_ii(j);
-	Aii[k*dimLS+k] += df[0];
-	Ajj[k*dimLS+k] += -df[1];
+        Scalar* Aij = A.getElem_ij(l);
+        Scalar* Aji = A.getElem_ji(l);
+        if (Aij && Aji) {
+  	  double voli = 1.0 / ctrlVol[i];
+	  double volj = 1.0 / ctrlVol[j];
+	  Aji[k*dimLS+k] += (-df[0])*volj;
+	  Aij[k*dimLS+k] += (df[1])*voli;
+        }
       }
-      
-      Scalar* Aij = A.getElem_ij(l);
-      Scalar* Aji = A.getElem_ji(l);
-      if (Aij && Aji) {
-	double voli = 1.0 / ctrlVol[i];
-	double volj = 1.0 / ctrlVol[j];
-	Aji[k*dimLS+k] += (-df[0])*volj;
-	Aij[k*dimLS+k] += (df[1])*voli;
+    } else {
+      if(!iCovered) {
+        if (masterFlag[l]) {
+	  Scalar* Aii = A.getElem_ii(i);
+          for(k=0; k<dimLS; k++)
+            Aii[k*dimLS+k] += 0.5*Uni;
+        }
       }
+      if(!jCovered) {
+        if (masterFlag[l]) {
+	  Scalar* Ajj = A.getElem_ii(j);
+          for(k=0; k<dimLS; k++)
+            Ajj[k*dimLS+k] -= 0.5*Unj;
+        }
+      }    
     }
   }
 }
