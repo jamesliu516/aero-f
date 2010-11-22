@@ -308,7 +308,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunctionLS(int it,
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
 			        this->LS->Phin, this->LS->Phinm1, 
-      				this->LS->Phinm2, PhiF);
+      				this->LS->Phinm2, PhiF,this->requireSpecialBDF);
 
 }
 
@@ -319,7 +319,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-		  U,this->V0, PhiF, *this->fluidSelector.fluidId);
+		  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF);
 }
 
 //------------------------------------------------------------------------------

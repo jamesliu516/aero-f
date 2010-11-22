@@ -42,6 +42,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
   double Prate;
   double Pinit;
 
+  bool requireSpecialBDF;
+
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
   ~LevelSetTsDesc();

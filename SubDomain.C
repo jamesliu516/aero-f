@@ -1082,6 +1082,28 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   
 }
 
+template<int dim, class Scalar, int neq, int dimLS>
+void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
+                                       FluxFcn** fluxFcn, 
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,Vec<double>& ctrlVol,
+                                       NodalGrad<dimLS> &ngradLS,
+                                       LevelSetStructure &LSS,Vec<int> &fluidId,
+                                       int Nriemann, SVec<double,3>* Nsbar,
+                                       FluidSelector &fluidSelector,
+                                       GenMat<Scalar,neq>& A) {
+
+  edges.computeJacobianFiniteVolumeTerm(riemann,locToGlobNodeMap,
+                                        fluxFcn, geoState, X, V, LSS,fluidId,Nriemann, Nsbar,
+                                        fluidSelector, ngradLS,ctrlVol, A);
+  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId);
+  for (int i=0; i<ctrlVol.size(); ++i) {
+    double voli = 1.0 / ctrlVol[i];
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<neq*neq; ++k)
+      Aii[k] *= voli;
+  }
+}
 //-------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int dimLS>
@@ -1089,16 +1111,16 @@ void SubDomain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcn
 						  GeoState &geoState,SVec<double,3>& X,SVec<double,dim> &V,
 						  NodalGrad<dim>& ngrad, NodalGrad<dimLS> &ngradLS,
 						  EdgeGrad<dim>* egrad,Vec<double> &ctrlVol,SVec<double,dimLS>& Phi,
-						  GenMat<Scalar,dimLS> &A, CommPattern<double> * flag)
+						  GenMat<Scalar,dimLS> &A, LevelSetStructure* LSS, CommPattern<double> * flag)
 {
 
   if (!flag){
     edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
-					    egrad, ctrlVol , Phi, A);
+					    egrad, ctrlVol , Phi, A,LSS);
     faces.computeJacobianFiniteVolumeTermLS(geoState, V, A);
   }else{
     edges.computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS,geoState,X,V,ngrad ,ngradLS,
-					    egrad,ctrlVol , Phi, A);
+					    egrad,ctrlVol , Phi, A,LSS);
     faces.computeJacobianFiniteVolumeTermLS(geoState, V, A );
   }
 

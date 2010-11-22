@@ -406,6 +406,30 @@ public:
 
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
 
+  // Structure to enable fluid-structure interaction computations
+  struct _fsi {
+
+    DistLevelSetStructure* LSS;
+    DistVec<int>* fluidId;
+    DistExactRiemannSolver<dim>* riemann;
+    bool linRecAtInterface;
+    DistSVec<double,3>* Nsbar;
+    DistSVec<double,dim>* Wtemp;
+    int Nriemann;
+    DistVec<GhostPoint<dim>*>* ghostPoints;
+  };
+
+  void AttachStructure(const _fsi& f) {
+    isFSI = true;
+    fsi = f;
+  }
+ 
+protected:
+  
+  // Boolean; set to true if we are using a structure
+  bool isFSI;
+  _fsi fsi;
+
 };
 
 //------------------------------------------------------------------------------
@@ -510,7 +534,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dimLS> &, DistSVec<double,dim> &,
 		DistSVec<double,dim> &,
-                DistSVec<double,dimLS> &, DistVec<int> &);
+                DistSVec<double,dimLS> &, DistVec<int> &,bool = false,DistLevelSetStructure* = NULL);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 

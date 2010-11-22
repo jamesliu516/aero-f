@@ -96,6 +96,9 @@ class LevelSet {
   template<int dim>
   void primitiveToConservative(DistSVec<double,dimLS> &Prim, DistSVec<double,dimLS> &Cons,
 	                       DistSVec<double,dim> &U);
+ 
+  DistSVec<double,dimLS>& getPhinm1() { return Phinm1; }
+
 };
 
 #ifdef TEMPLATE_FIX
