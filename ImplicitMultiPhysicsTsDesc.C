@@ -171,6 +171,13 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
     this->timer->removeIntersAndPhaseChange(tw);
     if(this->riemannNormal==2)
       this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
+   
+    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
+    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+     this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
+                       //  is meaningful. We destroy it so people wouldn't use it
+                       //  by mistake later on.
 
     //store previous states for phase-change update
     tw = this->timer->getTime();
@@ -278,10 +285,11 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,
   this->riemann->storeOldV(U);
   this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin,this->distLSS);
 //  this->fluidSelector.getFluidId(this->Phi,&(this->distLSS->getStatus()));
+  DistVec<int> fluidId0(*this->fluidSelector.fluidId);
   this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
   this->timer->addLevelSetSolutionTime(t1);
 
-  this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, *this->fluidSelector.fluidIdn);
+  this->riemann->updatePhaseChange(this->V0, *this->fluidSelector.fluidId, fluidId0);
   this->varFcn->primitiveToConservative(this->V0,U,this->fluidSelector.fluidId);
 
   checkSolution(U);
