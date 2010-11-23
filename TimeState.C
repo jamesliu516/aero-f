@@ -98,15 +98,20 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
       } else {
 
         c_np1 = 2.0;
-        c_n = -2.0;
-        c_nm1 = -0.5*invDt;
+        c_n = -2.0 * ctrlVol_n[i] * invCtrlVol;
+        c_nm1 = -0.5 * ctrlVol_n[i] * invCtrlVol;
         c_nm2 = 0.0;
       }
     }
 
     for (int idim=0; idim<dimLS; idim++){
-      double dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
+      double dAWdt;
+      if (!requireSpecialBDF)
+        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
                               c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+      else
+        dAWdt =  invDt*(c_np1*Q[i][idim] + c_n*Qn[i][idim]) +c_nm1*Qnm1[i][idim];
+
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][idim] = dAWdt + 0.5 * (R[i][idim] + Rn[i][idim]);
       else
