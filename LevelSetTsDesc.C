@@ -127,6 +127,7 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
 //    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
+    LS->update(Phi);
 
     // If we are doing 3BDF, reinitialization destroys unm1
     // Create a new version using F(U) = dU/dt
@@ -136,10 +137,11 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
       Phinm1 = -1.0*Phinm1;
       requireSpecialBDF = true;
     }      
-  } else
+  } else {
     requireSpecialBDF = false;
+    LS->update(Phi);
+  }
 
-  LS->update(Phi);
   fluidSelector.update();
  
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
