@@ -1397,6 +1397,41 @@ void Domain::computeJacobianFiniteVolumeTerm(DistVec<double> &ctrlVol,
     for (iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
 }
+  
+template<int dim, class Scalar, int neq, int dimLS>
+void Domain::computeJacobianFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
+                                             FluxFcn** fluxFcn, 
+                                             DistBcData<dim>& bcData, DistGeoState& geoState,
+                                             DistSVec<double,3>& X, DistSVec<double,dim>& V,DistVec<double>& ctrlVol,
+                                             DistNodalGrad<dimLS> &ngradLS,
+                                             DistLevelSetStructure *LSS,
+                                             int Nriemann, DistSVec<double,3>* Nsbar,
+                                             FluidSelector &fluidSelector,
+                                             DistMat<Scalar,neq>& A) {
+
+  int iSub;
+  double t0 = timer->getTime();
+  CommPattern<Scalar> *matPat = A.getDiagMatPat();
+ 
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub) {
+      SVec<double,3>* nsbar = (Nsbar) ? &((*Nsbar)(iSub)) : 0;
+      subDomain[iSub]->computeJacobianFiniteVolumeTerm(riemann(iSub), fluxFcn,
+                                                     bcData(iSub), geoState(iSub),
+                                                     X(iSub), V(iSub),ctrlVol(iSub),
+                                                     ngradLS(iSub),(*LSS)(iSub),(*(fluidSelector.fluidId))(iSub),
+                                                     Nriemann,nsbar, fluidSelector,
+                                                     A(iSub));
+      subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
+    }
+    double t = timer->addFiniteVolumeJacTime(t0);
+    matPat->exchange();
+
+#pragma omp parallel for
+    for (iSub = 0; iSub < numLocSub; ++iSub)
+      subDomain[iSub]->addRcvDiagBlocks(*matPat, A(iSub));
+
+}
 
 //------------------------------------------------------------------------------
 template<int dim, class Scalar, int dimLS>
@@ -1405,7 +1440,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 					   DistNodalGrad<dim>& ngrad,DistNodalGrad<dimLS> &ngradLS,
 					   DistEdgeGrad<dim>* egrad,
 					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
-					   DistMat<Scalar,dimLS> &A)
+					   DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS)
 {
 
   int iSub;
@@ -1418,7 +1453,8 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
     fprintf(stdout, "with inletRhsPat\n");
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
 							 geoState(iSub),
 							 X(iSub),V(iSub),ngrad(iSub),
@@ -1426,7 +1462,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 							 legrad,
 							 ctrlVol(iSub),
 							 Phi(iSub), 
-							 A(iSub),
+							 A(iSub),lss,
 							 inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }
@@ -1441,7 +1477,8 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
   }else{
 #pragma omp parallel for
     for (iSub = 0; iSub < numLocSub; ++iSub) {
-    EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
+      LevelSetStructure* lss = (distLSS) ? &((*distLSS)(iSub)) : 0;
       subDomain[iSub]->computeJacobianFiniteVolumeTermLS(recFcn,recFcnLS, 
 							 geoState(iSub),
 							 X(iSub),V(iSub),ngrad(iSub),
@@ -1449,7 +1486,7 @@ void Domain::computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 							 legrad,
 							 ctrlVol(iSub),
 							 Phi(iSub), 
-							 A(iSub),
+							 A(iSub),lss,
 							 inletRhsPat);
       subDomain[iSub]->sndDiagBlocks(*matPat, A(iSub));
     }

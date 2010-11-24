@@ -113,13 +113,16 @@ public:
   template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
-			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
+			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,bool requireSpecialBDF = false);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
+
+  template<class Scalar, int neq>
+  void addToJacobianLS(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &,bool);
 
   template<class Scalar, int neq>
   void addToJacobianGasPrec(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);

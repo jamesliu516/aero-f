@@ -2060,15 +2060,64 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistSVec<double,3> &X, 
   irey = 0;
 }
 
+template<int dim,int dimLS>  
+template<class Scalar, int neq>
+void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<dim>* riemann,
+                                                         DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
+                                                         DistLevelSetStructure *LSS,
+                                                         int Nriemann, DistSVec<double,3>* Nsbar,
+                                                         FluidSelector &fluidSelector,
+                                                         DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState) {
+
+#ifdef DOUBLE_CHECK
+  this->varFcn->conservativeToPrimitive(U, *(this->V), fluidSelector.fluidId);
+#endif
+
+  A = 0.0;
+  
+  DistVec<double> *irey;
+  if(timeState) {
+    irey = timeState->getInvReynolds();
+  }
+  else {
+    irey = new DistVec<double>(this->domain->getNodeDistInfo());
+    *irey = 0.0;
+  }
+
+
+  if (this->use_modal)  {
+    fprintf(stderr, "**Error: no modal for multiphase flows.. Exiting\n");
+    exit(1);
+  }
+  else  {
+    if (this->fet)
+      this->domain->computeJacobianGalerkinTerm(this->fet, *(this->bcData), *(this->geoState), X, ctrlVol, *(this->V), A);
+    this->domain->computeJacobianFiniteVolumeTerm(*riemann, this->fluxFcn, *(this->bcData), *(this->geoState),X,*(this->V), ctrlVol,
+                                                  *ngradLS, LSS, Nriemann, Nsbar, fluidSelector,A);
+    if (this->volForce)
+      this->domain->computeJacobianVolumicForceTerm(this->volForce, ctrlVol, *(this->V), A);
+  }
+  
+  // Delete pointer for consistency
+  if (timeState == 0) 
+  {
+    if (irey)
+      delete irey;
+  }
+  irey = 0;
+
+}
+
+
 //------------------------------------------------------------------------------
 
 template <int dim,int dimLS>
 template<class Scalar>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
-							   DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId)
+							   DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS)
 {
   A = 0.0;
-  this->domain->computeJacobianFiniteVolumeTermLS(this->recFcn, recFcnLS,*(this->geoState),X,V,*(this->ngrad), *ngradLS,this->egrad,ctrlVol, Phi,A);
+  this->domain->computeJacobianFiniteVolumeTermLS(this->recFcn, recFcnLS,*(this->geoState),X,V,*(this->ngrad), *ngradLS,this->egrad,ctrlVol, Phi,A,distLSS);
 }
 
 //------------------------------------------------------------------------------

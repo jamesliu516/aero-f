@@ -28,7 +28,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo())
 {
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -53,6 +53,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   double *Vin = this->bcData->getInletPrimitiveState();
   for(int i=0; i<dim; i++)
     vfar[i] =Vin[i]; //for phase-change update only
+  
+  requireSpecialBDF = false;
 }
 
 //------------------------------------------------------------------------------
@@ -134,6 +136,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  if (this->timeState->useNm1()) {
+    Wstarij_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1 = 0.0;
+    *Wstarji_nm1 = 0.0;
+  } else {
+    Wstarij_nm1 = 0;
+    Wstarji_nm1 = 0;
+  }
+
   //cell-averaged structure normals
   if(riemannNormal==2) {
     Nsbar = new DistSVec<double,3>(this->domain->getNodeDistInfo());
@@ -192,6 +204,8 @@ MultiPhysicsTsDesc<dim,dimLS>::~MultiPhysicsTsDesc()
   if (distLSS) delete distLSS;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (Wstarij_nm1) delete Wstarij_nm1;
+  if (Wstarji_nm1) delete Wstarji_nm1;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
   if (dynNodalTransfer) delete dynNodalTransfer;
@@ -320,6 +334,21 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
+  if(frequencyLS > 0 && it%frequencyLS == 0){
+ //   this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
+    LS->conservativeToPrimitive(Phi,PhiV,U);
+    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+    LS->primitiveToConservative(PhiV,Phi,U);
+   // this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
+    if (this->timeState->useNm1()) {
+      DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
+      this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1);
+      Phinm1 = -1.0*Phinm1;
+      requireSpecialBDF = true;
+    }      
+  } else
+    requireSpecialBDF = false;
+  
   this->geoState->update(*this->X, *this->A);
 
   LS->update(Phi);
@@ -327,13 +356,6 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
-  if(frequencyLS > 0 && it%frequencyLS == 0){
-    this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
-    LS->conservativeToPrimitive(Phi,PhiV,U);
-    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
-    LS->primitiveToConservative(PhiV,Phi,U);
-    this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
-  }
 }
 
 //------------------------------------------------------------------------------

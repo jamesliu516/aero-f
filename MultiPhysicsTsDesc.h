@@ -33,6 +33,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int globIt;         //<! current global(i.e. structure) iteration
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
 
+  bool requireSpecialBDF;
+
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
   int orderOfAccuracy; // consistent with the reconstruction type for space
@@ -54,11 +56,13 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double (*Fs)[3]; //force distribution on the structure surfac3
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
 
+  bool existsWstarnm1;
+
   // EulerFSI: interface tracking
   DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
 
-  DistSVec<double,dim> *Wstarij;  //<! stores the FS Riemann solution (i->j) along edges
-  DistSVec<double,dim> *Wstarji;  //<! stores the FS Riemann solution (j->i) along edges
+  DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
@@ -67,6 +71,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
 
   // EulerFSI: FS communication
+  DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
 
   //------------------------------------------------------------------------
