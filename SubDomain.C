@@ -4604,6 +4604,52 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
 }
 
 //--------------------------------------------------------------------------
+//TODO: should distinguish master edges and non-master edges.
+template<int dim, int dimLS>
+void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,
+                      SVec<double,dim> &Wstarji, SVec<double,dim> &VWeights, Vec<double> &Weights,
+                      SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights,  
+                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId0, Vec<int> &fluidId)
+{
+  int i, j, k;
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+  int numPhase = LSS.numOfFluids();
+
+  for (int l=0; l<edges.size(); l++){
+    for (int enode = 0; enode<2; enode++) { //loop thru the two nodes on this edge
+      SVec<double,dim> &Wstar = (enode==0) ? Wstarji : Wstarij;
+      i = edgePtr[l][enode];
+      j = edgePtr[l][(int)(!enode)];
+      // for V and Phi
+      if(LSS.isSwept(0.0,i) && LSS.isActive(0.0,i)) { // phase change occurred && need an update
+        if(Wstar[l][0]>1.0e-8 && fluidId0[j]==fluidId[i]) { //use Wstar 
+          if(Weights[i]<1.0e-6) { // first touch of node i
+            Weights[i] = 1.0;
+            for(k=0; k<5; k++) VWeights[i][k] = Wstar[l][k];
+            for(k=0; k<dimLS; k++) PhiWeights[i][k] = Phi[j][k];
+          } else {
+            Weights[i] ++;
+            for(k=0; k<5; k++) VWeights[i][k] += Wstar[l][k];
+            for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
+          }
+        } else if(!LSS.isSwept(0.0,j) && fluidId[i]==fluidId[j] && !LSS.edgeIntersectsStructure(0.0,i,j)) { // use V[j]
+          if(Weights[i]<1.0e-6) { // first touch of node i
+            Weights[i] = 1.0;
+            for(k=0; k<5; k++) VWeights[i][k] = V[j][k];
+            for(k=0; k<dimLS; k++) PhiWeights[i][k] = Phi[j][k];
+          } else {
+            Weights[i] ++;
+            for(k=0; k<5; k++) VWeights[i][k] += V[j][k];
+            for(k=0; k<dimLS; k++) PhiWeights[i][k] += Phi[j][k];
+          }
+        }
+      }
+    }
+  }
+}
+
+//--------------------------------------------------------------------------
 template<int dimLS>
 void SubDomain::checkNodePhaseChange(SVec<double,dimLS> &PhiProduct)
 {

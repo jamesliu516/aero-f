@@ -367,6 +367,13 @@ public:
                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistLevelSetStructure *distLSS);
 
+  template<int dim, int dimLS>
+  void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
+               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights, 
+               DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+               DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId);
+
   template<int dimLS>
   void computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,3> &X,
                                  DistNodalGrad<dimLS> &lsgrad,

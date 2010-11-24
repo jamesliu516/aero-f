@@ -2119,7 +2119,10 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeRiemannWeightsForEmbeddedStruct(
                            DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
 {
-  fprintf(stderr,"HAVEN'T DONE THIS YET!\n");
+  this->varFcn->conservativeToPrimitive(U, V, fluidId0);
+  Weights = 0.0;
+  VWeights = 0.0;
+  this->domain->computeRiemannWeightsForEmbeddedStruct(X, V, Wstarij, Wstarji, Weights, VWeights, Phi, PhiWeights, distLSS, fluidId0, fluidId);
 }
 
 //------------------------------------------------------------------------------

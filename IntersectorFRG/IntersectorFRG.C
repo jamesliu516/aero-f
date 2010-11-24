@@ -1972,8 +1972,8 @@ int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
  
       if(res1.triangleID<0) {
          error++;
-         fprintf(stderr,"WARNING: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
-                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
+//         fprintf(stderr,"WARNING: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
+//                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
          if(status[p]!=status0[p] || status[q]!=status0[q]) {
            status[p] = status0[p];
            status[q] = status0[q];

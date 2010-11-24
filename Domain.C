@@ -3318,10 +3318,28 @@ void Domain::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistS
   for (iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->computeRiemannWeightsForEmbeddedStruct(V(iSub), Wstarij(iSub), Wstarji(iSub), 
                                                      VWeights(iSub),Weights(iSub), (*distLSS)(iSub),X(iSub));
-
   assemble(vecPat, VWeights);
   assemble(volPat, Weights);
+}
 
+//-------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void Domain::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
+               DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+               DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+               DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+               DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->computeRiemannWeightsForEmbeddedStruct(V(iSub), Wstarij(iSub), Wstarji(iSub),
+                                                     VWeights(iSub),Weights(iSub), Phi(iSub), PhiWeights(iSub),
+                                                     (*distLSS)(iSub),X(iSub), (*fluidId0)(iSub), (*fluidId)(iSub));
+  assemble(vecPat, VWeights);
+  assemble(phiVecPat, PhiWeights);
+  assemble(volPat, Weights);
 }
 
 //-------------------------------------------------------------------------------
