@@ -677,7 +677,7 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
                                       DistSVec<double,dimLS> &Qn,
                                       DistSVec<double,dimLS> &Qnm1,
                                       DistSVec<double,dimLS> &Qnm2,
-                                      DistSVec<double,dimLS> &R)
+                                      DistSVec<double,dimLS> &R,bool requireSpecialBDF)
 {
 
   //if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
@@ -686,7 +686,7 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subTimeState[iSub]->add_dAW_dtLS(Q.getMasterFlag(iSub), geoState(iSub),
                                      ctrlVol(iSub), Q(iSub), Qn(iSub), Qnm1(iSub),
-				                             Qnm2(iSub), R(iSub));
+				                             Qnm2(iSub), R(iSub),requireSpecialBDF);
 }
 
 //------------------------------------------------------------------------------
@@ -711,6 +711,17 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
 
 }
 
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToJacobianLS(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
+                                       DistSVec<double,dim> &U,bool requireSpecialBDF)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToJacobianLS(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
+                              requireSpecialBDF);
+}
+
 //------------------------------------------------------------------------------
 template<int dim>
 template<class Scalar, int neq>
@@ -728,7 +739,7 @@ void DistTimeState<dim>::addToJacobianNoPrec(DistVec<double> &ctrlVol, DistMat<S
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianNoPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, empty);
+                                varFcn,empty);
   }
 }
 

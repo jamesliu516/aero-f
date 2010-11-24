@@ -71,7 +71,7 @@ template<int dimLS>
 void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState, 
 					Vec<double> &ctrlVol, SVec<double,dimLS> &Q, 
 					SVec<double,dimLS> &Qn, SVec<double,dimLS> &Qnm1,
-					SVec<double,dimLS> &Qnm2, SVec<double,dimLS> &R)
+					SVec<double,dimLS> &Qnm2, SVec<double,dimLS> &R,bool requireSpecialBDF)
 {
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
@@ -90,15 +90,28 @@ void TimeState<dim>::add_dAW_dtLS(bool *nodeFlag, GeoState &geoState,
     }
     else  {
       double invCtrlVol = 1.0 / ctrlVol[i];
-      c_np1 = data.alpha_np1;
-      c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
-      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
-      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
+      if (!requireSpecialBDF) {
+        c_np1 = data.alpha_np1;
+        c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
+        c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
+        c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
+      } else {
+
+        c_np1 = 2.0;
+        c_n = -2.0 * ctrlVol_n[i] * invCtrlVol;
+        c_nm1 = -0.5 * ctrlVol_n[i] * invCtrlVol;
+        c_nm2 = 0.0;
+      }
     }
 
     for (int idim=0; idim<dimLS; idim++){
-      double dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
+      double dAWdt;
+      if (!requireSpecialBDF)
+        dAWdt = invDt * (c_np1*Q[i][idim] + c_n*Qn[i][idim] +
                               c_nm1*Qnm1[i][idim] + c_nm2*Qnm2[i][idim]);
+      else
+        dAWdt =  invDt*(c_np1*Q[i][idim] + c_n*Qn[i][idim]) +c_nm1*Qnm1[i][idim];
+
       if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
         R[i][idim] = dAWdt + 0.5 * (R[i][idim] + Rn[i][idim]);
       else
@@ -126,6 +139,27 @@ void TimeState<dim>::addToJacobianNoPrec(bool *nodeFlag, Vec<double> &ctrlVol, G
       if(!(nodeType[i]==BC_INLET_MOVING || nodeType[i]==BC_OUTLET_MOVING ||
            nodeType[i]==BC_INLET_FIXED || nodeType[i]==BC_OUTLET_FIXED) )
         addToJacobianNoPrecLocal(i, ctrlVol[i], U, A);
+  }
+}
+
+template<int dim>
+template<class Scalar, int neq>
+void TimeState<dim>::addToJacobianLS(bool* nodeFlag,Vec<double> &ctrlVol, GenMat<Scalar,neq> &A,
+                                     SVec<double,dim> &U, bool requireSpecialBDF) {
+
+  double c_np1;
+  for (int i=0; i<dt.size(); ++i)  {
+
+    if (data.use_modal == true)
+      c_np1 = data.alpha_np1 * ctrlVol[i] / dt[i];
+    else if (requireSpecialBDF)
+      c_np1 = 2.0/dt[i];
+    else
+      c_np1 = data.alpha_np1 / dt[i];
+
+    Scalar *Aii = A.getElem_ii(i);
+    for (int k=0; k<neq; ++k)
+      Aii[k + k*neq] += c_np1;
   }
 }
 //------------------------------------------------------------------------------

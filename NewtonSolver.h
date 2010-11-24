@@ -165,7 +165,7 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::PhiVecType 
     // compute the nonlinear function value for the Level Set Equation
     probDesc->computeFunctionLS(it, U, PhiF);
     res = sqrt(PhiF*PhiF);
-
+    //probDesc->printf(1,"Newton residual = %e,target = %e\n",res,target);
     if (it == 0){
       target = eps*res;
       res1  = res;

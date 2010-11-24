@@ -149,6 +149,15 @@ public:
                               Vec<int>&, int, SVec<double,3>*,
                               GenMat<Scalar,neq>&,Vec<double>& irey);
 
+  template<class Scalar,int dim, int dimLS,int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,int*,
+                                     FluxFcn** fluxFcn, 
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V, 
+                                     LevelSetStructure& LSS, Vec<int> &fluidId,
+                                     int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
+                                     NodalGrad<dimLS>& ngradLS,Vec<double>&,GenMat<Scalar,neq>& A);
+
   template<class Scalar, int dim, int dimLS>
     void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
 					   GeoState& geoState, SVec<double,3>& X,
@@ -156,7 +165,7 @@ public:
 					   NodalGrad<dimLS> &ngradLS,
 					   EdgeGrad<dim>* egrad,
 					   Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
-					   GenMat<Scalar,dimLS> &A);
+					   GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS);
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
                               SVec<double,dim> &V, double Phii, double Phij,
