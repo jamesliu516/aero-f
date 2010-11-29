@@ -1309,8 +1309,8 @@ void EquationsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<EquationsData>(ca, "GravityY", this, &EquationsData::gravity_y);
   new ClassDouble<EquationsData>(ca, "GravityZ", this, &EquationsData::gravity_z);
 
-  fluidModelMap.setup("FluidModelData", 0);
-  fluidModel.setup("FluidModel", ca);
+  fluidModelMap.setup("FluidModel", 0);
+  //fluidModelMap.setup("FluidModel", ca); //which one to take? ca or 0?
   viscosityModel.setup("ViscosityModel", ca);
   thermalCondModel.setup("ThermalConductivityModel", ca);
   tc.setup("TurbulenceClosure", ca);
@@ -1338,14 +1338,14 @@ Assigner *SphereData::getAssigner()
 
   ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
-  new ClassInt<SphereData> (ca, "FluidModelID", this, &SphereData::fluidModelID);
+  new ClassInt<SphereData> (ca, "FluidID", this, &SphereData::fluidModelID);
 
   new ClassDouble<SphereData> (ca, "Center_x", this, &SphereData::cen_x);
   new ClassDouble<SphereData> (ca, "Center_y", this, &SphereData::cen_y);
   new ClassDouble<SphereData> (ca, "Center_z", this, &SphereData::cen_z);
   new ClassDouble<SphereData> (ca, "Radius", this, &SphereData::radius);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -1372,16 +1372,16 @@ Assigner *PlaneData::getAssigner()
 
   ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
-  new ClassInt<PlaneData> (ca, "FluidModelID", this, &PlaneData::fluidModelID);
+  new ClassInt<PlaneData> (ca, "FluidID", this, &PlaneData::fluidModelID);
 
-  new ClassDouble<PlaneData> (ca, "Center_x", this, &PlaneData::cen_x);
-  new ClassDouble<PlaneData> (ca, "Center_y", this, &PlaneData::cen_y);
-  new ClassDouble<PlaneData> (ca, "Center_z", this, &PlaneData::cen_z);
+  new ClassDouble<PlaneData> (ca, "Point_x", this, &PlaneData::cen_x);
+  new ClassDouble<PlaneData> (ca, "Point_y", this, &PlaneData::cen_y);
+  new ClassDouble<PlaneData> (ca, "Point_z", this, &PlaneData::cen_z);
   new ClassDouble<PlaneData> (ca, "Normal_x", this, &PlaneData::nx);
   new ClassDouble<PlaneData> (ca, "Normal_y", this, &PlaneData::ny);
   new ClassDouble<PlaneData> (ca, "Normal_z", this, &PlaneData::nz);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -1405,7 +1405,7 @@ Assigner *PointData::getAssigner()
   ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassInt<PointData>
-    (ca, "FluidModelID", this, &PointData::fluidModelID);
+    (ca, "FluidID", this, &PointData::fluidModelID);
   new ClassDouble<PointData>
     (ca, "X", this, &PointData::x);
   new ClassDouble<PointData>
@@ -1413,7 +1413,7 @@ Assigner *PointData::getAssigner()
   new ClassDouble<PointData>
     (ca, "Z", this, &PointData::z);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -1457,7 +1457,7 @@ SparseGridData::SparseGridData()
   mapBaseValue = 0;
   numDomainDim = 0;
 
-  numOutputs = 1;
+  numOutputs = 2;
   numInputs  = 2;
 
 }
@@ -1484,49 +1484,49 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SparseGridData>
     (ca, "AbsoluteAccuracy", this, &SparseGridData::absAccuracy);
   new ClassDouble<SparseGridData>
-    (ca, "Output1Minimum", this, &SparseGridData::range1min);
+    (ca, "Input1Minimum", this, &SparseGridData::range1min);
   new ClassDouble<SparseGridData>
-    (ca, "Output1Maximum", this, &SparseGridData::range1max);
+    (ca, "Input1Maximum", this, &SparseGridData::range1max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase1", this, &SparseGridData::mapBaseValue1);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains1", this, &SparseGridData::numDomainDim1);
   new ClassDouble<SparseGridData>
-    (ca, "Output2Minimum", this, &SparseGridData::range2min);
+    (ca, "Input2Minimum", this, &SparseGridData::range2min);
   new ClassDouble<SparseGridData>
-    (ca, "Output2Maximum", this, &SparseGridData::range2max);
+    (ca, "Input2Maximum", this, &SparseGridData::range2max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase2", this, &SparseGridData::mapBaseValue2);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains2", this, &SparseGridData::numDomainDim2);
   new ClassDouble<SparseGridData>
-    (ca, "Output3Minimum", this, &SparseGridData::range3min);
+    (ca, "Input3Minimum", this, &SparseGridData::range3min);
   new ClassDouble<SparseGridData>
-    (ca, "Output3Maximum", this, &SparseGridData::range3max);
+    (ca, "Input3Maximum", this, &SparseGridData::range3max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase3", this, &SparseGridData::mapBaseValue3);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains3", this, &SparseGridData::numDomainDim3);
   new ClassDouble<SparseGridData>
-    (ca, "Output4Minimum", this, &SparseGridData::range4min);
+    (ca, "Input4Minimum", this, &SparseGridData::range4min);
   new ClassDouble<SparseGridData>
-    (ca, "Output4Maximum", this, &SparseGridData::range4max);
+    (ca, "Input4Maximum", this, &SparseGridData::range4max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase4", this, &SparseGridData::mapBaseValue4);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains4", this, &SparseGridData::numDomainDim4);
   new ClassDouble<SparseGridData>
-    (ca, "Output5Minimum", this, &SparseGridData::range5min);
+    (ca, "Input5Minimum", this, &SparseGridData::range5min);
   new ClassDouble<SparseGridData>
-    (ca, "Output5Maximum", this, &SparseGridData::range5max);
+    (ca, "Input5Maximum", this, &SparseGridData::range5max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase5", this, &SparseGridData::mapBaseValue5);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains5", this, &SparseGridData::numDomainDim5);
   new ClassDouble<SparseGridData>
-    (ca, "Output6Minimum", this, &SparseGridData::range6min);
+    (ca, "Input6Minimum", this, &SparseGridData::range6min);
   new ClassDouble<SparseGridData>
-    (ca, "Output6Maximum", this, &SparseGridData::range6max);
+    (ca, "Input6Maximum", this, &SparseGridData::range6max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase6", this, &SparseGridData::mapBaseValue6);
   new ClassInt<SparseGridData>
@@ -1536,7 +1536,7 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
   new ClassInt<SparseGridData>
     (ca, "NumberOfInputs",  this, &SparseGridData::numInputs);
   new ClassDouble<SparseGridData>
-    (ca, "DimAdaptDegree", this, &SparseGridData::dimAdaptDegree);
+    (ca, "DegreeDimAdapt", this, &SparseGridData::dimAdaptDegree);
 
 }
 
@@ -1562,10 +1562,6 @@ MultiFluidData::MultiFluidData()
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
 
-  // for buckling of cylinder
-  Prate = -1.0;
-  Pinit = -1.0;
-
 }
 
 //------------------------------------------------------------------------------
@@ -1576,9 +1572,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   ClassAssigner *ca = new ClassAssigner(name, 19, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
-             "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2,
-             "RealFluidMethod", 3);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
+             "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
   new ClassToken<MultiFluidData>(ca, "Problem", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
              "Bubble", 0, "ShockTube", 1);
@@ -1620,8 +1615,6 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
 
-  new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
-  new ClassDouble<MultiFluidData>(ca, "Pinit", this, &MultiFluidData::Pinit);
 }
 
 //------------------------------------------------------------------------------
@@ -2874,10 +2867,10 @@ Assigner *VolumeData::getAssigner()  {
 
   new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
-  new ClassInt<VolumeData> (ca, "FluidModelID", this, &VolumeData::fluidModelID);
+  new ClassInt<VolumeData> (ca, "FluidID", this, &VolumeData::fluidModelID);
 
   porousMedia.setup("PorousMedium", ca);
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -3061,6 +3054,21 @@ void OneDimensionalInfo::setup(const char *name){
 
 }
 
+//-----------------------------------------------------------------------------
+
+ImplosionSetup::ImplosionSetup() {
+  // for buckling of cylinder
+  Prate = -1.0;
+  Pinit = -1.0;
+}
+
+//-----------------------------------------------------------------------------
+
+void ImplosionSetup::setup(const char *name) {
+  ClassAssigner *ca = new ClassAssigner(name, 2, 0);
+  new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
+  new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+}
 
 //-----------------------------------------------------------------------------
 
@@ -3130,6 +3138,7 @@ void IoData::setupCmdFileVariables()
   volumes.setup("Volumes");
   embed.setup("EmbeddedFramework");
   oneDimensionalInfo.setup("OneDimensionalInfo");
+  implosion.setup("ImplosionSetup");
 }
 
 //------------------------------------------------------------------------------
@@ -3637,7 +3646,7 @@ int IoData::checkInputValuesAllEquationsOfState(){
       com->fprintf(stderr, "*** Error: FluidModel[0] must be specified for a multiphase flow simulation\n");
     }
   }
-  // if no map, then take the old style FluidModel
+  // if no map, then take the default FluidModel (cannot be user-specified!)
   if(eqs.numPhase == 0){
     error += checkInputValuesEquationOfState(eqs.fluidModel, -1);
     eqs.numPhase = 1;
@@ -3779,8 +3788,8 @@ void IoData::nonDimensionalizeAllInitialConditions(){
     }
   }
 
-  mf.Pinit /= ref.rv.pressure;
-  mf.Prate /= ref.rv.pressure/ref.rv.time;
+  implosion.Pinit /= ref.rv.pressure;
+  implosion.Prate /= ref.rv.pressure/ref.rv.time;
 
   // non-dimensionalize initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){

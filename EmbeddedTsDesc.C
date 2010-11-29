@@ -138,8 +138,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   nodeTag = 0;
 
   //only for IncreasePressure
-  Prate = ioData.mf.Prate;
-  Pinit = ioData.mf.Pinit;
+  Prate = ioData.implosion.Prate;
+  Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
