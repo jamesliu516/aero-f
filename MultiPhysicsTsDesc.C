@@ -42,8 +42,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   setupMultiPhaseFlowSolver(ioData);
 
   // only for IncreasePressure
-  Prate = ioData.mf.Prate;
-  Pinit = ioData.mf.Pinit;
+  Prate = ioData.implosion.Prate;
+  Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
@@ -570,7 +570,83 @@ void MultiPhysicsTsDesc<dim,dimLS>::getForcesAndMoments(DistSVec<double,dim> &U,
 //-------------------------------------------------------------------------------
 template<int dim, int dimLS>
 bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
-{ return true; }
+{
+
+  if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
+
+  if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
+//    this->com->fprintf(stdout, "max pressure reached\n"); 
+    return true;
+  }
+
+  // max pressure not reached, so we do not solve and we increase pressure and let structure react
+
+  // construct Wij, Wji from U. 
+  DistSVec<double,dim> VV(this->getVecInfo());
+  this->varFcn->conservativeToPrimitive(U,VV,this->fluidSelector.fluidId);
+  SubDomain **subD = this->domain->getSubDomain();
+
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+
+    for (int l=0; l<subWstarij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWstarij[l][k] = subVV[i][k];
+        subWstarji[l][k] = subVV[j][k];
+      }
+    }
+  }
+
+  if(this->mmh && !inSubCycling) {
+    //get structure timestep dts
+    this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
+    //recompute intersections
+    double tw = this->timer->getTime();
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+    this->timer->addIntersectionTime(tw);
+    this->timer->removeIntersAndPhaseChange(tw);
+    //updateFluidIdFS
+    this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
+    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+    this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
+                      //  is meaningful. We destroy it so people wouldn't use it
+                      //  by mistake later on.
+    //phase-change update
+    tw = this->timer->getTime();
+    switch(this->phaseChangeChoice) {
+      case 0:
+        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+                                                       *this->VWeights, this->Phi, this->PhiWeights, this->distLSS,
+                                                       this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
+        break;
+      case 1:
+        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
+                                                       *this->Wstarji, *this->Weights, *this->VWeights,
+                                                       this->Phi, this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
+                                                       this->fluidSelector.fluidId);
+        break;
+    }
+    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights),
+                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
+                                              // Vtemp should have been filled in with primitive state
+    this->timer->addEmbedPhaseChangeTime(tw);
+    this->com->barrier();
+    this->timer->removeIntersAndPhaseChange(tw);
+  }
+
+  this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
+  this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, *(this->fluidSelector.fluidId));
+
+  return false;
+
+}
 //-------------------------------------------------------------------------------
 
 

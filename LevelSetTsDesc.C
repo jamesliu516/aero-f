@@ -49,8 +49,8 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   frequencyLS = ioData.mf.frequency;
   interfaceType = ioData.mf.interfaceType;
 
-  Prate = ioData.mf.Prate;
-  Pinit = ioData.mf.Pinit;
+  Prate = ioData.implosion.Prate;
+  Pinit = ioData.implosion.Pinit;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
   requireSpecialBDF = false;
