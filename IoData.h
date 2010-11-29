@@ -865,8 +865,6 @@ struct MultiFluidData {
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
 
-  double Prate, Pinit;
-
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
@@ -1692,6 +1690,15 @@ struct OneDimensionalInfo {
 };
 //------------------------------------------------------------------------------
 
+struct ImplosionSetup {
+  double Prate, Pinit;
+  ImplosionSetup();
+  ~ImplosionSetup() {}
+  void setup(const char *);
+};
+
+//------------------------------------------------------------------------------
+
 class IoData {
 
   char *cmdFileName;
@@ -1727,6 +1734,7 @@ public:
   Volumes volumes;
   EmbeddedFramework embed;
   OneDimensionalInfo oneDimensionalInfo;
+  ImplosionSetup implosion;
 
 public:
 

@@ -95,6 +95,13 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
     com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
     LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
   }
+  else if (ioData.eqs.numPhase == 4){
+    com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
+    LevelSetSolver<5,3>::solve(ioData, geoSource, domain);
+  }
+  else{
+    com->fprintf(stdout, "*** Error: a Multi(%d)-Phase Flow simulation cannot be done yet\n", ioData.eqs.numPhase);
+  }
 }
 
 //------------------------------------------------------------------------------
