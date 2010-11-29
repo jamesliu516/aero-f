@@ -330,8 +330,8 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,di
 template<int dim,int dimLS>
 int ImplicitMultiPhysicsTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
 {
-  this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
-/*
+//  this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
+
   if (!this->failSafeNewton) return 0;
 
   if (!this->tag)
@@ -341,7 +341,7 @@ int ImplicitMultiPhysicsTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U
   this->multiPhaseSpaceOp->fix(*this->tag);
 
   return 1;
-*/
+
 }
 
 //------------------------------------------------------------------------------

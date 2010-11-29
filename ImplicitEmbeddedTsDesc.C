@@ -322,18 +322,18 @@ void ImplicitEmbeddedTsDesc<dim>::recomputeFunction(DistSVec<double,dim> &Q,
 template<int dim>
 int ImplicitEmbeddedTsDesc<dim>::checkFailSafe(DistSVec<double,dim>& U)
 {
-  this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
-/*
+//  this->com->fprintf(stdout, "WARNING: At the moment CheckFailSafe is not supported by the embedded framework with an implicit time-integrator!\n");
+
   if (!this->failSafeNewton) return 0;
 
   if (!this->tag)
     this->tag = new DistSVec<bool,2>(this->getVecInfo());
 
-  this->domain->checkFailSafe(this->varFcn, U, *this->tag, this->fluidSelector.fluidId);
-  this->multiPhaseSpaceOp->fix(*this->tag);
+  this->domain->checkFailSafe(this->varFcn, U, *this->tag);
+  this->spaceOp->fix(*this->tag);
 
   return 1;
-*/
+
 }
 
 //------------------------------------------------------------------------------

@@ -1090,7 +1090,7 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
 {
 
   data->update();
@@ -1099,7 +1099,11 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
     *Unm2 = *Unm1;
     data->exist_nm2 = true;
   }
-  if (data->use_nm1) {
+  // If we are increasing the fluid pressure there is
+  // no relation between Un and Unm1; thus data->exist_nm1
+  // should still be false.  This way when we start the fluid
+  // solution startup will be done as necessary.
+  if (data->use_nm1 && !increasingPressure) {
     *Unm1 = *Un;
     data->exist_nm1 = true;
   }

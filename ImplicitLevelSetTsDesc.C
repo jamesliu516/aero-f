@@ -206,7 +206,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,dim> &
 template<int dim, int dimLS>
 int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
 {
-  fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
+  //fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
 
   if (!this->failSafeNewton) return 0;
 
@@ -216,7 +216,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
   this->domain->checkFailSafe(this->varFcn, U, *this->tag, this->fluidSelector.fluidId);
   this->multiPhaseSpaceOp->fix(*this->tag);
 
-  return 1;
+  return this->failSafeNewton;
 
 }
 

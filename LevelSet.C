@@ -430,7 +430,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
       for (int i=0; i<Phi.subSize(iSub); i++)
         psi[i][0] = phi[i][idim];
     }
-    com->fprintf(stdout, "reinitializing phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
+    //com->fprintf(stdout, "reinitializing phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // initialize Psi
     Psi = 1.0;
@@ -464,7 +464,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     }
 
     domain->getSignedDistance(idim,Psi,Phi);
-    com->fprintf(stdout, "after reinitialization of phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
+    //com->fprintf(stdout, "after reinitialization of phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // set Phi to the new distance function
 #pragma omp parallel for

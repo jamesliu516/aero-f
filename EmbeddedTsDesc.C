@@ -179,6 +179,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       break;
     }
 
+  increasingPressure = false;
+
 }
 
 
@@ -320,7 +322,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
-  this->timeState->update(U); 
+  this->timeState->update(U,increasingPressure); 
 }
 
 //-----------------------------------------------------------------------------
@@ -556,12 +558,15 @@ template<int dim>
 bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
 {
 
+  increasingPressure = false;
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
 //    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   } 
+
+  increasingPressure = true;
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
   

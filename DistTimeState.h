@@ -95,7 +95,7 @@ public:
   void setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
-  void update(DistSVec<double,dim> &);
+  void update(DistSVec<double,dim> &,bool increasingPressure = false);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               DistExactRiemannSolver<dim> *riemann);
 

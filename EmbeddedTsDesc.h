@@ -37,6 +37,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
 
+  bool increasingPressure;
+ 
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
   double dtfLeft; //<! time until next structure time-step is reached.
