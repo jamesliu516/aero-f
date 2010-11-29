@@ -991,7 +991,7 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
   if(!twoPhase) {
     com->globalMax(1,&subdXing);
     if(subdXing) { //this happens if the structure is entering/leaving a subdomain. Rarely happens but needs to be delt with...
-      com->fprintf(stderr,"FS Interface entering/leaving a subdomain...\n");
+//      com->fprintf(stderr,"FS Interface entering/leaving a subdomain...\n");
       finalizeStatus(); //contains a local communication
     }
 #pragma omp parallel for
@@ -1403,7 +1403,8 @@ void DistIntersectorFRG::finalizeStatus()
 //      if(intersector[iSub]->locToGlobNodeMap[i]+1==151870)
 //        fprintf(stderr,"After Assemble: CPU%d: status/weight of 151870 is %d/%d...\n", com->cpuNum(), status_and_weight(iSub)[i][0],status_and_weight(iSub)[i][1]);
       if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) {
-        (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
+        if(status_and_weight(iSub)[i][1]!=0)
+          (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
 
         if((*status)(iSub)[i]<=0 || (*status)(iSub)[i]>numFluid)
           fprintf(stderr,"ERROR: failed at determining status for node %d. Structure may have crossed two or more layers of nodes in one time-step!\n", 
