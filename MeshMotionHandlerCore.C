@@ -1665,6 +1665,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 
   else if(it==it0) {
     dynNodalTransfer->sendForce(); //send force to structure
+    dynNodalTransfer->updateInfo(); // PJSA 11/24/2010
     dts = dynNodalTransfer->getStructureTimeStep();
   }
 
