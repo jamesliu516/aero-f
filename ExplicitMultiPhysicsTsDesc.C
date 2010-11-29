@@ -71,7 +71,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   }
   // populate ghost nodes (only for Navier-Stokes.)
   populateGhostPointsForNavierStokes(U);
-  // evolve the fluid equation using FE, RK2, or potentially RK4
+  // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
   // evolve the level-set equation using FE, RK2, or RK4.
   solveNLLevelSet(U);
@@ -113,8 +113,8 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFS(DistSVec<double,
       break;
     case 1:
       this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij,
-                                                     *this->Wstarji, *this->Weights, *this->VWeights, this->Phi,
-                                                     this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
+                                                     *this->Wstarji, *this->Weights, *this->VWeights,
+                                                     this->Phi, this->PhiWeights, this->distLSS, this->fluidSelector.fluidIdn,
                                                      this->fluidSelector.fluidId);
       break;
   }

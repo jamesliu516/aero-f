@@ -878,6 +878,12 @@ public:
                       SVec<double,dim> &Wstarji, SVec<double,dim> &VWeights, Vec<double> &Weights,
                       LevelSetStructure &LSS, SVec<double,3> &X);
 
+  template<int dim, int dimLS>
+  void computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double,dim> &Wstarij,
+                      SVec<double,dim> &Wstarji, SVec<double,dim> &VWeights, Vec<double> &Weights,
+                      SVec<double,dimLS> &Phi, SVec<double,dimLS> &PhiWeights, 
+                      LevelSetStructure &LSS, SVec<double,3> &X, Vec<int> &fluidId0, Vec<int> &fluidId);
+
   template<int dim>
   void storeGhost(SVec<double,dim> &, SVec<double,dim> &, Vec<double> &);
 

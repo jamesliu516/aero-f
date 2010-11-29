@@ -16,3 +16,11 @@ LevelSetSolver<5,2>::
 {
   startLevelSetSolver<5,2>(ioData, geoSource, domain);
 }
+
+template <>
+void
+LevelSetSolver<5,3>::
+  solve(IoData &ioData, GeoSource &geoSource, Domain &domain)
+{
+  startLevelSetSolver<5,3>(ioData, geoSource, domain);
+}
