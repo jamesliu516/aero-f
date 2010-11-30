@@ -16,7 +16,6 @@
 using std::min;
 #endif
 
-
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
 #else

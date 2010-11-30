@@ -13,6 +13,7 @@
 #include <GeoState.h>
 #include "LevelSet/LevelSetStructure.h"
 
+
 //------------------------------------------------------------------------------
 //--------------functions in ElemSet class
 //------------------------------------------------------------------------------
@@ -66,10 +67,9 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
-
-  for (int i=0; i<numElems; ++i)
+  for (int i=0; i<numElems; ++i) {
     elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-
+  }
 }
 
 //------------------------------------------------------------------------------

@@ -210,7 +210,6 @@ public:
   int sourceIsLocal(int channel) { return glSubToCPU[allPairs[channel].from] == cpuNum; }
   bool isSubLocal(int sub) { return glSubToCPU[sub] == cpuNum; }
   int locSubNum(int sub) { return glSubToLocal[sub]; }
-
 };
 
 //------------------------------------------------------------------------------
