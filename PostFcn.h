@@ -56,6 +56,13 @@ public:
 					   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
 		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+  {
+    fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3], 
 	double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
 
@@ -113,6 +120,13 @@ public:
   virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+  {
+    fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
@@ -160,6 +174,9 @@ public:
 				   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3]);
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
                 double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
