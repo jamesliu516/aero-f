@@ -647,7 +647,8 @@ void ElemTet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
 template<int dim, class Scalar, int neq>
 void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 					  Vec<double> &ctrlVol, Vec<double> &d2wall, 
-					  SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                          Vec<GhostPoint<dim> *> *ghostPoints)
 {
 
   double dp1dxj[4][3];
@@ -656,6 +657,15 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
   double d2w[4] = {d2wall[nodeNum(0)], d2wall[nodeNum(1)],
                    d2wall[nodeNum(2)], d2wall[nodeNum(3)]};
   double *v[4] = {V[nodeNum(0)], V[nodeNum(1)], V[nodeNum(2)], V[nodeNum(3)]};
+  if(ghostPoints)
+  {
+   GhostPoint<dim> *gp;
+   for(int i=0;i<4;++i)
+   {
+    gp = ghostPoints->operator[](nodeNum(i)); 
+    if(gp) v[i] = gp->getPrimitiveState();
+   }
+  }
 
   double dRdU[4][3][neq*neq], dSdU[4][neq*neq], dPdU[4][4][neq*neq];
   bool porousTermExists = fet->computeJacobianVolumeTerm(dp1dxj, d2w, v, reinterpret_cast<double *>(dRdU),

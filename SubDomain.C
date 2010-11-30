@@ -1817,15 +1817,14 @@ void SubDomain::computeMutOMuDynamicLES(DynamicLESTerm *dles, SVec<double,2> &Cs
 }
 
 //--------------------------------------------------------------------------
-
 template<int dim, class Scalar, int neq>
 void SubDomain::computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 					    GeoState &geoState, SVec<double,3> &X,
 					    Vec<double> &ctrlVol, SVec<double,dim> &V,
-					    GenMat<Scalar,neq> &A)
+					    GenMat<Scalar,neq> &A,Vec<GhostPoint<dim>*>* ghostPoints)
 {
 
-  elems.computeJacobianGalerkinTerm(fet, geoState, X, ctrlVol, V, A);
+  elems.computeJacobianGalerkinTerm(fet, geoState, X, ctrlVol, V, A, ghostPoints);
 
   faces.computeJacobianGalerkinTerm(elems, fet, bcData, geoState, X, ctrlVol, V, A);
 

@@ -1268,11 +1268,11 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     *irey = 0.0;
   }
 
-
-  // Skip viscous for now
-  // if (fet) {
-  //   domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
-  // }
+  if (fet) {
+    domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints);
+  }
+  //if (fet)
+  //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
                                           X, *V, LSS, fluidId, Nriemann, Nsbar, A,*irey);

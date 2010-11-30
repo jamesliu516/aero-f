@@ -599,10 +599,11 @@ public:
   void computedWBar_dt(DistSVec<double, dim> &, DistSVec<double, dim> &, DistMacroCellSet *, DistSVec<double,1> **, int);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *, DistBcData<dim> &,
-				   DistGeoState &, DistSVec<double,3> &,
-				   DistVec<double> &, DistSVec<double,dim> &,
-				   DistMat<Scalar,neq> &);
+  void computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
+					 DistGeoState &geoState, DistSVec<double,3> &X,
+					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
+					 DistMat<Scalar,neq> &A,
+                                         DistVec<GhostPoint<dim>*> *ghostPoints=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianVolumicForceTerm(VolumicForceTerm *, DistVec<double> &,
