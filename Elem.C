@@ -173,16 +173,18 @@ void ElemSet::computeDynamicLESTerm(DynamicLESTerm *dles, SVec<double,2> &Cs,
 }
 
 //------------------------------------------------------------------------------
+
 template<int dim, class Scalar, int neq>
 void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 					  SVec<double,3> &X, Vec<double> &ctrlVol,
-					  SVec<double,dim> &V, GenMat<Scalar,neq> &A)
+					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                          Vec<GhostPoint<dim>*>* ghostPoints)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A);
+    elems[i]->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A, ghostPoints);
 
 }
 

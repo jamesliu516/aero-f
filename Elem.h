@@ -179,7 +179,8 @@ public:
   virtual 
   void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
 				   Vec<double> &, Vec<double> &, 
-				   SVec<double,dim> &, GenMat<Scalar,neq> &) = 0;
+				   SVec<double,dim> &, GenMat<Scalar,neq> &,
+                                   Vec<GhostPoint<dim>*>*gp=0) = 0;
   
   virtual 
   void computeFaceJacobianGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 
@@ -301,8 +302,9 @@ public:
   
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 				   Vec<double> &ctrlVol, Vec<double> &d2wall, 
-				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
-    t->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A);
+				   SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+				   Vec<GhostPoint<dim>*> *gp=0) {
+    t->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A,gp);
   }
   
   void computeFaceJacobianGalerkinTerm(FemEquationTerm *fet, int face[3], int code, 
@@ -561,12 +563,13 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 				   Vec<double> &ctrlVol, Vec<double> &d2wall, 
-				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
+				   SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+				   Vec<GhostPoint<dim>*> *gp=0) {
     ElemHelper_Scalar_dim_neq<Scalar, dim, neq> h;
     char xx[64];
     GenElemWrapper_Scalar_dim_neq<Scalar, dim, neq> *wrapper=
       (GenElemWrapper_Scalar_dim_neq<Scalar, dim, neq> *)getWrapper_Scalar_dim_neq(&h, 64, xx);
-    wrapper->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A);
+    wrapper->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A,gp);
   }
   
   template<int dim, class Scalar, int neq>
@@ -716,11 +719,11 @@ public:
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
 
-
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
-				   Vec<double> &ctrlVol, Vec<double> &d2wall, 
-				   SVec<double,dim> &V, GenMat<Scalar,neq> &A) {
+  void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
+				   Vec<double> &, Vec<double> &, 
+				   SVec<double,dim> &, GenMat<Scalar,neq> &,
+                                   Vec<GhostPoint<dim>*> *gp=0) {
     fprintf(stderr, "Error: undefined function for this elem type\n"); exit(1);
   }
   
@@ -835,8 +838,10 @@ public:
                              SVec<double,8> &, SVec<double,3> &, SVec<double,dim> &, double, double);
 
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *, GeoState &, SVec<double,3> &,
-				   Vec<double> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
+  void computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
+					  SVec<double,3> &X, Vec<double> &ctrlVol,
+					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
+                                          Vec<GhostPoint<dim>*>* ghostPoints=0);
     
 // Included (MB)
   template<int dim>
