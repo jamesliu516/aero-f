@@ -737,6 +737,16 @@ public:
   template<class Scalar, int dim>
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
 
+  template<int dim>
+  void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+
+  template<int dim>
+  void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
 

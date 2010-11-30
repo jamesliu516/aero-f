@@ -14,13 +14,13 @@ template<class Scalar> class Vec;
 
 template<int dim>
 class GhostPoint {
+ public:
   Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
   int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
   // After all GP have been populated, Vg /= ng and ng=1.
   int ghostTag; // We store here the tag of the surrounding nodes. All the tags of the neighbours 
   // should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
   // Interaction, this might be no longer true. To be done...
- public:
   ~GhostPoint() {};
  GhostPoint() :
   Vg(dim)
@@ -29,6 +29,26 @@ class GhostPoint {
     Vg = 0.0;
     ghostTag = -2; // Inactive nodes tag
   }
+  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
+    {
+      Vg = GP.Vg;
+      ng = GP.ng;
+      ghostTag = GP.ghostTag;
+      return *this;
+    }
+  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP)
+    {
+      if(ghostTag<0) ghostTag = GP.ghostTag;
+      else if(ghostTag != GP.ghostTag) 
+	{
+	  fprintf(stderr,"The two ghost States refer to different Fluids\n");
+	  fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
+	  exit(-1);
+	}
+      Vg += GP.Vg;
+      ng += GP.ng;
+      return *this;
+    }
   void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag)
   {
     // Ui is the state at the neighbour. 

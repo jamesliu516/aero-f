@@ -2765,7 +2765,9 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    {
+      subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
 }
 //------------------------------------------------------------------------------
@@ -2777,18 +2779,47 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const Op
   int iSub;
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
-  }
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
   commPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
+    {
+      subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
+    }
 
 }
 
+//------------------------------------------------------------------------------
+template<int dim>
+void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
+{
+  int iSub;
+  // Adam 2010.10.27
+  // Caution, the order of the calls matters, because a ghost point can lie on a domain boundary, 
+  // in which case we may want to create its state after during the exchange. The Ghost weight is 
+  // going to be used as a parameter.
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub));
+    }
+
+  volPat->exchange();
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      subDomain[iSub]->rcvGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub));
+    }
+}
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -3336,6 +3367,10 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
     {
       subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub),U(iSub),varFcn,(*distLSS)(iSub),tag(iSub));
     }
+
+  // Adam 2010.10.26
+  assembleGhostPoints(*ghostPoints);
+
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
       subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub));

@@ -2750,6 +2750,104 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void SubDomain::sndGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+
+  double *v;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    double (*buffer)[dim] = reinterpret_cast<double (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  v = ghostPoints[ (*sharedNodes)[iSub][iNode] ]->getPrimitiveState();
+	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = v[j];
+	}
+      else 
+	{
+	  // It can happened that all the edges containing the ghostPoint are not master in this SubDomain.
+	  // In which case we do not want to send garbage.
+	  for (int j = 0; j < dim; ++j) buffer[iNode][j] = 0.0;
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::sndGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.getSendBuffer(sndChannel[iSub]);
+    double (*buffer)[1] = reinterpret_cast<double (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  buffer[iNode][0] = double(ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng);
+	}
+      else 
+	{
+	  buffer[iNode][0] = 0.0;
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rcvGhostStates(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  GhostPoint<dim> *gp;
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.recData(rcvChannel[iSub]);
+    double (*buffer)[dim] = reinterpret_cast<double (*)[dim]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+
+      if(ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  gp = ghostPoints[ (*sharedNodes)[iSub][iNode] ];
+	  for (int j = 0; j < dim; ++j)  
+	    {
+	      gp->Vg[j] += buffer[iNode][j];
+	    }
+	}
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::rcvGhostWeights(CommPattern<double> &sp, Vec<GhostPoint<dim>*> &ghostPoints)
+{
+  for (int iSub = 0; iSub < numNeighb; ++iSub) {
+
+    SubRecInfo<double> sInfo = sp.recData(rcvChannel[iSub]);
+    double (*buffer)[1] = reinterpret_cast<double (*)[1]>(sInfo.data);
+
+    for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode) {
+      if( buffer[iNode][0] < 1e-14) continue; // if the weight is zero, the whole buffered state is gonna be zero.
+      if(!ghostPoints[ (*sharedNodes)[iSub][iNode] ])
+	{
+	  ghostPoints[ (*sharedNodes)[iSub][iNode] ] = new GhostPoint<dim>;
+	}  
+      ghostPoints[ (*sharedNodes)[iSub][iNode] ]->ng += int(buffer[iNode][0]);    
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
 template<class Scalar, int dim, class OpType>
 void SubDomain::operateRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim], const OpType &oper)
 {
@@ -4525,7 +4623,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
 	      if(!ghostPoints[j]) // GP has not been created
 		{ghostPoints[j]=new GhostPoint<dim>;}
-	      ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
 	    }
 	  if(jIsActive)
 	    {
@@ -4533,7 +4632,8 @@ void SubDomain::populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<doub
 	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
 	      if(!ghostPoints[i]) // GP has not been created
 		{ghostPoints[i]=new GhostPoint<dim>;}
-	      ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);}
 	    }
 	}
     } 

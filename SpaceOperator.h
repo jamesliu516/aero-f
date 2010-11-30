@@ -126,6 +126,7 @@ public:
   void resetTag();
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
+  void conservativeToPrimitive(DistSVec<double,dim> &U) {varFcn->conservativeToPrimitive(U, *V);}
 
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
