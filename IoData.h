@@ -1764,6 +1764,7 @@ public:
   void nonDimensionalizeInitialConditions(InitialConditions &initialConditions);
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
+  int checkInputValuesEmbeddedFramework();
   void printDebug();
 
 };
