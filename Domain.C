@@ -2759,11 +2759,11 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
-    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
-  }
+      subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
   commPat->exchange();
-
+  
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
     {
@@ -3376,8 +3376,6 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
     {
       subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub));
     }
-  
-
 }
 //------------------------------------------------------------------------------
 

@@ -94,7 +94,6 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   // dts is structural time step
   double dt, dts;
-
   int it = probDesc->getInitialIteration();
   double t = probDesc->getInitialTime();
   // setup solution output files
@@ -120,6 +119,8 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       itSc++;
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
+
+
 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
