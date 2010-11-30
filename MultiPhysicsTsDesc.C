@@ -540,7 +540,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
   double t0 = this->timer->getTime();
   for (int i=0; i<numStructNodes; i++)
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn()); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
