@@ -1551,7 +1551,7 @@ MultiFluidData::MultiFluidData()
   riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
-  bandlevel = 3;
+  bandlevel = 5;
   subIt = 10; //hidden
   cfl = 0.7; //hidden
   frequency = 0;

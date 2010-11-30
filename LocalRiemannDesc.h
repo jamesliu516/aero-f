@@ -2105,7 +2105,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double function[2];
   double increment[2];
   bool convergence = false;
-  double eps = 1.e-4;
+  double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
   double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1

@@ -52,6 +52,7 @@ Domain::Domain()
   levelPat = 0;
   weightPat = 0;
   edgePat = 0;
+  scalarEdgePat = 0;
   momPat = 0;
   csPat = 0;
   engPat = 0;

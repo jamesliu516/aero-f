@@ -49,34 +49,50 @@ public:
   void tabulate(IoData & ioData){
     srand(time(NULL));
 
+    com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- started\n");
+
     if(ioData.mf.riemannComputation == MultiFluidData::TABULATION2){
 
       double *refIn = new double[2]; double *refOut = new double[1];
       refIn[0] = ioData.ref.rv.density;
       refIn[1] = ioData.ref.rv.entropy;
       refOut[0] = ioData.ref.rv.velocity;
-      com->fprintf(stdout, "refIn/refOut are %e %e / %e\n", refIn[0], refIn[1], refOut[0]);
+      //com->fprintf(stdout, "refIn/refOut are %e %e / %e\n", refIn[0], refIn[1], refOut[0]);
 
       double *parameters = new double[2];
       parameters[0] = 1.0;
       parameters[1] = ioData.eqs.fluidModel.jwlModel.rhoref;
 
-      if(true){
+      if(false){ // for testing SparseGrid structure with Riemann Invariants of JWL EOS
         SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
         com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 2\n");
         //sparseGrid.tabulate(functionTest);
         //sparseGrid.tabulate(&SparseGridGeneratorDesc::memberFunctionTest,*this);
         sparseGrid.tabulate(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl);
         sparseGrid.printToFile(refIn, refOut, ioData.output.transient.sparseGrid);
+        com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 3\n");
+        SparseGrid sparseGridCopy;
+        sparseGridCopy.readFromFile(refIn, refOut, ioData.output.transient.sparseGrid);
+        int number = 5;
+        sparseGridCopy.test(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, 2, &number, parameters);
       }
-      com->fprintf(stdout, "### SparseGridGeneratorDesc::tabulate -- 3\n");
 
+      // actual SparseGrids tabulation
+      SparseGridCluster sgCluster;
+      sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);
+
+      // test the first tabulation of the cluster
+      com->barrier();
       SparseGrid sparseGridCopy;
-      sparseGridCopy.readFromFile(refIn, refOut, ioData.output.transient.sparseGrid);
+      int filenameLength = strlen(ioData.output.transient.sparseGrid);
+      char ifilename[filenameLength+1];
+      sprintf(ifilename, "%s%d", ioData.output.transient.sparseGrid, com->cpuNum()+1);
+      sparseGridCopy.readFromFile(refIn, refOut, ifilename);
       int number = 5;
-      sparseGridCopy.test(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, 2, &number, parameters);
+      sparseGridCopy.test(&LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper,*lriemannGasJwl, 1, &number, parameters);
 
       delete [] refIn; delete [] refOut; delete [] parameters;
+
     }else if(ioData.mf.riemannComputation == MultiFluidData::TABULATION5){
       double *parameters = NULL;
       double *refIn = new double[5]; double *refOut = new double[2]; // 2outputs
@@ -87,9 +103,9 @@ public:
       refIn[4] = ioData.ref.rv.velocity;
       refOut[0] = ioData.ref.rv.density;
       refOut[1] = ioData.ref.rv.density; // 2outputs
-      com->fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
+      //com->fprintf(stdout, "refIn are %e %e %e\n", refIn[0],refIn[4],refIn[1]);
 
-///*
+/*
       SparseGrid sparseGrid(ioData.mf.sparseGrid, parameters, refIn, refOut);
       if(true){
         sparseGrid.tabulate(&LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl);
@@ -104,7 +120,7 @@ public:
 
       if(true)
         sparseGridCopy.test(&LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl,2,&numTest, parameters);
-//*/
+*/
 
       SparseGridCluster sgCluster;
       sgCluster.generate(ioData.mf.sparseGrid, parameters, &LocalRiemannGfmparGasJWL::eriemanngj_wrapper,*lriemannGasJwl, ioData.output.transient.sparseGrid, refIn, refOut, com);

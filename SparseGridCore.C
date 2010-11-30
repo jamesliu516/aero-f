@@ -689,10 +689,10 @@ void SparseGrid::scaleGrid(const double *refIn, const double *refOut, int output
   }
 
   if(outputRangeFlag==0){
-  fprintf(stdout, "%d SparseGrid range = ", outputRangeFlag);
-  for(int idim=0; idim<dim; idim++)
-    fprintf(stdout, "[%e %e] ", range[idim][0],range[idim][1]);
-  fprintf(stdout, "\n");
+    fprintf(stdout, "SparseGrid range = {");
+    for(int idim=0; idim<dim; idim++)
+      fprintf(stdout, "[%e %e] ", range[idim][0],range[idim][1]);
+    fprintf(stdout, "}\n");
   }
 
 }
