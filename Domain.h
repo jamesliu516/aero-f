@@ -878,8 +878,20 @@ public:
   void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int,
                                DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
   template<int dim>
+  void computeCVBasedForceLoadViscous(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
+				      double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &V, 
+				      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistNodalGrad<dim, double> *ngrad);
+  template<int dim>
   void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
                                     DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
+  template<int dim>
+  void computeRecSurfBasedForceLoadViscous(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
+					   double, DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
+					   PostFcn *postFcn);
+  template<int dim>
+    void computeRecSurfBasedForceLoadNew(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
+					DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
+					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
   template<int dim>
   void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
 

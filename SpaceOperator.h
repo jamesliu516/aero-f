@@ -327,9 +327,10 @@ public:
   //);
 
 
-  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji);
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0);
 };
 
 //------------------------------------------------------------------------------

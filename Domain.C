@@ -2757,7 +2757,8 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
   int iSub;
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
     subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
   }
 
@@ -3564,6 +3565,40 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
     }
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
+					    DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
+					    DistLevelSetStructure *distLSS,double pInfty,
+					    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					    DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints, 
+					    PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeCVBasedForceLoadViscous(forceApp, orderOfAccuracy, geoState(iSub), X(iSub), subFs[iSub],
+						    sizeFs, (*distLSS)(iSub), pInfty, Wstarij(iSub), Wstarji(iSub),
+						    V(iSub),gp,postFcn,(*ngrad)(iSub));
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
 //-------------------------------------------------------------------------------
 
 template<int dim>
@@ -3585,6 +3620,70 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
     subDomain[iSub]->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
                                                   (*distLSS)(iSub), pstarij(iSub), pstarji(iSub), pInfty);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeRecSurfBasedForceLoadViscous(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+						 double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+						 double pInfty, DistSVec<double,dim> &V, 
+						 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    gp     = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeRecSurfBasedForceLoadViscous(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
+							 (*distLSS)(iSub), pInfty, V(iSub), gp, postFcn);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
+//-------------------------------------------------------------------------------
+// This one should replace the two previous ones.
+template<int dim>
+void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+					     double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
+					     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					     DistSVec<double,dim> &V, 
+					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeRecSurfBasedForceLoadNew(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
+						     (*distLSS)(iSub), pInfty, 
+						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];

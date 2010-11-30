@@ -1716,20 +1716,42 @@ void SpaceOperator<dim>::computeDerivativeOfGradP
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
-                                          double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
+void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+					  DistVec<double> &ctrlVol, double (*Fs)[3], int sizeFs, 
+					  DistLevelSetStructure *distLSS,
+					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					  DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
 {
   double pinternal = iod->aero.pressure;
-
-  if (forceApp==1 || forceApp==2)
-    domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
+  
+  switch (forceApp)
+    {
+    case 1: // Kevin's Old Integration - Control Volume Boundaries
+      domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
                                     sizeFs, distLSS, Wstarij, Wstarji, pinternal);
-  else if (forceApp==3 || forceApp==4)
-    domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
-                                         sizeFs, distLSS, Wstarij, Wstarji, pinternal);
-  else {fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); exit(-1);}
-
+      break;
+    case 2: // New Method - Control Volume Boundaries
+      if(orderOfAccuracy>1) ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true);
+      domain->computeCVBasedForceLoadViscous(forceApp, orderOfAccuracy, *geoState, X, Fs,
+						sizeFs, distLSS, pinternal, Wstarij, Wstarji,
+						*V,ghostPoints,postFcn,ngrad);
+      break;
+    case 3: // Kevin's Old Integration - Reconstructed Surface
+      domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
+					   sizeFs, distLSS, Wstarij, Wstarji, pinternal);
+      break;
+    case 4: // New Method - Reconstructed Surface
+      // To be deleted once everything is working properly
+      //      domain->computeRecSurfBasedForceLoadViscous(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+      //						  distLSS,pinternal,*V,ghostPoints,postFcn); 
+      // ghostPoints should be a null pointer when not used
+      domain->computeRecSurfBasedForceLoadNew(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+					      distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn);
+      break;
+    default:
+      fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
+      exit(-1);
+    }
 }
 
 //------------------------------------------------------------------------------

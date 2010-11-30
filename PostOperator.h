@@ -141,6 +141,8 @@ public:
   int getNumSurfHF() { return numSurfHF; }
   map<int, int> &getSurfMapHF() { return surfOutMapHF; }
 
+  PostFcn* getPostFcn() {return postFcn;}
+  
 
 // Included (MB)
   void computeDerivativeOfScalarQuantity(PostFcn::ScalarDerivativeType, double [3], DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistTimeState<dim> *);
