@@ -217,12 +217,12 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
 
       switch(this->phaseChangeChoice) {
       case 0:
-        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Weights,
+        this->multiPhaseSpaceOp->computeWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Weights,
                                                          *this->VWeights, this->Phi,this->PhiWeights,this->distLSS,
                                                          this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
         break;
       case 1:
-        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, U, this->Vtemp, *this->Wstarij_nm1,
+        this->multiPhaseSpaceOp->computeRiemannWeightsForEmbeddedStruct(*this->X, Unm1, this->Vtemp, *this->Wstarij_nm1,
                                                          *this->Wstarji_nm1, *this->Weights, *this->VWeights,
                                                          this->Phi, this->PhiWeights, this->distLSS,
                                                          this->fluidSelector.fluidIdn, this->fluidSelector.fluidId);
@@ -248,8 +248,10 @@ void ImplicitMultiPhysicsTsDesc<dim,dimLS>::commonPart(DistSVec<double,dim> &U)
       *this->Wstarji_nm1 = *this->Wstarji;
       this->existsWstarnm1 = true;
     }
-  
+ 
   }
+
+  *this->fluidSelector.fluidIdn = *this->fluidSelector.fluidId;
 
   // Ghost-Points Population
 /*  if(this->eqsType == TsDesc<dim>::NAVIER_STOKES)

@@ -2820,6 +2820,15 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     return;
   }
 
+  if (p < 0.0) {
+    fprintf(stderr,"Warning: pressure (%lf) in fs_grad is < 0!\n",p);
+    p = 1.0e-8;
+  } 
+  if (rho < 0.0) {
+    fprintf(stderr,"Warning: density (%lf) in fs_grad is < 0!\n",rho);
+    rho = 1.0e-8;
+  }
+
   double q = (gamma-1.0)/(gamma+1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
@@ -2827,7 +2836,11 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
-    double eta = pbar*power*pow(0.5*(gamma-1.0)*(ui-u)/a + 1.0,q);
+    double s = 0.5*(gamma-1.0)*(ui-u)/a + 1.0;
+//    if (s < 0.0) {
+//      fprintf(stderr,"Warning: s (%lf) in fs_grad is < 0!\n",s);
+//    }
+    double eta = pbar*power*pow(s*s,q*0.5);
     double xi = eta*(-0.5/(a*a)*(gamma-1.0)*(ui-u));
  
     double dadp = 0.5/a*(gamma/rho), dadrho = -0.5*a/rho;

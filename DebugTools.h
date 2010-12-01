@@ -1,5 +1,14 @@
 // DebugTools.h
 // Class with various tools for debugging
+#ifndef _DEBUG_TOOLS_H_
+#define _DEBUG_TOOLS_H_
+
+#ifdef GCCBACKTRACE
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+#endif
+
 
 class DebugTools {
 
@@ -31,4 +40,28 @@ class DebugTools {
     }
   }
 
+  static void PrintBacktrace() {
+
+#ifdef GCCBACKTRACE
+     void *array[100];
+     size_t size;
+     char **strings;
+     size_t i;
+     
+     size = backtrace (array, 100);
+     strings = backtrace_symbols (array, size);
+     
+     fprintf (stderr,"Backtrace from current location:\n"
+                     "-----------------------------\n"
+                     "Obtained %zd stack frames.\n", size);
+     
+     for (i = 0; i < size; i++)
+        fprintf (stderr,"%s\n", strings[i]);
+     
+     free (strings);
+#endif
+   }
+
 };
+
+#endif

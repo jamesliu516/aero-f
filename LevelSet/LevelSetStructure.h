@@ -73,6 +73,10 @@ class LevelSetStructure {
         for(int i = 0; i < phi.size(); ++i)
             phi[i] = isActive(0,i) ? 1 : -1;}
 
+    virtual void computeSwept(Vec<int> &swept){
+        for(int i = 0; i < swept.size(); ++i)
+            swept[i] = isSwept(0,i) ? 1 : 0;
+    }
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
@@ -99,6 +103,11 @@ class DistLevelSetStructure {
         for (int iSub=0; iSub<numLocSub; iSub++)
             (*this)(iSub).computePhi((*pseudoPhi)(iSub));
         return *pseudoPhi;}
+    
+    virtual void getSwept(DistVec<int>& swept){
+        for (int iSub=0; iSub<numLocSub; iSub++)
+            (*this)(iSub).computeSwept((swept)(iSub));
+    }
 
     virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
 

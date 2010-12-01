@@ -1096,7 +1096,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
   edges.computeJacobianFiniteVolumeTerm(riemann,locToGlobNodeMap,
                                         fluxFcn, geoState, X, V, LSS,fluidId,Nriemann, Nsbar,
                                         fluidSelector, ngradLS,ctrlVol, A);
-  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId);
+  faces.computeJacobianFiniteVolumeTerm(fluxFcn, bcData, geoState, V, A, fluidId,&LSS);
   for (int i=0; i<ctrlVol.size(); ++i) {
     double voli = 1.0 / ctrlVol[i];
     Scalar *Aii = A.getElem_ii(i);

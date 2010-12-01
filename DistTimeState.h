@@ -5,6 +5,7 @@
 #include <DistVector.h>
 #include <DistMacroCell.h>
 #include <LowMachPrec.h>
+#include <LevelSet/LevelSetStructure.h>
 
 struct FluidModelData;
 struct InitialConditions;
@@ -97,7 +98,7 @@ public:
   void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
   void update(DistSVec<double,dim> &,bool increasingPressure = false);
   void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
-              DistExactRiemannSolver<dim> *riemann);
+              DistExactRiemannSolver<dim> *riemann,class DistLevelSetStructure* = 0, bool increasingPressure = false);
 
   void writeToDisk(char *);
 

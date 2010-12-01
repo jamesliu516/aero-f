@@ -28,7 +28,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo())
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo())
 {
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -55,6 +55,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     vfar[i] =Vin[i]; //for phase-change update only
   
   requireSpecialBDF = false;
+  increasingPressure = false;
 }
 
 //------------------------------------------------------------------------------
@@ -313,8 +314,9 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
 
   double dt;
+  umax = 0.0;
   dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                          &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId));
+                          &numSubCycles, *this->geoState, *this->A, U, *(fluidSelector.fluidId),&umax);
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -334,27 +336,27 @@ double MultiPhysicsTsDesc<dim,dimLS>::computeTimeStep(int it, double *dtLeft,
 template<int dim, int dimLS>
 void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
+  this->geoState->update(*this->X, *this->A);
+  
   if(frequencyLS > 0 && it%frequencyLS == 0){
- //   this->com->printf(5, "LevelSet norm before reinitialization = %e\n", Phi.norm());
     LS->conservativeToPrimitive(Phi,PhiV,U);
     LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
-   // this->com->printf(5, "LevelSet norm after reinitialization = %e\n", Phi.norm());
+    LS->update(Phi);
     if (this->timeState->useNm1()) {
       DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
       this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1);
       Phinm1 = -1.0*Phinm1;
       requireSpecialBDF = true;
     }      
-  } else
+  } else {
     requireSpecialBDF = false;
-  
-  this->geoState->update(*this->X, *this->A);
+    LS->update(Phi);
+  }
 
-  LS->update(Phi);
   fluidSelector.update();
 
-  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
+  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
 }
 
@@ -572,12 +574,15 @@ template<int dim, int dimLS>
 bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
 {
 
+  increasingPressure = false;
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
 //    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   }
+
+  increasingPressure = true;
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
 

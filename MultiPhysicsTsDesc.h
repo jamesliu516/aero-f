@@ -34,6 +34,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
 
   bool requireSpecialBDF;
+  bool increasingPressure;
 
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
@@ -69,6 +70,8 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistVec<GhostPoint<dim>*> *ghostPoints;
 
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
+
+  DistVec<double> umax;
 
   // EulerFSI: FS communication
   DistSVec<double,dim> Wtemp;

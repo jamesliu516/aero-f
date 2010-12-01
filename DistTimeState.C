@@ -1115,9 +1115,9 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
 struct MultiphaseRiemannCopy {
   int dim;
   MultiphaseRiemannCopy(int _dim) : dim(_dim) { }
-  void Perform(double* vin, double* vout,int id1,int id2) const  {
+  void Perform(double* vin, double* vout,int id1,int id2,int swept) const  {
 
-    if (id1 != id2) {
+    if (id1 != id2 && !swept) {
       for (int i = 0; i < dim; ++i) vout[i] = vin[i];
     }
   }
@@ -1128,7 +1128,8 @@ struct MultiphaseRiemannCopy {
 template<int dim>
 void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
-                                DistExactRiemannSolver<dim> *riemann)
+                                DistExactRiemannSolver<dim> *riemann,
+                                DistLevelSetStructure* distLSS,bool increasingPressure)
 {
   data->update();
 
@@ -1136,13 +1137,19 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
-  if (data->use_nm1) {
+  if (data->use_nm1 && !increasingPressure) {
+    DistVec<int> tempInt(fluidId);
+    tempInt = 0;
+    if (distLSS) {
+      distLSS->getSwept(tempInt);
+    }
+
     varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
-    DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, MultiphaseRiemannCopy(dim) );
+    DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
     varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
     *Unm1 = *Vn;
 
-    DistVec<int> minus1(fluidId);
+    DistVec<int> &minus1(tempInt);
     minus1 = -1;
     riemann->updatePhaseChange(*Vn,fluidId,minus1);
     *Un = Q;
