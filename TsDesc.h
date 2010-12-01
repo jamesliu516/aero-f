@@ -104,7 +104,7 @@ protected:
 public:
 
   TsDesc(IoData &, GeoSource &, Domain *);
-  ~TsDesc();
+  virtual ~TsDesc();
 
   void printf(int, const char *, ...);
   VarFcn *createVarFcn(IoData &);
