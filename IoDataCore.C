@@ -1551,7 +1551,7 @@ MultiFluidData::MultiFluidData()
   riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
-  bandlevel = 3;
+  bandlevel = 5;
   subIt = 10; //hidden
   cfl = 0.7; //hidden
   frequency = 0;
@@ -3589,6 +3589,10 @@ int IoData::checkInputValues()
   error += checkInputValuesAllInitialConditions();
   error += checkInputValuesEssentialBC();
 
+  // check input values for the Embedded Framework.
+  if(problem.framework == ProblemData::EMBEDDED) 
+    error += checkInputValuesEmbeddedFramework();
+
   error += checkInputValuesNonDimensional();
   error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap);
 
@@ -3709,10 +3713,17 @@ int IoData::checkInputValuesAllInitialConditions(){
     map<int, PointData *>::iterator it;
     for (it=embed.embedIC.pointMap.dataMap.begin();
          it!=embed.embedIC.pointMap.dataMap.end();
-         it++)
+         it++) {
+      if(it->second->fluidModelID==0) {
+        com->fprintf(stderr,"*** Error: FluidID on a user-specified point (for initial condition setup) can not be 0!\n");
+        com->fprintf(stderr,"    Note : It's a convention in AERO-F that FluidID = 0 only in the ambient fluid.\n");
+        error ++;
+      }
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+    }
   }
-  // count number levelsets (consider only bubbles!) for the embedded framework.
+
+  // count number levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
   if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
     map<int, SphereData *>::iterator it;
@@ -3724,7 +3735,8 @@ int IoData::checkInputValuesAllInitialConditions(){
     int minModel = *(usedModels.begin());
     int maxModel = *(--(set<int>::iterator)(usedModels.end()));
     if(minModel!=1 || nModels != maxModel - minModel + 1) {
-      com->fprintf(stderr,"*** Error: FluidModel(s) for user-specified spheres must be consecutive starting from either 1!\n");
+      com->fprintf(stderr,"*** Error: FluidID(s) for user-specified sphere(s) must be consecutive and begin with 1!\n");
+      com->fprintf(stderr,"***        Re-order the fluid models such that this convention is followed.\n");
       error++;
     } else 
       embed.nLevelset = nModels;
@@ -4645,6 +4657,24 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 
   return error;
 
+}
+
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesEmbeddedFramework() {
+  int error = 0;
+
+  if(!mf.multiInitialConditions.planeMap.dataMap.empty() ||
+     !volumes.volumeMap.dataMap.empty()) {
+    com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
+    error ++;
+  }
+
+  if(embed.intersectorName == EmbeddedFramework::PHYSBAM &&
+     embed.forceAlg == EmbeddedFramework::RECONSTRUCTED_SURFACE)
+    com->fprintf(stderr,"WARNING(Embedded Framework): Force = Reconstructed is not recommended for the PhysBAM Intersector!\n");
+
+  return error;
 }
 
 //------------------------------------------------------------------------------

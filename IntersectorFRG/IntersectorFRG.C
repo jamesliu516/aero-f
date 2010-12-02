@@ -708,7 +708,7 @@ DistIntersectorFRG::initializePhysBAM() { //NOTE: In PhysBAM array index starts 
   for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
 
   // Initialize the mesh.
-  // fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
+//  com->fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
   PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(numStNodes,physbam_stElem);
   mesh->Initialize_Adjacent_Elements();mesh->Set_Number_Nodes(numStNodes);
 

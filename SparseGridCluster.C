@@ -46,11 +46,11 @@ void SparseGridCluster::generate(SparseGridData &data, double *param,
     index[idim] = 0;
 
   int sgPerCpu = numSparseGrids_/com->size();
-  fprintf(stdout, "%d cpus for %d sparse grids => %d ratio\n", com->size(), numSparseGrids_, sgPerCpu);
+  fprintf(stdout, "%d cpus for %d sparse grids => %d or %d sparse grids per cpu\n", com->size(), numSparseGrids_, sgPerCpu, sgPerCpu+1);
   for(int k=0; k<sgPerCpu+1; k++){
     int igrid = com->cpuNum() + k*com->size();
     if(igrid>=numSparseGrids_) break;
-    fprintf(stdout, "taking care of sparse grid # %d\n", igrid);
+    //fprintf(stdout, "taking care of sparse grid # %d\n", igrid);
     int moveForward = 0;
     if(k==0) moveForward = com->cpuNum();
     else     moveForward = com->size();
@@ -69,13 +69,13 @@ void SparseGridCluster::generate(SparseGridData &data, double *param,
       fprintf(stdout, "%d ", index[idim]);
     fprintf(stdout, "]\n");
 
-    fprintf(stdout, "subData.range = ");
+    //fprintf(stdout, "subData.range = ");
     for(int idim=0; idim<dim_; idim++){
       subData.range[idim][0] = coordDim[idim][index[idim]];
       subData.range[idim][1] = coordDim[idim][index[idim]+1];
-      fprintf(stdout, "[%e %e] ", subData.range[idim][0],subData.range[idim][1]);
+      //fprintf(stdout, "[%e %e] ", subData.range[idim][0],subData.range[idim][1]);
     }
-    fprintf(stdout, "\n");
+    //fprintf(stdout, "\n");
 
     SparseGrid sparseGrid(subData,param,refIn,refOut);
     sparseGrid.tabulate(fn, object);
