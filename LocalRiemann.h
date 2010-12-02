@@ -207,6 +207,9 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
     riemannInvariantGeneralTabulation(in,res2);
   }
 
+  if (in)
+    delete [] in;
+
   u = u1 - phi*(res2[0]-res1[0]);
   p = vf_->computeIsentropicPressure(entropy, 1.0/v, myFluidId);
   double c = vf_->computeSoundSpeed(1.0/v, entropy, myFluidId);
