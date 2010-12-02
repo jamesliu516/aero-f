@@ -599,7 +599,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 
   for(int iSub=0;iSub<numLocSub;++iSub){int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
     if(ffNode >= 0){
-      fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
+//      fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
       globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;}}
 
   for(int iSub=0;iSub<numLocSub;++iSub){
@@ -607,7 +607,7 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
     for(int iElem=0; iElem<sub.numElems(); iElem++)
       for(list<pair<Vec3D,int> >::const_iterator iP=points.begin(); iP!=points.end(); iP++){
         if(sub.isINodeinITet(iP->first, iElem, (*X)(iSub))){ // TODO(jontg): Use a robust implementation of this routine
-          fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
+//          fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
           globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;}}}
 
   PHYSBAM_MPI_UTILITIES::syncMap(*domain,*com,globalColorToGlobalStatus);
@@ -885,7 +885,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   ARRAY<bool> occludedNode(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(occludedNode,false);
   for(int i=1;i<=nFirstLayer;++i) occludedNode(i) = occluded_node[reverse_mapping(i)];
 
-#if 0 // Debug output
+#if 1 // Debug output
   for(int i=0;i<tId.size();++i){
       if(tId[i] && (i != reverse_mapping(forward_mapping(i+1)))) fprintf(stderr,"BAH %d, %d, %d\n",i+1,forward_mapping(i+1),reverse_mapping(forward_mapping(i+1)));
       else if(!tId[i] && forward_mapping(i+1) != -1) fprintf(stderr,"forward_mapping %d should be -1, is %d (tId = %d)\n",i,forward_mapping(i+1),tId[i]);}
@@ -909,14 +909,26 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   int intersectedEdgeCount=0;
   edgeIntersections=false;
   for(int i=1; i<=edgeRes.Size(); ++i){
-      if(edgeRes(i).y.triangleID != -1 && edgeRes(i).z.triangleID != -1){
+      if(edgeRes(i).y.triangleID != -1 && edgeRes(i).z.triangleID != -1) {
+#if 1 // Debug output
+	  int* tr0=distIntersector.stElem[edgeRes(i).y.triangleID-1];
+	  int* tr1=distIntersector.stElem[edgeRes(i).z.triangleID-1];
+          if(edgeRes(i).y.triangleID > distIntersector.getNumStructElems() || tr0[0] > distIntersector.getNumStructNodes() || 
+	     tr0[1] > distIntersector.getNumStructNodes() || tr0[2] > distIntersector.getNumStructNodes() || 
+             edgeRes(i).z.triangleID > distIntersector.getNumStructElems() || tr1[0] > distIntersector.getNumStructNodes() || 
+	     tr1[1] > distIntersector.getNumStructNodes() || tr1[2] > distIntersector.getNumStructNodes()){
+            fprintf(stderr,"Detected a WEIRD intersection case: [%d] (%d,%d,%d) AND [%d] (%d,%d,%d)\n",
+			    edgeRes(i).y.triangleID,tr0[0],tr0[1],tr0[2],
+			    edgeRes(i).z.triangleID,tr1[0],tr1[1],tr1[2]);
+	  }
+#endif
           int l=edgeRes(i).x.z;
           edgeIntersections[l] = true;
           CrossingEdgeRes[l] = edgeRes(i).y;
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
           ++intersectedEdgeCount;}}
 
-#if 0 // Debug output
+#if 1 // Debug output
   bool should_quit=false;
   for(int l=0;l<edges.size();++l){
       int p = ptr[l][0], q = ptr[l][1];
