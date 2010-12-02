@@ -1137,13 +1137,14 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1) {
+    DistVec<int> minus1(fluidId);
+    minus1 = -1;
+    if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
     varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
     DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, MultiphaseRiemannCopy(dim) );
     varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
     *Unm1 = *Vn;
 
-    DistVec<int> minus1(fluidId);
-    minus1 = -1;
     riemann->updatePhaseChange(*Vn,fluidId,minus1);
     *Un = Q;
     data->exist_nm1 = true;
