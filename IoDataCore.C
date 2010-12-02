@@ -1444,7 +1444,7 @@ SparseGridData::SparseGridData()
   relAccuracy = 1.e-3;
   absAccuracy = 1.e-1;
 
-  dimAdaptDegree = 0.0;
+  dimAdaptDegree = 0.75;
 
   range1min = 0.0; range1max = 1.0; mapBaseValue1 = 0.0; numDomainDim1 = 1;
   range2min = 0.0; range2max = 1.0; mapBaseValue2 = 0.0; numDomainDim2 = 1;
