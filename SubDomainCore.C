@@ -4223,7 +4223,52 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
     intersect = LSS.edgeIntersectsStructure(0,i,j);
 
     if (!iActive && !jActive) continue; //both inside structure
-    if (iActive && jActive && !intersect) continue; 
+    if (!intersect) continue; 
+    //if (iActive && jActive && !intersect) continue;  //KW: switched to the above line on Nov.30,2010. 
+
+    // now (i,j) must intersect the structure.
+    if (iActive) {
+      Vec3D flocal(0.0,0.0,0.0);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
+      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
+      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      sendLocalForce(flocal, lsRes, Fs);
+    }
+    if (jActive) {
+      Vec3D flocal(0.0,0.0,0.0);
+      LevelSetResult lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
+      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
+      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
+      sendLocalForce(flocal, lsRes, Fs);
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------------------------
+/*
+void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
+                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
+                                        LevelSetStructure &LSS, Vec<double> &pstarij,
+                                        Vec<double> &pstarji, double pInfty)
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  bool* masterFlag = edges.getMasterFlag();
+  int (*ptr)[2];
+  int i,j;
+  ptr = edges.getPtr();
+  bool iActive, jActive, intersect;
+  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
+
+  for (int l=0; l<edges.size(); l++) {
+    if (!masterFlag[l]) continue;
+    i = ptr[l][0];
+    j = ptr[l][1];
+    iActive = LSS.isActive(0,i);
+    jActive = LSS.isActive(0,j);
+    intersect = LSS.edgeIntersectsStructure(0,i,j);
+
+    if (!iActive && !jActive) continue; //both inside structure
+    if (iActive && jActive && !intersect) continue;
 
     // now (i,j) must intersect the structure.
     LevelSetResult lsRes;
@@ -4237,44 +4282,6 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
       if (forceApp==1) flocal += -(pstarji[l]-pInfty)*normal[l];
       else flocal += -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }
-    sendLocalForce(flocal, lsRes, Fs);
-  }
-}
-
-//-----------------------------------------------------------------------------------------------
-/* ignore "double intersections"
-void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoState& geoState,
-                                        SVec<double,3> &X, double (*Fs)[3], int sizeFs,
-                                        LevelSetStructure &LSS, Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
-{
-  Vec<Vec3D>& normal = geoState.getEdgeNormal();
-  bool* masterFlag = edges.getMasterFlag();
-  int (*ptr)[2];
-  int i,j;
-  ptr = edges.getPtr();
-  bool iActive, jActive;
-  if (forceApp!=1&&forceApp!=2) {fprintf(stderr,"ERROR: force method not recognized! Abort..\n"); exit(-1);}
-
-  for (int l=0; l<edges.size(); l++) {
-    if (!masterFlag[l]) continue;
-    i = ptr[l][0];
-    j = ptr[l][1];
-    iActive = LSS.isActive(0,i);
-    jActive = LSS.isActive(0,j);
-    if (iActive==jActive) continue;
-
-    // now (i,j) must intersect the structure.
-    LevelSetResult lsRes;
-    Vec3D flocal;
-    if (iActive) {
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,i,j);
-      if (forceApp==1) flocal = (pstarij[l]-pInfty)*normal[l];
-      else flocal = (pstarij[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
-    }else{
-      lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
-      if (forceApp==1) flocal = -(pstarji[l]-pInfty)*normal[l];
-      else flocal = -(pstarji[l]-pInfty)*(normal[l]*lsRes.gradPhi)*lsRes.gradPhi;
     }
     sendLocalForce(flocal, lsRes, Fs);
   }
@@ -4634,13 +4641,6 @@ void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[
     for(int i = 0; i < 3; ++i)
       Fs[n][i] += coef*flocal[i];
   }
-/*
-  for (int iDim=0; iDim<3; iDim++) {
-    Fs[lsRes.trNodes[0]][iDim] += lsRes.xi[0]*flocal[iDim];
-    Fs[lsRes.trNodes[1]][iDim] += lsRes.xi[1]*flocal[iDim];
-    Fs[lsRes.trNodes[2]][iDim] += (1.0-lsRes.xi[0]-lsRes.xi[1])*flocal[iDim];
-  }
-  */
 }
 
 //-----------------------------------------------------------------------------------------------

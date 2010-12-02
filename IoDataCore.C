@@ -3713,8 +3713,14 @@ int IoData::checkInputValuesAllInitialConditions(){
     map<int, PointData *>::iterator it;
     for (it=embed.embedIC.pointMap.dataMap.begin();
          it!=embed.embedIC.pointMap.dataMap.end();
-         it++)
+         it++) {
+      if(it->second->fluidModelID==0) {
+        com->fprintf(stderr,"*** Error: FluidID on a user-specified point (for initial condition setup) can not be 0!\n");
+        com->fprintf(stderr,"    Note : It's a convention in AERO-F that FluidID = 0 only in the ambient fluid.\n");
+        error ++;
+      }
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+    }
   }
 
   // count number levelsets (consider only bubbles!) for the Embedded Framework.

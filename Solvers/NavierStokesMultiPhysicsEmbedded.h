@@ -17,8 +17,6 @@ void startNavierStokesMultiPhysicsEmbedded(IoData &ioData, GeoSource &geoSource,
   domain.createRhsPat(dim, ioData);
 
   if (ioData.ts.type == TsData::IMPLICIT) {
-    com->fprintf(stderr, "*** Warning: Implicit Multiphysics support is in the alpha stage\n");
-    com->fprintf(stderr, "***          Proceed at your own risk!\n");
     ImplicitMultiPhysicsTsDesc<dim,dimLS> tsDesc(ioData, geoSource, &domain);
     TsSolver<ImplicitMultiPhysicsTsDesc<dim,dimLS> > tsSolver(&tsDesc);
     tsSolver.solve(ioData);
