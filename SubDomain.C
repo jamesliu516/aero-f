@@ -109,7 +109,7 @@ inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -137,7 +137,7 @@ inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double dor11 = -1.0 / ( R[0]*R[0] )*dR[0];

@@ -345,7 +345,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
     LS->update(Phi);
     if (this->timeState->useNm1()) {
       DistSVec<double,dimLS>& Phinm1 = LS->getPhinm1();
-      this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1);
+      this->multiPhaseSpaceOp->computeResidualLS(*this->X, *this->A, Phi, *fluidSelector.fluidId, U, Phinm1, this->distLSS, this->linRecAtInterface);
       Phinm1 = -1.0*Phinm1;
       requireSpecialBDF = true;
     }      
