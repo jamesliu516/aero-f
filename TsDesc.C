@@ -411,13 +411,9 @@ bool TsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double
   if (!problemType[ProblemData::AERO] && !problemType[ProblemData::THERMO] && it >= data->maxIts) return true;
 
   if (problemType[ProblemData::UNSTEADY] )
-    {
-      if(t >= data->maxTime 
-       - 0.01 * dt)
-	{
-	  return true;
-	}
-    }
+    if(t >= data->maxTime - 0.01 * dt)
+      return true;
+
   return false;
 
 }

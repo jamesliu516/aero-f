@@ -909,7 +909,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   int intersectedEdgeCount=0;
   edgeIntersections=false;
   for(int i=1; i<=edgeRes.Size(); ++i){
-      if(edgeRes(i).y.triangleID != -1 && edgeRes(i).z.triangleID != -1) {
+      if(edgeRes(i).y.triangleID > 0 && edgeRes(i).z.triangleID > 0) {
 #if 0 // Debug output
 	  int* tr0=distIntersector.stElem[edgeRes(i).y.triangleID-1];
 	  int* tr1=distIntersector.stElem[edgeRes(i).z.triangleID-1];
@@ -917,9 +917,9 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
 	     tr0[1] > distIntersector.getNumStructNodes() || tr0[2] > distIntersector.getNumStructNodes() || 
              edgeRes(i).z.triangleID > distIntersector.getNumStructElems() || tr1[0] > distIntersector.getNumStructNodes() || 
 	     tr1[1] > distIntersector.getNumStructNodes() || tr1[2] > distIntersector.getNumStructNodes()){
-            fprintf(stderr,"Detected a WEIRD intersection case: [%d] (%d,%d,%d) AND [%d] (%d,%d,%d)\n",
-			    edgeRes(i).y.triangleID,tr0[0],tr0[1],tr0[2],
-			    edgeRes(i).z.triangleID,tr1[0],tr1[1],tr1[2]);
+            fprintf(stderr,"Detected a WEIRD intersection case: [%d, %e] (%e,%e,%e) (%d,%d,%d) AND [%d, %e] (%e,%e,%e) (%d,%d,%d)\n",
+			    edgeRes(i).y.triangleID,edgeRes(i).y.alpha,edgeRes(i).y.zeta[0],edgeRes(i).y.zeta[1],edgeRes(i).y.zeta[2],tr0[0],tr0[1],tr0[2],
+			    edgeRes(i).z.triangleID,edgeRes(i).z.alpha,edgeRes(i).z.zeta[0],edgeRes(i).z.zeta[1],edgeRes(i).z.zeta[2],tr1[0],tr1[1],tr1[2]);
 	  }
 #endif
           int l=edgeRes(i).x.z;
