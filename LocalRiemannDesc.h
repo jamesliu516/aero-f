@@ -2820,15 +2820,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     return;
   }
 
-  if (p < 0.0) {
-    fprintf(stderr,"Warning: pressure (%lf) in fs_grad is < 0!\n",p);
-    p = 1.0e-8;
-  } 
-  if (rho < 0.0) {
-    fprintf(stderr,"Warning: density (%lf) in fs_grad is < 0!\n",rho);
-    rho = 1.0e-8;
-  }
-
   double q = (gamma-1.0)/(gamma+1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
