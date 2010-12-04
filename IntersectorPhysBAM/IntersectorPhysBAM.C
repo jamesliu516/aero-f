@@ -885,7 +885,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   ARRAY<bool> occludedNode(nFirstLayer); PhysBAM::ARRAYS_COMPUTATIONS::Fill(occludedNode,false);
   for(int i=1;i<=nFirstLayer;++i) occludedNode(i) = occluded_node[reverse_mapping(i)];
 
-#if 1 // Debug output
+#if 0 // Debug output
   for(int i=0;i<tId.size();++i){
       if(tId[i] && (i != reverse_mapping(forward_mapping(i+1)))) fprintf(stderr,"BAH %d, %d, %d\n",i+1,forward_mapping(i+1),reverse_mapping(forward_mapping(i+1)));
       else if(!tId[i] && forward_mapping(i+1) != -1) fprintf(stderr,"forward_mapping %d should be -1, is %d (tId = %d)\n",i,forward_mapping(i+1),tId[i]);}
@@ -910,7 +910,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
   edgeIntersections=false;
   for(int i=1; i<=edgeRes.Size(); ++i){
       if(edgeRes(i).y.triangleID != -1 && edgeRes(i).z.triangleID != -1) {
-#if 1 // Debug output
+#if 0 // Debug output
 	  int* tr0=distIntersector.stElem[edgeRes(i).y.triangleID-1];
 	  int* tr1=distIntersector.stElem[edgeRes(i).z.triangleID-1];
           if(edgeRes(i).y.triangleID > distIntersector.getNumStructElems() || tr0[0] > distIntersector.getNumStructNodes() || 
@@ -928,7 +928,7 @@ int IntersectorPhysBAM::findIntersections(SVec<double,3>&X,Vec<bool>& tId,Commun
           ReverseCrossingEdgeRes[l] = edgeRes(i).z;
           ++intersectedEdgeCount;}}
 
-#if 1 // Debug output
+#if 0 // Debug output
   bool should_quit=false;
   for(int l=0;l<edges.size();++l){
       int p = ptr[l][0], q = ptr[l][1];
