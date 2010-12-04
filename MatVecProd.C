@@ -1235,15 +1235,15 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
   Qeps = q;
   Phi = &phi;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
+/*  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
 
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
-
+*/
   Q = Qeps;
-  F = Feps;
+  F = f;//Feps;
   
 }
 
@@ -1258,9 +1258,10 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 
 // Included (MB)
   Qeps = Q + eps * p;
-  
+
+  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
   if (!this->isFSI)
-    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, -1);
   else
     this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface,
@@ -1282,7 +1283,7 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
     Qeps = Q - eps * p;
     
     if (!this->isFSI)
-      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, 1);
+      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, -1);
     else
       this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
                                    this->fsi.LSS, this->fsi.linRecAtInterface,
@@ -1309,9 +1310,11 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   int iSub, size = 0;
   double eps0 = 1.e-6;
 
-  const DistInfo &distInfo = U.info();
+/*  const DistInfo &distInfo = U.info();
 
-  double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
+  //double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
+ 
+  double* alleps = new double[distInfo.numGlobSub];
 
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) alleps[iSub] = 0.0;
 
@@ -1349,8 +1352,23 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
 
   if (norm > 1.e-14) eps /= double(size) * norm;
   else eps = eps0;
- 
-  return eps;
+
+  delete [] alleps;
+ */
+
+  DistSVec<double,dim> Up(U);
+  Up *= eps0;
+
+  double totsum = Up.norm(); 
+  
+  double norm = sqrt(p*p);
+
+  if (norm > 1.0e-14)
+    totsum /= (double)(Up.size()*dim)*norm;
+  else
+    totsum = eps0;
+
+  return totsum;
 
 }
 
