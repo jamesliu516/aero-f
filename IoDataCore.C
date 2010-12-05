@@ -3120,7 +3120,7 @@ void IoData::setupCmdFileVariables()
   ref.setup("ReferenceState");
   bc.setup("BoundaryConditions");
   eqs.setup("Equations");
-  mf.setup("MultiFluid");
+  mf.setup("MultiPhase");
   schemes.setup("Space");
   ts.setup("Time");
   dgcl.setup("DGCL");
