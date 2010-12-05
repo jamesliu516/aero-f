@@ -4673,8 +4673,8 @@ int IoData::checkInputValuesEmbeddedFramework() {
   if(embed.intersectorName == EmbeddedFramework::PHYSBAM &&
      embed.forceAlg == EmbeddedFramework::RECONSTRUCTED_SURFACE) {
     com->fprintf(stderr,"WARNING: Currently Force = Reconstructed is not available for the PhysBAM Intersector!\n");
+    com->fprintf(stderr,"WARNING: using 'ControlVolumeFace' instead!\n");
     embed.forceAlg = EmbeddedFramework::CONTROL_VOLUME_BOUNDARY;
-    com->fprintf(stderr,"WARNING: 'Force = Reconstructed' under 'EmbeddedFramework' is replaced by 'Force = ControlVolumeFace'!\n");
   }
 
   return error;
