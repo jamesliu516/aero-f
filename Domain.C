@@ -718,7 +718,8 @@ void Domain::computeFiniteVolumeTerm(DistExactRiemannSolver<dim>& riemann,
         subDomain[iSub]->finalizeTags((*tag)(iSub));
 
       ngrad.fix(*tag);
-      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, V); // bug: this is for one-phase flow!
+      //ngrad.compute(geoState.getConfig(), X, ctrlVol, fluidId, V); //where is fluidId?
       ngrad.limit(recFcn, X, ctrlVol, V);
 
       if (egrad) egrad->fix(*tag);
@@ -852,7 +853,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         subDomain[iSub]->finalizeTags((*tag)(iSub));
 
       ngrad.fix(*tag);
-      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, FluidId, V);
       ngrad.limit(recFcn, X, ctrlVol, V);
 
       if (egrad) egrad->fix(*tag);
@@ -962,7 +963,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol, DistExactRiemannS
         subDomain[iSub]->finalizeTags((*tag)(iSub));
 
       ngrad.fix(*tag);
-      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, FluidId, V);
       ngrad.limit(recFcn, X, ctrlVol, V);
 
       if (egrad) egrad->fix(*tag);
@@ -1071,7 +1072,7 @@ void Domain::computeFiniteVolumeTerm(DistVec<double> &ctrlVol,
         subDomain[iSub]->finalizeTags((*tag)(iSub));
 
       ngrad.fix(*tag);
-      ngrad.compute(geoState.getConfig(), X, ctrlVol, V);
+      ngrad.compute(geoState.getConfig(), X, ctrlVol, fluidId, V);
       ngrad.limit(recFcn, X, ctrlVol, V);
 
       if (egrad) egrad->fix(*tag);
