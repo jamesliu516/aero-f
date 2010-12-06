@@ -1911,11 +1911,12 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
     this->timer->addLSNodalWeightsAndGradTime(t0);
   }
 
-  if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0)
+  if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0) {
     if(distLSS)
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), Phi, linRecAtFSInterface);
     else
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, Phi);
+  }
 
   if (this->egrad)
     this->egrad->compute(this->geoState->getConfig(), X);
