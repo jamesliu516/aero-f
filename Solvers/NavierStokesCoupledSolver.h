@@ -7,7 +7,8 @@
 #include <TsSolver.h>
 #include <ExplicitTsDesc.h>
 #include <ImplicitCoupledTsDesc.h>
-#include <ImplicitRomTsDesc.h>
+#include <ImplicitPGTsDesc.h>
+#include <ImplicitBroydenTsDesc.h>
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -25,11 +26,16 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
     }
-    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
-      ImplicitRomTsDesc<dim> tsDesc(ioData, geoSource, &domain);
-      TsSolver<ImplicitRomTsDesc<dim> > tsSolver(&tsDesc);
-      tsSolver.solve(ioData);
-    }
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 0) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+				ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 1) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+				ImplicitBroydenTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitBroydenTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
     else if (ioData.ts.type == TsData::IMPLICIT) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);
