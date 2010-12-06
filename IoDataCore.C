@@ -289,7 +289,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
-  new ClassStr<TransientData>(ca, "FluidId", this, &TransientData::fluidid);
+  new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
@@ -3002,7 +3002,7 @@ void EmbeddedFramework::setup(const char *name) {
                                       "ElementBased", 0, "NodeBased", 1);
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
                                       "NodalState", 0, "RiemannSolution", 1);
-  new ClassToken<EmbeddedFramework> (ca, "Force", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
+  new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
                                       "Reconstructed", 0, "ControlVolumeFace", 1);
   embedIC.setup("InitialConditions", ca); 
 
