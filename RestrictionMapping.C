@@ -1,11 +1,4 @@
-#include <DistTimeState.h>
-#include <GeoSource.h>
-#include <SpaceOperator.h>
 #include <Domain.h>
-#include <MatVecProd.h>
-#include <NewtonSolver.h>
-
-#include <TsOutput.h>
 
 #include <algorithm>
 #include <numeric>
@@ -186,79 +179,4 @@ RestrictionMapping<dim>::dotProduct(const DistSVec<double, dim> & originVec, con
 #endif
 
   return result;
-}
-
-//------------------------------------------------------------------------------
-
-template <int dim>
-GappyOnlineTsDesc<dim>::GappyOnlineTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  TsDesc<dim>(ioData, geoSource, dom)
-{
-  /* Finish initialization of TsDesc */
-  this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
-  
-  MemoryPool mp;
-  this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
-
-  // HACK
-  int sampleNodeHack[] = {248, 260, 287};
-
-  restrictionMapping_.reset(new RestrictionMapping<dim>(this->domain, sampleNodeHack + 0, sampleNodeHack + 3));
-
-  // DEBUG
-  restrictionMapping_->restrictedDistInfo().print();
-
-  DistSVec<double, dim> originVec(restrictionMapping_->originDistInfo());
-  DistSVec<double, dim> restrictedVec(restrictionMapping_->restrictedDistInfo());
-
-  const double fillValue = 2.0;
-  const double fillValueSquare = fillValue * fillValue;
-  const double expectedDotProduct = (3 * dim) * fillValueSquare;
-
-  originVec = fillValue;
-  restrictionMapping_->restriction(originVec, restrictedVec);
-
-  double dotProduct = restrictedVec * restrictedVec;
-  assert(dotProduct == expectedDotProduct);
-  
-  dotProduct = restrictionMapping_->dotProduct(originVec, restrictedVec);
-  assert(dotProduct == expectedDotProduct);
- 
-  restrictionMapping_->expansion(restrictedVec, originVec);
-  dotProduct = originVec * originVec;
-  assert(dotProduct == expectedDotProduct);
-
-  originVec = 10.0;
-  restrictionMapping_->expansion(restrictedVec, originVec);
-  dotProduct = originVec * originVec;
-  assert(dotProduct == expectedDotProduct);
-  
-  restrictionMapping_->restriction(originVec, restrictedVec);
-  dotProduct = restrictedVec * restrictedVec;
-  assert(dotProduct == expectedDotProduct);
-
-  // EXAMPLE OF USE
-  typedef VecSet<DistSVec<double, dim> > OnlineMatrix;
-  const int reducedBasisSize = 10;
-  OnlineMatrix AMatrix(reducedBasisSize, restrictionMapping_->restrictedDistInfo());
-  OnlineMatrix BMatrix(reducedBasisSize, restrictionMapping_->restrictedDistInfo());
-
-  DistSVec<double, dim> residual(restrictionMapping_->originDistInfo());
-  Vec<double> rhs(reducedBasisSize);
-  for (int iReduced = 0; iReduced < reducedBasisSize; ++iReduced) {
-    rhs[iReduced] = restrictionMapping_->dotProduct(residual, BMatrix[iReduced]);
-  }
-
-  //MatVecProd<dim, dim> * mvp;
-  //mvp->evaluate(iterRank, meshPosition, controlVolumes, state, fluxes);
-  //mvp->apply(in, out);
-}
-
-//------------------------------------------------------------------------------
-
-template <int dim>
-int
-GappyOnlineTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> & U, int iterRank) {
-  // TODO
-  return 0;
 }
