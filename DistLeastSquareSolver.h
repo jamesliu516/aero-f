@@ -43,19 +43,33 @@ public:
   int localSolutionRows() const { return localSolutionRows_; }
   int localRhsCount()     const { return localRhsCount_;     }
 
-  // Global/Local (zero-based) index mapping 
+  // Global/Local (zero-based) index mapping
+  // Local to global
   int globalRowIdx(int localIdx) const;
   int globalColIdx(int localIdx) const;
 
   int globalRhsRowIdx(int localIdx) const; // Also valid for solution
   int globalRhsRankIdx(int localIdx) const;
 
-  // Local buffers: Internal column-major ordering, zero-based indexing
+  // Global to local: host cpu
+  int rowHostCpu(int globalIdx) const;
+  int colHostCpu(int globalIdx) const;
 
+  int rhsRowHostCpu(int globalIdx) const; // Also valid for solution
+  int rhsRankHostCpu(int globalIdx) const;
+
+  // Global to local: local index on host cpu
+  int localRowIdx(int globalIdx) const;
+  int localColIdx(int localIdx) const;
+
+  int localRhsRowIdx(int globalIdx) const; // Also valid for solution
+  int localRhsRankIdx(int globalIdx) const;
+
+  // Local buffers: Internal column-major ordering, zero-based indexing
   // Local matrix buffer: [localRows by localCols]
   Scalar matrixEntry(int row, int col) const;
   const Scalar * matrixColBuffer(int col) const;
-  const Scalar * matrixBuffer() const; 
+  const Scalar * matrixBuffer() const;
   
   Scalar & matrixEntry(int row, int col);
   Scalar * matrixColBuffer(int col);
