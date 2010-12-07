@@ -28,6 +28,7 @@ public:
   const DistInfo & originDistInfo() const { return originDistInfo_; }
   const DistInfo & restrictedDistInfo() const { return restrictedDistInfo_; }
 
+	// from one DistInfo to another
   const DistSVec<double, dim> & restriction(const DistSVec<double, dim> &, DistSVec<double, dim> &) const;
   const DistSVec<double, dim> & expansion(const DistSVec<double, dim> &, DistSVec<double, dim> &) const;
  
@@ -69,6 +70,12 @@ private:
   const GappyOnlineTsDesc & operator=(const GappyOnlineTsDesc &); // = delete;
 };
 
+//------------------------------------------------------------------------------
+
+template <int dim>
+class GappyOnlineTsDesc : public TsDesc<dim> {
+
+}
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX

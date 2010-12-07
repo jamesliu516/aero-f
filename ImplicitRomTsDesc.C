@@ -11,13 +11,12 @@
 
 template<int dim>
 ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  TsDesc<dim>(ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
+  TsDesc<dim>(ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
 
   tag = 0;
 
   maxItsNewton = ioData.ts.implicit.newton.maxIts;
   epsNewton = ioData.ts.implicit.newton.eps;  
-  JacSkipNewton = ioData.ts.implicit.newton.JacSkip;
 
   //ns = new NewtonSolver<ImplicitRomTsDesc<dim> >(this);
   this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
@@ -30,27 +29,11 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
   nPod = ioData.Rob.numROB;
   dom->readPodBasis(ioData.input.podFile, nPod, pod);
 
-  globalSubSet = 0;
-  locNodeSet = 0;
-
-  RomSolver = ioData.Rob.romsolver;
-
-  if (RomSolver == 2) {
-	// KEVIN FIX!
-		dom->readInterpNode(ioData.input.sampleNodes, nIntNodes, globalSubSet, locNodeSet);
-		if (ioData.input.aMatrix) dom->readInterpMatrix(ioData.input.aMatrix, dimInterpMat, interpMat1);
-		if (ioData.input.bMatrix) dom->readInterpMatrix(ioData.input.bMatrix, dimInterpMat, interpMat2);
-
-		computeRestrictInfo();
-  }
-
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
 
   AJ.resize(nPod);
   dUrom.resize(nPod);
-  Fromold.resize(nPod);
-  
   
 }
 
@@ -62,213 +45,53 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
   if (tag) delete tag;
 }
 
-//------------------------------------------------------------------------------
-
-/*
-template<int dim>
-int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _it)  {
-
-  double t0 = this->timer->getTime();
-
-  //  write our own newton solver
-  int it = 0;
-  int fsIt = 0;
-  int Git = _it-1;
-
-  DistSVec<double, dim> F(this->domain->getNodeDistInfo());
-
-  Vec<double> From(nPod);
-  Vec<double> dFrom(nPod);
-  Vec<double> Urom(nPod);
-  Vec<double> rhs(nPod);
-  projectVector(pod, U, Urom);
-  double res0;
-  double res;
-  double alpha;
-  bool convergeFlag=0;
-
-  // AJ is J0*Phi
-  // VecSet<DistSVec<double, dim> > AJ(nPod,this->domain->getNodeDistInfo());
-
-
-  for (it = 0; it < maxItsNewton; it++)  {
-
-    computeFunction(it, U, F);
-
-    // Compute reduced Jacobian or do Broyden update for the reduced Jacobian
-    
-    if (it==0 && (Git % JacSkipNewton)==0) {
-      this->com->fprintf(stderr," ... Computing exact reduced Jacobian \n");
-      computeJacobian(it, U, F, AJ);  // Computes reduced Jacobian J0 and AJ=J0*Phi
-      projectVector(AJ, F, From);
-    }
-    else {
-      projectVector(AJ, F, From);
-      if (it > 0) {
-        dFrom = From-Fromold;
-        broydenUpdate(dFrom, dUrom);
-      }
-    }
-
-    // Using stationary criterion for the full-order residual (meritDerivZero is low) as a convergence criterion.
-    // This is consistent with the LINE SEARCH objective function.
-
-    Fromold = From;
-
-    rhs = -1.0 * From;
-
-    // compute search direction
-
-    solveLinearSystem(it, rhs, dUrom);
-
-    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
-
-    alpha = lineSearch(U,dUrom,it,AJ,epsNewton, convergeFlag);
-    if (it > 0 && convergeFlag == 1) break;
-    this->com->fprintf(stderr," \tit = %d, alpha = %e\n",it, alpha);
-
-    dUrom *= alpha;
-    Urom += dUrom;
-    expandVector(Urom, U);
-    // verify that the solution is physical
-    if (checkSolution(U)) {
-      if (checkFailSafe(U) && fsIt < 5) {
-        this->com->fprintf(stderr, "*** Warning: Not yet implemented\n");
-        //fprintf(stderr,"*** Warning: Newton solver redoing iteration %d\n", it+1);
-        //Q = rhs;
-        //--it;
-        //++fsIt;
-      }
-      else{
-        this->com->fprintf(stderr, "***Exiting\n");
-        exit(1);
-      }
-    }
-   }
-    if (fsIt > 0 && checkFailSafe(U) == 1) 
-      resetFixesTag();
-
-  if (it == maxItsNewton && maxItsNewton != 1) {
-    this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
-  }
-
-  this->timer->addFluidSolutionTime(t0);
-
-  return it;
-
-}
-*/
 
 //------------------------------------------------------------------------------
 template<int dim>
 int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _it)  {
 
+	// initializations 
+
   double t0 = this->timer->getTime();
 
-  //  write our own newton solver
   int it = 0;
   int fsIt = 0;
-  int Git = _it-1;
+	updateGlobalTimeSteps(_it);
 
-  DistSVec<double, dim> F(this->domain->getNodeDistInfo());
-  Vec<double> From(nPod);
-  Vec<double> dFrom(nPod);
   Vec<double> Urom(nPod); // reduced coordinates
-  Vec<double> rhs(nPod);
-  //projectVector(pod, U, Urom);	// KTC change
   Urom = 0.0; // total solution increment in ROM coordinates (the unknowns for reduced problem)
   DistSVec<double, dim> dUfull(this->domain->getNodeDistInfo());	// solution increment at EACH NEWTON ITERATION in full coordinates
   dUfull = 0.0;	// initial zero increment
 
-  double res0;
   double res;
-  double target;
+  bool breakloop = false;
+
+	// line search variables
   double alpha;
   bool convergeFlag=0;
 
-  DistSVec<double, dim> Test(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
 
   for (it = 0; it < maxItsNewton; it++)  {
 
-    //this->com->fprintf(stderr," --- Newton It # %d\n",it);
-
-    computeFunction(it, U, F);
-
-    switch (RomSolver) {
-      case 0: // Petrov-Galerkin
-        computeJacobian(it, U, F, AJ); // KTC: instead, compute QR factorization?
-        projectVector(AJ, F, From);
-        rhs = -1.0 * From;
-
-        // saving residual vectors (for GappyPOD)
-        //writeBinaryVectorsToDisk1(false, _it, 0.0, F, Dummy);
-
-        break;
-
-      case 1: // Broyden
-        if (it==0 && (Git % JacSkipNewton)==0) {
-          this->com->fprintf(stderr," ... Computing exact reduced Jacobian \n");
-          computeJacobian(it, U, F, AJ);
-          projectVector(AJ, F, From);
-        }
-        else {
-          projectVector(AJ, F, From);
-          if (it > 0) {
-            dFrom = From-Fromold;
-            broydenUpdate(dFrom, dUrom);
-          }
-        }
-        Fromold = From;
-        rhs = -1.0 * From;
-        break;
-
-      case 2:  // Gappy POD
-        computeJacobianGappy(it, U, F, rhs, AJ);
-        break;
-    } 
-    res = rhs*rhs;
-
-    if (res < 0.0){
-      fprintf(stderr, "*** negative residual: %e\n", res);
-      exit(1);
-    }
-    res = sqrt(res);
-
-    if (it == 0) {
-      target = epsNewton*res;
-      res0 = res;
-    }
-
-    if (res == 0.0 || res <= target) break;
-
-    solveLinearSystem(it, rhs, dUrom);
-   
+    computeFullResidual(it, U);
+		computeAJ(it, U);	// skipped some times for Broyden
+		solveNewtonSystem(it, res, breakloop);	// 1) check if residual small enough, 2) solve 
+		if (breakloop) break;
+			// INPUTS: AJ, F
+			// OUTPUTS: dUrom, res, breakloop
 
 // LINE SEARCH
-/*
-    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
-
-    alpha = lineSearch(U,dUrom,it,AJ,epsNewton, convergeFlag);
-    if (it > 0 && convergeFlag == 1) break;
-
-    dUrom *= alpha;
-*/
+//    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
+//    alpha = lineSearch(U,dUrom,it,AJ,epsNewton, convergeFlag);
+//    if (it > 0 && convergeFlag == 1) break;
+//    dUrom *= alpha;
 // END LINE SEARCH
 
     expandVector(dUrom, dUfull); // solution increment in full coordinates
     Urom += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 
-///* CBM
-//    if (RomSolver == 0) {
-      Test = 0.0;
-      for (int i=0; i<nPod; ++i)
-         Test += AJ[i] * dUrom[i]; 
-
-      // saving AJ * dUrom (for GappyPOD)
-      writeBinaryVectorsToDisk1(false, _it, 0.0, F, Test);
-//    }
-//*/
+		saveAJsol();	// only done for PG rom
 
     // verify that the solution is physical
     if (checkSolution(U)) {
@@ -284,9 +107,11 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
         exit(1);
       }
     }
-   }
-    if (fsIt > 0 && checkFailSafe(U) == 1)
-      resetFixesTag();
+   }	// end Newton loop
+
+
+	if (fsIt > 0 && checkFailSafe(U) == 1)
+		resetFixesTag();
 
   if (it == maxItsNewton && maxItsNewton != 1) {
     this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
@@ -317,8 +142,7 @@ int ImplicitRomTsDesc<dim>::solveLinearSystem(int it , Vec<double> &rhs, Vec<dou
 //------------------------------------------------------------------------------
 // this function evaluates (Aw),t + F(w,x,v)
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeFunction(int it, DistSVec<double, dim> &Q, 
-					  DistSVec<double, dim> &F)
+void ImplicitRomTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q)
 {
 
   //DistSVec<double, dim> F(this->domain->getNodeDistInfo());
@@ -329,16 +153,16 @@ void ImplicitRomTsDesc<dim>::computeFunction(int it, DistSVec<double, dim> &Q,
 
   this->spaceOp->applyBCsToResidual(Q, F);
 
-
 }
 
 //------------------------------------------------------------------------------
 template<int dim>
 double ImplicitRomTsDesc<dim>::meritFunction(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &dQ, DistSVec<double, dim> &F, double stepLength)  {
+	// merit function: norm of the residual (want to minimize residual)
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + stepLength*dQ;
-  computeFunction(it,newQ,F);
+  computeFullResidual(it,newQ,F);
 
   double merit = 0.0;
   merit += F.norm();	// merit function = 1/2 * (norm of full-order residual)^2
@@ -357,7 +181,7 @@ double ImplicitRomTsDesc<dim>::meritFunctionDeriv(int it, DistSVec<double, dim> 
 
   DistSVec<double, dim> newQ(this->domain->getNodeDistInfo());
   newQ = Q + eps*p;
-  computeFunction(it,newQ,newF);
+  computeFullResidual(it,newQ,newF);
 
   newF -= F;  // overwrite new Flux with finite difference
   newF *= (1.0/eps);
@@ -649,29 +473,6 @@ double ImplicitRomTsDesc<dim>::zoom(double alphaLo, double alphaHi, double merit
     this->com->fprintf(stderr,"Leaving zoom because max iterations was exceeded. Conditions NOT satisfied! Count = %d, alpha = %e\n",count, alpha);
     return alpha;
 }
-//------------------------------------------------------------------------------ 
-template<int dim>
-void ImplicitRomTsDesc<dim>::broydenUpdate(Vec<double> &dFrom, Vec<double> &dUrom) {
-
-  // Broyden update of the form B{k+1}=Bk+(yk-Bk*sk)*sk^T/(sk^T*sk) where yk is change in function and sk is step size
-
-  Vec<double> zrom(nPod);
-  zrom = dFrom;	// zrom = (yk-Bk*sk)
-  for (int iPod = 0; iPod < nPod; ++iPod) { // KTC: parallelize
-    for (int jPod = 0; jPod < nPod; ++jPod)
-     zrom[iPod] -= jac[iPod][jPod]*dUrom[jPod];
-  }
-
-  double invNormSq = 1.0/ (dUrom*dUrom);
-  zrom *= invNormSq;
-  
-  for (int iPod = 0; iPod < nPod; ++iPod) { // KTC: parallelize
-    for (int jPod = 0; jPod < nPod; ++jPod)
-      jac[iPod][jPod] += zrom[iPod]*dUrom[jPod];
-  }
-
-
-}
 
 //------------------------------------------------------------------------------
 
@@ -692,19 +493,6 @@ void ImplicitRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> > &leftP
 
   for (int iVec = 0; iVec < pod.numVectors(); iVec++)
     romV[iVec] = leftProj[iVec]*fullV;
-}
-
-//------------------------------------------------------------------------------
-
-
-template<int dim>
-void ImplicitRomTsDesc<dim>::recomputeFunction(DistSVec<double, dim> &Q, Vec<double> &rhsRom)  {
-
-  //DistSVec<double, dim> rhs(this->domain->getNodeDistInfo());
-
-  //this->spaceOp->recomputeRHS(*this->X, Q, rhs);
-
-  //projectVector(pod, rhs, rhsRom);
 }
 
 //------------------------------------------------------------------------------
@@ -740,297 +528,107 @@ void ImplicitRomTsDesc<dim>::resetFixesTag()
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitRomTsDesc<dim>::computeJacobian(int it, DistSVec<double, dim> &Q,
-                                                 DistSVec<double, dim> &F, VecSet<DistSVec<double, dim> > &AJ)  {
-
-  //DistSVec<double, dim> F(this->domain->getNodeDistInfo());
-  //DistSVec<double, dim> jacPart1(this->domain->getNodeDistInfo());
-
-  //Vec<double> jacCol(nPod);
-
-  //expandVector(From, F);
+void ImplicitRomTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
   mvpfd->evaluate(it, *this->X, *this->A, Q, F);
   
-  jac.setNewSize(nPod,nPod);
-
-/*  if (galerkin) {
-
-    // populate jac
-    for (int iPod = 0; iPod < nPod; iPod++)  {
-  
-      mvpfd->apply(pod[iPod], jacPart1);
-    
-      projectVector(pod, jacPart1, jacCol);
-    
-      for (int iRow = 0; iRow < nPod; iRow++) 
-        jac[iRow][iPod] = jacCol[iRow];
-    }
-  }
-  else {
-*/
-
-
-  //VecSet<DistSVec<double, dim> > AJ(nPod,this->domain->getNodeDistInfo());
-
-  // populate jac
   for (int iPod = 0; iPod < nPod; iPod++)
     mvpfd->apply(pod[iPod], AJ[iPod]);
 
-	// KTC: LS alert!
-
-  for (int iRow = 0; iRow < nPod; ++iRow) {
-    for (int iCol = 0; iCol <= iRow; ++iCol) {
-      jac[iRow][iCol] = AJ[iRow]*AJ[iCol];
-      if (iRow > iCol)
-        jac[iCol][iRow] = jac[iRow][iCol];
-    }
-  } 
-  
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void ImplicitRomTsDesc<dim>::computeJacobianGappy(int it, DistSVec<double, dim> &Q, DistSVec<double, dim> &F, 
-                                                  Vec<double> &rhs, VecSet<DistSVec<double, dim> > &AJ)  {
-  
-  // The goal of this function is to compute rhs and jac for the newton step
-  // nIntNodes = # nodes at which interpolation occurs
-  // dimension of interpMat1 = nIntNodes * dim, interpMat2 = nIntNodes * dim
-
-  int debugging = 0;
-
-  mvpfd->evaluate(it, *this->X, *this->A, Q, F);  // prepares mvpfd->apply
-
-  jac.setNewSize(nPod,nPod); // actual Jacobian to be used in Newton iterations
-
-  for (int iPod = 0; iPod < nPod; ++iPod)
-    mvpfd->apply(pod[iPod], AJ[iPod]);  // AJ is AJ: the VecSet of DistSVec with AJ[i] = dr/dw*Phi[i]
-
-  FullM AJRestrict(nIntNodes*dim,nPod); // the matrix of dr/dw*Phi[i] restricted to interp nodes
-  AJRestrict = 0.0;
-  FullM resRestrict(nIntNodes*dim,1); // residual restricted to interp nodes
-  resRestrict = 0.0;
-
-  // info for parallel operations
-  int numLocSub = this->domain->getNumLocSub();
-  int nTotCpus = this->com->size();
-  int thisCPU = this->com->cpuNum();
-  DistInfo &nodeDistInfo = this->domain->getNodeDistInfo();
-  SubDomain** subD = this->domain->getSubDomain();
-
-  // compute AJ and F restricted to the specified nodes
-  int oldLocalSub = -1; 
-  int localNode,localSub,currentNodeIndex;
-  for (int iPod = 0; iPod < nPod; ++iPod) { // loop over all POD vectors
-    for (int iMyInterpNode = 0; iMyInterpNode < myNNodeInt; ++iMyInterpNode) { // loop over local interpolation nodes
-      currentNodeIndex = myInterpNodes[iMyInterpNode];  // global index of current interpolation node
-      localNode = locNodeSet[currentNodeIndex];  // the local node number
-      localSub = myLocalSubSet[iMyInterpNode];  // the local subdomain number
-      //if (iMyInterpNode == 0 || localSub != oldLocalSub) { // only reload subdomain part of locF, locAJ if needed
-      //if (iPod == 0){
-      double (*locF)[dim] = F.subData(localSub); // compute local F (should only be loaded for iPod == 0)
-      //}
-      double (*locAJ)[dim] = AJ[iPod].subData(localSub); // compute local AJ
-      //}
-
-      // KTC test: are the CPU #, global Sub #, local Node #, and myNNodeInt correct for a certain global currentNodeIndex?
-      if (debugging) {
-        fprintf(stderr,"currentNodeIndex %d, CPU %d, globalSub %d, localNode %d, localSub %d, myNNodeInt %d\n",currentNodeIndex,thisCPU,globalSubSet[currentNodeIndex],localNode,localSub, myNNodeInt);
-      }
-      for (int iDim = 0 ; iDim < dim; ++iDim) {
-        // compute restricted residual and jacobian
-        if (iPod == 0) resRestrict[currentNodeIndex*dim+iDim][0] = locF[localNode][iDim];  // compute for RHS (only one)
-        AJRestrict[currentNodeIndex*dim+iDim][iPod] = locAJ[localNode][iDim]; // fill in the matrix of dr/dw*Phi[i] restricted to interp
-      }
-      oldLocalSub = localSub;
-    }
-  }
-/*
-  delete [] locAJ;
-  delete [] locF;
-  delete [] subD;
-*/
-
-  this->com->globalSum(nIntNodes*dim*nPod,AJRestrict.data()); // ensure all CPUs have the same copy
-  this->com->globalSum(nIntNodes*dim,resRestrict.data()); // ensure all CPUs have the same copy
-
-/*
-  FullM Arhat(nIntNodes*dim,1);
-  Arhat = interpMat*resRestrict;
-  FullM rhatArhatmat = resRestrict^Arhat;
-  double rhatArhat = rhatArhatmat[0][0];
-  this->com->fprintf(stderr,"R^T A R = %e\n",rhatArhat);
-*/
-  // parallel implementation of AJRestrictTMat1 = AJRestrict^T * interpMat1
-  // parallel implementation of AJRestrictTMat2 = AJRestrict^T * interpMat2
-
-  int maxIndex, loadBal, loadBalMod, myMinIndex, myMaxIndex;  // indices used for parallel operations
-
-  FullM AJRestrictTMat1(AJRestrict.numCol(),interpMat1.numCol());
-  AJRestrictTMat1 = 0.0;  // initialize to zero
-
-  rowPartition(myMinIndex,myMaxIndex,AJRestrictTMat1.numRow());
-       
-  for (int i = myMinIndex; i < myMaxIndex; ++i){
-    for (int j = 0; j < AJRestrictTMat1.numCol(); ++j){
-      for (int k = 0; k < interpMat1.numRow(); ++k) {
-        AJRestrictTMat1[i][j] += AJRestrict[k][i]*interpMat1[k][j];
-      }
-    }
-  }
-  this->com->globalSum(AJRestrictTMat1.numRow()*AJRestrictTMat1.numCol(),AJRestrictTMat1.data()); // ensure all CPUs have the same copy
-
-  FullM AJRestrictTMat2(AJRestrict.numCol(),interpMat2.numCol());
-  AJRestrictTMat2 = 0.0;  // initialize to zero
-
-  rowPartition(myMinIndex,myMaxIndex,AJRestrictTMat2.numRow());
-       
-  for (int i = myMinIndex; i < myMaxIndex; ++i){
-    for (int j = 0; j < AJRestrictTMat2.numCol(); ++j){
-      for (int k = 0; k < interpMat2.numRow(); ++k) {
-        AJRestrictTMat2[i][j] += AJRestrict[k][i]*interpMat2[k][j];
-      }
-    }
-  }
-  this->com->globalSum(AJRestrictTMat2.numRow()*AJRestrictTMat2.numCol(),AJRestrictTMat2.data()); // ensure all CPUs have the same copy
-
-  // compute jac = AJRestrictTMat1*AJRestrict
-
-  jac = 0.0;  // initialize to zero
-  rowPartition(myMinIndex,myMaxIndex,jac.numRow(),1);  // symmetric
-       
-  for (int i = myMinIndex; i < myMaxIndex; ++i){
-    for (int j = 0; j <= i; ++j){
-      for (int k = 0; k < AJRestrict.numRow(); ++k) {
-        jac[i][j] += AJRestrictTMat1[i][k]*AJRestrict[k][j];
-      }
-      if (i > j)
-        jac[j][i] = jac[i][j];
-    }
-  }
-
-  this->com->globalSum(jac.numRow()*jac.numCol(),jac.data()); // ensure all CPUs have the same copy
-  // compute rhs = -1.0*AJRestrictTMat2*resRestrict
-
-  rowPartition(myMinIndex,myMaxIndex,rhs.size());
-  rhs = 0.0; 
-  for (int i = myMinIndex; i < myMaxIndex; ++i){
-    for (int j = 0; j < resRestrict.numRow(); ++j)
-      rhs[i] -= AJRestrictTMat2[i][j]*resRestrict[j][0]; // NOTE: the RHS is NEGATIVE!
-  }
-  this->com->globalSum(rhs.size(),rhs.data()); // ensure all CPUs have the same copy
- 
-  // KTC test: given AJRestrict, resRestrict, interpMat1, and interpMat2, are the computation of jacobian and rhs correct?
-  FullM AJRestrictTMat1test, AJRestrictTMat2test, jacTest,rhsTest;
-  if (debugging){
-    AJRestrictTMat1test= AJRestrict^interpMat1;
-    AJRestrictTMat2test= AJRestrict^interpMat2;
-    jacTest = AJRestrictTMat1test*AJRestrict;
-    rhsTest = AJRestrictTMat2test*resRestrict;
-    rhsTest *= -1.0; 
-    this->com->fprintf(stderr,"jac is \n");
-    if (thisCPU == 0 ) {jac.print();}
-    this->com->fprintf(stderr,"jacTest is \n");
-    if (thisCPU == 0 ) {jacTest.print();}
-    if (thisCPU == 0 ) {fprintf(stderr, "rhs is \n");}
-    for (int j = 0; j < rhs.size(); ++j) { 
-      if (thisCPU == 0 ) {fprintf(stderr, "%e \n", rhs[j]);}
-    }
-    this->com->fprintf(stderr,"rhsTest is \n");
-    if (thisCPU == 0 ) {rhsTest.print();}
-  }
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void ImplicitRomTsDesc<dim>::computeRestrictInfo() {
-
-  // computes 1) myNNodeInt: the number of interpolation nodes contained on this CPU
-  //          2) myLocalSubSet: the local subdomain numbers
-  //          3) myInterpNodes: the global interpolation nodes it contains
-  // NOTE: nodes are lumped according to subdomain for efficiency
-
-  // local CPU information
-
-  int numLocSub = this->domain->getNumLocSub();
-  DistInfo &nodeDistInfo = this->domain->getNodeDistInfo();
-  SubDomain** subD = this->domain->getSubDomain();
-  myNNodeInt = 0;
-  int globalSubNum;
-  int localNode;
-
-  int *myInterpNodesTemp = new int[nIntNodes];
-  int *myLocalSubSetTemp = new int[nIntNodes];
-
-  for (int iSub = 0; iSub < numLocSub; ++iSub) { // loop on subdomains on this CPU
-    globalSubNum = subD[iSub]->getGlobSubNum(); 
-    bool *locMasterFlag = nodeDistInfo.getMasterFlag(iSub);  // array of locMasterFlag
-    for (int iNodeInt = 0; iNodeInt < nIntNodes; ++iNodeInt) {  // loop over global interpolation nodes (zero to nIntNodes-1)
-      if (globalSubNum == globalSubSet[iNodeInt]){ // if the current interpolation node is on this subdomain
-        localNode = locNodeSet[iNodeInt]; // the local node of interest
-        if (locMasterFlag[localNode]){ // if this node is the master on this domain
-          myInterpNodesTemp[myNNodeInt] = iNodeInt;
-          myLocalSubSetTemp[myNNodeInt]= iSub;
-          ++myNNodeInt;
-        }
-      }
-    }
-    //delete [] locMasterFlag;
-  }
-
-  myInterpNodes = new int[myNNodeInt];
-  myLocalSubSet = new int[myNNodeInt];
-  for (int i = 0; i < myNNodeInt; ++i) {
-    myInterpNodes[i] = myInterpNodesTemp[i];
-    myLocalSubSet[i] = myLocalSubSetTemp[i];
-  }
-/*
-  delete [] myInterpNodesTemp;
-  delete [] myLocalSubSetTemp;
-  delete [] subD;
-*/
 }
 //------------------------------------------------------------------------------
+
+/*
 template<int dim>
-void ImplicitRomTsDesc<dim>::rowPartition(int &myMinIndex, int &myMaxIndex, int nRow, int sym ) {
- 
- // this function partitions the rows of a matrix across processors (load balancing)
+int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _it)  {
 
- long int loadBal;
- int loadBalMod;
- int nTotCpus = this->com->size();
- int thisCPU = this->com->cpuNum();
- switch (sym) {  // is the operation symmetric?
-   case 0:  // evenly split rows across processors
-     loadBal = nRow/nTotCpus;
-     loadBalMod = nRow % nTotCpus;
-     myMinIndex = loadBal*thisCPU + (thisCPU < loadBalMod)*thisCPU + (thisCPU >= loadBalMod)*loadBalMod;
-     myMaxIndex = loadBal*(thisCPU+1) + ((thisCPU+1) < loadBalMod)*(thisCPU+1) + ((thisCPU +1) >= loadBalMod)*loadBalMod;
-   break;
-   case 1:  // split rows in a staggered manner
-     loadBal = (nRow*nRow)/nTotCpus;
-     int *minVal = new int[nTotCpus];
-     int *maxVal = new int[nTotCpus];
-     minVal[0] = 0;
-     maxVal[0] = (int) sqrt(double(loadBal));
-     for (int i = 1; i < nTotCpus; ++i){
-       minVal[i] = maxVal[i-1];
-       maxVal[i] = (int) sqrt(double(loadBal+ minVal[i]*minVal[i]));
-     }    
-     maxVal[nTotCpus - 1] = nRow;
-     myMinIndex = minVal[thisCPU];
-     myMaxIndex = maxVal[thisCPU];
-     delete [] minVal;
-     delete [] maxVal;
-   break;
- }
- if (myMaxIndex > nRow || myMinIndex > nRow || myMinIndex > myMaxIndex) {
-   fprintf(stderr, "*** Problem with rowPartition!!!");
- }
- // KTC: output minVal, maxVal?
+  double t0 = this->timer->getTime();
+
+  //  write our own newton solver
+  int it = 0;
+  int fsIt = 0;
+  int Git = _it-1;
+
+  DistSVec<double, dim> F(this->domain->getNodeDistInfo());
+
+  Vec<double> From(nPod);
+  Vec<double> dFrom(nPod);
+  Vec<double> Urom(nPod);
+  Vec<double> rhs(nPod);
+  projectVector(pod, U, Urom);
+  double res0;
+  double res;
+  double alpha;
+  bool convergeFlag=0;
+
+  // AJ is J0*Phi
+  // VecSet<DistSVec<double, dim> > AJ(nPod,this->domain->getNodeDistInfo());
+
+
+  for (it = 0; it < maxItsNewton; it++)  {
+
+    computeFullResidual(it, U, F);
+
+    // Compute reduced Jacobian or do Broyden update for the reduced Jacobian
+    
+    if (it==0 && (Git % JacSkipNewton)==0) {
+      this->com->fprintf(stderr," ... Computing exact reduced Jacobian \n");
+      computeAJ(it, U, F, AJ);  // Computes reduced Jacobian J0 and AJ=J0*Phi
+      projectVector(AJ, F, From);
+    }
+    else {
+      projectVector(AJ, F, From);
+      if (it > 0) {
+        dFrom = From-Fromold;
+        broydenUpdate(dFrom, dUrom);
+      }
+    }
+
+    // Using stationary criterion for the full-order residual (meritDerivZero is low) as a convergence criterion.
+    // This is consistent with the LINE SEARCH objective function.
+
+    Fromold = From;
+
+    rhs = -1.0 * From;
+
+    // compute search direction
+
+    solveLinearSystem(it, rhs, dUrom);
+
+    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
+
+    alpha = lineSearch(U,dUrom,it,AJ,epsNewton, convergeFlag);
+    if (it > 0 && convergeFlag == 1) break;
+    this->com->fprintf(stderr," \tit = %d, alpha = %e\n",it, alpha);
+
+    dUrom *= alpha;
+    Urom += dUrom;
+    expandVector(Urom, U);
+    // verify that the solution is physical
+    if (checkSolution(U)) {
+      if (checkFailSafe(U) && fsIt < 5) {
+        this->com->fprintf(stderr, "*** Warning: Not yet implemented\n");
+        //fprintf(stderr,"*** Warning: Newton solver redoing iteration %d\n", it+1);
+        //Q = rhs;
+        //--it;
+        //++fsIt;
+      }
+      else{
+        this->com->fprintf(stderr, "***Exiting\n");
+        exit(1);
+      }
+    }
+   }
+    if (fsIt > 0 && checkFailSafe(U) == 1) 
+      resetFixesTag();
+
+  if (it == maxItsNewton && maxItsNewton != 1) {
+    this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
+  }
+
+  this->timer->addFluidSolutionTime(t0);
+
+  return it;
+
 }
-
+*/
