@@ -9,6 +9,7 @@
 #include <ImplicitCoupledTsDesc.h>
 #include <ImplicitPGTsDesc.h>
 #include <ImplicitBroydenTsDesc.h>
+#include <ImplicitGappyTsDesc.h>
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -31,9 +32,14 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
 				TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
 				tsSolver.solve(ioData);
 		}
-    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 1) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 1) {
 				ImplicitBroydenTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 				TsSolver<ImplicitBroydenTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 2) { 
+				ImplicitGappyTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitGappyTsDesc<dim> > tsSolver(&tsDesc);
 				tsSolver.solve(ioData);
 		}
     else if (ioData.ts.type == TsData::IMPLICIT) {

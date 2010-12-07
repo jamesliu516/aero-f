@@ -76,9 +76,9 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
     computeFullResidual(it, U);
 		computeAJ(it, U);	// skipped some times for Broyden
 		solveNewtonSystem(it, res, breakloop);	// 1) check if residual small enough, 2) solve 
-		if (breakloop) break;
 			// INPUTS: AJ, F
 			// OUTPUTS: dUrom, res, breakloop
+		if (breakloop) break;
 
 // LINE SEARCH
 //    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)

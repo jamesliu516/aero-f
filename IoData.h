@@ -1578,10 +1578,11 @@ struct ROB {
 
   double tolerance;
   int numROB;
-  int numROB2;	// just used to store the input
+  int numROB2;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
 
-	ROB & operator=(const ROB &Rob1) {tolerance = Rob1.tolerance; numROB = Rob1.numROB; numROB2 = Rob1.numROB2; romsolver = Rob1.romsolver;};
+	// ROB & operator=(const ROB &Rob1) {tolerance = Rob1.tolerance; numROB =
+	// Rob1.numROB; numROB2 = Rob1.numROB2; romsolver = Rob1.romsolver;};
 
   ROB();
   ~ROB() {}
@@ -1763,7 +1764,6 @@ public:
   AeroelasticData aero;
   ForcedData forced;
 	ROB Rob;
-	ROB Rob2;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -1800,8 +1800,6 @@ public:
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   void printDebug();
-  void setupRob2();
-
 };
 
 //------------------------------------------------------------------------------

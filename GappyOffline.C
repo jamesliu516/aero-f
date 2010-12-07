@@ -125,7 +125,7 @@ void GappyOffline<dim>::setUpPodBases() {
 	// determine whether one or two pod bases are used
 
 	nPod[0] = ioData->Rob.numROB;	// number of POD basis vectors 
-	nPod[1] = ioData->Rob2.numROB;
+	nPod[1] = ioData->Rob.numROB2;
 	int podFiles [2] = {0, 1};	// which pod files should be read
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
@@ -1057,6 +1057,7 @@ void GappyOffline<dim>::outputTopFile() {
    sprintf(outSampleNodeFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodes);
    FILE *sampleNodeFile = fopen(outSampleNodeFile, "wt");
 
+	 com->fprintf(sampleNodeFile, "%d \n", nSampleNodes);	// first print number of sample nodes
    for (int i = 0; i < nSampleNodes; ++i) {
 		 com->fprintf(sampleNodeFile, "%d %d \n", i+1, sampleToReducedNodeNumbering[i]);	
    }
@@ -1069,6 +1070,7 @@ void GappyOffline<dim>::outputTopFile() {
    sprintf(outSampleNodeGlobFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodesGlob);
    FILE *sampleNodeGlobFile = fopen(outSampleNodeGlobFile, "wt");
 
+	 com->fprintf(sampleNodeFile, "%d \n", nSampleNodes);	// first print number of sample nodes
    for (int i = 0; i < nSampleNodes; ++i) {
 		 com->fprintf(sampleNodeGlobFile, "%d %d \n", i+1, globalNodeSet[i]+1);	
    }

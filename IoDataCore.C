@@ -3212,8 +3212,6 @@ void IoData::readCmdFile()
   }
   fclose(cmdFilePtr);
 
-	setupRob2();	// set up Rob 2
-
   if (input.rstdata[0] != 0) {
     char *name = new char[strlen(input.prefix) + strlen(input.rstdata) + 1];
     if (strncmp(input.rstdata, "/", 1) == 0)
@@ -4811,14 +4809,4 @@ void IoData::printDebug(){
       com->fprintf(stderr, "\n");
     }
   }
-}
-
-//------------------------------------------------------------------------------
-
-void IoData::setupRob2(){
-
-	// set the number of bases in Rob2 to numROB2
-	Rob2 = Rob;
-	Rob2.numROB = Rob2.numROB2;
-
 }

@@ -36,7 +36,7 @@ protected:
   
   int nPod;
 
-  DistSVec<double, dim> F;
+  DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   Vec<double> dUrom;
