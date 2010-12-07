@@ -25,7 +25,6 @@ protected:
 
   int maxItsNewton;
   double epsNewton;
-  int JacSkipNewton;
 
   MatVecProdFD<dim,dim> *mvpfd;
 
@@ -37,39 +36,21 @@ protected:
   
   int nPod;
 
+  DistSVec<double, dim> F;
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   Vec<double> dUrom;
 
-  Vec<double> Fromold;
+	double target, res0;	// for Newton convergence
 
-  int RomSolver;
+  virtual void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
+  virtual void computeFullResidual(int, DistSVec<double, dim> &);  
 
-  // Gappy Pod
-  int nIntNodes, dimInterpMat;
-  int *globalSubSet;
-  int *locNodeSet;
-  FullM interpMat1;
-  FullM interpMat2;
-  int myNNodeInt;
-  int *myLocalSubSet;
-  int *myInterpNodes;
-
-public:
-  
-  ImplicitRomTsDesc(IoData &, GeoSource &, Domain *);
-  ~ImplicitRomTsDesc();
-
-  void computeJacobian(int, DistSVec<double, dim> &, DistSVec<double, dim> &, VecSet<DistSVec<double, dim> > &);
-  void computeJacobianGappy(int, DistSVec<double, dim> &, DistSVec<double, dim> &, Vec<double> &, VecSet<DistSVec<double, dim> > &);
-  void rowPartition(int &, int &, int, int sym = 0);
-  void computeRestrictInfo();
-  void setOperators(DistSVec<double,dim> &) {};
+  virtual void saveAJsol() {};	// only implemented for PG
+	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop) = 0;
+	// each ROM has a different way of solving the Newton system
+  virtual void updateGlobalTimeSteps(int _it) {};	// each ROM has a different way of solving the Newton system
   int solveLinearSystem(int, Vec<double> &, Vec<double> &);
-  int solveNonLinearSystem(DistSVec<double, dim> &, int _it);
-  void computeFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &);  
-  void recomputeFunction(DistSVec<double, dim> &, Vec<double> &);
-  void broydenUpdate(Vec<double> &, Vec<double> &); 
   double meritFunction(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &, double); 
   double meritFunctionDeriv(int, DistSVec<double, dim> &, DistSVec<double, dim> &, DistSVec<double, dim> &);
   double lineSearch(DistSVec<double, dim> &, Vec<double> &, int, VecSet<DistSVec<double, dim> > &,double, bool &);
@@ -79,9 +60,12 @@ public:
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
 
-  //int getMaxItsNewton() const { return maxItsNewton; }
-  //double getEpsNewton() const { return epsNewton; }
+public:
+  
+  ImplicitRomTsDesc(IoData &, GeoSource &, Domain *);
+  ~ImplicitRomTsDesc();
 
+  int solveNonLinearSystem(DistSVec<double, dim> &, int _it);
 };
 
 //------------------------------------------------------------------------------

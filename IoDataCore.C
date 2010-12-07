@@ -2685,7 +2685,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
   new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
   new ClassInt<ROB>(ca, "NumROB2", this, &ROB::numROB2);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "OldGappyPG", 3);
 
 }
 
