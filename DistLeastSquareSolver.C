@@ -6,6 +6,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <cstdlib>
 #include <cassert>
 
 #ifdef DO_SCALAPACK
@@ -53,7 +54,7 @@ DistLeastSquareSolver::DistLeastSquareSolver(Communicator * comm, int rowCpus, i
     throw std::invalid_argument("Not enough cpus"); 
   }
   
-  if (rowCpus * colCpus > communicator_->size()) {
+  if (rowCpus * colCpus < communicator_->size()) {
     throw std::invalid_argument("Too many cpus"); 
   }
 
@@ -177,6 +178,86 @@ DistLeastSquareSolver::globalRhsRankIdx(int localRankIdx) const {
 #ifdef DO_SCALAPACK
   const int localRankIdx_f = localRankIdx + 1;
   return F77NAME(indxl2g)(&localRankIdx_f, &rhsColBlockSize_, &localCpuCol_, &INT_ZERO, &colCpus_) - 1;
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::rowHostCpu(int globalRowIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRowIdx_f = globalRowIdx + 1;
+  return F77NAME(indxg2p)(&globalRowIdx_f, &rowBlockSize_, NULL, &INT_ZERO, &rowCpus_);
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::colHostCpu(int globalColIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalColIdx_f = globalColIdx + 1;
+  return F77NAME(indxg2p)(&globalColIdx_f, &colBlockSize_, NULL, &INT_ZERO, &colCpus_);
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::rhsRowHostCpu(int globalRowIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRowIdx_f = globalRowIdx + 1;
+  return F77NAME(indxg2p)(&globalRowIdx_f, &rhsRowBlockSize_, NULL, &INT_ZERO, &rowCpus_);
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::rhsRankHostCpu(int globalRankIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRankIdx_f = globalRankIdx + 1;
+  return F77NAME(indxg2p)(&globalRankIdx_f, &rhsColBlockSize_, NULL, &INT_ZERO, &colCpus_);
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::localRowIdx(int globalRowIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRowIdx_f = globalRowIdx + 1;
+  return F77NAME(indxg2l)(&globalRowIdx_f, &rowBlockSize_, NULL, NULL, &rowCpus_) - 1;
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::localColIdx(int globalColIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalColIdx_f = globalColIdx + 1;
+  return F77NAME(indxg2l)(&globalColIdx_f, &colBlockSize_, NULL, NULL, &colCpus_) - 1;
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::localRhsRowIdx(int globalRowIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRowIdx_f = globalRowIdx + 1;
+  return F77NAME(indxg2l)(&globalRowIdx_f, &rhsRowBlockSize_, NULL, NULL, &rowCpus_) - 1;
+#else /* DO_SCALAPACK */
+  return 0;
+#endif /* DO_SCALAPACK */
+}
+
+int
+DistLeastSquareSolver::localRhsRankIdx(int globalRankIdx) const {
+#ifdef DO_SCALAPACK
+  const int globalRankIdx_f = globalRankIdx + 1;
+  return F77NAME(indxg2l)(&globalRankIdx_f, &rhsColBlockSize_, NULL, NULL, &colCpus_) - 1;
 #else /* DO_SCALAPACK */
   return 0;
 #endif /* DO_SCALAPACK */
