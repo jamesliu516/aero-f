@@ -3735,8 +3735,11 @@ int IoData::checkInputValuesAllInitialConditions(){
     int minModel = *(usedModels.begin());
     int maxModel = *(--(set<int>::iterator)(usedModels.end()));
     if(minModel!=1 || nModels != maxModel - minModel + 1) {
-      com->fprintf(stderr,"*** Error: FluidID(s) for user-specified sphere(s) must be consecutive and begin with 1!\n");
-      com->fprintf(stderr,"***        Re-order the fluid models such that this convention is followed.\n");
+      com->fprintf(stderr,"*** Error: FluidID(s) specified under 'sphere(s)' cannot be accepted!\n");
+      com->fprintf(stderr,"***        Currently, when fluid-fluid interfaces are present in an embedded FSI simulation, the \n");
+      com->fprintf(stderr,"***        FluidID(s) (integer) specified under MultiPhase for spheres or planes must be consecutive \n");
+      com->fprintf(stderr,"***        starting at 1!\n");
+      com->fprintf(stderr,"*** Re-order the fluid models to satisfy this constraint, then re-run this simulation!\n");
       error++;
     } else 
       embed.nLevelset = nModels;

@@ -457,26 +457,36 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   fscanf(topFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++)
-    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
+    if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
 
-  std::list<std::pair<int,Vec3D> > nodeList;
-  std::list<std::pair<int,Vec3D> >::iterator it;
-
-  int ndMax = 0;
+  std::list<Vec3D> nodeList;
+  std::list<int> indexList;
+  std::list<Vec3D>::iterator it1;
+  std::list<int>::iterator it2;
+  int maxIndex = 0;
 
   while(1) {
     nInputs = fscanf(topFile,"%s", c1);
     if(nInputs!=1) break;
-    char *endptr;
-    num1 = strtol(c1, &endptr, 10);
-    if(endptr == c1) break;
+    if(c1[0]=='E') //done with the node set
+      break;
+    num1 = atoi(c1);
+    if(num1<1) {com->fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
+    indexList.push_back(num1);
+    if(num1>maxIndex)
+      maxIndex = num1;
 
     fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-    nodeList.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
-    ndMax = std::max(num1, ndMax);
-    num0 = num1;
+    nodeList.push_back(Vec3D(x1,x2,x3));
   }
-  numStNodes = ndMax;
+
+  numStNodes = nodeList.size();
+  if(numStNodes != maxIndex) {
+    com->fprintf(stderr,"ERROR: The node set of the embedded surface have gap(s). \n");
+    com->fprintf(stderr,"       Detected max index = %d, number of nodes = %d\n", maxIndex, numStNodes);
+    com->fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
+    exit(-1);
+  }
 
   // feed data to Xss. 
   Xs      = new Vec3D[numStNodes];
@@ -487,9 +497,12 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
-  
-  for (it=nodeList.begin(); it!=nodeList.end(); it++) 
-    Xs[it->first-1] = it->second;
+
+  it2 = indexList.begin();
+  for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
+    Xs[(*it2)-1] = *it1;
+    it2++;
+  }
 
   for (int k=0; k<numStNodes; k++) {
     Xs0[k]    = Xs[k];
@@ -500,42 +513,57 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
 
   // load the elements.
   if(nInputs!=1) {
-    fprintf(stderr,"Failed reading elements from file: %s\n", solidSurface); exit(-1);}
+    com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
   fscanf(topFile,"%s %s %s\n", c1,c2,c3);
   char debug2[6] = "using";
   for (int i=0; i<5; i++) 
-    if(debug2[i]!=c2[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
-    
+    if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
+
+  std::list<int> elemIdList;    
   std::list<int> elemList1;
   std::list<int> elemList2;
   std::list<int> elemList3;
-  std::list<int>::iterator it1;
-  std::list<int>::iterator it2;
-  std::list<int>::iterator it3;
+  std::list<int>::iterator it_0;
+  std::list<int>::iterator it_1;
+  std::list<int>::iterator it_2;
+  std::list<int>::iterator it_3;
   int node1, node2, node3;
+  maxIndex = -1;
 
   while(1) {
     nInputs = fscanf(topFile,"%d", &num0);
     if(nInputs!=1) break;
     fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
+    elemIdList.push_back(num0-1);  //start from 0.
     elemList1.push_back(node1-1);
     elemList2.push_back(node2-1);
     elemList3.push_back(node3-1);
+    if(num0-1>maxIndex)
+      maxIndex = num0-1;
   }
   numStElems = elemList1.size();
+  if(numStElems != maxIndex+1) {
+    com->fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
+    com->fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, numStElems);
+    com->fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
+    exit(-1);
+  }
 
   stElem = new int[numStElems][3];
   
-  it1 = elemList1.begin();
-  it2 = elemList2.begin();
-  it3 = elemList3.begin();
+  it_0 = elemIdList.begin();
+  it_1 = elemList1.begin();
+  it_2 = elemList2.begin();
+  it_3 = elemList3.begin();
   for (int i=0; i<numStElems; i++) {
-    stElem[i][0] = *it1;
-    stElem[i][1] = *it2;
-    stElem[i][2] = *it3;
-    it1++;
-    it2++;
-    it3++;
+    stElem[*it_0][0] = *it_1;
+    stElem[*it_0][1] = *it_2;
+    stElem[*it_0][2] = *it_3;
+    it_0++;
+    it_1++;
+    it_2++;
+    it_3++;
   } 
 
   fclose(topFile);
@@ -544,7 +572,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   if (restartSolidSurface[0] != 0) {
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
-    int ndMax2 = 0;
+    int ndMax = 0, ndMax2 = 0;
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
