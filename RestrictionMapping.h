@@ -1,23 +1,13 @@
-#ifndef _GAPPY_ONLINE_TS_DESC_H_
-#define _GAPPY_ONLINE_TS_DESC_H_
+#ifndef RESTRICTION_MAPPING_H_
+#define RESTRICTION_MAPPING_H_
 
-#include <IoData.h>
-#include <TsDesc.h>
-#include <KspPrec.h>
+#include <DistVector.h>
 
-struct DistInfo;
-
-class GeoSource;
 class Domain;
-class Communicator;
-
-template <class Scalar, int dim> class DistSVec;
-template <int dim, int neq> class MatVecProdFD;
 
 #include <vector>
 #include <set>
 #include <map>
-#include <memory>
 
 //------------------------------------------------------------------------------
 
@@ -55,27 +45,8 @@ private:
   const RestrictionMapping & operator=(const RestrictionMapping &); // = delete;
 };
 
-//------------------------------------------------------------------------------
-
-template <int dim>
-class GappyOnlineTsDesc : public TsDesc<dim> {
-public:
-  virtual int solveNonLinearSystem(DistSVec<double,dim> & U, int iterRank); // overriden
-
-  GappyOnlineTsDesc(IoData &, GeoSource &, Domain *);
-
-private:
-  std::auto_ptr<RestrictionMapping<dim> > restrictionMapping_;
-  
-  // Disallow copy and assignment
-  GappyOnlineTsDesc(const GappyOnlineTsDesc &); // = delete;
-  const GappyOnlineTsDesc & operator=(const GappyOnlineTsDesc &); // = delete;
-};
-
-//------------------------------------------------------------------------------
-
 #ifdef TEMPLATE_FIX
-#include <GappyOnlineTsDesc.C>
+#include <RestrictionMapping.C>
 #endif
 
 #endif

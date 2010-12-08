@@ -1,9 +1,12 @@
-#ifndef _IMPLICIT_GAPPY_TS_DESC_H_
-#define _IMPLICIT_GAPPY_TS_DESC_H_
+#ifndef IMPLICIT_GAPPY_TS_DESC_H_
+#define IMPLICIT_GAPPY_TS_DESC_H_
 
 #include <ImplicitRomTsDesc.h>
-#include <GappyOnlineTsDesc.h>
+#include <RestrictionMapping.h>
 #include <DistLeastSquareSolver.h>
+
+#include <memory>
+#include <vector>
 
 //------------------------------------------------------------------------------
 
@@ -30,7 +33,7 @@ protected:
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 	void readSampleNodes(const char *sampleNodeFileName);
 	const DistInfo & getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();};
-	const RestrictionMapping<dim> * restrictMapping() const { return restrictionMapping.get(); } // TODO
+	const RestrictionMapping<dim> * restrictMapping() const { return restrictionMapping.get(); } 
 
 	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
 	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
