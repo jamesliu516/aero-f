@@ -91,6 +91,7 @@ public:
 
   int getConfig() const { return data.config; }
   DistSVec<double,3> &getXn() const { return *Xn; }
+  DistVec<double> *getd2wall() const { return d2wall; }
   DistVec<Vec3D> &getInletNodeNorm() const { return *inletNodeNorm; }
 
 // Included (MB)

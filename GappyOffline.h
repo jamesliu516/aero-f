@@ -181,7 +181,9 @@ private:
 	void assembleOnlineMatrices();
 	void outputOnlineMatrices();
 	void outputStateReduced();
-	void outputReducedVector(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
+	void outputWallDistanceReduced();
+	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
+	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);

@@ -199,7 +199,10 @@ TransientData::TransientData()
   sampleNodesGlob = "";
   aMatrix = "";
   bMatrix = "";
+  aMatrixFull = "";
+  bMatrixFull = "";
   podStateRed = "";
+  wallDistanceRed = "";
   newtonresiduals = "";
   pgromresiduals = "";
   pgjacxdurom = "";
@@ -318,7 +321,10 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesGlob);
   new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
   new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
+  new ClassStr<TransientData>(ca, "AMatrixFullMesh", this, &TransientData::aMatrixFull);
+  new ClassStr<TransientData>(ca, "BMatrixFullMesh", this, &TransientData::bMatrixFull);
   new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
+  new ClassStr<TransientData>(ca, "WallDistanceReduced", this, &TransientData::wallDistanceRed);
 	// Gappy POD snapshots
   new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
   new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);

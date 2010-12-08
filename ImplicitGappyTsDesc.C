@@ -14,16 +14,14 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 
 	// assume we have nPodJac
   nPodJac = ioData.Rob.numROBJac; 
-  dom->readPodBasis(ioData.input.aMatrix, nPodJac, *Amat);
-  dom->readPodBasis(ioData.input.bMatrix, nPodJac, *Bmat);
 
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
 	
 	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)
-  VecSet<DistSVec<double, dim> > Afull(nPodJac,dom->getNodeDistInfo());
-  VecSet<DistSVec<double, dim> > Bfull(nPodJac,dom->getNodeDistInfo());
-	//dom->readPodBasis(ioData.input.AFile, nPodJac,Afull);
-	//dom->readPodBasis(ioData.input.BFile, nPodJac,Bfull);
+  VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
+  VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
+	dom->readPodBasis(ioData.input.aMatrix, nPodJac,Afull);
+	dom->readPodBasis(ioData.input.bMatrix, nPodJac,Bfull);
 
 	// determine mapping to restricted nodes
 	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
