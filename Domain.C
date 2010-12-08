@@ -3658,7 +3658,7 @@ void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0, int *whichFiles = NULL) {	
+void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,dim> > *(pod[2]), int nPod [2], int nBasesNeeded = 0, int *whichFiles = NULL) {	
 
 	//	multiPodFile: file containing names of bases
 	//	pod: array of pointers to POD bases. Each one is individually uninitialized
@@ -3673,7 +3673,7 @@ void Domain::readMultiPodBasis(char *multiPodFile,VecSet< DistSVec<double,dim> >
 		for (int i = 0; i < nBasesNeeded; ++i)
 			whichFiles[i] = i;
 
-	char *vecFile = multiPodFile;	// already read into the function
+	const char *vecFile = multiPodFile;	// already read into the function
 	if (!vecFile)
 		vecFile = "multiPodFile.in";	// default filename
 	FILE *inFP = fopen(vecFile, "r");

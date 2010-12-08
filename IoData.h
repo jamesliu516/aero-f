@@ -30,7 +30,6 @@ struct InputData {
   const char *levelsets;
   const char *rstdata;
   const char *podFile;
-  const char *podFile2;
   const char *snapFile;
   const char *strModesFile;
   const char *embeddedSurface;
@@ -43,6 +42,7 @@ struct InputData {
   const char *mesh;
   const char *sampleNodes;
   const char *sampleNodesGlob;
+  const char *podFileResJac;
   const char *aMatrix;
   const char *bMatrix;
 
@@ -129,6 +129,7 @@ struct TransientData {
   const char *sampleNodesGlob;
   const char *aMatrix;
   const char *bMatrix;
+  const char *podStateRed;
 
 // Included (MB)
   const char *velocitynorm;
@@ -1578,11 +1579,9 @@ struct ROB {
 
   double tolerance;
   int numROB;
-  int numROB2;
+  int numROBJac;
+  int numROBRes;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
-
-	// ROB & operator=(const ROB &Rob1) {tolerance = Rob1.tolerance; numROB =
-	// Rob1.numROB; numROB2 = Rob1.numROB2; romsolver = Rob1.romsolver;};
 
   ROB();
   ~ROB() {}

@@ -34,11 +34,11 @@ InputData::InputData()
   levelsets = "";
   rstdata = "";
   podFile = "";
-  podFile2 = "";
 	snapFile = "";
 	sampleNodes = "";
 	aMatrix = "";
 	bMatrix = "";
+  podFileResJac = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -69,11 +69,11 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "LevelSet", this, &InputData::levelsets);
   new ClassStr<InputData>(ca, "RestartData", this, &InputData::rstdata);
   new ClassStr<InputData>(ca, "PODData", this, &InputData::podFile);
-  new ClassStr<InputData>(ca, "PODData2", this, &InputData::podFile2);
   new ClassStr<InputData>(ca, "SnapshotData", this, &InputData::snapFile);
   new ClassStr<InputData>(ca, "SampleNodes", this, &InputData::sampleNodes);
   new ClassStr<InputData>(ca, "AMatrix", this, &InputData::aMatrix);
   new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
+  new ClassStr<InputData>(ca, "PODResJac", this, &InputData::podFileResJac);
 
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
@@ -199,6 +199,7 @@ TransientData::TransientData()
   sampleNodesGlob = "";
   aMatrix = "";
   bMatrix = "";
+  podStateRed = "";
   newtonresiduals = "";
   pgromresiduals = "";
   pgjacxdurom = "";
@@ -317,6 +318,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesGlob);
   new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
   new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
+  new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
 	// Gappy POD snapshots
   new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
   new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
@@ -2670,7 +2672,8 @@ ROB::ROB()
 
   tolerance = 1e-8;
   numROB = 0;
-  numROB2 = 0;
+  numROBJac = 0;
+  numROBRes = 0;
   romsolver = PG; 
 
 }
@@ -2684,7 +2687,8 @@ void ROB::setup(const char *name, ClassAssigner *father)
 
   new ClassDouble<ROB>(ca, "Tolerance", this, &ROB::tolerance);
   new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
-  new ClassInt<ROB>(ca, "NumROB2", this, &ROB::numROB2);
+  new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
+  new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "OldGappyPG", 3);
 
 }

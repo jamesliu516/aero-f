@@ -9,7 +9,7 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	readSampleNodes(ioData.input.sampleNodes);
 
 	// assume we have nPodJac
-  nPodJac = ioData.Rob.numROB2; 
+  nPodJac = ioData.Rob.numROBJac; 
   dom->readPodBasis(ioData.input.aMatrix, nPodJac, *Amat);
   dom->readPodBasis(ioData.input.bMatrix, nPodJac, *Bmat);
 

@@ -1,10 +1,12 @@
 #include <GappyOffline.h>
 
 template<int dim>
-GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom, TsInput *_tInput, DistGeoState *_geoState) : 
-	domain(dom), 	com(_com), ioData(&_ioData), tInput(_tInput),
+GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom, DistGeoState *_geoState) : 
+	domain(dom), 	com(_com), ioData(&_ioData), 
 	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	podJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
+	podState(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
+	initialCondition( dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	podHatRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	podHatJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	errorRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
@@ -124,8 +126,9 @@ void GappyOffline<dim>::setUpPodBases() {
 
 	// determine whether one or two pod bases are used
 
-	nPod[0] = ioData->Rob.numROB;	// number of POD basis vectors 
-	nPod[1] = ioData->Rob.numROB2;
+	nPodState = ioData->Rob.numROB;	// TODO want to read in all pod state vectors
+	nPod[0] = ioData->Rob.numROBRes;	// number of POD basis vectors 
+	nPod[1] = ioData->Rob.numROBJac;
 	int podFiles [2] = {0, 1};	// which pod files should be read
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
@@ -164,9 +167,13 @@ void GappyOffline<dim>::setUpPodBases() {
 
 
 	//	read in both Pod bases
-	//	tInput->podFile: file containing file names of multiple bases
-  domain.readMultiPodBasis(tInput->podFile, pod.a, nPod, nPodBasis, podFiles);//DA
+  domain.readMultiPodBasis(ioData->input.podFileResJac, pod.a, nPod, nPodBasis, podFiles);
 
+	// read in POD basis for state and initial condition
+  //ioData->output.restart.solutions
+	domain.readPodBasis(ioData->input.podFile, nPodState, podState);	// want to read in all (nPodState should be all)
+	double tmp;
+	domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, initialCondition);
 }
 
 template<int dim>
@@ -1119,7 +1126,9 @@ void GappyOffline<dim>::buildGappyMatrices() {
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
 	// DistSVec defined on the reduced mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
-	outputOnlineMatrices();
+  numTotNodes = domain.getNumGlobNode();	// # nodes in full mesh
+	if (thisCPU == 0) outputOnlineMatrices();
+	if (thisCPU == 0)  outputStateReduced();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1247,8 +1256,10 @@ void GappyOffline<dim>::outputOnlineMatrices() {
    com->fprintf(stderr," ... Printing online matrices file ...\n");
    int sp = strlen(ioData->output.transient.prefix);
    char *(onlineMatrixFile [2]);
+   FILE *(onlineMatrix [2]);
 	 onlineMatrixFile[0] = new char[sp + strlen(ioData->output.transient.bMatrix)+1];
 	 onlineMatrixFile[1] = new char[sp + strlen(ioData->output.transient.aMatrix)+1];
+
 	 sprintf(onlineMatrixFile[0], "%s%s", ioData->output.transient.prefix, ioData->output.transient.bMatrix);
 	 sprintf(onlineMatrixFile[1], "%s%s", ioData->output.transient.prefix, ioData->output.transient.aMatrix);
 
@@ -1262,14 +1273,29 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	 // the online part.
 
 	 bool reducedMesh = false;	// KTC: for now, output in full coordinates
+
 	 if (reducedMesh) {
 			 bool isSampleNode;	// is the current node is a sample node?
 			 int iSampleNode = 0;	// counter for passing sample nodes
 			 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
-				 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "wt");
-				 com->fprintf(onlineMatrix,"%d\n", reducedNodeCount);
+
+				 onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
+
+				 com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodesRed\n");
+				 com->fprintf(onlineMatrix[iPodBasis],"%d\n", reducedNodeCount);
+
+				// dummy loop needed by POD
+
+				 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
+					 for (int iDim = 0; iDim < dim; ++iDim) { 
+						 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+					 }
+					 com->fprintf(onlineMatrix[iPodBasis],"\n");
+				 }
+
+				 com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
 				 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-					 com->fprintf(onlineMatrix,"%d\n", iPod);
+					 com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
 					 iSampleNode = 0;	// reset counter for sample nodes
 					 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
 						 isSampleNode = false;
@@ -1281,12 +1307,12 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 						 }
 						 for (int iDim = 0; iDim < dim; ++iDim) { 
 							 if (isSampleNode)
-								 com->fprintf(onlineMatrix,"%e ",
+								 com->fprintf(onlineMatrix[iPodBasis],"%e ",
 										 onlineMatrices[iPodBasis][(iSampleNode - 1) * dim + iDim][iPod]);
 							 else // must output zeros if it is not a sample node
-								 com->fprintf(onlineMatrix,"%e ", 0.0);
+								 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
 						 }
-						 com->fprintf(onlineMatrix,"\n ");
+						 com->fprintf(onlineMatrix[iPodBasis],"\n ");
 					 }
 				 }
 			 }
@@ -1294,13 +1320,26 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	 else {	// using full mesh (for debugging)
 		 int sampleNodeNum;
-		 int numTotNodes = domain.getNumGlobNode();	// # nodes in full mesh
 		 bool isSampleNode;	// is the current node is a sample node?
+
 		 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files (need A,B)
-			 FILE *onlineMatrix = fopen(onlineMatrixFile[iPodBasis], "wt");
-			 com->fprintf(onlineMatrix,"%d\n", numTotNodes);
+
+			 onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
+			 com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodes\n");
+			 com->fprintf(onlineMatrix[iPodBasis],"%d\n", numTotNodes);
+
+				// dummy loop needed by POD
+
+				 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
+					 for (int iDim = 0; iDim < dim; ++iDim) { 
+						 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+					 }
+					 com->fprintf(onlineMatrix[iPodBasis],"\n");
+				 }
+
+			 com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
 			 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-				 com->fprintf(onlineMatrix,"%d\n", iPod);
+				 com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
 				 for (int iFullNode = 0; iFullNode < numTotNodes; ++iFullNode) {
 					 isSampleNode = false;
 					 // determine if it is a sample node
@@ -1313,12 +1352,12 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 					 }
 					 for (int iDim = 0; iDim < dim; ++iDim) { 
 						 if (isSampleNode)
-							 com->fprintf(onlineMatrix,"%e ",
+							 com->fprintf(onlineMatrix[iPodBasis],"%e ",
 									 onlineMatrices[iPodBasis][sampleNodeNum * dim + iDim][iPod]);
 						 else // must output zeros if it is not a sample node
-							 com->fprintf(onlineMatrix,"%e ", 0.0);
+							 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
 					 }
-					 com->fprintf(onlineMatrix,"\n ");
+					 com->fprintf(onlineMatrix[iPodBasis],"\n ");
 				 }
 			 }
 		 }
@@ -1362,3 +1401,75 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	 delete [] onlineMatrixFile[0];
 	 delete [] onlineMatrixFile[1];
 }
+
+template<int dim>
+void GappyOffline<dim>::outputStateReduced() {
+
+   com->fprintf(stderr," ... Printing POD state and initial condition in reduced mesh coordinates ...\n");
+   int sp = strlen(ioData->output.transient.prefix);
+   char *outPodStateFile= new char[sp + strlen(ioData->output.transient.podStateRed)+1];
+   char *outInitialConditionFile= new char[sp + strlen(ioData->output.transient.podStateRed)+1];
+	 sprintf(outPodStateFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podStateRed);
+	 sprintf(outInitialConditionFile, "%s%s", ioData->output.restart.prefix, ioData->output.restart.solutions);
+
+	 FILE *outPodState = fopen(outPodStateFile, "wt");
+	 FILE *outInitialCondition = fopen(outInitialConditionFile, "wt");
+
+	 com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
+	 com->fprintf(outInitialCondition,"%d\n", reducedNodeCount);
+	 outputReducedVector(initialCondition,outInitialCondition,0);
+
+	 // note: need to output the first pod basis vector twice
+
+	 com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
+	 com->fprintf(outPodState,"%d\n", reducedNodeCount);
+	 outputReducedVector(podState[0],outPodState,nPodState);	// dummy output
+
+	 for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
+		 outputReducedVector(podState[iPod],outPodState,iPod);
+	 }
+
+	 delete [] outInitialConditionFile;
+	 delete [] outPodStateFile;
+}
+
+template<int dim>
+void GappyOffline<dim>::outputReducedVector(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector) {
+	 com->fprintf(outFile,"%d\n", iVector);
+	 for (int i = 0; i < nSampleNodes; ++i) {
+		 // save the reduced node number for the sample node
+		 for (int j = 0; j < nodes[i].size(); ++j) {
+			 for (int iDim = 0; iDim < dim; ++iDim) { 
+				 int currentGlobalNode = nodes[i][j];
+				 com->fprintf(outFile,"%e ", distSVec[currentGlobalNode][iDim]);
+			 }
+			 com->fprintf(outFile,"\n ");
+		 }
+	 }
+}
+
+
+
+//template<int dim>
+//void GappyOffline<dim>::outputMinimalTopFile() {
+//
+//
+//	std::vector <int> minimalNodes;	// nodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+//	
+//
+//
+//}
+//
+//template<int dim>
+//void GappyOffline<dim>::makeUnique( std::vector<int> minimalNodes,std::vector <int> * nodeOrEle, int length = -1) {
+//	for (int i = 0; i < nSampleNodes; ++i) {
+//	 // save the reduced node number for the sample node
+//	 for (int j = 0; j < nodes[i].size(); ++j) {
+//		 minimalNodes.push_back(nodes[i][j]);
+//	 }
+//	}
+//
+//	sort(minimalNodes.begin(), minimalNodes.end());	// sort: puts in order
+//	it = unique(minimalNodes.begin(), minimalNodes.end()); // remove duplicate consecutive elements (reason for sort)
+//	minimalNodes.resize(it - minimalNodes.begin());	// remove extra entries
+//}

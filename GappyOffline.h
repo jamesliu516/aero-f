@@ -74,7 +74,6 @@ private:
 	Domain &domain;
 	Communicator *com;
 	IoData *ioData;	
-	TsInput *tInput;
 	DistGeoState *geoState;
 	DistSVec<double,3> &X;
 
@@ -92,6 +91,9 @@ private:
 	ArrayVecDist<dim> error;	// restricted pod bases for residual and jacobian
 	SetOfVec errorRes, errorJac;
 
+	int nPodState;	// TODO want to treat all of these vectors
+	SetOfVec podState;	// need to put podState in reduced coordinates
+	DistSVec<double,dim> initialCondition;
 	// greedy data
 
 	int nRhsMax, nGreedyIt, handledNodes;
@@ -137,6 +139,7 @@ private:
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
 	int reducedNodeCount;	// total number of nodes in the reduced mesh
+	int numTotNodes;	// total number of nodes in the full mesh
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -177,9 +180,11 @@ private:
 		// 		podHatPseudoInv[1]^T
 	void assembleOnlineMatrices();
 	void outputOnlineMatrices();
+	void outputStateReduced();
+	void outputReducedVector(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 
 public:
-	GappyOffline(Communicator *, IoData &, Domain &, TsInput *, DistGeoState *);
+	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);
 	~GappyOffline();
 	void buildGappy();	// build all offline info (do everything)
 

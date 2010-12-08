@@ -64,33 +64,7 @@ TsInput::TsInput(IoData &iod)
     snapFile = new char[1];
     sprintf(snapFile, "");
   }
-// For Gappy Pod
-  if (iod.input.sampleNodes[0] != 0) {
-    sampleNodes = new char[sp + strlen(iod.input.sampleNodes)];
-    sprintf(sampleNodes, "%s%s", iod.input.prefix, iod.input.sampleNodes);
-  }
-  else{
-    sampleNodes = new char[1];
-    sprintf(sampleNodes, "");
-  }
 
-  if (iod.input.aMatrix[0] != 0) {
-    aMatrix = new char[sp + strlen(iod.input.aMatrix)];
-    sprintf(aMatrix, "%s%s", iod.input.prefix, iod.input.aMatrix);
-  }
-  else{
-    aMatrix= new char[1];
-    sprintf(aMatrix, "");
-  }
-
-  if (iod.input.bMatrix[0] != 0) {
-    bMatrix = new char[sp + strlen(iod.input.bMatrix)];
-    sprintf(bMatrix, "%s%s", iod.input.prefix, iod.input.bMatrix);
-  }
-  else{
-    bMatrix = new char[1];
-    sprintf(bMatrix, "");
-  }
 // Included
   if (iod.input.shapederivatives[0] != 0) {
     shapederivatives = new char[sp + strlen(iod.input.shapederivatives)];

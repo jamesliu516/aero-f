@@ -132,7 +132,7 @@ void ModalSolver<dim>::solve()  {
  else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
-	 GappyOffline<dim> gappy(com,*ioData,domain,tInput, geoState);
+	 GappyOffline<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildGappy();	// do all the gappy offline work
  }
  else  {
