@@ -3748,5 +3748,12 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
   for (iVec = 1; iVec < nPodVecs; iVec++)
     readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);
 
-  com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEig, eigValue/firstEig);
+	double firstEigDisplayed;
+	if (firstEig == 0){
+		firstEigDisplayed = 1.0;
+	}
+	else{
+		firstEigDisplayed = firstEig;
+	}
+  com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
 }

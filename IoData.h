@@ -41,7 +41,6 @@ struct InputData {
 
   const char *mesh;
   const char *sampleNodes;
-  const char *sampleNodesGlob;
   const char *podFileResJac;
   const char *aMatrix;
   const char *bMatrix;
@@ -129,7 +128,10 @@ struct TransientData {
   const char *sampleNodesGlob;
   const char *aMatrix;
   const char *bMatrix;
+  const char *aMatrixFull;
+  const char *bMatrixFull;
   const char *podStateRed;
+  const char *wallDistanceRed;
 
 // Included (MB)
   const char *velocitynorm;
