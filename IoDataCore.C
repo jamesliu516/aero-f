@@ -195,6 +195,7 @@ TransientData::TransientData()
 // Gappy POD
 
   mesh = "";
+  reducedfullnodemap = "";
   sampleNodes = "";
   sampleNodesGlob = "";
   aMatrix = "";
@@ -318,6 +319,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 
 	// Gappy POD offline
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
+  new ClassStr<TransientData>(ca, "ReducedFullNodeMap", this, &TransientData::reducedfullnodemap);
   new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
   new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesGlob);
   new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
