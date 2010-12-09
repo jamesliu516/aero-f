@@ -718,7 +718,7 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 					for (int iNodeToAdd = 0; iNodeToAdd < nNodesToAdd; ++iNodeToAdd) { 
 						locNodeNum = *((*nodeToNode)[iLocNode]+iNodeToAdd);
 						nodes[iIslands].push_back(locToGlobNodeMap[locNodeNum]);
-						for (int iCrap = 0; iCrap < 3 ; ++iCrap) xyz[iCrap] = 0.0; // KTCREMOVE
+						for (int iXYZ = 0; iXYZ < 3 ; ++iXYZ) xyz[iXYZ] = 0.0; // KTCREMOVE
 						computeXYZ(iSub, locNodeNum, xyz);
 						for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
 							nodesXYZ[iXYZ][iIslands].push_back(xyz[iXYZ]);

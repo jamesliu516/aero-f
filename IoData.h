@@ -123,6 +123,7 @@ struct TransientData {
   const char *pgromresiduals;
   const char *pgjacxdurom;
   const char *statevectorchange;
+  const char *stateRom;
   const char *mesh;
   const char *sampleNodes;
   const char *sampleNodesGlob;
@@ -132,6 +133,7 @@ struct TransientData {
   const char *bMatrixFull;
   const char *podStateRed;
   const char *wallDistanceRed;
+  const char *staterom;
 
 // Included (MB)
   const char *velocitynorm;

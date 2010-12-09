@@ -207,6 +207,7 @@ TransientData::TransientData()
   pgromresiduals = "";
   pgjacxdurom = "";
   statevectorchange = "";
+  staterom = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -329,6 +330,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
   new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
   new ClassStr<TransientData>(ca, "StateVectorChange", this, &TransientData::statevectorchange);
+  new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);

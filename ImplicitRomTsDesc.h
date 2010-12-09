@@ -40,6 +40,7 @@ protected:
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   Vec<double> dUrom;
+  Vec<double> UromTotal;
 
 	double target, res0;	// for Newton convergence
 
@@ -59,6 +60,7 @@ protected:
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
+	virtual void writeStateRomToDisk(int it, double cpu);
 
 public:
   

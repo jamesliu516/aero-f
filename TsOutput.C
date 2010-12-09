@@ -455,6 +455,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
+  if (iod.output.transient.staterom[0] != 0) {
+    staterom = new char[sp + strlen(iod.output.transient.staterom)];
+    sprintf(staterom, "%s%s", iod.output.transient.prefix, iod.output.transient.staterom);
+  }
+  else
+    staterom = 0;
+
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
     sprintf(conservation, "%s%s", iod.output.transient.prefix, iod.output.transient.conservation);
@@ -471,6 +478,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[2] = iod.output.transient.z0;
 
   fpResiduals = 0;
+  fpStateRom = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
 
@@ -651,6 +659,7 @@ TsOutput<dim>::~TsOutput()
 
   delete[] heatfluxes;
   delete[] residuals;
+  delete[] staterom;
   delete[] conservation;
 
   delete[] lift;
@@ -1240,6 +1249,19 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
 
+  if (staterom) {
+    if (it0 != 0) 
+      fpStateRom = backupAsciiFile(staterom);
+    if (it0 == 0 || fpStateRom == 0) {
+      fpStateRom = fopen(staterom, "w");
+      if (!fpStateRom) {
+	fprintf(stderr, "*** Error: could not open \'%s\'\n", staterom);
+	exit(1);
+      }
+      fprintf(fpStateRom, "# TimeIteration ElapsedTime StatePodCoords \n");
+    }
+    fflush(fpStateRom);
+  }
   if (conservation) {
     if (it0 != 0) 
       fpConservationErr = backupAsciiFile(conservation);
@@ -1282,6 +1304,7 @@ void TsOutput<dim>::closeAsciiFiles()
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
   if (fpResiduals) fclose(fpResiduals);
+  if (fpStateRom) fclose(fpStateRom);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
@@ -2631,3 +2654,20 @@ void TsOutput<dim>::rstVar(IoData &iod) {
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<double> &UromTotal)
+{
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpStateRom) {
+    fprintf(fpStateRom, "%d %e", it, cpu);
+		for (int iPod; iPod < nPod; ++iPod) {
+			fprintf(fpStateRom, " %e", UromTotal[iPod]);
+		}
+    fprintf(fpStateRom, "\n");
+    fflush(fpStateRom);
+  }
+
+}

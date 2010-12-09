@@ -34,7 +34,9 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
 
   AJ.resize(nPod);
   dUrom.resize(nPod);
-  
+  UromTotal.resize(nPod);
+	UromTotal = 0.0;	// before any time step, it is zero
+
 }
 
 //------------------------------------------------------------------------------
@@ -89,6 +91,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 
     expandVector(dUrom, dUfull); // solution increment in full coordinates
     Urom += dUrom; // solution increment in reduced coordinates
+    UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 
 		saveAJsol();	// only done for PG rom
@@ -119,6 +122,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
   }
 
   this->timer->addFluidSolutionTime(t0);
+
+	// output POD coordinates
 
   return it;
 
@@ -632,3 +637,10 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 
 }
 */
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
+
+	this->output->writeStateRomToDisk(it, cpu, nPod, UromTotal);
+
+}

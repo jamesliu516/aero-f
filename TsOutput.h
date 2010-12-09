@@ -82,6 +82,7 @@ private:
 	char *pgromresiduals;
 	char *pgjacxdurom;
 	char *statevectorchange;
+	char *staterom;
 
   double tprevf, tprevl, tinit;
   double tener,tenerold;
@@ -97,6 +98,7 @@ private:
   FILE *fpResiduals;
   FILE *fpConservationErr;
   FILE *fpGnForces;
+  FILE *fpStateRom;
 
 
   DistVec<double>    *Qs;
@@ -153,6 +155,7 @@ public:
                              double* , DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
+  void writeStateRomToDisk(int, double, int, const Vec<double> &);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,

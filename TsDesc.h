@@ -68,7 +68,6 @@ protected:
   RefVal *refVal;
   VarFcn *varFcn;
 
-
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
@@ -129,6 +128,7 @@ public:
 			 	DistSVec<double,dim> &);
   virtual void outputToDisk(IoData &, bool*, int, int, int, double, double,
 				DistSVec<double,dim> &);
+	virtual void writeStateRomToDisk(int it, double cpu) {};
 
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
 		    DistSVec<double,dim> &);
