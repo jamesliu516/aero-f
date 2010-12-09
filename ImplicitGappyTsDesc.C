@@ -71,7 +71,6 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
-
   // Form A * AJRestrict and distribute
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
@@ -87,40 +86,39 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   }
  
   // Form B * ResRestrict and distribute
-  const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
-  for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-    const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
-    const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
-    if (hasLocalEntry) {
-      const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
-      leastSquaresSolver.rhsEntry(localIRow) = entryValue;
+  {
+    const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
+    for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
+      const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
+      const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
+      if (hasLocalEntry) {
+        const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
+        leastSquaresSolver.rhsEntry(localIRow) = entryValue;
+      }
     }
   }
  
   // Solve least squares problem
   leastSquaresSolver.solve();
 
-  // Compute residual error and update vector
+  // Update vector: The first nPod rows give the components in the pod basis
   this->dUrom = 0.0;
-  double residualError = 0.0;
- 
-   // The first nPod rows give the components in the pod basis
   for (int localIRow = 0; localIRow < leastSquaresSolver.localSolutionRows(); ++localIRow) {
     const int iRow = leastSquaresSolver.globalRhsRowIdx(localIRow);
     this->dUrom[iRow] = leastSquaresSolver.rhsEntry(localIRow);
   }
  
-  // The sum of squares of the remaining rows give the square of the residual norm
-  for (int localIRow = leastSquaresSolver.localSolutionRows(); localIRow <
-      leastSquaresSolver.localRhsRows(); ++localIRow) {
-    const double entry = leastSquaresSolver.rhsEntry(localIRow);
-    residualError += entry * entry;
-  }
- 
-   // Consolidate across the cpus
+  // Consolidate across the cpus
   this->com->globalSum(this->nPod, this->dUrom.data());
-  this->com->globalSum(1, &residualError);
-  res = std::sqrt(residualError);
+  res = this->dUrom.norm();
+
+  // Convergence criterion
+  if (it == 0) {
+    this->res0 = res;
+    this->target = this->epsNewton * this->res0;
+  }
+
+  breakloop = (res == 0.0) || (res <= this->target);
 }
 
 //------------------------------------------------------------------------------
