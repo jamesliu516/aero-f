@@ -68,7 +68,7 @@ private:
 	void buildGappyMesh();	// build reduced mesh offline
 	void buildGappyMatrices();	// build matrices A and B
 
-	int nSampleNodes;	// number of parent sample nodes
+	int nSampleNodes;	// number of parent sample globalNodes
 	void newNeighbors();	// add unique neighbors of a node
 
 	Domain &domain;
@@ -81,7 +81,7 @@ private:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
-	int * cpuSet, * locSubSet, * locNodeSet, * globalNodeSet;	// info for master sample nodes
+	int * cpuSet, * locSubSet, * locNodeSet, * globalNodeSet;	// info for master sample globalNodes
 
 	int nPodBasis;	// either 1 or 2
 	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
@@ -99,7 +99,7 @@ private:
 	int nRhsMax, nGreedyIt, handledNodes;
 	int handledVectors [2];
 	int nRhs [2];	// nRhs at a given greedy iteration
-	int *nodesToHandle;	// how many nodes are handled at each greedy iteration
+	int *nodesToHandle;	// how many globalNodes are handled at each greedy iteration
 	VecSubDomainData<dim> locError;
 
 	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
@@ -127,7 +127,10 @@ private:
 	
 	// mesh construction
 	// each of these arrays has nSampleNodes elements
-	std::vector <int> *nodes;	// nodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+	std::vector <int> *globalNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+	std::vector <int> *cpus;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+	std::vector <int> *locSubDomains;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
+	std::vector <int> *localNodes;	// globalNodes[iSampleNode][iNode] is the global node number of the iNode in the iSampleNode island 
 	std::vector <double> *(nodesXYZ [3]);	// nodesXYZ[iXYZ][iSampleNode][iNode] is the iXYZ coordinate of the iNode in the iSampleNode island
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
@@ -136,10 +139,13 @@ private:
 	int * sampleToReducedNodeNumbering;
 
 	std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
+	std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
+	std::map<int, int > globalNodeToLocSubDomainsMap;	// key: global node #, values: x, y, z
+	std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
-	int reducedNodeCount;	// total number of nodes in the reduced mesh
-	int numTotNodes;	// total number of nodes in the full mesh
+	int reducedNodeCount;	// total number of globalNodes in the reduced mesh
+	int numTotNodes;	// total number of globalNodes in the full mesh
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -180,6 +186,7 @@ private:
 		// 		podHatPseudoInv[1]^T
 	void assembleOnlineMatrices();
 	void outputOnlineMatrices();
+	void outputReducedToFullNodes();
 	void outputStateReduced();
 	void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
