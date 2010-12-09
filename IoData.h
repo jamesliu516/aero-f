@@ -39,7 +39,6 @@ struct InputData {
 
 	// Gappy POD
 
-  const char *mesh;
   const char *sampleNodes;
   const char *podFileResJac;
   const char *aMatrix;
@@ -124,6 +123,7 @@ struct TransientData {
   const char *pgjacxdurom;
   const char *statevectorchange;
   const char *mesh;
+  const char *reducedfullnodemap;
   const char *sampleNodes;
   const char *sampleNodesGlob;
   const char *aMatrix;
