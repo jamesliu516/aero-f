@@ -139,6 +139,6 @@ void ImplicitGappyTsDesc<dim>::readSampleNodes(const char *sampleNodeFileName)  
 	for (int i = 0; i < nSampleNodes; ++i){
 		fscanf(sampleNodeFile, "%d",&index);
 		fscanf(sampleNodeFile, "%d",&currentSampleNode);
-		sampleNodes.push_back(currentSampleNode);
+		sampleNodes.push_back(currentSampleNode-1);
 	}
 }

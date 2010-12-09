@@ -135,7 +135,6 @@ private:
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
 	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
-	std::vector< int > *(bcIsland [2]);	// bcIsland[iSign][BCtype][iFace] returns the island to which the face belongs
 	int * sampleToReducedNodeNumbering;
 
 	std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
@@ -159,7 +158,7 @@ private:
 
 	void addTwoNodeLayers();
 	void computeBCFaces();
-	void checkFaceInMesh(FaceSet& currentFaces, int iFace, int iSub, int *locToGlobNodeMap , bool &faceInMesh, int &whichIsland);
+	void checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap , bool &faceInMesh);
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
 	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize);
 	void communicateAll();
