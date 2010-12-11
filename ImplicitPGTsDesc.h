@@ -12,7 +12,7 @@ protected:
 
 	Vec<double> rhs;
   Vec<double> From;
-  void saveAJsol();	// only implemented for PG
+  void saveAJsol(const int);	// only implemented for PG
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 
 public:

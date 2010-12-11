@@ -18,7 +18,7 @@ protected:
   Vec<double> dFrom;
   Vec<double> Fromold;
   void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
-  void updateGlobalTimeSteps(int _it) {Git = _it;};	// each ROM has a different way of solving the Newton system
+  void updateGlobalTimeSteps(const int _it) {Git = _it;};	// each ROM has a different way of solving the Newton system
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 	void broydenUpdate(Vec<double> &);
 
