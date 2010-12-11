@@ -1971,7 +1971,7 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, DistSVec<double,dim> &U1, DistSVec<double,dim> &U2)
 {
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+  //if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
 /*    int step = 0;
     if (frequency > 0) {
       step = it / frequency;
@@ -2021,7 +2021,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, Dis
     }
     if (output_step_pgromresiduals != output_step_pgjacxdurom) 
       com->fprintf(stderr,"WARNING: PGRomResiduals and PGJacxdUrom output sizes do not match (%d vs %d)\n", output_step_pgromresiduals, output_step_pgjacxdurom);//CBM
-  }
+  //}
 }
 
 //------------------------------------------------------------------------------

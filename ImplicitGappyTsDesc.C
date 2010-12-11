@@ -18,26 +18,32 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
 	
 	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)
-  VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
-  VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
-	dom->readPodBasis(ioData.input.aMatrix, nPodJac,Afull);
-	dom->readPodBasis(ioData.input.bMatrix, nPodJac,Bfull);
+  //VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
+  //VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
+	//dom->readPodBasis(ioData.input.aMatrix, nPodJac,Afull);
+	//dom->readPodBasis(ioData.input.bMatrix, nPodJac,Bfull);
+	Amat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
+	Bmat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
+	dom->readPodBasis(ioData.input.aMatrix, nPodJac,*Amat);
+	dom->readPodBasis(ioData.input.bMatrix, nPodJac,*Bmat);
 
 	// determine mapping to restricted nodes
-	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
+	//restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
 
 	// allocate memory for Amat, Bmat using restrictedDistInfo
-	Amat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
-	Bmat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
+	//Amat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
+	//Bmat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
 
 	// restrict Afull and Bfull to be Amat, Bmat
-	for (int i = 0; i < nPodJac; ++i) {
-		restrictionMapping->restriction(Afull[i],(*Amat)[i]);
-		restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
-	}
+	//for (int i = 0; i < nPodJac; ++i) {
+//		restrictionMapping->restriction(Afull[i],(*Amat)[i]);
+//		restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
+//	}
 
-	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
-	ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
+	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, dom->getNodeDistInfo()));
+	ResRestrict.reset(new DistSVec<double, dim> (dom->getNodeDistInfo()));
+	//AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
+	//ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
 }
 
 //------------------------------------------------------------------------------
@@ -48,7 +54,8 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
  ImplicitRomTsDesc<dim>::computeFullResidual(it, Q);
 
  // Restrict down
- restrictMapping()->restriction(this->F, *ResRestrict);
+ //restrictMapping()->restriction(this->F, *ResRestrict);
+ *ResRestrict=this->F;
 }
 
 //------------------------------------------------------------------------------
@@ -60,10 +67,11 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
  this->mvpfd->evaluate(it, *this->X, *this->A, Q, this->F);
 
- DistSVec<double, dim> AJfull(restrictMapping()->originDistInfo());
+ DistSVec<double, dim> AJfull(this->domain->getNodeDistInfo());
  for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
    this->mvpfd->apply(this->pod[iPod], AJfull);
-   restrictMapping()->restriction(AJfull, (*AJRestrict)[iPod]);
+   //restrictMapping()->restriction(AJfull, (*AJRestrict)[iPod]);
+	 (*AJRestrict)[iPod] = AJfull;
  }
 }
 
@@ -75,29 +83,37 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
     const int localICol = leastSquaresSolver.localColIdx(iCol);
+		this->com->fprintf(stderr,"\n");
+		this->com->fprintf(stderr,"...MATRIX...\n");
+		this->com->fprintf(stderr,"\n");
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
       const double entryValue = (*Amat)[iRow] * (*AJRestrict)[iCol];
+			this->com->fprintf(stderr,"%e ",entryValue);
       const bool hasLocalEntry = hasLocalCol && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRowIdx(iRow);
         leastSquaresSolver.matrixEntry(localIRow, localICol) = entryValue;
       }
     }
+		this->com->fprintf(stderr,"\n");
   }
+		this->com->fprintf(stderr,"...RHS INCOMING...\n");
+		this->com->fprintf(stderr,"\n");
  
   // Form B * ResRestrict and distribute
   {
     const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
       const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
+			this->com->fprintf(stderr,"%e \n",entryValue);
       const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
         leastSquaresSolver.rhsEntry(localIRow) = entryValue;
       }
     }
+		this->com->fprintf(stderr,"\n");
   }
- 
   // Solve least squares problem
   leastSquaresSolver.solve();
 
@@ -108,8 +124,14 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
     this->dUrom[iRow] = leastSquaresSolver.rhsEntry(localIRow);
   }
  
+		this->com->fprintf(stderr,"\n");
+		this->com->fprintf(stderr,"... SOLUTION ...\n");
+		this->com->fprintf(stderr,"\n");
+ 
   // Consolidate across the cpus
   this->com->globalSum(this->nPod, this->dUrom.data());
+	for (int iPod=0; iPod < this->nPod; ++iPod)
+			this->com->fprintf(stderr,"%e \n",this->dUrom[iPod]);
   res = this->dUrom.norm();
 
   // Convergence criterion
@@ -137,6 +159,6 @@ void ImplicitGappyTsDesc<dim>::readSampleNodes(const char *sampleNodeFileName)  
 	for (int i = 0; i < nSampleNodes; ++i){
 		fscanf(sampleNodeFile, "%d",&index);
 		fscanf(sampleNodeFile, "%d",&currentSampleNode);
-		sampleNodes.push_back(currentSampleNode-1);
+		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
 	}
 }

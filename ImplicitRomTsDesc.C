@@ -94,7 +94,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
     UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 
-		saveAJsol();	// only done for PG rom
+		saveAJsol(_it);	// only done for PG rom
 
     // verify that the solution is physical
     if (checkSolution(U)) {

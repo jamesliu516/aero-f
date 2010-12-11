@@ -81,7 +81,8 @@ private:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
-	int * cpuSet, * locSubSet, * locNodeSet, * globalNodeSet;	// info for master sample globalNodes
+	int * cpuSet, * locSubSet, * locNodeSet, * globalSampleNodeSet;	// info for master sample globalNodes
+
 
 	int nPodBasis;	// either 1 or 2
 	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
@@ -165,6 +166,7 @@ private:
 	void defineMaps();
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
+	void orderSampleNodes();
 	void outputTopFile();
 
 	// A and B matrices functions
@@ -172,7 +174,6 @@ private:
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
 	void computePseudoInverse(int iPodBasis);
-	void computePseudoInverseRHS();	// computes the RHS matrix pseudoInvRhs
 	SetOfVec pseudoInvRhs;
 
 	// podTpod
