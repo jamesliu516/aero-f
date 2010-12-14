@@ -357,10 +357,6 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 
 	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
 
-		if (debugging){
-		 com->fprintf(stderr, "CPU %d has myMaxNorm with locNode %d, locSub %d \n",thisCPU,locNode,locSub);
-		}
-
 		// save the global subdomain and local node indices (sum at the very end of
 		// algorithm)
 
@@ -398,6 +394,12 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	com->globalSum(1, &locNodeTemp);
 	com->globalSum(1, &globalNodeTemp);
 	com->globalSum(3, xyz);
+
+	if (debugging){
+	 com->fprintf(stderr, "CPU %d has the sample node: globalNode = %d, locNode = %d, locSub = %d  \n",cpuTemp,globalNodeTemp,locNodeTemp,locSubTemp);
+	}
+
+	assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
 
 	// add information to all cpus copies
 
@@ -471,8 +473,6 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 		}
 
 		// find global subdomain number and local node number for node with maximum norm
-
-		assert(locSub!=-1 && locNode !=-1 && globalNode != -1);
 
 		findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
 
@@ -1469,7 +1469,7 @@ void GappyOffline<dim>::checkConsistency() {
 				consistency[i][j] = 0.0;
 			}
 		}
-	 com->fprintf(stderr," ... consistency check for iPodBasis=%d (should be identity) ...\n",iPodBasis);
+
 		for (int i = 0; i < nPod[iPodBasis]; ++i){
 			for (int j = 0; j < nPod[iPodBasis]; ++j) {
 				int counterk = 0;
