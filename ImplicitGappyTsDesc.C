@@ -83,36 +83,27 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
     const int localICol = leastSquaresSolver.localColIdx(iCol);
-		this->com->fprintf(stderr,"\n");
-		this->com->fprintf(stderr,"...MATRIX...\n");
-		this->com->fprintf(stderr,"\n");
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
       const double entryValue = (*Amat)[iRow] * (*AJRestrict)[iCol];
-			this->com->fprintf(stderr,"%e ",entryValue);
       const bool hasLocalEntry = hasLocalCol && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRowIdx(iRow);
         leastSquaresSolver.matrixEntry(localIRow, localICol) = entryValue;
       }
     }
-		this->com->fprintf(stderr,"\n");
   }
-		this->com->fprintf(stderr,"...RHS INCOMING...\n");
-		this->com->fprintf(stderr,"\n");
  
   // Form B * ResRestrict and distribute
   {
     const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
       const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
-			this->com->fprintf(stderr,"%e \n",entryValue);
       const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
         leastSquaresSolver.rhsEntry(localIRow) = entryValue;
       }
     }
-		this->com->fprintf(stderr,"\n");
   }
   // Solve least squares problem
   leastSquaresSolver.solve();
@@ -124,14 +115,8 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
     this->dUrom[iRow] = leastSquaresSolver.rhsEntry(localIRow);
   }
  
-		this->com->fprintf(stderr,"\n");
-		this->com->fprintf(stderr,"... SOLUTION ...\n");
-		this->com->fprintf(stderr,"\n");
- 
   // Consolidate across the cpus
   this->com->globalSum(this->nPod, this->dUrom.data());
-	for (int iPod=0; iPod < this->nPod; ++iPod)
-			this->com->fprintf(stderr,"%e \n",this->dUrom[iPod]);
   res = this->dUrom.norm();
 
   // Convergence criterion
