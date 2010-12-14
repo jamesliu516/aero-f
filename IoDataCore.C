@@ -207,6 +207,7 @@ TransientData::TransientData()
   newtonresiduals = "";
   pgromresiduals = "";
   pgjacxdurom = "";
+  pgjac = "";
   statevectorchange = "";
   staterom = "";
 
@@ -331,6 +332,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 	// Gappy POD snapshots
   new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
   new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
+  new ClassStr<TransientData>(ca, "PGJac", this, &TransientData::pgjac);
   new ClassStr<TransientData>(ca, "StateVectorChange", this, &TransientData::statevectorchange);
   new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
 // Included (MB)

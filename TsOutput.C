@@ -31,6 +31,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   output_step2 = 0;
   output_step_pgromresiduals = 0; //CBM--TEMP
   output_step_pgjacxdurom = 0; //CBM--TEMP
+  output_step_pgjac = 0; //CBM--TEMP
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -70,6 +71,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   }
   else
     pgjacxdurom = 0;
+
+  if (iod.output.transient.pgjac[0] != 0) {
+    pgjac = new char[sp + strlen(iod.output.transient.pgjac)];
+    sprintf(pgjac, "%s%s", iod.output.transient.prefix, iod.output.transient.pgjac);
+  }
+  else
+    pgjac = 0;
 
   if (iod.output.transient.statevectorchange[0] != 0) {
     statevectorchange = new char[sp + strlen(iod.output.transient.statevectorchange)];
@@ -2022,6 +2030,7 @@ void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, Dis
     if (output_step_pgromresiduals != output_step_pgjacxdurom) 
       com->fprintf(stderr,"WARNING: PGRomResiduals and PGJacxdUrom output sizes do not match (%d vs %d)\n", output_step_pgromresiduals, output_step_pgjacxdurom);//CBM
   //}
+	
 }
 
 //------------------------------------------------------------------------------
@@ -2050,6 +2059,38 @@ void TsOutput<dim>::writeBinaryVectorsToDisk2(bool lastIt, int it, double t, Dis
         domain->scaleSolution(soltn, refVal);
       domain->writeVectorToFile(statevectorchange, output_step2, tag, U);
       ++output_step2;
+    }
+  }
+}
+
+
+template<int dim>
+void TsOutput<dim>::writeBinaryVectorsToDisk3(bool lastIt, int it, double t, VecSet< DistSVec<double,dim> >&U)
+{
+  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+/*    int step = 0;
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+	++step;
+    }
+
+*/
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+
+    if (pgjac)  {
+			for (int i = 0; i < U.numVectors(); ++i) {
+				DistSVec<double,dim> soltn(U[i]);
+				if (refVal->mode == RefVal::DIMENSIONAL)
+					domain->scaleSolution(soltn, refVal);
+
+				domain->writeVectorToFile(pgjac, output_step_pgjac, tag, soltn);
+				++output_step_pgjac;
+			}
     }
   }
 }

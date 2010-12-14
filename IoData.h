@@ -121,6 +121,7 @@ struct TransientData {
   const char *newtonresiduals;
   const char *pgromresiduals;
   const char *pgjacxdurom;
+  const char *pgjac;
   const char *statevectorchange;
   const char *stateRom;
   const char *mesh;

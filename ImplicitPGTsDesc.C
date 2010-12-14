@@ -65,4 +65,8 @@ void ImplicitPGTsDesc<dim>::saveAJsol(const int _it) {
 
 	// saving this->AJ * this->dUrom (for GappyPOD)
 	writeBinaryVectorsToDisk1(false, _it, 0.0, this->F, Test);
+
+	writeBinaryVectorsToDisk3(false, _it, 0.0, this->AJ);
+
+	
 }
