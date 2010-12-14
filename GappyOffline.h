@@ -7,6 +7,7 @@ class Domain;
 #include <DistVector.h>
 #include <VectorSet.h>
 #include <ParallelRom.h>
+#include <set>
 
 template <int dim>
 class ArrayVecDist {
@@ -26,6 +27,11 @@ struct SubDomainData {
 		a = b;
 		return *this;
 	};
+
+	SubDomainData(double (*b)[dim] ) {
+		a = b;
+	};
+	SubDomainData() { };
 };
 
 template <int dim>
@@ -81,23 +87,27 @@ private:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
-	int * cpuSet, * locSubSet, * locNodeSet, * globalSampleNodeSet;	// info for master sample globalNodes
 
+	std::vector<int> cpuSample, locSubSample, locNodeSample;
+	std::vector<int> globalSampleNodes, reducedSampleNodes;
+	std::map<int, int > globalSampleNodeRankMap, reducedSampleNodeRankMap;
+		//key: node #, value: rank of sample node (position in _SampleNodeSet)
 
 	int nPodBasis;	// either 1 or 2
 	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
 	SetOfVec podRes, podJac;
-	ArrayVecDist<dim> podHat;	// restricted pod bases for residual and jacobian
+	ArrayVecDist<dim> podHat;	// restricted pod bases 
 	SetOfVec podHatRes, podHatJac;
-	ArrayVecDist<dim> error;	// restricted pod bases for residual and jacobian
+	ArrayVecDist<dim> error;	// error vectors
 	SetOfVec errorRes, errorJac;
 
-	int nPodState;	// TODO want to treat all of these vectors
+	int nPodState;
 	SetOfVec podState;	// need to put podState in reduced coordinates
 	DistSVec<double,dim> initialCondition;
-	// greedy data
 
+	// greedy data
 	int nRhsMax, nGreedyIt, handledNodes;
+	int *(nRhsGreedy [2]);
 	int handledVectors [2];
 	int nRhs [2];	// nRhs at a given greedy iteration
 	int *nodesToHandle;	// how many globalNodes are handled at each greedy iteration
@@ -136,7 +146,6 @@ private:
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
 	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
-	int * sampleToReducedNodeNumbering;
 
 	std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
 	std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
@@ -144,8 +153,7 @@ private:
 	std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
-	int reducedNodeCount;	// total number of globalNodes in the reduced mesh
-	int numTotNodes;	// total number of globalNodes in the full mesh
+	int numFullNodes, numReducedNodes;	// number of nodes in full and reduced meshes
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -166,14 +174,18 @@ private:
 	void defineMaps();
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
-	void orderSampleNodes();
 	void outputTopFile();
+	void outputSampleNodes();
+	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
+			char *sampleNodeFile);
 
 	// A and B matrices functions
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
 	void computePseudoInverse(int iPodBasis);
+	//void computePseudoInverseRHS();
+	void checkConsistency();
 	SetOfVec pseudoInvRhs;
 
 	// podTpod
@@ -186,6 +198,9 @@ private:
 		// 		podHatPseudoInv[1]^T
 	void assembleOnlineMatrices();
 	void outputOnlineMatrices();
+	void outputOnlineMatricesGeneral(const char *aMatrix, const char *bMatrix,
+			int numNodes, const std::map<int,int> &sampleNodeMap, const
+			std::vector<int> &sampleNodeVec);
 	void outputReducedToFullNodes();
 	void outputStateReduced();
 	void outputWallDistanceReduced();
