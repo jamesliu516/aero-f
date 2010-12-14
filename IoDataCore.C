@@ -197,7 +197,7 @@ TransientData::TransientData()
   mesh = "";
   reducedfullnodemap = "";
   sampleNodes = "";
-  sampleNodesGlob = "";
+  sampleNodesFull = "";
   aMatrix = "";
   bMatrix = "";
   aMatrixFull = "";
@@ -321,7 +321,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
   new ClassStr<TransientData>(ca, "ReducedFullNodeMap", this, &TransientData::reducedfullnodemap);
   new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
-  new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesGlob);
+  new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesFull);
   new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
   new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
   new ClassStr<TransientData>(ca, "AMatrixFullMesh", this, &TransientData::aMatrixFull);

@@ -4,14 +4,14 @@ template<int dim>
 GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom, DistGeoState *_geoState) : 
 	domain(dom), 	com(_com), ioData(&_ioData), 
 	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podState(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	initialCondition( dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podHatRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	podHatJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	errorRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	errorJac(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
-	pseudoInvRhs(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
+	podJac(0, dom.getNodeDistInfo() ),
+	podState(0, dom.getNodeDistInfo() ),
+	initialCondition( dom.getNodeDistInfo() ),
+	podHatRes(0, dom.getNodeDistInfo() ),
+	podHatJac(0, dom.getNodeDistInfo() ),
+	errorRes(0, dom.getNodeDistInfo() ),
+	errorJac(0, dom.getNodeDistInfo() ),
+	pseudoInvRhs(0, dom.getNodeDistInfo() ),
 	handledNodes(0), nPodBasis(2),
 	debugging(1),
 	// distribution info
@@ -40,6 +40,8 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 		for (int j = 0; j < 3; ++j)
 			bcFaces[i][j] = new std::vector< int > [BC_CODE_EXTREME];
 	}
+
+  numFullNodes = domain.getNumGlobNode();	// # globalNodes in full mesh
 	
 }
 template<int dim>
@@ -60,6 +62,7 @@ GappyOffline<dim>::~GappyOffline()
 	delete [] locSubDomains;
 	delete [] localNodes;
 
+
 	for (int i = 0; i < 3; ++i)
 		delete [] nodesXYZ[i];
 	delete [] elements;
@@ -70,6 +73,7 @@ GappyOffline<dim>::~GappyOffline()
 		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)
 			delete [] podHatPseudoInv[iPodBasis][iRhs];
 		delete [] podHatPseudoInv[iPodBasis];
+		delete [] nRhsGreedy[iPodBasis];
 	}
 }
 	//---------------------------------------------------------------------------------------
@@ -92,6 +96,7 @@ void GappyOffline<dim>::buildGappy() {
 	// compute matries A and B required online
 
 	 com->barrier();
+
    buildGappyMatrices();
 
    com->fprintf(stderr," ... finished with buildGappy ...\n");
@@ -208,15 +213,6 @@ void GappyOffline<dim>::buildGappyMesh() {
 
 	computeGreedyIterationInfo();
 
-	// initialize restricted mesh quantities
-
-	cpuSet = new int[nSampleNodes];  // set of cpus containing local globalNodes
-	locSubSet = new int[nSampleNodes];  // set of local subdomains
-	locNodeSet = new int[nSampleNodes];  // set of local globalNodes
-	globalSampleNodeSet = new int[nSampleNodes];  // set of global globalNodes
-	for (int i = 0; i < nSampleNodes; ++i){ cpuSet[i] = 0; locSubSet[i] = 0; locNodeSet[i] = 0; globalSampleNodeSet[i] = 0; } // initialize
-		// must be zero because do a global sum later
-
 	//==================
 	// Option 1: build on a reduced mesh, which is currently unknown
 	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
@@ -246,10 +242,11 @@ void GappyOffline<dim>::buildGappyMesh() {
 		greedy(greedyIt);
 
 	// print global globalNodes
+
 	if (debugging){
-		com->fprintf(stderr,"globalSampleNodeSet is:");
+		com->fprintf(stderr,"globalSampleNodes is:");
 		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
-			com->fprintf(stderr,"%d ",globalSampleNodeSet[iSampleNodes]);
+			com->fprintf(stderr,"%d ",globalSampleNodes[iSampleNodes]);
 	}
 
 	//==============================================
@@ -257,8 +254,6 @@ void GappyOffline<dim>::buildGappyMesh() {
 	// NOTE: adding two layers of neighbors!
 	//==============================================
 
-	//KTC OK to here
-	
 	addTwoNodeLayers();	// add two layers of globalNodes 
 
 	//==============================================
@@ -266,6 +261,7 @@ void GappyOffline<dim>::buildGappyMesh() {
 	//==============================================
 	
 	outputTopFile();
+	outputSampleNodes();
 }
 
 
@@ -273,7 +269,6 @@ void GappyOffline<dim>::buildGappyMesh() {
 
 template<int dim>
 void GappyOffline<dim>::computeGreedyIterationInfo() {
-	// KTC: verified in c++
 
 	//==================================================================
 	// PURPOSE: compute number of POD basis vectors (nRhsMax) and globalNodes and handled by each
@@ -319,6 +314,16 @@ void GappyOffline<dim>::computeGreedyIterationInfo() {
 			++nodesToHandle[iGreedyIt];
 	}
 
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+		nRhsGreedy[iPodBasis] = new int [nGreedyIt];
+		int nRhsMin = nPod[iPodBasis] / nGreedyIt;
+		int nRhsExtra = nPod[iPodBasis] % nGreedyIt;
+		for (int iGreedyIt = 0; iGreedyIt < nGreedyIt; ++iGreedyIt) {
+			nRhsGreedy[iPodBasis][iGreedyIt] = nRhsMin;
+			if (iGreedyIt < nRhsExtra) ++nRhsGreedy[iPodBasis][iGreedyIt];
+		}
+	}
+
 }
 
 //---------------------------------------------------------------------------------------
@@ -331,14 +336,21 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	// INPUTS
 	// 	Local: myMaxNorm, locSub, locNode, globalNode
 	// OUTPUTS
-	// 	Global: locPodHat for maximum entry, globally summed cpuSet, locSubSet,
-	// 	locNodeSet, globalSampleNodeSet, xyz
+	// 	Global: locPodHat for maximum entry, globally summed cpuSample, locSubSample,
+	// 	locNodeSample, globalSampleNodes, xyz
 	//===============================================
 		
 	int thisCPU = com->cpuNum();
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
+
+	// define variables to be summed globally
+
+	int cpuTemp = 0;
+	int locSubTemp = 0;
+	int locNodeTemp = 0;
+	int globalNodeTemp = 0;
 	double *xyz = new double [3];
 	for (int i=0; i<3; ++i)
 		xyz[i]=0.0;
@@ -352,24 +364,27 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 		// save the global subdomain and local node indices (sum at the very end of
 		// algorithm)
 
-		cpuSet[handledNodes] = thisCPU;
-		locSubSet[handledNodes] = locSub;
-		locNodeSet[handledNodes] = locNode;
-		globalSampleNodeSet[handledNodes] = globalNode;
+		cpuTemp = thisCPU;
+		locSubTemp = locSub;
+		locNodeTemp = locNode;
+		globalNodeTemp = globalNode;
 		computeXYZ(locSub, locNode, xyz);
 
 		// fill out restricted matrices (all columns for the current rows)
 
-		SubDomainData<dim> locPod, locPodHat, locPodPseudoInv;
+		SubDomainData<dim> locPod, locPodHat, locPodPseudoInvRhs;
 
-		for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+		for (int iDim = 0; iDim < dim ; ++iDim) {
+			locPodPseudoInvRhs = pseudoInvRhs[(handledNodes*dim)+iDim].subData(locSub);
+			locPodPseudoInvRhs[locNode][iDim] = 1.0;
+		}
+
+		for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 			for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
 				locPod = pod[iPodBasis][iPod].subData(locSub);	// cannot access iDim entry
 				locPodHat = podHat[iPodBasis][iPod].subData(locSub);
 				for (int iDim = 0; iDim < dim ; ++iDim) {
-					locPodPseudoInv = pseudoInvRhs[handledNodes * dim + iDim].subData(locSub);
 					locPodHat[locNode][iDim] = locPod[locNode][iDim];	// zeros everywhere except at the chosen sample nodes
-					locPodPseudoInv[locNode][iDim] = 1.0;	// fill in RHS for pseudo-inverses
 				}
 			}
 		}
@@ -378,16 +393,31 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	// make sure all cpus have the same copy
 	
 	com->barrier();
-	com->globalSum(1, cpuSet + handledNodes);
-	com->globalSum(1, locSubSet + handledNodes);
-	com->globalSum(1, locNodeSet + handledNodes);
-	com->globalSum(1, globalSampleNodeSet + handledNodes);
+	com->globalSum(1, &cpuTemp);
+	com->globalSum(1, &locSubTemp);
+	com->globalSum(1, &locNodeTemp);
+	com->globalSum(1, &globalNodeTemp);
 	com->globalSum(3, xyz);
+
+	// add information to all cpus copies
+
+	cpuSample.push_back(cpuTemp);
+	locSubSample.push_back(locSubTemp);
+	locNodeSample.push_back(locNodeTemp);
+	globalSampleNodes.push_back(globalNodeTemp);
+
+	// define maps
+	
+	globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp, handledNodes));
+	globalNodeToCpuMap.insert(pair<int, int > (globalNodeTemp, cpuTemp));
+	globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeTemp, locSubTemp));
+	globalNodeToLocalNodesMap.insert(pair<int, int > (globalNodeTemp, locNodeTemp));
 	StaticArray<double, 3> XYZ(xyz); 
-	delete [] xyz;
-	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalSampleNodeSet[handledNodes], XYZ));
+	nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeTemp, XYZ));
 
 	++handledNodes;
+
+	delete [] xyz;
 }
 
 template<int dim>
@@ -413,7 +443,8 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 	// typically have nRhs = nRhsMax. exception: there are less than nRhsMax remaining vectors
 
 	for (int iPodBasis = 0; iPodBasis  < nPodBasis; ++iPodBasis)	
-		nRhs[iPodBasis] = min(nRhsMax, max(nPod[iPodBasis] - handledVectors[iPodBasis], 0));	
+		nRhs[iPodBasis] = nRhsGreedy[iPodBasis][greedyIt];
+	assert(max(nRhs[0],nRhs[1]) > 0);		// must have at least one RHS
 
 	if (doLeastSquares) {
 		leastSquaresReconstruction();		// solve the least squares reconstruction
@@ -440,6 +471,8 @@ void GappyOffline<dim>::greedy(int greedyIt) {
 		}
 
 		// find global subdomain number and local node number for node with maximum norm
+
+		assert(locSub!=-1 && locNode !=-1 && globalNode != -1);
 
 		findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
 
@@ -468,36 +501,36 @@ void GappyOffline<dim>::makeNodeMaxIfUnique(double nodeError, double &myMaxNorm,
 	// INPUT
 	// 	Local: nodeError, myMaxNorm (can change), iSub, locNodeNum (in subdomain node numbering
 	// system)
-	// 	Global: handledNodes, globalSampleNodeSet,
+	// 	Global: handledNodes, globalSampleNodes,
 	// OUTPUT: 
 	// 	Local: myMaxNorm (can change), locSub, locNode, globalNode
 	
 	// only do if the node could be the maximum
 
-	if (nodeError > myMaxNorm) {
+	if (nodeError >= myMaxNorm) {
 
 		bool newNode = true;
 		int *locToGlobNodeMap = subD[iSub]->getNodeMap();
 		int thisGlobalNode = locToGlobNodeMap[locNodeNum];
 
-		// check that the node hasn't already been added (look at globalSampleNodeSet)
+		// check that the node hasn't already been added (look at globalSampleNodes)
 
-		 for (int iIslandCheck = 0; iIslandCheck < handledNodes; ++iIslandCheck) {
-			 if (thisGlobalNode == globalSampleNodeSet[iIslandCheck]) { 
-				 newNode = false;
-				 break;
-			 }
-		 }
+		for (int iIslandCheck = 0; iIslandCheck < handledNodes; ++iIslandCheck) {
+			if (thisGlobalNode == globalSampleNodes[iIslandCheck]) { 
+				newNode = false;
+				break;
+			}
+		}
 
-		 // make local maximum if it is maximum and not already in the set
+		// make local maximum if it is maximum and not already in the set
 
-		 if (newNode) {
-			 myMaxNorm = nodeError;
-			 locSub = iSub;
-			 locNode = locNodeNum;
-			 globalNode = thisGlobalNode;
-		 }
-	 }
+		if (newNode) {
+			myMaxNorm = nodeError;
+			locSub = iSub;
+			locNode = locNodeNum;
+			globalNode = thisGlobalNode;
+		}
+	}
 }
 
 template<int dim>
@@ -517,7 +550,8 @@ void GappyOffline<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, do
 		 for (int iPodBasis = 0; iPodBasis  < nPodBasis ; ++iPodBasis)
 			 for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs){  // add components of error from all vectors on this node
 				 for (int k = 0; k < dim ; ++k){	// add contributions from residual and jacobian reconstruction errors where possible
-					 nodeError += pow(locError[iPodBasis][iRhs][locNodeNum][k],2);
+					 double componentError = locError[iPodBasis][iRhs][locNodeNum][k];
+					 nodeError += componentError * componentError;
 			 }
 		 }
 	 }
@@ -574,8 +608,9 @@ void GappyOffline<dim>::leastSquaresReconstruction() {
 	}
 }
 
-template<int dim>
-void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int &globalNode) {
+template<int dim> void GappyOffline<dim>::subDFindMaxError(int iSub, bool
+		onlyInletOutletBC, double &myMaxNorm, int &locSub, int &locNode, int
+		&globalNode) {
 
 	// PURPOSE: Search the iSub subdomain for possible maximum error
 	// Inputs:
@@ -608,10 +643,10 @@ void GappyOffline<dim>::subDFindMaxError(int iSub, bool onlyInletOutletBC, doubl
 	}
 
 	else {	// consider all nodes
-		for (int locNodeNum = 0; locNodeNum < nLocNodes ; ++locNodeNum){// local node number (in subdomain numbering) from the face
-			computeNodeError(locMasterFlag, locNodeNum, nodeError);	// computes nodeError
+		for (int locNodeNum = 0; locNodeNum < nLocNodes ; ++locNodeNum){
+			computeNodeError(locMasterFlag, locNodeNum, nodeError);	
 			// make the node max if it is the maximum so far and has not yet been added
-			 makeNodeMaxIfUnique(nodeError, myMaxNorm, iSub, locNodeNum, locSub, locNode, globalNode);
+			makeNodeMaxIfUnique(nodeError, myMaxNorm, iSub, locNodeNum, locSub, locNode, globalNode);
 		}
 	}
 }
@@ -624,11 +659,10 @@ void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 template<int dim>
 void GappyOffline<dim>::addTwoNodeLayers() {
 
-	// another option: compute H2, find which nodes the nonzeros correspond to, then find which elements have all their nodes in that set
-
-	// globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
 	// globalNodes[iIsland][0] is the sample node itself 
-	// NOTE: globalSampleNodeSet has already been communicated
+	// globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
+
+	// quantities for entire reduced mesh (not just sample nodes)
 
 	globalNodes = new std::vector <int> [nSampleNodes];
 	cpus = new std::vector <int> [nSampleNodes];
@@ -645,12 +679,13 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
 		
 		// add the sample node itself
-		globalNodes[iSampleNodes].push_back(globalSampleNodeSet[iSampleNodes]);
-		cpus[iSampleNodes].push_back(cpuSet[iSampleNodes]);
-		locSubDomains[iSampleNodes].push_back(locSubSet[iSampleNodes]);
-		localNodes[iSampleNodes].push_back(locNodeSet[iSampleNodes]);
 
-		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalSampleNodeSet[iSampleNodes])->second;
+		globalNodes[iSampleNodes].push_back(globalSampleNodes[iSampleNodes]);
+		cpus[iSampleNodes].push_back(cpuSample[iSampleNodes]);
+		locSubDomains[iSampleNodes].push_back(locSubSample[iSampleNodes]);
+		localNodes[iSampleNodes].push_back(locNodeSample[iSampleNodes]);
+
+		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalSampleNodes[iSampleNodes])->second;
 		for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
 			nodesXYZ[iXYZ][iSampleNodes].push_back(xyzVals[iXYZ]);
 		}
@@ -670,14 +705,14 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	// globally sum them up (make consistent across all cpus)
 
 	defineMaps();	// must be done before makeUnique (this will sort in a different order) and after communication (all procs have same info) 
-	// after here, never use cpuSet, locSubSet, locNodeSet, globalSampleNodeSet
-	// again
+	// after here, never use cpuSample, locSubSample, locNodeSample again
 
 	// remove redundant entries from the globalNodes and elements
 
 	makeUnique(globalNodes);
 	makeUnique(elements);
-	orderSampleNodes();	// puts sample nodes in increasing order
+
+	numReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
 
 	// compute faces on boundary of reduced mesh
 
@@ -703,12 +738,16 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 	int *nToNpointer, *nToEpointer, *eToNpointer;	// pointers to connectivity information
 
 	int nNodeWithNeigh = globalNodes[iIslands].size();	// number of globalNodes whose neighbors will be added
+	bool *locMasterFlag;
 
 	for (int iSub = 0 ; iSub < numLocSub ; ++iSub) {	// all subdomains
 		int *locToGlobNodeMap = subD[iSub]->getNodeMap();
 		int *locToGlobElemMap = subD[iSub]->getElemMap();
+		locMasterFlag = nodeDistInfo.getMasterFlag(iSub); // master nodes on subdomain
+
 		elemBasedConnectivityCreated = false;
 		for (int iLocNode = 0; iLocNode < subD[iSub]->numNodes(); ++iLocNode) {	// all local globalNodes in subdomain
+			//only add master nodes
 			globalNodeNum = locToGlobNodeMap[iLocNode];	// global node number
 			for (int iNodeWithNeigh = startingNodeWithNeigh; iNodeWithNeigh < nNodeWithNeigh; ++iNodeWithNeigh) {	// check if this local node is in the current row
 				if (globalNodeNum == globalNodes[iIslands][iNodeWithNeigh]) {// add all neighbors of this node
@@ -753,11 +792,9 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 					}
 				}
 			}
+		
 		}
 	}
-	// delete nodeToNode; 
-	// delete nodeToEle; 
-	// delete eleToNode; 
 }
 
 template<int dim>
@@ -865,24 +902,32 @@ void GappyOffline<dim>::defineMaps() {
 	StaticArray<double, 3> nodesXYZTmp;
 	int globalEleNumTmp;
 	StaticArray<int, 4> elemToNodeTmp;
+	std::map<int,int>::const_iterator sampleNodeRank; 
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
 
 		// define nodesXYZmap
 		for (int iNeighbor = 0; iNeighbor < globalNodes[iSampleNodes].size(); ++iNeighbor) {
+
+			// do not re-define map for sample nodes (already defined as master) 
 			globalNodeNumTmp = globalNodes[iSampleNodes][iNeighbor];
+			sampleNodeRank = globalSampleNodeRankMap.find(globalNodeNumTmp);
+			if (sampleNodeRank != globalSampleNodeRankMap.end()) {continue;}	// skip if a sample node
+
 			int cpuTemp = cpus[iSampleNodes][iNeighbor];
-			globalNodeToCpuMap.insert(pair<int, int > (globalNodeNumTmp, cpuTemp));
 			int locSubDomTemp = locSubDomains[iSampleNodes][iNeighbor];
-			globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeNumTmp, locSubDomTemp));
 			int localNodesTemp = localNodes[iSampleNodes][iNeighbor];
-			globalNodeToLocalNodesMap.insert(pair<int, int > (globalNodeNumTmp, localNodesTemp));
 			for (int iXYZ = 0 ; iXYZ < 3; ++iXYZ)
 				nodesXYZTmp[iXYZ] = nodesXYZ[iXYZ][iSampleNodes][iNeighbor];
+
+			globalNodeToCpuMap.insert(pair<int, int > (globalNodeNumTmp, cpuTemp));
+			globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalNodeNumTmp, locSubDomTemp));
+			globalNodeToLocalNodesMap.insert(pair<int, int > (globalNodeNumTmp, localNodesTemp));
 			nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeNumTmp, nodesXYZTmp));
 		}
 
 		// define elemToNodeMap
+
 		for (int iEle = 0; iEle < elements[iSampleNodes].size(); ++iEle) {
 			globalEleNumTmp = elements[iSampleNodes][iEle];
 			for (int iNodesConn = 0 ; iNodesConn  < 4; ++iNodesConn)
@@ -890,9 +935,12 @@ void GappyOffline<dim>::defineMaps() {
 			elemToNodeMap.insert(pair<int, StaticArray <int, 4> > (globalEleNumTmp, elemToNodeTmp));
 		}
 	}
-	delete [] cpuSet;
-	delete [] locSubSet;
-	delete [] locNodeSet;
+
+	// from now on, use maps and not these vectors
+
+	cpuSample.erase(cpuSample.begin(),cpuSample.end());
+	locSubSample.erase(locSubSample.begin(),locSubSample.end());
+	locNodeSample.erase(locNodeSample.begin(),locNodeSample.end());
 }
 
 template<int dim>
@@ -990,132 +1038,131 @@ void GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, 
 	delete [] globalNodeNum;
 }
 
-//
 //---------------------------------------------------------------------------------------
 
 template<int dim>
 void GappyOffline<dim>::outputTopFile() {
 
-	// KTC CURRENT
+	com->fprintf(stderr," ... Writing TOP file ...\n");
 
-   com->fprintf(stderr," ... Printing TOP file ...\n");
-   int sp = strlen(ioData->output.transient.prefix);
-   char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
-   if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
+	// initialize file
+
+	int sp = strlen(ioData->output.transient.prefix);
+	char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
+	if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
 	FILE *reducedMesh;
-   if (thisCPU ==0) reducedMesh = fopen(outMeshFile, "w");
+	if (thisCPU ==0) reducedMesh = fopen(outMeshFile, "w");
 
-	 // write out globalNodes
+	// write out globalNodes
 
-   com->fprintf(reducedMesh,"Nodes FluidNodesRed\n");
-	 reducedNodeCount = 0;
-	 int  reducedEleCount = 0, reducedFaceCount = 0, globalNodeNum, globalEleNum;
-	 StaticArray <double, 3> xyzVals;
-	 StaticArray <int, 4> globalNodesTmp, reducedNodes;
-	 std::map<int, int > globalToReducedNodeNumbering [nSampleNodes];	// one mapping for each island
-	 sampleToReducedNodeNumbering = new int [nSampleNodes];
-	 for (int i = 0; i < nSampleNodes; ++i) sampleToReducedNodeNumbering[i] = -1;
-	 int iSampleNode = 0;	// counter for sample nodes
+	com->fprintf(reducedMesh,"Nodes FluidNodesRed\n");
 
-	 // save the reduced node number for the sample node
-	 for (int j = 0; j < globalNodes[0].size(); ++j) {
-		 ++reducedNodeCount;
-		 // compute xyz position of the node
-		 globalNodeNum = globalNodes[0][j];	// global node numbers have been sorted in increasing order
-		 if (globalNodeNum == globalSampleNodeSet[iSampleNode]) {
-			 sampleToReducedNodeNumbering[iSampleNode] = reducedNodeCount;
-			 ++iSampleNode;
-		 }
-		 for (int iXYZ = 0; iXYZ < 3; ++iXYZ) xyzVals[iXYZ] = 0.0;	//KTCREMOVE
-		 xyzVals = nodesXYZmap.find(globalNodeNum)->second;
-		 com->fprintf(reducedMesh, "%d %e %e %e \n", reducedNodeCount, xyzVals[0], xyzVals[1], xyzVals[2]);	
-		 // associate global node to the current reduced node
-		 globalToReducedNodeNumbering[0].insert(pair<int, int> (globalNodeNum, reducedNodeCount));
-	 }
-   
+	int globalNodeNum, globalEleNum;
+	StaticArray <double, 3> xyzVals;
+	StaticArray <int, 4> globalNodesTmp, reducedNodes;
+	std::map<int, int > globalToReducedNodeNumbering;	// one mapping for each island
 
-	 // write out elements
+	reducedSampleNodes.resize(nSampleNodes);
 
-   com->fprintf(reducedMesh,"Elements FluidMeshRed using FluidNodesRed\n");
+	// save the reduced node number for the sample node
 
-	 for (int j = 0; j < elements[0].size(); ++j) {
-		 ++reducedEleCount;
-		 globalEleNum = elements[0][j];
-		 globalNodesTmp = elemToNodeMap.find(globalEleNum)->second;
-		 for (int k = 0; k < 4; ++k) {
-			reducedNodes[k] = globalToReducedNodeNumbering[0].find(globalNodesTmp[k])->second;
-		 }
-		 com->fprintf(reducedMesh, "%d 5 %d %d %d %d \n", reducedEleCount, reducedNodes[0], reducedNodes[1], reducedNodes[2], reducedNodes[3]);	
-		 //com->fprintf(reducedMesh, "%d 5 %d %d %d %d \n", globalEleNum + 1, globalNodes[0]+1, globalNodes[1]+1, globalNodes[2]+1, globalNodes[3]+1);	
-	 }
+	for (int j = 0; j < numReducedNodes; ++j) {
 
-	 // write out boundary faces
+		// compute xyz position of the node
+		globalNodeNum = globalNodes[0][j];	// global node numbers on reduced mesh have been sorted in increasing order
+		xyzVals = nodesXYZmap.find(globalNodeNum)->second;
+		com->fprintf(reducedMesh, "%d %e %e %e \n", j+1, xyzVals[0], xyzVals[1], xyzVals[2]);	
 
-		// from sower user manual
-		
-		boundaryConditionsMap.insert(pair<int, std::string > (-5, "OutletMoving"));
-		boundaryConditionsMap.insert(pair<int, std::string > (-4, "InletMoving"));
-		boundaryConditionsMap.insert(pair<int, std::string > (-3, "StickMoving"));
-		boundaryConditionsMap.insert(pair<int, std::string > (0, "Internal"));
-		boundaryConditionsMap.insert(pair<int, std::string > (2, "SlipFixed"));
-		boundaryConditionsMap.insert(pair<int, std::string > (3, "StickFixed"));
-		boundaryConditionsMap.insert(pair<int, std::string > (4, "InletFixed"));
-		boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
-		boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
+		// associate global node to the current reduced node
+		globalToReducedNodeNumbering.insert(pair<int, int> (globalNodeNum, j));
 
-		for (int iSign = 0; iSign < 2; ++iSign) {
-			for (int iBCtype = 0; iBCtype <= max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
-				reducedFaceCount = 0;	// reduced faces for this bc type
-				for (int iFace = 0; iFace < bcFaces[iSign][0][iBCtype].size() ; ++iFace) {
-					++reducedFaceCount;
-					if (iFace == 0) {	// only output the first time (and only if size > 0)
-						int boundaryCondNumber = iBCtype * ((iSign > 0)*2 - 1) ;	// returns boundary condition number
-						std::string boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
-						com->fprintf(reducedMesh,"Elements %sSurfaceRed using FluidNodesRed\n",boundaryCond.c_str());
-					}
-					for (int k = 0; k < 3; ++k) {
-						int globalNode = bcFaces[iSign][k][iBCtype][iFace];
-						reducedNodes[k] = globalToReducedNodeNumbering[0][globalNode];
-					}
-					com->fprintf(reducedMesh, "%d 4 %d %d %d \n", reducedFaceCount, reducedNodes[0], reducedNodes[1], reducedNodes[2]);	
+		// determine if a sample node
+		std::map<int, int>::const_iterator sampleNodeMapLoc = globalSampleNodeRankMap.find(globalNodeNum);
+		if ( sampleNodeMapLoc != globalSampleNodeRankMap.end()) {
+			int globalNodeRank = sampleNodeMapLoc->second;
+			reducedSampleNodes[globalNodeRank] = j;	// the globalNodeRank sample node is node j in reduced mesh
+			reducedSampleNodeRankMap.insert(pair<int,int>( j , globalNodeRank));
+		}
+	}
+
+	// write elements
+
+	com->fprintf(reducedMesh,"Elements FluidMeshRed using FluidNodesRed\n");
+
+	for (int iEle = 0; iEle < elements[0].size(); ++iEle) {
+		globalEleNum = elements[0][iEle];
+		globalNodesTmp = elemToNodeMap.find(globalEleNum)->second;
+		for (int k = 0; k < 4; ++k) {
+			reducedNodes[k] = globalToReducedNodeNumbering.find(globalNodesTmp[k])->second;
+		}
+		com->fprintf(reducedMesh, "%d 5 %d %d %d %d \n", iEle + 1,
+				reducedNodes[0]+1, reducedNodes[1]+1, reducedNodes[2]+1,
+				reducedNodes[3]+1);	
+	}
+
+	// write out boundary faces
+
+	// from sower user manual
+	boundaryConditionsMap.insert(pair<int, std::string > (-5, "OutletMoving"));
+	boundaryConditionsMap.insert(pair<int, std::string > (-4, "InletMoving"));
+	boundaryConditionsMap.insert(pair<int, std::string > (-3, "StickMoving"));
+	boundaryConditionsMap.insert(pair<int, std::string > (0, "Internal"));
+	boundaryConditionsMap.insert(pair<int, std::string > (2, "SlipFixed"));
+	boundaryConditionsMap.insert(pair<int, std::string > (3, "StickFixed"));
+	boundaryConditionsMap.insert(pair<int, std::string > (4, "InletFixed"));
+	boundaryConditionsMap.insert(pair<int, std::string > (5, "OutletFixed"));
+	boundaryConditionsMap.insert(pair<int, std::string > (6, "Symmetry"));
+
+	for (int iSign = 0; iSign < 2; ++iSign) {
+		for (int iBCtype = 0; iBCtype <= max(BC_MAX_CODE, -BC_MIN_CODE); ++iBCtype) {
+			for (int iFace = 0; iFace < bcFaces[iSign][0][iBCtype].size() ; ++iFace) {
+				if (iFace == 0) {	// only output the first time (and only if size > 0)
+					int boundaryCondNumber = iBCtype * ((iSign > 0)*2 - 1) ;	// returns boundary condition number
+					std::string boundaryCond = boundaryConditionsMap.find(boundaryCondNumber)->second;
+					com->fprintf(reducedMesh,"Elements %sSurfaceRed using FluidNodesRed\n",boundaryCond.c_str());
 				}
+				for (int k = 0; k < 3; ++k) {
+					int globalNode = bcFaces[iSign][k][iBCtype][iFace];
+					reducedNodes[k] = globalToReducedNodeNumbering[globalNode];
+				}
+				com->fprintf(reducedMesh, "%d 4 %d %d %d \n", iFace + 1, reducedNodes[0]+1, reducedNodes[1]+1, reducedNodes[2]+1);	
 			}
 		}
+	}
 
-	 // write out sample node numbers in reduced mesh node numbering system
-	 
-   com->fprintf(stderr," ... Printing sample node mapping file ...\n");
-   sp = strlen(ioData->output.transient.prefix);
-   char *outSampleNodeFile = new char[sp + strlen(ioData->output.transient.sampleNodes)+1];
-   if (thisCPU ==0) sprintf(outSampleNodeFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodes);
-	FILE *sampleNodeFile;
-   if (thisCPU ==0) sampleNodeFile = fopen(outSampleNodeFile, "wt");
+	delete [] outMeshFile;
+}
 
-	 com->fprintf(sampleNodeFile, "%d", nSampleNodes);	// first print number of sample globalNodes
-   for (int i = 0; i < nSampleNodes; ++i) {
-		 com->fprintf(sampleNodeFile, "\n");	// first print number of sample globalNodes
-		 com->fprintf(sampleNodeFile, "%d %d", i+1, sampleToReducedNodeNumbering[i]);	
-   }
-	 
-	 // write out sample node numbers in full mesh node numbering system
+template<int dim>
+void GappyOffline<dim>::outputSampleNodes() {
 
-   com->fprintf(stderr," ... Printing sample node file with respect to full mesh...\n");
-   sp = strlen(ioData->output.transient.prefix);
-   char *outSampleNodeGlobFile = new char[sp + strlen(ioData->output.transient.sampleNodesGlob)+1];
-   if (thisCPU ==0) sprintf(outSampleNodeGlobFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.sampleNodesGlob);
-	FILE *sampleNodeGlobFile;
-   if (thisCPU ==0) sampleNodeGlobFile = fopen(outSampleNodeGlobFile, "wt");
+	// write out sample node numbers in reduced mesh node numbering system
 
-	 com->fprintf(sampleNodeGlobFile, "%d", nSampleNodes);	// first print number of sample globalNodes
-   for (int i = 0; i < nSampleNodes; ++i) {
-		 com->fprintf(sampleNodeGlobFile, "\n");	// first print number of sample globalNodes
-		 com->fprintf(sampleNodeGlobFile, "%d %d", i+1, globalSampleNodeSet[i]+1);	
-   }
-	 delete [] outMeshFile;
-	 delete [] outSampleNodeFile;
-	 delete [] outSampleNodeGlobFile;
+	com->fprintf(stderr," ... Writing sample node file with respect to reduced mesh...\n");
+	outputSampleNodesGeneral(reducedSampleNodes,ioData->output.transient.sampleNodes);
 
-	 //delete [] sampleToReducedNodeNumbering;
+	com->fprintf(stderr," ... Writing sample node file with respect to full mesh...\n");
+	outputSampleNodesGeneral(globalSampleNodes,ioData->output.transient.sampleNodesFull);
+}
+
+template<int dim>
+void GappyOffline<dim>::outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const char *sampleNodeFile) {
+
+	char *outSampleNodeFile = new char[strlen(ioData->output.transient.prefix) +
+		strlen(sampleNodeFile)+1];
+	if (thisCPU ==0) sprintf(outSampleNodeFile, "%s%s",
+			ioData->output.transient.prefix, sampleNodeFile);
+	FILE *writingFile;
+	if (thisCPU ==0) writingFile = fopen(outSampleNodeFile, "wt");
+
+	com->fprintf(writingFile, "%d", nSampleNodes);	// first print number of sample nodes
+	for (int i = 0; i < nSampleNodes; ++i) {
+		com->fprintf(writingFile, "\n");
+		com->fprintf(writingFile, "%d %d", i+1, sampleNodes[i]+1);	
+	}
+
+	delete [] outSampleNodeFile;
+
 }
 
 //---------------------------------------------------------------------------------------
@@ -1143,10 +1190,14 @@ void GappyOffline<dim>::buildGappyMatrices() {
 // 	reduced domain decomposition: A, B
 //======================================
 
+	//computePseudoInverseRHS();
+
 	// compute podHatPseudoInv (pseudo-inverses of podHatRes and podHatJac)
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		computePseudoInverse(iPodBasis);
 	
+	checkConsistency();
+
 	// compute pod[0]^Tpod[1]
 	computePodTPod();
 
@@ -1156,7 +1207,7 @@ void GappyOffline<dim>::buildGappyMatrices() {
 	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
 	// DistSVec defined on the reduced mesh. Each column in this VecSet
 	// corresponds to a row of A or B.
-  numTotNodes = domain.getNumGlobNode();	// # globalNodes in full mesh
+
 	outputOnlineMatrices();
 	outputStateReduced();
 	outputWallDistanceReduced();
@@ -1258,268 +1309,256 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	outputReducedToFullNodes();
 
-   com->fprintf(stderr," ... Printing online matrices file ...\n");
-   int sp = strlen(ioData->output.transient.prefix);
-   char *(onlineMatrixFile [2]);
-   FILE *(onlineMatrix [2]);
-	 onlineMatrixFile[0] = new char[sp + strlen(ioData->output.transient.bMatrix)+1];
-	 onlineMatrixFile[1] = new char[sp + strlen(ioData->output.transient.aMatrix)+1];
+	com->fprintf(stderr," ... Writing online matrices ...\n");
 
-	 if (thisCPU ==0) sprintf(onlineMatrixFile[0], "%s%s", ioData->output.transient.prefix, ioData->output.transient.bMatrix);
-	 if (thisCPU ==0) sprintf(onlineMatrixFile[1], "%s%s", ioData->output.transient.prefix, ioData->output.transient.aMatrix);
-
-	 // write each file
-
-	 // KTC: could make the upper limit nPodBasis because the files should be
-	 // the same if phir and phij are the same (leave it like this for now)
-	 
-	 // loop over reduced globalNodes and output the correct value if it is a sample
-	 // node. Otherwise, output a zero. This is to make it in DistSVec form for
-	 // the online part.
-
-	 // ----------------------
-	 // output in reduced mesh
-	 // ----------------------
-	 
-	 bool isSampleNode;	// is the current node is a sample node?
-	 int iSampleNode = 0;	// counter for passing sample globalNodes
-	 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files for now
-
-		 if (thisCPU ==0) onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
-
-		 com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodesRed\n");
-		 com->fprintf(onlineMatrix[iPodBasis],"%d\n", reducedNodeCount);
-		 com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
-
-		// dummy loop needed by POD
-
-		 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
-			 for (int iDim = 0; iDim < dim; ++iDim) { 
-				 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
-			 }
-			 com->fprintf(onlineMatrix[iPodBasis],"\n");
-		 }
-
-		 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-			 com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
-			 int currentSampleNode = -1;	// reset counter for sample globalNodes
-			 int iSampleNode = 0;	// counter for sample nodes
-			 for (int iReducedNode = 0; iReducedNode < reducedNodeCount; ++iReducedNode) {
-				 isSampleNode = false;
-				 // determine if it is a sample node
-																 // TODO check the first condition on the following line
-				 if (iReducedNode + 1 == sampleToReducedNodeNumbering[iSampleNode]) {
-					 isSampleNode = true;
-					 ++iSampleNode;
-				 }
-
-				 for (int iDim = 0; iDim < dim; ++iDim) { 
-					 if (isSampleNode)
-						 com->fprintf(onlineMatrix[iPodBasis],"%e ", onlineMatrices[iPodBasis][(iSampleNode - 1) * dim + iDim][iPod]);
-					 else // must output zeros if it is not a sample node
-						 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
-				 }
-				 com->fprintf(onlineMatrix[iPodBasis],"\n");
-			 }
-		 }
-	 }
-
-	 delete [] onlineMatrixFile[0];
-	 delete [] onlineMatrixFile[1];
-	 
-	 // ----------------------
-	 // output in full mesh
-	 // ----------------------
-
-	 if (ioData->output.transient.bMatrixFull[0] != 0 && ioData->output.transient.aMatrixFull[0] != 0) {
-		 onlineMatrixFile[0] = new char[sp + strlen(ioData->output.transient.bMatrixFull)+1];
-		 onlineMatrixFile[1] = new char[sp + strlen(ioData->output.transient.aMatrixFull)+1];
-		 if (thisCPU ==0) sprintf(onlineMatrixFile[0], "%s%s", ioData->output.transient.prefix, ioData->output.transient.bMatrixFull);
-		 if (thisCPU ==0) sprintf(onlineMatrixFile[1], "%s%s", ioData->output.transient.prefix, ioData->output.transient.aMatrixFull);
-		 int sampleNodeNum;
-
-		 for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files (need A,B)
-
-			 if (thisCPU ==0) onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
-			 com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodes\n");
-			 com->fprintf(onlineMatrix[iPodBasis],"%d\n", numTotNodes);
-			 com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
-
-				// dummy loop needed by POD
-
-				 for (int iFullNode = 0; iFullNode < numTotNodes; ++iFullNode) {
-					 for (int iDim = 0; iDim < dim; ++iDim) { 
-						 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
-					 }
-					 com->fprintf(onlineMatrix[iPodBasis],"\n");
-				 }
-
-			 for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-				 com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
-				 int iSampleNode = 0;	//counter for sample nodes
-				 for (int iFullNode = 0; iFullNode < numTotNodes; ++iFullNode) {
-					 isSampleNode = false;
-					 // determine if it is a sample node
-					 if (globalSampleNodeSet[iSampleNode] == iFullNode){
-						 isSampleNode = true;
-						 sampleNodeNum = iSampleNode;
-						 ++iSampleNode;
-					 }
-					 for (int iDim = 0; iDim < dim; ++iDim) { 
-						 if (isSampleNode)
-							 com->fprintf(onlineMatrix[iPodBasis],"%e ",
-									 onlineMatrices[iPodBasis][sampleNodeNum * dim + iDim][iPod]);
-						 else // must output zeros if it is not a sample node
-							 com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
-					 }
-					 com->fprintf(onlineMatrix[iPodBasis],"\n");
-				 }
-			 }
-		 }
-	 }
-
-	 delete [] onlineMatrixFile[0];
-	 delete [] onlineMatrixFile[1];
+	// reduced mesh
+	outputOnlineMatricesGeneral(ioData->output.transient.aMatrix,
+			ioData->output.transient.bMatrix, numReducedNodes, 
+			reducedSampleNodeRankMap, reducedSampleNodes);
+	
+	if (ioData->output.transient.bMatrixFull[0] != 0 && ioData->output.transient.aMatrixFull[0] != 0) 
+		outputOnlineMatricesGeneral(ioData->output.transient.aMatrixFull,
+				ioData->output.transient.bMatrixFull, numFullNodes, 
+				globalSampleNodeRankMap, globalSampleNodes);
 }
 
 template<int dim>
 void GappyOffline<dim>::outputStateReduced() {
 
-   com->fprintf(stderr," ... Printing POD state and initial condition in reduced mesh coordinates ...\n");
-   int sp = strlen(ioData->output.transient.prefix);
-   char *outPodStateFile= new char[sp + strlen(ioData->output.transient.podStateRed)+1];
-   char *outInitialConditionFile= new char[sp + strlen(ioData->output.restart.solutions)+1];
-	 if (thisCPU ==0) sprintf(outPodStateFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podStateRed);
-	 if (thisCPU ==0) sprintf(outInitialConditionFile, "%s%s", ioData->output.restart.prefix, ioData->output.restart.solutions);
+	// write both initial condition and pod for the state in reduced mesh
+
+	com->fprintf(stderr," ... Writing POD state and initial condition in reduced mesh coordinates ...\n");
+	int sp = strlen(ioData->output.transient.prefix);
+	char *outPodStateFile= new char[sp + strlen(ioData->output.transient.podStateRed)+1];
+	char *outInitialConditionFile= new char[sp + strlen(ioData->output.restart.solutions)+1];
+	if (thisCPU ==0) sprintf(outPodStateFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podStateRed);
+	if (thisCPU ==0) sprintf(outInitialConditionFile, "%s%s", ioData->output.restart.prefix, ioData->output.restart.solutions);
 
 	FILE *outPodState;
-	 if (thisCPU ==0) outPodState = fopen(outPodStateFile, "wt");
+	if (thisCPU ==0) outPodState = fopen(outPodStateFile, "wt");
 	FILE *outInitialCondition;
-	 if (thisCPU ==0) outInitialCondition = fopen(outInitialConditionFile, "wt");
+	if (thisCPU ==0) outInitialCondition = fopen(outInitialConditionFile, "wt");
 
-	 com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
-	 com->fprintf(outInitialCondition,"%d\n", reducedNodeCount);
-	 outputReducedSVec(initialCondition,outInitialCondition,0);
+	com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
+	com->fprintf(outInitialCondition,"%d\n", numReducedNodes);
+	outputReducedSVec(initialCondition,outInitialCondition,0);
 
-	 // note: need to output the first pod basis vector twice
+	// note: need to output the first pod basis vector twice
 
-	 com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
-	 com->fprintf(outPodState,"%d\n", reducedNodeCount);
-	 outputReducedSVec(podState[0],outPodState,nPodState);	// dummy output
+	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
+	com->fprintf(outPodState,"%d\n", numReducedNodes);
+	outputReducedSVec(podState[0],outPodState,nPodState);	// dummy output
 
-	 for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
-		 outputReducedSVec(podState[iPod],outPodState,iPod);
-	 }
+	for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
+		outputReducedSVec(podState[iPod],outPodState,iPod);
+	}
 
-	 delete [] outInitialConditionFile;
-	 delete [] outPodStateFile;
+	delete [] outInitialConditionFile;
+	delete [] outPodStateFile;
 }
 
 template<int dim>
-void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector) {
-	int iCpu, iSubDomain, iLocalNode;
-	SubDomainData<dim> locValue;
-	double value;
-	 com->fprintf(outFile,"%d\n", iVector);
-	 for (int i = 0; i < nSampleNodes; ++i) {
-		 // save the reduced node number for the sample node
-		 for (int j = 0; j < globalNodes[i].size(); ++j) {
-			 int currentGlobalNode = globalNodes[i][j];
-			 iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
-			 if (thisCPU == iCpu){
-				 iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-				 iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
-			 }
-			 for (int iDim = 0; iDim < dim; ++iDim) { 
-				 value = 0.0; // initialize value to zero
-				 if (thisCPU == iCpu) {
-					 locValue = distSVec.subData(iSubDomain);
-					 value = locValue[iLocalNode][iDim];
-				 }
-				com->globalSum(1, &value);
-				 com->fprintf(outFile,"%e ", value);
-			 }
-			 com->fprintf(outFile,"\n");
-		 }
-	 }
-}
+void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
+		&distSVec, FILE* outFile , int iVector) {
 
+	com->fprintf(outFile,"%d\n", iVector);
+
+	// save the reduced node number for the sample node
+	for (int j = 0; j < numReducedNodes; ++j) {
+		int currentGlobalNode = globalNodes[0][j];
+		int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+		int iSubDomain, iLocalNode;
+		if (thisCPU == iCpu){
+			iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+			iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+		}
+
+		// find value for each dim
+		for (int iDim = 0; iDim < dim; ++iDim) {
+			double value = 0.0; // initialize value to zero
+			if (thisCPU == iCpu) {
+				SubDomainData<dim> locValue = distSVec.subData(iSubDomain);
+				value = locValue[iLocalNode][iDim];
+			}
+			com->globalSum(1, &value);
+			com->fprintf(outFile,"%e ", value);
+		}
+		com->fprintf(outFile,"\n");
+	}
+}
 
 template<int dim>
 void GappyOffline<dim>::outputWallDistanceReduced() {
 
-   com->fprintf(stderr," ... Printing wall distance for reduced mesh ...\n");
+	com->fprintf(stderr," ... Writing wall distance for reduced mesh ...\n");
 
 	// load in wall distance
 
-	 DistVec<double> *d2wall = geoState->getd2wall();
+	DistVec<double> *d2wall = geoState->getd2wall();
+	DistVec<double> d2wallOutput(d2wall->info());
+	d2wallOutput = -ioData->bc.wall.delta;
+		// must subtract off for input files (see DistGeoState.C constructor)
+	d2wallOutput += *d2wall;
 
-   int sp = strlen(ioData->output.transient.prefix);
-   char *outWallDistFile= new char[sp + strlen(ioData->output.transient.wallDistanceRed)+1];
-	 if (thisCPU ==0) sprintf(outWallDistFile, "%s%s", ioData->output.transient.prefix,
-			 ioData->output.transient.wallDistanceRed);
+	char *outWallDistFile= new char[strlen(ioData->output.transient.prefix) +
+		strlen(ioData->output.transient.wallDistanceRed)+1];
+	if (thisCPU ==0) sprintf(outWallDistFile, "%s%s", ioData->output.transient.prefix,
+			ioData->output.transient.wallDistanceRed);
 
 	FILE *outWallDist;
-	 if (thisCPU ==0) outWallDist = fopen(outWallDistFile, "wt");
+	if (thisCPU ==0) outWallDist = fopen(outWallDistFile, "wt");
 
-	 // note: need to output the first pod basis vector twice
+	// note: need to output the first pod basis vector twice
 
-	 com->fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
-	 com->fprintf(outWallDist,"%d\n", reducedNodeCount);
-	 outputReducedVec(*d2wall,outWallDist,0);
+	com->fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
+	com->fprintf(outWallDist,"%d\n", numReducedNodes);
+	outputReducedVec(d2wallOutput,outWallDist,0);
 
-	 delete [] outWallDistFile;
+	delete [] outWallDistFile;
 }
 
 template<int dim>
 void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector) {
-	int iCpu, iSubDomain, iLocalNode;
-	double value;
-	 com->fprintf(outFile,"%d\n", iVector);
-	 // save the reduced node number for the sample node
-	 for (int j = 0; j < globalNodes[0].size(); ++j) {
-		 value = 0.0; // initialize value to zero
-		 int currentGlobalNode = globalNodes[0][j];
-		 iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
-		 if (thisCPU == iCpu){
-			 iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
-			 iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
-			 double *locValue = distVec.subData(iSubDomain);
-			 value = locValue[iLocalNode];
-		 }
+
+	com->fprintf(outFile,"%d\n", iVector);
+
+	for (int j = 0; j < numReducedNodes; ++j) {
+		double value = 0.0; // initialize value to zero
+		int currentGlobalNode = globalNodes[0][j];
+		int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
+
+		if (thisCPU == iCpu){
+			int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+			int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+			double *locValue = distVec.subData(iSubDomain);
+			value = locValue[iLocalNode];
+		}
 
 		com->globalSum(1, &value);
-		 com->fprintf(outFile,"%e ", value);
-		 com->fprintf(outFile,"\n");
-	 }
+		com->fprintf(outFile,"%e ", value);
+		com->fprintf(outFile,"\n");
+	}
 }
 
 template<int dim>
 void GappyOffline<dim>::outputReducedToFullNodes() {
-   int sp = strlen(ioData->output.transient.prefix);
-   char *outMeshFile = new char[sp + strlen(ioData->output.transient.reducedfullnodemap)+1];
-   if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.reducedfullnodemap);
-	FILE *outMesh;
-   if (thisCPU ==0) outMesh = fopen(outMeshFile, "wt");
 
-	 // save the reduced node number for the sample node
-	 for (int j = 0; j < globalNodes[0].size(); ++j) {
-		 com->fprintf(outMesh,"%d \n", globalNodes[0][j]+1);
-	 }
+	int sp = strlen(ioData->output.transient.prefix);
+	char *outMeshFile = new char[sp + strlen(ioData->output.transient.reducedfullnodemap)+1];
+	if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.reducedfullnodemap);
+	FILE *outMesh;
+	if (thisCPU ==0) outMesh = fopen(outMeshFile, "wt");
+
+	// save the reduced node number for the sample node
+	for (int j = 0; j < globalNodes[0].size(); ++j) {
+		com->fprintf(outMesh,"%d \n", globalNodes[0][j]+1);
+	}
 
 }
+
 template<int dim>
-void GappyOffline<dim>::orderSampleNodes() {
-	//PURPOSE: make globalSampleNodeSet ordered from lowest to highest
+void GappyOffline<dim>::checkConsistency() {
+	int numRhs = nSampleNodes * dim;	// number of RHS treated
+	double **consistency = new double * [numRhs];
+	for (int i = 0; i < numRhs; ++i)
+		consistency[i] = new double [numRhs];
 
-	std::vector <int> orderedSampleNodes;	// global sample node number (ordered)
-	vector<int>::iterator it;
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+		for (int i = 0; i < numRhs; ++i){
+			for (int j = 0; j < numRhs; ++j) {
+				consistency[i][j] = 0.0;
+			}
+		}
+	 com->fprintf(stderr," ... consistency check for iPodBasis=%d (should be identity) ...\n",iPodBasis);
+		for (int i = 0; i < nPod[iPodBasis]; ++i){
+			for (int j = 0; j < nPod[iPodBasis]; ++j) {
+				int counterk = 0;
+				for (int k = 0; k < numRhs; ++k) {
+					int sampleNodeIndex = k/dim;
+					int iDim = k%dim;
+					int currentSampleNode = globalSampleNodes[sampleNodeIndex];
+					int currentCpu = globalNodeToCpuMap.find(currentSampleNode)->second; 
+					if (thisCPU == currentCpu){
+						int currentSub = globalNodeToLocSubDomainsMap.find(currentSampleNode)->second; 
+						int currentLocNode = globalNodeToLocalNodesMap.find(currentSampleNode)->second; 
+						assert(domain.getSubDomain()[currentSub]->getNodeMap()[currentLocNode] == currentSampleNode);
+						SubDomainData<dim> locValue;
+					 	locValue	= podHat[iPodBasis][j].subData(currentSub);
+						consistency[i][j] += podHatPseudoInv[iPodBasis][k][i]*locValue[currentLocNode][iDim];
+						++counterk;
+					}
 
-	for (int iSampleNode = 0 ; iSampleNode < nSampleNodes; ++iSampleNode) 
-		orderedSampleNodes.push_back(globalSampleNodeSet[iSampleNode]);
+				}
+				com->globalSum(1, &counterk);
+				assert(counterk==numRhs);
+			}
+			com->globalSum(nPod[iPodBasis], consistency[i]);
+		}
+		int asdf = 0;
+	}
 
-	sort(orderedSampleNodes.begin(), orderedSampleNodes.end());	// sort: puts in order
+}
 
-	for (int iSampleNode = 0 ; iSampleNode < nSampleNodes; ++iSampleNode) 
-		globalSampleNodeSet[iSampleNode] = orderedSampleNodes[iSampleNode];
+template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
+		*aMatrix, const char *bMatrix, int numNodes,
+		const std::map<int,int> &sampleNodeMap, const std::vector<int>
+		&sampleNodeVec) {
+
+	// prepare files
+
+	char *(onlineMatrixFile [2]);
+	FILE *(onlineMatrix [2]);
+	int sp = strlen(ioData->output.transient.prefix);
+	onlineMatrixFile[0] = new char[sp + strlen(bMatrix)+1];
+	onlineMatrixFile[1] = new char[sp + strlen(aMatrix)+1];
+
+	if (thisCPU ==0) sprintf(onlineMatrixFile[0], "%s%s",
+			ioData->output.transient.prefix, bMatrix);
+	if (thisCPU ==0) sprintf(onlineMatrixFile[1], "%s%s",
+			ioData->output.transient.prefix, aMatrix);
+
+	for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files (need A,B)
+
+		if (thisCPU ==0) onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
+
+		com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodes\n");
+		com->fprintf(onlineMatrix[iPodBasis],"%d\n", numNodes);
+		com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
+
+		// dummy loop needed by POD
+		for (int iNode = 0; iNode < numNodes; ++iNode) {
+			for (int iDim = 0; iDim < dim; ++iDim) { 
+				com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+			}
+			com->fprintf(onlineMatrix[iPodBasis],"\n");
+		}
+
+		for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
+			com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
+			for (int iNode = 0; iNode < numNodes; ++iNode) {
+				bool isSampleNode = false;
+				int sampleNodeRank = -1;
+
+				// determine if it is a sample node
+				std::map<int,int>::const_iterator sampleNodeSetLoc = sampleNodeMap.find(iNode);
+				if ( sampleNodeSetLoc != sampleNodeMap.end()){
+					sampleNodeRank = sampleNodeMap.find(iNode)->second;
+					isSampleNode = true;
+				}
+
+				for (int iDim = 0; iDim < dim; ++iDim) { 
+					if (isSampleNode)
+						com->fprintf(onlineMatrix[iPodBasis],"%e ",
+							onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
+					else // must output zeros if it is not a sample node
+						com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+				}
+				com->fprintf(onlineMatrix[iPodBasis],"\n");
+			}
+		}
+	}
+
+	delete [] onlineMatrixFile[0];
+	delete [] onlineMatrixFile[1];
+
 }

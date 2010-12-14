@@ -126,7 +126,7 @@ struct TransientData {
   const char *mesh;
   const char *reducedfullnodemap;
   const char *sampleNodes;
-  const char *sampleNodesGlob;
+  const char *sampleNodesFull;
   const char *aMatrix;
   const char *bMatrix;
   const char *aMatrixFull;
