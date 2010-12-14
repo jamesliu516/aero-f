@@ -852,3 +852,12 @@ void TsDesc<dim>::writeBinaryVectorsToDisk2(bool lastIt, int it, double t, DistS
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void TsDesc<dim>::writeBinaryVectorsToDisk3(bool lastIt, int it, double t, VecSet < DistSVec<double,dim> > &F1)
+{
+
+  output->writeBinaryVectorsToDisk3(lastIt, it, t, F1);
+
+}
+
+//------------------------------------------------------------------------------

@@ -50,6 +50,7 @@ private:
   int output_step2;
   int output_step_pgromresiduals; //CBM--TEMP --> GAPPY STUFF
   int output_step_pgjacxdurom; //CBM--TEMP --> GAPPY STUFF
+  int output_step_pgjac; //CBM--TEMP --> GAPPY STUFF
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
@@ -81,6 +82,7 @@ private:
   char *newtonresiduals;
 	char *pgromresiduals;
 	char *pgjacxdurom;
+	char *pgjac;
 	char *statevectorchange;
 	char *staterom;
 
@@ -162,6 +164,7 @@ public:
                                      DistSVec<double,dim> &U);
   void writeBinaryVectorsToDisk1(bool, int, double, DistSVec<double,dim> &, DistSVec<double,dim> &);//CBM-TEMP
   void writeBinaryVectorsToDisk2(bool, int, double, DistSVec<double,dim> &);//CBM-TEMP
+  void writeBinaryVectorsToDisk3(bool, int, double, VecSet< DistSVec<double,dim> >&);//CBM-TEMP
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
