@@ -15,6 +15,7 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	// assume we have nPodJac
   nPodJac = ioData.Rob.numROBJac; 
 
+	leastSquaresSolver.blockSizeIs(32);
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
 	
 	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)

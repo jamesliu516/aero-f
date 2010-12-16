@@ -81,12 +81,6 @@ GappyOffline<dim>::~GappyOffline()
 template<int dim>
 void GappyOffline<dim>::buildGappy() {
 
-	// KTC DEBUG
-	int dbgwait = 0;
-	int thisCPU = com->cpuNum();
-	if (thisCPU == 0)
-		while (dbgwait);
-	
 	setUpPodBases();
 
 	// compute the reduced mesh used by Gappy POD
@@ -151,12 +145,12 @@ void GappyOffline<dim>::setUpPodBases() {
 		nPod[0] = nPod[1];	// from now on, only deal with the first basis
 	}
 
-	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");//DA
+	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");
 	// TODO: nSampleNodes will be an input
 
 	int dimDbg = dim;	// KTC debug
 	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
-	nSampleNodes *=ioData->Rob.sampleNodeFactor;	// times the number you really need
+	nSampleNodes = static_cast<int>(nSampleNodes * ioData->Rob.sampleNodeFactor);	// times the number you really need
 
 	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
 	assert(nSampleNodes * dim >= max(nPod[0],nPod[1])); // KTC debug

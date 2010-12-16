@@ -2704,7 +2704,7 @@ void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<
 
   if (fpStateRom) {
     fprintf(fpStateRom, "%d %e", it, cpu);
-		for (int iPod; iPod < nPod; ++iPod) {
+		for (int iPod = 0; iPod < nPod; ++iPod) {
 			fprintf(fpStateRom, " %e", UromTotal[iPod]);
 		}
     fprintf(fpStateRom, "\n");

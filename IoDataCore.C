@@ -2702,7 +2702,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
-  new ClassInt<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
+  new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "OldGappyPG", 3);
 
 }
