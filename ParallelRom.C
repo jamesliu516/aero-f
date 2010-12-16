@@ -280,7 +280,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
 	// check for any changes in the dimensions of the least squares problem
 	//===============================
 	
-	if (n != desc_a[4] || nRhs != desc_b[4])
+	if (n != desc_a[3] || nRhs != desc_b[3])
 		parallelLSMultiRHSInit(A, B);	// (re)-initialization needed
 
 	// KTC: can make this more elegant if needed
