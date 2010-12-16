@@ -11,8 +11,8 @@ struct TsInput {
   char *positions;
   char *levelsets;
   char *podFile;
-	char *snapFile;
-
+  char *snapFile;
+  char *snapRefSolutionFile;
 // Included
   char *shapederivatives;
 

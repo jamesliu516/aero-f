@@ -1775,6 +1775,18 @@ void ModalSolver<dim>::buildGlobalPOD() {
  fscanf(inFP, "%d",&nData);
  com->fprintf(stderr, "Building a global POD basis out of %d solution files \n",nData);
 
+/* // open snapshot reference solution if it exists
+ char *snapRefSolFile = tInput->snapRefSolutionFile;
+ DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
+ //if (inRSFP)  {
+   com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+   domain.readVectorFromFile(snapRefSolFile, 0, 0, snapRefSol); 
+ }
+ else{
+    com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", snapRefSolFile);
+   exit (-1); 
+ }
+*/
  char **snapFile = new char *[nData];
  for (int iData=0; iData < nData; ++iData)
    snapFile[iData] = new char[500];
@@ -1798,14 +1810,27 @@ void ModalSolver<dim>::buildGlobalPOD() {
    com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
    exit (-1);
  }
-/*
- int sp = strlen(ioData->output.transient.prefix);
- char *outFile = new char[sp + strlen(ioData->output.transient.podFile)+1];
- sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
-*/
+ 
+ // open snapshot reference solution if it exists
+ char *snapRefSolFile = tInput->snapRefSolutionFile;
+ char **refSnapFile = new char *[nData];
+ for (int iData=0; iData < nData; ++iData)
+   refSnapFile[iData] = new char[500]; 
+ char refSnapFile1[500];
+ FILE *inRSFP = fopen(snapRefSolFile, "r");
 
- //int numPod = ioData->linearizedData.numPOD;
-
+ if (inRSFP){  
+   com->fprintf(stderr, "HERE!\n");
+   //FILE *inRSFP = fopen(snapRefSolFile, "r");
+   com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+ 
+   for (int iData = 0; iData < nData; ++iData){
+     fscanf(inRSFP, "%s", refSnapFile1);
+     strcpy(refSnapFile[iData],refSnapFile1);
+     com->fprintf(stderr, " ... Reading reference solution for snapshots from %s \n", refSnapFile[iData]);
+   }
+ }
+ DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
  //compute the total number of snapshots
  int nTotSnaps = 0;
  for (int iData = 0; iData < nData; ++iData)
@@ -1821,9 +1846,13 @@ void ModalSolver<dim>::buildGlobalPOD() {
    double eig = 0.0;
    endOfFile = true;
    iSnap = 0;
+   if (inRSFP)
+     domain.readVectorFromFile(refSnapFile[iData], 0, 0, snapRefSol
+);
    for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
    //while(endOfFile){
      endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eig, snap[snapNumVec++]);
+     if (inRSFP) snap[snapNumVec-1] -= snapRefSol;
      if(snapWeight[iData]) snap[snapNumVec-1] *= snapWeight[iData]; //CBM--check
      if (iSnap<numSkip[iData])
        snapNumVec--;
