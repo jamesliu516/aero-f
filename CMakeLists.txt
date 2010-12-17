@@ -83,7 +83,7 @@ ENDIF(UNIX)
 
 
 
-SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+SET(BINDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
 FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
@@ -254,17 +254,18 @@ SET_TARGET_PROPERTIES(Parser
 
 install(TARGETS FluidBase DESTINATION lib EXPORT fluid-targets)
 install(EXPORT fluid-targets DESTINATION lib/base)
-export(TARGETS FluidBase FILE ${CMAKE_CURRENT_SOURCE_DIR}/base-exports.cmake)
+export(TARGETS FluidBase FILE ${CMAKE_CURRENT_BINARY_DIR}/base-exports.cmake)
 
 	
 IF(MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\""
+                   `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ELSE (MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 ENDIF (MERCURIAL_EXECUTABLE)
@@ -322,7 +323,7 @@ if (DO_EMBEDDED)
 ENDIF (DO_EMBEDDED)
 ##############################
 
-ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
+ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
 
 SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
@@ -383,7 +384,7 @@ IF(MPI_FOUND)
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
   IF(NOT USE_SCALAPACK)
-    ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
+    ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
     TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 
