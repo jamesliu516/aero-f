@@ -1,105 +1,47 @@
-#include <string.h>
-
 #include <TsInput.h>
 
 #include <IoData.h>
 
+#include <string>
+#include <cstring>
+
 //------------------------------------------------------------------------------
 
-TsInput::TsInput(IoData &iod)
-{
+TsInput::TsInput(IoData &iod) {
+  const std::string prefix(iod.input.prefix); 
 
-  int sp = strlen(iod.input.prefix) + 1;
-
-  if (iod.input.solutions[0] != 0) {
-    solutions = new char[sp + strlen(iod.input.solutions)];
-    if (strncmp(iod.input.solutions, "/", 1) == 0)
-      sprintf(solutions, "%s", iod.input.solutions);
-    else
-      sprintf(solutions, "%s%s", iod.input.prefix, iod.input.solutions);
-  }
-  else {
-    solutions = new char[1];
-    sprintf(solutions, "");
-  }
-
-  if (iod.input.positions[0] != 0) {
-    positions = new char[sp + strlen(iod.input.positions)];
-    if (strncmp(iod.input.positions, "/", 1) == 0)
-      sprintf(positions, "%s", iod.input.positions);
-    else
-      sprintf(positions, "%s%s", iod.input.prefix, iod.input.positions);
-  }
-  else {
-    positions = new char[1];
-    sprintf(positions, "");
-  }
-
-  if (iod.input.levelsets[0] != 0) {
-    levelsets = new char[sp + strlen(iod.input.levelsets)];
-    if (strncmp(iod.input.levelsets, "/", 1) == 0)
-      sprintf(levelsets, "%s", iod.input.levelsets);
-    else
-      sprintf(levelsets, "%s%s", iod.input.prefix, iod.input.levelsets);
-  }
-  else {
-    levelsets = new char[1];
-    sprintf(levelsets, "");
-  }
-
-  if (iod.input.podFile[0] != 0) {
-    podFile = new char[sp + strlen(iod.input.podFile)];
-    sprintf(podFile, "%s%s", iod.input.prefix, iod.input.podFile);
-  }
-  else{
-    podFile = new char[1];
-    sprintf(podFile, "");
-  }
-
-  if (iod.input.snapFile[0] != 0) {
-    snapFile = new char[sp + strlen(iod.input.snapFile)];
-    sprintf(snapFile, "%s%s", iod.input.prefix, iod.input.snapFile);
-  }
-  else{
-    snapFile = new char[1];
-    sprintf(snapFile, "");
-  }
-
-  if (iod.input.snapRefSolutionFile[0] != 0) {
-    snapRefSolutionFile = new char[sp + strlen(iod.input.snapRefSolutionFile)];
-    sprintf(snapRefSolutionFile, "%s%s", iod.input.prefix, iod.input.snapRefSolutionFile);
-  }
-  else{
-    snapRefSolutionFile = new char[1];
-    sprintf(snapRefSolutionFile, "");
-  }
-
-// Included
-  if (iod.input.shapederivatives[0] != 0) {
-    shapederivatives = new char[sp + strlen(iod.input.shapederivatives)];
-    if (strncmp(iod.input.shapederivatives, "/", 1) == 0)
-      sprintf(shapederivatives, "%s", iod.input.shapederivatives);
-    else
-      sprintf(shapederivatives, "%s%s", iod.input.prefix, iod.input.shapederivatives);
-  }
-  else {
-    shapederivatives = new char[1];
-    sprintf(shapederivatives, "");
-  }
-
+  solutions = absolutePath(iod.input.solutions, prefix);
+  positions = absolutePath(iod.input.positions, prefix);
+  levelsets = absolutePath(iod.input.levelsets, prefix);
+  podFile   = absolutePath(iod.input.podFile,   prefix);
+  snapFile  = absolutePath(iod.input.snapFile,  prefix);
+  snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);
+  shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
 }
 
 //------------------------------------------------------------------------------
-TsInput::~TsInput()
-{
 
-  if (solutions) delete [] solutions;
-  if (positions) delete [] positions;
-  if (levelsets) delete [] levelsets;
-  if (podFile)   delete [] podFile;
-  if (snapFile) delete [] snapFile;
-  if (snapRefSolutionFile) delete [] snapRefSolutionFile;
-// Included
-  if (shapederivatives)   delete [] shapederivatives;
+char *
+TsInput::absolutePath(const std::string & rawPath, const std::string & prefix) {
+  const bool isRelativePath = rawPath.size() > 0 && rawPath[0] != '/';
+  const std::string finalPath(isRelativePath ? prefix + rawPath : rawPath);
 
+  char * result = new char[finalPath.size() + 1];
+  std::strcpy(result, finalPath.c_str());
+
+  return result;
 }
+
+//------------------------------------------------------------------------------
+
+TsInput::~TsInput() {
+  delete[] solutions;
+  delete[] positions;
+  delete[] levelsets;
+  delete[] podFile;
+  delete[] snapFile;
+  delete[] snapRefSolutionFile;
+  delete[] shapederivatives; 
+}
+
+//------------------------------------------------------------------------------
