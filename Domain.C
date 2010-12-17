@@ -1518,28 +1518,33 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 
   double t0 = timer->getTime();
 
-#pragma omp parallel for
   if(ghostPoints)
+  {
+    if(!LSS) 
     {
-      if(!LSS) 
-	{
-	  cout<<"LSS has to be provided in the case of a viscous simulation\n";
-	  exit(1);
-	}
-      Vec<GhostPoint<dim>*> *gp;
-      for (int iSub = 0; iSub < numLocSub; ++iSub)
-	{
-	  gp     = ghostPoints->operator[](iSub);
-	  subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					       X(iSub), V(iSub), R(iSub),gp,&(LSS->operator()(iSub)));
-	}
+      cout<<"LSS has to be provided in the case of a viscous simulation\n";
+      exit(1);
     }
+    Vec<GhostPoint<dim>*> *gp;
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      gp     = ghostPoints->operator[](iSub);
+      subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+          X(iSub), V(iSub), R(iSub),gp,&(LSS->operator()(iSub)));
+    }
+  }
   else
+  {
+
+#pragma omp parallel for
+    for (int iSub = 0; iSub < numLocSub; ++iSub)
     {
-      for (int iSub = 0; iSub < numLocSub; ++iSub)
-	subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					     X(iSub), V(iSub), R(iSub));
+      subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
+          X(iSub), V(iSub), R(iSub));
     }
+  }
   timer->addFiniteElementTermTime(t0);
 
 }
@@ -2873,14 +2878,13 @@ int Domain::checkSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistVec<int> 
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
 template<int dim>
 void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<double,dim> &dU)
 {
 
   int verboseFlag = com->getMaxVerbose();
 
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->fixSolution(varFcn, U(iSub), dU(iSub), verboseFlag);
 
@@ -3073,9 +3077,8 @@ void Domain::computeForceDerivs(VarFcn *varFcn, DistSVec<double,3> &X, DistSVec<
 template<int dim>
 void Domain::zeroInternalVals(DistSVec<double, dim> &v)  {
 
-  int iSub;
-#pragma omp parallel for reduction(+: ierr)
-  for (iSub=0; iSub<numLocSub; ++iSub)
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->zeroInternalVals(v(iSub));
 }
 
@@ -3619,12 +3622,14 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
     return;
   }
 
-#pragma omp parallel for reduction(+: res)
+double locRes = 0.0;
+#pragma omp parallel for reduction(+: locRes)
   for (int iSub = 0; iSub < numLocSub; ++iSub){
-    res+=subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
+    locRes += subDomain[iSub]->computeDistanceLevelNodes(lsdim, Tag(iSub), level, X(iSub), Psi(iSub),Phi(iSub));
     //subDomain[iSub]->sndData(*phiVecPat, Psi.subData(iSub));
     subDomain[iSub]->sndData(*volPat, Psi.subData(iSub));
   }
+  res += locRes;
 
   volPat->exchange();
 
