@@ -2813,8 +2813,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
   if(u==ui){ // contact
-    //rhoi = rho;
-    //pi   = p;
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
@@ -2823,7 +2821,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double q = (gamma-1.0)/(gamma+1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
-    //fprintf(stderr,"Rarefaction-----\n");
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
@@ -2845,7 +2842,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
   }
   else{ // shock
-   //fprintf(stderr,"Shock---------\n");
     double power = 2*gamma/(gamma+1.0);
     double t = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
     double pstarbar = pi + pref;
