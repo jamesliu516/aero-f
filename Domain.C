@@ -2478,13 +2478,15 @@ void Domain::applyExtrapolationToSolutionVector(DistExtrapolation<dim> *xpol, Di
 
 template<int dim>
 void Domain::applyBCsToSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
-                                      DistSVec<double,dim> &U)
+                                      DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToSolutionVector(bcFcn, bcData(iSub), U(iSub));
-
+    { 
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subDomain[iSub]->applyBCsToSolutionVector(bcFcn, bcData(iSub), U(iSub), LSS);
+    }
 }
 
 //------------------------------------------------------------------------------

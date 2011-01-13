@@ -556,7 +556,7 @@ public:
   void applyExtrapolationToSolutionVector(Extrapolation<dim>*, SVec<double,dim> &,
 					  SVec<double,dim> &);
   template<int dim>
-  void applyBCsToSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &);
+    void applyBCsToSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim>
   void applyBCsToResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &);
