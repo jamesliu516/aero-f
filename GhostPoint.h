@@ -61,10 +61,15 @@ class GhostPoint {
     Vg[0]   += Vi[0];
     for(int i=1;i<4;++i) Vg[i] += interfaceVelocity[i-1] - distanceRate*(Vi[i]-interfaceVelocity[i-1]);
     Vg[4]   += Vi[4];
-    if(dim == 6) // Turbulent Viscosity
+    if(dim == 6) // One Equation Turbulent Model
       {
 	//	Vg[5] -= distanceRate*Vi[5];
 	Vg[5] = 0.0;
+      }
+    else if(dim == 7) // Two Equations Turbulent Model
+      {
+	Vg[5] = 0.0;
+	Vg[6] = 0.0;
       }
 
     // Tag check
