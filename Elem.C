@@ -178,13 +178,13 @@ template<int dim, class Scalar, int neq>
 void ElemSet::computeJacobianGalerkinTerm(FemEquationTerm *fet, GeoState &geoState, 
 					  SVec<double,3> &X, Vec<double> &ctrlVol,
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim>*>* ghostPoints)
+                                          Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
 {
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
   for (int i=0; i<numElems; ++i)
-    elems[i]->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A, ghostPoints);
+    elems[i]->computeJacobianGalerkinTerm(fet, X, ctrlVol, d2wall, V, A, ghostPoints,LSS);
 
 }
 

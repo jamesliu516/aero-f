@@ -603,7 +603,7 @@ public:
 					 DistGeoState &geoState, DistSVec<double,3> &X,
 					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
 					 DistMat<Scalar,neq> &A,
-                                         DistVec<GhostPoint<dim>*> *ghostPoints=0);
+                                         DistVec<GhostPoint<dim>*> *ghostPoints=0,DistLevelSetStructure *distLSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianVolumicForceTerm(VolumicForceTerm *, DistVec<double> &,
