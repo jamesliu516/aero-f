@@ -1380,11 +1380,11 @@ void SpaceOperator<dim>::applyExtrapolationToSolutionVector(DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U)
+void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToSolutionVector(bcFcn, *bcData, U);
+    domain->applyBCsToSolutionVector(bcFcn, *bcData, U, distLSS);
 
 }
 

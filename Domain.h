@@ -621,7 +621,7 @@ public:
                                           DistSVec<double,dim>&);
 
   template<int dim>
-  void applyBCsToSolutionVector(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &);
+    void applyBCsToSolutionVector(BcFcn *, DistBcData<dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<int dim>
   void applyBCsToResidual(BcFcn *, DistBcData<dim> &,

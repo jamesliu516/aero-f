@@ -1889,13 +1889,20 @@ void SubDomain::applyExtrapolationToSolutionVector(Extrapolation<dim>* xpol,SVec
 
 template<int dim>
 void SubDomain::applyBCsToSolutionVector(BcFcn *bcFcn, BcData<dim> &bcData,
-                                         SVec<double,dim> &U)
+                                         SVec<double,dim> &U, LevelSetStructure *LSS)
 {
   SVec<double,dim> &Vwall = bcData.getNodeStateVector();
 
+  // In the case of an Embedded Simulation, we want inactive nodes to stay at initial state. Thus no BC should be apply 
+  // to them. 
+  bool isActive = true; 
+
   for (int i=0; i<nodes.size(); ++i)
-    if (nodeType[i] != BC_INTERNAL)
-      bcFcn->applyToSolutionVector(nodeType[i], Vwall[i], U[i]);
+    {
+      if(LSS) isActive = LSS->isActive(0.0,i);
+      if (nodeType[i] != BC_INTERNAL && isActive)
+	bcFcn->applyToSolutionVector(nodeType[i], Vwall[i], U[i]);
+    }
 }
 
 //------------------------------------------------------------------------------

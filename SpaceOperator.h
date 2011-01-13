@@ -200,7 +200,7 @@ public:
   template<class Scalar, int neq>
   void computeViscousJacobian(DistSVec<double,3> &, DistVec<double> &, DistMat<Scalar,neq> &);
 
-  void applyBCsToSolutionVector(DistSVec<double,dim> &);
+  void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
   void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
