@@ -536,10 +536,10 @@ public:
   void computedWBar_dt(MacroCellSet **, SVec<double,1> **, SVec<double,dim> &, SVec<double,dim> &, int);
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
-					    GeoState &geoState, SVec<double,3> &X,
-					    Vec<double> &ctrlVol, SVec<double,dim> &V,
-					    GenMat<Scalar,neq> &A,
-					    Vec<GhostPoint<dim>*>* ghostPoints=0);
+				   GeoState &geoState, SVec<double,3> &X,
+				   Vec<double> &ctrlVol, SVec<double,dim> &V,
+				   GenMat<Scalar,neq> &A,
+				   Vec<GhostPoint<dim>*>* ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianVolumicForceTerm(VolumicForceTerm *, Vec<double> &,

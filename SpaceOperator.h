@@ -186,7 +186,7 @@ public:
   template <class Scalar,int neq>
   void computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                        DistSVec<double,dim> &U,
-                       DistLevelSetStructure *LSS,
+                       DistLevelSetStructure *distLSS,
                        DistVec<int> &fluidId, 
                        DistExactRiemannSolver<dim> *riemann, 
                        int Nriemann, DistSVec<double,3> *Nsbar,
@@ -376,7 +376,7 @@ public:
   template<class Scalar, int neq>
   void computeJacobian(DistExactRiemannSolver<dim>* riemann,
                        DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
-                       DistLevelSetStructure *LSS,
+                       DistLevelSetStructure *distLSS,
                        int Nriemann, DistSVec<double,3>* Nsbar,
                        FluidSelector &fluidSelector,
                        DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState);

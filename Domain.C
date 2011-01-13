@@ -2368,7 +2368,7 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 					 DistGeoState &geoState, DistSVec<double,3> &X,
 					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
 					 DistMat<Scalar,neq> &A,
-                                         DistVec<GhostPoint<dim>*> *ghostPoints)
+                                         DistVec<GhostPoint<dim>*> *ghostPoints,DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -2380,8 +2380,9 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
     Vec<GhostPoint<dim>*>* gp = (ghostPoints? &(*ghostPoints)(iSub) :0);
+    LevelSetStructure *LSS = distLSS ? &(distLSS->operator()(iSub)) : 0;
     subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
-						 ctrlVol(iSub), V(iSub), A(iSub),gp);
+						 ctrlVol(iSub), V(iSub), A(iSub),gp,LSS);
     subDomain[iSub]->sndOffDiagBlocks(*matPat, A(iSub));
   }
 
