@@ -128,10 +128,8 @@ struct TransientData {
   const char *reducedfullnodemap;
   const char *sampleNodes;
   const char *sampleNodesFull;
-  const char *aMatrix;
-  const char *bMatrix;
-  const char *aMatrixFull;
-  const char *bMatrixFull;
+  const char *onlineMatrix;
+  const char *onlineMatrixFull;
   const char *podStateRed;
   const char *wallDistanceRed;
   const char *staterom;

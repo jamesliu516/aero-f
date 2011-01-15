@@ -198,10 +198,8 @@ TransientData::TransientData()
   reducedfullnodemap = "";
   sampleNodes = "";
   sampleNodesFull = "";
-  aMatrix = "";
-  bMatrix = "";
-  aMatrixFull = "";
-  bMatrixFull = "";
+  onlineMatrix = "";
+  onlineMatrixFull = "";
   podStateRed = "";
   wallDistanceRed = "";
   newtonresiduals = "";
@@ -323,10 +321,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ReducedFullNodeMap", this, &TransientData::reducedfullnodemap);
   new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
   new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesFull);
-  new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
-  new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
-  new ClassStr<TransientData>(ca, "AMatrixFullMesh", this, &TransientData::aMatrixFull);
-  new ClassStr<TransientData>(ca, "BMatrixFullMesh", this, &TransientData::bMatrixFull);
+  new ClassStr<TransientData>(ca, "OnlineMatrix", this, &TransientData::onlineMatrix);
+  new ClassStr<TransientData>(ca, "OnlineMatrixFullMesh", this, &TransientData::onlineMatrixFull);
   new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
   new ClassStr<TransientData>(ca, "WallDistanceReduced", this, &TransientData::wallDistanceRed);
 	// Gappy POD snapshots
