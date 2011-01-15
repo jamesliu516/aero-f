@@ -93,7 +93,7 @@ private:
 	std::map<int, int > globalSampleNodeRankMap, reducedSampleNodeRankMap;
 		//key: node #, value: rank of sample node (position in _SampleNodeSet)
 
-	int nPodBasis;	// either 1 or 2
+	int nPodBasis;	// # of unique pod bases for residual/jac (either 1 or 2)
 	ArrayVecDist<dim> pod;	// pod bases for residual and jacobian
 	SetOfVec podRes, podJac;
 	ArrayVecDist<dim> podHat;	// restricted pod bases 
@@ -102,8 +102,6 @@ private:
 	SetOfVec errorRes, errorJac;
 
 	int nPodState;
-	SetOfVec podState;	// need to put podState in reduced coordinates
-	DistSVec<double,dim> initialCondition;
 
 	// greedy data
 	int nRhsMax, nGreedyIt, handledNodes;
@@ -163,8 +161,6 @@ private:
 		// boundary conditions
 
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
-
-
 	void addTwoNodeLayers();
 	void computeBCFaces();
 	void checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap , bool &faceInMesh);
@@ -198,7 +194,7 @@ private:
 		// 		podHatPseudoInv[1]^T
 	void assembleOnlineMatrices();
 	void outputOnlineMatrices();
-	void outputOnlineMatricesGeneral(const char *aMatrix, const char *bMatrix,
+	void outputOnlineMatricesGeneral(const char *onlineMatrix, 
 			int numNodes, const std::map<int,int> &sampleNodeMap, const
 			std::vector<int> &sampleNodeVec);
 	void outputReducedToFullNodes();
