@@ -19,7 +19,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(solutions[0], "");
 
   positions[0] = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0)
+  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::BODYFITTED)
     sprintf(positions[0], "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(positions[0], "");
@@ -37,7 +37,7 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
     sprintf(data[0], "");
 
   structPos = new char[sp + strlen(iod.output.restart.positions)];
-  if (iod.output.restart.positions[0] != 0)
+  if (iod.output.restart.positions[0] != 0 && iod.problem.framework == ProblemData::EMBEDDED)
     sprintf(structPos, "%s%s", iod.output.restart.prefix, iod.output.restart.positions);
   else
     sprintf(structPos, "");
