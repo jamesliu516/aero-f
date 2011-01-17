@@ -63,6 +63,7 @@ public:
   Vec3D x;
   map<int,int> nd2tri; //needed for the vertex case (only if isConsistent = false)
   map<int,int> nd2tester;
+  double dist2othernode;
 
   static const int maxNPairs = 100;
 
@@ -75,7 +76,7 @@ public:
    */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
   void checkVertex(int vn, int trId, double trDist);
-  int registerNodes(int ip1, int trId);
+  int registerNodes(int ip1, int trId, int& repeated1, int& repeated2);
   double project(Vec3D x0, int tria, double& xi1, double& xi2);
   double edgeProject(int n1, int n2, double &alpha);
   double getSignedVertexDistance() const;
@@ -115,6 +116,7 @@ ClosestTriangle::start(Vec3D xp) {
   minDist = 1.0e10;
   nd2tri.clear();
   nd2tester.clear();
+  dist2othernode = 1.0e10;
 }
 //----------------------------------------------------------------------------
 double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
@@ -165,6 +167,7 @@ ClosestTriangle::checkTriangle(int trId) {
   dist = project(x, trId, xi1, xi2);
   double xi3 = 1-xi1-xi2;
   const double eps = 0;
+
   if(xi1 >= -eps && xi2 >= -eps && xi3 >= -eps) {
     if(isFirst || std::abs(minDist) > std::abs(dist)) {
       isFirst = false;
@@ -186,6 +189,7 @@ ClosestTriangle::checkTriangle(int trId) {
 //----------------------------------------------------------------------------
 
 void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
+
   // If this node is already our best solution
   if(n1 == ip1 && n2 < 0) {
     if(nPairs == maxNPairs) {
@@ -193,27 +197,53 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
       throw "Too many peripheral triangles";
     }
     periTri[nPairs++] = trId;
-    int repeated_node = registerNodes(ip1,trId);
-
+    int repeated1, repeated2;
+    int repeated_nodes = registerNodes(ip1,trId, repeated1, repeated2);
     bool thisSign = (trDist >= 0);
 
-    if((thisSign != isPositive || !isConsistent) && !hasBeenFixed) { // need to figure out the correct sign...
+    if((thisSign != isPositive || !isConsistent)/* && !hasBeenFixed*/) { // need to figure out the correct sign...
       isConsistent = false;
-      if(repeated_node != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
+      if(repeated1 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
         //Step 1. Determine if it is a "hill" or a "dent". 
-        double xi1_temp, xi2_temp;
-        double dist2 = project(structX[nd2tester[triNodes[trId][repeated_node]]], trId, xi1_temp, xi2_temp);
-        int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
-        //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
-        Vec3D ip1_x = x - structX[ip1];
-        double alpha = ip1_x*structNorm[trId];
-        double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated_node]]];
-        if(type==1) 
-          isPositive = (alpha>=0&&beta>=0) ? true : false;
-        else
-          isPositive = (alpha<0&&beta<0) ? false : true;
+        int repeated = repeated1;
+        double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
+        if(dist2node<dist2othernode) {
+          dist2othernode = dist2node;
+          double xi1_temp, xi2_temp;
+          double dist2 = project(structX[nd2tester[triNodes[trId][repeated]]], trId, xi1_temp, xi2_temp);
+          int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
+          //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
+          Vec3D ip1_x = x - structX[ip1];
+          double alpha = ip1_x*structNorm[trId];
+          double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
+          if(type==1) 
+            isPositive = (alpha>=0&&beta>=0) ? true : false;
+          else
+            isPositive = (alpha<0&&beta<0) ? false : true;
          
-        hasBeenFixed = true; //the sign is determined.
+//          hasBeenFixed = true; //the sign is determined.
+        }
+      }
+      if(repeated2 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
+        //Step 1. Determine if it is a "hill" or a "dent". 
+        int repeated = repeated2;
+        double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
+        if(dist2node<dist2othernode) {
+          dist2othernode = dist2node;
+          double xi1_temp, xi2_temp;
+          double dist2 = project(structX[nd2tester[triNodes[trId][repeated]]], trId, xi1_temp, xi2_temp);
+          int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
+          //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
+          Vec3D ip1_x = x - structX[ip1];
+          double alpha = ip1_x*structNorm[trId];
+          double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
+          if(type==1) 
+            isPositive = (alpha>=0&&beta>=0) ? true : false;
+          else
+            isPositive = (alpha<0&&beta<0) ? false : true;
+         
+//          hasBeenFixed = true; //the sign is determined.
+        }
       }
     }
     return;
@@ -227,11 +257,13 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
     n2 = -1;
     nPairs = 1;
     minDist = dist;
+    dist2othernode = 1.0e10; //distance to the other node on the edge that is shared with another triangle
     periTri[0] = trId;
     bestTrId = trId;
     nd2tri.clear();
     nd2tester.clear();
-    registerNodes(ip1,trId);
+    int repeated1, repeated2;
+    registerNodes(ip1,trId, repeated1, repeated2);
     mode = 2;
     hasBeenFixed = false;
     isConsistent = true;
@@ -241,51 +273,66 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
 
 //----------------------------------------------------------------------------
 
-int ClosestTriangle::registerNodes(int ip1, int trId)
+int ClosestTriangle::registerNodes(int ip1, int trId, int& repeated1, int& repeated2)
 {
     map<int,int>::iterator it;
-    int repeated_node = -1;
+      
+    unsigned int repeated_node = 0;
+    repeated1 = repeated2 = -1;
+
     if(ip1==triNodes[trId][0]) {
         it = nd2tri.find(triNodes[trId][1]);
         if(it==nd2tri.end()) {
           nd2tri[triNodes[trId][1]] = trId;
           nd2tester[triNodes[trId][1]] = triNodes[trId][2];
-        } else
-          repeated_node = 1;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 1;
+          repeated1 = 1;
+        }
         it = nd2tri.find(triNodes[trId][2]);
         if(it==nd2tri.end()) {
            nd2tri[triNodes[trId][2]] = trId;
            nd2tester[triNodes[trId][2]] = triNodes[trId][1];
-        } else
-          repeated_node = 2;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 2;
+          repeated2 = 2;
+        }
     }
     else if(ip1==triNodes[trId][1]) {
         it = nd2tri.find(triNodes[trId][2]);
         if(it==nd2tri.end()) {
           nd2tri[triNodes[trId][2]] = trId;
           nd2tester[triNodes[trId][2]] = triNodes[trId][0];
-        } else
-          repeated_node = 2;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 2;
+          repeated1 = 2;
+        }
         it = nd2tri.find(triNodes[trId][0]);
         if(it==nd2tri.end()) {
            nd2tri[triNodes[trId][0]] = trId;
            nd2tester[triNodes[trId][0]] = triNodes[trId][2];
-        } else
-          repeated_node = 0;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 0;
+          repeated2 = 0;
+        }
     }
     else if(ip1==triNodes[trId][2]) {
         it = nd2tri.find(triNodes[trId][0]);
         if(it==nd2tri.end()) {
           nd2tri[triNodes[trId][0]] = trId;
           nd2tester[triNodes[trId][0]] = triNodes[trId][1];
-        } else
-          repeated_node = 0;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 0;
+          repeated1 = 0;
+        }
         it = nd2tri.find(triNodes[trId][1]);
         if(it==nd2tri.end()) {
            nd2tri[triNodes[trId][1]] = trId;
            nd2tester[triNodes[trId][1]] = triNodes[trId][0];
-        } else
-          repeated_node = 1;
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 1;
+          repeated2 = 1;
+        }
     } else
       fprintf(stderr,"ERROR (for debug): node %d doesn't belong to triangle %d!\n", ip1+1, trId+1);
 
@@ -304,6 +351,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     p1 = ip2;
     p2 = ip1;
   }
+
   if(n1 == p1 && n2 == p2) { //<! If we've already looked at this edge before
     // If we have already examined this edge and the sign opinions disagree, we need to make the right decision
     // Check if the p3 is in the positive or negative side of the other triangle
@@ -342,11 +390,15 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
 //----------------------------------------------------------------------------
 
 double ClosestTriangle::getSignedVertexDistance() const {
-  if(isConsistent)
+
+  return isPositive ? minDist : -minDist;
+
+/*  if(isConsistent)
     return isPositive ? minDist : -minDist;
   else if(hasBeenFixed)
     return isPositive ? minDist : -minDist;
   return minDist;
+*/
 }
 
 //----------------------------------------------------------------------------
