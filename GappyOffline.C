@@ -18,6 +18,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	geoState(_geoState), X(_geoState->getXn()),
 	residual(0), jacobian(1)
 {
+	input = new TsInput(_ioData);
 	// initialize vectors to point to the approprite bases
 
         for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
@@ -45,6 +46,8 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
 {
+  if (input) delete input;
+
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 3; ++j)
 			delete [] bcFaces[i][j];
@@ -158,7 +161,7 @@ void GappyOffline<dim>::setUpPodBases() {
 	}
 
 	//	read in both Pod bases
-  domain.readMultiPodBasis(ioData->input.podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+  domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
 
 	// compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
 	if (nPodBasis == 2)
@@ -1346,7 +1349,7 @@ void GappyOffline<dim>::outputStateReduced() {
 	// note: need to output the first pod basis vector twice
 
 	SetOfVec *podState = new SetOfVec(0, domain.getNodeDistInfo() );	// need to put podState in reduced coordinates
-	domain.readPodBasis(ioData->input.podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
+	domain.readPodBasis(input->podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
 	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
 	com->fprintf(outPodState,"%d\n", numReducedNodes);
 	outputReducedSVec((*podState)[0],outPodState,nPodState);	// dummy output

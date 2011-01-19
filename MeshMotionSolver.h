@@ -102,6 +102,9 @@ public:
 
   // Included (MB)
   int fixSolution(DistSVec<double,3> &X, DistSVec<double,3> &dX) { return 0; }
+	void writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
+			DistSVec<double,3> *F1 = NULL, DistSVec<double,3> *F2 = NULL,
+			VecSet< DistSVec<double,3> > *F3 = NULL) {};
 
 };
 

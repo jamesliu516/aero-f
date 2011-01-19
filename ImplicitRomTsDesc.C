@@ -27,7 +27,7 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
 
   // read Pod Basis
   nPod = ioData.Rob.numROB;
-  dom->readPodBasis(ioData.input.podFile, nPod, pod);
+  dom->readPodBasis(this->input->podFile, nPod, pod);
 
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
@@ -94,7 +94,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
     UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 
-		saveAJsol(_it);	// only done for PG rom
+		saveNewtonSystemVectors(_it);	// only implemeted for PG rom
 
     // verify that the solution is physical
     if (checkSolution(U)) {

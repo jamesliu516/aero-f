@@ -49,7 +49,10 @@ TsInput::TsInput(IoData &iod)
 
   if (iod.input.podFile[0] != 0) {
     podFile = new char[sp + strlen(iod.input.podFile)];
-    sprintf(podFile, "%s%s", iod.input.prefix, iod.input.podFile);
+    if (strncmp(iod.input.podFile, "/", 1) == 0)
+      sprintf(podFile, "%s", iod.input.podFile);
+    else
+      sprintf(podFile, "%s%s", iod.input.prefix, iod.input.podFile);
   }
   else{
     podFile = new char[1];
@@ -58,11 +61,61 @@ TsInput::TsInput(IoData &iod)
 
   if (iod.input.snapFile[0] != 0) {
     snapFile = new char[sp + strlen(iod.input.snapFile)];
-    sprintf(snapFile, "%s%s", iod.input.prefix, iod.input.snapFile);
+    if (strncmp(iod.input.snapFile, "/", 1) == 0)
+      sprintf(snapFile, "%s", iod.input.snapFile);
+    else
+      sprintf(snapFile, "%s%s", iod.input.prefix, iod.input.snapFile);
   }
   else{
     snapFile = new char[1];
     sprintf(snapFile, "");
+  }
+
+  if (iod.input.sampleNodes[0] != 0) {
+    sampleNodes = new char[sp + strlen(iod.input.sampleNodes)];
+    if (strncmp(iod.input.sampleNodes, "/", 1) == 0)
+      sprintf(sampleNodes, "%s", iod.input.sampleNodes);
+    else
+      sprintf(sampleNodes, "%s%s", iod.input.prefix, iod.input.sampleNodes);
+  }
+  else{
+    sampleNodes = new char[1];
+    sprintf(sampleNodes, "");
+  }
+
+  if (iod.input.podFileResJac[0] != 0) {
+    podFileResJac = new char[sp + strlen(iod.input.podFileResJac)];
+    if (strncmp(iod.input.podFileResJac, "/", 1) == 0)
+      sprintf(podFileResJac, "%s", iod.input.podFileResJac);
+    else
+      sprintf(podFileResJac, "%s%s", iod.input.prefix, iod.input.podFileResJac);
+  }
+  else{
+    podFileResJac = new char[1];
+    sprintf(podFileResJac, "");
+  }
+
+  if (iod.input.aMatrix[0] != 0) {
+    aMatrix = new char[sp + strlen(iod.input.aMatrix)];
+    if (strncmp(iod.input.aMatrix, "/", 1) == 0)
+      sprintf(aMatrix, "%s", iod.input.aMatrix);
+    else
+      sprintf(aMatrix, "%s%s", iod.input.prefix, iod.input.aMatrix);
+  }
+  else{
+    aMatrix = new char[1];
+    sprintf(aMatrix, "");
+  }
+  if (iod.input.bMatrix[0] != 0) {
+    bMatrix = new char[sp + strlen(iod.input.bMatrix)];
+    if (strncmp(iod.input.bMatrix, "/", 1) == 0)
+      sprintf(bMatrix, "%s", iod.input.bMatrix);
+    else
+      sprintf(bMatrix, "%s%s", iod.input.prefix, iod.input.bMatrix);
+  }
+  else{
+    bMatrix = new char[1];
+    sprintf(bMatrix, "");
   }
 
 // Included
