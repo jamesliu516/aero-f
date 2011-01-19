@@ -227,7 +227,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
  // Step 2: define process grid - depends on # cols in A
  //===============================
  
- int locLLD = dim * cpuNodes[thisCPU];	// number of rows in domain!
+ int locLLD = max(1,dim * cpuNodes[thisCPU]);	// number of rows in domain!
  int maxLLD = locLLD;	// find the maximum over all LLD
  com->globalMax(1, &maxLLD); 
  

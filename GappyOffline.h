@@ -80,6 +80,7 @@ private:
 	Domain &domain;
 	Communicator *com;
 	IoData *ioData;	
+	TsInput *input;	
 	DistGeoState *geoState;
 	DistSVec<double,3> &X;
 

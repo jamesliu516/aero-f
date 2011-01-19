@@ -203,10 +203,8 @@ TransientData::TransientData()
   podStateRed = "";
   wallDistanceRed = "";
   newtonresiduals = "";
-  pgromresiduals = "";
-  pgjacxdurom = "";
-  pgjac = "";
-  statevectorchange = "";
+  reducedjacxdurom = "";
+  reducedjac = "";
   staterom = "";
 
 // Included (MB)
@@ -326,10 +324,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
   new ClassStr<TransientData>(ca, "WallDistanceReduced", this, &TransientData::wallDistanceRed);
 	// Gappy POD snapshots
-  new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
-  new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
-  new ClassStr<TransientData>(ca, "PGJac", this, &TransientData::pgjac);
-  new ClassStr<TransientData>(ca, "StateVectorChange", this, &TransientData::statevectorchange);
+  new ClassStr<TransientData>(ca, "NewtonResiduals", this, &TransientData::newtonresiduals);
+  new ClassStr<TransientData>(ca, "ReducedJacxdUrom", this, &TransientData::reducedjacxdurom);
+  new ClassStr<TransientData>(ca, "ReducedJac", this, &TransientData::reducedjac);
   new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);

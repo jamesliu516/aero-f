@@ -833,31 +833,11 @@ void TsDesc<dim>::updateGhostFluid(DistSVec<double,dim> &U, Vec3D& totalForce, d
 //----------------------------------------------------------------------------
 
 template<int dim>
-void TsDesc<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, DistSVec<double,dim> &F1, DistSVec<double,dim> &F2)
+void TsDesc<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
+		DistSVec<double,dim> *F1 = NULL, DistSVec<double,dim> *F2 = NULL, VecSet< DistSVec<double,dim> > *F3 = NULL)
+
 {
 
-  output->writeBinaryVectorsToDisk1(lastIt, it, t, F1, F2);
+  output->writeBinaryVectorsToDiskRom(lastIt, it, t, F1, F2, F3);
 
 }
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TsDesc<dim>::writeBinaryVectorsToDisk2(bool lastIt, int it, double t, DistSVec<double,dim> &F1)
-{
-
-  output->writeBinaryVectorsToDisk2(lastIt, it, t, F1);
-
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TsDesc<dim>::writeBinaryVectorsToDisk3(bool lastIt, int it, double t, VecSet < DistSVec<double,dim> > &F1)
-{
-
-  output->writeBinaryVectorsToDisk3(lastIt, it, t, F1);
-
-}
-
-//------------------------------------------------------------------------------
