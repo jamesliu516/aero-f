@@ -3511,6 +3511,40 @@ void SubDomain::computeForceAndMoment(ExactRiemannSolver<dim> &riemann, VarFcn *
 
 }
 
+/*
+template<int dim>
+void SubDomain::computeLiftSurfaces(map<int,int> & surfOutMap, PostFcn *postFcn, BcData<dim> &bcData,
+				      GeoState &geoState, SVec<double,3> &X,
+				      SVec<double,dim> &V, Vec3D &x0, Vec3D *Fi,
+				      Vec3D *Mi, Vec3D *Fv, Vec3D *Mv, int hydro,
+                                      SubVecSet< DistSVec<double,3>, SVec<double,3> > *mX, Vec<double> *genCF)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+  SVec<double,dim> &Vwall = bcData.getFaceStateVector();
+
+  for (int i=0; i<faces.size(); ++i) {
+    int idx;
+    map<int,int>::iterator it = surfOutMap.find(faces[i].getSurfaceID());
+    if(it != surfOutMap.end() && it->second != -2)
+      idx = it->second;
+    else {
+      if(faces[i].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+         faces[i].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+         faces[i].getCode() == BC_SLIP_WALL_MOVING)
+        idx = 0;
+      else
+        idx = -1;
+    }
+
+    if(idx >= 0)  {
+      faces[i].computeForceAndMoment(elems, postFcn, X, d2wall, Vwall[i], V, x0,
+                       Fi[idx], Mi[idx], Fv[idx], Mv[idx], gradP, hydro, mX, genCF);
+    }
+  }
+
+}
+*/
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::computeHeatFluxes(map<int,int> & surfOutMapHF, PostFcn* postFcn, BcData<dim>& bcData,

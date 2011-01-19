@@ -10,7 +10,7 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	leastSquaresSolver(this->com, this->com->size(), 1)	// all cpus along rows
 {
 
-	readSampleNodes(ioData.input.sampleNodes);
+	readSampleNodes(this->input->sampleNodes);
 
 	// assume we have nPodJac
   nPodJac = ioData.Rob.numROBJac; 
@@ -21,8 +21,8 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)
   VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
   VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
-	dom->readPodBasis(ioData.input.aMatrix, nPodJac,Afull);
-	dom->readPodBasis(ioData.input.bMatrix, nPodJac,Bfull);
+	dom->readPodBasis(this->input->aMatrix, nPodJac,Afull);
+	dom->readPodBasis(this->input->bMatrix, nPodJac,Bfull);
 
 	//Amat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
 	//Bmat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
