@@ -59,7 +59,7 @@ IF(UNIX)
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
     FIND_LIBRARY(BLACSLIB NAMES blacs
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSCLIB NAMES blacsCinit
+    FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
 
     SET(USE_SCALAPACK 1)
