@@ -55,7 +55,7 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 //------------------------------------------------------------------------------
 
 template<int dim>
-void ImplicitPGTsDesc<dim>::saveAJsol(const int _it) {
+void ImplicitPGTsDesc<dim>::saveNewtonSystemVectors(const int _it) {
 	// only implemented for PG
 	// KTC FIX!
   DistSVec<double, dim> Test(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
@@ -64,9 +64,6 @@ void ImplicitPGTsDesc<dim>::saveAJsol(const int _it) {
 		 Test += this->AJ[i] * this->dUrom[i]; 
 
 	// saving this->AJ * this->dUrom (for GappyPOD)
-	writeBinaryVectorsToDisk1(false, _it, 0.0, this->F, Test);
-
-	writeBinaryVectorsToDisk3(false, _it, 0.0, this->AJ);
-
+	writeBinaryVectorsToDiskRom(false, _it, 0.0, &(this->F), &Test, &(this->AJ));
 	
 }

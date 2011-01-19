@@ -5,8 +5,6 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	domain(dom), 	com(_com), ioData(&_ioData), 
 	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	podJac(0, dom.getNodeDistInfo() ),
-	podState(0, dom.getNodeDistInfo() ),
-	initialCondition( dom.getNodeDistInfo() ),
 	podHatRes(0, dom.getNodeDistInfo() ),
 	podHatJac(0, dom.getNodeDistInfo() ),
 	errorRes(0, dom.getNodeDistInfo() ),
@@ -20,6 +18,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	geoState(_geoState), X(_geoState->getXn()),
 	residual(0), jacobian(1)
 {
+	input = new TsInput(_ioData);
 	// initialize vectors to point to the approprite bases
 
         for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
@@ -47,15 +46,13 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
 {
+  if (input) delete input;
+
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 3; ++j)
 			delete [] bcFaces[i][j];
 	}
 
-	for (int i = 0; i < nSampleNodes * dim; ++i)  
-		delete [] onlineMatrices[0][i];
-	delete [] onlineMatrices[0];
-	
 	delete [] nodesToHandle;
 	delete [] globalNodes;
 	delete [] cpus;
@@ -164,13 +161,12 @@ void GappyOffline<dim>::setUpPodBases() {
 	}
 
 	//	read in both Pod bases
-  domain.readMultiPodBasis(ioData->input.podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+  domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
 
-	// read in POD basis for state and initial condition
-  //ioData->output.restart.solutions
-	domain.readPodBasis(ioData->input.podFile, nPodState, podState);	// want to read in all (nPodState should be all)
-	double tmp;
-	domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, initialCondition);
+	// compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
+	if (nPodBasis == 2)
+		computePodTPod();
+
 }
 
 template<int dim>
@@ -235,12 +231,16 @@ void GappyOffline<dim>::buildGappyMesh() {
 	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
 		greedy(greedyIt);
 
-	// print global globalNodes
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){	// pod no longer needed
+		pod[iPodBasis].resize(0);
+		error[iPodBasis].resize(0);
+	}
 
 	if (debugging){
-		com->fprintf(stderr,"globalSampleNodes is:");
+		com->fprintf(stderr,"globalSampleNodes are:");
 		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
 			com->fprintf(stderr,"%d ",globalSampleNodes[iSampleNodes]);
+		com->fprintf(stderr,"\n");
 	}
 
 	//==============================================
@@ -766,7 +766,7 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 						cpus[iIslands].push_back(thisCPU);
 						locSubDomains[iIslands].push_back(iSub);
 						localNodes[iIslands].push_back(locNodeNum);
-						for (int iCrap = 0; iCrap < 3 ; ++iCrap) xyz[iCrap] = 0.0; // KTCREMOVE
+						for (int iXYZ = 0; iXYZ < 3 ; ++iXYZ) xyz[iXYZ] = 0.0; // KTCREMOVE
 						computeXYZ(iSub, locNodeNum, xyz);
 						for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
 							nodesXYZ[iXYZ][iIslands].push_back(xyz[iXYZ]);
@@ -1184,16 +1184,13 @@ void GappyOffline<dim>::buildGappyMatrices() {
 // 	reduced domain decomposition: A, B
 //======================================
 
-	//computePseudoInverseRHS();
-
 	// compute podHatPseudoInv (pseudo-inverses of podHatRes and podHatJac)
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		computePseudoInverse(iPodBasis);
 	
 	checkConsistency();
 
-	// compute pod[0]^Tpod[1]
-	computePodTPod();
+	// pod[0]^Tpod[1] already computed
 
 	// assemble onlineMatrices (A and B)
 	assembleOnlineMatrices();
@@ -1241,8 +1238,6 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 	// A: (nSampleNodes * dim) x nPod
 	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
 			nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]);
-	//parallelRom[iPodBasis].parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
-//				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 
 	if (iPodBasis == 0)	// set them equal by default
 		podHatPseudoInv[1] = podHatPseudoInv[0];
@@ -1254,10 +1249,14 @@ template<int dim>
 void GappyOffline<dim>::computePodTPod() {
 
 	// podTpod is nPod[1] x nPod[0] array
+	//
+	// since podTpod = I for nPodBasis = 1, only call this function for
+	// nPodBasis = 2
 
 	podTpod = new double * [nPod[1]];
 	for (int i = 0; i < nPod[1]; ++i)
 		podTpod[i] = new double [nPod[0]];
+
 
 	for (int i = 0; i < nPod[1]; ++i)
 		for (int j = 0; j < nPod[0]; ++j)
@@ -1273,28 +1272,32 @@ void GappyOffline<dim>::assembleOnlineMatrices() {
 
 	int numCols = nSampleNodes * dim;
 
-	onlineMatrices[1] = podHatPseudoInv[1];	// related to the jacobian
-
-	onlineMatrices[0] = new double * [numCols] ;
-	for (int i = 0; i < numCols; ++i) {
-		onlineMatrices[0][i] = new double [nPod[1] ] ;
-		for (int iPod = 0; iPod < nPod[1]; ++iPod) 
-			onlineMatrices[0][i][iPod] = 0.0;
+	if (nPodBasis == 1) {	// only need to use podTpod if there are two bases (otherwise, it is identity)
+		onlineMatrices[0] = podHatPseudoInv[0];	// related to the jacobian
 	}
+	else {	// nPod[1] != 0 because nPodBasis == 2
+		int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
+		onlineMatrices[1] = podHatPseudoInv[1];	// related to the jacobian
 
-	for (int iPod = 0; iPod < nPod[1]; ++iPod) {
-		for (int jPod = 0; jPod < nPod[0]; ++jPod) {
-			for (int k = 0; k < numCols; ++k) { 
-				onlineMatrices[0][k][iPod] += podTpod[iPod][jPod] * podHatPseudoInv[0][k][jPod];
+		onlineMatrices[0] = new double * [numCols] ;
+		for (int i = 0; i < numCols; ++i) {
+			onlineMatrices[0][i] = new double [nPod[1] ] ;
+			for (int iPod = 0; iPod < nPod[1]; ++iPod) 
+				onlineMatrices[0][i][iPod] = 0.0;
+		}
+		for (int iPod = 0; iPod < nPod[1]; ++iPod) {
+			for (int jPod = 0; jPod < nPod[0]; ++jPod) {
+				for (int k = 0; k < numCols; ++k) { 
+					onlineMatrices[0][k][iPod] += podTpod[iPod][jPod] * podHatPseudoInv[0][k][jPod];
+				}
 			}
 		}
+		// no longer need podTpod
+
+		for (int i = 0; i < nPod[1]; ++i)
+			delete [] podTpod[i];
+		delete [] podTpod;
 	}
-
-	// no longer need podTpod
-
-	for (int i = 0; i < nPod[1]; ++i)
-		delete [] podTpod[i];
-	delete [] podTpod;
 
 }
 
@@ -1306,14 +1309,12 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	com->fprintf(stderr," ... Writing online matrices ...\n");
 
 	// reduced mesh
-	outputOnlineMatricesGeneral(ioData->output.transient.aMatrix,
-			ioData->output.transient.bMatrix, numReducedNodes, 
-			reducedSampleNodeRankMap, reducedSampleNodes);
+	outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrix,
+			numReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
-	if (ioData->output.transient.bMatrixFull[0] != 0 && ioData->output.transient.aMatrixFull[0] != 0) 
-		outputOnlineMatricesGeneral(ioData->output.transient.aMatrixFull,
-				ioData->output.transient.bMatrixFull, numFullNodes, 
-				globalSampleNodeRankMap, globalSampleNodes);
+	if (ioData->output.transient.onlineMatrixFull[0] != 0) 
+		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrixFull,
+				numFullNodes, globalSampleNodeRankMap, globalSampleNodes);
 }
 
 template<int dim>
@@ -1335,17 +1336,28 @@ void GappyOffline<dim>::outputStateReduced() {
 
 	com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
 	com->fprintf(outInitialCondition,"%d\n", numReducedNodes);
-	outputReducedSVec(initialCondition,outInitialCondition,0);
+	
+	// read in initial condition
+  //ioData->output.restart.solutions
+
+	DistSVec<double,dim> *initialCondition = new DistSVec<double,dim>( domain.getNodeDistInfo() );
+	double tmp;
+	domain.readVectorFromFile(ioData->input.solutions, 0, &tmp, *initialCondition);
+	outputReducedSVec(*initialCondition,outInitialCondition,0);
+	delete initialCondition;
 
 	// note: need to output the first pod basis vector twice
 
+	SetOfVec *podState = new SetOfVec(0, domain.getNodeDistInfo() );	// need to put podState in reduced coordinates
+	domain.readPodBasis(input->podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
 	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
 	com->fprintf(outPodState,"%d\n", numReducedNodes);
-	outputReducedSVec(podState[0],outPodState,nPodState);	// dummy output
+	outputReducedSVec((*podState)[0],outPodState,nPodState);	// dummy output
 
 	for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
-		outputReducedSVec(podState[iPod],outPodState,iPod);
+		outputReducedSVec((*podState)[iPod],outPodState,iPod);
 	}
+	delete podState;
 
 	delete [] outInitialConditionFile;
 	delete [] outPodStateFile;
@@ -1491,44 +1503,50 @@ void GappyOffline<dim>::checkConsistency() {
 		int asdf = 0;
 	}
 
+	for (int i = 0; i < numRhs; ++i)
+		delete [] consistency[i];
+	delete [] consistency;
+
 }
 
 template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
-		*aMatrix, const char *bMatrix, int numNodes,
+		*onlineMatricesName, int numNodes,
 		const std::map<int,int> &sampleNodeMap, const std::vector<int>
 		&sampleNodeVec) {
 
 	// prepare files
 
-	char *(onlineMatrixFile [2]);
-	FILE *(onlineMatrix [2]);
+	char *onlineMatrixFile;
+	FILE *onlineMatrix;
 	int sp = strlen(ioData->output.transient.prefix);
-	onlineMatrixFile[0] = new char[sp + strlen(bMatrix)+1];
-	onlineMatrixFile[1] = new char[sp + strlen(aMatrix)+1];
+	const char *(onlineMatExtension [2]) = {".AMat",".BMat"};
+	int nPodJac = (nPod[1] == 0) ? nPod[0] : nPod[1];
 
-	if (thisCPU ==0) sprintf(onlineMatrixFile[0], "%s%s",
-			ioData->output.transient.prefix, bMatrix);
-	if (thisCPU ==0) sprintf(onlineMatrixFile[1], "%s%s",
-			ioData->output.transient.prefix, aMatrix);
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {	
 
-	for (int iPodBasis = 0; iPodBasis < 2; ++iPodBasis) {	// always write out 2 files (need A,B)
+		onlineMatrixFile = new char[sp +
+			strlen(onlineMatricesName)+strlen(onlineMatExtension[iPodBasis])+1];
+		if (thisCPU ==0){
+			sprintf(onlineMatrixFile, "%s%s%s",
+					ioData->output.transient.prefix, onlineMatricesName,
+					onlineMatExtension[iPodBasis]); 
+			onlineMatrix = fopen(onlineMatrixFile, "wt");
+		}
 
-		if (thisCPU ==0) onlineMatrix[iPodBasis] = fopen(onlineMatrixFile[iPodBasis], "wt");
-
-		com->fprintf(onlineMatrix[iPodBasis],"Vector abMatrix under load for FluidNodes\n");
-		com->fprintf(onlineMatrix[iPodBasis],"%d\n", numNodes);
-		com->fprintf(onlineMatrix[iPodBasis],"%d\n", nPod[1]);	// # rows in A and B
+		com->fprintf(onlineMatrix,"Vector abMatrix under load for FluidNodes\n");
+		com->fprintf(onlineMatrix,"%d\n", numNodes);
+		com->fprintf(onlineMatrix,"%d\n", nPodJac);	// # rows in A and B
 
 		// dummy loop needed by POD
 		for (int iNode = 0; iNode < numNodes; ++iNode) {
 			for (int iDim = 0; iDim < dim; ++iDim) { 
-				com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+				com->fprintf(onlineMatrix,"%e ", 0.0);
 			}
-			com->fprintf(onlineMatrix[iPodBasis],"\n");
+			com->fprintf(onlineMatrix,"\n");
 		}
 
-		for (int iPod = 0; iPod < nPod[1]; ++iPod) {	// # rows in A and B
-			com->fprintf(onlineMatrix[iPodBasis],"%d\n", iPod);
+		for (int iPod = 0; iPod < nPodJac; ++iPod) {	// # rows in A and B
+			com->fprintf(onlineMatrix,"%d\n", iPod);
 			for (int iNode = 0; iNode < numNodes; ++iNode) {
 				bool isSampleNode = false;
 				int sampleNodeRank = -1;
@@ -1542,17 +1560,21 @@ template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 
 				for (int iDim = 0; iDim < dim; ++iDim) { 
 					if (isSampleNode)
-						com->fprintf(onlineMatrix[iPodBasis],"%e ",
+						com->fprintf(onlineMatrix,"%e ",
 							onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
 					else // must output zeros if it is not a sample node
-						com->fprintf(onlineMatrix[iPodBasis],"%e ", 0.0);
+						com->fprintf(onlineMatrix,"%e ", 0.0);
 				}
-				com->fprintf(onlineMatrix[iPodBasis],"\n");
+				com->fprintf(onlineMatrix,"\n");
 			}
 		}
+		delete [] onlineMatrixFile;
 	}
 
-	delete [] onlineMatrixFile[0];
-	delete [] onlineMatrixFile[1];
-
+	if (nPodBasis == 2) {	// only need to delete memory if 2 pod bases 
+												// (see assembleOnlineMatrices)
+		for (int i = 0; i < nSampleNodes * dim; ++i)  
+			delete [] onlineMatrices[0][i];
+		delete [] onlineMatrices[0];
+	}
 }

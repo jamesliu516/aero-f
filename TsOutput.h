@@ -48,9 +48,8 @@ private:
   Vec3D x0;
   int output_step;
   int output_step2;
-  int output_step_pgromresiduals; //CBM--TEMP --> GAPPY STUFF
-  int output_step_pgjacxdurom; //CBM--TEMP --> GAPPY STUFF
-  int output_step_pgjac; //CBM--TEMP --> GAPPY STUFF
+  int output_step_reducedjacxdurom; //CBM--TEMP --> GAPPY STUFF
+  int output_step_reducedjac; //CBM--TEMP --> GAPPY STUFF
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
@@ -80,10 +79,8 @@ private:
 
 	// Gappy POD
   char *newtonresiduals;
-	char *pgromresiduals;
-	char *pgjacxdurom;
-	char *pgjac;
-	char *statevectorchange;
+	char *reducedjacxdurom;
+	char *reducedjac;
 	char *staterom;
 
   double tprevf, tprevl, tinit;
@@ -162,9 +159,8 @@ public:
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
-  void writeBinaryVectorsToDisk1(bool, int, double, DistSVec<double,dim> &, DistSVec<double,dim> &);//CBM-TEMP
-  void writeBinaryVectorsToDisk2(bool, int, double, DistSVec<double,dim> &);//CBM-TEMP
-  void writeBinaryVectorsToDisk3(bool, int, double, VecSet< DistSVec<double,dim> >&);//CBM-TEMP
+	void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *,
+			DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
