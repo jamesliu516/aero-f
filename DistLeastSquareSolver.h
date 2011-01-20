@@ -28,6 +28,11 @@ public:
   void blockSizeIs(int size);
   void blockSizeIs(int row, int col, int rhsRow, int rhsCol);
 
+  // Buffer resizing policy
+  enum BufferResizePolicy { TIGHT, LOOSE };
+  BufferResizePolicy bufferResizePolicy() const { return bufferResizePolicy_; }
+  void bufferResizePolicyIs(BufferResizePolicy policy);
+
   // Problem size
   int equationCount()    const { return equationCount_;    }
   int unknownCount()     const { return unknownCount_;     }
@@ -111,7 +116,9 @@ private:
   int rhsRowBlockSize_, rhsColBlockSize_;
   
   typedef int ArrayDesc[9];
-  
+ 
+  BufferResizePolicy bufferResizePolicy_;
+
   int equationCount_, unknownCount_;
   int largestDimension_, rhsCount_;
   int localRows_, localCols_;
@@ -126,7 +133,6 @@ private:
   // Private functions
   void reset();
 
-  // TODO Adjust value
   static const int DEFAULT_BLOCK_SIZE;
   
   // Adressable constants
