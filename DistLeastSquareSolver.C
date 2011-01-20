@@ -40,14 +40,15 @@ extern "C" {
 
 #endif /* DO_SCALAPACK */
 
-const int DistLeastSquareSolver::DEFAULT_BLOCK_SIZE = 2; // TODO
+const int DistLeastSquareSolver::DEFAULT_BLOCK_SIZE = 32;
 
 const int DistLeastSquareSolver::INT_ZERO = 0;
 const int DistLeastSquareSolver::INT_ONE = 1;
 const int DistLeastSquareSolver::INT_MINUS_ONE = -1;
 
 DistLeastSquareSolver::DistLeastSquareSolver(Communicator * comm, int rowCpus, int colCpus) : 
-  communicator_(comm)
+  communicator_(comm),
+  bufferResizePolicy_(TIGHT)
 {
 #ifdef DO_SCALAPACK
   if (rowCpus * colCpus > communicator_->size()) {
@@ -107,6 +108,19 @@ DistLeastSquareSolver::blockSizeIs(int row, int col, int rhsRow, int rhsRank) {
 }
 
 void
+DistLeastSquareSolver::bufferResizePolicyIs(BufferResizePolicy newPolicy) {
+  if (newPolicy == bufferResizePolicy()) {
+    return;
+  }
+
+  bufferResizePolicy_ = newPolicy;
+
+  if (bufferResizePolicy() == TIGHT) {
+    reset();
+  }
+}
+
+void
 DistLeastSquareSolver::problemSizeIs(int eqnCount, int unknownCount, int rhsCount) {
   equationCount_    = eqnCount;
   unknownCount_     = unknownCount;
@@ -126,8 +140,20 @@ DistLeastSquareSolver::reset() {
   localSolutionRows_ = F77NAME(numroc)(&unknownCount_,  &rhsRowBlockSize_, &localCpuRow_, &INT_ZERO, &rowCpus_);
   localRhsCount_     = F77NAME(numroc)(&rhsCount_,      &rhsColBlockSize_, &localCpuCol_, &INT_ZERO, &colCpus_);
 
+  const int reqMatrixBufferSize = localCols_ * localRows_;
+  const int reqRhsColBufferSize = std::max(localRhsRows_, localSolutionRows_);
+  const int reqRhsBufferSize    = localRhsCount_ * reqRhsColBufferSize;
+
+  if (bufferResizePolicy() == TIGHT || reqMatrixBufferSize > matrixBuffer_.size()) {
+    matrixBuffer_.sizeIs(reqMatrixBufferSize);
+  }
+
+  if (bufferResizePolicy() == TIGHT || reqRhsBufferSize > rhsBuffer_.size()) {
+    rhsBuffer_.sizeIs(reqRhsBufferSize);
+  }
+    
   localMatrixLeadDim_ = std::max(localRows_, 1);
-  localRhsLeadDim_    = std::max(std::max(localRhsRows_, localSolutionRows_), 1);
+  localRhsLeadDim_    = std::max(reqRhsColBufferSize, 1);
 
   int info;
   F77NAME(descinit)(matrixDesc_, &equationCount_, &unknownCount_, &rowBlockSize_, &colBlockSize_,
@@ -137,9 +163,6 @@ DistLeastSquareSolver::reset() {
   F77NAME(descinit)(rhsDesc_, &largestDimension_, &rhsCount_, &rhsRowBlockSize_, &rhsColBlockSize_,
                     &context_, &INT_ZERO, &INT_ZERO, &localRhsLeadDim_, &info);
   assert(info == 0);
-
-  matrixBuffer_.sizeIs(localCols_ * localMatrixLeadDim_);
-  rhsBuffer_.sizeIs(localRhsCount_ * localRhsLeadDim_);
 #endif /* DO_SCALAPACK */
 }
 
