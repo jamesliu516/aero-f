@@ -625,7 +625,7 @@ public:
 
   template<int dim>
   void applyBCsToResidual(BcFcn *, DistBcData<dim> &,
-			  DistSVec<double,dim> &, DistSVec<double,dim> &);
+			  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobian(BcFcn *, DistBcData<dim> &,

@@ -1391,11 +1391,11 @@ void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U, DistL
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R)
+void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToResidual(bcFcn, *bcData, U, R);
+    domain->applyBCsToResidual(bcFcn, *bcData, U, R, distLSS);
 
 }
 
