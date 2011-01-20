@@ -202,7 +202,7 @@ public:
 
   void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
-  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);

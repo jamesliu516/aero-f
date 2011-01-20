@@ -2493,12 +2493,15 @@ void Domain::applyBCsToSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
 
 template<int dim>
 void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistSVec<double,dim> &F)
+				DistSVec<double,dim> &U, DistSVec<double,dim> &F, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToResidual(bcFcn, bcData(iSub), U(iSub), F(iSub));
+    {
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subDomain[iSub]->applyBCsToResidual(bcFcn, bcData(iSub), U(iSub), F(iSub), LSS);
+    }
 
 }
 

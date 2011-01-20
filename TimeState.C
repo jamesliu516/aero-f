@@ -25,8 +25,8 @@ TimeState<dim>::TimeState(TimeData &_data, Vec<double> &_dt, Vec<double> &_idti,
 
 template<int dim>
 void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState, 
-					Vec<double> &ctrlVol, SVec<double,dim> &Q, 
-					SVec<double,dim> &R)
+				Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+				SVec<double,dim> &R, LevelSetStructure *LSS)
 {
 
   Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
@@ -35,6 +35,8 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
 
   double c_np1, c_n, c_nm1, c_nm2;
   for (int i=0; i<dt.size(); ++i) {
+    // If i lies in the structure, do nothing.
+    if(LSS) if(!(LSS->isActive(0.0,i))) continue;
 
     double invDt = 1.0 / dt[i];
     if (data.use_modal == true)  {

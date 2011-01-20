@@ -654,17 +654,20 @@ void DistTimeState<dim>::computeCoefficients(double dt_glob)
 
 template<int dim>
 void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState, 
-					    DistVec<double> &ctrlVol,
-					    DistSVec<double,dim> &Q, 
-					    DistSVec<double,dim> &R)
+				    DistVec<double> &ctrlVol,
+				    DistSVec<double,dim> &Q, 
+				    DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), 
-				   ctrlVol(iSub), Q(iSub), R(iSub));
+    {
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), 
+				     ctrlVol(iSub), Q(iSub), R(iSub), LSS);
+    }
 
 }
                                                                                                                       
