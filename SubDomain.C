@@ -2153,10 +2153,10 @@ template<class Scalar, int dim>
 SparseMat<Scalar,dim> *SubDomain::createMaskJacobian(int *ndType, MemoryPool *mp)
 {
 
-  Connectivity *nodeToNode = createElemBasedConnectivity();
+  nodeToNodeMaskJacobian = createElemBasedConnectivity();
 
-  int *ia = (*nodeToNode).ptr();
-  int *ja = (*nodeToNode)[0];
+  int *ia = (*nodeToNodeMaskJacobian).ptr();
+  int *ja = (*nodeToNodeMaskJacobian)[0];
   int n = nodes.size();
   int nnz = ia[n];
 
@@ -2245,12 +2245,12 @@ template<class Scalar, int dim>
 SparseMat<Scalar,dim> *SubDomain::createMaskILU(int fill, int renum, int *ndType)
 {
 
-  Connectivity *nodeToNode = createEdgeBasedConnectivity();
+  nodeToNodeMaskILU = createEdgeBasedConnectivity();
 
-  compStruct *nodeRenum = createRenumbering(nodeToNode, renum, 0);
+  compStruct *nodeRenum = createRenumbering(nodeToNodeMaskILU, renum, 0);
 
-  int *ia = (*nodeToNode).ptr();
-  int *ja = (*nodeToNode)[0];
+  int *ia = (*nodeToNodeMaskILU).ptr();
+  int *ja = (*nodeToNodeMaskILU)[0];
   int n = nodes.size();
   int nnz = ia[n];
 
