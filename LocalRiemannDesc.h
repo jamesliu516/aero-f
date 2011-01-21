@@ -2602,9 +2602,14 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   Wstar[2]  = vti[1]+U_i*nphi[1];
   Wstar[3]  = vti[2]+U_i*nphi[2];
   Wstar[4]  = P_i;
-  if(dim > 5)
+  if(dim == 6)
     {
       Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7)  // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[5] = 0.0;
+      Wstar[6] = 0.0;
     }
 
 
@@ -2631,9 +2636,14 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   Wstar[dim+2]  = vti[1]+U_i*nphi[1];
   Wstar[dim+3]  = vti[2]+U_i*nphi[2];
   Wstar[dim+4]  = P_i;
-  if(dim > 5)
+  if(dim == 6)
     {
       Wstar[dim+5]  = 0.0; // Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7) // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[dim+5]  = 0.0; 
+      Wstar[dim+6]  = 0.0; 
     }
 
   //-----------------------------------------------------------------
@@ -2689,10 +2699,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   //double f[3] = {R_i,U_i,P_i};
   //DebugTools::CheckJacobian<3>(dWdW, u,f,FSJac<dim>(this,vf,Id,U_i), "FSJacobian\n-------------------------\n"); 
 
-  if(dim > 5)
-  {
-    Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
-  }
+  if(dim == 6)
+    {
+      Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7) // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[5] = 0.0;
+      Wstar[6] = 0.0;
+    }
  
   memset(dWstardU, 0, sizeof(double)*dim*dim);
   dWstardU[0] = dWdW[0];
