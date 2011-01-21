@@ -145,6 +145,8 @@ class SubDomain {
   Connectivity *NodeToNode;
   Connectivity *NodeToElem;
   Connectivity *ElemToElem;
+  // Adam 2011.01.19: For Memory Leak Purpose
+  Connectivity *nodeToNodeMaskJacobian, *nodeToNodeMaskILU;
 
   int **totalNeiData;
   double *gradP[3];
