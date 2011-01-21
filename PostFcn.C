@@ -849,7 +849,7 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
   Vec3D Fv;
 
-  if (wallFcn)
+  if (wallFcn && Vwall)
     Fv = wallFcn->computeForce(n, d2w, Vwall, Vface);
   else {
     double u[4][3], ucg[3];
