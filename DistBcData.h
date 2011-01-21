@@ -91,7 +91,7 @@ protected:
 public:
 
   DistBcData(IoData &, VarFcn *, Domain *);
-  ~DistBcData();
+  virtual ~DistBcData();
 
   BcData<dim> &operator() (int i) const { return *subBcData[i]; }
 
