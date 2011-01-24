@@ -89,6 +89,11 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
           lriemann[iPhase] = new LocalRiemannGfmparJWLJWL(vf,0,iPhase+1, iod.mf.typePhaseChange);
           //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparJwlJwl\n", iPhase);
         }
+        else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
+                it->second->fluid == FluidModelData::JWL){
+          lriemann[iPhase] = new LocalRiemannGfmparTaitJWL(vf,0,iPhase+1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange);
+          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparJwlJwl\n", iPhase);
+        }
         else{
           fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
           exit(1);
