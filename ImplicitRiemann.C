@@ -5,6 +5,8 @@
 
 #include <iostream>
 
+#define max(a,b) ( (a > b) ? (a) : (b) )
+
 // out[0] = K_rho_k
 // out[1] = K_P_k
 // out[2] = K_k*
@@ -400,17 +402,56 @@ void ImplicitRiemann::computeGasDerivShock2x2(double gamma,double p,
   out[2] = 1.0/(2.0*V)*(-out[5]*h-(p-Q)/(rhostar*rhostar));
 }
 
+void ImplicitRiemann::computeTaitDerivRarefaction2x2(double alpha,double beta,double pinf,double p,
+						    double rhostar, double rho, double out[6], 
+						    double c, double cstar) {
+  
+  //std::cout << "TAit rarefaction" << std::endl;
+  double f = sqrt(alpha*beta);
+  out[1] = f*pow(rho,0.5*(beta-3.0) );
+  out[2] = -f*pow(rhostar,0.5*(beta-3.0) );
+  out[0] = 0.0;
+
+  out[3] = 0.0;
+  out[4] = 0.0;
+  out[5] = alpha*beta*pow(rhostar,beta-1.0);
+}
+
+void ImplicitRiemann::computeTaitDerivShock2x2(double alpha,double beta,double pinf,double p,
+					      double rhostar, double rho, 
+					      double out[6]) {
+
+  //std::cout << "TAit shock" << std::endl;
+  double pstar = pinf+alpha*pow(rhostar,beta);
+  double f = 0.5/sqrt( max(0.0, -(pstar-p)*(1.0/rhostar-1.0/rho) ) );
+  
+  out[3] = 0.0;
+  out[4] = 0.0;
+  out[5] = alpha*beta*pow(rhostar,beta-1.0);
+
+  out[0] = 0.0;
+  out[1] = f*(-1.0/(rho*rho)*(pstar-p) + (1.0/rhostar-1.0/rho)*(alpha*beta*pow(rho,beta-1.0)) );
+  out[2] = f*(-out[5]*(1.0/rhostar-1.0/rho) + (pstar-p)/(rhostar*rhostar) );
+  
+}
+
 void ImplicitRiemann::computeJwlDerivRarefaction(VarFcn* vf_, int fluidId,double omega,
 						 double entropy,
 						 double rhostar, double rho, 
-						 double out[6], double c, double cstar) {
+						 double out[6], double c, double cstar,double* dVdv) {
 
-  double integral = computeJwlIntegral2(vf_, fluidId, omega, entropy, rhostar, rho);
-  
-  double pp = pow(rho, omega+1);
   double sign = -1.0;
-  out[0] = sign*1.0/pp*integral;
-  out[1] = sign*(c/rho-c*c/pp*integral);
+  if (!dVdv) {
+    double integral = computeJwlIntegral2(vf_, fluidId, omega, entropy, rhostar, rho);
+  
+    double pp = pow(rho, omega+1);
+    out[0] = sign*1.0/pp*integral;
+    out[1] = sign*(c/rho-c*c/pp*integral);
+  } else {
+    out[0] = sign*dVdv[0];
+    out[1] = sign*dVdv[1];
+  }
+
   out[2] = -sign*cstar/rhostar;
 
   double pp2 = pow(rhostar/rho, omega+1);
@@ -541,7 +582,8 @@ void ImplicitRiemann::computeGasJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
 					    double* Vi, double* Vj,
 					    double* Wi, double* Wj,
 					    double* jacii,double* jacij,
-					    double* jacjj,double* jacji) {
+					    double* jacjj,double* jacji,
+					    double* dVdv) {
 
   double outi[6],outj[6];
   double ci = vf->computeSoundSpeed(Vi,fluidi);
@@ -564,6 +606,57 @@ void ImplicitRiemann::computeGasJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
   }
   
   if (Wi[4] <= Vj[4]) {
+
+    computeJwlDerivRarefaction(vf,fluidj,omegaj,entropyj,Wj[0], Vj[0], outj, cj,cstarj,dVdv);
+    
+  } else {
+    
+    double frhoj = vf->computeFrho(Vj,fluidj);
+    double fdrhoj = vf->computeFrhop(Vj,fluidj);
+    double frhostarj = vf->computeFrho(Wj,fluidj);
+    double fdrhostarj = vf->computeFrhop(Wj,fluidj);
+    
+    computeJwlDerivShock(omegaj,Wj[0],Vj[0], 
+			 outj,cj,cstarj,
+			 frhoj,frhostarj,
+			 fdrhoj,fdrhostarj,Vj[4]);
+    
+  }
+  
+  computeInterfaceQuantities2x2(outi, outj,
+				jacii,jacij,
+				jacji,jacjj);
+}
+
+void ImplicitRiemann::computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
+					    double* Vi, double* Vj,
+					    double* Wi, double* Wj,
+					    double* jacii,double* jacij,
+					    double* jacjj,double* jacji) {
+
+  double outi[6],outj[6];
+  double ci = vf->computeSoundSpeed(Vi,fluidi);
+  double cj = vf->computeSoundSpeed(Vj,fluidj);
+  double cstari = vf->computeSoundSpeed(Wi,fluidi);
+  double cstarj = vf->computeSoundSpeed(Wj,fluidj);
+  double alphai = vf->getAlphaWater(fluidi);
+  double betai = vf->getBetaWater(fluidi);
+  double pinfi = vf->getPrefWater(fluidi);
+  
+  double omegaj = vf->getOmega(fluidj);
+  double entropyj = vf->computeEntropy(Vj[0],Vj[4], fluidj);
+  double pi = vf->getPressure(Vi,fluidi);
+
+  if (Wj[4] <= pi) {
+
+    computeTaitDerivRarefaction2x2(alphai,betai,pinfi,pi, Wi[0], Vi[0], outi, ci, cstari);
+    
+  } else {
+
+    computeTaitDerivShock2x2(alphai,betai,pinfi,pi,Wi[0],Vi[0],outi);
+  }
+  
+  if (Wj[4] <= Vj[4]) {
 
     computeJwlDerivRarefaction(vf,fluidj,omegaj,entropyj,Wj[0], Vj[0], outj, cj,cstarj);
     

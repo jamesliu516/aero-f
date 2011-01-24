@@ -189,6 +189,7 @@ public:
   void readFromFile(const double *refIn, const double *refOut, const char *filename, int outputRangeFlag=0);
   bool contains(double *coord);
   void interpolate(const int numRes, double **coord, double **res);
+  void interpolateGradient(const int numRes, double **coord, double **res);
 
   // test function for debugging
   template<typename T>
@@ -223,6 +224,7 @@ private:
   bool checkAccuracy();
 
   void singleInterpolation(const double * coord, double * output) const;
+  void singleInterpolationGradient(const double *coord, double *output) const;
 
   // depending on verbose, outputs messages on standard output
   void messages(const int flag, const int arg=0) const;
