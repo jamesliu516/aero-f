@@ -1584,6 +1584,7 @@ struct ROB {
   int numROBRes;
   double sampleNodeFactor;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
+	int liftFaces;
 
   ROB();
   ~ROB() {}

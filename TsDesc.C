@@ -85,6 +85,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   else if (ioData.sa.fixsol == 1)
     fixSol = 1;
 
+	timeState = 0;
+	mmh = 0;
 }
 
 //------------------------------------------------------------------------------

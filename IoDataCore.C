@@ -2681,6 +2681,7 @@ ROB::ROB()
   numROBRes = 0;
   sampleNodeFactor = 1;
   romsolver = PG; 
+	liftFaces = 0;	// by default, do not include lift faces
 
 }
 
@@ -2696,7 +2697,8 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "OldGappyPG", 3);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3);
+  new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
 
 }
 

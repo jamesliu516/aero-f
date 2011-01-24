@@ -644,3 +644,17 @@ void ImplicitRomTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
 	this->output->writeStateRomToDisk(it, cpu, nPod, UromTotal);
 
 }
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int _it) {
+	// only do for PG and Galerkin
+
+  DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
+	AJsol = 0.0;
+	for (int i=0; i<this->nPod; ++i)
+		 AJsol += this->AJ[i] * this->dUrom[i]; 
+
+	// saving this->AJ * this->dUrom (for GappyPOD)
+	writeBinaryVectorsToDiskRom(false, _it, 0.0, &(this->F), &AJsol, &(this->AJ));
+	
+}

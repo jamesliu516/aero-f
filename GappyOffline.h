@@ -7,7 +7,11 @@ class Domain;
 #include <DistVector.h>
 #include <VectorSet.h>
 #include <ParallelRom.h>
+#include <TsDesc.h>
 #include <set>
+#include <vector>
+#include <algorithm>
+#include <iterator>
 
 template <int dim>
 class ArrayVecDist {
@@ -68,6 +72,7 @@ private:
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
+	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
 	void setUpPodBases();	// read in POD bases
@@ -83,6 +88,12 @@ private:
 	TsInput *input;	
 	DistGeoState *geoState;
 	DistSVec<double,3> &X;
+
+	GeoSource *geoSourceTmp;
+	TsDesc<dim> *tsDescTmp;
+  DistBcData<dim> *bcDataTmp;
+  VarFcn *varFcnTmp;
+  PostOperator<dim> *postOp;
 
 	const int residual;	// refer to residual as 0
 	const int jacobian;
@@ -145,6 +156,7 @@ private:
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
 	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
+	std::vector< int > *(bcFaceSurfID [2]);	// codes for the above boundary faces. bcFaceSurfID[iSign][BCtype][iFace] returns the surfaceID of the iFace face corresponding to iSign/BCtype
 
 	std::map<int, StaticArray <double, 3> > nodesXYZmap;	// key: global node #, values: x, y, z
 	std::map<int, int > globalNodeToCpuMap;	// key: global node #, values: x, y, z
@@ -152,6 +164,9 @@ private:
 	std::map<int, int > globalNodeToLocalNodesMap;	// key: global node #, values: x, y, z
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
+	int *nodeMapDefined;	// neighborMapDefined[iSampleNode] = j means that the
+		//above maps have been defined for vector entries [iSampleNode][0:j]
+	int *elementMapDefined;
 	int numFullNodes, numReducedNodes;	// number of nodes in full and reduced meshes
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
@@ -164,7 +179,15 @@ private:
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
 	void addTwoNodeLayers();
 	void computeBCFaces();
-	void checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap , bool &faceInMesh);
+	bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
+	bool checkFaceContributesToLift(FaceSet& currentFaces, const int iFace,
+			const int iSub, const int *locToGlobNodeMap);
+	void addFaceNodesElements(FaceSet& currentFaces, const int iFace,
+			const int iSub, const int *locToGlobNodeMap);
+	void addNodesOnFace(FaceSet& currentFaces, const int iFace,
+			const int iSub, const int *locToGlobNodeMap, int *globalNodeNums);
+	void addElementOfFace(FaceSet& currentFaces, const int iFace,
+			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
 	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize);
 	void communicateAll();
