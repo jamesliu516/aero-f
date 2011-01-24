@@ -1,12 +1,12 @@
-#ifndef _IMPLICIT_PG_TS_DESC_H_
-#define _IMPLICIT_PG_TS_DESC_H_
+#ifndef _IMPLICIT_GALERKIN_TS_DESC_H_
+#define _IMPLICIT_GALERKIN_TS_DESC_H_
 
 #include <ImplicitRomTsDesc.h>
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
+class ImplicitGalerkinTsDesc : public ImplicitRomTsDesc<dim> {
 
 protected:
 
@@ -17,14 +17,14 @@ protected:
 
 public:
   
-  ImplicitPGTsDesc(IoData &, GeoSource &, Domain *);
+  ImplicitGalerkinTsDesc(IoData &, GeoSource &, Domain *);
 
 };
 
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX
-#include <ImplicitPGTsDesc.C>
+#include <ImplicitGalerkinTsDesc.C>
 #endif
 
 #endif

@@ -47,7 +47,8 @@ protected:
   virtual void computeAJ(int, DistSVec<double, dim> &);	// Broyden doesn't do this every time
   virtual void computeFullResidual(int, DistSVec<double, dim> &);  
 
-  virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG
+  virtual void saveNewtonSystemVectors(const int _it) {};	// only implemented for PG/Galerkin
+  void saveNewtonSystemVectorsAction(const int);	// implementation for PG/Galerkin
 	virtual void solveNewtonSystem(const int &it, double &res, bool &breakloop) = 0;
 	// each ROM has a different way of solving the Newton system
   virtual void updateGlobalTimeSteps(const int _it) {};	// broyden needs to know global time steps
