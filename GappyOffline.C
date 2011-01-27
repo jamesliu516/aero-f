@@ -17,8 +17,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
 	geoState(_geoState), X(_geoState->getXn()),
-	residual(0), jacobian(1),
-	nodeMapDefined(NULL), elementMapDefined(NULL)
+	residual(0), jacobian(1)
 {
 	// create temporary objects to build postOp, which is needed for lift
 	// surfaces
@@ -66,9 +65,6 @@ GappyOffline<dim>::~GappyOffline()
 	if (tsDescTmp) delete tsDescTmp;
 	if (geoSourceTmp) delete geoSourceTmp;
 
-	if (nodeMapDefined) delete nodeMapDefined;
-	if (elementMapDefined) delete elementMapDefined;
-
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 3; ++j)
 			delete [] bcFaces[i][j];
@@ -79,6 +75,8 @@ GappyOffline<dim>::~GappyOffline()
 	delete [] cpus;
 	delete [] locSubDomains;
 	delete [] localNodes;
+	delete [] totalNodesCommunicated;
+	delete [] totalEleCommunicated;
 
 
 	for (int i = 0; i < 3; ++i)
@@ -140,7 +138,7 @@ void GappyOffline<dim>::setUpPodBases() {
 
 	// determine whether one or two pod bases are used
 
-	nPodState = ioData->Rob.numROB;	// TODO want to read in all pod state vectors
+	nPodState = ioData->Rob.numROB;
 	nPod[0] = ioData->Rob.numROBRes;	// number of POD basis vectors 
 	nPod[1] = ioData->Rob.numROBJac;
 	int podFiles [2] = {0, 1};	// which pod files should be read
@@ -688,12 +686,20 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	elements = new std::vector <int> [nSampleNodes];
 	for (int i = 0; i < 4; ++i)
 		elemToNode[i] = new std::vector <int> [nSampleNodes];
-	
+	totalNodesCommunicated = new int [nSampleNodes];
+	totalEleCommunicated = new int [nSampleNodes];
+	for (int i = 0; i < nSampleNodes; ++i) {
+		totalNodesCommunicated[i] = 0;
+		totalEleCommunicated[i] = 0;
+	}
+
 	// compute two layers of globalNodes
 	
+	int *nodeOffset = new int [nSampleNodes];
+
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
-		
-		// add the sample node itself
+
+		// add the sample node itself to all processors
 
 		globalNodes[iSampleNodes].push_back(globalSampleNodes[iSampleNodes]);
 		cpus[iSampleNodes].push_back(cpuSample[iSampleNodes]);
@@ -706,29 +712,22 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 		}
 
 		// add all neighbor globalNodes and elements of the sample node itself
+		nodeOffset[iSampleNodes] = globalNodes[iSampleNodes].size();
 		addNeighbors(iSampleNodes);
 	}
 
-	communicateAll();
+	
+	computeBCFaces(true);	// compute BC faces and add nodes/elements for lift surfaces
 
-	// add all neighbor globalNodes and elements of the sample node's neighbors 
+	// add all neighbor globalNodes and elements of the sample node's neighbors
+	// and neighbor nodes of the lift surface nodes (need 1 layer of nodes for lift)
+
+	communicateAll();	// all cpus need all nodes/elements for adding neighbors
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
-		addNeighbors(iSampleNodes, 1);
+		addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
 
-	//communicateAll();	// don't need to communicateAll here, because BC faces
-	//don't depend on existing nodes
-
-	// compute faces on boundary of reduced mesh
-
-	defineMaps();	// computeBCFaces uses maps, so define them
-
-	computeBCFaces();	// 
-	communicateBCFaces();
-	communicateAll();	
-
-	// globally sum them up (make consistent across all cpus)
-
-	defineMaps();	// define remaining maps
+	communicateAll();	// all cpus need all nodes/elements to define maps
+	defineMaps();	// define element and node maps
 
 	// from now on, use maps and not these vectors
 
@@ -741,8 +740,12 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	makeUnique(globalNodes);
 	makeUnique(elements);
 
+	computeBCFaces(false);	// compute BC faces already in mesh
+	communicateBCFaces();
+
 	numReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
 
+	delete [] nodeOffset; 
 } 
 
 template<int dim>
@@ -817,11 +820,13 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 		}
 	}
 }
-
 template<int dim>
-void GappyOffline<dim>::computeBCFaces() {
+void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 
 	// PURPOSE: determine which faces of the reduced mesh are on the boundary
+	// INPUT: liftContribution (true: adding faces contributing to lift; false:
+	//   adding other BC faces)
+	// ASSUME: call with liftContribution = true first!
 	// METHOD: loop over ALL FACES
 	// NOTE: this is done in parallel; thus, a communication is needed to make
 	// sure all cpus have the same copy
@@ -829,7 +834,7 @@ void GappyOffline<dim>::computeBCFaces() {
 		// KTC: how to check which faces are attached to an element???
 
 	int faceBCCode = 0;
-	bool faceInMesh, faceContributesToLift;
+	bool includeFace;
 	int globalFaceNodes [3];	// global node numbers of current face
 	for (int iSub = 0 ; iSub < numLocSub ; ++iSub) {	// all subdomains
 		FaceSet& currentFaces = subD[iSub]->getFaces();	// faces on subdomain
@@ -840,17 +845,20 @@ void GappyOffline<dim>::computeBCFaces() {
 			if (faceBCCode != 0) {
 				
 				// check if the face is in the reduced mesh
-				 faceInMesh = checkFaceInMesh(currentFaces, iFace, iSub, locToGlobNodeMap);
-				 faceContributesToLift = false;
-				 if (!faceInMesh && includeLiftFaces == 1)	// only check if the face wasn't in the mesh
-					 faceContributesToLift = checkFaceContributesToLift(currentFaces,
+				 if (liftContribution && includeLiftFaces > 0) {	// including lift faces
+					 includeFace = checkFaceContributesToLift(currentFaces,
 							 iFace, iSub, locToGlobNodeMap);
-				 if (faceContributesToLift) {
-					 //addNodesOnFace(currentFaces, iFace, iSub, locToGlobNodeMap);// add nodes
-					 addFaceNodesElements(currentFaces, iFace, iSub, locToGlobNodeMap);// add nodes
+					 if (includeFace) {
+						 addFaceNodesElements(currentFaces, iFace, iSub, locToGlobNodeMap);// add nodes
+					 }
+				 }
+				 else {// include faces in the mesh
+					 includeFace = checkFaceInMesh(currentFaces, iFace, iSub, locToGlobNodeMap);
+					 if (includeFace)
+						 includeFace *= checkFaceAlreadyAdded(thisCPU, iSub, iFace);// fix!
 				 }
 
-				if (faceInMesh || faceContributesToLift) { // add face to extra set
+				if (includeFace) { // add face to extra set
 					for (int iFaceNode = 0; iFaceNode < 3; ++iFaceNode) { 
 						int localFaceNode = currentFaces[iFace][iFaceNode];
 						globalFaceNodes[iFaceNode] = locToGlobNodeMap[localFaceNode];
@@ -860,6 +868,13 @@ void GappyOffline<dim>::computeBCFaces() {
 					}
 					int surfaceID = currentFaces[iFace].getSurfaceID();
 					bcFaceSurfID[codeIsPos][abs(faceBCCode)].push_back(surfaceID);
+					if (liftContribution)	{// only do when considering lift surfaces
+						// NOTE: each face is on one subdomain, so no communication of
+						// bcFacesInfo is required
+						int faceLoc [3]	= {thisCPU, iSub, iFace};
+						StaticArray <int,3> faceLocation(faceLoc);
+						bcFacesInfo.insert(faceLocation);
+					}
 				}
 			}
 		}
@@ -868,7 +883,7 @@ void GappyOffline<dim>::computeBCFaces() {
 
 template<int dim>
 template<typename Scalar>
-void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize){
+void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize, int *alreadyCommunicatedArray = NULL){	
 	
 	// loop over iIslands
 		// figure out how many total entries each cpu has for the iIsland
@@ -879,10 +894,15 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		// overwrite node and element vectors with this global data (for each cpu)
 
 	int* numNeigh = new int [nTotCpus + 1];
+	int offset;	// initial values to not communicate (if already communicated some)
 	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
+		if (thisCPU > 0 && alreadyCommunicatedArray != NULL)
+			offset = alreadyCommunicatedArray[iArraySize];
+		else
+			offset = 0;
 		for (int i = 0; i <=nTotCpus; ++i)	// initialize
 			numNeigh[i] = 0;
-		numNeigh[thisCPU+1] = nodeOrEle[iArraySize].size();	// number of entries on this cpu
+		numNeigh[thisCPU+1] = nodeOrEle[iArraySize].size() - offset;	// number of entries on this cpu
 		com->globalSum(nTotCpus+1,numNeigh);
 		for (int i = 1; i <=nTotCpus; ++i)	// accumulate
 			numNeigh[i] += numNeigh[i-1];
@@ -891,7 +911,7 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
 		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
 			if (iNeighbor >= numNeigh[thisCPU] && iNeighbor < numNeigh[thisCPU+1]) 
-				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU]];	// fill in this cpu's contribution
+				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU] + offset];	// fill in this cpu's contribution
 			else
 				nodeOrEleArray[iNeighbor] = 0;
 		}
@@ -912,16 +932,21 @@ void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int ar
 template<int dim>
 void GappyOffline<dim>::communicateAll() {
 
-	communicateMesh(globalNodes, nSampleNodes);
-	communicateMesh(cpus, nSampleNodes);
-	communicateMesh(locSubDomains, nSampleNodes);
-	communicateMesh(localNodes, nSampleNodes);
+	communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
+	communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
+	communicateMesh(locSubDomains, nSampleNodes, totalNodesCommunicated);
+	communicateMesh(localNodes, nSampleNodes, totalNodesCommunicated);
 	for (int i = 0; i < 3; ++i)
-		communicateMesh(nodesXYZ[i], nSampleNodes);
-	communicateMesh(elements, nSampleNodes);
-	for (int i = 0; i < 4; ++i)
-		communicateMesh(elemToNode[i], nSampleNodes);
+		communicateMesh(nodesXYZ[i], nSampleNodes, totalNodesCommunicated);
 
+	communicateMesh(elements, nSampleNodes, totalEleCommunicated);
+	for (int i = 0; i < 4; ++i)
+		communicateMesh(elemToNode[i], nSampleNodes, totalEleCommunicated);
+
+	for (int i = 0; i < nSampleNodes; ++i) { 
+		totalNodesCommunicated[i] = globalNodes[i].size();
+		totalEleCommunicated[i] = elements[i].size();
+	}
 }
 template<int dim>
 void GappyOffline<dim>::defineMaps() {
@@ -935,21 +960,10 @@ void GappyOffline<dim>::defineMaps() {
 	std::map<int,int>::const_iterator sampleNodeRank; 
 
 	// first time, establish that no maps have been defined
-	if (nodeMapDefined == NULL) {
-		nodeMapDefined = new int [nSampleNodes];
-		for (int i = 0; i < nSampleNodes; ++i)
-			nodeMapDefined[i] = 0; // so far, no maps defined
-	}
-	if (elementMapDefined == NULL) {
-		elementMapDefined = new int [nSampleNodes];
-		for (int i = 0; i < nSampleNodes; ++i)
-			elementMapDefined[i] = 0; // so far, no maps defined
-	}
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
 
 		// define nodesXYZmap
-		//for (int iNeighbor = nodeMapDefined[iSampleNodes]; iNeighbor < globalNodes[iSampleNodes].size(); ++iNeighbor) {
 		for (int iNeighbor = 0; iNeighbor < globalNodes[iSampleNodes].size(); ++iNeighbor) {
 
 			// do not re-define map for sample nodes (already defined as master) 
@@ -969,18 +983,14 @@ void GappyOffline<dim>::defineMaps() {
 			nodesXYZmap.insert(pair<int, StaticArray <double, 3> > (globalNodeNumTmp, nodesXYZTmp));
 		}
 
-		nodeMapDefined[iSampleNodes] = globalNodes[iSampleNodes].size();
-
 		// define elemToNodeMap
 
-		//TODO remove nodeMapDefined stuff
 		for (int iEle = 0; iEle < elements[iSampleNodes].size(); ++iEle) {
 			globalEleNumTmp = elements[iSampleNodes][iEle];
 			for (int iNodesConn = 0 ; iNodesConn  < 4; ++iNodesConn)
 				elemToNodeTmp[iNodesConn] = elemToNode[iNodesConn][iSampleNodes][iEle];
 			elemToNodeMap.insert(pair<int, StaticArray <int, 4> > (globalEleNumTmp, elemToNodeTmp));
 		}
-		elementMapDefined[iSampleNodes] = elements[iSampleNodes].size();
 	}
 }
 
@@ -997,7 +1007,7 @@ void GappyOffline<dim>::makeUnique( std::vector <int> * nodeOrEle, int length = 
 		for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
 			nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
 		}
-		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longe need that vector
+		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longer need that vector
 	}
 
 	sort(nodeOrEle[0].begin(), nodeOrEle[0].end());	// sort: puts in order
@@ -1089,6 +1099,21 @@ bool GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, 
 	delete [] globalNodeNum;
 
 	return faceInMesh;
+}
+
+template<int dim>
+bool GappyOffline<dim>::checkFaceAlreadyAdded(const int cpuNum, const int
+		iSub, const int iFace){
+	bool includeFace;
+	std::set<StaticArray <int, 3> >::iterator bcFacesInfoIt;	// {iCPU,iSub,iFace}
+	int faceLoc [3] = {cpuNum, iSub, iFace};
+	StaticArray <int,3> faceLocation(faceLoc);
+	bcFacesInfoIt = bcFacesInfo.find(faceLocation);
+	if (bcFacesInfoIt == bcFacesInfo.end())	// new face
+		includeFace = true;
+	else 	// already added face
+		includeFace = false;
+	return includeFace;
 }
 
 template<int dim>
@@ -1222,7 +1247,7 @@ bool GappyOffline<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFa
 	map<int,int>::iterator it = surfOutMap.find(faces[iFace].getSurfaceID());
 	if(it != surfOutMap.end() && it->second != -2)
 		idx = it->second;
-	else {
+	else if (includeLiftFaces == 2){	// include face if it is on any moving wall (perhaps remove)
 		if(faces[iFace].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
 				faces[iFace].getCode() == BC_ADIABATIC_WALL_MOVING  ||
 				faces[iFace].getCode() == BC_SLIP_WALL_MOVING)
@@ -1230,6 +1255,16 @@ bool GappyOffline<dim>::checkFaceContributesToLift(FaceSet& faces, const int iFa
 		else
 			idx = -1;
 	}
+	else
+		idx = -1;
+	/*else {	// include face if it is on any moving wall (perhaps remove)
+		if(faces[iFace].getCode() == BC_ISOTHERMAL_WALL_MOVING ||
+				faces[iFace].getCode() == BC_ADIABATIC_WALL_MOVING  ||
+				faces[iFace].getCode() == BC_SLIP_WALL_MOVING)
+			idx = 0;
+		else
+			idx = -1;
+	}*/
 
 	if(idx >= 0) 
 		faceContributesToLift = true;
