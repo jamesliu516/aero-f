@@ -92,6 +92,7 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver5.C
              Solvers/NavierStokesEmbedded5.C
              Solvers/NavierStokesEmbedded6.C
+             Solvers/NavierStokesEmbedded7.C
              Solvers/NavierStokesMultiPhysicsEmbedded5.C
              Solvers/NavierStokesCoupledSolver6.C
              Solvers/NavierStokesCoupledSolver7.C

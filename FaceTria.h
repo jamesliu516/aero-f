@@ -124,7 +124,7 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
-			   Vec<double> &, double *, SVec<double,dim> &, SVec<double,dim> &);
+			   Vec<double> &, double *, SVec<double,dim> &, SVec<double,dim> &,LevelSetStructure *LSS=0);
   
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, 

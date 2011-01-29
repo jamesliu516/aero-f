@@ -16,7 +16,6 @@
 using std::min;
 #endif
 
-
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
 #else
@@ -46,6 +45,18 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+
+
+  // Debug - To be deleted
+  std::ifstream forceCalculationType("forceCalculationType.txt");
+  if(forceCalculationType) {
+    int newVersion;
+    forceCalculationType>>newVersion;
+    if(newVersion) forceApp++;
+  }
+  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
+
+
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
     riemannNormal = (int)ioData.embed.riemannNormal;
@@ -242,6 +253,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
   SubDomain **subD = this->domain->getSubDomain();
 
+
 #pragma omp parallel for
   for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     SVec<double,dim> &subWij = (*Wij)(iSub);
@@ -260,9 +272,21 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     }
   }
 
+
+  // Ghost-Points Population
+  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+    {
+      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*U,this->varFcn,this->distLSS,this->nodeTag);
+    }
+  // Population of spaceOp->V for the force computation
+  this->spaceOp->conservativeToPrimitive(*U);
+
+
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;
+
 
   FsComputed = true;
   // Now "accumulate" the force for the embedded structure
@@ -510,7 +534,8 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   double t0 = this->timer->getTime();
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+				  ghostPoints, this->postOp->getPostFcn());
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }

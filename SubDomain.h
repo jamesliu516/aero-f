@@ -145,6 +145,8 @@ class SubDomain {
   Connectivity *NodeToNode;
   Connectivity *NodeToElem;
   Connectivity *ElemToElem;
+  // Adam 2011.01.19: For Memory Leak Purpose
+  Connectivity *nodeToNodeMaskJacobian, *nodeToNodeMaskILU;
 
   int **totalNeiData;
   double *gradP[3];
@@ -534,11 +536,12 @@ public:
 
   template<int dim>
   void computedWBar_dt(MacroCellSet **, SVec<double,1> **, SVec<double,dim> &, SVec<double,dim> &, int);
-
   template<int dim, class Scalar, int neq>
-  void computeJacobianGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
-				   SVec<double,3> &, Vec<double> &, SVec<double,dim> &,
-				   GenMat<Scalar,neq> &) ;
+  void computeJacobianGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
+				   GeoState &geoState, SVec<double,3> &X,
+				   Vec<double> &ctrlVol, SVec<double,dim> &V,
+				   GenMat<Scalar,neq> &A,
+				   Vec<GhostPoint<dim>*>* ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianVolumicForceTerm(VolumicForceTerm *, Vec<double> &,
@@ -555,10 +558,10 @@ public:
   void applyExtrapolationToSolutionVector(Extrapolation<dim>*, SVec<double,dim> &,
 					  SVec<double,dim> &);
   template<int dim>
-  void applyBCsToSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &);
+    void applyBCsToSolutionVector(BcFcn *, BcData<dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim>
-  void applyBCsToResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &);
+  void applyBCsToResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);
@@ -736,6 +739,16 @@ public:
 
   template<class Scalar, int dim>
   void addRcvData(CommPattern<Scalar> &, Scalar (*)[dim]);
+
+  template<int dim>
+  void sndGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void sndGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+
+  template<int dim>
+  void rcvGhostStates(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
+  template<int dim>
+  void rcvGhostWeights(CommPattern<double> &, Vec<GhostPoint<dim>*> &);
 
   template<class Scalar, int dim, class OpType>
   void operateRcvData(CommPattern<Scalar> &, Scalar (*)[dim], const OpType &oper);
@@ -1094,8 +1107,19 @@ public:
 
   void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
                                Vec<double>&, Vec<double>&, double pInfty);
+  template<int dim>
+    void computeCVBasedForceLoadViscous(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+					SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+					Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad);
   void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
-                                    Vec<double>&, Vec<double>&, double pInfty);
+                                    Vec<double>&, Vec<double>&, double pInfty);  
+  template<int dim>
+    void computeRecSurfBasedForceLoadViscous(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+					   SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);  
+  template<int dim>
+    void computeRecSurfBasedForceLoadNew(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
                      LevelSetResult&, double(*)[3]);

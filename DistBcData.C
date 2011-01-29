@@ -183,6 +183,8 @@ DistBcData<dim>::~DistBcData()
   if (this->dTemp) delete this->dTemp;
   if (this->dUface) delete this->dUface;
   if (this->dUnode) delete this->dUnode;
+  if (this->dUfaceSA) delete this->dUfaceSA;
+  if (this->dUnodeSA) delete this->dUnodeSA;
   if (this->dUinletnode) delete this->dUinletnode;
   if (this->dUfarin) delete this->dUfarin;
   if (this->dUfarout) delete this->dUfarout;
@@ -1767,6 +1769,10 @@ DistBcDataSA<dim>::~DistBcDataSA()
 
 // Included (MB)
   if (dtmp) delete dtmp;
+  delete dtmpsa;
+  delete dnormsa;
+  delete vec1PatSA;
+  delete vec2PatSA;
 
 }
 

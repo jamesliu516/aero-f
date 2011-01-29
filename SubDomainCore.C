@@ -73,6 +73,8 @@ SubDomain::SubDomain(int locN, int clusN, int globN, int nClNd, char *clstN,
   NodeToSubD = 0;
   NodeToElem = 0;
   ElemToElem = 0;
+  nodeToNodeMaskJacobian = 0;
+  nodeToNodeMaskILU      = 0;
 
   int j;
   for(int i=0;i<3;i++)  {
@@ -120,6 +122,8 @@ SubDomain::~SubDomain()
   if (NodeToSubD) delete NodeToSubD;
   if (NodeToElem) delete NodeToElem;
   if (ElemToElem) delete ElemToElem;
+  delete nodeToNodeMaskJacobian;
+  delete nodeToNodeMaskILU;
   delete &nodes;
   delete &faces;
   delete &elems;  

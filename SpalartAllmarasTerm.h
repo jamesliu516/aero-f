@@ -223,6 +223,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
 
   const double sixth = 1.0/6.0;
 
+  double maxmutilde = max(mutilde, 0.0);
   double mu5 = oosigma * (mul + mutilde);
   double dnutildedx = dp1dxj[0][0]*V[0][5] + dp1dxj[1][0]*V[1][5] + 
     dp1dxj[2][0]*V[2][5] + dp1dxj[3][0]*V[3][5];
@@ -257,12 +258,12 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
   double ood2wall2 = 1.0 / (d2wall * d2wall);
   double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
   double oorho = 1.0 / rho;
-  double zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
+  double zz = oorey * oovkcst2 * maxmutilde * oorho * ood2wall2;
   double s12 = dudxj[0][1] - dudxj[1][0];
   double s23 = dudxj[1][2] - dudxj[2][1];
   double s31 = dudxj[2][0] - dudxj[0][2];
   double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-  double Stilde = s*fv3 + zz*fv2;
+  double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative.
   double rr = min(zz/Stilde, 2.0);
   double rr2 = rr*rr;
   double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -323,7 +324,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dabsmutilde[k][5] = ( fabs(mutilde) / mutilde ) * dmutilde[k][5];
     }
   else {
-    fprintf(stderr, "***** Inside the file SpalartAllmarasTerm.h the varible mutilde is zero *****\n");
+    //  fprintf(stderr, "***** Inside the file SpalartAllmarasTerm.h the varible mutilde is zero *****\n");
     //exit(1);
     for (k=0; k<4; ++k) {
       dabsmutilde[k][0] = 0.0;
@@ -346,7 +347,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
       dmaxmutilde[k][4] = 0.0;
       dmaxmutilde[k][5] = 0.0;
     }
-    fprintf(stderr, "***** Inside the file SpalartAllmarasTerm.h the varible mutilde is zero *****\n");
+    //   fprintf(stderr, "***** Inside the file SpalartAllmarasTerm.h the varible mutilde is zero *****\n");
     //exit(1);
   }
   else {
@@ -516,13 +517,13 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     doorho[k][4] = -1.0 / ( rho * rho ) * drho[k][4];	  
     doorho[k][5] = -1.0 / ( rho * rho ) * drho[k][5];	  
 
-    zz = oorey * oovkcst2 * mutilde * oorho * ood2wall2;
-    dzz[k][0] = oorey * oovkcst2 * dmutilde[k][0] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][0] * ood2wall2;
-    dzz[k][1] = oorey * oovkcst2 * dmutilde[k][1] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][1] * ood2wall2;
-    dzz[k][2] = oorey * oovkcst2 * dmutilde[k][2] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][2] * ood2wall2;
-    dzz[k][3] = oorey * oovkcst2 * dmutilde[k][3] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][3] * ood2wall2;
-    dzz[k][4] = oorey * oovkcst2 * dmutilde[k][4] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][4] * ood2wall2;
-    dzz[k][5] = oorey * oovkcst2 * dmutilde[k][5] * oorho * ood2wall2 + oorey * oovkcst2 * mutilde * doorho[k][5] * ood2wall2;
+    zz = oorey * oovkcst2 * maxmutilde * oorho * ood2wall2;
+    dzz[k][0] = oorey*oovkcst2*dmaxmutilde[k][0]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][0]*ood2wall2;
+    dzz[k][1] = oorey*oovkcst2*dmaxmutilde[k][1]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][1]*ood2wall2;
+    dzz[k][2] = oorey*oovkcst2*dmaxmutilde[k][2]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][2]*ood2wall2;
+    dzz[k][3] = oorey*oovkcst2*dmaxmutilde[k][3]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][3]*ood2wall2;
+    dzz[k][4] = oorey*oovkcst2*dmaxmutilde[k][4]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][4]*ood2wall2;
+    dzz[k][5] = oorey*oovkcst2*dmaxmutilde[k][5]*oorho*ood2wall2 + oorey*oovkcst2*mutilde*doorho[k][5]*ood2wall2;
 
     s12 = dudxj[0][1] - dudxj[1][0];
     s23 = dudxj[1][2] - dudxj[2][1];
@@ -557,7 +558,7 @@ void SATerm::computeJacobianVolumeTermSA(double dp1dxj[4][3], double d2w[4],
     ds[k][4] = 1.0 / s * (s12*ds12[k][4] + s23*ds23[k][4] + s31*ds31[k][4]);
     ds[k][5] = 1.0 / s * (s12*ds12[k][5] + s23*ds23[k][5] + s31*ds31[k][5]);
 
-    Stilde = s*fv3 + zz*fv2;
+    Stilde = max(s*fv3 + zz*fv2,1.0e-12);// To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
     dStilde[k][0] = ds[k][0]*fv3 + s*dfv3[k][0] + dzz[k][0]*fv2 + zz*dfv2[k][0];
     dStilde[k][1] = ds[k][1]*fv3 + s*dfv3[k][1] + dzz[k][1]*fv2 + zz*dfv2[k][1];
     dStilde[k][2] = ds[k][2]*fv3 + s*dfv3[k][2] + dzz[k][2]*fv2 + zz*dfv2[k][2];

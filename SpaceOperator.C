@@ -955,7 +955,7 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
 template<int dim>
 void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U, DistSVec<double,dim> &Wstarij,
-                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *LSS,
+                                         DistSVec<double,dim> &Wstarji, DistLevelSetStructure *distLSS,
                                          bool linRecAtInterface, DistVec<int> &fluidId, 
                                          DistSVec<double,dim> &R, DistExactRiemannSolver<dim> *riemann, 
                                          int Nriemann, DistSVec<double,3> *Nsbar, int it,
@@ -981,7 +981,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     xpol->compute(geoState->getConfig(),geoState->getInletNodeNorm(), X);
 
   if (fet) {
-      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
+      domain->computeGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,distLSS);
       bcData->computeNodeValue(X);
   }
 
@@ -992,7 +992,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
   domain->computeFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, recFcn, *bcData,
-                                  *geoState, X, *V, Wstarij, Wstarji, LSS, linRecAtInterface, fluidId, Nriemann,
+                                  *geoState, X, *V, Wstarij, Wstarji, distLSS, linRecAtInterface, fluidId, Nriemann,
                                   Nsbar, *ngrad, egrad, R, it, failsafe,rshift);
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
@@ -1248,7 +1248,7 @@ template<int dim>
 template<class Scalar,int neq>
 void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                                          DistSVec<double,dim> &U,
-                                         DistLevelSetStructure *LSS,
+                                         DistLevelSetStructure *distLSS,
                                          DistVec<int> &fluidId, 
                                          DistExactRiemannSolver<dim> *riemann, 
                                          int Nriemann, DistSVec<double,3> *Nsbar,
@@ -1268,14 +1268,14 @@ void SpaceOperator<dim>::computeJacobian(DistSVec<double,3> &X, DistVec<double> 
     *irey = 0.0;
   }
 
-
-  // Skip viscous for now
-  // if (fet) {
-  //   domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,*V,R,ghostPoints,LSS);
-  // }
+  if (fet) {
+    domain->computeJacobianGalerkinTerm(fet,*bcData,*geoState,X,ctrlVol, *V,A,ghostPoints,distLSS);
+  }
+  //if (fet)
+  //  domain->computeJacobianGalerkinTerm(fet, *bcData, *geoState, X, ctrlVol, *V, A);
   
   domain->computeJacobianFiniteVolumeTerm(ctrlVol, *riemann, fluxFcn, *bcData, *geoState,
-                                          X, *V, LSS, fluidId, Nriemann, Nsbar, A,*irey);
+                                          X, *V, distLSS, fluidId, Nriemann, Nsbar, A,*irey);
 
   if (volForce)
     domain->computeJacobianVolumicForceTerm(volForce, ctrlVol, *V, A);
@@ -1380,22 +1380,22 @@ void SpaceOperator<dim>::applyExtrapolationToSolutionVector(DistSVec<double,dim>
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U)
+void SpaceOperator<dim>::applyBCsToSolutionVector(DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToSolutionVector(bcFcn, *bcData, U);
+    domain->applyBCsToSolutionVector(bcFcn, *bcData, U, distLSS);
 
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R)
+void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
   if (bcFcn)
-    domain->applyBCsToResidual(bcFcn, *bcData, U, R);
+    domain->applyBCsToResidual(bcFcn, *bcData, U, R, distLSS);
 
 }
 
@@ -1716,20 +1716,42 @@ void SpaceOperator<dim>::computeDerivativeOfGradP
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
-                                          double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji)
+void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+					  DistVec<double> &ctrlVol, double (*Fs)[3], int sizeFs, 
+					  DistLevelSetStructure *distLSS,
+					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					  DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
 {
   double pinternal = iod->aero.pressure;
-
-  if (forceApp==1 || forceApp==2)
-    domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
+  
+  switch (forceApp)
+    {
+    case 1: // Kevin's Old Integration - Control Volume Boundaries
+      domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
                                     sizeFs, distLSS, Wstarij, Wstarji, pinternal);
-  else if (forceApp==3 || forceApp==4)
-    domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
-                                         sizeFs, distLSS, Wstarij, Wstarji, pinternal);
-  else {fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); exit(-1);}
-
+      break;
+    case 2: // New Method - Control Volume Boundaries
+      if(orderOfAccuracy>1) ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true);
+      domain->computeCVBasedForceLoadViscous(forceApp, orderOfAccuracy, *geoState, X, Fs,
+						sizeFs, distLSS, pinternal, Wstarij, Wstarji,
+						*V,ghostPoints,postFcn,ngrad);
+      break;
+    case 3: // Kevin's Old Integration - Reconstructed Surface
+      domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
+					   sizeFs, distLSS, Wstarij, Wstarji, pinternal);
+      break;
+    case 4: // New Method - Reconstructed Surface
+      // To be deleted once everything is working properly
+      //      domain->computeRecSurfBasedForceLoadViscous(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+      //						  distLSS,pinternal,*V,ghostPoints,postFcn); 
+      // ghostPoints should be a null pointer when not used
+      domain->computeRecSurfBasedForceLoadNew(forceApp,orderOfAccuracy,X,Fs,sizeFs,
+					      distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn);
+      break;
+    default:
+      fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
+      exit(-1);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -2065,7 +2087,7 @@ template<int dim,int dimLS>
 template<class Scalar, int neq>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<dim>* riemann,
                                                          DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
-                                                         DistLevelSetStructure *LSS,
+                                                         DistLevelSetStructure *distLSS,
                                                          int Nriemann, DistSVec<double,3>* Nsbar,
                                                          FluidSelector &fluidSelector,
                                                          DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState) {
@@ -2094,7 +2116,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeJacobian(DistExactRiemannSolver<
     if (this->fet)
       this->domain->computeJacobianGalerkinTerm(this->fet, *(this->bcData), *(this->geoState), X, ctrlVol, *(this->V), A);
     this->domain->computeJacobianFiniteVolumeTerm(*riemann, this->fluxFcn, *(this->bcData), *(this->geoState),X,*(this->V), ctrlVol,
-                                                  *ngradLS, LSS, Nriemann, Nsbar, fluidSelector,A);
+                                                  *ngradLS, distLSS, Nriemann, Nsbar, fluidSelector,A);
     if (this->volForce)
       this->domain->computeJacobianVolumicForceTerm(this->volForce, ctrlVol, *(this->V), A);
   }

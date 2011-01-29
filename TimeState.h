@@ -1,6 +1,8 @@
 #ifndef _TIME_STATE_H_
 #define _TIME_STATE_H_
 
+#include "LevelSet/LevelSetStructure.h"
+
 class TimeData;
 class GeoState;
 class TimeLowMachPrec;
@@ -31,7 +33,7 @@ public:
   ~TimeState() {}
 
   void add_dAW_dt(bool *, GeoState &, Vec<double> &, 
-			  SVec<double,dim> &, SVec<double,dim> &);
+		  SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
   template<int dimLS>
   void add_dAW_dtLS(bool *, GeoState &, Vec<double> &, 
 		    SVec<double,dimLS> &, SVec<double,dimLS> &, SVec<double,dimLS> &, 
