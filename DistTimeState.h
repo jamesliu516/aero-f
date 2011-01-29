@@ -14,6 +14,7 @@ class VarFcn;
 class Domain;
 class DistGeoState;
 class FemEquationTerm;
+class DistLevelSetStructure;
 
 template<int dim> class TimeState;
 template<class Scalar, int dim> class DistMat;
@@ -110,7 +111,7 @@ public:
   void computeCoefficients(double);
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
-			  DistSVec<double,dim> &, DistSVec<double,dim> &);
+		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
   template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 

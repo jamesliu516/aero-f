@@ -164,7 +164,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllFE(DistSVec<double,dim> &U, double t
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
-  this->spaceOp->applyBCsToSolutionVector(U0); //(?)for Navier-Stokes only
+  this->spaceOp->applyBCsToSolutionVector(U0,this->distLSS); //(?)for Navier-Stokes only
 
   U = U0;
   checkSolution(U);
@@ -193,7 +193,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   U = U - 1.0/2.0 * (k1 + k2);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 
-  this->spaceOp->applyBCsToSolutionVector(U);
+  this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
   checkSolution(U);
   this->timer->addFluidSolutionTime(t0);
@@ -224,7 +224,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   U = U - 1.0/6.0 * (k1 + 2.0 * (k2 + k3) + k4);
   this->spaceOp->applyExtrapolationToSolutionVector(U, Ubc);
 
-  this->spaceOp->applyBCsToSolutionVector(U);
+  this->spaceOp->applyBCsToSolutionVector(U,this->distLSS);
 
   checkSolution(U);
   this->timer->addFluidSolutionTime(t0);
@@ -238,7 +238,7 @@ void ExplicitEmbeddedTsDesc<dim>::computeRKUpdate(DistSVec<double,dim>& Ulocal,
 //KW: 'it', positive or not, determines if Wstar, the Riemann solution (per edge), will be updated.
 //    Only its sign (+ or 0) is used. Wstar is used for two purposes. 1) linear reconstruction at interface; 2) phase-change update
 {
-  this->spaceOp->applyBCsToSolutionVector(Ulocal); //KW: (?)only for Navier-Stokes.
+  this->spaceOp->applyBCsToSolutionVector(Ulocal,this->distLSS); //KW: (?)only for Navier-Stokes.
   this->spaceOp->computeResidual(*this->X, *this->A, Ulocal, *this->Wstarij, *this->Wstarji, this->distLSS,
                                this->linRecAtInterface, this->nodeTag, dU, this->riemann, this->riemannNormal, this->Nsbar, it, this->ghostPoints);
 

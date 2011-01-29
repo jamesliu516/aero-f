@@ -2364,12 +2364,12 @@ void Domain::computeMutOMuDynamicLES(DynamicLESTerm *dles, DistVec<double> &ctrl
 
 //--------End of routines that compute MutOMu values
 //------------------------------------------------------------------------------
-
 template<int dim, class Scalar, int neq>
 void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 					 DistGeoState &geoState, DistSVec<double,3> &X,
 					 DistVec<double> &ctrlVol, DistSVec<double,dim> &V,
-					 DistMat<Scalar,neq> &A)
+					 DistMat<Scalar,neq> &A,
+                                         DistVec<GhostPoint<dim>*> *ghostPoints,DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -2380,8 +2380,10 @@ void Domain::computeJacobianGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub) {
+    Vec<GhostPoint<dim>*>* gp = (ghostPoints? &(*ghostPoints)(iSub) :0);
+    LevelSetStructure *LSS = distLSS ? &(distLSS->operator()(iSub)) : 0;
     subDomain[iSub]->computeJacobianGalerkinTerm(fet, bcData(iSub), geoState(iSub), X(iSub),
-						 ctrlVol(iSub), V(iSub), A(iSub));
+						 ctrlVol(iSub), V(iSub), A(iSub),gp,LSS);
     subDomain[iSub]->sndOffDiagBlocks(*matPat, A(iSub));
   }
 
@@ -2477,25 +2479,30 @@ void Domain::applyExtrapolationToSolutionVector(DistExtrapolation<dim> *xpol, Di
 
 template<int dim>
 void Domain::applyBCsToSolutionVector(BcFcn *bcFcn, DistBcData<dim> &bcData,
-                                      DistSVec<double,dim> &U)
+                                      DistSVec<double,dim> &U, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToSolutionVector(bcFcn, bcData(iSub), U(iSub));
-
+    { 
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subDomain[iSub]->applyBCsToSolutionVector(bcFcn, bcData(iSub), U(iSub), LSS);
+    }
 }
 
 //------------------------------------------------------------------------------
 
 template<int dim>
 void Domain::applyBCsToResidual(BcFcn *bcFcn, DistBcData<dim> &bcData,
-				DistSVec<double,dim> &U, DistSVec<double,dim> &F)
+				DistSVec<double,dim> &U, DistSVec<double,dim> &F, DistLevelSetStructure *distLSS)
 {
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->applyBCsToResidual(bcFcn, bcData(iSub), U(iSub), F(iSub));
+    {
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subDomain[iSub]->applyBCsToResidual(bcFcn, bcData(iSub), U(iSub), F(iSub), LSS);
+    }
 
 }
 
@@ -2758,15 +2765,18 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W)
   int iSub;
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
-  }
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
   commPat->exchange();
-
+  
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    {
+      subDomain[iSub]->addRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
 }
 //------------------------------------------------------------------------------
@@ -2778,18 +2788,47 @@ void Domain::assemble(CommPattern<Scalar> *commPat, DistVec<Scalar> &W, const Op
   int iSub;
 
 #pragma omp parallel for
-  for (iSub = 0; iSub < numLocSub; ++iSub) {
-    subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
-  }
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)));
+    }
 
   commPat->exchange();
 
 #pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
+    {
+      subDomain[iSub]->operateRcvData(*commPat, reinterpret_cast<Scalar (*)[1]>(W.subData(iSub)),oper);
+    }
 
 }
 
+//------------------------------------------------------------------------------
+template<int dim>
+void Domain::assembleGhostPoints(DistVec<GhostPoint<dim>*> &ghostPoints)
+{
+  int iSub;
+  // Adam 2010.10.27
+  // Caution, the order of the calls matters, because a ghost point can lie on a domain boundary, 
+  // in which case we may want to create its state after during the exchange. The Ghost weight is 
+  // going to be used as a parameter.
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    {
+      subDomain[iSub]->sndGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->sndGhostStates(*vecPat, ghostPoints(iSub));
+    }
+
+  volPat->exchange();
+  vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    {
+      subDomain[iSub]->rcvGhostWeights(*volPat, ghostPoints(iSub));
+      subDomain[iSub]->rcvGhostStates(*vecPat, ghostPoints(iSub));
+    }
+}
 //------------------------------------------------------------------------------
 
 template<class Scalar, int dim>
@@ -3337,12 +3376,14 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
     {
       subDomain[iSub]->populateGhostPoints((*ghostPoints)(iSub),U(iSub),varFcn,(*distLSS)(iSub),tag(iSub));
     }
+
+  // Adam 2010.10.26
+  assembleGhostPoints(*ghostPoints);
+
   for (iSub = 0; iSub < numLocSub; ++iSub) 
     {
       subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub));
     }
-  
-
 }
 //------------------------------------------------------------------------------
 
@@ -3548,6 +3589,40 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
     }
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
+					    DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
+					    DistLevelSetStructure *distLSS,double pInfty,
+					    DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					    DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints, 
+					    PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeCVBasedForceLoadViscous(forceApp, orderOfAccuracy, geoState(iSub), X(iSub), subFs[iSub],
+						    sizeFs, (*distLSS)(iSub), pInfty, Wstarij(iSub), Wstarji(iSub),
+						    V(iSub),gp,postFcn,(*ngrad)(iSub));
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
 //-------------------------------------------------------------------------------
 
 template<int dim>
@@ -3569,6 +3644,70 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
     subDomain[iSub]->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
                                                   (*distLSS)(iSub), pstarij(iSub), pstarji(iSub), pInfty);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
+//-------------------------------------------------------------------------------
+
+template<int dim>
+void Domain::computeRecSurfBasedForceLoadViscous(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+						 double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+						 double pInfty, DistSVec<double,dim> &V, 
+						 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    gp     = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeRecSurfBasedForceLoadViscous(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
+							 (*distLSS)(iSub), pInfty, V(iSub), gp, postFcn);
+  }
+  for (int is=0; is<sizeFs; is++) {
+    Fs[is][0] = subFs[0][is][0];
+    Fs[is][1] = subFs[0][is][1];
+    Fs[is][2] = subFs[0][is][2];
+  }
+#pragma omp parallel for
+  for (int iSub=1; iSub<numLocSub; iSub++)
+    for (int is=0; is<sizeFs; is++) {
+      Fs[is][0] += subFs[iSub][is][0];
+      Fs[is][1] += subFs[iSub][is][1];
+      Fs[is][2] += subFs[iSub][is][2];
+    }
+}
+
+//-------------------------------------------------------------------------------
+// This one should replace the two previous ones.
+template<int dim>
+void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, 
+					     double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
+					     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
+					     DistSVec<double,dim> &V, 
+					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+{
+  double subFs[numLocSub][sizeFs][3];
+  Vec<GhostPoint<dim>*> *gp=0;
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
+    if(ghostPoints) gp = ghostPoints->operator[](iSub);
+    subDomain[iSub]->computeRecSurfBasedForceLoadNew(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
+						     (*distLSS)(iSub), pInfty, 
+						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];

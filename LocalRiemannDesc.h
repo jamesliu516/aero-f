@@ -2602,9 +2602,14 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   Wstar[2]  = vti[1]+U_i*nphi[1];
   Wstar[3]  = vti[2]+U_i*nphi[2];
   Wstar[4]  = P_i;
-  if(dim > 5)
+  if(dim == 6)
     {
       Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7)  // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[5] = 0.0;
+      Wstar[6] = 0.0;
     }
 
 
@@ -2631,9 +2636,14 @@ void LocalRiemannFluidStructure<dim>::computeRiemannSolution(double *Vi, double 
   Wstar[dim+2]  = vti[1]+U_i*nphi[1];
   Wstar[dim+3]  = vti[2]+U_i*nphi[2];
   Wstar[dim+4]  = P_i;
-  if(dim > 5)
+  if(dim == 6)
     {
       Wstar[dim+5]  = 0.0; // Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7) // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[dim+5]  = 0.0; 
+      Wstar[dim+6]  = 0.0; 
     }
 
   //-----------------------------------------------------------------
@@ -2689,10 +2699,15 @@ void LocalRiemannFluidStructure<dim>::computeRiemannJacobian(double *Vi, double 
   //double f[3] = {R_i,U_i,P_i};
   //DebugTools::CheckJacobian<3>(dWdW, u,f,FSJac<dim>(this,vf,Id,U_i), "FSJacobian\n-------------------------\n"); 
 
-  if(dim > 5)
-  {
-    Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
-  }
+  if(dim == 6)
+    {
+      Wstar[5]  = 0.0;// Boundary Condition: nuTilde = 0
+    }
+  else if(dim == 7) // Boundary Condition for KE. To be improved with Wall Function...
+    {
+      Wstar[5] = 0.0;
+      Wstar[6] = 0.0;
+    }
  
   memset(dWstardU, 0, sizeof(double)*dim*dim);
   dWstardU[0] = dWdW[0];
@@ -2813,8 +2828,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double pref  = vf->getPressureConstant(Id);
   memset(dWidWi, 0,sizeof(double)*9);
   if(u==ui){ // contact
-    //rhoi = rho;
-    //pi   = p;
     dWidWi[0] = 1.0; 
     dWidWi[8] = 1.0;
     return;
@@ -2823,7 +2836,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
   double q = (gamma-1.0)/(gamma+1.0);
   if(ui<u){ // rarefaction
     double power = 2*gamma/(gamma-1.0);
-    //fprintf(stderr,"Rarefaction-----\n");
     double a = sqrt(gamma*(p+pref)/rho);
     double pbar = p + pref;
 
@@ -2849,7 +2861,6 @@ void LocalRiemannFluidStructure<dim>::eriemannfs_grad(double rho, double u, doub
     dWidWi[0] = rhoi/rho+mu/pbar*dWidWi[6];
   }
   else{ // shock
-   //fprintf(stderr,"Shock---------\n");
     double power = 2*gamma/(gamma+1.0);
     double t = ((gamma+1)*rho*(ui-u)*(ui-u))/2.0;
     double pstarbar = pi + pref;

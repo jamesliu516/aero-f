@@ -126,6 +126,7 @@ public:
   void resetTag();
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
+  void conservativeToPrimitive(DistSVec<double,dim> &U) {varFcn->conservativeToPrimitive(U, *V);}
 
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
@@ -185,7 +186,7 @@ public:
   template <class Scalar,int neq>
   void computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
                        DistSVec<double,dim> &U,
-                       DistLevelSetStructure *LSS,
+                       DistLevelSetStructure *distLSS,
                        DistVec<int> &fluidId, 
                        DistExactRiemannSolver<dim> *riemann, 
                        int Nriemann, DistSVec<double,3> *Nsbar,
@@ -199,9 +200,9 @@ public:
   template<class Scalar, int neq>
   void computeViscousJacobian(DistSVec<double,3> &, DistVec<double> &, DistMat<Scalar,neq> &);
 
-  void applyBCsToSolutionVector(DistSVec<double,dim> &);
+  void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
-  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);
@@ -326,9 +327,10 @@ public:
   //);
 
 
-  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji);
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0);
 };
 
 //------------------------------------------------------------------------------
@@ -374,7 +376,7 @@ public:
   template<class Scalar, int neq>
   void computeJacobian(DistExactRiemannSolver<dim>* riemann,
                        DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
-                       DistLevelSetStructure *LSS,
+                       DistLevelSetStructure *distLSS,
                        int Nriemann, DistSVec<double,3>* Nsbar,
                        FluidSelector &fluidSelector,
                        DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState);

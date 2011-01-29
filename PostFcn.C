@@ -215,25 +215,28 @@ double PostFcnEuler::computeDerivativeOfNodeScalarQuantity(ScalarDerivativeType 
 
 void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
                                 double *Vwall, double *Vface[3], double *Vtet[4],
-                double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+				double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
 {
 
   double pcg[3], p[3];
   double pcgin;
   int i;
 
-  if (hydro == 0) {
-    for(i=0;i<3;i++)
-    pcg[i] = varFcn->getPressure(Vface[i]);
-  } 
-  else if (hydro == 1){ // hydrostatic pressure
-     for(i=0;i<3;i++)
-        pcg[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
-  }else if (hydro == 2){ // hydrodynamic pressure
-    for (i=0; i<3; i++) 
-      pcg[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
-
-  }
+  switch(hydro)
+    {
+    case 0:
+      for(i=0;i<3;i++) pcg[i] = varFcn->getPressure(Vface[i]);
+      break;
+    case 1: // hydrostatic pressure
+      for(i=0;i<3;i++) pcg[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
+      break;
+    case 2: // hydrodynamic pressure
+      for(i=0;i<3;i++) pcg[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
+      break;
+    default:
+      fprintf(stderr,"hydro parameter is not correct. Pressure at the face cannot be computed. hydro = %d\n",hydro);
+      exit(-1);
+    }
 
   if (pin)
     pcgin = *pin;
@@ -250,7 +253,7 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
 // ##################
  Vec3D x0, x1, x2, x;
  double temp;
- for(int i = 0; i<3; i++)
+ for(i = 0; i<3; i++)
  {
   x0[i] = Xface[0][i];
   x1[i] = Xface[1][i];
@@ -277,6 +280,63 @@ void PostFcnEuler::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n,
 
  Fv = 0.0;
 
+}
+//------------------------------------------------------------------------------
+
+void PostFcnEuler::computeForceEmbedded(int orderOfAccuracy, double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3],
+					double *Vwall, double *Vface[3], double *Vtet[4],
+					double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+{
+
+  Vec3D p;
+  double pcgin;
+  int i;
+
+  switch(hydro)
+    {
+    case 0:
+      for(i=0;i<3;i++) p[i] = varFcn->getPressure(Vface[i]);
+      break;
+    case 1: // hydrostatic pressure
+      for(i=0;i<3;i++) p[i] = varFcn->hydrostaticPressure(Vface[i][0],Xface[i]);
+      break;
+    case 2: // hydrodynamic pressure
+      for(i=0;i<3;i++) p[i] = varFcn->hydrodynamicPressure(Vface[i],Xface[i]);
+      break;
+    default:
+      fprintf(stderr,"hydro parameter is not correct. Pressure at the face cannot be computed. hydro = %d\n",hydro);
+      exit(-1);
+    }
+
+  if (pin)
+    pcgin = *pin;
+  else
+    if (hydro == 0)
+      pcgin = pinfty;
+    else
+      pcgin = 0.0;
+
+  p -= pcgin;
+
+ // Computes Int_{T} (N_i * Sum_{j\in T} p_j N_j) dx
+ // At first order, N_j = Chi_j (constant per control volume)
+ // At second order, N_j = Phi_j (P1 lagrangian basis functions within T)
+ switch (orderOfAccuracy)
+   {
+   case 1: 
+     Fi0 = (p[0]/3.0)*n;
+     Fi1 = (p[1]/3.0)*n;
+     Fi2 = (p[2]/3.0)*n;
+     break;
+   case 2:
+     double c1 = 1.0/6.0, c2 = 1.0/12.0;
+     Fi0 = (c1*p[0]+c2*(p[1]+p[2]))*n;
+     Fi1 = (c1*p[1]+c2*(p[2]+p[0]))*n;
+     Fi2 = (c1*p[2]+c2*(p[0]+p[1]))*n;
+     break;
+   }     
+     
+ Fv = 0.0;
 }
 
 //------------------------------------------------------------------------------
@@ -789,7 +849,7 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
   Vec3D Fv;
 
-  if (wallFcn)
+  if (wallFcn && Vwall)
     Fv = wallFcn->computeForce(n, d2w, Vwall, Vface);
   else {
     double u[4][3], ucg[3];
@@ -814,6 +874,34 @@ Vec3D PostFcnNS::computeViscousForce(double dp1dxj[4][3], Vec3D& n, double d2w[3
 
   return -1.0 * Fv;
 
+}
+
+//------------------------------------------------------------------------------
+
+Vec3D PostFcnNS::computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+{
+
+  Vec3D Fv;
+  // Could be useful later…
+  /*
+  if (wallFcn)
+    Fv = wallFcn->computeForce(n, d2w, Vwall, Vface);
+  else {
+  */
+  double T;
+  computeTemperature(Vi,T);
+  
+  double mu = ooreynolds_mu * viscoFcn->compute_mu(T);
+  double lambda = ooreynolds_lambda * viscoFcn->compute_lambda(T, mu);
+  
+  double tij[3][3];
+  computeStressTensor(mu, lambda, dudxj, tij);
+  
+  Fv[0] = tij[0][0] * n[0] + tij[0][1] * n[1] + tij[0][2] * n[2];
+  Fv[1] = tij[1][0] * n[0] + tij[1][1] * n[1] + tij[1][2] * n[2];
+  Fv[2] = tij[2][0] * n[0] + tij[2][1] * n[1] + tij[2][2] * n[2];
+  
+  return -1.0 * Fv;
 }
 
 //------------------------------------------------------------------------------
@@ -882,6 +970,19 @@ void PostFcnNS::computeForce(double dp1dxj[4][3], double *Xface[3], Vec3D &n, do
 {
 
   PostFcnEuler::computeForce(dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
+
+  Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
+
+}
+
+//------------------------------------------------------------------------------
+
+void PostFcnNS::computeForceEmbedded(int orderOfAccuracy,double dp1dxj[4][3], double *Xface[3], Vec3D &n, double d2w[3], 
+				     double *Vwall, double *Vface[3], double *Vtet[4], 
+				     double *pin, Vec3D &Fi0, Vec3D &Fi1, Vec3D &Fi2, Vec3D &Fv, double dPdx[3][3], int hydro)
+{
+
+  PostFcnEuler::computeForceEmbedded(orderOfAccuracy,dp1dxj, Xface, n, d2w, Vwall, Vface, Vtet, pin, Fi0, Fi1, Fi2, Fv, dPdx, hydro);
 
   Fv = computeViscousForce(dp1dxj, n, d2w, Vwall, Vface, Vtet);
 

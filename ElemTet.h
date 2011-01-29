@@ -119,7 +119,8 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(FemEquationTerm *, SVec<double,3> &, 
 				   Vec<double> &, Vec<double> &, 
-				   SVec<double,dim> &, GenMat<Scalar,neq> &);
+				   SVec<double,dim> &, GenMat<Scalar,neq> &,
+     				   Vec<GhostPoint<dim>*> *gp=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeFaceGalerkinTerm(FemEquationTerm *, int [3], int, Vec3D &, 

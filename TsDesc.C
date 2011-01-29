@@ -309,7 +309,6 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 template<int dim>
 double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
 {
-
   double dt = 0.0;
   if (mmh) {
     double t0 = timer->getTime();
