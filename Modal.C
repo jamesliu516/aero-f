@@ -1820,8 +1820,6 @@ void ModalSolver<dim>::buildGlobalPOD() {
  FILE *inRSFP = fopen(snapRefSolFile, "r");
 
  if (inRSFP){  
-   com->fprintf(stderr, "HERE!\n");
-   //FILE *inRSFP = fopen(snapRefSolFile, "r");
    com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
  
    for (int iData = 0; iData < nData; ++iData){
