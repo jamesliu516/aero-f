@@ -404,7 +404,7 @@ double ClosestTriangle::getSignedVertexDistance() const {
 //----------------------------------------------------------------------------
 
 DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes,
-                                               double (*xyz)[3], int nElems, int (*abc)[3])
+                                               double *xyz, int nElems, int (*abc)[3])
 {
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
@@ -675,7 +675,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
   numStNodes = nNodes;
@@ -690,7 +690,7 @@ void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*ab
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
 
   for (int k=0; k<numStNodes; k++) {
-    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
+    Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -1012,7 +1012,7 @@ DistIntersectorFRG::findPoly() {
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) 
+void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]) 
 {
 //  com->fprintf(stderr,"DistIntersectorFRG::updateStructure called!\n");
   if(nNodes!=numStNodes) {
@@ -1020,11 +1020,11 @@ void DistIntersectorFRG::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes)
     exit(-1);
   }
 
-  for (int i=0; i<nNodes; i++) {
-    Xs_n[i] = Xs_np1[i];
-    Xs_np1[i] = xs[i];
-    Xsdot[i] = Vs[i];
-  }
+  for (int i=0; i<nNodes; i++) 
+    for(int j=0; j<3; j++) {
+      Xs_n[i][j] = Xs_np1[i][j];
+      Xs_np1[i][j] = xs[3*i+j];
+      Xsdot[i][j] = Vs[3*i+j];}
 }
 
 //----------------------------------------------------------------------------

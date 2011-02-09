@@ -1,6 +1,7 @@
 #include <EmbeddedTsDesc.h>
 #include <DistExactRiemannSolver.h>
 #include <FSI/DynamicNodalTransfer.h>
+#include <FSI/CrackingSurface.h>
 
 #ifdef DO_EMBEDDED
 #include <IntersectorFRG/IntersectorFRG.h>
@@ -79,9 +80,12 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   VWeights = 0;
 
 //------------- For Fluid-Structure Interaction ---------------
+  withCracking = false;
   if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
                                                 this->domain->getTimer());
+    withCracking = dynNodalTransfer->cracking(); 
+
     //for updating phase change
     Weights  = new DistVec<double>(this->getVecInfo());
     VWeights = new DistSVec<double,dim>(this->getVecInfo());
@@ -96,20 +100,34 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
         //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
-        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+
+        if(withCracking) {
+          this->com->fprintf(stderr,"ERROR: IntersectorFRG is not capable of handling cracking structures!\n");
+          this->com->fprintf(stderr,"       Try IntersectorPhysBAM instead!\n");
+          exit(-1);
+        }
+
+        double *xyz = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
         distLSS = new DistIntersectorFRG(ioData, this->com, nNodes, xyz, nElems, abc);
       } else
         distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
+
     case EmbeddedFramework::PHYSBAM : 
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
         //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
-        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        double *xyz = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
-        distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+
+        if(withCracking) {
+          this->com->fprintf(stderr,"Note: Topology change of the embedded surface will be considered...\n"); 
+          distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc, dynNodalTransfer->getCrackingSurface());
+        } else
+          distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+
       } else
         distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
@@ -163,13 +181,14 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     vfar[i] =Vin[i];
 
 //------ load structure mesh information ----------------------
-  numStructNodes = 0;
   Fs = 0;
   numStructNodes = distLSS->getNumStructNodes();
+  totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
+
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"- Embedded Structure Surface: %d nodes\n", numStructNodes);
+    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
-    Fs = new (*this->com) double[numStructNodes][3];
+    Fs = new (*this->com) double[totStructNodes][3];
   } else 
     this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 
@@ -291,6 +310,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   FsComputed = true;
   // Now "accumulate" the force for the embedded structure
   if(dynNodalTransfer){
+    numStructNodes = dynNodalTransfer->numStNodes();
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
@@ -532,6 +552,8 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   double t0 = this->timer->getTime();
+  if(dynNodalTransfer)
+    numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
@@ -550,12 +572,14 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<
     computeForceLoad(this->Wstarij, this->Wstarji);
 
   F[0] = F[1] = F[2] = 0.0;
+  if(dynNodalTransfer)
+    numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++) {
     F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
   M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < Xstruc.size(); ++i) {
+  for (int i = 0; i < numStructNodes; ++i) {
      M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
      M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
      M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
@@ -572,6 +596,7 @@ void EmbeddedTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, Dist
     FsComputed = true; //to avoid redundant computation of Fs.
 
     // Now "accumulate" the force for the embedded structure
+    numStructNodes = dynNodalTransfer->numStNodes();
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);
   }

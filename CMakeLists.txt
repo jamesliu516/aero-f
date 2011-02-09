@@ -85,6 +85,7 @@ FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 SET(MAIN_FILES Main.C)
 
 ADD_LIBRARY(FluidBase
+             FSI/CrackingSurface.cpp
              FSI/DynamicNodalTransfer.cpp
              LevelSet/FluidTypeCriterion.cpp
              NavierStokesSolver.C 

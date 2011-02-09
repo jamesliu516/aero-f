@@ -28,10 +28,12 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double timeStep;
 
+  bool withCracking;
+
   double (*Fs)[3]; //force distribution on the structure surfac3
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
-  int numStructElems;
+  int totStructNodes;
   bool linRecAtInterface;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)

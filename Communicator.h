@@ -129,6 +129,7 @@ namespace Communication {
     Scalar *data;
 #endif
     Communicator &com;
+    int length;
   public:
     static const int Add=0, Min=1, Max=2;
     Window(Communicator &c, int size, Scalar *s);
@@ -138,6 +139,7 @@ namespace Communication {
     void put(Scalar *s, int locOff, int size, int prNum, int remOff);
     void accumulate(Scalar *s, int locOff, int size, int prNum, int remOff, int op);
     void fence(bool startOrEnd);
+    int size() {return length;}
   };
 
 }

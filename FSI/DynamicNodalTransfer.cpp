@@ -6,6 +6,7 @@
  */
 #include <iostream>
 #include <FSI/DynamicNodalTransfer.h>
+#include <FSI/CrackingSurface.h>
 #include <IoData.h>
 #include <Vector3D.h>
 #include <MatchNode.h>
@@ -41,11 +42,16 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   tMax /= tScale;
   com.barrier();
 
-  wintime  = 0;
-  winForce = 0;
-  winDisp  = 0;
-  dt_tmax  = 0;
-  UandUdot = 0;
+  dt_tmax = new double[2];
+  wintime = new Communication::Window<double> (com, 2*sizeof(double), (double*)dt_tmax);
+  XandUdot = new double[2*3*structure.totalNodes];
+  winDisp = new  Communication::Window<double> (com, 2*3*structure.nNodes*sizeof(double), (double *)XandUdot);
+
+  std::pair<double *, int> embedded = structure.getTargetData();
+  double *embeddedData = embedded.first;
+  int length = embedded.second;
+  winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
+
 }
 
 //------------------------------------------------------------------------------
@@ -54,22 +60,15 @@ DynamicNodalTransfer::~DynamicNodalTransfer() {
   if(wintime)  delete   wintime;
   if(winForce) delete   winForce;
   if(winDisp)  delete   winDisp;
-  if(UandUdot) delete[] UandUdot;
+  if(XandUdot) delete[] XandUdot;
   if(dt_tmax)  delete[] dt_tmax;
 }
 
 //------------------------------------------------------------------------------
 
 void
-DynamicNodalTransfer::sendForce() {
-
-  std::pair<double *, int> embedded = structure.getTargetData();
-  double *embeddedData = embedded.first;
-  int length = embedded.second;
-
-  if(!winForce) winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
-    //(KW) WARNING: if "length" changes, winForce needs to be re-initialized !! 
-
+DynamicNodalTransfer::sendForce()
+{
   com.barrier(); //for timing purpose
   winForce->fence(true);
   winForce->accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
@@ -82,8 +81,6 @@ DynamicNodalTransfer::sendForce() {
 
 void
 DynamicNodalTransfer::updateInfo() {
-  if(!dt_tmax) dt_tmax = new double[2];
-  if(!wintime) wintime = new Communication::Window<double> (com, 2*sizeof(double), (double*)dt_tmax);
   com.barrier(); //for timing purpose
   wintime->fence(true);
   structure.sendInfo(wintime);
@@ -97,30 +94,56 @@ DynamicNodalTransfer::updateInfo() {
 
 //------------------------------------------------------------------------------
 
+int
+DynamicNodalTransfer::getNewCracking()
+{
+  if(!cracking()) {
+    com.fprintf(stderr,"WARNING: Cracking is not considered in the structure simulation!\n");
+    return 0;
+  }
+  int nCracked = structure.getNewCracking();
+
+  if(nCracked) { //update "windows".
+    int N = structure.nNodes;
+    if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
+
+    delete winDisp;
+    winDisp = new  Communication::Window<double> (com, 2*3*N*sizeof(double), (double *)XandUdot);
+   
+    delete winForce;
+    std::pair<double *, int> embedded = structure.getTargetData();
+    double *embeddedData = embedded.first;
+    int length = embedded.second;
+    if(length!=N) {com.fprintf(stderr,"WEIRD TOO!\n");exit(-1);}
+    winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
+  }
+
+  return nCracked;
+}
+
+//------------------------------------------------------------------------------
+
 void
-DynamicNodalTransfer::getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot) {
-
-  if(!UandUdot) 
-    UandUdot = new double[2*structU.size()*3];
-
-  if(!winDisp) winDisp = new  Communication::Window<double> (com, 2*3*structU.size()*sizeof(double), (double *)UandUdot);
-    //(KW) WARNING: if "structU.size" changes, UandUdot and winDisp needs to be re-initialized !! 
+DynamicNodalTransfer::getDisplacement()
+{
+  int N = numStNodes();
+  if(N*2*3*sizeof(double) != winDisp->size()) {
+    com.fprintf(stderr,"SOFTWARE BUG: length of winDisp (i.e. # nodes) is %d (should be %d)!\n", 
+                        winDisp->size()/(2*3*sizeof(double)), N);
+    exit(-1);
+  }
 
   com.barrier(); //for timing purpose
   winDisp->fence(true);
   structure.sendDisplacement(winDisp);
   winDisp->fence(false);
 
-  for(int i=0; i<structU.size(); i++) 
+  for(int i=0; i<N; i++) 
     for(int j=0; j<3; j++) {
-      structU[i][j] = UandUdot[i*3+j];
-      structUdot[i][j] = UandUdot[(structU.size()+i)*3+j];
+      XandUdot[i*3+j] *= 1.0/XScale;
+      XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
 //  com.fprintf(stderr,"norm of received disp/velo = %.12e/%.12e.\n", structU.norm(), structUdot.norm());
-
-  structU = 1.0/XScale*structU;
-  structUdot = 1.0/UScale*structUdot;
-
 }
 
 //------------------------------------------------------------------------------
@@ -129,7 +152,7 @@ void
 DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<double,3> &fs)
 {
   if(F.size() != fs.size()) {
-//    fprintf(stderr,"force vector resized (from %d to %d)!\n", F.size(), fs.size());
+    com.fprintf(stderr,"force vector in DynamicNodalTransfer resized (from %d to %d)!\n", F.size(), fs.size());
     F.resize(fs.size());
   }
   F = fs;
@@ -139,8 +162,9 @@ DynamicNodalTransfer::updateOutputToStructure(double dt, double dtLeft, SVec<dou
 
 EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicator &strCom, Timer *tim) : com(comm), 
                                              tScale(iod.ref.rv.time), XScale(iod.ref.rv.tlength),
-                                             UScale(iod.ref.rv.tvelocity),  nNodes(0), nElems(0), X(0), Tria(0), U(0),
-                                             Udot(0), UandUdot(0), F(0), it(0), structExc(0), algNum(6) //A6
+                                             UScale(iod.ref.rv.tvelocity),  nNodes(0), nElems(0), elemType(3),
+                                             cracking(0), X(0), X0(0), Tria(0), U(0), Udot(0), XandUdot(0), F(0), it(0), 
+                                             structExc(0), mns(0), algNum(6) //A6
 {
   timer = tim;
 
@@ -204,30 +228,80 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   //       F-S Communication
   // ---------------------------------
   if(coupled) {
-    MatchNodeSet **mns = new MatchNodeSet *[1];
+    mns = new MatchNodeSet *[1];
     if(com.cpuNum() == 0 && !getSurfFromFEM)
       mns[0] = new MatchNodeSet(matcherFile);
     else 
       mns[0] = new MatchNodeSet();
     structExc = new StructExc(iod, mns, 6, &strCom, &com, 1);
 
-    if(getSurfFromFEM) {//receive embedded surface from FEM
-      structExc->getEmbeddedWetSurfaceInfo(nNodes, nElems);
-      X = new (com) double[nNodes][3];
-      Tria = new (com) int[nElems][3];
-      structExc->getEmbeddedWetSurface(nNodes, (double*)X, nElems, (int*)Tria);
+    if(getSurfFromFEM) {//receive embedded surface from the structure code.
+      bool crack;
+      int  nStNodes, nStElems, totalStNodes, totalStElems;
+      structExc->getEmbeddedWetSurfaceInfo(elemType, crack, nStNodes, nStElems); 
+ 
+      // initialize cracking information
+      if(crack) {
+        structExc->getInitialCrackingSetup(totalStNodes, totalStElems);
+        cracking = new CrackingSurface(elemType, nStElems, totalStElems, nStNodes, totalStNodes);
+      } else {
+        totalStNodes = nStNodes;
+        totalStElems = nStElems;
+      }
+
+      // allocate memory for the node list
+      totalNodes = totalStNodes;
+      nNodes     = nStNodes;
+      X = new (com) double[totalNodes][3];
+      X0 = new (com) double[totalNodes][3];
+      for(int i=0; i<totalNodes; i++)
+        X[i][0] = X[i][1] = X[i][2] = X0[i][0] = X0[i][1] = X0[i][2] = 0.0;
+
+      // allocate memory for the element topology list
+      switch (elemType) {
+        case 3: //all triangles
+          totalElems = totalStElems;
+          nElems     = nStElems; 
+          Tria = new (com) int[totalElems][3];
+          structExc->getEmbeddedWetSurface(nNodes, (double*)X0, nElems, (int*)Tria, elemType);
+          break;
+        case 4: //quadrangles include triangles represented as degenerated quadrangles.
+          int tmpTopo[nStElems][4];
+          structExc->getEmbeddedWetSurface(nNodes, (double*)X0, nStElems, (int*)tmpTopo, elemType);
+          if(cracking) {
+            totalElems = totalStElems*2;
+            Tria = new (com) int[totalElems][3];
+            nElems = cracking->splitQuads((int*)tmpTopo, nStElems, Tria);
+          } else
+            splitQuads((int*)tmpTopo, nStElems); //memory for Tria will be allocated
+          break;
+        default:
+          com.fprintf(stderr,"ERROR: Element type (%d) of the wet surface not recognized! Must be 3 or 4.\n", elemType);
+          exit(-1);
+      }
+
+      for(int i=0; i<nNodes; i++)
+        for(int j=0; j<3; j++)
+          X[i][j] = X0[i][j];
+
+      structExc->negotiate();
+
       if(com.cpuNum()==0) {
-        mns[0]->autoInit(nNodes);
+        mns[0]->autoInit(totalNodes); //in case of cracking, match all the nodes including inactive ones.
         structExc->updateMNS(mns);
       }
     }
 
+    if(cracking)
+      getInitialCrack();
 
-    structExc->negotiate();
     structExc->getInfo();
     dt = tScale*structExc->getTimeStep();
     tMax = tScale*structExc->getMaxTime();
     algNum = structExc->getAlgorithmNumber();
+
+//    if(cracking && com.cpuNum()==0)
+//      structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
   }
   // ----------------------------------
   //               End
@@ -277,13 +351,14 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       com.fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
       exit(-1);
     }
-    X = new (com) double[nNodes][3];
+    X0 = new (com) double[nNodes][3];
+    X  = new (com) double[nNodes][3];
 
     it2=indexList.begin();
     for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
-      X[(*it2)-1][0] = (*it1)[0]; 
-      X[(*it2)-1][1] = (*it1)[1]; 
-      X[(*it2)-1][2] = (*it1)[2];
+      X[(*it2)-1][0] = X0[(*it2)-1][0] = (*it1)[0]; 
+      X[(*it2)-1][1] = X0[(*it2)-1][1] = (*it1)[1]; 
+      X[(*it2)-1][2] = X0[(*it2)-1][2] = (*it1)[2];
       it2++; 
     }
     fclose(nodeFile);
@@ -295,17 +370,17 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
 
   // allocate memory for other stuff...
-  U = new (com) double[nNodes][3];
-  Udot = new (com) double[nNodes][3];
-  UandUdot = new (com) double[nNodes*2][3];
-  F = new (com) double[nNodes][3];
+  U = new (com) double[totalNodes][3];
+  Udot = new (com) double[totalNodes][3];
+  XandUdot = new (com) double[totalNodes*2][3];
+  F = new (com) double[totalNodes][3];
 
   // prepare distinfo for struct nodes
   if(coupled) {
     int *locToGlob = new int[1];
     locToGlob[0] = 0;
     di = new DistInfo(1, 1, 1, locToGlob, &com);
-    di->setLen(0,nNodes);
+    di->setLen(0,totalNodes);
     di->finalize(false);
   }
 
@@ -330,9 +405,10 @@ EmbeddedStructure::~EmbeddedStructure()
   if(Tria)      delete[] Tria;
   if(U)         delete[] U;
   if(Udot)      delete[] Udot;
-  if(UandUdot)  delete[] UandUdot;
+  if(XandUdot)  delete[] XandUdot;
   if(F)         delete[] F;
   if(structExc) delete structExc;  
+  if(mns)      {delete mns[0]; delete [] mns;}
   delete[] meshFile;
   delete[] matcherFile;
 }
@@ -406,7 +482,7 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
      DistSVec<double,3> V(*di, U);
      DistSVec<double,3> Ydot(*di, Udot);
      DistSVec<double,3> Y(*di);
-     Y = Y0;
+     Y = Y0; //KW: as long as Y = Y0, it doesn't matter if Y0 is X or X0, or anything else...
 
      structExc->getDisplacement(Y0, Y, Ydot, V);
      V = XScale*V;
@@ -455,12 +531,13 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
 
   for(int i=0; i<nNodes; i++)
     for(int j=0; j<3; j++) {
-      UandUdot[i][j] = U[i][j];
-      UandUdot[(i+nNodes)][j] = Udot[i][j];
+      X[i][j] = X0[i][j] + U[i][j];
+      XandUdot[i][j] = X[i][j];
+      XandUdot[(i+nNodes)][j] = Udot[i][j];
     }
 
   for(int i = 0; i < com.size(); ++i) 
-    window->put((double*)UandUdot, 0, 2*3*nNodes, i, 0);
+    window->put((double*)XandUdot, 0, 2*3*nNodes, i, 0);
 }
 
 //------------------------------------------------------------------------------
@@ -490,6 +567,7 @@ EmbeddedStructure::processReceivedForce()
   }
 
 
+/*
   if(com.cpuNum()>0) return;
   double fx=0, fy=0, fz=0; //write the total froce.
   for(int i = 0; i < nNodes; ++i) {
@@ -497,13 +575,93 @@ EmbeddedStructure::processReceivedForce()
     fy += F[i][1]; 
     fz += F[i][2];
   }
-/*
   for(int i=0; i<nNodes; ++i) 
     fprintf(stderr,"%d %e %e %e\n", i+1, F[i][0], F[i][1], F[i][2]);
   sleep(2);
 */
 //  std::cout << "Total force (from AERO-F): " << fx << " " << fy << " " << fz << std::endl;
 
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::splitQuads(int* quads, int nStElems)
+{ 
+  int nTrias = 0;
+  for(int i=0; i<nStElems; i++)
+    if(quads[i*4+2]==quads[i*4+3])
+      nTrias += 1;
+    else 
+      nTrias += 2;
+
+  Tria = new (com) int[nTrias][3];
+
+  int count = 0;
+  for(int i=0; i<nStElems; i++) { 
+    Tria[count][0] = quads[i*4];
+    Tria[count][1] = quads[i*4+1];
+    Tria[count][2] = quads[i*4+2];
+    count++;
+
+    if(quads[i*4+2]==quads[i*4+3])
+      continue;
+
+    Tria[count][0] = quads[i*4];
+    Tria[count][1] = quads[i*4+2];
+    Tria[count][2] = quads[i*4+3];
+    count++;
+  }
+
+  if(count!=nTrias) {com.fprintf(stderr,"Software bug in FSI/EmbeddedStructure/splitQuad!\n");exit(-1);}
+  nElems = totalElems = nTrias;
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::getInitialCrack()
+{
+  int nCracked = structExc->getNumberOfNewCrackedElems();
+  if(!nCracked) return; //Nothing new :)
+
+  // get initial phantom nodes.
+  structExc->getInitialPhantomNodes(nCracked,X,nNodes);
+    //NOTE: nNodes will be updated in "getNewCracking"
+
+  // get initial phantom elements (topo change).
+  getNewCracking(nCracked);
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::getNewCracking(int nCracked)
+{
+  if(nCracked<1)  return;
+
+  int phantElems[10*nCracked]; // elem.id and node id.
+  double phi[4*nCracked];
+  
+  structExc->getNewCracking(nCracked, phantElems, phi); 
+
+  if(elemType!=4) {com.fprintf(stderr,"ERROR: only support quadrangles for cracking!\n");exit(1);} 
+  nNodes += 4*nCracked;
+  nElems += cracking->updateCracking(nCracked, phantElems, phi, Tria, nNodes);
+
+  if(com.cpuNum()==0)
+    structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
+}
+
+//------------------------------------------------------------------------------
+
+int
+EmbeddedStructure::getNewCracking()
+{
+  int nCracked = structExc->getNumberOfNewCrackedElems();
+  if(!nCracked) return nCracked; //Nothing new :)
+  getNewCracking(nCracked);
+  return nCracked;
 }
 
 //------------------------------------------------------------------------------

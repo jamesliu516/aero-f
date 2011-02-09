@@ -316,13 +316,13 @@ class EmbeddedMeshMotionHandler : public MeshMotionHandler {  //<! For embedded 
 protected:
 
   double dts;            //<! structure time-step.
-  Vec3D *structX0;       //<! initial position of structure nodes.
-  Vec3D *structXn;       //<! position of struct nodes at t^n.
-  Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
-  Vec3D *structVel;      //<! velocity of struct nodes.
+  //Vec3D *structX0;       //<! initial position of structure nodes.
+  //Vec3D *structXn;       //<! position of struct nodes at t^n.
+  //Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
+  //Vec3D *structVel;      //<! velocity of struct nodes.
 
   int it0;            //<! restart timestep
-  int structVelocity; //<! 0: use the velocity received by structure;  1: compute by finite-difference.
+  //int structVelocity; //<! 0: use the velocity received by structure;  1: compute by finite-difference.
   
   DynamicNodalTransfer *dynNodalTransfer; 
   DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).

@@ -38,13 +38,15 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   //------------------------------------------------------------------------
   // EulerFSI: basic parameters
+  bool withCracking;
+
   int orderOfAccuracy; // consistent with the reconstruction type for space
   bool linRecAtInterface;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
   int numStructNodes;
-  int numStructElems;
+  int totStructNodes;
   int forceApp; // now have four options.
                 // = 1 : on GammaF, formula 1;
                 // = 2 : on GammaF, formula 2; (not used)

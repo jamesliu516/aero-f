@@ -1662,7 +1662,6 @@ struct EmbeddedFramework {
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2, AUTO = 3} riemannNormal;
-  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}

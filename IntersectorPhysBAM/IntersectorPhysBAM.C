@@ -10,6 +10,7 @@
 #include <Vector.h>
 #include <DistVector.h>
 #include <Timer.h>
+#include "FSI/CrackingSurface.h"
 #include "LevelSet/LevelSetStructure.h"
 #include "parser/Assigner.h"
 #include <Connectivity.h>
@@ -36,7 +37,7 @@ int IntersectorPhysBAM::OUTSIDECOLOR;
 //----------------------------------------------------------------------------
 
 DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
-                                               double (*xyz)[3], int nElems, int (*abc)[3])
+                                               double *xyz, int nElems, int (*abc)[3], CrackingSurface *cs)
 {
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
@@ -70,6 +71,8 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   swept_node = 0;
   boxMin = 0;
   boxMax = 0;
+
+  cracking = cs;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
@@ -283,6 +286,9 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
     fclose(resTopFile);
   }
 
+  totStNodes = numStNodes;
+  totStElems = numStElems;
+
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
   com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface()) 
@@ -300,22 +306,26 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
+  if(cracking && nNodes!=cracking->usedNodes()) {com->fprintf(stderr,"SOFTWARE BUG!\n");exit(-1);}
+
   numStNodes = nNodes;
+  totStNodes = cracking ? cracking->totNodes() : numStNodes;
+
   // feed data to Xss. 
-  Xs      = new Vec3D[numStNodes];
-  Xs0     = new Vec3D[numStNodes];
-  Xs_n    = new Vec3D[numStNodes];
-  Xs_np1  = new Vec3D[numStNodes];
-  Xsdot   = new Vec3D[numStNodes];
-  solidX  = new Vec<Vec3D>(numStNodes, Xs);
-  solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
-  solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  Xs      = new Vec3D[totStNodes];
+  Xs0     = new Vec3D[totStNodes];
+  Xs_n    = new Vec3D[totStNodes];
+  Xs_np1  = new Vec3D[totStNodes];
+  Xsdot   = new Vec3D[totStNodes];
+  solidX  = new Vec<Vec3D>(totStNodes, Xs);
+  solidX0 = new Vec<Vec3D>(totStNodes, Xs0);
+  solidXn = new Vec<Vec3D>(totStNodes, Xs_n);
 
   for (int k=0; k<numStNodes; k++) {
-    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
+    Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -323,14 +333,20 @@ void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int 
   }
 
   // elem set
+  if(cracking && nElems!=cracking->usedTrias()) {com->fprintf(stderr,"SOFTWARE BUG 2!\n");exit(-1);}
+
   numStElems = nElems;
-  stElem = new int[numStElems][3];
+  totStElems = cracking ? cracking->totTrias() : numStElems;
+
+  stElem = new int[totStElems][3];
   for (int i=0; i<numStElems; i++)
     for (int k=0; k<3; k++)
       stElem[i][k] = abc[i][k];
 
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
+    if(cracking) com->fprintf(stderr,"WARNING: not sure if restart works with cracking...\n");
+
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
@@ -459,11 +475,11 @@ bool DistIntersectorPhysBAM::checkTriangulatedSurface()
 
 void
 DistIntersectorPhysBAM::buildSolidNormals() {
-  if(!triNorms) triNorms = new Vec3D[numStElems];
-  if(!triSize)  triSize = new double[numStElems];
+  if(!triNorms) triNorms = new Vec3D[totStElems];
+  if(!triSize)  triSize = new double[totStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
-      nodalNormal = new Vec3D[numStNodes];
+      nodalNormal = new Vec3D[totStNodes];
     for(int i=0; i<numStNodes; i++)
       nodalNormal[i] = 0.0;
   }
@@ -691,15 +707,43 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
 //----------------------------------------------------------------------------
 
 void
-DistIntersectorPhysBAM::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
-  if(nNodes!=numStNodes) {
-    com->fprintf(stderr,"Number of structure nodes has changed!\n");
-    exit(-1);}
+DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
+{
+  int previous = numStNodes;
 
-  for (int i=0; i<nNodes; i++) {
-    Xs_n[i] = Xs_np1[i];
-    Xs_np1[i] = xs[i];
-    Xsdot[i] = Vs[i];}
+  if(nNodes!=numStNodes) {
+    if(!cracking || nNodes<numStNodes) {
+      com->fprintf(stderr,"ERROR: Number of structure nodes has changed! Cracking is not considered in this simulation.\n");
+      exit(-1);}
+    // need to get the topology change caused by cracking.
+    updateCracking(abc);
+    if(nNodes!=numStNodes) {com->fprintf(stderr,"ERROR: horrible! %d v.s. %d\n", nNodes, numStNodes);exit(-1);}
+  }
+
+  for (int i=0; i<nNodes; i++)
+    for(int j=0; j<3; j++) {
+      Xs_n[i][j] = (i<previous) ? Xs_np1[i][j] : xs[3*i+j];
+      Xs_np1[i][j] = xs[3*i+j];
+      Xsdot[i][j] = Vs[3*i+j];}
+
+  /* TODO(KEVIN): MAY NEED TO DO SOMETHING IN physInterface !! */
+}
+
+//----------------------------------------------------------------------------
+
+void DistIntersectorPhysBAM::updateCracking(int (*abc)[3])
+{ //update the topology, but not the node coordinates
+  numStNodes = cracking->usedNodes();
+  numStElems = cracking->usedTrias(); 
+  std::set<int> newQuads = cracking->getLatestCrackedQuads();
+  for(std::set<int>::iterator it=newQuads.begin(); it!=newQuads.end(); it++) {
+    int trId1,trId2;
+    cracking->getQuad2Tria(*it,trId1,trId2); //obtain trId1 and trId2;
+    for(int j=0; j<3; j++) {
+      stElem[trId1][j] = abc[trId1][j];
+      stElem[trId2][j] = abc[trId2][j];
+    } 
+  } 
 }
 
 //----------------------------------------------------------------------------

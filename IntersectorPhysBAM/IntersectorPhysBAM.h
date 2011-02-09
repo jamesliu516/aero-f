@@ -30,6 +30,7 @@ class SubDomain;
 class EdgeSet;
 class Timer;
 class IoData;
+class CrackingSurface;
 template<class Scalar, int dim> class SVec;
 
 class DistIntersectorPhysBAM : public DistLevelSetStructure {
@@ -42,6 +43,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
 
   protected:
     int numStNodes, numStElems;
+    int totStNodes, totStElems;
     double xMin, xMax, yMin, yMax, zMin, zMax; //a bounding box over the struct body
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
 
@@ -59,6 +61,8 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     int (*stElem)[3]; //structure elements (topology)
 
     Vec3D *Xsdot; //velocity
+
+    CrackingSurface *cracking; //only a pointer.
 
   public:
     DistVec<int> *status;   //node status
@@ -88,18 +92,19 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void findActiveNodes(const DistVec<bool>& tId);
 
   public: //TODO: a lot of them can be moved to "protected".
-    DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes = 0, double (*xyz)[3] = 0, int nElems = 0, int (*abc)[3] = 0);
+    DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes = 0, double *xyz = 0, int nElems = 0, int (*abc)[3] = 0, CrackingSurface *cs = 0);
     ~DistIntersectorPhysBAM();
 
     void init(char *meshfile, char *restartfile);
-    void init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface);
+    void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int>* point_based_id = 0);
-    void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
+    void updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]=0);
+    void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false);
     void recompute(double dtf, double dtfLeft, double dts);
