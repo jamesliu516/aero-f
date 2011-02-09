@@ -50,7 +50,7 @@ class EmbeddedStructure {
   int it;
 
   int nNodes, totalNodes;
-  int nElems, totalElems; //activated only if the mesh is provided by FEM
+  int nElems, totalElems;
   int elemType;
   CrackingSurface *cracking; //activated only if cracking is considered in the structure code.
 
