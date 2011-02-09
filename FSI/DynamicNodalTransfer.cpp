@@ -312,14 +312,14 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   //    Load Structure Mesh (at t=0)
   // ----------------------------------
   if(!getSurfFromFEM) {//otherwise mesh is already loaded.
-    // load structure nodes (from file).
-    FILE *nodeFile = 0;
-    nodeFile = fopen(meshFile,"r");
-    if(!nodeFile) com.fprintf(stderr,"ERROR: Embedded surface mesh file could not be found!\n");
-    char c1[200], c2[200];
+    // load structure nodes and elements (from file).
+    FILE *topFile = 0;
+    topFile = fopen(meshFile,"r");
+    if(!topFile) com.fprintf(stderr,"ERROR: Embedded surface mesh file could not be found!\n");
+    char c1[200], c2[200], c3[200];
     int num0 = 0, num1 = 0, count, nInputs;
     double x1,x2,x3;
-    fscanf(nodeFile, "%s %s\n", c1, c2);
+    fscanf(topFile, "%s %s\n", c1, c2);
     char debug[6]="Nodes";
     for (int i=0; i<5; i++) 
       if(debug[i]!=c1[i]) {com.fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", meshFile); exit(-1);}
@@ -331,7 +331,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     int maxIndex = 0;
 
     while(1) {
-      nInputs = fscanf(nodeFile,"%s", c1);
+      nInputs = fscanf(topFile,"%s", c1);
       if(nInputs!=1) break;
       if(c1[0]=='E') //done with the node set
         break;
@@ -341,18 +341,18 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       if(num1>maxIndex)
         maxIndex = num1;
 
-      fscanf(nodeFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList.push_back(Vec3D(x1,x2,x3));
     }
-    nNodes = nodeList.size();
+    nNodes = totalNodes = nodeList.size();
     if(nNodes != maxIndex) {
       com.fprintf(stderr,"ERROR: The node set of the embedded surface have gap(s). \n");
       com.fprintf(stderr,"       Detected max index = %d, number of nodes = %d\n", maxIndex, nNodes);
       com.fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
       exit(-1);
     }
-    X0 = new (com) double[nNodes][3];
-    X  = new (com) double[nNodes][3];
+    X0 = new (com) double[totalNodes][3];
+    X  = new (com) double[totalNodes][3];
 
     it2=indexList.begin();
     for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
@@ -361,7 +361,63 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       X[(*it2)-1][2] = X0[(*it2)-1][2] = (*it1)[2];
       it2++; 
     }
-    fclose(nodeFile);
+
+    // now load the elements
+    if(nInputs!=1) {
+      com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
+    fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+    char debug2[6] = "using";
+    for (int i=0; i<5; i++)
+      if(debug2[i]!=c2[i]) {com.fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", meshFile); exit(-1);}
+
+    std::list<int> elemIdList;
+    std::list<int> elemList1;
+    std::list<int> elemList2;
+    std::list<int> elemList3;
+    std::list<int>::iterator it_0;
+    std::list<int>::iterator it_1;
+    std::list<int>::iterator it_2;
+    std::list<int>::iterator it_3;
+    int node1, node2, node3;
+    maxIndex = -1;
+
+    while(1) {
+      nInputs = fscanf(topFile,"%d", &num0);
+      if(nInputs!=1) break;
+      fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+      if(num0<1) {com.fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, meshFile); exit(-1);}
+      elemIdList.push_back(num0-1);  //start from 0.
+      elemList1.push_back(node1-1);
+      elemList2.push_back(node2-1);
+      elemList3.push_back(node3-1);
+      if(num0-1>maxIndex)
+        maxIndex = num0-1;
+    }
+    nElems = totalElems = elemList1.size();
+    if(nElems != maxIndex+1) {
+      com.fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
+      com.fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, nElems);
+      com.fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
+      exit(-1);
+    }
+
+    Tria = new (com) int[totalElems][3];
+
+    it_0 = elemIdList.begin();
+    it_1 = elemList1.begin();
+    it_2 = elemList2.begin();
+    it_3 = elemList3.begin();
+    for (int i=0; i<nElems; i++) {
+      Tria[*it_0][0] = *it_1;
+      Tria[*it_0][1] = *it_2;
+      Tria[*it_0][2] = *it_3;
+      it_0++;
+      it_1++;
+      it_2++;
+      it_3++;
+    }
+
+    fclose(topFile);
   }
 
   // ----------------------------------
