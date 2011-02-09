@@ -7,6 +7,7 @@
 
 #ifndef CRACKINGSURFACE_H_
 #define CRACKINGSURFACE_H_
+#include<LOCAL_LEVELSET.h>
 #include<map>
 #include<set>
 
@@ -28,7 +29,7 @@ struct PhantomElement {
 
 //------------------------------------------------------------------------------
 
-class CrackingSurface {
+class CrackingSurface : public LocalLevelSet {
   const int elemType; //currently only support quadrangles.
   int nTotalQuads, nUsedQuads;
   int nTotalTrias, nUsedTrias;
