@@ -199,17 +199,13 @@ TransientData::TransientData()
   reducedfullnodemap = "";
   sampleNodes = "";
   sampleNodesFull = "";
-  aMatrix = "";
-  bMatrix = "";
-  aMatrixFull = "";
-  bMatrixFull = "";
+  onlineMatrix = "";
+  onlineMatrixFull = "";
   podStateRed = "";
   wallDistanceRed = "";
   newtonresiduals = "";
-  pgromresiduals = "";
-  pgjacxdurom = "";
-  pgjac = "";
-  statevectorchange = "";
+  reducedjacxdurom = "";
+  reducedjac = "";
   staterom = "";
 
 // Included (MB)
@@ -324,17 +320,14 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ReducedFullNodeMap", this, &TransientData::reducedfullnodemap);
   new ClassStr<TransientData>(ca, "SampleNodes", this, &TransientData::sampleNodes);
   new ClassStr<TransientData>(ca, "SampleNodesFullMesh", this, &TransientData::sampleNodesFull);
-  new ClassStr<TransientData>(ca, "AMatrix", this, &TransientData::aMatrix);
-  new ClassStr<TransientData>(ca, "BMatrix", this, &TransientData::bMatrix);
-  new ClassStr<TransientData>(ca, "AMatrixFullMesh", this, &TransientData::aMatrixFull);
-  new ClassStr<TransientData>(ca, "BMatrixFullMesh", this, &TransientData::bMatrixFull);
+  new ClassStr<TransientData>(ca, "OnlineMatrix", this, &TransientData::onlineMatrix);
+  new ClassStr<TransientData>(ca, "OnlineMatrixFullMesh", this, &TransientData::onlineMatrixFull);
   new ClassStr<TransientData>(ca, "PODStateReduced", this, &TransientData::podStateRed);
   new ClassStr<TransientData>(ca, "WallDistanceReduced", this, &TransientData::wallDistanceRed);
 	// Gappy POD snapshots
-  new ClassStr<TransientData>(ca, "PGRomResiduals", this, &TransientData::pgromresiduals);
-  new ClassStr<TransientData>(ca, "PGJacxdUrom", this, &TransientData::pgjacxdurom);
-  new ClassStr<TransientData>(ca, "PGJac", this, &TransientData::pgjac);
-  new ClassStr<TransientData>(ca, "StateVectorChange", this, &TransientData::statevectorchange);
+  new ClassStr<TransientData>(ca, "NewtonResiduals", this, &TransientData::newtonresiduals);
+  new ClassStr<TransientData>(ca, "ReducedJacxdUrom", this, &TransientData::reducedjacxdurom);
+  new ClassStr<TransientData>(ca, "ReducedJac", this, &TransientData::reducedjac);
   new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
@@ -2689,6 +2682,7 @@ ROB::ROB()
   numROBRes = 0;
   sampleNodeFactor = 1;
   romsolver = PG; 
+	liftFaces = 0;	// by default, do not include lift faces
 
 }
 
@@ -2704,7 +2698,8 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "OldGappyPG", 3);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3);
+  new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
 
 }
 

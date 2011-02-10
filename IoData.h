@@ -120,19 +120,15 @@ struct TransientData {
 
 // Gappy POD 
   const char *newtonresiduals;
-  const char *pgromresiduals;
-  const char *pgjacxdurom;
-  const char *pgjac;
-  const char *statevectorchange;
+  const char *reducedjacxdurom;
+  const char *reducedjac;
   const char *stateRom;
   const char *mesh;
   const char *reducedfullnodemap;
   const char *sampleNodes;
   const char *sampleNodesFull;
-  const char *aMatrix;
-  const char *bMatrix;
-  const char *aMatrixFull;
-  const char *bMatrixFull;
+  const char *onlineMatrix;
+  const char *onlineMatrixFull;
   const char *podStateRed;
   const char *wallDistanceRed;
   const char *staterom;
@@ -1589,6 +1585,7 @@ struct ROB {
   int numROBRes;
   double sampleNodeFactor;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
+	int liftFaces;
 
   ROB();
   ~ROB() {}
