@@ -35,6 +35,7 @@ InputData::InputData()
   rstdata = "";
 	podFile = "";
 	snapRefSolutionFile = "";
+	staterom = "";
 	snapFile = "";
 	sampleNodes = "";
 	aMatrix = "";
@@ -76,6 +77,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
   new ClassStr<InputData>(ca, "PODResJac", this, &InputData::podFileResJac);
   new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
+  new ClassStr<InputData>(ca, "StateReducedCoordinates", this, &InputData::staterom);
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
@@ -2698,7 +2700,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 5, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4);	// PostProcess reads in pod coordinates
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
 
 }

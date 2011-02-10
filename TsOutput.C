@@ -1984,7 +1984,7 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
       DistSVec<double,dim> soltn(*U1);
       if (refVal->mode == RefVal::DIMENSIONAL)
         domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(newtonresiduals, output_step, tag, *U1);
+      domain->writeVectorToFile(newtonresiduals, output_step, tag, *U1);	//TODO: output_step should accumulate over restarts
       ++output_step;
     }
 
@@ -1992,7 +1992,7 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
       DistSVec<double,dim> soltn(*U2);
       if (refVal->mode == RefVal::DIMENSIONAL)
         domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(reducedjacxdurom, output_step_reducedjacxdurom, tag, *U2);
+      domain->writeVectorToFile(reducedjacxdurom, output_step_reducedjacxdurom, tag, *U2);	//TODO: output_step should accumulate over restarts
       ++output_step_reducedjacxdurom;
 		if (output_step != output_step_reducedjacxdurom)
 			com->fprintf(stderr,"WARNING: NewtonResiduals and reducedjacxdUrom output sizes do not match (%d vs %d)\n", output_step,
@@ -2005,7 +2005,7 @@ void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 				if (refVal->mode == RefVal::DIMENSIONAL)
 					domain->scaleSolution(soltn, refVal);
 
-				domain->writeVectorToFile(reducedjac, output_step_reducedjac, tag, soltn);
+				domain->writeVectorToFile(reducedjac, output_step_reducedjac, tag, soltn);	//TODO: output_step should accumulate over restarts
 				++output_step_reducedjac;
 			}
     }

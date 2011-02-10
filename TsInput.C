@@ -21,6 +21,7 @@ TsInput::TsInput(IoData &iod) {
   aMatrix = absolutePath(iod.input.aMatrix, prefix);
   bMatrix = absolutePath(iod.input.bMatrix, prefix);
   shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
+  staterom = absolutePath(iod.input.staterom, prefix);
 }
 
 //------------------------------------------------------------------------------
@@ -50,6 +51,7 @@ TsInput::~TsInput() {
   delete[] aMatrix;
   delete[] bMatrix;
   delete[] shapederivatives; 
+  delete[] staterom;
 }
 
 //------------------------------------------------------------------------------

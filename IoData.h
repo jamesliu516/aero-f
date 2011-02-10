@@ -32,6 +32,7 @@ struct InputData {
   const char *podFile;
   const char *snapFile;
   const char *snapRefSolutionFile;
+  const char *staterom;
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
