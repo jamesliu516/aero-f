@@ -4,10 +4,16 @@
 #include <ImplicitRomTsDesc.h>
 #include <ParallelRom.h>
 #include <VectorSet.h>
+#include <DistVector.h>
 //------------------------------------------------------------------------------
 
 template<int dim>
 class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
+
+private:
+  typedef VecSet< DistSVec<double,dim> > SetOfVec;
+  SetOfVec rhsVS;
+  double **lsCoeff;
 
 protected:
 
@@ -20,7 +26,7 @@ protected:
 public:
   
   ImplicitPGTsDesc(IoData &, GeoSource &, Domain *);
-
+  ~ImplicitPGTsDesc();
 };
 
 //------------------------------------------------------------------------------
