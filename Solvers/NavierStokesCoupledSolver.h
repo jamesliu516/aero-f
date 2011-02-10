@@ -8,6 +8,7 @@
 #include <ExplicitTsDesc.h>
 #include <ImplicitCoupledTsDesc.h>
 #include <ImplicitPGTsDesc.h>
+#include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitBroydenTsDesc.h>
 #include <ImplicitGappyTsDesc.h>
 // Included (MB)
@@ -40,6 +41,11 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 2) { 
 				ImplicitGappyTsDesc<dim> tsDesc(ioData, geoSource, &domain);
 				TsSolver<ImplicitGappyTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 3) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+				ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
 				tsSolver.solve(ioData);
 		}
     else if (ioData.ts.type == TsData::IMPLICIT) {

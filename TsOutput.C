@@ -29,9 +29,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   Qv = 0;
   output_step = 0;
   output_step2 = 0;
-  output_step_pgromresiduals = 0; //CBM--TEMP
-  output_step_pgjacxdurom = 0; //CBM--TEMP
-  output_step_pgjac = 0; //CBM--TEMP
+  output_step_reducedjacxdurom = 0; //CBM--TEMP
+  output_step_reducedjac = 0; //CBM--TEMP
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -58,33 +57,19 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     newtonresiduals = 0;
 
-  if (iod.output.transient.pgromresiduals[0] != 0) {
-    pgromresiduals = new char[sp + strlen(iod.output.transient.pgromresiduals)];
-    sprintf(pgromresiduals, "%s%s", iod.output.transient.prefix, iod.output.transient.pgromresiduals);
-  }
-  else 
-    pgromresiduals = 0;
-
-  if (iod.output.transient.pgjacxdurom[0] != 0) {
-    pgjacxdurom = new char[sp + strlen(iod.output.transient.pgjacxdurom)];
-    sprintf(pgjacxdurom, "%s%s", iod.output.transient.prefix, iod.output.transient.pgjacxdurom);
+  if (iod.output.transient.reducedjacxdurom[0] != 0) {
+    reducedjacxdurom = new char[sp + strlen(iod.output.transient.reducedjacxdurom)];
+    sprintf(reducedjacxdurom, "%s%s", iod.output.transient.prefix, iod.output.transient.reducedjacxdurom);
   }
   else
-    pgjacxdurom = 0;
+    reducedjacxdurom = 0;
 
-  if (iod.output.transient.pgjac[0] != 0) {
-    pgjac = new char[sp + strlen(iod.output.transient.pgjac)];
-    sprintf(pgjac, "%s%s", iod.output.transient.prefix, iod.output.transient.pgjac);
+  if (iod.output.transient.reducedjac[0] != 0) {
+    reducedjac = new char[sp + strlen(iod.output.transient.reducedjac)];
+    sprintf(reducedjac, "%s%s", iod.output.transient.prefix, iod.output.transient.reducedjac);
   }
   else
-    pgjac = 0;
-
-  if (iod.output.transient.statevectorchange[0] != 0) {
-    statevectorchange = new char[sp + strlen(iod.output.transient.statevectorchange)];
-    sprintf(statevectorchange, "%s%s", iod.output.transient.prefix, iod.output.transient.statevectorchange);
-  }
-  else
-    statevectorchange = 0;
+    reducedjac = 0;
 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
@@ -1977,7 +1962,8 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 
 // GAPPY POD (CBM+KTC)---IMPROVE--IMPROVE--IMPROVE
 template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, DistSVec<double,dim> &U1, DistSVec<double,dim> &U2)
+void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
+		DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
 {
   //if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
 /*    int step = 0;
@@ -1994,106 +1980,37 @@ void TsOutput<dim>::writeBinaryVectorsToDisk1(bool lastIt, int it, double t, Dis
     else
       tag = t * refVal->time;
 
-    if (newtonresiduals)  {
-      DistSVec<double,dim> soltn(U1);
+    if (newtonresiduals && U1)  {	// for both pg residuals and fom residuals
+      DistSVec<double,dim> soltn(*U1);
       if (refVal->mode == RefVal::DIMENSIONAL)
         domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(newtonresiduals, output_step, tag, U1);
+      domain->writeVectorToFile(newtonresiduals, output_step, tag, *U1);
       ++output_step;
     }
 
-/*
-    if (statevectorchange)  {
-      DistSVec<double,dim> soltn(U1);
+    if (reducedjacxdurom && U2)  {
+      DistSVec<double,dim> soltn(*U2);
       if (refVal->mode == RefVal::DIMENSIONAL)
         domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(statevectorchange, output_step, tag, U1);
-      ++output_step;
-    }
-*/
-
-    if (pgromresiduals && U1.norm())  {
-      DistSVec<double,dim> soltn(U1);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(pgromresiduals, output_step_pgromresiduals, tag, U1);
-      ++output_step_pgromresiduals;
+      domain->writeVectorToFile(reducedjacxdurom, output_step_reducedjacxdurom, tag, *U2);
+      ++output_step_reducedjacxdurom;
+		if (output_step != output_step_reducedjacxdurom)
+			com->fprintf(stderr,"WARNING: NewtonResiduals and reducedjacxdUrom output sizes do not match (%d vs %d)\n", output_step,
+					output_step_reducedjacxdurom);
     }
 
-    if (pgjacxdurom && U2.norm())  {
-      DistSVec<double,dim> soltn(U2);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(pgjacxdurom, output_step_pgjacxdurom, tag, U2);
-      ++output_step_pgjacxdurom;
-    }
-    if (output_step_pgromresiduals != output_step_pgjacxdurom) 
-      com->fprintf(stderr,"WARNING: PGRomResiduals and PGJacxdUrom output sizes do not match (%d vs %d)\n", output_step_pgromresiduals, output_step_pgjacxdurom);//CBM
-  //}
-	
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk2(bool lastIt, int it, double t, DistSVec<double,dim> &U)
-{
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-/*    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-	++step;
-    }
-
-*/
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
-
-    if (statevectorchange)  {
-      DistSVec<double,dim> soltn(U);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(statevectorchange, output_step2, tag, U);
-      ++output_step2;
-    }
-  }
-}
-
-
-template<int dim>
-void TsOutput<dim>::writeBinaryVectorsToDisk3(bool lastIt, int it, double t, VecSet< DistSVec<double,dim> >&U)
-{
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-/*    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-	++step;
-    }
-
-*/
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
-
-    if (pgjac)  {
-			for (int i = 0; i < U.numVectors(); ++i) {
-				DistSVec<double,dim> soltn(U[i]);
+    if (reducedjac && U3)  {	// entire JPhi
+			for (int i = 0; i < U3->numVectors(); ++i) {
+				DistSVec<double,dim> soltn((*U3)[i]);
 				if (refVal->mode == RefVal::DIMENSIONAL)
 					domain->scaleSolution(soltn, refVal);
 
-				domain->writeVectorToFile(pgjac, output_step_pgjac, tag, soltn);
-				++output_step_pgjac;
+				domain->writeVectorToFile(reducedjac, output_step_reducedjac, tag, soltn);
+				++output_step_reducedjac;
 			}
     }
-  }
 }
+
 //------------------------------------------------------------------------------
 
 template<int dim>

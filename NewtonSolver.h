@@ -104,6 +104,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     rhs = -1.0 * F;
 
+		probDesc->writeBinaryVectorsToDiskRom(false, it, 0.0, &F);	// save residuals for rom
     probDesc->recomputeFunction(Q, rhs);
     probDesc->computeJacobian(it, Q, F);
 
