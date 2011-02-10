@@ -34,6 +34,7 @@ InputData::InputData()
   levelsets = "";
   rstdata = "";
   podFile = "";
+        snapRefSolutionFile = "";
 	snapFile = "";
 	sampleNodes = "";
 	aMatrix = "";
@@ -54,7 +55,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 23, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -74,7 +75,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "AMatrix", this, &InputData::aMatrix);
   new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
   new ClassStr<InputData>(ca, "PODResJac", this, &InputData::podFileResJac);
-
+  new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);

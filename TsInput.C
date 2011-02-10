@@ -71,6 +71,18 @@ TsInput::TsInput(IoData &iod)
     sprintf(snapFile, "");
   }
 
+  if (iod.input.snapRefSolutionFile[0] != 0) {
+    snapRefSolutionFile = new char[sp + strlen(iod.input.snapRefSolutionFile)];
+    if (strncmp(iod.input.snapRefSolutionFile, "/", 1) == 0)
+      sprintf(snapRefSolutionFile, "%s", iod.input.snapRefSolutionFile);
+    else
+      sprintf(snapRefSolutionFile, "%s%s", iod.input.prefix, iod.input.snapRefSolutionFile);
+  }
+  else {
+    snapRefSolutionFile = new char[1];
+    sprintf(snapRefSolutionFile, "");
+  }
+
   if (iod.input.sampleNodes[0] != 0) {
     sampleNodes = new char[sp + strlen(iod.input.sampleNodes)];
     if (strncmp(iod.input.sampleNodes, "/", 1) == 0)
@@ -82,6 +94,7 @@ TsInput::TsInput(IoData &iod)
     sampleNodes = new char[1];
     sprintf(sampleNodes, "");
   }
+
 
   if (iod.input.podFileResJac[0] != 0) {
     podFileResJac = new char[sp + strlen(iod.input.podFileResJac)];
@@ -141,7 +154,8 @@ TsInput::~TsInput()
   if (positions) delete [] positions;
   if (levelsets) delete [] levelsets;
   if (podFile)   delete [] podFile;
-
+  if (snapFile) delete [] snapFile;
+  if (snapRefSolutionFile) delete [] snapRefSolutionFile;
 // Included
   if (shapederivatives)   delete [] shapederivatives;
 
