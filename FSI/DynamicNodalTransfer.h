@@ -82,6 +82,7 @@ public:
   void sendTimeStep(Communication::Window<double> *window);
   void sendMaxTime(Communication::Window<double> *window);
   void sendInfo(Communication::Window<double> *window);
+  void sendInitialPosition(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
   void processReceivedForce();
 
