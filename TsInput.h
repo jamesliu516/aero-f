@@ -22,6 +22,7 @@ struct TsInput {
   char *sampleNodes;
   char *aMatrix;
   char *bMatrix;
+  char *staterom;
 
   char *shapederivatives;
 

@@ -2,6 +2,7 @@
 #define _IMPLICIT_PG_TS_DESC_H_
 
 #include <ImplicitRomTsDesc.h>
+#include <RefVector.h>
 
 //------------------------------------------------------------------------------
 

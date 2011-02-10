@@ -39,8 +39,9 @@ ParallelRom<dim>::~ParallelRom()
 	delete [] locSendReceive;
 	
 }
+
 template<int dim> 
-void ParallelRom<dim>::scalapackCpuDecomp(int nCol) {
+void ParallelRom<dim>::scalapackCpuDecomp(const int nCol) {
 
 	//===============================
 	// PURPOSE: determine cpu decomposition for ScaLAPACK of a matrix which
@@ -73,7 +74,9 @@ void ParallelRom<dim>::scalapackCpuDecomp(int nCol) {
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps) {
+template<class VecContainer> 
+void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
+		double *S, FullM &Vtrue, int nSnaps) {
 
 #ifdef DO_SCALAPACK
  	int numLocSub = domain.getNumLocSub();
@@ -169,7 +172,8 @@ void ParallelRom<dim>::parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSe
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B) {
+template<class VecContainer>
+void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecContainer &B) {
 
 	//====================================
 	// PURPOSE: initialize the least squares problems for scalapack when
@@ -253,8 +257,9 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A
 //----------------------------------
 
 template<int dim>
-void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
-		VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol) {
+template<class VecContainer>
+void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
+		const VecContainer &B, int n, int nRhs, double **lsSol) {
 
 	// each time
   // 	ScaLAPACK only operates on submatrices; these are the submatrices of interest
@@ -394,7 +399,8 @@ void ParallelRom<dim>::parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A,
 }
 
 template<int dim>
-void ParallelRom<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, double* subMat, int nSnaps) {
+template<class VecContainer>
+void ParallelRom<dim>::transferData(VecContainer &snaps, double* subMat, int nSnaps) {
 
 	//====================================
 	// Purpose: fill subMat by sending/receiving nodes where needed
@@ -550,7 +556,8 @@ void ParallelRom<dim>::transferData(VecSet< DistSVec<double, dim> > &snaps, doub
 
 //----------------------------------------------------------------------------------
 template<int dim>
-void ParallelRom<dim>::transferDataBack(double *U, VecSet< DistSVec<double, dim> > &Utrue , int nSnaps) {
+template<class VecContainer>
+void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSnaps) {
 
  int numLocSub = domain.getNumLocSub();
  DistInfo &nodeDistInfo = domain.getNodeDistInfo();
