@@ -152,9 +152,7 @@ public:
 
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
-  virtual void writeBinaryVectorsToDisk1(bool, int, double, DistSVec<double,dim> &, DistSVec<double,dim> &);
-  virtual void writeBinaryVectorsToDisk2(bool, int, double, DistSVec<double,dim> &);
-  virtual void writeBinaryVectorsToDisk3(bool, int, double, VecSet <DistSVec<double,dim> > &);
+  virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
 
 };
 

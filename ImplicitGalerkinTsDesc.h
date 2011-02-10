@@ -1,38 +1,30 @@
-#ifndef _IMPLICIT_PG_TS_DESC_H_
-#define _IMPLICIT_PG_TS_DESC_H_
+#ifndef _IMPLICIT_GALERKIN_TS_DESC_H_
+#define _IMPLICIT_GALERKIN_TS_DESC_H_
 
 #include <ImplicitRomTsDesc.h>
-#include <ParallelRom.h>
-#include <VectorSet.h>
-#include <DistVector.h>
+
 //------------------------------------------------------------------------------
 
 template<int dim>
-class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
-
-private:
-  typedef VecSet< DistSVec<double,dim> > SetOfVec;
-  SetOfVec rhsVS;
-  double **lsCoeff;
+class ImplicitGalerkinTsDesc : public ImplicitRomTsDesc<dim> {
 
 protected:
 
-  ParallelRom<dim> parallelRom;
-  Vec<double> rhs;
+	Vec<double> rhs;
   Vec<double> From;
   void saveNewtonSystemVectors(const int _it) {this->saveNewtonSystemVectorsAction(_it);}
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 
 public:
   
-  ImplicitPGTsDesc(IoData &, GeoSource &, Domain *);
-  ~ImplicitPGTsDesc();
+  ImplicitGalerkinTsDesc(IoData &, GeoSource &, Domain *);
+
 };
 
 //------------------------------------------------------------------------------
 
 #ifdef TEMPLATE_FIX
-#include <ImplicitPGTsDesc.C>
+#include <ImplicitGalerkinTsDesc.C>
 #endif
 
 #endif
