@@ -42,8 +42,10 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   tMax /= tScale;
   com.barrier();
 
+  //initialize windows
   dt_tmax = new double[2];
   wintime = new Communication::Window<double> (com, 2*sizeof(double), (double*)dt_tmax);
+
   XandUdot = new double[2*3*structure.totalNodes];
   winDisp = new  Communication::Window<double> (com, 2*3*structure.nNodes*sizeof(double), (double *)XandUdot);
 
@@ -52,6 +54,20 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
   int length = embedded.second;
   winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
 
+  //get structure position
+  com.barrier(); //for timing purpose
+  winDisp->fence(true);
+  structure.sendInitialPosition(winDisp);
+  winDisp->fence(false);
+
+  int N = structure.nNodes;
+  for(int i=0; i<N; i++)
+    for(int j=0; j<3; j++) {
+      XandUdot[i*3+j] *= 1.0/XScale;
+      XandUdot[(N+i)*3+j] *= 1.0/UScale;
+    }
+
+  fprintf(stderr,"(%d) horrible!\n", com.cpuNum());
 }
 
 //------------------------------------------------------------------------------
@@ -239,7 +255,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       bool crack;
       int  nStNodes, nStElems, totalStNodes, totalStElems;
       structExc->getEmbeddedWetSurfaceInfo(elemType, crack, nStNodes, nStElems); 
- 
+
       // initialize cracking information
       if(crack) {
         structExc->getInitialCrackingSetup(totalStNodes, totalStElems);
@@ -284,24 +300,21 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
         for(int j=0; j<3; j++)
           X[i][j] = X0[i][j];
 
-      structExc->negotiate();
-
       if(com.cpuNum()==0) {
         mns[0]->autoInit(totalNodes); //in case of cracking, match all the nodes including inactive ones.
         structExc->updateMNS(mns);
       }
     }
 
-    if(cracking)
-      getInitialCrack();
-
+    structExc->negotiate();
     structExc->getInfo();
     dt = tScale*structExc->getTimeStep();
     tMax = tScale*structExc->getMaxTime();
     algNum = structExc->getAlgorithmNumber();
 
-//    if(cracking && com.cpuNum()==0)
-//      structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
+    if(cracking)
+      getInitialCrack();
+
   }
   // ----------------------------------
   //               End
@@ -450,6 +463,8 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
            std::abs(X[i][2]-X[j][2])<pairTol)
           pairing[i] = j;
   }
+  
+  fprintf(stderr,"(%d) I'm over\n", com.cpuNum());
 
 }
 
@@ -526,6 +541,21 @@ EmbeddedStructure::sendInfo(Communication::Window<double> *window)
   dt_tmax[0] = dt; dt_tmax[1] = tMax;
   for(int i = 0; i < com.size(); ++i)
     window->put((double*)dt_tmax, 0, 2, i, 0);
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::sendInitialPosition(Communication::Window<double> *window)
+{
+  for(int i=0; i<nNodes; i++)
+    for(int j=0; j<3; j++) {
+      XandUdot[i][j] = X0[i][j];
+      XandUdot[(i+nNodes)][j] = Udot[i][j];
+    }
+
+  for(int i = 0; i < com.size(); ++i)
+    window->put((double*)XandUdot, 0, 2*3*nNodes, i, 0);
 }
 
 //------------------------------------------------------------------------------

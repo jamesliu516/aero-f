@@ -42,7 +42,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
-  com->fprintf(stderr,"- Using Intersector: PhysBAM\n");
+  fprintf(stderr,"(%d) in intersector\n", com->cpuNum());
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -326,6 +326,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
 
   for (int k=0; k<numStNodes; k++) {
     Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
+//    if(k<5) fprintf(stderr,"(%d) %d %e %e %e\n", com->cpuNum(), k+1, Xs[k][0], Xs[k][1], Xs[k][2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -393,6 +394,17 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   else {
     com->fprintf(stderr,"\n"); 
     exit(-1); 
+  }
+
+
+  //debug
+  if(com->cpuNum()==3) {
+    FILE *myfile = fopen("debug.out", "w");
+    for(int i=0; i<numStNodes; i++)
+      fprintf(myfile,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(myfile,"%d %d %d %d\n", i+1, stElem[i][0], stElem[i][1], stElem[i][2]);
+    fclose(myfile);
   }
 
   initializePhysBAM();
