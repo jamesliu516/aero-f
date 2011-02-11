@@ -405,6 +405,7 @@ RestartParametersData::RestartParametersData()
   dt_nm2 = 1.0;
   residual = 1.0;
   energy = 0.0;
+  output_newton_step = 0;
 
 }
 
@@ -413,7 +414,7 @@ RestartParametersData::RestartParametersData()
 void RestartParametersData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassInt<RestartParametersData>(ca, "Iteration", this, &RestartParametersData::iteration);
   new ClassDouble<RestartParametersData>(ca, "Time", this, &RestartParametersData::etime);
@@ -421,6 +422,7 @@ void RestartParametersData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<RestartParametersData>(ca, "TimeStep2", this, &RestartParametersData::dt_nm2);
   new ClassDouble<RestartParametersData>(ca, "Residual", this, &RestartParametersData::residual);
   new ClassDouble<RestartParametersData>(ca, "Energy", this, &RestartParametersData::energy);
+  new ClassInt<RestartParametersData>(ca, "NewtonOutputStep", this, &RestartParametersData::output_newton_step);
 
 }
 

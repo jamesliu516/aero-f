@@ -100,6 +100,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     dIrey = 0;
   }
 
+	int *output_newton_step = domain->getOutputNewtonStep();
+	*output_newton_step = data->getOutputNewtonStep();
+
 }
 
 //------------------------------------------------------------------------------
@@ -1206,9 +1209,11 @@ void DistTimeState<dim>::get_dW_dt(bool doInitialTasks,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim>
-DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                          DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach)
+template<int dim> DistVec<double>*
+DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
+		DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
+		DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim>
+		&dV, double dMach)
 {
 
 //Remark: Error mesage for pointers
@@ -1233,3 +1238,8 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim> 
+int DistTimeState<dim>::getOutputNewtonStep() const {
+	return *(domain->getOutputNewtonStep()); 
+}

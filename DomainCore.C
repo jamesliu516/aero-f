@@ -100,6 +100,9 @@ Domain::Domain()
   meshMotionBCs = 0; //HB
 
 	numGlobNode = 0;	// only compute if needed
+
+	output_newton_step = 0;
+
 }
 
 //------------------------------------------------------------------------------

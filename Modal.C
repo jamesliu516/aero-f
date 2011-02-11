@@ -2472,12 +2472,19 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
 
  // write header
  int sp = strlen(ioData->output.transient.prefix) + 1;
+ const char *sValExtension = ".singularVals";
 
  char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
+ char *sValsFileName = new char[sp + strlen(ioData->output.transient.podFile)+strlen(sValExtension)];
  sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
+ sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile,sValExtension);
 
+ FILE *sValsFile = fopen(sValsFileName, "wt");
+
+ com->fprintf(sValsFile,"%d\n", nPOD);
  com->fprintf(stderr, " ... Writing %d (%f)podVecs to File\n", nPOD, (double) nPOD);
 
+ com->fprintf(sValsFile,"Singular values\n");
  domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
 
  double t0;
@@ -2500,7 +2507,10 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
    modalTimer->addGramSchmidtTime(t0);
    domain.writeVectorToFile(podFileName, jj+1, sVals[jj], podVecs[jj]);
    com->fprintf(stderr, "%d %e, residual = %e\n", jj, sVals[jj], tmpVec.norm());
+	 com->fprintf(sValsFile,"%e ", sVals[jj]);
  }
+ com->fprintf(sValsFile,"\n");
+ computeRelativeEnergy(sValsFile, sVals, nPOD);
 }
 
 #ifdef DO_MODAL
@@ -2519,12 +2529,11 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
 
  char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
  sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
-
  podVecs[0] = 0;
  com->fprintf(stderr, " ... Writing %d (%f) podVecs to File\n", nPOD, (double) nPOD);
  //const char *podFileName = ioData->output.transient.podFile;
 
- domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
+ domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);	// dummy vector
 
  double t0;
  double *rawEigVec = new double[numSnapsTot];
@@ -2553,10 +2562,53 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
    double norm = sqrt(podVecs[jj]*podVecs[jj]);
    podVecs[jj] *= (1.0 / norm);
    modalTimer->addGramSchmidtTime(t0);
-   domain.writeVectorToFile(podFileName, jj+1, eig, podVecs[jj]);
-   com->fprintf(stderr, "%d %e\n", jj, eig);
+	 domain.writeVectorToFile(podFileName, jj+1, eig, podVecs[jj]);
+	 com->fprintf(stderr, "%d %e\n", jj, eig);
 
  }
 }
 #endif
 
+template<int dim>
+void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod){
+
+	// TODO: optimize!
+
+	com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
+	std::vector<double> relEnergy;
+	double totalEnergy = 0.0;
+	for (int i = 0; i < nPod; ++i)
+		totalEnergy += pow(sVals[i],2);
+	for (int i = 0; i < nPod; ++i) {
+		double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
+		com->fprintf(sValsFile,"%e ", currentRelEnergy);
+		relEnergy.push_back(currentRelEnergy);
+	}
+	com->fprintf(sValsFile,"\n");
+	com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)");
+	com->fprintf(sValsFile,"\n");
+	double cumulativeEnergy = 0.0;
+	double criteria [10] = {0.9, 0.95, 0.995, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
+	int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	int critCounter = 0;
+	for (int i = 0; i < nPod; ++i) {
+		cumulativeEnergy+=relEnergy[i];
+		com->fprintf(sValsFile,"%e ", cumulativeEnergy);
+
+		for (int j = critCounter; j < 10;++j) {
+			if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
+				energyIndex[j] = i;
+				handledCriteria[j] = 1;
+				++critCounter;
+			}
+		}
+	}
+	com->fprintf(sValsFile,"\n");
+	com->fprintf(sValsFile,"Cumulative energy indices");
+	com->fprintf(sValsFile,"\n");
+
+	for (int i = 0; i < 10; ++i) {
+		com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
+	}
+}

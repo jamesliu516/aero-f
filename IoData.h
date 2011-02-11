@@ -216,6 +216,7 @@ struct RestartParametersData {
   double dt_nm2;
   double residual;
   double energy;
+  int output_newton_step;
 
   RestartParametersData();
   ~RestartParametersData() {}
