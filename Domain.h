@@ -155,6 +155,8 @@ class Domain {
 	int numGlobNode;
 	void computeNumGlobNode();
 
+	int output_newton_step;	// for writing newton residual snapshots
+
 public:
 
   Domain();
@@ -171,6 +173,7 @@ public:
     int** empty = 0;
     return empty;
   }
+  int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }

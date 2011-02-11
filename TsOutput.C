@@ -27,10 +27,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   TavL = 0;
   Qs = 0;
   Qv = 0;
-  output_step = 0;
-  output_step2 = 0;
-  output_step_reducedjacxdurom = 0; //CBM--TEMP
-  output_step_reducedjac = 0; //CBM--TEMP
+  output_newton_step = domain->getOutputNewtonStep();
   for (i=0; i<PostFcn::AVSSIZE; ++i) 
     {
       AvQs[i] = 0;
@@ -1960,55 +1957,38 @@ void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
 
 //------------------------------------------------------------------------------
 
-// GAPPY POD (CBM+KTC)---IMPROVE--IMPROVE--IMPROVE
 template<int dim>
 void TsOutput<dim>::writeBinaryVectorsToDiskRom(bool lastIt, int it, double t,
 		DistSVec<double,dim> *U1 = NULL, DistSVec<double,dim> *U2 = NULL, VecSet< DistSVec<double,dim> > *U3 = NULL)
 {
-  //if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-/*    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
-*/
 
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
+	double tag = 0.0;	// do not tag for now
 
-    if (newtonresiduals && U1)  {	// for both pg residuals and fom residuals
-      DistSVec<double,dim> soltn(*U1);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(newtonresiduals, output_step, tag, *U1);	//TODO: output_step should accumulate over restarts
-      ++output_step;
-    }
+	if (newtonresiduals && U1)  {	// for both pg residuals and fom residuals
+		DistSVec<double,dim> soltn(*U1);
+		if (refVal->mode == RefVal::DIMENSIONAL)
+			domain->scaleSolution(soltn, refVal);
+		domain->writeVectorToFile(newtonresiduals, *output_newton_step, tag, *U1);	//TODO: output_newton_step should accumulate over restarts
+	}
 
-    if (reducedjacxdurom && U2)  {
-      DistSVec<double,dim> soltn(*U2);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(reducedjacxdurom, output_step_reducedjacxdurom, tag, *U2);	//TODO: output_step should accumulate over restarts
-      ++output_step_reducedjacxdurom;
-		if (output_step != output_step_reducedjacxdurom)
-			com->fprintf(stderr,"WARNING: NewtonResiduals and reducedjacxdUrom output sizes do not match (%d vs %d)\n", output_step,
-					output_step_reducedjacxdurom);
-    }
+	if (reducedjacxdurom && U2)  {
+		DistSVec<double,dim> soltn(*U2);
+		if (refVal->mode == RefVal::DIMENSIONAL)
+			domain->scaleSolution(soltn, refVal);
+		domain->writeVectorToFile(reducedjacxdurom, *output_newton_step, tag, *U2);	//TODO: output_newton_step should accumulate over restarts
+	}
 
-    if (reducedjac && U3)  {	// entire JPhi
-			for (int i = 0; i < U3->numVectors(); ++i) {
-				DistSVec<double,dim> soltn((*U3)[i]);
-				if (refVal->mode == RefVal::DIMENSIONAL)
-					domain->scaleSolution(soltn, refVal);
+	if (reducedjac && U3)  {	// entire JPhi
+		for (int i = 0; i < U3->numVectors(); ++i) {
+			DistSVec<double,dim> soltn((*U3)[i]);
+			if (refVal->mode == RefVal::DIMENSIONAL)
+				domain->scaleSolution(soltn, refVal);
 
-				domain->writeVectorToFile(reducedjac, output_step_reducedjac, tag, soltn);	//TODO: output_step should accumulate over restarts
-				++output_step_reducedjac;
-			}
-    }
+			domain->writeVectorToFile(reducedjac, *output_newton_step, tag, soltn);	//TODO: output_newton_step should accumulate over restarts
+		}
+	}
+
+	++(*output_newton_step);
 }
 
 //------------------------------------------------------------------------------
@@ -2033,63 +2013,63 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 					     DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {
 
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-	++step;
-    }
-    double tag;
-    if (rmmh)
-      tag = rmmh->getTagValue(t);
-    else
-      tag = t * refVal->time;
+	if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
+		int step = 0;
+		if (frequency > 0) {
+			step = it / frequency;
+			if (lastIt && (it % frequency != 0))
+				++step;
+		}
+		double tag;
+		if (rmmh)
+			tag = rmmh->getTagValue(t);
+		else
+			tag = t * refVal->time;
 
-    if (solutions)  {
-      DistSVec<double,dim> soltn(U);
-      if (refVal->mode == RefVal::DIMENSIONAL)
-        domain->scaleSolution(soltn, refVal);
-      domain->writeVectorToFile(solutions, step, tag, soltn);
-    }
+		if (solutions)  {
+			DistSVec<double,dim> soltn(U);
+			if (refVal->mode == RefVal::DIMENSIONAL)
+				domain->scaleSolution(soltn, refVal);
+			domain->writeVectorToFile(solutions, step, tag, soltn);
+		}
 
-    int i;
-    for (i=0; i<PostFcn::SSIZE; ++i) {
-      if (scalars[i]) {
-	if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
-	postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState);
-	DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
-	domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
-      }
-    }
-    for (i=0; i<PostFcn::VSIZE; ++i) {
-      if (vectors[i]) {
-        if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
+		int i;
+		for (i=0; i<PostFcn::SSIZE; ++i) {
+			if (scalars[i]) {
+				if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());
+				postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A, *Qs, timeState);
+				DistSVec<double,1> Qs1(Qs->info(), reinterpret_cast<double (*)[1]>(Qs->data()));
+				domain->writeVectorToFile(scalars[i], step, tag, Qs1, &(sscale[i]));
+			}
+		}
+		for (i=0; i<PostFcn::VSIZE; ++i) {
+			if (vectors[i]) {
+				if (!Qv) Qv = new DistSVec<double,3>(domain->getNodeDistInfo());
 
-        if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
+				if (static_cast<PostFcn::VectorType>(i) == PostFcn::FLIGHTDISPLACEMENT)  {
 
-          if (rmmh) {
-            DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
-            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
-          }
-          else
-            com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
-        }
-        else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
-          if (rmmh) {
-            DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
-            postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
-          }
-          else
-            com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
+					if (rmmh) {
+						DistSVec<double,3> &Xr = rmmh->getFlightPositionVector(t, X);
+						postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+					}
+					else
+						com->fprintf(stderr, "WARNING: Flight Displacement Output not available\n");
+				}
+				else if (static_cast<PostFcn::VectorType>(i) == PostFcn::LOCALFLIGHTDISPLACEMENT)  {
+					if (rmmh) {
+						DistSVec<double,3> &Xr = rmmh->getRelativePositionVector(t, X);
+						postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), Xr, U, *Qv);
+					}
+					else
+						com->fprintf(stderr, "WARNING: Local Flight Displacement Output not available\n");
 
-        }
-        else
-          postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
-        domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
-      }
-    }
-  }
+				}
+				else
+					postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U, *Qv);
+				domain->writeVectorToFile(vectors[i], step, tag, *Qv, &(vscale[i]));
+			}
+		}
+	}
 
 }
 
@@ -2622,7 +2602,7 @@ void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<
   if (fpStateRom) {
     fprintf(fpStateRom, "%d %e", it, cpu);
 		for (int iPod = 0; iPod < nPod; ++iPod) {
-			fprintf(fpStateRom, " %e", UromTotal[iPod]);
+			fprintf(fpStateRom, " %23.15e", UromTotal[iPod]);	// write out with high precision
 		}
     fprintf(fpStateRom, "\n");
     fflush(fpStateRom);

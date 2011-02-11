@@ -13,7 +13,7 @@ protected:
 
 	Vec<double> rhs;
   Vec<double> From;
-  void saveNewtonSystemVectors(const int _it) {this->saveNewtonSystemVectorsAction(_it);}
+	void saveNewtonSystemVectors(const int totalTimeSteps) {this->saveNewtonSystemVectorsAction(totalTimeSteps);}
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 
 public:

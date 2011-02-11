@@ -62,13 +62,14 @@ protected:
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
 	virtual void writeStateRomToDisk(int it, double cpu);
+	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
 
 public:
   
   ImplicitRomTsDesc(IoData &, GeoSource &, Domain *);
   ~ImplicitRomTsDesc();
 
-  int solveNonLinearSystem(DistSVec<double, dim> &, int _it);
+  int solveNonLinearSystem(DistSVec<double, dim> &, const int _it);
 };
 
 //------------------------------------------------------------------------------

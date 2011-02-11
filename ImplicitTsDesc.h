@@ -54,7 +54,7 @@ public:
   virtual void computeJacobian(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
   virtual void setOperators(DistSVec<double,dim> &) = 0;
   virtual int solveLinearSystem(int, DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
-  int solveNonLinearSystem(DistSVec<double,dim> &, int);
+  int solveNonLinearSystem(DistSVec<double,dim> &, const int);
   void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);  
   void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
