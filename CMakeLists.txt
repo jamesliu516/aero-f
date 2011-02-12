@@ -26,19 +26,20 @@ SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
 
-FIND_PACKAGE(BLAS)
+#FIND_PACKAGE(BLAS)
+FIND_PACKAGE(LAPACK)
 IF(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES ${BLAS_LIBRARIES})
 ELSE(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES "")
 ENDIF(BLAS_LIBRARIES)
-FIND_PACKAGE(LAPACK)
+#FIND_PACKAGE(LAPACK)
 FIND_PACKAGE(MPI)
 
 SET(TARGETS_INST fluid)
 
 IF(UNIX)
-  MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME})
+  MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME} ".")
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
     FIND_LIBRARY(ARPACKLIB NAMES arpack 
@@ -46,7 +47,7 @@ IF(UNIX)
 
     SET(DO_MODAL 0)
     IF(ARPACKLIB AND LAPACK_FOUND)
-      MESSAGE("Found ARPACK:    " ${ARPACKLIB})
+      MESSAGE("-- ARPACK library " ${ARPACKLIB} " found.")
       add_definitions(-DDO_MODAL)
       SET(EXTRALIBRARIES 
           ${ARPACKLIB} ${LAPACK_LIBRARIES}
@@ -64,8 +65,8 @@ IF(UNIX)
 
     #SET(USE_SCALAPACK 0)
     IF(SCALAPACKLIB AND BLACSLIB AND BLACSF77LIB)
-      MESSAGE("Found SCALAPACK: " ${SCALAPACKLIB})
-      MESSAGE("Found BLACS:     " ${BLACSLIB},${BLACSF77LIB})    
+      MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
+      MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSF77LIB} " found.")    
       add_definitions(-DDO_SCALAPACK)
       SET(EXTRALIBRARIES
           ${SCALAPACKLIB} ${BLACSLIB} ${BLACSF77LIB} 
@@ -283,43 +284,86 @@ SET(INC_DIR .)
 ##############################
 # For the embedded framework #
 ##############################
-SET(INC_DIR_TMP ${INC_DIR} ./PhysBAM_Interface)
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ${INC_DIR_TMP}) 
-FIND_LIBRARY(PhysBAM_Base_Lib NAMES physbam PATHS ${PHYSBAM_BASE})
-IF(PhysBAM_Base_Lib)
-  MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
-  SET (DO_EMBEDDED 1)
-ELSE(PhysBAM_Base_Lib)
-  MESSAGE("-- Looking for PhysBAM_Base_Lib: not found (needed by Embedded Framework)")
-  SET (DO_EMBEDDED 0)
-ENDIF(PhysBAM_Base_Lib)
-FIND_PACKAGE(Boost 1.19.0)
-if(Boost_FOUND)
-  include_directories(${Boost_INCLUDE_DIRS})
-endif(Boost_FOUND)
-IF(PHYSBAM_BASE AND PhysBAM_Base_Lib AND Boost_FOUND)
-  SET (DO_EMBEDDED 1)
-ELSE(PHYSBAM_BASE AND PhysBAM_Base_Lib AND Boost_FOUND)
-  SET (DO_EMBEDDED 0)
-ENDIF(PHYSBAM_BASE AND PhysBAM_Base_Lib AND Boost_FOUND)
-
-OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
-
+SET (DO_EMBEDDED 1)
 if (DO_EMBEDDED)
+
+  FIND_PACKAGE(Boost 1.19.0 REQUIRED)
+  if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+  endif(Boost_FOUND)
+
+  SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
+  INCLUDE_DIRECTORIES(${INC_DIR})
+
+  ADD_LIBRARY(physbam SHARED
+  PhysBAM_Interface/PHYSBAM_INTERFACE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Arrays/ARRAY_COLLECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Vectors/VECTOR.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/EXCEPTIONS.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/TIMER.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/PROCESS_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Read_Write/Utilities/FILE_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Data_Structures/KD_TREE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Parsing/STRING_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/DEBUG_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/LOG.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/LOG_ENTRY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/DEBUG_PRINT.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Nonlinear_Equations/ITERATIVE_SOLVER.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_BASE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_3X2.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_3X3.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_MXN.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/ROTATION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/SYMMETRIC_MATRIX_3X3.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_4X4.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Polynomials/CUBIC.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Random_Numbers/MT19937.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Random_Numbers/RANDOM_NUMBERS.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/ORIENTED_BOX.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/POLYGON.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/SEGMENT_2D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/SEGMENT_3D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/RAY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/PLANE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/BOX.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/TRIANGLE_3D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Continuous_Collision_Detection/POINT_FACE_COLLISION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Continuous_Collision_Detection/EDGE_EDGE_COLLISION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Level_Sets/LEVELSET_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Spatial_Acceleration/BOX_HIERARCHY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Spatial_Acceleration/TRIANGLE_HIERARCHY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_LINE_2D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_PLANE_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_POINT_SIMPLEX_1D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_PLANE_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_BOX_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_ORIENTED_BOX_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_SEGMENT_2D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_TRIANGLE_3D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Implicit_Objects/IMPLICIT_OBJECT.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology_Based_Geometry/STRUCTURE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Registry/STRUCTURE_REGISTRY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/SIMPLEX_MESH.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/SEGMENT_MESH.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/TRIANGLE_MESH.cpp
+  )
+  
+  SET_TARGET_PROPERTIES(physbam
+                PROPERTIES COMPILE_FLAGS "-fPIC -DCOMPILE_WITHOUT_READ_WRITE_SUPPORT -IPublic_Library")
+
   SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR_TMP})
 
-#same definitions as AERO-F main code
+  #same definitions as AERO-F main code
   add_definitions(-fPIC -DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
   add_library(Intersector SHARED
               IntersectorFRG/IntersectorFRG.C
               IntersectorPhysBAM/IntersectorPhysBAM.C
               IntersectorPhysBAM/FloodFill.C
               IntersectorPhysBAM/Mpi_Utilities.C)
-  TARGET_LINK_LIBRARIES(Intersector ${PhysBAM_Base_Lib})
-
-#  MESSAGE("-- Found PHYSBAM_BASE: " ${PHYSBAM_BASE})
-#  MESSAGE("PHYSBAM_BASE: " ${Intersector})
+  TARGET_LINK_LIBRARIES(Intersector physbam)
 
   ADD_DEFINITIONS(-DDO_EMBEDDED)
   SET (EXTRALIBRARIES ${EXTRALIBRARIES} Intersector)
@@ -376,7 +420,7 @@ SET_TARGET_PROPERTIES(Fortran
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
 IF(MPI_FOUND)
-  MESSAGE("Will compile with MPI at: " ${MPI_INCLUDE_PATH})
+  MESSAGE("-- Will compile with MPI API " ${MPI_INCLUDE_PATH} ".")
   SET(INC_DIR ${INC_DIR} ${MPI_INCLUDE_PATH})
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
@@ -397,13 +441,13 @@ IF(MPI_FOUND)
   ENDIF(NOT USE_SCALAPACK)
 
 ELSE(MPI_FOUND)
-  MESSAGE("Only a non-MPI based executable will be compiled")
+  MESSAGE("-- Only a non-MPI based executable will be compiled.")
   SET(MPI_LIBRARIES "")
 ENDIF(MPI_FOUND)
 
 # SET(CMAKE_VERBOSE_MAKEFILE true)
 
-MESSAGE("All include dirs" ${INC_DIR})
+#MESSAGE("All include dirs" ${INC_DIR})
 INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 #add_subdirectory(parser)
