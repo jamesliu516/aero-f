@@ -414,7 +414,7 @@ SET_TARGET_PROPERTIES(FortranLib
                       PROPERTIES
                       COMPILE_FLAGS -fPIC
                       RELEASE_OUTPUT_NAME Fortran
-                      DEBUG_OUTPUT_NAME Fortran.debug)
+                      DEBUG_OUTPUT_NAME Fortran)
 
 IF (USE_SCALAPACK)
   ADD_LIBRARY(FortranScalapackLib
@@ -424,7 +424,7 @@ IF (USE_SCALAPACK)
                         PROPERTIES
                         COMPILE_FLAGS -fPIC
                         RELEASE_OUTPUT_NAME FortranScalapack
-                        DEBUG_OUTPUT_NAME FortranScalapack.debug)
+                        DEBUG_OUTPUT_NAME FortranScalapack)
 ENDIF(USE_SCALAPACK)
 
 
