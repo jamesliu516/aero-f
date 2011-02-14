@@ -26,14 +26,16 @@ SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
 
-#FIND_PACKAGE(BLAS)
 FIND_PACKAGE(LAPACK)
 IF(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES ${BLAS_LIBRARIES})
 ELSE(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES "")
 ENDIF(BLAS_LIBRARIES)
-#FIND_PACKAGE(LAPACK)
+IF(LAPACK_LIBRARIES)
+  SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
+ENDIF(LAPACK_LIBRARIES)
+
 FIND_PACKAGE(MPI)
 
 SET(TARGETS_INST fluid)
@@ -50,7 +52,7 @@ IF(UNIX)
       MESSAGE("-- ARPACK library " ${ARPACKLIB} " found.")
       add_definitions(-DDO_MODAL)
       SET(EXTRALIBRARIES 
-          ${ARPACKLIB} ${LAPACK_LIBRARIES}
+          ${ARPACKLIB}
           ${EXTRALIBRARIES})
       SET(DO_MODAL 1)
     ENDIF(ARPACKLIB AND LAPACK_FOUND)
@@ -60,26 +62,26 @@ IF(UNIX)
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
     FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSF77LIB NAMES blacsF77 blacsF77init-openmpi
+    FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
                  PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
 
     #SET(USE_SCALAPACK 0)
-    IF(SCALAPACKLIB AND BLACSLIB AND BLACSF77LIB)
+    IF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
       MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
-      MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSF77LIB} " found.")    
+      MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSCLIB} " found.")    
       add_definitions(-DDO_SCALAPACK)
       SET(EXTRALIBRARIES
-          ${SCALAPACKLIB} ${BLACSLIB} ${BLACSF77LIB} 
+          ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
           ${EXTRALIBRARIES})
       SET(USE_SCALAPACK 1)
     ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
       SET(USE_SCALAPACK 0)
-    ENDIF(SCALAPACKLIB AND BLACSLIB AND BLACSF77LIB)
+    ENDIF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
     
   ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 ENDIF(UNIX)
 
-SET(BINDIR ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+SET(BINDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
 
 FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 
@@ -251,19 +253,19 @@ SET_TARGET_PROPERTIES(Parser
 
 install(TARGETS FluidBase DESTINATION lib EXPORT fluid-targets)
 install(EXPORT fluid-targets DESTINATION lib/base)
-export(TARGETS FluidBase FILE ${CMAKE_CURRENT_SOURCE_DIR}/base-exports.cmake)
+export(TARGETS FluidBase FILE ${CMAKE_CURRENT_BINARY_DIR}/base-exports.cmake)
 
 	
 IF(MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"" `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 ELSE (MERCURIAL_EXECUTABLE)
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
+                   COMMAND echo "const char *THE_VERSION = \\\"\\\"\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 ENDIF (MERCURIAL_EXECUTABLE)
 
 ###################
@@ -370,12 +372,12 @@ if (DO_EMBEDDED)
 ENDIF (DO_EMBEDDED)
 ##############################
 
-ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
+ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
 
 SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
-ADD_LIBRARY(Fortran 
+ADD_LIBRARY(FortranLib 
 f77src/ballvertex.f
 f77src/boundflux5.f
 f77src/boundjac2.f
@@ -406,18 +408,25 @@ f77src/roejac5waterdissprec.f
 f77src/roejac6.f
 f77src/roejac6jwl.f
 f77src/roejacwaterdissprim.f
-f77src/torsionspring.f
-f77src/thinsvd.f
-f77src/lworksize.f)
+f77src/torsionspring.f)
+
+SET_TARGET_PROPERTIES(FortranLib
+                      PROPERTIES
+                      COMPILE_FLAGS -fPIC
+                      RELEASE_OUTPUT_NAME Fortran
+                      DEBUG_OUTPUT_NAME Fortran.debug)
 
 IF (USE_SCALAPACK)
-  ADD_DEPENDENCIES(Fortran
-                   f77src/thinsvd.f
-                   f77src/lworksize.f)
+  ADD_LIBRARY(FortranScalapackLib
+              f77src/thinsvd.f
+              f77src/lworksize.f)
+  SET_TARGET_PROPERTIES(FortranScalapackLib
+                        PROPERTIES
+                        COMPILE_FLAGS -fPIC
+                        RELEASE_OUTPUT_NAME FortranScalapack
+                        DEBUG_OUTPUT_NAME FortranScalapack.debug)
 ENDIF(USE_SCALAPACK)
 
-SET_TARGET_PROPERTIES(Fortran
-                PROPERTIES COMPILE_FLAGS -fPIC)
 
 IF(MPI_FOUND)
   MESSAGE("-- Will compile with MPI API " ${MPI_INCLUDE_PATH} ".")
@@ -425,10 +434,10 @@ IF(MPI_FOUND)
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
   IF(NOT USE_SCALAPACK)
-    ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_SOURCE_DIR}/hgidentity.C)
+    ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
-    TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 
+    TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
                           ${EXTRALIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
@@ -458,7 +467,11 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+IF(NOT USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ELSE(NOT USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib FortranScalapackLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ENDIF(NOT USE_SCALAPACK)
 SET_TARGET_PROPERTIES(fluid 
                       PROPERTIES 
 		        RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
