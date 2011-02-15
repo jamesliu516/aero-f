@@ -54,6 +54,7 @@ class EmbeddedStructure {
   int elemType;
   CrackingSurface *cracking; //activated only if cracking is considered in the structure code.
 
+  //NOTE: the following variables should be dimensional!
   double (*X0)[3]; //original node coordinates
   double (*X)[3];  //updated node coordinates
   int    (*Tria)[3]; //mesh topology (activated only if the mesh is provided by FEM)
@@ -108,7 +109,7 @@ class DynamicNodalTransfer {
         Communication::Window<double> *wintime;
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
-        double *XandUdot;
+        double *XandUdot; //non-dimensionalized
         double *dt_tmax;
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
