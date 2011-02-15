@@ -133,7 +133,13 @@ void ModalSolver<dim>::solve()  {
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);
 	 GappyOffline<dim> gappy(com,*ioData,domain,geoState);
-	 gappy.buildGappy();	// do all the gappy offline work
+	 gappy.buildReducedModel();
+ }
+ else if (ioData->problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_){
+	 geoState = new DistGeoState(*ioData, &domain);
+	 geoState->setup1(tInput->positions, &Xref, &controlVol);
+	 SurfMeshGen<dim> surfMeshBuilder(com,*ioData,domain,geoState);
+	 surfMeshBuilder.buildReducedModel();	
  }
  else  {
    preProcess();

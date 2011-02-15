@@ -81,16 +81,19 @@ class StaticArray {	//used for the value of a map
 template <int dim>
 class GappyOffline {
 
-private:
+protected:
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
 	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
-	void setUpPodBases();	// read in POD bases
-	void buildGappyMesh();	// build reduced mesh offline
-	void buildGappyMatrices();	// build matrices A and B
+	void setUp();	// read in POD bases
+	virtual void setUpPodResJac();
+	virtual void setUpPseudoInverse();
+
+	void buildReducedMesh();	// build reduced mesh offline
+	virtual void buildGappyMatrices();	// build matrices A and B
 
 	int nSampleNodes;	// number of parent sample globalNodes
 	void newNeighbors();	// add unique neighbors of a node
@@ -140,8 +143,9 @@ private:
 
 	// greedy functions
 
-	void greedy(int greedyIt);
-	void computeGreedyIterationInfo();
+	virtual void determineSampleNodes();
+	void greedyIteration(int greedyIt);
+	virtual void setUpGreedy();
 	void computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError);
 	void findMaxAndFillPodHat(double myMaxNorm, int locSub, int locNode, int globalNode);
 	void makeNodeMaxIfUnique(double nodeError, double &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int &globalNode);
@@ -168,6 +172,7 @@ private:
 	std::vector <double> *(nodesXYZ [3]);	// nodesXYZ[iXYZ][iSampleNode][iNode] is the iXYZ coordinate of the iNode in the iSampleNode island
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
+	int *nodeOffset;
 	int *totalNodesCommunicated;
 	int *totalEleCommunicated;
 	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
@@ -191,7 +196,7 @@ private:
 		// boundary conditions
 
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
-	void addTwoNodeLayers();
+	void buildRemainingMesh();
 	void computeBCFaces(bool);
 	bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
 	bool checkFaceAlreadyAdded(const int cpuNum, const int
@@ -204,6 +209,7 @@ private:
 			const int iSub, const int *locToGlobNodeMap, int *globalNodeNums);
 	void addElementOfFace(FaceSet& currentFaces, const int iFace,
 			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
+	virtual void addSampleNodesAndNeighbors();
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
 	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
 	void communicateAll();
@@ -211,7 +217,7 @@ private:
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
 	void outputTopFile();
-	void outputSampleNodes();
+	virtual void outputSampleNodes();
 	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
 			char *sampleNodeFile);
 
@@ -246,7 +252,7 @@ private:
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);
 	~GappyOffline();
-	void buildGappy();	// build all offline info (do everything)
+	void buildReducedModel();	// build all offline info (do everything)
 
 };
 #include "GappyOffline.C"

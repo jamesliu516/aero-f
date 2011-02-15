@@ -22,8 +22,9 @@ template<int dim> class PostOperator;
 #include <TsInput.h>
 #include <TsOutput.h>
 #include <TsRestart.h>
-#include <GappyOffline.h> // KTC
-#include <ParallelRom.h> // KTC
+#include <GappyOffline.h>
+#include <SurfMeshGen.h>
+#include <ParallelRom.h> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
