@@ -29,6 +29,14 @@ struct PhantomElement {
 
 //------------------------------------------------------------------------------
 
+struct LatestCracking {
+  std::set<int> phantomQuads;
+  std::map<int,int> phantomNodes; //Note: "phantomNodes" are NOT equivalent to "nodes of phantomQuads"!
+  LatestCracking() {/*nothing*/}
+};
+
+//------------------------------------------------------------------------------
+
 class CrackingSurface : public LocalLevelSet {
   const int elemType; //currently only support quadrangles.
   int nTotalQuads, nUsedQuads;
@@ -36,7 +44,8 @@ class CrackingSurface : public LocalLevelSet {
   int nTotalNodes, nUsedNodes;
 
   std::map<int,PhantomElement> phantoms; //size: number of cracked (quad) elements
-  std::set<int> latestCrackedQuads;
+  LatestCracking latest;
+//  std::set<int> latestCrackedQuads;
   int (*tria2quad)[2]; //size: nTotalTrias
   int (*quad2tria)[2]; //size: nTotalQuads
   bool *cracked; //size: nTotalQuads
@@ -57,7 +66,8 @@ public:
   int usedNodes() const {return nUsedNodes;}
   int totTrias()  const {return nTotalTrias;}
   int usedTrias() const {return nUsedTrias;}
-  std::set<int> getLatestCrackedQuads() const {return latestCrackedQuads;}
+  std::set<int> getLatestPhantomQuads() const {return latest.phantomQuads;}
+  std::map<int,int> getLatestPhantomNodes() const {return latest.phantomNodes;}
   void getQuad2Tria(int quad, int &trId1, int &trId2) {trId1=quad2tria[quad][0]; trId2=quad2tria[quad][1];}
 };
 

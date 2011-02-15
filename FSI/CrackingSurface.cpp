@@ -100,13 +100,14 @@ int CrackingSurface::updateCracking(int nNew, int* newPhan, double* phi, int(*tr
   if(nNew==0)
     return 0;
 
-  latestCrackedQuads.clear(); //flush
+  latest.phantomQuads.clear();
+  latest.phantomNodes.clear(); //flush
   int quadId,maxtrId=0,count=0;
 
   for(int i=0; i<2*nNew; i++) {
     quadId = newPhan[5*i];
     cracked[quadId] = true;
-    latestCrackedQuads.insert(quadId);
+    latest.phantomQuads.insert(quadId);
     //insert a new phantom element
     int j = (i%2) ? (i-1)/2 : i/2;
     phantoms[quadId] = PhantomElement(newPhan[5*i+1],newPhan[5*i+2],newPhan[5*i+3],newPhan[5*i+4],
@@ -132,6 +133,17 @@ int CrackingSurface::updateCracking(int nNew, int* newPhan, double* phi, int(*tr
     triaTopo[trId2][0] = newPhan[5*i+1];
     triaTopo[trId2][1] = newPhan[5*i+3];
     triaTopo[trId2][2] = newPhan[5*i+4];
+  }
+
+  //construct latest.phantomNodes.
+  for(int i=0; i<2*nNew; i+=2) {
+    int j=i+1;
+    for(int myNode=1; myNode<5; myNode++)
+      if(newPhan[5*i+myNode]>=nUsedNodes && newPhan[5*j+myNode]<nUsedNodes) //newPhan[5*i+myNode] is new
+        latest.phantomNodes[newPhan[5*i+myNode]] = newPhan[5*j+myNode];
+      else if(newPhan[5*j+myNode]>=nUsedNodes && newPhan[5*i+myNode]<nUsedNodes) //newPhan[5*j+myNode] is new
+        latest.phantomNodes[newPhan[5*j+myNode]] = newPhan[5*i+myNode];
+      else {fprintf(stderr,"SOFTWARE BUG: Node numbering is wrong! Aborting.\n");exit(-1);}
   }
 
   if(count!=nNew) {fprintf(stderr,"SOFTWARE BUG: Inconsistent on the number of new quads(%d v.s. %d)!\n", nNew, count);exit(-1);}

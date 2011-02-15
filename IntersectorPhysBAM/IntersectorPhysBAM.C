@@ -429,7 +429,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
 
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
-  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
+  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
   physInterface->SetThickness(1e-4);
 }
 
@@ -722,8 +722,9 @@ void
 DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
 {
   int previous = numStNodes;
+  bool newCrack = (nNodes!=numStNodes);
 
-  if(nNodes!=numStNodes) {
+  if(newCrack) {
     if(!cracking || nNodes<numStNodes) {
       com->fprintf(stderr,"ERROR: Number of structure nodes has changed! Cracking is not considered in this simulation.\n");
       exit(-1);}
@@ -738,7 +739,16 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
       Xs_np1[i][j] = xs[3*i+j];
       Xsdot[i][j] = Vs[3*i+j];}
 
-  /* TODO(KEVIN): MAY NEED TO DO SOMETHING IN physInterface !! */
+  if(newCrack) {
+    std::map<int,int> newNodes = cracking->getLatestPhantomNodes();
+    if(numStNodes-previous!=newNodes.size()) {
+      com->fprintf(stderr,"SOFTWARE BUG: How many new phantom nodes, %d or %d ?!\n", numStNodes-previous, newNodes.size());
+      exit(-1);
+    }
+    for(std::map<int,int>::iterator it=newNodes.begin(); it!=newNodes.end(); it++)
+      Xs[it->first] = Xs[it->second]; //add new phantom nodes but keep the old node corrdinates.
+    initializePhysBAM(); //delete the old interface and create a new one. Use the modified Xs.
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -747,7 +757,7 @@ void DistIntersectorPhysBAM::updateCracking(int (*abc)[3])
 { //update the topology, but not the node coordinates
   numStNodes = cracking->usedNodes();
   numStElems = cracking->usedTrias(); 
-  std::set<int> newQuads = cracking->getLatestCrackedQuads();
+  std::set<int> newQuads = cracking->getLatestPhantomQuads();
   for(std::set<int>::iterator it=newQuads.begin(); it!=newQuads.end(); it++) {
     int trId1,trId2;
     cracking->getQuad2Tria(*it,trId1,trId2); //obtain trId1 and trId2;
