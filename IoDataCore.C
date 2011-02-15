@@ -461,15 +461,15 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 25,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 26,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
      "UnsteadyAeroThermoElastic", 9, "Forced", 10, "AcceleratedForced", 11,
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
-     "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
-     "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22, "UnsteadyROM", 23, "GappyPODConstruction", 24 );
+		 "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
+		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
+		 "SparseGridGeneration", 22, "UnsteadyROM", 23, "GappyPODConstruction", 24 , "SurfaceMeshConstruction",25);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3321,7 +3321,8 @@ void IoData::resetInputValues()
       problem.alltype == ProblemData::_ROM_AEROELASTIC_ ||
       problem.alltype == ProblemData::_ROM_ ||
       problem.alltype == ProblemData::_INTERPOLATION_ ||
-			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_) 
+			problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_ ||
+			problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_) 
     problem.type[ProblemData::LINEARIZED] = true;
 
   // part 2

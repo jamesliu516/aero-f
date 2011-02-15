@@ -11,7 +11,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	errorRes(0, dom.getNodeDistInfo() ),
 	errorJac(0, dom.getNodeDistInfo() ),
 	pseudoInvRhs(0, dom.getNodeDistInfo() ),
-	handledNodes(0), nPodBasis(2),
+	handledNodes(0), nPodBasis(0),
 	debugging(true),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
@@ -32,7 +32,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 
 	// initialize vectors to point to the approprite bases
 
-        for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
+	for(int i=0; i<2; ++i) parallelRom[i] = new ParallelRom<dim>(dom,_com);
 	pod.a[0] = &podRes;	// make pod point to res and jac
 	pod.a[1] = &podJac;
 	podHat.a[0] = &podHatRes;	// make pod point to res and jac
@@ -96,54 +96,66 @@ GappyOffline<dim>::~GappyOffline()
 	//---------------------------------------------------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::buildGappy() {
+void GappyOffline<dim>::buildReducedModel() {
 
-	setUpPodBases();
+	setUp();
 
 	// compute the reduced mesh used by Gappy POD
 
-   buildGappyMesh();
-
-	// compute matries A and B required online
+	buildReducedMesh();
 
 	 com->barrier();
 
-   buildGappyMatrices();
+	// compute matries A and B required online
 
-   com->fprintf(stderr," ... finished with buildGappy ...\n");
+	buildGappyMatrices();
 
-// STRATEGY
-// compute the mesh for the masked domain
-// 	Advantages: can use existing data structures. Can use typical decomposition techniques (e.g. DistSVec), which will make integration with ScaLapack much easier. For connectivity, assume a bunch of "islands" which do not connect.
-// put zeros in the pod[0], pod[1] on the masked quantities that aren't restricted
-// don't evaluate rhat and jphihat for masked quantities that aren't restricted
-// the association between the restricted and full domain is through the ordering of the POD basis vectors! This is all hidden in matrices A,B
+	com->fprintf(stderr," ... finished with buildGappy ...\n");
 
-// TRICKS
-// 1) you can add zero rows to matrices and it will have no effect on the qr decomposition!
+	// STRATEGY
+	// compute the mesh for the masked domain
+	// 	Advantages: can use existing data structures. Can use typical decomposition techniques (e.g. DistSVec), which will make integration with ScaLapack much easier. For connectivity, assume a bunch of "islands" which do not connect.
+	// put zeros in the pod[0], pod[1] on the masked quantities that aren't restricted
+	// don't evaluate rhat and jphihat for masked quantities that aren't restricted
+	// the association between the restricted and full domain is through the ordering of the POD basis vectors! This is all hidden in matrices A,B
 
-// ?
-// -how to build a mesh here? can you create a new object with connectivity, decomposition, etc.?
-// -how to specify PODData?
+	// TRICKS
+	// 1) you can add zero rows to matrices and it will have no effect on the qr decomposition!
 
-// INPUT NOTES
-// nPod[1] = 0 indicates that the same basis is used for the jacobian and residual
+	// ?
+	// -how to build a mesh here? can you create a new object with connectivity, decomposition, etc.?
+	// -how to specify PODData?
+
+	// INPUT NOTES
+	// nPod[1] = 0 indicates that the same basis is used for the jacobian and residual
 
 } 
 
 //---------------------------------------------------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::setUpPodBases() {
+void GappyOffline<dim>::setUp() {
 
 	// determine whether one or two pod bases are used
 
-	nPodState = ioData->Rob.numROB;
+	setUpPodResJac();
+	setUpGreedy();
+	setUpPseudoInverse();
+
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::setUpPodResJac() {
+
 	nPod[0] = ioData->Rob.numROBRes;	// number of POD basis vectors 
 	nPod[1] = ioData->Rob.numROBJac;
 	int podFiles [2] = {0, 1};	// which pod files should be read
 
 	nPodMax = max(nPod[0],nPod[1]);	// compute maximum nPod
+
+	nPodBasis = 2;
 
 	if (nPod[1] == 0) {	// only need one basis (shared between jacobian and residual)
 		nPodBasis = 1;
@@ -162,126 +174,36 @@ void GappyOffline<dim>::setUpPodBases() {
 		nPod[0] = nPod[1];	// from now on, only deal with the first basis
 	}
 
-	com->fprintf(stderr, " ... Reading POD bases for Gappy POD contruction\n");
-
-	int dimDbg = dim;	// KTC debug
-	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
-	nSampleNodes = static_cast<int>(nSampleNodes * ioData->Rob.sampleNodeFactor);	// times the number you really need
-
-	// require nSampleNodes * dim >= max(nPod[0],nPod[1]); nSampleNodes >= ceil(double(max(nPod[0],nPod[1]))/double(dim))
-	assert(nSampleNodes * dim >= max(nPod[0],nPod[1])); // KTC debug
-
-	pseudoInvRhs.resize(nSampleNodes * dim);	// make correct size
-	for (int i = 0; i < nSampleNodes * dim; ++i) pseudoInvRhs[i] = 0.0;
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
 		podHat[i].resize(nPod[i]);
 		error[i].resize(nPod[i]);
 	}
 
-	//	read in both Pod bases
+	//	read in both bases
+	com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
   domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::setUpPseudoInverse() {
 
 	// compute pod[0]^Tpod[1] (so you can delete these from memory sooner)
 	if (nPodBasis == 2)
 		computePodTPod();
 
+	pseudoInvRhs.resize(nSampleNodes * dim);	// make correct size
+	for (int i = 0; i < nSampleNodes * dim; ++i) pseudoInvRhs[i] = 0.0;
+
 }
-
-template<int dim>
-void GappyOffline<dim>::buildGappyMesh() {
-
-	//======================================
-	// PURPOSE
-	// 	build reduced mesh by selecting sample globalNodes
-	// INPUTS
-	// 	nPod[0], nPod[1], nSampleNodes
-	// 	full domain decomposition: pod[0], pod[1]
-	// OUTPUTS
-	// 	reduced domain decomposition: mesh, podHat[0], podHat[1],
-	//======================================
-
-	//======================================
-	// NOTES
-	// nRhsMax = number of POD vectors for each interpolation node that is
-	// selected. It can be 1 to dim, where dim corresponds to interpolation.
-	//
-	// Mesh will be entirely disconnected, which makes decomposition trivial
-	// (tradeoff: possibly more (redundant) unknowns, but no communication
-	//
-	// Fix the size of PhiHat using trick 1
-	//
-	// First compute a node, then compute the associated mask
-	//
-	// First node captures the inlet boundary conditions
-	//======================================
-
-	//======================================
-	// compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
-	//======================================
-
-	computeGreedyIterationInfo();
-
-	//==================
-	// Option 1: build on a reduced mesh, which is currently unknown
-	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
-	//==================
-
-	// initialize restricted pod basis and error vectors
-
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
-		podHat[iPodBasis].resize(nPod[iPodBasis]);
-		for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
-		error[iPodBasis].resize(nRhsMax);
-		for (int i = 0; i < nRhsMax; ++i) error[iPodBasis][i] = pod[iPodBasis][i];	// for the first iteration, just pick out largest element
-	}
-
-	//===============================================
-	// initialize the least squares problems
-	//===============================================
-	
-	if (nGreedyIt > 1)
-		initializeGappyLeastSquares();	// no least squares the first greedy it
-
-	//===============================================
-	// run the rest of the greedy method
-	//===============================================
-
-	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
-		greedy(greedyIt);
-
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){	// pod no longer needed
-		pod[iPodBasis].resize(0);
-		error[iPodBasis].resize(0);
-	}
-
-	if (debugging){
-		com->fprintf(stderr,"globalSampleNodes are:");
-		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
-			com->fprintf(stderr,"%d ",globalSampleNodes[iSampleNodes]);
-		com->fprintf(stderr,"\n");
-	}
-
-	//==============================================
-	// add required node neighbors to the node set
-	// NOTE: adding two layers of neighbors!
-	//==============================================
-
-	addTwoNodeLayers();	// add two layers of globalNodes 
-
-	//==============================================
-	// output TOP file
-	//==============================================
-	
-	outputTopFile();
-	outputSampleNodes();
-}
-
 
 //---------------------------------------------------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::computeGreedyIterationInfo() {
+void GappyOffline<dim>::setUpGreedy() {
 
 	//==================================================================
 	// PURPOSE: compute number of POD basis vectors (nRhsMax) and globalNodes and handled by each
@@ -298,6 +220,12 @@ void GappyOffline<dim>::computeGreedyIterationInfo() {
 	//==================================================================
 	// 	1) require nPodMax < nSampleNodes * dim to avoid underdetermined system
 	//==================================================================
+
+	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
+	nSampleNodes = static_cast<int>(nSampleNodes * ioData->Rob.sampleNodeFactor);	// times the number you really need
+
+	assert(nSampleNodes * dim >= max(nPod[0],nPod[1]));
+
 
 	if (nSampleNodes * dim < nPodMax) {	
 		int nSampleNodesOld = nSampleNodes; 
@@ -337,6 +265,73 @@ void GappyOffline<dim>::computeGreedyIterationInfo() {
 		}
 	}
 
+	// initialize restricted pod basis and error vectors
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
+		podHat[iPodBasis].resize(nPod[iPodBasis]);
+		for (int i = 0; i < nPod[iPodBasis]; ++i) podHat[iPodBasis][i] = 0.0;
+		error[iPodBasis].resize(nRhsMax);
+		for (int i = 0; i < nRhsMax; ++i) error[iPodBasis][i] = pod[iPodBasis][i];	// for the first iteration, just pick out largest element
+	}
+
+	//===============================================
+	// initialize the least squares problems
+	//===============================================
+	
+	if (nGreedyIt > 1)
+		initializeGappyLeastSquares();	// no least squares the first greedy it
+}
+
+//---------------------------------------------------------------------------------------
+
+template<int dim>
+void GappyOffline<dim>::buildReducedMesh() {
+
+	//======================================
+	// PURPOSE
+	// 	build reduced mesh by selecting sample globalNodes
+	// INPUTS
+	// 	nPod[0], nPod[1], nSampleNodes
+	// 	full domain decomposition: pod[0], pod[1]
+	// OUTPUTS
+	// 	reduced domain decomposition: mesh, podHat[0], podHat[1],
+	//======================================
+
+	//======================================
+	// NOTES
+	// nRhsMax = number of POD vectors for each interpolation node that is
+	// selected. It can be 1 to dim, where dim corresponds to interpolation.
+	//
+	// Mesh will be entirely disconnected, which makes decomposition trivial
+	// (tradeoff: possibly more (redundant) unknowns, but no communication
+	//
+	// Fix the size of PhiHat using trick 1
+	//
+	// First compute a node, then compute the associated mask
+	//
+	// First node captures the inlet boundary conditions
+	//======================================
+
+	//======================================
+	// compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
+	//======================================
+
+	//==================
+	// Option 1: build on a reduced mesh, which is currently unknown
+	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
+	//==================
+
+	determineSampleNodes();	// use greedy algorithm to determine sample nodes
+
+	buildRemainingMesh();	// need two node layers b/c 2nd order flux
+
+	outputTopFile();
+
+	outputSampleNodes();
+
+	outputStateReduced();
+
+	outputWallDistanceReduced();
 }
 
 //---------------------------------------------------------------------------------------
@@ -436,7 +431,26 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 }
 
 template<int dim>
-void GappyOffline<dim>::greedy(int greedyIt) {
+void GappyOffline<dim>::determineSampleNodes() {
+
+	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
+		greedyIteration(greedyIt);
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){	// pod no longer needed
+		pod[iPodBasis].resize(0);
+		error[iPodBasis].resize(0);
+	}
+
+	if (debugging){
+		com->fprintf(stderr,"globalSampleNodes are:");
+		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes)
+			com->fprintf(stderr,"%d ",globalSampleNodes[iSampleNodes]);
+		com->fprintf(stderr,"\n");
+	}
+}
+
+template<int dim>
+void GappyOffline<dim>::greedyIteration(int greedyIt) {
 
 	// Differences for 1st iteration compared with other greedy iterations:
 	// 1) no least squares problem is solved (just take the maximum entry)
@@ -670,7 +684,7 @@ void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
 				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
 }
 template<int dim>
-void GappyOffline<dim>::addTwoNodeLayers() {
+void GappyOffline<dim>::buildRemainingMesh() {
 
 	// globalNodes[iIsland][0] is the sample node itself 
 	// globalNodes[iIsland][iNode] is the iNode neighbor of iIsland.
@@ -695,34 +709,19 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 
 	// compute two layers of globalNodes
 	
-	int *nodeOffset = new int [nSampleNodes];
+	nodeOffset = new int [nSampleNodes];
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
+		nodeOffset[iSampleNodes] = 0;
 
-	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+	addSampleNodesAndNeighbors();	
 
-		// add the sample node itself to all processors
-
-		globalNodes[iSampleNodes].push_back(globalSampleNodes[iSampleNodes]);
-		cpus[iSampleNodes].push_back(cpuSample[iSampleNodes]);
-		locSubDomains[iSampleNodes].push_back(locSubSample[iSampleNodes]);
-		localNodes[iSampleNodes].push_back(locNodeSample[iSampleNodes]);
-
-		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalSampleNodes[iSampleNodes])->second;
-		for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
-			nodesXYZ[iXYZ][iSampleNodes].push_back(xyzVals[iXYZ]);
-		}
-
-		// add all neighbor globalNodes and elements of the sample node itself
-		nodeOffset[iSampleNodes] = globalNodes[iSampleNodes].size();
-		addNeighbors(iSampleNodes);
-	}
-
-	
 	computeBCFaces(true);	// compute BC faces and add nodes/elements for lift surfaces
 
 	// add all neighbor globalNodes and elements of the sample node's neighbors
 	// and neighbor nodes of the lift surface nodes (need 1 layer of nodes for lift)
 
 	communicateAll();	// all cpus need all nodes/elements for adding neighbors
+
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
 		addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
 
@@ -746,7 +745,31 @@ void GappyOffline<dim>::addTwoNodeLayers() {
 	numReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
 
 	delete [] nodeOffset; 
+
 } 
+
+template<int dim>
+void GappyOffline<dim>::addSampleNodesAndNeighbors() {
+
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+
+		// add the sample node itself to all processors
+
+		globalNodes[iSampleNodes].push_back(globalSampleNodes[iSampleNodes]);
+		cpus[iSampleNodes].push_back(cpuSample[iSampleNodes]);
+		locSubDomains[iSampleNodes].push_back(locSubSample[iSampleNodes]);
+		localNodes[iSampleNodes].push_back(locNodeSample[iSampleNodes]);
+
+		StaticArray<double, 3> xyzVals = nodesXYZmap.find(globalSampleNodes[iSampleNodes])->second;
+		for (int iXYZ = 0; iXYZ < 3; ++iXYZ) {
+			nodesXYZ[iXYZ][iSampleNodes].push_back(xyzVals[iXYZ]);
+		}
+
+		// add all neighbor globalNodes and elements of the sample node itself
+		nodeOffset[iSampleNodes] = globalNodes[iSampleNodes].size();
+		addNeighbors(iSampleNodes);
+	}
+}
 
 template<int dim>
 void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0) {
@@ -816,10 +839,10 @@ void GappyOffline<dim>::addNeighbors(int iIslands, int startingNodeWithNeigh = 0
 					}
 				}
 			}
-		
 		}
 	}
 }
+
 template<int dim>
 void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 
@@ -852,10 +875,10 @@ void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 						 addFaceNodesElements(currentFaces, iFace, iSub, locToGlobNodeMap);// add nodes
 					 }
 				 }
-				 else {// include faces in the mesh
+				 else {// include faces already in the mesh
 					 includeFace = checkFaceInMesh(currentFaces, iFace, iSub, locToGlobNodeMap);
 					 if (includeFace)
-						 includeFace *= checkFaceAlreadyAdded(thisCPU, iSub, iFace);// fix!
+						 includeFace *= checkFaceAlreadyAdded(thisCPU, iSub, iFace);
 				 }
 
 				if (includeFace) { // add face to extra set
@@ -1458,8 +1481,6 @@ void GappyOffline<dim>::buildGappyMatrices() {
 	// corresponds to a row of A or B.
 
 	outputOnlineMatrices();
-	outputStateReduced();
-	outputWallDistanceReduced();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1606,6 +1627,8 @@ void GappyOffline<dim>::outputStateReduced() {
 
 	// note: need to output the first pod basis vector twice
 
+	com->fprintf(stderr, " ... Reading POD basis for the state ...\n");
+	nPodState = ioData->Rob.numROB;
 	SetOfVec *podState = new SetOfVec(0, domain.getNodeDistInfo() );	// need to put podState in reduced coordinates
 	domain.readPodBasis(input->podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
 	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
