@@ -24,6 +24,7 @@ template<int dim> class PostOperator;
 #include <TsRestart.h>
 #include <GappyOffline.h>
 #include <SurfMeshGen.h>
+#include <ReducedMeshShapeChanger.h>
 #include <ParallelRom.h> 
 
 #ifdef DO_MODAL

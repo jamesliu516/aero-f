@@ -103,7 +103,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
 
  // Allocate for svd call
  // allocate for eigenvectors and eigenvalues
- int locLLD = dim * cpuNodes[thisCPU];
+ int locLLD = max(1,dim * cpuNodes[thisCPU]);
  int maxLLD = locLLD;
  com->globalMax(1, &maxLLD);
  int maxLocC = nSnaps;
@@ -167,6 +167,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
+
 }
 
 //----------------------------------------------------------------------------------
@@ -217,10 +218,8 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecCo
 	// decomposition information
 
 	int numLocSub = domain.getNumLocSub();
-	nTotCpus = com->size(); 
-	thisCPU = com->cpuNum(); 
 
-	maxCpuBlocks=0;	// maximum number of blocks per cpu 
+	maxCpuBlocks = 0;	// maximum number of blocks per cpu 
 
 	// inputs: nA
 	// outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks

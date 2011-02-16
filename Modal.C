@@ -141,6 +141,13 @@ void ModalSolver<dim>::solve()  {
 	 SurfMeshGen<dim> surfMeshBuilder(com,*ioData,domain,geoState);
 	 surfMeshBuilder.buildReducedModel();	
  }
+ else if (ioData->problem.alltype == ProblemData::_REDUCED_MESH_SHAPE_CHANGE_){
+	 //KTC: CHANGE!!!
+	 geoState = new DistGeoState(*ioData, &domain);
+	 geoState->setup1(tInput->positions, &Xref, &controlVol);
+	 ReducedMeshShapeChanger<dim> reducedMeshShapeChanger(com,*ioData,domain,geoState);
+	 reducedMeshShapeChanger.buildReducedModel();	
+ }
  else  {
    preProcess();
 
