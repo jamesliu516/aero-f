@@ -186,7 +186,7 @@ protected:
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
 		//above maps have been defined for vector entries [iSampleNode][0:j]
-	int numFullNodes, numReducedNodes;	// number of nodes in full and reduced meshes
+	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -252,7 +252,7 @@ protected:
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);
 	~GappyOffline();
-	void buildReducedModel();	// build all offline info (do everything)
+	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };
 #include "GappyOffline.C"

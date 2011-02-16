@@ -23,6 +23,8 @@ struct TsInput {
   char *aMatrix;
   char *bMatrix;
   char *staterom;
+  char *reducedfullnodemap;
+  char *mesh;
 
   char *shapederivatives;
 

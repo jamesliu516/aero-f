@@ -392,7 +392,7 @@ IF(MPI_FOUND)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}
-                          RELEASE_OUTPUT_NAME aerof
+                          RELEASE_OUTPUT_NAME aerofnew
                           DEBUG_OUTPUT_NAME aerof.debug
                           PREFIX ""
                          )

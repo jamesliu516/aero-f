@@ -54,7 +54,28 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 
   numFullNodes = domain.getNumGlobNode();	// # globalNodes in full mesh
 	
+	nodesToHandle = NULL;
+	globalNodes = NULL;
+	cpus = NULL;
+	locSubDomains = NULL;
+	localNodes = NULL;
+	totalNodesCommunicated = NULL;
+	totalEleCommunicated = NULL;
+
+
+	for (int i = 0; i < 3; ++i)
+		nodesXYZ[i] = NULL;
+	elements = NULL;
+	for (int i = 0; i < 4; ++i)
+		elemToNode[i] = NULL;
+
+	for (int i = 0; i < nPodBasis; ++i) {
+		podHatPseudoInv[i] = NULL;
+		nRhsGreedy[i] = NULL;
+	}
+
 }
+
 template<int dim>
 GappyOffline<dim>::~GappyOffline() 
 {
@@ -70,26 +91,26 @@ GappyOffline<dim>::~GappyOffline()
 			delete [] bcFaces[i][j];
 	}
 
-	delete [] nodesToHandle;
-	delete [] globalNodes;
-	delete [] cpus;
-	delete [] locSubDomains;
-	delete [] localNodes;
-	delete [] totalNodesCommunicated;
-	delete [] totalEleCommunicated;
-
-
-	for (int i = 0; i < 3; ++i)
-		delete [] nodesXYZ[i];
-	delete [] elements;
+	if (nodesToHandle) delete [] nodesToHandle;
+	if (globalNodes) delete [] globalNodes;
+	if (cpus) delete [] cpus;
+	if (locSubDomains) delete [] locSubDomains;
+	if (localNodes) delete [] localNodes;
+	if (totalNodesCommunicated) delete [] totalNodesCommunicated;
+	if (totalEleCommunicated) delete [] totalEleCommunicated;
+for (int i = 0; i < 3; ++i)
+		if (nodesXYZ) delete [] nodesXYZ[i];
+	if (elements) delete [] elements;
 	for (int i = 0; i < 4; ++i)
-		delete [] elemToNode[i];
+		if (elemToNode[i]) delete [] elemToNode[i];
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)
-			delete [] podHatPseudoInv[iPodBasis][iRhs];
-		delete [] podHatPseudoInv[iPodBasis];
-		delete [] nRhsGreedy[iPodBasis];
+			if (podHatPseudoInv[iPodBasis]) {
+				if (podHatPseudoInv[iPodBasis][iRhs]) delete [] podHatPseudoInv[iPodBasis][iRhs];
+			}
+		if (podHatPseudoInv[iPodBasis]) delete [] podHatPseudoInv[iPodBasis];
+		if (nRhsGreedy[iPodBasis]) delete [] nRhsGreedy[iPodBasis];
 	}
 
 }
@@ -742,7 +763,7 @@ void GappyOffline<dim>::buildRemainingMesh() {
 	computeBCFaces(false);	// compute BC faces already in mesh
 	communicateBCFaces();
 
-	numReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
+	nReducedNodes = globalNodes[0].size();	// number of nodes in the reduced mesh
 
 	delete [] nodeOffset; 
 
@@ -1324,7 +1345,7 @@ void GappyOffline<dim>::outputTopFile() {
 
 	// save the reduced node number for the sample node
 
-	for (int j = 0; j < numReducedNodes; ++j) {
+	for (int j = 0; j < nReducedNodes; ++j) {
 
 		// compute xyz position of the node
 		globalNodeNum = globalNodes[0][j];	// global node numbers on reduced mesh have been sorted in increasing order
@@ -1589,7 +1610,7 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	// reduced mesh
 	outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrix,
-			numReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
+			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
 	if (ioData->output.transient.onlineMatrixFull[0] != 0) 
 		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrixFull,
@@ -1614,7 +1635,7 @@ void GappyOffline<dim>::outputStateReduced() {
 	if (thisCPU ==0) outInitialCondition = fopen(outInitialConditionFile, "wt");
 
 	com->fprintf(outInitialCondition,"Vector InitialCondition under load for FluidNodesRed\n");
-	com->fprintf(outInitialCondition,"%d\n", numReducedNodes);
+	com->fprintf(outInitialCondition,"%d\n", nReducedNodes);
 	
 	// read in initial condition
   //ioData->output.restart.solutions
@@ -1632,7 +1653,7 @@ void GappyOffline<dim>::outputStateReduced() {
 	SetOfVec *podState = new SetOfVec(0, domain.getNodeDistInfo() );	// need to put podState in reduced coordinates
 	domain.readPodBasis(input->podFile, nPodState, *podState);	// want to read in all (nPodState should be all)
 	com->fprintf(outPodState,"Vector PodState under load for FluidNodesRed\n");
-	com->fprintf(outPodState,"%d\n", numReducedNodes);
+	com->fprintf(outPodState,"%d\n", nReducedNodes);
 	outputReducedSVec((*podState)[0],outPodState,nPodState);	// dummy output
 
 	for (int iPod = 0; iPod < nPodState; ++iPod) {	// # rows in A and B
@@ -1651,7 +1672,7 @@ void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 	com->fprintf(outFile,"%d\n", iVector);
 
 	// save the reduced node number for the sample node
-	for (int j = 0; j < numReducedNodes; ++j) {
+	for (int j = 0; j < nReducedNodes; ++j) {
 		int currentGlobalNode = globalNodes[0][j];
 		int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;
 		int iSubDomain, iLocalNode;
@@ -1698,7 +1719,7 @@ void GappyOffline<dim>::outputWallDistanceReduced() {
 	// note: need to output the first pod basis vector twice
 
 	com->fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
-	com->fprintf(outWallDist,"%d\n", numReducedNodes);
+	com->fprintf(outWallDist,"%d\n", nReducedNodes);
 	outputReducedVec(d2wallOutput,outWallDist,0);
 
 	delete [] outWallDistFile;
@@ -1709,7 +1730,7 @@ void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* o
 
 	com->fprintf(outFile,"%d\n", iVector);
 
-	for (int j = 0; j < numReducedNodes; ++j) {
+	for (int j = 0; j < nReducedNodes; ++j) {
 		double value = 0.0; // initialize value to zero
 		int currentGlobalNode = globalNodes[0][j];
 		int iCpu = globalNodeToCpuMap.find(currentGlobalNode)->second;

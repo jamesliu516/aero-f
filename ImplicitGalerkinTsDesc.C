@@ -42,10 +42,8 @@ void ImplicitGalerkinTsDesc<dim>::solveNewtonSystem(const int &it, double &res, 
 
 		this->jac.setNewSize(this->nPod,this->nPod);
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
-			for (int iCol = 0; iCol <= iRow; ++iCol) {
-				this->jac[iRow][iCol] = this->pod[iRow]*this->AJ[iCol];	// different from PG
-				if (iRow > iCol)
-					this->jac[iCol][iRow] = this->jac[iRow][iCol];
+			for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
+				this->jac[iRow][iCol] = this->pod[iRow]*this->AJ[iCol];	// different from PG (no symmetry)
 			}
 		} 
 

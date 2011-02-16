@@ -22,6 +22,8 @@ TsInput::TsInput(IoData &iod) {
   bMatrix = absolutePath(iod.input.bMatrix, prefix);
   shapederivatives = absolutePath(iod.input.shapederivatives, prefix);
   staterom = absolutePath(iod.input.staterom, prefix);
+  reducedfullnodemap = absolutePath(iod.input.reducedfullnodemap , prefix);
+  mesh = absolutePath(iod.input.mesh , prefix);
 }
 
 //------------------------------------------------------------------------------
@@ -52,6 +54,8 @@ TsInput::~TsInput() {
   delete[] bMatrix;
   delete[] shapederivatives; 
   delete[] staterom;
+  delete[] reducedfullnodemap ;
+  delete[] mesh ;
 }
 
 //------------------------------------------------------------------------------
