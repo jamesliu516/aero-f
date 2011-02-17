@@ -274,6 +274,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
         X[i][0] = X[i][1] = X[i][2] = X0[i][0] = X0[i][1] = X0[i][2] = 0.0;
 
       // allocate memory for the element topology list
+      int tmpTopo[nStElems][4];
       switch (elemType) {
         case 3: //all triangles
           totalElems = totalStElems;
@@ -282,7 +283,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
           structExc->getEmbeddedWetSurface(nNodes, (double*)X0, nElems, (int*)Tria, elemType);
           break;
         case 4: //quadrangles include triangles represented as degenerated quadrangles.
-          int tmpTopo[nStElems][4];
           structExc->getEmbeddedWetSurface(nNodes, (double*)X0, nStElems, (int*)tmpTopo, elemType);
           if(cracking) {
             totalElems = totalStElems*2;
