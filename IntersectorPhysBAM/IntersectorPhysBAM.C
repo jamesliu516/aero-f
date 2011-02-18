@@ -42,7 +42,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
-  fprintf(stderr,"(%d) in intersector\n", com->cpuNum());
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
