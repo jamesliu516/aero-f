@@ -81,11 +81,9 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 //------------- For Fluid-Structure Interaction ---------------
   withCracking = false;
-  fprintf(stderr,"(%d) should be oknterval?\n", this->com->cpuNum());
   if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
                                                 this->domain->getTimer());
-    fprintf(stderr,"(%d) really terrible!\n", this->com->cpuNum());
     withCracking = dynNodalTransfer->cracking(); 
 
     //for updating phase change

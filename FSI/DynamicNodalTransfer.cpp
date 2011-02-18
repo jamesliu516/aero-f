@@ -66,8 +66,6 @@ DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communi
       XandUdot[i*3+j] *= 1.0/XScale;
       XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
-
-  fprintf(stderr,"(%d) horrible!\n", com.cpuNum());
 }
 
 //------------------------------------------------------------------------------
@@ -85,6 +83,8 @@ DynamicNodalTransfer::~DynamicNodalTransfer() {
 void
 DynamicNodalTransfer::sendForce()
 {
+  structure.clearForceVector();
+
   com.barrier(); //for timing purpose
   winForce->fence(true);
   winForce->accumulate((double *)F.data(), 0, 3*F.size(), 0, 0, Communication::Window<double>::Add);
@@ -463,9 +463,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
            std::abs(X[i][2]-X[j][2])<pairTol)
           pairing[i] = j;
   }
-  
-  fprintf(stderr,"(%d) I'm over\n", com.cpuNum());
-
 }
 
 //------------------------------------------------------------------------------
@@ -494,6 +491,16 @@ EmbeddedStructure::getTargetData()
     F[i][0] = F[i][1] = F[i][2] = 0.0;
 
   return pair<double*,int>((double*)F,nNodes);
+}
+
+//------------------------------------------------------------------------------
+
+void
+EmbeddedStructure::clearForceVector()
+{
+  //clear the force.
+  for (int i=0; i<nNodes; i++)
+    F[i][0] = F[i][1] = F[i][2] = 0.0;
 }
 
 //------------------------------------------------------------------------------

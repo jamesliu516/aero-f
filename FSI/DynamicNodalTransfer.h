@@ -72,14 +72,15 @@ class EmbeddedStructure {
   void getInitialCrack();
   int getNewCracking();
   void getNewCracking(int);
-  
+  void clearForceVector(); 
+  pair<double*, int> getTargetData();
+
 public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
 
   int getAlgorithmNumber() {return algNum;}
   int numStructNodes() {return nNodes;}
-  pair<double*, int> getTargetData();
   void sendTimeStep(Communication::Window<double> *window);
   void sendMaxTime(Communication::Window<double> *window);
   void sendInfo(Communication::Window<double> *window);
