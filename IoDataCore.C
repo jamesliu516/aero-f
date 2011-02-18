@@ -3597,6 +3597,7 @@ int IoData::checkInputValues()
   checkInputValuesDefaultOutlet();
   nonDimensionalizeAllEquationsOfState();
   nonDimensionalizeAllInitialConditions();
+  nonDimensionalizeForcedMotion();
   nonDimensionalizeOneDimensionalProblem();
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
@@ -3815,6 +3816,26 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->z /= ref.rv.length;
     }
   }
+}
+
+//------------------------------------------------------------------------------
+
+void IoData:: nonDimensionalizeForcedMotion(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //heaving
+  forced.hv.ax /= ref.rv.length;
+  forced.hv.ay /= ref.rv.length;
+  forced.hv.az /= ref.rv.length;
+
+  //pitching
+  forced.pt.x1 /= ref.rv.length;
+  forced.pt.y1 /= ref.rv.length;
+  forced.pt.z1 /= ref.rv.length;
+  forced.pt.x2 /= ref.rv.length;
+  forced.pt.y2 /= ref.rv.length;
+  forced.pt.z2 /= ref.rv.length;
 }
 
 //------------------------------------------------------------------------------
