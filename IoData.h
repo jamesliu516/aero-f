@@ -1750,6 +1750,7 @@ public:
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();
+  void nonDimensionalizeForcedMotion();
   void nonDimensionalizeOneDimensionalProblem();
   int checkInputValuesNonDimensional();
   int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
