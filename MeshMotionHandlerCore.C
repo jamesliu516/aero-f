@@ -1458,6 +1458,8 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
+  com->fprintf(stderr,"<AERO-F> I'm in Step 1!\n");
+
   Timer *timer;
   timer = domain->getTimer();
   double ttt = timer->getTime();
@@ -1468,13 +1470,9 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
   int algNum = dynNodalTransfer->getAlgorithmNumber();
   switch (algNum) {
     case 6: //A6 with FEM
-      if(dynNodalTransfer->cracking()) {
-        fprintf(stderr,"FEM(A6) is not supported for FSI w/ cracking!\n"); exit(-1);}
       step1ForA6(lastIt,it,t,Xdot,X);
       break;
     case 20: //C0 with FEM
-      if(dynNodalTransfer->cracking()) {
-        fprintf(stderr,"FEM(C0) is not supported for FSI w/ cracking!\n"); exit(-1);}
       step1ForC0FEM(lastIt,it,t,Xdot,X);
       break;
     case 21: //C0 with XFEM
@@ -1500,8 +1498,17 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
 {
   dts = dynNodalTransfer->getStructureTimeStep();
 
-  if (it==0)
+  if (it==0) {
     dts *= 0.5;
+
+    int numStructNodes = dynNodalTransfer->numStNodes();
+    if(numStructNodes != distLSS->getNumStructNodes()) {
+      fprintf(stderr,"SOFTWARE BUG: numStructNodes = %d (in dynNodalTransfer) and %d (in intersector)!\n",
+              numStructNodes, distLSS->getNumStructNodes());
+      exit(-1);
+    }
+  }
+
 
   // send force
   if (it>0 && it>it0)
@@ -1518,9 +1525,17 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
 
   if (it==0) {
     dts *= 0.5;
+
+    int numStructNodes = dynNodalTransfer->numStNodes();
+    if(numStructNodes != distLSS->getNumStructNodes()) {
+      fprintf(stderr,"SOFTWARE BUG: numStructNodes = %d (in dynNodalTransfer) and %d (in intersector)!\n",
+              numStructNodes, distLSS->getNumStructNodes());
+      exit(-1);
+    }
+
     //get displacement.
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes);
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
     X = X0;
   } 
@@ -1601,6 +1616,8 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  com->fprintf(stderr,"<AERO-F> I'm in Step 2!\n");
+
   Timer *timer;
   timer = domain->getTimer();
   double ttt = timer->getTime();
@@ -1642,8 +1659,11 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
 
   // get displacement
   if(it==it0 || !*lastIt) {
+    if(it>0 && dynNodalTransfer->cracking())
+      dynNodalTransfer->getNewCracking();
+
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes);
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
     X = X0;
   }
@@ -1662,8 +1682,10 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     dynNodalTransfer->sendForce(); //send force to structure
   } 
   else if (!*lastIt) { //get displacement
+    if(dynNodalTransfer->cracking())
+      dynNodalTransfer->getNewCracking();
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes);
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
 
     X = X0;
   } 

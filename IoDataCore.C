@@ -3712,11 +3712,8 @@ int IoData::checkInputValuesAllInitialConditions(){
     for (it=embed.embedIC.pointMap.dataMap.begin();
          it!=embed.embedIC.pointMap.dataMap.end();
          it++) {
-      if(it->second->fluidModelID==0) {
-        com->fprintf(stderr,"*** Error: FluidID on a user-specified point (for initial condition setup) can not be 0!\n");
-        com->fprintf(stderr,"    Note : It's a convention in AERO-F that FluidID = 0 only in the ambient fluid.\n");
-        error ++;
-      }
+//      if(it->second->fluidModelID==0)
+        //com->fprintf(stderr,"*** WARNING: FluidID on a user-specified point (for initial condition setup) \n");
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
     }
   }

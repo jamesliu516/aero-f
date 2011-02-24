@@ -395,17 +395,6 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
     exit(-1); 
   }
 
-
-  //debug
-  if(com->cpuNum()==3) {
-    FILE *myfile = fopen("debug.out", "w");
-    for(int i=0; i<numStNodes; i++)
-      fprintf(myfile,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
-    for(int i=0; i<numStElems; i++)
-      fprintf(myfile,"%d %d %d %d\n", i+1, stElem[i][0], stElem[i][1], stElem[i][2]);
-    fclose(myfile);
-  }
-
   initializePhysBAM();
 }
 
@@ -538,6 +527,8 @@ DistIntersectorPhysBAM::buildSolidNormals() {
     // normalize the normal.
     if(nrm > 0.0)
        triNorms[iTriangle] /= nrm;
+    else
+       fprintf(stderr,"ERROR: Tri %d: (%d(%e,%e,%e), %d(%e,%e,%e), %d(%e,%e,%e)\n", iTriangle+1, n1, x1,y1,z1, n2, dx2,dy2,dz2, n3, dx3,dy3,dz3);
   }
 
   if(interpolatedNormal) //normalize nodal normals.
@@ -575,6 +566,14 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*occluded_node)(i), (*swept_node)(i), *this);}
 
   updatePhysBAMInterface(Xs, numStNodes,X,true);
+
+  //Kevin's debug
+/*  if(com->cpuNum()==44) {
+    for(int i=0; i<numStNodes; i++)
+      fprintf(stderr,"%d %e %e %e\n",i+1,Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(stderr,"%d %d %d %d\n", i+1, stElem[i][0]+1, stElem[i][1]+1, stElem[i][2]+1);
+  }*/
 
   buildSolidNormals();
   d->findNodeBoundingBoxes(X,*boxMin,*boxMax);
@@ -841,6 +840,11 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
 DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
+
+  com->barrier();
+  com->fprintf(stderr,"<AERO-F> in IntersectorPhysBAM::recompute\n");
+
+
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -857,6 +861,9 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   updatePhysBAMInterface(Xs, numStNodes,*X);
 
   buildSolidNormals();
+
+//  for(int i=0; i<numStNodes; i++)
+//    fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
@@ -1098,6 +1105,12 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     lsRes.gradPhi = lsRes.xi[0]*ns0 + lsRes.xi[1]*ns1 + lsRes.xi[2]*ns2;
     lsRes.gradPhi /= lsRes.gradPhi.norm();
   }
+
+/*  if(trueTriangleID+1 == 1 || trueTriangleID+1 == 2 || trueTriangleID+1 == 319 || trueTriangleID+1 == 320 ||
+     trueTriangleID+1 == 641 || trueTriangleID+1 == 642 || trueTriangleID+1 == 643 || trueTriangleID+1 == 644) {
+    fprintf(stderr,"Intersection(%d,%d): triangle %d, alpha = %e, xi = (%e,%e), phi = %e, normal = (%e,%e,%e)\n", 
+                    ni+1,nj+1,trueTriangleID+1, lsRes.alpha, lsRes.xi[0], lsRes.xi[1], distIntersector.cracking->getPhi(trueTriangleID, lsRes.xi[0],lsRes.xi[1]),lsRes.gradPhi[0], lsRes.gradPhi[1], lsRes.gradPhi[2]); 
+  }*/
 
   return lsRes;
 }

@@ -168,6 +168,7 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
 
   norms[0] = 0.0;
   norms[1] = 0.0;
+
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
       if (flag==0||flag[ index[i][0] ]) {
