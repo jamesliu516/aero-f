@@ -71,7 +71,7 @@ class EmbeddedStructure {
   void splitQuads(int*,int); //utility function which split quads into triangles
   void getInitialCrack();
   int getNewCracking();
-  void getNewCracking(int);
+  void getNewCracking(int,int);
   void clearForceVector(); 
   pair<double*, int> getTargetData();
 

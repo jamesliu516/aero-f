@@ -48,6 +48,18 @@ CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, 
     quad2tria[i][0] = quad2tria[i][1] = -1;
   }
 }
+
+//------------------------------------------------------------------------------
+
+CrackingSurface::~CrackingSurface()
+{
+  for(map<int,PhantomElement*>::iterator it=phantoms.begin(); it!=phantoms.end(); it++)
+    delete it->second;
+
+  if(tria2quad) delete[] tria2quad; 
+  if(cracked) delete[] cracked;
+}
+
 //------------------------------------------------------------------------------
 
 int CrackingSurface::splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3])
@@ -79,12 +91,14 @@ int CrackingSurface::splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3])
   }
 
   nUsedTrias = count;
+
   for(int i=nQuads; i<nTotalQuads; i++) {
     tria2quad[count][0] = i; tria2quad[count][1] = 0;
     quad2tria[i][0] = count;
     count++;
     tria2quad[count][0] = i; tria2quad[count][1] = 1;
     quad2tria[i][1] = count;
+    count++;
   }
 
   for(int i=nUsedTrias; i<nTotalTrias; i++)
@@ -109,9 +123,9 @@ int CrackingSurface::updateCracking(int nNew, int* newPhan, double* phi, int(*tr
     cracked[quadId] = true;
     latest.phantomQuads.insert(quadId);
     //insert a new phantom element
-    int j = (i%2) ? (i-1)/2 : i/2;
-    phantoms[quadId] = PhantomElement(newPhan[5*i+1],newPhan[5*i+2],newPhan[5*i+3],newPhan[5*i+4],
-                                      phi[4*j],phi[4*j+1],phi[4*j+2],phi[4*j+3]);
+    PhantomElement *thisone = new PhantomElement(newPhan[5*i+1],newPhan[5*i+2],newPhan[5*i+3],newPhan[5*i+4],
+                                                 phi[4*i],phi[4*i+1],phi[4*i+2],phi[4*i+3]);
+    phantoms[quadId] = thisone; 
     //modify the triangle mesh connectivity
     int trId1, trId2;
     if(quadId>=nUsedQuads) { //this is a new quad
@@ -190,18 +204,69 @@ double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracke
   if(phantoms.find(tria2quad[trId][0])==phantoms.end()) {
     fprintf(stderr,"ERROR:Triangle %d (in Quad %d) contains no cracking!\n",trId,tria2quad[trId][0]);exit(-1);}
 
-  double *phi = phantoms[tria2quad[trId][0]].phi;
+  double *phi = phantoms[tria2quad[trId][0]]->phi;
   double xi3;
   switch (tria2quad[trId][1]) {
     case 0: // This triangle is ABC
       xi3 = 1.0 - xi1 - xi2;
+//      fprintf(stderr,"Now in getPhi! input:(%d,%e,%e), Quad %d, phi = %e\n", trId+1, xi1, xi2, tria2quad[trId][0]+1, phi[0]*xi1*(1.0-xi3) + phi[1]*(1.0-xi1)*(1.0-xi3) + phi[2]*(1.0-xi1)*xi3 + phi[3]*xi1*xi3);
       return phi[0]*xi1*(1.0-xi3) + phi[1]*(1.0-xi1)*(1.0-xi3) + phi[2]*(1.0-xi1)*xi3 + phi[3]*xi1*xi3;
     case 1: // This triangle is ACD
+//      fprintf(stderr,"Now in getPhi! input:(%d,%e,%e), Quad %d, phi = %e\n", trId+1, xi1, xi2, tria2quad[trId][0]+1, phi[0]*xi1*(1.0-xi2) + phi[1]*xi1*xi2 + phi[2]*(1.0-xi1)*xi2 + phi[3]*(1.0-xi1)*(1.0-xi2));
       return phi[0]*xi1*(1.0-xi2) + phi[1]*xi1*xi2 + phi[2]*(1.0-xi1)*xi2 + phi[3]*(1.0-xi1)*(1.0-xi2);
     default:
       fprintf(stderr,"Software bug in the cracking surface...\n");
       exit(-1);
   }
+}
+
+//----------------------------------------------------------------------------
+
+void CrackingSurface::printInfo(char* filename)
+{
+  FILE *myout = fopen(filename,"w");
+
+  fprintf(myout, "...Information about the cracking surface...\n");
+  fprintf(myout, "  elemType = %d, n{Total,Used}Quads = %d/%d, n{Total,Used}Trias = %d/%d, n{Total,Used}Nodes = %d/%d.\n",
+                  elemType, nTotalQuads, nUsedQuads, nTotalTrias, nUsedTrias, nTotalNodes, nUsedNodes); 
+
+  fprintf(myout, "phantoms(%d)...\n", phantoms.size());
+  for(map<int,PhantomElement*>::iterator it=phantoms.begin(); it!=phantoms.end(); it++) {
+    fprintf(myout, "  %d --> nodes(%d): ", it->first+1, it->second->nNodes);
+    int* nod = it->second->nodes;
+    for(int i=0; i<it->second->nNodes; i++)
+      fprintf(myout, "%d ", nod[i]+1);
+    fprintf(myout, "\n");
+    fprintf(myout, "         phi: ");
+    double* ph = it->second->phi;
+    for(int i=0; i<it->second->nNodes; i++)
+      fprintf(myout, "%e ", ph[i]);
+    fprintf(myout, "\n");
+  }
+
+  fprintf(myout, "latest...\n");
+  fprintf(myout, "  phantomQuads(%d): ", latest.phantomQuads.size());
+  for(set<int>::iterator it=latest.phantomQuads.begin(); it!=latest.phantomQuads.end(); it++)
+    fprintf(myout,"%d ", (*it)+1);
+  fprintf(myout, "\n");
+  fprintf(myout, "  phantomNodes(%d): ", latest.phantomNodes.size());
+  for(map<int,int>::iterator it=latest.phantomNodes.begin(); it!=latest.phantomNodes.end(); it++)
+    fprintf(myout,"%d(%d)  ", it->first+1, it->second+1);
+  fprintf(myout, "\n");
+
+  fprintf(myout, "tria2quad(%d)...\n", nTotalTrias);
+  for(int i=0; i<nTotalTrias; i++)
+    fprintf(myout, "  Tria %d <-> Quad %d.%d\n", i+1, tria2quad[i][0]+1, tria2quad[i][1]+1);
+
+  fprintf(myout, "quad2tria(%d)...\n", nTotalQuads);
+  for(int i=0; i<nTotalQuads; i++)
+    fprintf(myout,"  Quad %d <-> Tria %d and %d\n", i+1, quad2tria[i][0]+1, quad2tria[i][1]+1);
+
+  fprintf(myout, "cracked(%d)...\n", nTotalQuads);
+  for(int i=0; i<nTotalQuads; i++)
+    fprintf(myout,"  Quad %d -> %d\n", i+1, cracked[i]);
+
+  fclose(myout);
 }
 
 //----------------------------------------------------------------------------

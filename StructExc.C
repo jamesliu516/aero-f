@@ -26,7 +26,7 @@
 #define CRACK_TAG1 22
 #define CRACK_TAG2 33
 #define CRACK_TAG3 44
-#define CRACK_TAG4 56
+#define CRACK_TAG4 55
 //------------------------------------------------------------------------------
 
 StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Communicator* fluidCom, int nSub)
@@ -242,25 +242,26 @@ void StructExc::getInitialCrackingSetup(int& totalNodes, int& totalElems)
 
 //------------------------------------------------------------------------------
 
-int StructExc::getNumberOfNewCrackedElems()
+int StructExc::getNumberOfNewCrackedElems(int &newNodes)
 {
-  int nNew;
+  int nNew[2];
   if(strCom->cpuNum()==0) 
-    strCom->recFrom(CRACK_TAG1, &nNew, 1);
-  com->broadcast(1, &nNew);
-  return nNew;
+    strCom->recFrom(CRACK_TAG1, nNew, 2);
+  com->broadcast(2, nNew);
+  newNodes = nNew[1];
+  return nNew[0];
 }
 
 //------------------------------------------------------------------------------
 
-void StructExc::getInitialPhantomNodes(int nCracked, double(*xyz)[3], int nNodes)
+void StructExc::getInitialPhantomNodes(int newNodes, double(*xyz)[3], int nNodes)
 {
-  double coords[nCracked*4*3];
+  double coords[newNodes*3];
   if(strCom->cpuNum()==0)
-    strCom->recFrom(CRACK_TAG4, coords, nCracked*4*3); //assume the correct ordering
-  com->broadcast(nCracked*2*3,coords);
+    strCom->recFrom(CRACK_TAG4, coords, newNodes*3); //assume the correct ordering: nNodes, nNodes+1, ..., nNodes+newNodes-1
+  com->broadcast(newNodes*3,coords);
 
-  for(int i=0; i<nCracked*4; i++)
+  for(int i=0; i<newNodes; i++)
     for(int j=0; j<3; j++)
       xyz[nNodes+i][j] = coords[i*3+j];
 }
@@ -274,8 +275,8 @@ void StructExc::getNewCracking(int nCracked, int* phantoms, double* phi)
   com->broadcast(10*nCracked, phantoms);
 
   if(strCom->cpuNum()==0)
-    strCom->recFrom(CRACK_TAG3, phi, 4*nCracked);
-  com->broadcast(4*nCracked, phi); 
+    strCom->recFrom(CRACK_TAG3, phi, 4*2*nCracked);
+  com->broadcast(4*2*nCracked, phi); 
 }
 
 //------------------------------------------------------------------------------
@@ -347,11 +348,26 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
       if (numStrNodes[iCpu][0] > 0) {
 	int size = bufsize * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
+        fprintf(stderr,"<AERO-F> Going to receive the displacement. size = %d\n", size);
 	strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
+        fprintf(stderr,"<AERO-F> Displacement received!\n");
+//        for(int i=0; i<size/3; i++)
+//          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
+
       }
     }
-
+/*
+    for(int i=0; i<800*2; i++)
+      fprintf(stderr,"buffer %d %e %e %e\n", i+1, buffer[3*i], buffer[3*i+1], buffer[3*i+2]);
+*/
     double (*disp)[2][3] = reinterpret_cast<double (*)[2][3]>(buffer);
+/*
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp0 %d %e %e %e\n", i+1, disp[i][0][0], disp[i][0][1], disp[i][0][2]);
+
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp1 %d %e %e %e\n", i+1, disp[i][1][0], disp[i][1][1], disp[i][1][2]);
+*/
 
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -435,10 +451,12 @@ void StructExc::sendForce(DistSVec<double,3> &F)
       if (numStrNodes[iCpu][0] > 0) {
 	int size = 3 * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
+        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
 	strCom->sendTo(iCpu, FORCE_TAG + sndParity, localBuffer, size);
       }
     }
     strCom->waitForAllReq();
+    fprintf(stderr,"<AERO-F> Force sent!\n");
 
   }
 

@@ -14,6 +14,7 @@
 #include <DistVector.h>
 #include <list>
 #include <map>
+
 //------------------------------------------------------------------------------
 
 DynamicNodalTransfer::DynamicNodalTransfer(IoData& iod, Communicator &c, Communicator &sc, Timer *tim): com(c) , F(1), 
@@ -124,7 +125,7 @@ DynamicNodalTransfer::getNewCracking()
     if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
 
     delete winDisp;
-    winDisp = new  Communication::Window<double> (com, 2*3*N*sizeof(double), (double *)XandUdot);
+    winDisp = new Communication::Window<double> (com, 2*3*N*sizeof(double), (double *)XandUdot);
    
     delete winForce;
     std::pair<double *, int> embedded = structure.getTargetData();
@@ -314,8 +315,23 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
     if(cracking)
       getInitialCrack();
-
   }
+
+  //KEVIN's DEBUG
+/*  FILE *mytest = fopen("test.in","r");
+  while(1){
+    bool cracked_or_not;
+    double xi1, xi2;
+    int tId;
+    fscanf(mytest, "%d %lf %lf\n", &tId, &xi1, &xi2);
+    if(tId<0) break;
+
+    if(com.cpuNum()==30) {
+//      cracking->printInfo("cs.out");
+      double ls = cracking->getPhi(tId-1,xi1,xi2,&cracked_or_not);
+      fprintf(stderr,"tId = %d, xi = (%e, %e, %e), Cracked = %d, phi = %e;\n", tId, xi1, xi2, 1.0-xi1-xi2, cracked_or_not, ls);
+    }
+  }*/
   // ----------------------------------
   //               End
   // ----------------------------------
@@ -555,9 +571,11 @@ EmbeddedStructure::sendInfo(Communication::Window<double> *window)
 void
 EmbeddedStructure::sendInitialPosition(Communication::Window<double> *window)
 {
+  if(com.cpuNum()>0) return; // only proc. #1 will send.
+
   for(int i=0; i<nNodes; i++)
     for(int j=0; j<3; j++) {
-      XandUdot[i][j] = X0[i][j];
+      XandUdot[i][j] = X[i][j];
       XandUdot[(i+nNodes)][j] = Udot[i][j];
     }
 
@@ -576,7 +594,6 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
      DistSVec<double,3> Ydot(*di, Udot);
      DistSVec<double,3> Y(*di);
      Y = Y0; //KW: as long as Y = Y0, it doesn't matter if Y0 is X or X0, or anything else...
-
      structExc->getDisplacement(Y0, Y, Ydot, V);
      V = XScale*V;
      Ydot = UScale*Ydot;
@@ -622,12 +639,15 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
       }
   }
 
-  for(int i=0; i<nNodes; i++)
+  for(int i=0; i<nNodes; i++) {
+//    fprintf(stderr,"U %d %e %e %e\n", i+1, U[i][0], U[i][1], U[i][2]);
+//    fprintf(stderr,"Udot %d %e %e %e\n", i+1, Udot[i][0], Udot[i][1], Udot[i][2]);
     for(int j=0; j<3; j++) {
       X[i][j] = X0[i][j] + U[i][j];
       XandUdot[i][j] = X[i][j];
       XandUdot[(i+nNodes)][j] = Udot[i][j];
     }
+  }
 
   for(int i = 0; i < com.size(); ++i) 
     window->put((double*)XandUdot, 0, 2*3*nNodes, i, 0);
@@ -715,31 +735,32 @@ EmbeddedStructure::splitQuads(int* quads, int nStElems)
 void
 EmbeddedStructure::getInitialCrack()
 {
-  int nCracked = structExc->getNumberOfNewCrackedElems();
+  int newNodes, nCracked;
+  nCracked = structExc->getNumberOfNewCrackedElems(newNodes); //newNodes get filled.
   if(!nCracked) return; //Nothing new :)
 
   // get initial phantom nodes.
-  structExc->getInitialPhantomNodes(nCracked,X,nNodes);
+  structExc->getInitialPhantomNodes(newNodes,X,nNodes);
     //NOTE: nNodes will be updated in "getNewCracking"
 
   // get initial phantom elements (topo change).
-  getNewCracking(nCracked);
+  getNewCracking(nCracked, newNodes);
 }
 
 //------------------------------------------------------------------------------
 
 void
-EmbeddedStructure::getNewCracking(int nCracked)
+EmbeddedStructure::getNewCracking(int nCracked, int newNodes)
 {
   if(nCracked<1)  return;
 
   int phantElems[10*nCracked]; // elem.id and node id.
-  double phi[4*nCracked];
-  
+  double phi[8*nCracked];
+ 
   structExc->getNewCracking(nCracked, phantElems, phi); 
 
   if(elemType!=4) {com.fprintf(stderr,"ERROR: only support quadrangles for cracking!\n");exit(1);} 
-  nNodes += 4*nCracked;
+  nNodes += newNodes;
   nElems += cracking->updateCracking(nCracked, phantElems, phi, Tria, nNodes);
 
   if(com.cpuNum()==0)
@@ -751,9 +772,10 @@ EmbeddedStructure::getNewCracking(int nCracked)
 int
 EmbeddedStructure::getNewCracking()
 {
-  int nCracked = structExc->getNumberOfNewCrackedElems();
+  int newNodes, nCracked;
+  nCracked = structExc->getNumberOfNewCrackedElems(newNodes);
   if(!nCracked) return nCracked; //Nothing new :)
-  getNewCracking(nCracked);
+  getNewCracking(nCracked, newNodes);
   return nCracked;
 }
 

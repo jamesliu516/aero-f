@@ -69,8 +69,8 @@ public:
 
   //for cracking
   void getInitialCrackingSetup(int&, int&);
-  int getNumberOfNewCrackedElems();
-  void getInitialPhantomNodes(int nCracked, double(*xyz)[3], int nNodes);
+  int getNumberOfNewCrackedElems(int &newNodes);
+  void getInitialPhantomNodes(int newNodes, double(*xyz)[3], int nNodes);
   void getNewCracking(int nCracked, int* phantoms, double* phi);
 };
 

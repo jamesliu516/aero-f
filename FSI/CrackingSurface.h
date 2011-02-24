@@ -43,7 +43,7 @@ class CrackingSurface : public LocalLevelSet {
   int nTotalTrias, nUsedTrias;
   int nTotalNodes, nUsedNodes;
 
-  std::map<int,PhantomElement> phantoms; //size: number of cracked (quad) elements
+  std::map<int,PhantomElement*> phantoms; //size: number of cracked (quad) elements
   LatestCracking latest;
 //  std::set<int> latestCrackedQuads;
   int (*tria2quad)[2]; //size: nTotalTrias
@@ -52,7 +52,7 @@ class CrackingSurface : public LocalLevelSet {
    
 public:
   CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, int nTotNodes);
-  ~CrackingSurface() {if(tria2quad) delete[] tria2quad; if(cracked) delete[] cracked;}
+  ~CrackingSurface();
 
   //called by EmbeddedStructure only!
   int splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3]);
@@ -69,6 +69,9 @@ public:
   std::set<int> getLatestPhantomQuads() const {return latest.phantomQuads;}
   std::map<int,int> getLatestPhantomNodes() const {return latest.phantomNodes;}
   void getQuad2Tria(int quad, int &trId1, int &trId2) {trId1=quad2tria[quad][0]; trId2=quad2tria[quad][1];}
+
+  // for debug
+  void printInfo(char* filename);
 };
 
 //------------------------------------------------------------------------------
