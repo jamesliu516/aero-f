@@ -76,8 +76,10 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
-  else
-    init(struct_mesh, struct_restart_pos);
+  else {
+    double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
+    init(struct_mesh, struct_restart_pos, XScale);
+  }
   comm->barrier();
 
   delete[] struct_mesh;
@@ -121,7 +123,7 @@ DistIntersectorPhysBAM::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface) {
+void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface, double XScale) {
 
   // Read data from the solid surface input file.
   FILE *topFile;
@@ -157,6 +159,9 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
       maxIndex = num1;
 
     fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    x1 /= XScale;
+    x2 /= XScale;
+    x3 /= XScale;
     nodeList.push_back(Vec3D(x1,x2,x3));
   }
 
@@ -289,14 +294,14 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   totStElems = numStElems;
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
+/*  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface()) 
     com->fprintf(stderr,"Ok.\n");
   else {
     com->fprintf(stderr,"\n"); 
     exit(-1); 
   }
-
+*/
   initializePhysBAM();
 }
 
@@ -387,14 +392,14 @@ void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
+/*  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
   else {
     com->fprintf(stderr,"\n"); 
     exit(-1); 
   }
-
+*/
   initializePhysBAM();
 }
 

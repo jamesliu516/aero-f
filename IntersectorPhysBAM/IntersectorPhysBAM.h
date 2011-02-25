@@ -95,7 +95,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes = 0, double *xyz = 0, int nElems = 0, int (*abc)[3] = 0, CrackingSurface *cs = 0);
     ~DistIntersectorPhysBAM();
 
-    void init(char *meshfile, char *restartfile);
+    void init(char *meshfile, char *restartfile, double XScale);
     void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
 
     EdgePair makeEdgePair(int,int,int);
