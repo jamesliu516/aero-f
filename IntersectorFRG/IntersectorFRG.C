@@ -443,8 +443,10 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
-  else
-    init(struct_mesh, struct_restart_pos);
+  else {
+    double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
+    init(struct_mesh, struct_restart_pos, XScale);
+  }
 
   delete[] struct_mesh;
   delete[] struct_restart_pos;
@@ -493,7 +495,7 @@ DistIntersectorFRG::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
+void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, double XScale) {
 
   // Read data from the solid surface input file.
   FILE *topFile;
@@ -529,6 +531,9 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
       maxIndex = num1;
 
     fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    x1 /= XScale;
+    x2 /= XScale;
+    x3 /= XScale;
     nodeList.push_back(Vec3D(x1,x2,x3));
   }
 
