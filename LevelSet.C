@@ -209,6 +209,31 @@ void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<doubl
 
 }
 
+static inline double min(double a,double b, double c, double d, double e, double f) {
+
+  if (a <= b && a <= c && a <= d && a <= e && a <= f)
+    return a;
+  else if (b <= c && b <= d && b <= e && b <= f)
+    return b;
+  else if (c <= d && c <= e && c <= f)
+    return c;
+  else if (d <= e && d <= f)
+    return d;
+  else if (e <= f)
+    return e;
+  else
+    return f;  
+}
+
+static inline double maxp(double a,double b, double c,double as,double bs,double cs) {
+
+  if (a >= b && a >= c)
+    return a*as;
+  else if (b >= c)
+    return b*bs;
+  else
+    return c*cs;
+}
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
@@ -290,6 +315,42 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
             if(scalar<0.0) phi[i][fluidId] = 1.0;
             if(distance[i][fluidId]<0.0) distance[i][fluidId] = fabs(scalar);
             else                         distance[i][fluidId] = fmin(fabs(scalar),distance[i][fluidId]);
+          }
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+      //com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
+      double x0 = prismIt->second->cen_x;
+      double y0 = prismIt->second->cen_y;
+      double z0 = prismIt->second->cen_z;
+      double w_x = prismIt->second->w_x;
+      double w_y = prismIt->second->w_y;
+      double w_z = prismIt->second->w_z;
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+        SVec<double,3>     &x  (X(iSub));
+
+        for (int i=0; i<x.size(); i++){
+          double s[3] = {(x[i][0]-x0)/w_x*0.5,(x[i][1]-y0)/w_y*0.5,(x[i][2]-z0)/w_z*0.5};
+	  double scalar = maxp(fabs(s[0]),fabs(s[1]),fabs(s[2]),1.0,1.0,1.0);
+          if(prismIt->second->fluidModelID > 0){
+            int fluidId = prismIt->second->fluidModelID-1;
+            if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) 
+	      phi[i][fluidId] = 1.0;
+	    if(distance[i][fluidId]<0.0)
+	      distance[i][fluidId] = scalar;
+	    else
+	      distance[i][fluidId] = fmin( scalar, distance[i][fluidId]);
           }
         }
       }

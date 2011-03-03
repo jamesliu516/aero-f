@@ -263,7 +263,7 @@ void ImplicitRiemann::computeGasTaitJacobian(double Pstar, double gammai, double
     stiffenedGas_shock(Pstar, gammai, Pci, Pi, rhoi, outi);
   }
   
-  if (Pstar <= Pj) {
+  if (rhostarj <= rhoj) {
     
     tait_rarefaction(rhostarj, Pinfj, aj,alphaj,betaj, rhoj, outj);
     
@@ -271,6 +271,11 @@ void ImplicitRiemann::computeGasTaitJacobian(double Pstar, double gammai, double
     
     tait_shock(rhostarj, Pinfj,aj,alphaj,betaj, rhoj, outj);
     
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    outi[i] *= -1.0;
+    outj[i] *= -1.0;
   }
   
   //std::cout << "Hello" << std::endl;
@@ -629,10 +634,11 @@ void ImplicitRiemann::computeGasJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
 }
 
 void ImplicitRiemann::computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
-					    double* Vi, double* Vj,
-					    double* Wi, double* Wj,
-					    double* jacii,double* jacij,
-					    double* jacjj,double* jacji) {
+					     double* Vi, double* Vj,
+					     double* Wi, double* Wj,
+					     double* jacii,double* jacij,
+					     double* jacjj,double* jacji,
+					     double* dVdv) {
 
   double outi[6],outj[6];
   double ci = vf->computeSoundSpeed(Vi,fluidi);
@@ -658,7 +664,7 @@ void ImplicitRiemann::computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
   
   if (Wj[4] <= Vj[4]) {
 
-    computeJwlDerivRarefaction(vf,fluidj,omegaj,entropyj,Wj[0], Vj[0], outj, cj,cstarj);
+    computeJwlDerivRarefaction(vf,fluidj,omegaj,entropyj,Wj[0], Vj[0], outj, cj,cstarj,dVdv);
     
   } else {
     

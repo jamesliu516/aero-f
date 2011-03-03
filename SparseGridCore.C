@@ -1,5 +1,6 @@
 #include "SparseGrid.h"
 #include <cmath>
+#include <iostream>
 
 
 //------------------------------------------------------------------------------
@@ -583,11 +584,14 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
 
   messages(8);
 
+  //std::cout << " coord = " << coord[0] << " " << coord[1] << std::endl;
+
   for(int subGrid=0; subGrid<nSubGrids; subGrid++){
 
     // compute subGrid data structures
     nPointsSubGrid = 1;
     int nPointsDim[dim];
+    int map[dim];
     int nCumulatedPointsDim[dim];
     for(int idim=0; idim<dim; idim++){
       if(multiIndex[subGrid][idim] == 0)
@@ -600,6 +604,7 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
       nCumulatedPointsDim[idim] = nPointsDim[idim];
       nPointsSubGrid *= nPointsDim[idim];
       if(idim>0) nCumulatedPointsDim[idim] *= nCumulatedPointsDim[idim-1];
+      map[idim] = 0;
     }
 
     // interpolation: value of the basis function at the considered subgrid (basisFnVal)
@@ -620,6 +625,9 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
             basisFnGrad[idim] = 2.0;
           }
           surplusLocalCoord[idim] = xp;
+	  map[idim] = 1;
+	  if (basisStored[idim] == 0.0)
+	    break;
         }
       }else if(multiIndex[subGrid][idim] == 0) surplusLocalCoord[idim] = 0;
       else if(coord[idim] == 0.0){
@@ -629,8 +637,17 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
         double scale = pow(2.0,multiIndex[subGrid][idim]);
         int xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
         basisStored[idim] = (1.0 - scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale));
-        basisFnGrad[idim] = -scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale)/(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale); 
+	if (basisStored[idim] == 0.0)
+	  break;
+
+	double f = coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale;
+	if (fabs(f) > 1.0e-8)
+	  basisFnGrad[idim] = -scale*fabs(f)/(f); 
+	else
+	  basisFnGrad[idim] = -scale;
+	  
         surplusLocalCoord[idim] = xp;
+	map[idim] = 1;
       }
 
       if(basisFnVal == 0.0) break;
@@ -647,13 +664,18 @@ void SparseGrid::singleInterpolationGradient(const double *coord, double *output
       basisFnVal = 1.0;
       for (int idim=0; idim<dim; ++idim)
 	basisFnVal *= basisStored[idim];
+      
       for(int iout=0; iout<out; iout++) {
         //output[iout] += basisFnVal*surplus[contributingSurplus][iout];
         for (int idim=0; idim < dim; ++idim) {
           output[iout*dim + idim] = 0.0;
-          for (int idim2 = 0; idim2 < dim; ++idim2)
-            output[iout*dim + idim] += basisFnVal/basisStored[idim2]*basisFnGrad[idim2];
+          for (int idim2 = 0; idim2 < dim; ++idim2) {
+	    if (map[idim2])
+	      output[iout*dim + idim] += basisFnVal/basisStored[idim2]*basisFnGrad[idim2];
+	  }
+	  //std::cout << "Hello" << std::endl;
           output[iout*dim+idim] *= surplus[contributingSurplus][iout];
+	  //std::cout << "output[iout*dim + idim] = output[" << iout*dim + idim << "] = " << output[iout*dim + idim] << std::endl;
         }
       }
     }

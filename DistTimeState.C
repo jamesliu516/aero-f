@@ -98,6 +98,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     dIdti = 0; 
     dIdtv = 0; 
     dIrey = 0;
+        //each volume (volIt->first) is setup using
   }
 
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
@@ -496,6 +497,36 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
             for (int idim=0; idim<dim; idim++)
               u[i][idim] = UU[idim];
           }
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(prismIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", prismIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(prismIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing PrismData[%d] = (%g %g %g with EOS %d\n", prismIt->first, prismIt->second->cen_x, prismIt->second->cen_y,prismIt->second->cen_z, prismIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stderr, "    and non-dimensionalized primitive state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double dist = 0.0;
+        for(int i=0; i<X.subSize(iSub); i++) {
+          if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) { //node is inside the sphere
+	    for (int idim=0; idim<dim; idim++)
+	      u[i][idim] = UU[idim];
+	  }
         }
       }
     }

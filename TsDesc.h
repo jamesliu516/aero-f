@@ -150,6 +150,8 @@ public:
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
+  virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
+
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
 };

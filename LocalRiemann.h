@@ -91,7 +91,7 @@ public:
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
     if(ID == IDn) return; /* node does not change phase: nothing to do*/
-    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
+    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
                      exit(1);} }
     else
       for(int k=0; k<5; k++) V[k] = newV[k]/weight;
@@ -233,8 +233,10 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
   //fprintf(stdout, "EOS = (%e %e %e %e %e), s=%e, v=%e, myFluidId=%d, c=%e\n", vf_->getOmega(myFluidId), vf_->getA1(myFluidId), vf_->getA2(myFluidId), vf_->getR1r(myFluidId), vf_->getR2r(myFluidId), entropy, v, myFluidId, c);
   du = -phi*c/v;
   dp = -c*c/(v*v);
-  if (flag>0 && c<= 0.0) fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e\n", c,u,p,du,dp);
-
+  if (flag>0 && c<= 0.0) { 
+    fprintf(stdout, "*** rarefaction: u1 = %e, v1 = %e, p1 = %e, v = %e\n",u1,v1,p1,v);
+    fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e, s=%e\n", c,u,p,du,dp,entropy);
+  }
 }
 
 inline

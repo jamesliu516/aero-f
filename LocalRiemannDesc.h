@@ -535,7 +535,6 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 
     // Gas relations
     if (Pi > Pg) {
-
       // Shock
       m = 2.0/((gamma+1.0)*Rg);
       n = (Pg+Pinf)*(gamma-1.0)/(gamma+1.0);
@@ -553,7 +552,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     // Liquid relations
     if (Pi > Pw) {
 
-      g = sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) );
+      g = max(1.0e-8,sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) ));
       dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0))*(Riw-Rw)/(Riw*Rw) + 
 		  (pow(Riw,beta)-pow(Rw,beta))/(Riw*Rw) - 
 		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw));
@@ -563,10 +562,11 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
       dg = 2.0*aw/(beta-1.0)*(beta-1.0)*0.5/Rw*pow(Riw/Rw, (beta-1.0)*0.5-1.0);
     }
 
-    b = f+g+Uw-Ug;
+    //b = f+g+Uw-Ug;
+    b = f+g-Uw+Ug;
     //std::cout << Pi << " " << b << std::endl;
     db = df+dg/dpdrho;   
-    if (fabs(b/db) < 1.0e-6*Pi)
+    if (fabs(b/db) < 1.0e-6*Pi || fabs(b) < 1.0e-8)
       break;
     Pi -= b/db;
     if (Pi < 1.0e-10)
@@ -579,10 +579,14 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 
   if (k == 100) {
     std::cout << "No convergence in Newton iteration for gas-tait ERS" << std::endl;
-    exit(1);
+    std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+    std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+    std::cout << "Pi = " << Pi << " Riw = " << Riw << " b = " << b << " db = " << db << std::endl;
+    
   }
 
-  Ui = 0.5*(Uw+Ug)+0.5*(g-f);
+  Ui = 0.5*(Uw+Ug)+0.5*(f-g);
+  //Ui = 0.5*(Uw+Ug)+0.5*(g-f);
   if (Pi > Pg) {
     double h = (gamma-1.0)/(gamma+1.0);
     double j = (Pi+Pinf)/(Pg+Pinf);
@@ -590,6 +594,10 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   } else {
     Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
   }
+
+  //std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+  //std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+  //std::cout << "Pi = " << Pi << " Riw = " << Riw << " Rig = " << Rig << std::endl;
 }
 
 inline
@@ -602,11 +610,11 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 {
   int dim = 5;
 
-  double alpha   = vf_->getAlphaWater(fluid1);
-  double beta    = vf_->getBetaWater(fluid1);
-  double pref    = vf_->getPrefWater(fluid1);
-  double gam     = vf_->getGamma(fluid2);
-  double Pinf    = vf_->getPressureConstant(fluid2);
+  double alpha   = vf_->getAlphaWater(fluid2);
+  double beta    = vf_->getBetaWater(fluid2);
+  double pref    = vf_->getPrefWater(fluid2);
+  double gam     = vf_->getGamma(fluid1);
+  double Pinf    = vf_->getPressureConstant(fluid1);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir;
@@ -616,7 +624,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (IDi==fluid1) {
+  if (IDi==fluid2) {
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
@@ -712,10 +720,11 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 						       double* dWjdWi,double*  dWjdWj) {
   int dim = 5;
 
-  double alpha   = vf_->getAlphaWater(fluid1);
-  double beta    = vf_->getBetaWater(fluid1);
-  double pref    = vf_->getPrefWater(fluid1);
-  double gam     = vf_->getGamma(fluid2);
+  double alpha   = vf_->getAlphaWater(fluid2);
+  double beta    = vf_->getBetaWater(fluid2);
+  double pref    = vf_->getPrefWater(fluid2);
+  double gam     = vf_->getGamma(fluid1);
+  double Pinf    = vf_->getPressureConstant(fluid1);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir,R_i1,R_i2;
@@ -729,7 +738,7 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
   double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
   double dTdrho,dTdp;
 
-  if (IDi==fluid1) {
+  if (IDi==fluid2) {
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
@@ -739,7 +748,7 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
 
-    ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, 0.0, P_g, R_g, alpha,
+    ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, Pinf, P_g, R_g, alpha,
 					    beta, pref, P_w, R_w, 
 					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3);
 
@@ -2125,8 +2134,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1
-  double relaxationFactorGas = 1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorJwl = 0.5;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = 0.5;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
@@ -2149,6 +2158,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double gamogam1r = gamr/gam1r;
   double Vr[5] = { 1.0/vr, ur, 0.0, 0.0, pr };
   double cr = vf_->computeSoundSpeed(Vr,fluid1);
+  double pastiterates[100][2];
 
 //check vacuum
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
@@ -2204,6 +2214,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
     }
 
+    pastiterates[it][0] = vil;
+    pastiterates[it][1] = vir;
     //solve2x2System: function = jacobian*increment
     function[0] = uil-uir;
     function[1] = pil-pir;
@@ -2217,10 +2229,14 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
       fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
       fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+      fprintf(stdout, "initrhoil  = %e and initrhoir  = %e\n", initrhol, initrhor);
       fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
       fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
       fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
       fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+      for (int kk = 0; kk <= it; ++kk) {
+	fprintf(stdout, "it = %i: vil = %e, vir = %e\n",kk,pastiterates[kk][0],pastiterates[kk][1]);
+      }
       rarefactionGAS(1.0, gamr, gam1r, prefr, cr, vr, ur, pr, vir, uir, pir, duir, dpir,1);
     }
 
@@ -2304,11 +2320,30 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   ui    = 0.5*(uil+uir);
   pi    = 0.5*(pil+pir);
 
+  //std::cout << "JWL results: rhoil = " << 1.0/vil << " rhoir = "  << 1.0/vir << " ui = " << ui << " pi = " << pi << std::endl;
+
+  //double Vpp[5] = {rhoil,0,0,0,pi};
+  //double cll = vf_->computeSoundSpeed(Vpp,fluid2);
+
   if(convergence){
     if(verbose>-1) fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
   }else{
-    if(verbose>-1) fprintf(stdout, "riemann solver did not converged\n");
-    if(verbose>-1) fprintf(stdout, "Warning: solution will be state given by vacuum\n");
+    fprintf(stderr, "riemann solver did not converged\n");
+    fprintf(stderr, "Warning: solution will be state given by vacuum\n");
+    fprintf(stderr, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+    fprintf(stderr, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+    fprintf(stderr, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+    fprintf(stderr, "initrhoil  = %e and initrhoir  = %e\n", initrhol, initrhor);
+    fprintf(stderr, "uil  = %e and uir  = %e\n", uil, uir);
+    fprintf(stderr, "pil  = %e and pir  = %e\n", pil, pir);
+    fprintf(stderr, "duil = %e and duir = %e\n", duil, duir);
+    fprintf(stderr, "dpil = %e and dpir = %e\n", dpil, dpir);
+    for (int kk = 0; kk <= it; ++kk) {
+      fprintf(stderr, "it = %i: vil = %e, vir = %e\n",kk,pastiterates[kk][0],pastiterates[kk][1]);
+    }
+
+    fflush(stderr);
+
     rhoil = vacuumValues[0];
     rhoir = vacuumValues[3];
     uil   = vacuumValues[1];
@@ -2652,7 +2687,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
     Wi[4] = P_i;
-    Wi[4]  = vf_->computeTemperature(Wi, IDj);          Wi[dim+4]  = Wi[4];
+    Wi[4]  = vf_->computeTemperature(Wi, IDj);         Wi[dim+4]  = Wi[4];
 
     Wj[0]  = R_i2;                    Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
@@ -2687,7 +2722,7 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
     Wj[4]  = P_i;
-    Wj[4]  = vf_->computeTemperature(Wj, IDi);                     Wj[dim+4]  = Wj[4];
+    Wj[4]  = vf_->computeTemperature(Wj, IDi);                 Wj[dim+4]  = Wj[4];
   }
 
 // METHOD 2 : combine averaging and direction of flow
@@ -2723,7 +2758,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid1
     // cell j is fluid2
 
-    ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0] );
+    } else
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3,NULL);
 
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
@@ -2807,8 +2847,12 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell j is fluid1
 
     //std::cout << "ji" << std::endl << std::endl ;
-
-    ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0] );
+    } else
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3,NULL);
 
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
