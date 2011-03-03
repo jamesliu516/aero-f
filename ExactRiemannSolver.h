@@ -24,6 +24,10 @@ class ExactRiemannSolver{
   SVec<double,dim-2>  &interfacialWi;
   SVec<double,dim-2>  &interfacialWj;
 
+  int getRiemannSolverId(int i,int j) const;
+
+  int levelSetMap[10][10];
+
   public:
 
   ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 

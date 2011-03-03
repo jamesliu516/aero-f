@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <set>
+#include <ProgrammedBurn.h>
 using std::set;
 
 #ifdef COUGAR
@@ -1336,7 +1337,7 @@ SphereData::SphereData()
 Assigner *SphereData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 7, nullAssigner);
 
   new ClassInt<SphereData> (ca, "FluidID", this, &SphereData::fluidModelID);
 
@@ -1347,7 +1348,53 @@ Assigner *SphereData::getAssigner()
 
   initialConditions.setup("InitialState", ca);
 
+  programmedBurn.setup("ProgrammedBurn", ca);
+
   return ca;
+}
+
+//------------------------------------------------------------------------------
+
+PrismData::PrismData()
+{
+
+  fluidModelID = -1;
+
+  cen_x  = 0.0;
+  cen_y  = 0.0;
+  cen_z  = 0.0;
+  w_x = w_y = w_z = -1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *PrismData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 9, nullAssigner);
+
+  new ClassInt<PrismData> (ca, "FluidID", this, &PrismData::fluidModelID);
+
+  new ClassDouble<PrismData> (ca, "Center_x", this, &PrismData::cen_x);
+  new ClassDouble<PrismData> (ca, "Center_y", this, &PrismData::cen_y);
+  new ClassDouble<PrismData> (ca, "Center_z", this, &PrismData::cen_z);
+  new ClassDouble<PrismData> (ca, "Width_x", this, &PrismData::w_x);
+  new ClassDouble<PrismData> (ca, "Width_y", this, &PrismData::w_y);
+  new ClassDouble<PrismData> (ca, "Width_z", this, &PrismData::w_z);
+
+  initialConditions.setup("InitialState", ca);
+
+  programmedBurn.setup("ProgrammedBurn", ca);
+
+  return ca;
+}
+
+bool PrismData::inside(double x,double y, double z) const {
+
+  return (x <= cen_x+w_x*0.5 && x >=cen_x-w_x*0.5 &&
+	  y <= cen_y+w_y*0.5 && y >=cen_y-w_y*0.5 &&
+	  z <= cen_z+w_z*0.5 && z >=cen_z-w_z*0.5);
 }
 
 //------------------------------------------------------------------------------
@@ -1423,8 +1470,9 @@ Assigner *PointData::getAssigner()
 void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
   sphereMap.setup("Sphere", ca);
+  prismMap.setup("Prism", ca);
   planeMap.setup("Plane", ca);
   pointMap.setup("Point", ca);
 
@@ -1540,6 +1588,63 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
 
 }
 
+//struct ProgrammedBurnData {
+
+//  int unburnedEOS,burnedEOS;
+//  double ignitionX0,ignitionY0,ignitionZ0;
+//  double cjEnergy;
+//  double cjDetonationVelocity;
+  
+ProgrammedBurnData::ProgrammedBurnData() {
+
+  unburnedEOS = burnedEOS = -1;
+  ignitionX0 = ignitionY0 = ignitionZ0 = 0.0;
+  e0 = 0.0;
+  cjDetonationVelocity = -1.0;
+  cjPressure = 0.0;
+  cjDensity = 0.0;
+  cjEnergy = 0.0;
+  ignitionTime = 0.0;
+  ignited = 0;
+}
+
+ProgrammedBurnData::~ProgrammedBurnData() { 
+
+}
+
+void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 12, father);
+
+  new ClassInt<ProgrammedBurnData>
+    (ca, "UnburnedEOS", this, &ProgrammedBurnData::unburnedEOS);
+  new ClassInt<ProgrammedBurnData>
+    (ca, "BurnedEOS", this, &ProgrammedBurnData::burnedEOS);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionX0", this, &ProgrammedBurnData::ignitionX0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionY0", this, &ProgrammedBurnData::ignitionY0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionZ0", this, &ProgrammedBurnData::ignitionZ0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionTime", this, &ProgrammedBurnData::ignitionTime);
+  new ClassInt<ProgrammedBurnData>
+    (ca, "Ignited", this, &ProgrammedBurnData::ignited);
+
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "E0", this, &ProgrammedBurnData::e0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetDetonationVelocity", this, &ProgrammedBurnData::cjDetonationVelocity);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetDensity", this, &ProgrammedBurnData::cjDensity);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetPressure", this, &ProgrammedBurnData::cjPressure);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetEnergy", this, &ProgrammedBurnData::cjEnergy);
+  
+}
+
+
 //------------------------------------------------------------------------------
 
 MultiFluidData::MultiFluidData()
@@ -1569,7 +1674,7 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 18, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
@@ -3586,6 +3691,12 @@ int IoData::checkInputValues()
     return checkInputValuesSparseGrid(mf.sparseGrid);
   }
 
+  // Check the input values for programmed burn first,
+  // because if we are doing programmed burn we can set some
+  // initial conditions that do not need to be specified in the
+  // input file
+  checkInputValuesProgrammedBurn();
+
   error += checkInputValuesAllInitialConditions();
   error += checkInputValuesEssentialBC();
 
@@ -3658,7 +3769,9 @@ int IoData::checkInputValuesAllEquationsOfState(){
 
   // check if fluid-fluid interfaces are expected
   if(eqs.numPhase > 1 && 
-     (!mf.multiInitialConditions.sphereMap.dataMap.empty() || !mf.multiInitialConditions.planeMap.dataMap.empty()))
+     (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
+      !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
+      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
@@ -3688,9 +3801,25 @@ int IoData::checkInputValuesAllInitialConditions(){
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      
       if(it->second->radius <= 0.0){
         error++;
         com->fprintf(stderr, "*** Error: a positive radius must be specified for the sphere[%d] initial conditions\n", it->first);
+      }
+    }
+  }
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      
+      if(it->second->w_x <= 0.0 || 
+	 it->second->w_y <= 0.0 || 
+	 it->second->w_z <= 0.0 ){
+        error++;
+        com->fprintf(stderr, "*** Error: a size must be specified for prism[%d] initial conditions\n", it->first);
       }
     }
   }
@@ -3723,24 +3852,31 @@ int IoData::checkInputValuesAllInitialConditions(){
     }
   }
 
+  embed.nLevelset = 0;
+
   // count number levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
-  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
-    map<int, SphereData *>::iterator it;
-    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin();
-         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
-         it++)
-      usedModels.insert(it->second->fluidModelID);
-    int nModels = usedModels.size();
+  for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
+       it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+       it++)
+    usedModels.insert(it->second->fluidModelID);
+
+  for (map<int, PrismData *>::iterator it=mf.multiInitialConditions.prismMap.dataMap.begin();
+       it!=mf.multiInitialConditions.prismMap.dataMap.end();
+       it++)
+    usedModels.insert(it->second->fluidModelID);
+
+  int nModels = usedModels.size();
+  if (nModels > 0) {
     int minModel = *(usedModels.begin());
     int maxModel = *(--(set<int>::iterator)(usedModels.end()));
     if(minModel!=1 || nModels != maxModel - minModel + 1) {
-      com->fprintf(stderr,"*** Error: FluidID(s) for user-specified sphere(s) must be consecutive and begin with 1!\n");
+      com->fprintf(stderr,"*** Error: FluidID(s) for user-specified volume(s) must be consecutive and begin with 1!\n");
       com->fprintf(stderr,"***        Re-order the fluid models such that this convention is followed.\n");
       error++;
     } else 
       embed.nLevelset = nModels;
-  } else embed.nLevelset = 0;
+  }
 
   return error;
 
@@ -3786,8 +3922,47 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->cen_y  /= ref.rv.length;
       it->second->cen_z  /= ref.rv.length;
       it->second->radius /= ref.rv.length;
+
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
     }
   }
+
+  // non-dimensionalize initial conditions for multiFluidData
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x  /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+      it->second->w_x /= ref.rv.length;
+      it->second->w_y /= ref.rv.length;
+      it->second->w_z /= ref.rv.length;
+
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
+    }
+  }
+
   if(!mf.multiInitialConditions.planeMap.dataMap.empty()){
     map<int, PlaneData *>::iterator it;
     for (it=mf.multiInitialConditions.planeMap.dataMap.begin(); 
@@ -4253,6 +4428,8 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     schemes.fixes.cones[j]->z1 /= ref.rv.tlength;
     schemes.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
+  
+  com->fprintf(stderr,"Ref pressure = %lf; ref density = %lf\n",ref.rv.pressure,ref.rv.density);
   return error;
 }
 //------------------------------------------------------------------------------------
@@ -4570,6 +4747,9 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
     double bwater = fluidModel.liquidModel.k2water;
 
     fluidModel.liquidModel.Cv          /= 1.0;
+    fluidModel.liquidModel.Cv          /= (ref.rv.length*ref.rv.length/(ref.rv.time*ref.rv.time*ref.rv.temperature) );
+    //std::cout << ref.rv.length/ref.rv.time << " " << ref.rv.energy << std::endl;
+    //std::cout << "Cv = " << fluidModel.liquidModel.Cv << " ref_temp = " << ref.rv.temperature << " ref_length = " << ref.rv.length << std::endl;
     fluidModel.liquidModel.k1water     /= ref.rv.pressure;
     fluidModel.liquidModel.RHOrefwater /= ref.rv.density;
     fluidModel.liquidModel.Prefwater   /= ref.rv.pressure;
@@ -4659,6 +4839,116 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 
 }
 
+ int IoData::checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
+				      InitialConditions& IC) {
+
+  int error = 0;
+  if (programmedBurn.unburnedEOS < 0)
+    return 0;
+  
+  if (eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS) == eqs.fluidModelMap.dataMap.end()) {
+    com->fprintf(stderr, "*** Error: Cannot find burned EOS %d in fluid models\n",programmedBurn.burnedEOS);
+    ++error;
+  }
+  
+  if (programmedBurn.e0 <= 0.0) {
+    com->fprintf(stderr, "*** Error: Champan-Jouguet Energy must be greater than zero");
+    ++error;
+  }
+  
+  // Check the detonation velocity/detonation pressure
+  if (programmedBurn.cjDetonationVelocity <= 0.0 ||
+      programmedBurn.cjPressure <= 0.0 ||
+      programmedBurn.cjDensity <= 0.0 ||
+      programmedBurn.cjEnergy <= 0.0) {
+    
+    com->fprintf(stderr, "*** At least one of the Chapman-Jouguet parameters is invalid\nRecalcuating...\n");
+    const FluidModelData& burnedData = *eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS)->second;
+    if (burnedData.fluid == FluidModelData::JWL) {
+      ProgrammedBurn::computeChapmanJouguetStateJWL(burnedData.jwlModel.A1, burnedData.jwlModel.A2,
+						    burnedData.jwlModel.R1*burnedData.jwlModel.rhoref,
+						    burnedData.jwlModel.R2*burnedData.jwlModel.rhoref,
+						    burnedData.jwlModel.omega,IC.pressure,
+						    IC.density,
+						    programmedBurn.e0,
+						    programmedBurn.cjDensity, programmedBurn.cjPressure,
+						    programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+      
+      com->fprintf(stderr,"Computed CJ state for JWL gas %d as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
+		   programmedBurn.cjDetonationVelocity);
+      
+    } else if (burnedData.fluid == FluidModelData::GAS) {
+      if (burnedData.gasModel.pressureConstant != 0.0) {
+	com->fprintf(stderr,"*** Warning: Correct CJ state only computed with perfect gas.  You have specified a stiffened gas for the burned state\n");
+      }
+      
+      ProgrammedBurn::computeChapmanJouguetStatePG(burnedData.gasModel.specificHeatRatio,IC.pressure,
+						   IC.density,
+						   programmedBurn.e0,
+						   programmedBurn.cjDensity, programmedBurn.cjPressure,
+						   programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+      
+      com->fprintf(stderr,"Computed CJ state for PG gas %e as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity,programmedBurn.cjEnergy,
+		   programmedBurn.cjDetonationVelocity);
+      
+    }	
+    
+  }
+  
+  if (eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS) == eqs.fluidModelMap.dataMap.end()) {
+    com->fprintf(stderr, "*** Error: Cannot find unburned EOS %d in fluid models\n",programmedBurn.unburnedEOS);
+    ++error;
+  } else {
+    
+    LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
+    double B = (programmedBurn.cjPressure - liq.Prefwater) / ( pow(programmedBurn.cjDensity/liq.RHOrefwater, liq.k2water) - 1.0);
+    //std::cout << "Old k1 = " << liq.k1water  << std::endl;
+    liq.k1water = liq.k2water*(B - liq.Prefwater);       
+    //std::cout << "New k1 = " << liq.k1water  << std::endl;
+    
+  }
+  
+  LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
+  // Set the initial energy of the Tait EOS appropriately
+  IC.temperature = programmedBurn.e0 / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
+  //std::cout << "T = " << IC.temperature << std::endl;
+  return error;
+}
+
+//------------------------------------------------------------------------------
+int IoData::checkInputValuesProgrammedBurn() {
+  int error = 0;
+  
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+
+      ProgrammedBurnData& programmedBurn = it->second->programmedBurn;
+      InitialConditions& IC = it->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn,
+					IC);
+    }
+  }
+
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator itp;
+    for (itp=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         itp!=mf.multiInitialConditions.prismMap.dataMap.end();
+         itp++){
+
+      ProgrammedBurnData& programmedBurn = itp->second->programmedBurn;
+      InitialConditions& IC = itp->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn,
+					IC);
+    }
+  }
+
+  return error;
+}
 //------------------------------------------------------------------------------
 
 int IoData::checkInputValuesEmbeddedFramework() {
@@ -4763,6 +5053,29 @@ void IoData::printDebug(){
       com->fprintf(stderr, "SphereData::y0           = %e\n", it->second->cen_y);
       com->fprintf(stderr, "SphereData::z0           = %e\n", it->second->cen_z);
       com->fprintf(stderr, "SphereData::R0           = %e\n", it->second->radius);
+      com->fprintf(stderr, "\n");
+    }
+  }  
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "PrismData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "PrismData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "PrismData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "PrismData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "PrismData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "PrismData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "PrismData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "PrismData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "PrismData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "PrismData::x0           = %e\n", it->second->cen_x);
+      com->fprintf(stderr, "PrismData::y0           = %e\n", it->second->cen_y);
+      com->fprintf(stderr, "PrismData::z0           = %e\n", it->second->cen_z);
+      com->fprintf(stderr, "PrismData::wx           = %e\n", it->second->w_x);
+      com->fprintf(stderr, "PrismData::wy           = %e\n", it->second->w_y);
+      com->fprintf(stderr, "PrismData::wz           = %e\n", it->second->w_z);
       com->fprintf(stderr, "\n");
     }
   }

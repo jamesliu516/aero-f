@@ -758,18 +758,54 @@ struct TurbulenceClosureData {
 
 //------------------------------------------------------------------------------
 
+struct ProgrammedBurnData {
+
+  int unburnedEOS,burnedEOS;
+  double ignitionX0,ignitionY0,ignitionZ0;
+  double e0;
+  double cjDetonationVelocity;
+  double cjPressure;
+  double cjDensity;
+  double cjEnergy;
+  double ignitionTime;
+  int ignited;
+  
+  ProgrammedBurnData();
+  ~ProgrammedBurnData();
+
+  void setup(const char*, ClassAssigner* = 0);
+
+};
+
 struct SphereData {
 
   double cen_x, cen_y, cen_z, radius;
   int fluidModelID;
   InitialConditions initialConditions;
 
+  ProgrammedBurnData programmedBurn;
+
   SphereData();
   ~SphereData() {}
   Assigner *getAssigner();
 
 };
+//------------------------------------------------------------------------------
+struct PrismData {
 
+  double cen_x, cen_y, cen_z, w_x,w_y,w_z;
+  int fluidModelID;
+  InitialConditions initialConditions;
+
+  ProgrammedBurnData programmedBurn;
+
+  bool inside(double x,double y,double z) const;
+
+  PrismData();
+  ~PrismData() {}
+  Assigner *getAssigner();
+
+};
 //------------------------------------------------------------------------------
 
 struct PlaneData {
@@ -803,6 +839,7 @@ struct PointData {
 struct MultiInitialConditionsData {
 
   ObjectMap<SphereData> sphereMap;
+  ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
   ObjectMap<PointData>  pointMap;
 
@@ -868,7 +905,6 @@ struct MultiFluidData {
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
-
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -1748,6 +1784,9 @@ public:
   int checkFileNames();
   int checkInputValues();
   int checkInputValuesAllEquationsOfState();
+  int checkInputValuesProgrammedBurn();
+  int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
+			       InitialConditions& IC);
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();

@@ -118,6 +118,7 @@ public:
   //RecFcn *createRecFcnLS(IoData &);
   FemEquationTerm *createFemEquationTerm(IoData &);
   VolumicForceTerm *createVolumicForceTerm(IoData &);
+  VarFcn* getVarFcn() { return varFcn; }
   void setBcFcn(BcFcn *);
   void setFluxFcn(FluxFcn **);
   void setRecFcn(RecFcn *);

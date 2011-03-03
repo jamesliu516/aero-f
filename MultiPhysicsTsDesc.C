@@ -28,7 +28,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo())
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo()), programmedBurn(NULL)
 {
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -37,6 +37,13 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
+
+  int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
+  if (numBurnableFluids > 0) {
+    programmedBurn = new ProgrammedBurn(ioData,this->X);
+    this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
 
   setupEmbeddedFSISolver(ioData);
   setupMultiPhaseFlowSolver(ioData);
@@ -56,6 +63,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   
   requireSpecialBDF = false;
   increasingPressure = false;
+
+  ioData.printDebug();
 }
 
 //------------------------------------------------------------------------------
@@ -239,6 +248,9 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize level-sets 
   LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
 
+  if (programmedBurn)
+    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
+
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
   if(this->input->levelsets[0] == 0) // init
     fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
@@ -352,6 +364,11 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
   } else {
     requireSpecialBDF = false;
     LS->update(Phi);
+  }
+
+  if (programmedBurn) {
+
+     programmedBurn->setFluidIds(currentTime, *fluidSelector.fluidId,U);
   }
 
   fluidSelector.update();
@@ -654,11 +671,14 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
 }
 //-------------------------------------------------------------------------------
 
+template<int dim,int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
 
+  currentTime = t;
 
-
-
-
+  if (programmedBurn)
+    programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
+}
 
 
 

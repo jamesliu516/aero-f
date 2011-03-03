@@ -231,6 +231,8 @@ public:
   double computeFrhop(double *V, int tag=0) const{ check(tag); return varFcn[tag]->computeFrhop(V); }
   double computeFrhop(const double density, int tag=0) const{ check(tag); return varFcn[tag]->computeFrhop(density); }
 
+  VarFcnBase* getVarFcnBase(int tag = 0) const { check(tag); return varFcn[tag]; }
+
 };
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -347,8 +349,16 @@ void VarFcn::conservativeToPrimitive(DistSVec<double,dim> &U, DistSVec<double,di
     double (*v)[dim] = V.subData(iSub);
     if(tag){
       int    *loctag   = tag->subData(iSub);
-      for (int i=0; i<U.subSize(iSub); ++i)
+      for (int i=0; i<U.subSize(iSub); ++i) {
         varFcn[loctag[i]]->conservativeToPrimitive(u[i], v[i]);
+	/*if (loctag[i] == 0) {
+	  for (int k = 0; k < dim; ++k)
+	    std::cout << u[i][k] << " " << v[i][k] << std::endl;
+	}
+	if (loctag[i] == 0) {
+	  std::cout << std::endl;
+	  }*/
+      }
 
     }else{
       for (int i=0; i<U.subSize(iSub); ++i)

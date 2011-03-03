@@ -35,7 +35,8 @@ public:
 				     double* Vi, double* Vj,
 				     double* Wi, double* Wj,
 				     double* jacii,double* jacij,
-				     double* jacjj,double* jacji);
+				     double* jacjj,double* jacji,
+				     double* dVdv);
  private:
 
   static double computeJwlIntegral2(VarFcn* vf_, int fluidId, double omega,

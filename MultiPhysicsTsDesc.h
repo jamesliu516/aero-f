@@ -100,6 +100,10 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   double Pinit;
   double Pscale;
 
+  ProgrammedBurn* programmedBurn;
+
+  double currentTime;
+
  protected:
   void setupEmbeddedFSISolver(IoData &ioData);
   void setupMultiPhaseFlowSolver(IoData &ioData);
@@ -138,6 +142,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
 
+  void setCurrentTime(double t,DistSVec<double,dim>& U);
 };
 
 #ifdef TEMPLATE_FIX
