@@ -44,6 +44,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
   protected:
     int numStNodes, numStElems;
     int totStNodes, totStElems;
+    bool gotNewCracking;
     double xMin, xMax, yMin, yMax, zMin, zMax; //a bounding box over the struct body
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
 
