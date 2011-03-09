@@ -1520,7 +1520,6 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  int numStructNodes = dynNodalTransfer->numStNodes();
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if (it==0) {
@@ -1550,13 +1549,13 @@ void EmbeddedMeshMotionHandler::step1ForC0FEM(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step1ForC0XFEM(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  int numStructNodes = dynNodalTransfer->numStNodes();
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if (it==0) {
     dts *= 0.5;
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes);
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes());
 
     X = X0;
   }
@@ -1651,7 +1650,6 @@ double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  int numStructNodes = dynNodalTransfer->numStNodes();
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if(it==0)
@@ -1663,7 +1661,8 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
       dynNodalTransfer->getNewCracking();
 
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
     X = X0;
   }
@@ -1674,7 +1673,6 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  int numStructNodes = dynNodalTransfer->numStNodes();
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if(it==0) {
@@ -1685,7 +1683,8 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
     if(dynNodalTransfer->cracking())
       dynNodalTransfer->getNewCracking();
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
     X = X0;
   } 
@@ -1698,8 +1697,6 @@ void EmbeddedMeshMotionHandler::step2ForC0(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  int numStructNodes = distLSS->getNumStructNodes();
-
   if(it==0) {
     dts = dynNodalTransfer->getStructureTimeStep();
     dts *= 0.5;
@@ -1708,7 +1705,8 @@ void EmbeddedMeshMotionHandler::step2ForC0XFEM3D(bool *lastIt, int it, double t,
     if(dynNodalTransfer->cracking()) 
       dynNodalTransfer->getNewCracking();
     dynNodalTransfer->getDisplacement(); //receive displacement and velocity from structure.
-    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), numStructNodes, dynNodalTransfer->getStElems());
+    distLSS->updateStructure(dynNodalTransfer->getStNodes(), dynNodalTransfer->getStVelocity(), 
+                             dynNodalTransfer->numStNodes(), dynNodalTransfer->getStElems());
 
     X = X0;
   } 

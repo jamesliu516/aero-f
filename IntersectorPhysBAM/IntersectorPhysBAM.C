@@ -72,6 +72,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   boxMax = 0;
 
   cracking = cs;
+  gotNewCracking = false;
 
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
@@ -725,9 +726,9 @@ void
 DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
 {
   int previous = numStNodes;
-  bool newCrack = (nNodes!=numStNodes);
+  gotNewCracking = (nNodes!=numStNodes);
 
-  if(newCrack) {
+  if(gotNewCracking) {
     if(!cracking || nNodes<numStNodes) {
       com->fprintf(stderr,"ERROR: Number of structure nodes has changed! Cracking is not considered in this simulation.\n");
       exit(-1);}
@@ -742,7 +743,7 @@ DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int 
       Xs_np1[i][j] = xs[3*i+j];
       Xsdot[i][j] = Vs[3*i+j];}
 
-  if(newCrack) {
+  if(gotNewCracking) {
     std::map<int,int> newNodes = cracking->getLatestPhantomNodes();
     if(numStNodes-previous!=newNodes.size()) {
       com->fprintf(stderr,"SOFTWARE BUG: How many new phantom nodes, %d or %d ?!\n", numStNodes-previous, newNodes.size());
@@ -860,10 +861,19 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   for (int i=0; i<numStNodes; i++) 
     Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
+/*  //Debug only!
+  if(com->cpuNum()==0) {
+    for(int i=0; i<numStNodes; i++)
+      fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(stderr,"%d 4 %d %d %d\n", i+1, stElem[i][0]+1, stElem[i][1]+1, stElem[i][2]+1);
+  }
+*/
+
   // for hasCloseTriangle
   DistVec<bool> tId(X->info());
   
-  updatePhysBAMInterface(Xs, numStNodes,*X);
+  updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking);
 
   buildSolidNormals();
 
