@@ -348,7 +348,7 @@ void PostOperator<dim>::computeForceAndMoment(Vec3D &x0, DistSVec<double,3> &X,
   Mi[0][2] += M[2];
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
-#pragma omp critical
+//#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
                        Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
 		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
@@ -482,7 +482,7 @@ void PostOperator<dim>::computeForceAndMoment(DistExactRiemannSolver<dim>&rieman
   Mi[0][2] += M[2];
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
-#pragma omp critical
+//#pragma omp critical
     double coef[12] = {Fi[iSurf][0], Fi[iSurf][1], Fi[iSurf][2],
                        Mi[iSurf][0], Mi[iSurf][1], Mi[iSurf][2],
 		       Fv[iSurf][0], Fv[iSurf][1], Fv[iSurf][2],
@@ -559,7 +559,7 @@ void PostOperator<dim>::computeHeatFluxes(DistSVec<double,3>& X,
   }
 
     for(int iSurf = 0; iSurf < numSurfHF; ++iSurf) {
-#pragma omp critical
+//#pragma omp critical
        double coef[2] = {HF[iSurf], HF[iSurf]};
        com->globalSum(2, coef);
        HF[iSurf] = coef[1];
@@ -629,7 +629,7 @@ void PostOperator<dim>::computeDerivativeOfForceAndMoment(Vec3D &x0, DistSVec<do
   } 
 
   for(iSurf = 0; iSurf < numSurf; ++iSurf) {
-#pragma omp critical
+//#pragma omp critical
     double dCoef[12] = {dFi[iSurf][0], dFi[iSurf][1], dFi[iSurf][2],
                         dMi[iSurf][0], dMi[iSurf][1], dMi[iSurf][2],
 		        dFv[iSurf][0], dFv[iSurf][1], dFv[iSurf][2],

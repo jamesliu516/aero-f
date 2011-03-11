@@ -32,14 +32,15 @@ BCApplier::setDofType(MatchNodeSet** matchNodes)
     int** ndType = domain->getNodeType();
     int nMoving = 0; // counts (global) number of nodes "labelled" as moving
     int nMatched= 0; // counts (global) number of "matched" nodes
+    int i;
 #pragma omp parallel for private(i) reduction(+: nMoving,nMatched)
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
       bool* ndFlag = domain->getNodeDistInfo().getMasterFlag(iSub); // nodes master flag array -> to count each node ONLY once
       // Count number of nodes "labelled" as moving in iSub 
-      for (int i=0; i<domain->getNodeDistInfo().subSize(iSub); i++) // Loop over sub's nodes
+      for (i=0; i<domain->getNodeDistInfo().subSize(iSub); i++) // Loop over sub's nodes
         if(ndFlag[i] && ndType[iSub][i]<BC_INTERNAL) nMoving++; // iSub is the "master" for this node which is labelled as moving 
       // Count number of "matched" nodes iSub 
-      for (int i=0; i<matchNodes[iSub]->size(); i++)  // Loop over sub's matched nodes
+      for (i=0; i<matchNodes[iSub]->size(); i++)  // Loop over sub's matched nodes
         if(ndFlag[matchNodes[iSub]->subMatchNode(i)]) nMatched++; // iSub is the "master" for this node which is "matched" 
     }
     // sum across the CPUs

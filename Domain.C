@@ -1617,7 +1617,7 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 
   double t0 = timer->getTime();
 
-#pragma omp parallel for
+//#pragma omp parallel for
   if(ghostPoints)
     {
       if(!LSS) 
@@ -1625,16 +1625,19 @@ void Domain::computeGalerkinTerm(FemEquationTerm *fet, DistBcData<dim> &bcData,
 	  cout<<"LSS has to be provided in the case of a viscous simulation\n";
 	  exit(1);
 	}
-      Vec<GhostPoint<dim>*> *gp;
+      //Vec<GhostPoint<dim>*> *gp;
+#pragma omp parallel for
       for (int iSub = 0; iSub < numLocSub; ++iSub)
 	{
-	  gp     = ghostPoints->operator[](iSub);
+	  //gp     = ghostPoints->operator[](iSub);
 	  subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
-					       X(iSub), V(iSub), R(iSub),gp,&(LSS->operator()(iSub)));
+					       X(iSub), V(iSub), R(iSub), ghostPoints->operator[](iSub),
+                                               &(LSS->operator()(iSub)));
 	}
     }
   else
     {
+#pragma omp parallel for
       for (int iSub = 0; iSub < numLocSub; ++iSub)
 	subDomain[iSub]->computeGalerkinTerm(fet, bcData(iSub), geoState(iSub),
 					     X(iSub), V(iSub), R(iSub));
@@ -3018,7 +3021,8 @@ void Domain::fixSolution(VarFcn *varFcn, DistSVec<double,dim> &U, DistSVec<doubl
 
   int verboseFlag = com->getMaxVerbose();
 
-#pragma omp parallel for reduction(+: ierr)
+//#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub) {
     if (fluidId) {
       subDomain[iSub]->fixSolution(varFcn, U(iSub), dU(iSub), &((*fluidId)(iSub)), verboseFlag);
@@ -3217,7 +3221,8 @@ template<int dim>
 void Domain::zeroInternalVals(DistSVec<double, dim> &v)  {
 
   int iSub;
-#pragma omp parallel for reduction(+: ierr)
+//#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub)
     subDomain[iSub]->zeroInternalVals(v(iSub));
 }
@@ -3904,9 +3909,11 @@ void Domain::computeDistanceCloseNodes(int lsdim, DistVec<int> &Tag, DistSVec<do
 template<int dimLS>
 void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
                                        DistSVec<double,3> &X,DistSVec<double,1> &Psi,
-                                       double &res, DistSVec<double,dimLS> &Phi,
+                                       double &_res, DistSVec<double,dimLS> &Phi,
                                        MultiFluidData::CopyCloseNodes copy)
 {
+  double res(_res);
+
   if(copy==MultiFluidData::TRUE && level==2){
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
@@ -3929,7 +3936,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
     subDomain[iSub]->minRcvData(*volPat, Psi.subData(iSub));
 
   com->globalSum(1, &res);
-  res = sqrt(res);
+  _res = sqrt(res);
 }
 //------------------------------------------------------------------------------
 

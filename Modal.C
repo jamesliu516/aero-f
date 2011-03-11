@@ -2187,14 +2187,14 @@ void ModalSolver<dim>::interpolatePOD()  {
     exit (-1);
   }
   int nData;
-  fscanf(inFP, "%d",&nData);
+  int toto = fscanf(inFP, "%d",&nData);
 
   char **podFile = new char *[nData];
 
   for (int iData = 0; iData < nData; ++iData){
     podFile[iData] = new char[500];
     //char *podFile1 = new char[500];
-    fscanf(inFP, "%s", podFile[iData]);
+    toto = fscanf(inFP, "%s", podFile[iData]);
     //podFile[iData] = podFile1;
     com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
   }
@@ -2215,11 +2215,11 @@ void ModalSolver<dim>::interpolatePOD()  {
   double newMach;
   double newAngle;
   for (int iData = 0; iData < nData; ++iData)
-    fscanf(inFP, "%lf", mach+iData);
-  fscanf(inFP, "%lf", &newMach);
+    toto = fscanf(inFP, "%lf", mach+iData);
+  toto = fscanf(inFP, "%lf", &newMach);
   for (int iData = 0; iData < nData; ++iData)
-    fscanf(inFP, "%lf", angle+iData);
-  fscanf(inFP, "%lf", &newAngle);
+    toto = fscanf(inFP, "%lf", angle+iData);
+  toto = fscanf(inFP, "%lf", &newAngle);
 
   com->fprintf(stderr, " ... Interpolating new POD basis at Mach = %f and angle of attack = %f from :\n",newMach, newAngle);
   for (int iData = 0; iData < nData; ++iData)

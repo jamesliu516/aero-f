@@ -132,7 +132,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   char c1[200], c2[200], c3[200];
   int num0 = 0, num1 = 0, nInputs;
   double x1,x2,x3;
-  fscanf(topFile, "%s %s\n", c1, c2);
+  int toto = fscanf(topFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++)
     if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
@@ -154,7 +154,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
     if(num1>maxIndex)
       maxIndex = num1;
 
-    fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
     nodeList.push_back(Vec3D(x1,x2,x3));
   }
 
@@ -192,7 +192,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   // load the elements.
   if(nInputs!=1) {
     com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-  fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+  toto = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
   char debug2[6] = "using";
   for (int i=0; i<5; i++)
     if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
@@ -211,7 +211,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   while(1) {
     nInputs = fscanf(topFile,"%d", &num0);
     if(nInputs!=1) break;
-    fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
     if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
     elemIdList.push_back(num0-1);  //start from 0.
     elemList1.push_back(node1-1);
@@ -261,7 +261,7 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
@@ -348,7 +348,7 @@ void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int 
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }

@@ -754,7 +754,7 @@ int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> 
 
   int iSub;
 
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfControlVolumes(0, lscale, X(iSub), dX(iSub), dCtrlVol(iSub));
     double (*locdCtrlVol)[1] = reinterpret_cast<double (*)[1]>(dCtrlVol.subData(iSub));
@@ -1424,7 +1424,7 @@ void Domain::computeTetsConnectedToNode(DistVec<int> &Ni)
 
  int iSub;
 
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
      subDomain[iSub]->computeTetsConnectedToNode(Ni(iSub));
 

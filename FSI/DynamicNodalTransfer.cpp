@@ -245,7 +245,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     char c1[200], c2[200];
     int num0 = 0, num1 = 0, count, nInputs;
     double x1,x2,x3;
-    fscanf(nodeFile, "%s %s\n", c1, c2);
+    int toto = fscanf(nodeFile, "%s %s\n", c1, c2);
     char debug[6]="Nodes";
     for (int i=0; i<5; i++) 
       if(debug[i]!=c1[i]) {com.fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", meshFile); exit(-1);}
@@ -267,7 +267,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       if(num1>maxIndex)
         maxIndex = num1;
 
-      fscanf(nodeFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      toto = fscanf(nodeFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList.push_back(Vec3D(x1,x2,x3));
     }
     nNodes = nodeList.size();

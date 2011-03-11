@@ -712,7 +712,7 @@ FILE *TsOutput<dim>::backupAsciiFile(char *name)
 
   fpback = fopen(nameback, "r");
   fp = fopen(name, "w");
-  fgets(line, MAXLINE, fpback);
+  char* toto = fgets(line, MAXLINE, fpback);
   fprintf(fp, "%s", line);
   while (fgets(line, MAXLINE, fpback) != 0) {
     int iter;
