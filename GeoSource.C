@@ -149,7 +149,7 @@ void GeoSource::readCpuToSub()
   }
 
   char line[MAXLINE];
-  fgets(line, MAXLINE, fp);
+  char* toto = fgets(line, MAXLINE, fp);
   int nCPU;
   sscanf(line, "%d", &nCPU);
 
@@ -162,7 +162,7 @@ void GeoSource::readCpuToSub()
   for (int iCPU=0; iCPU<numCPU; ++iCPU) {
 
     int numSub;
-    fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
     sscanf(line, "%d %d", &numSub, &cpuToThreads[iCPU]);
     ptr[iCPU] = curSub;
 
@@ -174,7 +174,7 @@ void GeoSource::readCpuToSub()
     }
 
     for (int iSub=0; iSub<numSub; ++iSub) {
-      fgets(line, MAXLINE, fp);
+      toto = fgets(line, MAXLINE, fp);
       sscanf(line, "%d", target+curSub);
       target[curSub] -= 1;
       curSub++;

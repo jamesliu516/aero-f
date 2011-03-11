@@ -160,8 +160,9 @@ void syncMap(Domain& domain, Communicator& com,map<int,int>& localMap){
 
 //----------------------------------------------------------------------------
 static CommPattern<pair<int,int> >* colorPattern=0;
-template <> MPI_Datatype CommTrace<pair<int,int> >::MPIType=MPI_INT;
-template <> int CommTrace<pair<int,int> >::multiplicity=2;
+//the following two lines cause "cannot be specialized in the current scope" error using intel compiler version 11.1
+//template <> MPI_Datatype CommTrace<pair<int,int> >::MPIType=MPI_INT;
+//template <> int CommTrace<pair<int,int> >::multiplicity=2;
 
 void assembleIntoSets(Domain& domain, Communicator& com,DistVec<pair<int,int> >& localColor,DistVec<set<pair<int,int> > >& nodeLocalColors){
     int numLocSub=domain.getNumLocSub();
@@ -236,3 +237,5 @@ void dump_stack_trace()
 
 }
 }
+template <> MPI_Datatype CommTrace<pair<int,int> >::MPIType=MPI_INT;
+template <> int CommTrace<pair<int,int> >::multiplicity=2;

@@ -838,10 +838,10 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
   }
 
   // header
-  fgets(mystring, 100, fpSPARSEGRID);
+  char* toto = fgets(mystring, 100, fpSPARSEGRID);
 
   // characteristics used to create the sparse grid
-  fscanf(fpSPARSEGRID, "%d %d\n", &dim, &out);
+  int toto2 = fscanf(fpSPARSEGRID, "%d %d\n", &dim, &out);
   
   if(logMap)
     for(int idim=0; idim<dim; idim++)
@@ -851,7 +851,7 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
   logMap = new LogarithmicMapping *[dim];
   for(int idim=0; idim<dim; idim++){
   	double temp;
-  	fscanf(fpSPARSEGRID, "%lf ", &temp); 
+  	toto2 = fscanf(fpSPARSEGRID, "%lf ", &temp); 
   	if(temp > 0.0)
       logMap[idim] = new LogarithmicMapping(temp);
     else if(temp == 0.0)
@@ -862,30 +862,30 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
     }
   }
 
-  fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
-  fscanf(fpSPARSEGRID, "%lf %lf %lf %d", &absAccuracy, &relAccuracy, &dimAdaptDegree, &nAdaptivePoints);
-  fscanf(fpSPARSEGRID, "%lf %lf", &actualAbsAcc, &actualRelAcc);
+  toto2 = fscanf(fpSPARSEGRID, "%d %d", &minPoints, &maxPoints);
+  toto2 = fscanf(fpSPARSEGRID, "%lf %lf %lf %d", &absAccuracy, &relAccuracy, &dimAdaptDegree, &nAdaptivePoints);
+  toto2 = fscanf(fpSPARSEGRID, "%lf %lf", &actualAbsAcc, &actualRelAcc);
   delete [] range;
   range = new Range[dim];
   for(int idim=0; idim<dim; idim++)
-    fscanf(fpSPARSEGRID, "%lf %lf ", &(range[idim][0]), &(range[idim][1]));
+    toto2 = fscanf(fpSPARSEGRID, "%lf %lf ", &(range[idim][0]), &(range[idim][1]));
   // WARNING: just like for constructor, logMap is applied later, in scaleGrid(...)
 
   // the sparse grid data
-  fscanf(fpSPARSEGRID, "%d", &nSubGrids);
+  toto2 = fscanf(fpSPARSEGRID, "%d", &nSubGrids);
   multiIndex = new int *[nSubGrids];
   for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
     multiIndex[isubgrid] = new int[dim];
     for(int idim=0; idim<dim; idim++)
-      fscanf(fpSPARSEGRID, "%d ", &(multiIndex[isubgrid][idim]));
+      toto2 = fscanf(fpSPARSEGRID, "%d ", &(multiIndex[isubgrid][idim]));
   }
 
-  fscanf(fpSPARSEGRID, "%d", &nPoints);
+  toto2 = fscanf(fpSPARSEGRID, "%d", &nPoints);
   surplus = new double *[nPoints];
   for(int ipts=0; ipts<nPoints; ipts++){
     surplus[ipts] = new double[out];
     for(int iout=0; iout<out; iout++)
-      fscanf(fpSPARSEGRID, "%lf ", &(surplus[ipts][iout]));
+      toto2 = fscanf(fpSPARSEGRID, "%lf ", &(surplus[ipts][iout]));
   }
 
   // the data to later increase the number of points
@@ -893,16 +893,16 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
   fnmin = new double[out];
   fnmax = new double[out];
   for(int iout=0; iout<out; iout++)
-    fscanf(fpSPARSEGRID, "%lf ", &(fnmin[iout]));
+    toto2 = fscanf(fpSPARSEGRID, "%lf ", &(fnmin[iout]));
   for(int iout=0; iout<out; iout++)
-    fscanf(fpSPARSEGRID, "%lf ", &(fnmax[iout]));
+    toto2 = fscanf(fpSPARSEGRID, "%lf ", &(fnmax[iout]));
     
   // error
   error = new double *[nSubGrids];
   for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
   	error[isubgrid] = new double[out];
   	for(int iout=0; iout<out; iout++){
-      fscanf(fpSPARSEGRID, "%lf ", &(error[isubgrid][iout]));
+      toto2 = fscanf(fpSPARSEGRID, "%lf ", &(error[isubgrid][iout]));
   	}
   }
   
@@ -912,7 +912,7 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
   activeCost  = new double[nSubGrids];
   int intToBool;
   for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
-  	fscanf(fpSPARSEGRID, "%d %lf %lf", &intToBool, &(activeError[isubgrid]), &(activeCost[isubgrid]));
+  	toto2 = fscanf(fpSPARSEGRID, "%d %lf %lf", &intToBool, &(activeError[isubgrid]), &(activeCost[isubgrid]));
   	active[isubgrid] = intToBool;
   }
   
@@ -926,9 +926,9 @@ void SparseGrid::readFromFile(const double *refIn, const double *refOut,
   for(int isubgrid=0; isubgrid<nSubGrids; isubgrid++){
   	neighbour[isubgrid] = new int[2*dim];
   	for(int idim=0; idim<dim; idim++) // forward neighbour
-      fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim]));
+      toto2 = fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim]));
     for(int idim=0; idim<dim; idim++) // backward neighbour
-      fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim+dim]));
+      toto2 = fscanf(fpSPARSEGRID, "%d ", &(neighbour[isubgrid][idim+dim]));
   }
   
   fclose(fpSPARSEGRID);
@@ -1140,11 +1140,11 @@ void SparseGrid::Heap::printToFile(FILE *file) const{
 
 void SparseGrid::Heap::readFromFile(FILE *file){
 	
-  fscanf(file, "%d", &numElem_);
+  int toto = fscanf(file, "%d", &numElem_);
   size_ = numElem_;
   elem_ = new int[numElem_];
   for(int ielem=0; ielem<numElem_; ielem++){
-    fscanf(file, "%d", &(elem_[ielem]));
+    toto = fscanf(file, "%d", &(elem_[ielem]));
   }
 }
 
