@@ -185,8 +185,11 @@ Intersection_List(const int box,const IMPLICIT_OBJECT<TV>& implicit_object,const
         if(Leaf(current)) intersection_list.Append(current);else{int box1,box2;children(current-leaves).Get(box1,box2);traversal_stack.Push(box1);traversal_stack.Push(box2);}}
 }
 //#####################################################################
+
 #define INSTANTIATION_HELPER(T,d) \
-    template class BOX_HIERARCHY<VECTOR<T,d> >;
+    template class BOX_HIERARCHY<VECTOR<T,d> >; \
+    template void BOX_HIERARCHY<VECTOR<T,d> >::Intersection_List<T>(const int box,const RANGE<VECTOR<T,d> >& test_box,ARRAY<int>& intersection_list,const T thickness_over_two) const; \
+    template void BOX_HIERARCHY<VECTOR<T,d> >::Intersection_List<T>(const int box,const VECTOR<T,d>& point,ARRAY<int>& intersection_list,const T thickness_over_two) const;
 
 INSTANTIATION_HELPER(float,1)
 INSTANTIATION_HELPER(float,2)
