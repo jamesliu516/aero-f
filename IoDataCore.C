@@ -1606,6 +1606,8 @@ ProgrammedBurnData::ProgrammedBurnData() {
   cjEnergy = 0.0;
   ignitionTime = 0.0;
   ignited = 0;
+  factorB = 1.0;
+  factorS = 1.0;
 }
 
 ProgrammedBurnData::~ProgrammedBurnData() { 
@@ -1614,7 +1616,7 @@ ProgrammedBurnData::~ProgrammedBurnData() {
 
 void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 12, father);
+  ClassAssigner *ca = new ClassAssigner(name, 14, father);
 
   new ClassInt<ProgrammedBurnData>
     (ca, "UnburnedEOS", this, &ProgrammedBurnData::unburnedEOS);
@@ -1641,6 +1643,10 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "ChapmanJouguetPressure", this, &ProgrammedBurnData::cjPressure);
   new ClassDouble<ProgrammedBurnData>
     (ca, "ChapmanJouguetEnergy", this, &ProgrammedBurnData::cjEnergy);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "FactorB", this, &ProgrammedBurnData::factorB);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "FactorS", this, &ProgrammedBurnData::factorS);
   
 }
 
@@ -4904,11 +4910,14 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
     
     LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
     double B = (programmedBurn.cjPressure - liq.Prefwater) / ( pow(programmedBurn.cjDensity/liq.RHOrefwater, liq.k2water) - 1.0);
+    B *= programmedBurn.factorB;
     //std::cout << "Old k1 = " << liq.k1water  << std::endl;
     liq.k1water = liq.k2water*(B - liq.Prefwater);       
     //std::cout << "New k1 = " << liq.k1water  << std::endl;
     
   }
+
+  programmedBurn.cjDetonationVelocity *= programmedBurn.factorS;
   
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
