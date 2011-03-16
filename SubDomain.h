@@ -1130,7 +1130,7 @@ public:
   bool insideOutside(double*, const double, const double, const double, const double,
                      const double, const double);
 
-  double getMeshInBoundingBox(SVec<double,3> &, const double, const double,
+  void getMeshInBoundingBox(SVec<double,3> &, const double, const double,
                               const double, const double,
                               const double, const double,
                               int*, int&, int*,

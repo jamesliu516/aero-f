@@ -4157,7 +4157,7 @@ bool SubDomain::insideOutside(double *position, const double xmin, const double 
 
 //-----------------------------------------------------------------------------------------------
 
-double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const double xmax,
+void SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const double xmax,
                                        const double ymin, const double ymax,
                                        const double zmin, const double zmax,
                                        int* nodeTag, int& numChosenNodes, int* tempNodeList,

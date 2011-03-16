@@ -117,6 +117,7 @@ public:
     for(int iPhase=0; iPhase<numPhases; iPhase++)
       if(varFcn[iPhase]->doVerification())
         return true;
+    return false;
   }
 
   double getDensity(double *V, int tag=0)   const{ check(tag); return varFcn[tag]->getDensity(V); }
