@@ -56,6 +56,7 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   requireSpecialBDF = false;
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  std::cout << "Num burnable fluids = " << numBurnableFluids << std::endl;
   if (numBurnableFluids > 0) {
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
