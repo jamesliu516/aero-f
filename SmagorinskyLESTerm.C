@@ -1,5 +1,5 @@
 #include <SmagorinskyLESTerm.h>
-#include <math.h>
+#include <cmath>
 
 //-----------------------------------------------------------------------
 

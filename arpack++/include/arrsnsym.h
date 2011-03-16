@@ -17,7 +17,7 @@
 #ifndef ARRSNSYM_H
 #define ARRSNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arerror.h"
 #include "debug.h"

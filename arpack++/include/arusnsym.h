@@ -18,7 +18,7 @@
 #ifndef ARUSNSYM_H
 #define ARUSNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arsnsym.h"
 #include "arunsmat.h"

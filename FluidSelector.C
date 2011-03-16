@@ -1,5 +1,5 @@
 #include "LevelSet/LevelSetStructure.h"
-#include <assert.h>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 

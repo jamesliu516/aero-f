@@ -3,11 +3,11 @@
 #include <Communicator.h>
 #include <parser/Assigner.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <iostream>
-#include <string.h>
-#include <math.h>
+#include <cstring>
+#include <cmath>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <set>

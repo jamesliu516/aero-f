@@ -7,7 +7,7 @@
 #include <DistGeoState.h>
 #include <DistMatrix.h>
 #include <DistVectorOp.h>
-#include <math.h>
+#include <cmath>
 #include <fstream>
 using namespace std;
 //------------------------------------------------------------------------------

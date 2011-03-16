@@ -5,8 +5,8 @@
 #include <Domain.h>
 #include <DistVector.h>
 
-#include <stdlib.h>
-#include <math.h>
+#include <cstdlib>
+#include <cmath>
 
 #define FORCE_TAG 1000
 #define DISP_TAG 2000

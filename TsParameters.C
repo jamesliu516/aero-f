@@ -2,7 +2,7 @@
 #include <TsParameters.h>
 #include <IoData.h>
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -11,7 +11,7 @@
 using std::min;
 using std::max;
 #endif
-#include <string.h>
+#include <cstring>
 
 //------------------------------------------------------------------------------
 

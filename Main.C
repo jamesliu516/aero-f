@@ -3,9 +3,9 @@
 #include <Domain.h>
 #include <Modal.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
+#include <cstdio>
+#include <cstdlib>
+#include <csignal>
 
 #ifdef DO_MODAL
 #include <ArpackUtil.h>

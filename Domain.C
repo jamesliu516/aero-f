@@ -19,8 +19,8 @@
 #include <NodalGrad.h>
 #include <FluidSelector.h>
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 #include <unistd.h>
 
 //------------------------------------------------------------------------------

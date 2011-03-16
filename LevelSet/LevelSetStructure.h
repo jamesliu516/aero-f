@@ -40,7 +40,7 @@ struct LevelSetResult {
 	   int *nodep;
    public:
 	   iterator(double *x, int *n) : xip(x), nodep(n) { }
-	   iterator & operator++() { xip++; nodep++; }
+	   iterator & operator++() { xip++; nodep++; return (*this); }
 	   bool operator !=(const iterator &it) const {
 		   return xip != it.xip || nodep != it.nodep;
 	   }
@@ -109,8 +109,6 @@ class DistLevelSetStructure {
             (*this)(iSub).computeSwept((swept)(iSub));
     }
 
-    //virtual DistVec<int> &getStatus() {fprintf(stderr,"ERROR: virtual function getStatus() is not implemented in DistLevelSetStructure!\n"); 
-    //                                   return *pseudoPhi;} 
     virtual DistVec<int> &getStatus() = 0;
                                     
 

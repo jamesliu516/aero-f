@@ -1,7 +1,7 @@
 // BasicGeometry.C
 
 #include "BasicGeometry.h"
-#include <assert.h>
+#include <cassert>
 
 double BasicGeometry::ComputeTetVolume(const Vec3D x[4]) {
 

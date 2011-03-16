@@ -6,8 +6,8 @@
 #include <SubDomain.h>
 #include <Domain.h>
 
-#include <math.h>
-#include <assert.h>
+#include <cmath>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 

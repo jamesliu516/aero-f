@@ -1,9 +1,9 @@
 #ifndef _BIN_FILE_HANDLER_H_
 #define _BIN_FILE_HANDLER_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

@@ -10,8 +10,8 @@
 #include <VarFcnTait.h>
 #include <VarFcnSGEuler.h>
 
-#include <assert.h>
-#include <math.h>
+#include <cassert>
+#include <cmath>
 #include <complex>
 typedef std::complex<double> bcomp;
 #include <iostream>

@@ -2,7 +2,7 @@
 #define _IO_DATA_H_
 
 #include <RefVal.h>
-#include <stdio.h>
+#include <cstdio>
 #include <map>
 #include "parser/ParseTree.h"
 #include "parser/Dictionary.h"

@@ -8,8 +8,8 @@
 #include <DESTerm.h>
 #include <Vector3D.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 class IoData;
 

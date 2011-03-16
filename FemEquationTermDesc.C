@@ -1,7 +1,7 @@
 #include <FemEquationTermDesc.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <algo.h>

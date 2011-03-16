@@ -1,5 +1,5 @@
 #include <TsDesc.h>
-#include <math.h>
+#include <cmath>
 #include <RefVal.h>
 #include <GeoSource.h>
 #include <DistBcData.h>

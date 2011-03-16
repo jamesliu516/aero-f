@@ -1,8 +1,8 @@
 #ifndef _VECTOR3D_H_
 #define _VECTOR3D_H_
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 

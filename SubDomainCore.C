@@ -15,9 +15,9 @@
 #include <LinkF77.h>
 #include <Extrapolation.h>
 
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
+#include <cstdio>
+#include <cmath>
+#include <cstring>
 #include <alloca.h>
 
 #ifdef OLD_STL

@@ -3,8 +3,8 @@
 #include <WallFcn.h>
 #include <Vector3D.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 const double PostFcnEuler::third = 1.0/3.0;
 //-----------------------------------------------------------------------------

@@ -6,10 +6,10 @@
 #include <Vector3D.h>
 #include <Extrapolation.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <assert.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 

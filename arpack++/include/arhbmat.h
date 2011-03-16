@@ -20,10 +20,10 @@
 #ifndef ARHBMAT_H
 #define ARHBMAT_H
 
-#include <stddef.h>
+#include <cstddef>
 #include <fstream.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include "arch.h"
 #include "arerror.h"
 
