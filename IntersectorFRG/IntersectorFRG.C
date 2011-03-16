@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include "IntersectorFRG.h"
 #include "Vector3D.h"

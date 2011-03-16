@@ -15,8 +15,8 @@
 #include <VarFcnTait.h>
 #include <VarFcnSGEuler.h>
 
-#include <assert.h>
-#include <math.h>
+#include <cassert>
+#include <cmath>
 #include <DebugTools.h>
 
 //#define NDEBUG // if commented, assert statements are evaluated

@@ -1,7 +1,7 @@
 #include <TimeData.h>
 #include <DistVector.h>
 
-#include <math.h>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 

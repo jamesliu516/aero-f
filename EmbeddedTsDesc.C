@@ -7,7 +7,7 @@
 #include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>

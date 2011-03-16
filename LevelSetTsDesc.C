@@ -7,7 +7,7 @@
 #include <DistExactRiemannSolver.h>
 #include <FluidSelector.h>
 
-#include <math.h>
+#include <cmath>
                                                                                                         
 #ifdef OLD_STL
 #include <algo.h>

@@ -16,7 +16,7 @@ using std::pair;
 #endif
 
 // Included (MB)
-#include <stdio.h>
+#include <cstdio>
 
 class FluidSelector;
 class VarFcn;

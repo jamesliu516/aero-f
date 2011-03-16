@@ -1,7 +1,7 @@
 #ifndef __PHYSBAM_MPI_UTILITIES_H__
 #define __PHYSBAM_MPI_UTILITIES_H__
 
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <set>
 #include <map>

@@ -6,7 +6,7 @@
 #include <WallFcn.h>
 #include <NavierStokesTerm.h>
 
-#include <math.h>
+#include <cmath>
 
 //-------------------------------------------------------------------------
 

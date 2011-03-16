@@ -5,7 +5,7 @@
 #include <Vector.h>
 #include <Vector3D.h>
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 
 using std::cout;
 using std::endl;

@@ -1,7 +1,7 @@
 #ifndef _SPARSE_MATRIX_H_
 #define _SPARSE_MATRIX_H_
 
-#include <stdio.h>
+#include <cstdio>
 #include <Vector.h>
 #include <GenMatrix.h>
 #include <Connectivity.h>

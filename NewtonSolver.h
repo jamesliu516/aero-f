@@ -1,8 +1,8 @@
 #ifndef _NEWTON_SOLVER_H_
 #define _NEWTON_SOLVER_H_
 
-#include <stdlib.h>
-#include <math.h>
+#include <cstdlib>
+#include <cmath>
 
 /*@ARTICLE{brown-saad-90,
   author = "Brown, P. N. and Saad, Y.",

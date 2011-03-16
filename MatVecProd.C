@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 
 #include <MatVecProd.h>
 #include <IoData.h>

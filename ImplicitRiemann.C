@@ -1,7 +1,7 @@
 #include "ImplicitRiemann.h"
 #include "ODEIntegrator.h"
 
-#include <math.h>
+#include <cmath>
 
 #include <iostream>
 

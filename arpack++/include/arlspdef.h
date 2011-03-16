@@ -21,7 +21,7 @@
 #include "arlcomp.h"
 #ifdef _CRAY
 #include <fortran.h>
-#include <string.h>
+#include <cstring>
 #endif
 
 /* No of marker arrays used in the symbolic factorization,

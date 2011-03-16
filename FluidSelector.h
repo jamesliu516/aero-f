@@ -7,7 +7,7 @@
 //#include "Domain.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <map>
-//#include <assert.h>
+//#include <cassert>
 //#define NDEBUG // if commented, assert statements are evaluated
 using std::map;
 using std::pair;

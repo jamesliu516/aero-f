@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 #include <sys/time.h>
 #include <algorithm>
 #include <cstdlib>
@@ -25,7 +25,7 @@ using std::sort;
 #endif
 
 #include <LinkF77.h>
-#include <string.h>
+#include <cstring>
 extern "C"      {
 
    void F77NAME(dsvdc)(double *, int &, int &, int&, double *,

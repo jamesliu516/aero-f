@@ -20,7 +20,7 @@
 #ifndef ARUNSMAT_H
 #define ARUNSMAT_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "armat.h"
 #include "arhbmat.h"

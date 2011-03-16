@@ -17,7 +17,7 @@
 #ifndef ARRSCOMP_H
 #define ARRSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arerror.h"
 #include "debug.h"

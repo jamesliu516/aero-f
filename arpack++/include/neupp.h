@@ -17,7 +17,7 @@
 #ifndef NEUPP_H
 #define NEUPP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arpackf.h"
 

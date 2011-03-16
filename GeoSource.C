@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <map.h>

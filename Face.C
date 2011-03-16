@@ -13,7 +13,7 @@
 #include <LowMachPrec.h>
 #include "LevelSet/LevelSetStructure.h"
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>

@@ -4,7 +4,7 @@
 #include <Vector3D.h>
 #include <IoData.h>
 
-#include <math.h>
+#include <cmath>
 #include <complex>
 typedef std::complex<double> bcomp;
 #include <iostream>

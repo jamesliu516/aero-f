@@ -4,7 +4,7 @@
 #include <DistVector.h>
 #include <Domain.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------
 

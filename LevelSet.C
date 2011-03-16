@@ -1,6 +1,6 @@
 #include <LevelSet.h>
 #include <fstream>
-#include <math.h>
+#include <cmath>
 
 #include "IoData.h"
 #include "Domain.h"

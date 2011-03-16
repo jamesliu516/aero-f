@@ -7,7 +7,7 @@
 #include <Communicator.h>
 #include "SparseGridCluster.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------------
 

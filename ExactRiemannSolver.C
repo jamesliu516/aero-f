@@ -5,7 +5,7 @@
 #include <Vector3D.h>
 #include <LocalRiemannDesc.h>
 
-#include <math.h>
+#include <cmath>
 
 
 //------------------------------------------------------------------------------

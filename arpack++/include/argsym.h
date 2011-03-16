@@ -17,7 +17,7 @@
 #ifndef ARGSYM_H
 #define ARGSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arssym.h"
 #include "arrgsym.h"

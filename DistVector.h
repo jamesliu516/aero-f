@@ -5,7 +5,7 @@
 #include <Vector.h>
 #include <DistInfo.h>
 #include <complex>
-#include <math.h>
+#include <cmath>
 
 typedef std::complex<double> bcomp;
 //------------------------------------------------------------------------------

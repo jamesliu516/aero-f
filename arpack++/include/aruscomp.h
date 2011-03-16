@@ -18,7 +18,7 @@
 #ifndef ARUSCOMP_H
 #define ARUSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arscomp.h"
 #include "arunsmat.h"

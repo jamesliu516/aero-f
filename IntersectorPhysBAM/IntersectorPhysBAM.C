@@ -1,5 +1,5 @@
 #include <iostream>
-#include <stdio.h>
+#include <cstdio>
 #include "IntersectorPhysBAM.h"
 #include "FloodFill.h"
 #include "Mpi_Utilities.h"

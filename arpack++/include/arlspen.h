@@ -17,7 +17,7 @@
 #ifndef ARLSPEN_H
 #define ARLSPEN_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arerror.h"
 #include "blas1c.h"

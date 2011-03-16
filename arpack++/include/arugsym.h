@@ -19,7 +19,7 @@
 #ifndef ARUGSYM_H
 #define ARUGSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arusmat.h"
 #include "aruspen.h"

@@ -4,7 +4,7 @@
 #include <PostFcn.h>
 #include <Vector3D.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 class IoData;
 class RefVal;

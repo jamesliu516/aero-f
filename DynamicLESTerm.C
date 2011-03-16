@@ -1,6 +1,6 @@
 #include <DynamicLESTerm.h>
 
-#include <math.h>
+#include <cmath>
 
 //-----------------------------------------------------------------------
 

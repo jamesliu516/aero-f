@@ -17,7 +17,7 @@
 #ifndef CEUPP_H
 #define CEUPP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arpackf.h"
 
