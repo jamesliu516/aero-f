@@ -4,6 +4,8 @@
 #include <IoData.h>
 #include "VarFcn.h"
 #include "ODEIntegrator.h"
+#include "SparseGrid.h"
+#include "SparseGridCluster.h"
 
 //----------------------------------------------------------------------------
 // Virtual base class to provide nodal values to compute fluxes at the interface
@@ -89,7 +91,7 @@ public:
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
     if(ID == IDn) return; /* node does not change phase: nothing to do*/
-    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange\n");
+    if(weight<=0.0)  { if (IDn >= 0 && ID >= 0) { fprintf(stdout, "*** Error: negative weight in LocalRiemannGfmpar::updatePhaseChange %d %d\n",ID, IDn);
                      exit(1);} }
     else
       for(int k=0; k<5; k++) V[k] = newV[k]/weight;
@@ -107,6 +109,10 @@ protected:
   virtual void riemannInvariantGeneralTabulation(double *in, double *res);
   void riemannInvariantGeneral1stOrder(double *in, double *res, double *phi);
   void riemannInvariantGeneral2ndOrder(double *in, double *res, double *phi);
+
+  void rarefactionJWLderivs(double phi,
+			    double v1, double u1, double p1,
+			    double v, double dVdv[2],SparseGridCluster *sgCluster_);
 
   struct RiemannInvParams {
 
@@ -134,6 +140,17 @@ protected:
                 double v, double u, double p, 
                 double vi, double &ui, double &pi,
                 double &dui, double &dpi);
+
+  void rarefactionTAIT(double phi,
+					 double alpha, double beta, double Pinf,
+                   double v1, double u1, double p1,
+                   double v, double &u, double &p,
+                   double &du, double &dp, int flag);
+  void shockTAIT(double phi,
+					 double alpha, double beta, double Pinf,
+                   double v1, double u1, double p1,
+                   double v, double &u, double &p,
+                   double &du, double &dp, int flag);
 
   // function used for the multiphase flow algorithm to update
   // nodes that change phases
@@ -216,10 +233,43 @@ void LocalRiemannGfmpar::rarefactionJWL(double phi,
   //fprintf(stdout, "EOS = (%e %e %e %e %e), s=%e, v=%e, myFluidId=%d, c=%e\n", vf_->getOmega(myFluidId), vf_->getA1(myFluidId), vf_->getA2(myFluidId), vf_->getR1r(myFluidId), vf_->getR2r(myFluidId), entropy, v, myFluidId, c);
   du = -phi*c/v;
   dp = -c*c/(v*v);
-  if (flag>0 && c<= 0.0) fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e\n", c,u,p,du,dp);
-
+  if (flag>0 && c<= 0.0) { 
+    fprintf(stdout, "*** rarefaction: u1 = %e, v1 = %e, p1 = %e, v = %e\n",u1,v1,p1,v);
+    fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e, s=%e\n", c,u,p,du,dp,entropy);
+  }
 }
 
+inline
+void LocalRiemannGfmpar::rarefactionJWLderivs(double phi,
+					      double v1, double u1, double p1,
+					      double v, double dVdv[2],SparseGridCluster *sgCluster_) {
+
+  // dVdv[0] = dV/dp;
+  // dVdv[1] = dV/drho;
+  int myFluidId = (phi>=0) ? fluid1 : fluid2;
+  double entropy = vf_->computeEntropy(1.0/v1,p1, myFluidId);
+  double V1[] = {1.0/v1,u1,0.0,0.0,p1};
+  double c = vf_->computeSoundSpeed(V1,myFluidId);
+  double in[2];
+  double grad1[2];
+  double* ip = &in[0];
+  double* gp = &grad1[0];
+  in[0] = 1.0/v1; in[1] = entropy;  
+  sgCluster_->interpolateGradient(1,&ip,&gp);
+
+  double res2[1] = {0.0};
+  double grad2[2];
+  gp = &grad2[0];
+  in[0] = 1.0/v;
+  sgCluster_->interpolateGradient(1,&ip,&gp);
+
+  double dsdp = pow(v, vf_->getOmega(myFluidId) + 1.0 );
+  double dsdrho = -c*c*dsdp;
+  dVdv[0] = (grad2[0]-grad1[0])*dsdp;
+
+  dVdv[1] = (grad2[1]-grad1[1]) + (grad2[0]-grad1[0])*dsdrho;
+
+}
 //----------------------------------------------------------------------------
 
 inline
@@ -384,6 +434,59 @@ void LocalRiemannGfmpar::shockGAS(double phi, double gamogam1,
 }
 
 //----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmpar::rarefactionTAIT(double phi,
+					 double alpha, double beta, double Pinf,
+                   double v1, double u1, double p1,
+                   double v, double &u, double &p,
+                   double &du, double &dp, int flag){
+
+  double V = 2.0*sqrt(alpha*beta)/(beta-1.0)*(pow(v1, 0.5*(1.0-beta)) - pow(v, 0.5*(1.0-beta)));
+
+  p = Pinf+alpha*pow(v, -beta);
+
+  u  = u1 - phi*V;
+
+  dp = -alpha*beta*pow(v,-beta-1.0);
+  du = -2.0*sqrt(alpha*beta)*0.5*(pow(v, 0.5*(-1.0-beta)));
+  if(flag>0){
+    //fprintf(stdout, "%e %e %e %e %e %e %e %e %e\n", phi,gam,gam1,pref,c1,1.0/v1,u1,p1,1.0/v);
+    fprintf(stdout, "p = %e\n", p);
+    //fprintf(stdout, "c = %e\n", c);
+    fprintf(stdout, "u = %e\n", u);
+    fprintf(stdout, "dp = %e\n", dp);
+    fprintf(stdout, "du = %e\n", du);
+    exit(1);
+  }
+}
+
+//----------------------------------------------------------------------------
+
+inline
+void LocalRiemannGfmpar::shockTAIT(double phi,
+					 double alpha, double beta, double Pinf,
+                   double v, double u, double p, 
+                   double vi, double &ui, double &pi,
+				   double &dui, double &dpi,int flag){
+
+  //fprintf(stdout,"SHOCK!!\n");
+  pi = Pinf+alpha*pow(vi, -beta);
+  //fprintf(stdout,"SHOCK2!!\n");
+
+  ui = u + phi * sqrt(max(0.0,-(pi-p)*(vi - v)));
+  //fprintf(stdout,"SHOCK3!!\n");
+
+  dpi = -alpha*beta*pow(vi,-beta-1.0);
+
+  //fprintf(stdout,"SHOCK4!!\n");
+  double div = ui-u;
+  if (fabs(div) < 1.0e-8)
+    div = 1.0e-8;
+  //fprintf(stdout,"SHOCK5!!\n");
+  dui = -0.5*((vi-v)*dpi+pi-p)/div;
+  //fprintf(stdout,"SHOCK END!!\n");
+}
+
 //----------------------------------------------------------------------------
 
 inline

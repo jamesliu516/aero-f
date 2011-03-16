@@ -56,3 +56,25 @@ void SparseGridCluster::interpolate(const int numRes, double **coord, double **r
 	
 }
 //------------------------------------------------------------------------------
+void SparseGridCluster::interpolateGradient(const int numRes, double **coord, double **res)
+{
+  bool inSparseGrid = false;
+  for(int iRes=0; iRes<numRes; iRes++){
+    for(int iGrid=0; iGrid<numSparseGrids_; iGrid++){
+      inSparseGrid = sparseGrids_[iGrid].contains(coord[iRes]);
+      if(inSparseGrid){
+        sparseGrids_[iGrid].interpolateGradient(1, &(coord[iRes]), &(res[iRes]));
+        break;
+      }
+    }
+    if(!inSparseGrid){
+      fprintf(stdout, "coord[%d] = ( ", iRes);
+      for(int idim=0; idim<dim_; idim++)
+        fprintf(stdout, "%e ", coord[iRes][idim]);
+      fprintf(stdout, ") is out of range of all SparseGrids. Exiting\n");
+      exit(1);
+    }
+  }
+	
+}
+//------------------------------------------------------------------------------

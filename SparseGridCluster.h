@@ -27,6 +27,7 @@ public:
                     const char *filename, int outputRangeFlag=0);
   
   void interpolate(const int numRes, double **coord, double **res);
+  void interpolateGradient(const int numRes, double **coord, double **res);
 };
 #ifdef TEMPLATE_FIX
 #include "SparseGridCluster.C"

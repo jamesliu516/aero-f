@@ -8,6 +8,7 @@
 void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domain)
 {
   Communicator* com = domain.getCommunicator();
+  int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     if (ioData.eqs.type == EquationsData::EULER) {
       com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure simulation with %d Level-set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
@@ -102,17 +103,31 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
       exit(1);
     }
   }
-  else if (ioData.eqs.numPhase == 2){
+  else if (ioData.eqs.numPhase == 2) {
     com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
     LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
   }
-  else if (ioData.eqs.numPhase == 3){
+  else if (ioData.eqs.numPhase == 3) {
     com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
-    LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
+    if (numBurnableFluids == 1)
+      LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
+    else if (numBurnableFluids == 0)
+      LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
+    else {
+      fprintf(stderr,"Num burnable fluids = %d???\n", numBurnableFluids);
+    }
   }
-  else if (ioData.eqs.numPhase == 4){
+  else if (ioData.eqs.numPhase == 4) {
     com->fprintf(stdout, "*** Running a Multi(%d)-Phase Flow simulation ***\n", ioData.eqs.numPhase);
-    LevelSetSolver<5,3>::solve(ioData, geoSource, domain);
+    if (numBurnableFluids == 1)
+      LevelSetSolver<5,2>::solve(ioData, geoSource, domain);
+    else if (numBurnableFluids == 2)
+      LevelSetSolver<5,1>::solve(ioData, geoSource, domain);
+    else if (numBurnableFluids == 0)
+      LevelSetSolver<5,3>::solve(ioData, geoSource, domain);
+    else {
+      fprintf(stderr,"Num burnable fluids = %d???\n", numBurnableFluids);
+    }
   }
   else{
     com->fprintf(stdout, "*** Error: a Multi(%d)-Phase Flow simulation cannot be done yet\n", ioData.eqs.numPhase);

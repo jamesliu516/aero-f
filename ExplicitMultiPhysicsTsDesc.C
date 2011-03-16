@@ -78,6 +78,7 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<doub
   // update fluidId (fluidId0 = fluidId, fluidId = new).
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
   this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  //std::cout << "Hello" <<std::endl;
   // update the phase-change (only U) caused by the motion of FF interface
   updatePhaseChangeFF(U);
 }

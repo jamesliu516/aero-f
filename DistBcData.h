@@ -137,6 +137,8 @@ private:
   void setBoundaryConditionsGasLiquid(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsLiquidGas(IoData &, DistSVec<double,3> &);
   void setBoundaryConditionsJWLGas(IoData &, DistSVec<double,3> &);
+  void setBoundaryConditionsJWLLiquid(IoData &iod,
+				      DistSVec<double,3> &X);
 
   void updateFarField(DistSVec<double,3> &);
   void updateFarFieldGas(DistSVec<double,3> &);

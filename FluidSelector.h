@@ -4,6 +4,7 @@
 #include "DistVector.h"
 #include "Vector.h"
 #include "IoData.h"
+#include "ProgrammedBurn.h"
 //#include "Domain.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <map>
@@ -29,10 +30,14 @@ class DistLevelSetStructure;
 
 class FluidSelector {
 
+  IoData iod;
   int numPhases;
   Domain *domain;
   map<int,pair<int,int> > ls2phases; //maps each levelset to the pair of fluid Ids for phi<0 and >0.
                                      //used only for multi-phase fluid-structure interactions right now.
+
+  ProgrammedBurn* programmedBurn;
+
 public:
   DistVec<int> *fluidId;
   DistVec<int> *fluidIdn;
@@ -48,6 +53,10 @@ public:
 
   FluidSelector(const int nPhases, IoData &ioData, Domain *domain = 0);
   ~FluidSelector();
+
+  void attachProgrammedBurn(ProgrammedBurn* p) { programmedBurn = p; }
+
+  ProgrammedBurn* getProgrammedBurn() const { return programmedBurn; }
 
 //------------------------------------------------------------------------------
 

@@ -144,6 +144,7 @@ ADD_LIBRARY(FluidBase
              ModalSolver.C 
              Node.C 
              PostFcn.C 
+             ProgrammedBurnCore.C
              RefVal.C 
              SmagorinskyLESTerm.C 
              WaleLESTerm.C 

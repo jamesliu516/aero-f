@@ -686,7 +686,6 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 
     // Gas relations
     if (Pi > Pg) {
-
       // Shock
       m = 2.0/((gamma+1.0)*Rg);
       n = (Pg+Pinf)*(gamma-1.0)/(gamma+1.0);
@@ -704,7 +703,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     // Liquid relations
     if (Pi > Pw) {
 
-      g = sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) );
+      g = max(1.0e-8,sqrt( alpha*(pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Rw) ));
       dg = 0.5/g*(alpha*( beta*pow(Riw,beta-1.0))*(Riw-Rw)/(Riw*Rw) + 
 		  (pow(Riw,beta)-pow(Rw,beta))/(Riw*Rw) - 
 		  (pow(Riw,beta)-pow(Rw,beta))*(Riw-Rw)/(Riw*Riw*Rw));
@@ -714,10 +713,11 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
       dg = 2.0*aw/(beta-1.0)*(beta-1.0)*0.5/Rw*pow(Riw/Rw, (beta-1.0)*0.5-1.0);
     }
 
-    b = f+g+Uw-Ug;
+    //b = f+g+Uw-Ug;
+    b = f+g-Uw+Ug;
     //std::cout << Pi << " " << b << std::endl;
     db = df+dg/dpdrho;   
-    if (fabs(b/db) < 1.0e-6*Pi)
+    if (fabs(b/db) < 1.0e-6*Pi || fabs(b) < 1.0e-8)
       break;
     Pi -= b/db;
     if (Pi < 1.0e-10)
@@ -730,10 +730,14 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
 
   if (k == 100) {
     std::cout << "No convergence in Newton iteration for gas-tait ERS" << std::endl;
-    exit(1);
+    std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+    std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+    std::cout << "Pi = " << Pi << " Riw = " << Riw << " b = " << b << " db = " << db << std::endl;
+    
   }
 
-  Ui = 0.5*(Uw+Ug)+0.5*(g-f);
+  Ui = 0.5*(Uw+Ug)+0.5*(f-g);
+  //Ui = 0.5*(Uw+Ug)+0.5*(g-f);
   if (Pi > Pg) {
     double h = (gamma-1.0)/(gamma+1.0);
     double j = (Pi+Pinf)/(Pg+Pinf);
@@ -741,6 +745,10 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   } else {
     Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
   }
+
+  //std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+  //std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+  //std::cout << "Pi = " << Pi << " Riw = " << Riw << " Rig = " << Rig << std::endl;
 }
 
 inline
@@ -753,11 +761,11 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
 {
   int dim = 5;
 
-  double alpha   = vf_->getAlphaWater(fluid1);
-  double beta    = vf_->getBetaWater(fluid1);
-  double pref    = vf_->getPrefWater(fluid1);
-  double gam     = vf_->getGamma(fluid2);
-  double Pinf    = vf_->getPressureConstant(fluid2);
+  double alpha   = vf_->getAlphaWater(fluid2);
+  double beta    = vf_->getBetaWater(fluid2);
+  double pref    = vf_->getPrefWater(fluid2);
+  double gam     = vf_->getGamma(fluid1);
+  double Pinf    = vf_->getPressureConstant(fluid1);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir;
@@ -767,7 +775,7 @@ void LocalRiemannGfmparGasTait::computeRiemannSolution(double *Vi, double *Vj,
   double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
   double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
 
-  if (IDi==fluid1) {
+  if (IDi==fluid2) {
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
@@ -863,10 +871,11 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 						       double* dWjdWi,double*  dWjdWj) {
   int dim = 5;
 
-  double alpha   = vf_->getAlphaWater(fluid1);
-  double beta    = vf_->getBetaWater(fluid1);
-  double pref    = vf_->getPrefWater(fluid1);
-  double gam     = vf_->getGamma(fluid2);
+  double alpha   = vf_->getAlphaWater(fluid2);
+  double beta    = vf_->getBetaWater(fluid2);
+  double pref    = vf_->getPrefWater(fluid2);
+  double gam     = vf_->getGamma(fluid1);
+  double Pinf    = vf_->getPressureConstant(fluid1);
 
   double T_w, P_g, P_w, U_w, U_g, R_w, R_g;
   double P_i, U_i, R_il, R_ir,R_i1,R_i2;
@@ -880,7 +889,7 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
   double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
   double dTdrho,dTdp;
 
-  if (IDi==fluid1) {
+  if (IDi==fluid2) {
     // cell j is gas
     // cell i is tait
     R_g  = Vj[0];     R_w  = Vi[0];
@@ -890,7 +899,7 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 
     //F77NAME(eriemanngw)(R_g,U_g,P_g,R_w,U_w,P_w,P_i,U_i,R_il,R_ir,alpha,beta,pref,gam);
 
-    ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, 0.0, P_g, R_g, alpha,
+    ImplicitRiemann::computeGasTaitJacobian(Wj[4], gam, Pinf, P_g, R_g, alpha,
 					    beta, pref, P_w, R_w, 
 					    dWjdWj3, dWjdWi3, dWidWi3, dWidWj3);
 
@@ -1073,7 +1082,11 @@ void LocalRiemannGfmparGasTait::computeRiemannJacobian(double *Vi, double *Vj,
 		pref,gam,
 		0.0);
     //F77NAME(eriemanngw)(R_g,u2p,P_g,R_w,U_w,P_w,vn[0],vn[1],vn[2],vn[3],alpha,beta,pref,gam);
-    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_g) << std::endl;
+    std::cout<computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
+					    double* Vi, double* Vj,
+					    double* Wi, double* Wj,
+					    double* jacii,double* jacij,
+					    double* jacjj,double* jacji)< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_g) << std::endl;
     std::cout<<  "dUi/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_g) << std::endl;
     std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_g) << std::endl;
     std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_g) << std::endl;
@@ -2065,8 +2078,14 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
     // cell i is fluid1
     // cell j is fluid2
 
-    ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3 );
-
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0]  );
+    } else {
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, NULL);
+    }
+  
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
     dWidWi3[5] *= -1.0;
@@ -2149,8 +2168,15 @@ void LocalRiemannGfmparGasJWL::computeRiemannJacobian(double *Vi, double *Vj,
 
     //std::cout << "ji" << std::endl << std::endl ;
 
-    ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3 );
-
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0]  );
+    }
+    else {
+      ImplicitRiemann::computeGasJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, NULL );
+    }
+    
     dWidWi3[1] *= -1.0;
     dWidWi3[3] *= -1.0;
     dWidWi3[5] *= -1.0;
@@ -2317,8 +2343,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1
-  double relaxationFactorGas = 1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorJwl = 0.5;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = 0.5;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
@@ -2341,6 +2367,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double gamogam1r = gamr/gam1r;
   double Vr[5] = { 1.0/vr, ur, 0.0, 0.0, pr };
   double cr = vf_->computeSoundSpeed(Vr,fluid1);
+  double pastiterates[100][2];
 
 //check vacuum
   if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
@@ -2396,6 +2423,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
     }
 
+    pastiterates[it][0] = vil;
+    pastiterates[it][1] = vir;
     //solve2x2System: function = jacobian*increment
     function[0] = uil-uir;
     function[1] = pil-pir;
@@ -2409,10 +2438,14 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
       fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
       fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+      fprintf(stdout, "initrhoil  = %e and initrhoir  = %e\n", initrhol, initrhor);
       fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
       fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
       fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
       fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+      for (int kk = 0; kk <= it; ++kk) {
+	fprintf(stdout, "it = %i: vil = %e, vir = %e\n",kk,pastiterates[kk][0],pastiterates[kk][1]);
+      }
       rarefactionGAS(1.0, gamr, gam1r, prefr, cr, vr, ur, pr, vir, uir, pir, duir, dpir,1);
     }
 
@@ -2496,11 +2529,30 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   ui    = 0.5*(uil+uir);
   pi    = 0.5*(pil+pir);
 
+  //std::cout << "JWL results: rhoil = " << 1.0/vil << " rhoir = "  << 1.0/vir << " ui = " << ui << " pi = " << pi << std::endl;
+
+  //double Vpp[5] = {rhoil,0,0,0,pi};
+  //double cll = vf_->computeSoundSpeed(Vpp,fluid2);
+
   if(convergence){
     if(verbose>-1) fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
   }else{
-    if(verbose>-1) fprintf(stdout, "riemann solver did not converged\n");
-    if(verbose>-1) fprintf(stdout, "Warning: solution will be state given by vacuum\n");
+    fprintf(stderr, "riemann solver did not converged\n");
+    fprintf(stderr, "Warning: solution will be state given by vacuum\n");
+    fprintf(stderr, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+    fprintf(stderr, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+    fprintf(stderr, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+    fprintf(stderr, "initrhoil  = %e and initrhoir  = %e\n", initrhol, initrhor);
+    fprintf(stderr, "uil  = %e and uir  = %e\n", uil, uir);
+    fprintf(stderr, "pil  = %e and pir  = %e\n", pil, pir);
+    fprintf(stderr, "duil = %e and duir = %e\n", duil, duir);
+    fprintf(stderr, "dpil = %e and dpir = %e\n", dpil, dpir);
+    for (int kk = 0; kk <= it; ++kk) {
+      fprintf(stderr, "it = %i: vil = %e, vir = %e\n",kk,pastiterates[kk][0],pastiterates[kk][1]);
+    }
+
+    fflush(stderr);
+
     rhoil = vacuumValues[0];
     rhoir = vacuumValues[3];
     uil   = vacuumValues[1];
@@ -2733,6 +2785,732 @@ void LocalRiemannGfmparGasJWL::riemannInvariantGeneral1stOrder_wrapper(
 //----------------------------------------------------------------------------
 inline
 void LocalRiemannGfmparGasJWL::riemannInvariantGeneral2ndOrder_wrapper(
+                double *in, double *res, double *para){
+
+  double locin[3] = {in[0], in[1], para[1]};
+  riemannInvariantGeneral2ndOrder(locin, res, &(para[0]));
+
+}
+
+//---------------------------------------------------------------------------
+// Tait-JWL
+//---------------------------------------------------------------------------
+class LocalRiemannGfmparTaitJWL : public LocalRiemannGfmpar {
+
+private:
+  MultiFluidData::RiemannComputation riemannComputationType_;
+  SparseGridCluster *sgCluster_;
+
+public:
+  LocalRiemannGfmparTaitJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
+                           MultiFluidData::RiemannComputation riemannComputation,
+                           MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
+  LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {
+    riemannComputationType_ = riemannComputation;
+    sgCluster_ = sgCluster;
+  }
+  ~LocalRiemannGfmparTaitJWL(){ vf_ = 0; sgCluster_ = 0; }
+
+  void computeRiemannSolution(double *Vi, double *Vj,
+                              int IDi, int IDj, double *nphi,
+                              double *initWi, double *initWj,
+                              double *Wi, double *Wj,
+                              double *rupdatei, double *rupdatej, 
+                              double &weighti, double &weightj,
+                              double dx[3], int it);
+
+  void computeRiemannJacobian(double *Vi, double *Vj,
+			      int IDi, int IDj, double *nphi,
+			      double *Wi, double *Wj,
+			      double dx[3],int it,
+			      double* dWidWi,double*  dWidWj,
+			      double* dWjdWi,double*  dWjdWj);
+
+  void eriemann(double rhol, double ul, double pl, 
+                double rhor, double ur, double pr, 
+                double &pi, double &ui, double &rhoil, double &rhoir){
+    eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,-1.0,-1.0); }
+  void eriemanntj_wrapper(double *in, double *res, double *para);
+  void riemannInvariantGeneral1stOrder_wrapper(
+                double *in, double *res, double *para);
+  void riemannInvariantGeneral2ndOrder_wrapper(
+                double *in, double *res, double *para);
+
+private:
+  LocalRiemannGfmparTaitJWL();
+
+protected:
+  bool eriemanntj_selector(double rhol, double ul, double pl, 
+                           double rhor, double ur, double pr, 
+                           double &pi, double &ui, double &rhoil, double &rhoir,
+                           double initrhol, double initrhor);
+  bool eriemanntj(double rhol, double ul, double pl, 
+                  double rhor, double ur, double pr, 
+                  double &pi, double &ui, double &rhoil, double &rhoir,
+                  double initrhol, double initrhor);
+
+  void riemannInvariantGeneralTabulation(double *in, double *res);
+};
+
+//----------------------------------------------------------------------------
+
+inline
+void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
+	 	int IDi, int IDj, double *nphi,
+                double *initWi, double *initWj,
+		double *Wi, double *Wj,
+                double *rupdatei, double *rupdatej, double &weighti, double &weightj,
+                double dx[3], int it)
+{
+
+  int dim = 5;
+	
+  double P_1, P_2, U_1, U_2, R_1, R_2;
+  double P_i, U_i, R_i1, R_i2;
+
+
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  if (IDi==fluid1) {
+
+    // cell i is fluid1
+    // cell j is fluid2
+    R_2  = Vj[0];     R_1 = Vi[0];
+    U_2  = vnj;       U_1 = vni;
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
+
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    initWi[0] = R_i1;
+    initWi[1] = U_i;
+    initWi[2] = P_i;
+    initWj[0] = R_i2;
+    initWj[1] = U_i;
+    initWj[2] = P_i;
+
+    Wi[0]  = R_i1;                    Wi[dim]    = Wi[0];
+    Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
+    Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
+    Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
+    Wi[4] = P_i;
+    Wi[4]  = vf_->computeTemperature(Wi, IDj);         Wi[dim+4]  = Wi[4];
+
+    Wj[0]  = R_i2;                    Wj[dim]    = Wj[0];
+    Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
+    Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
+    Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
+    Wj[4]  = P_i;                     Wj[dim+4]  = Wj[4];
+
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+    R_2  = Vi[0];     R_1  = Vj[0];
+    U_2  = vni;       U_1  = vnj;
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
+
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1); 
+    initWi[0] = R_i2;
+    initWi[1] = U_i;
+    initWi[2] = P_i;
+    initWj[0] = R_i1;
+    initWj[1] = U_i;
+    initWj[2] = P_i;
+
+    Wi[0]  = R_i2;                    Wi[dim]    = Wi[0];
+    Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
+    Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
+    Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
+    Wi[4]  = P_i;                     Wi[dim+4]  = Wi[4];
+
+    Wj[0]  = R_i1;                    Wj[dim]    = Wj[0];
+    Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
+    Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
+    Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
+    Wj[4]  = P_i;
+    Wj[4]  = vf_->computeTemperature(Wj, IDi);                 Wj[dim+4]  = Wj[4];
+  }
+
+// METHOD 2 : combine averaging and direction of flow
+  if (it == 1)
+    updatePhaseChangingNodeValues(dx, Wi, Wj, weighti, rupdatei, weightj, rupdatej);
+
+}
+inline 
+void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
+							int IDi, int IDj, double *nphi,
+							double *Wi, double *Wj,
+							double dx[3],int it,
+							double* dWidWi,double*  dWidWj,
+							double* dWjdWi,double*  dWjdWj) {
+  
+	
+  double P_1, P_2, U_1, U_2, R_1, R_2;
+  double P_i, U_i, R_i1, R_i2;
+
+  int dim = 5;
+  int k,l;
+  double vnj = Vj[1]*nphi[0]+Vj[2]*nphi[1]+Vj[3]*nphi[2];
+  double vni = Vi[1]*nphi[0]+Vi[2]*nphi[1]+Vi[3]*nphi[2];
+  double vtj[3] = {Vj[1] - vnj*nphi[0], Vj[2] - vnj*nphi[1], Vj[3] - vnj*nphi[2]};
+  double vti[3] = {Vi[1] - vni*nphi[0], Vi[2] - vni*nphi[1], Vi[3] - vni*nphi[2]};
+
+  // 3x3 Jacobians, directly from implicit riemann jacobian
+  double dWidWi3[9],  dWidWj3[9], dWjdWj3[9], dWjdWi3[9];
+
+  if (IDi==fluid1) {
+
+    //std::cout << "ij" << std::endl << std::endl ;
+    // cell i is fluid1
+    // cell j is fluid2
+
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vj[0], vnj, Vj[4], 1.0/Wj[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3, &dVdv[0] );
+    } else
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3,NULL);
+
+    dWidWi3[1] *= -1.0;
+    dWidWi3[3] *= -1.0;
+    dWidWi3[5] *= -1.0;
+    dWidWi3[7] *= -1.0;
+    dWidWj3[1] *= -1.0;
+    dWidWj3[3] *= -1.0;
+    dWidWj3[5] *= -1.0;
+    dWidWj3[7] *= -1.0;
+    dWjdWi3[1] *= -1.0;
+    dWjdWi3[3] *= -1.0;
+    dWjdWi3[5] *= -1.0;
+    dWjdWi3[7] *= -1.0;
+    dWjdWj3[1] *= -1.0;
+    dWjdWj3[3] *= -1.0;
+    dWjdWj3[5] *= -1.0;
+    dWjdWj3[7] *= -1.0;
+
+    
+    /*R_2  = Vj[0];     R_1 = Vi[0];
+    U_2  = vnj;       U_1 = vni;
+    P_2  = vf_->getPressure(Vj, IDj);
+    P_1  = vf_->getPressure(Vi, IDi);
+
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,
+    //                    alpha2,beta2,pref2,alpha1,beta1,pref1);//R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,gam2,pref2,gam1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1);
+    eriemanntj_selector(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    //F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/duj=" << dWjdWj3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "duj/duj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPj/duj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpi/duj=" << dWidWj3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<<"dpj/dPj=" << dWjdWj3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "duj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPj/dPj=" <<  dWjdWj3[8] << " " << dWidWj3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "dui/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dUi=" <<dWidWi3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUi/dUi=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPi/dUi=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpj/dUi=" << dWjdWi3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dPi=" <<dWidWi3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUi/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPi/dPi=" << dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+*/
+  }else{
+    // cell i is fluid2
+    // cell j is fluid1
+
+    //std::cout << "ji" << std::endl << std::endl ;
+    if (riemannComputationType_==MultiFluidData::TABULATION2) {
+      double dVdv[2];
+      rarefactionJWLderivs(-1.0, 1.0/Vi[0], vni, Vi[4], 1.0/Wi[0] , dVdv, sgCluster_ );
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3, &dVdv[0] );
+    } else
+      ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3,NULL);
+
+    dWidWi3[1] *= -1.0;
+    dWidWi3[3] *= -1.0;
+    dWidWi3[5] *= -1.0;
+    dWidWi3[7] *= -1.0;
+    dWidWj3[1] *= -1.0;
+    dWidWj3[3] *= -1.0;
+    dWidWj3[5] *= -1.0;
+    dWidWj3[7] *= -1.0;
+    dWjdWi3[1] *= -1.0;
+    dWjdWi3[3] *= -1.0;
+    dWjdWi3[5] *= -1.0;
+    dWjdWi3[7] *= -1.0;
+    dWjdWj3[1] *= -1.0;
+    dWjdWj3[3] *= -1.0;
+    dWjdWj3[5] *= -1.0;
+    dWjdWj3[7] *= -1.0;
+
+    /*R_2  = Vi[0];     R_1  = Vj[0];
+    U_2  = vni;       U_1  = vnj;
+    P_2  = vf_->getPressure(Vi, IDi);
+    P_1  = vf_->getPressure(Vj, IDj);
+    const double eps = 1.0+1.0e-7;
+    double r2p = R_2*eps+1.0e-8;
+    double u2p = U_2*eps+1.0e-8;
+    double p2p = P_2*eps+1.0e-8;
+    double r1p = R_1*eps+1.0e-8;
+    double u1p = U_1*eps+1.0e-8;
+    double p1p = P_1*eps+1.0e-8;
+    double vn[4];
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,R_2,R_1);
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,P_1,P_i,U_i,R_i2,R_i1,alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    //F77NAME(eriemannww)(r2p,U_2,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    std::cout<< "dpi/dpi=" << dWidWi3[0] << " " << (vn[2]-R_i2)/(r2p-R_2) << std::endl;
+    std::cout<< "dUi/dpi=" << dWidWi3[3] << " " << dWjdWi3[3] << " " << (vn[1]-U_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dPi/dpi=" << dWidWi3[6] << " " << dWjdWi3[6] << " " << (vn[0]-P_i)/(r2p-R_2) << std::endl;
+    std::cout<< "dpj/dpi=" << dWjdWi3[0] << " " << (vn[3]-R_i1)/(r2p-R_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,u2p,P_2,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpi/dui=" << dWidWi3[1] << " " << (vn[2]-R_i2)/(u2p-U_2) << std::endl;
+    std::cout<<  "dui/dui=" << dWidWi3[4] << " " << dWjdWi3[4] << " " <<(vn[1]-U_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dPi/dui=" << dWidWi3[7] << " " << dWjdWi3[7] << " " <<(vn[0]-P_i)/(u2p-U_2) << std::endl;
+    std::cout<<  "dpj/dui=" << dWjdWi3[1] << " " << (vn[3]-R_i1)/(u2p-U_2) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,p2p,R_1,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<<"dpi/dPi=" << dWidWi3[2] << " " << (vn[2]-R_i2)/(p2p-P_2) << std::endl;
+    std::cout<< "dui/dPi=" << dWidWi3[5] << " " << dWjdWi3[5] << " " <<(vn[1]-U_i)/(p2p-P_2) << std::endl;
+    std::cout<<"dPi/dPi=" <<  dWidWi3[8] << " " << dWjdWi3[8] << " " <<(vn[0]-P_i)/(p2p-P_2) << std::endl;
+    std::cout<< "dpj/dPi=" << dWjdWi3[2] << " " << (vn[3]-R_i1)/(p2p-P_2) << std::endl;
+    
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,r1p,U_1,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dpj=" << dWjdWj3[0] << " " << (vn[3]-R_i1)/(r1p-R_1) << std::endl;
+    std::cout<< "duj/dpj=" << dWjdWj3[3] << " " << dWidWj3[3] << " " <<(vn[1]-U_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dPj/dpj=" << dWjdWj3[6] << " " << dWidWj3[6] << " " <<(vn[0]-P_i)/(r1p-R_1) << std::endl;
+    std::cout<< "dpi/dpj=" << dWidWj3[0] << " " << (vn[2]-R_i2)/(r1p-R_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,R_1,u1p,P_1,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dUj=" <<dWjdWj3[1] << " " << (vn[3]-R_i1)/(u1p-U_1) << std::endl;
+    std::cout<< "dUj/dUj=" << dWjdWj3[4] << " " << dWidWj3[4] << " " << (vn[1]-U_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dPj/dUj=" << dWjdWj3[7] << " " << dWidWj3[7] << " " << (vn[0]-P_i)/(u1p-U_1) << std::endl;
+    std::cout<< "dpi/dUj=" << dWidWj3[1] << " " << (vn[2]-R_i2)/(u1p-U_1) << std::endl;
+    
+    //F77NAME(eriemannww)(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],alpha2,beta2,pref2,alpha1,beta1,pref1);
+    eriemanntj_selector(R_2,U_2,P_2,R_1,U_1,p1p,vn[0],vn[1],vn[2],vn[3],R_2,R_1);
+    std::cout<< "dpj/dPj=" <<dWjdWj3[2] << " " << (vn[3]-R_i1)/(p1p-P_1) << std::endl;
+    std::cout<< "dUj/dPj=" << dWjdWj3[5] << " " << dWidWj3[5] << " " << (vn[1]-U_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dPj/dPj=" << dWjdWj3[8] << " " << dWidWj3[8] << " " << (vn[0]-P_i)/(p1p-P_1) << std::endl;
+    std::cout<< "dpi/dPj=" << dWidWj3[2] << " " << (vn[2]-R_i2)/(p1p-P_1) << std::endl;
+    */
+  }
+
+  this->oneDtoThreeD(dWidWi3, dWidWj3,
+		     dWjdWi3,dWjdWj3,nphi,
+		     dWidWi, dWidWj,
+		     dWjdWi, dWjdWj);
+}
+
+//----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparTaitJWL::eriemanntj_wrapper(
+                               double *in, double *res, double *para)
+{
+
+  double dummy1, dummy2;
+  eriemanntj(in[0], 0.0, in[1], in[2], in[4], in[3], dummy1, dummy2, res[0], res[1], -1.0, -1.0);
+
+}
+
+//----------------------------------------------------------------------------
+inline
+bool LocalRiemannGfmparTaitJWL::eriemanntj_selector(
+                               double rhol, double ul, double pl, 
+                               double rhor, double ur, double pr, 
+                               double &pi, double &ui,  
+                               double &rhoil, double &rhoir,
+                               double initrhol, double initrhor)
+{
+
+  if(riemannComputationType_==MultiFluidData::TABULATION5){
+    double *in  = new double[5]; in[0]=rhol;in[1]=pl;in[2]=rhor;in[3]=pr;in[4]=ur-ul;
+    double *res = new double[2]; res[0]=0.0;res[1]=0.0;
+    sgCluster_->interpolate(1,&in,&res);
+    rhoil = fmax(res[0],0.0); rhoir = fmax(res[1],0.0);
+    double d[2]; //dummy variable
+    double uir, pir, uil, pil;
+
+    double omegal = vf_->getOmega(fluid2);
+    double omp1ooml = (omegal+1.0)/omegal;
+    double frhol = vf_->computeFrho(rhol,fluid2);
+    double alphar = vf_->getAlphaWater(fluid1);
+    double betar = vf_->getBetaWater(fluid1);
+    double pinfr = vf_->getPrefWater(fluid1);
+    double Vr[5] = { rhor, ur, 0.0, 0.0, pr };
+    double cr = vf_->computeSoundSpeed(Vr,fluid1);
+
+    if( rhoil > rhol){
+      double frhoil  = vf_->computeFrho(rhoil,fluid2);
+      double frhopil = vf_->computeFrhop(rhoil,fluid2);
+      shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1]);
+    }else
+      rarefactionJWL(-1.0, 1.0/rhol, ul, pl, 1.0/rhoil, uil, pil, d[0], d[1], riemannComputationType_,1);
+    if( rhoir > rhor)
+      shockTAIT(1.0, alphar,betar,pinfr, 1.0/rhor, ur, pr, 1.0/rhoir, uir, pir, d[0], d[1],0);
+    else
+      rarefactionTAIT(1.0, alphar,betar,pinfr, 1.0/rhor, ur, pr, 1.0/rhoir, uir, pir, d[0], d[1],0);
+
+    ui = 0.5*(uil+uir);
+    pi = 0.5*(pil+pir);
+    // not checking for vacuum!
+  }
+  else
+    eriemanntj(rhol,ul,pl,rhor,ur,pr,pi,ui,rhoil,rhoir,initrhol,initrhor);
+
+}
+
+//----------------------------------------------------------------------------
+inline
+bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl, 
+                                          double rhor, double ur, double pr, 
+                                          double &pi, double &ui,  
+                                          double &rhoil, double &rhoir,
+                                          double initrhol, double initrhor){
+// left  -- JWL -- phi = -1.0
+// right -- GAS -- phi = +1.0
+  int verbose = -1;
+  if(verbose>0){
+    fprintf(stdout, "---- new Riemann ----\n");
+    fprintf(stdout, "initial rhoil, rhoir = %e %e\n", rhol, rhor);
+    fprintf(stdout, "initial vil,   vir   = %e %e\n", 1.0/rhol, 1.0/rhor);
+  }
+
+//initialize
+  double uil, uir, pil, pir, duil, duir, dpil, dpir;
+  double jacobian[4];/* uil, uir, pil, pir*/
+  double function[2];
+  double increment[2];
+  bool convergence = false;
+  double eps = 1.e-3;
+  int MaxIts = 100;
+  int it = 0;
+  double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = 1.0; //0.85; // must be between 0 and 1
+  int count = 0;
+
+  double vl  = 1.0/rhol;
+  double vr  = 1.0/rhor;
+  double vil = vl;
+  double vir = vr;
+  double pmin = max( vf_->getPmin(fluid1), vf_->getPmin(fluid2) );
+  vil = initrhol>0.0 ? 1.0/initrhol : vl;
+  vir = initrhor>0.0 ? 1.0/initrhor : vr;
+
+  double omegal = vf_->getOmega(fluid2);
+  double omp1ooml = (omegal+1.0)/omegal;
+  double frhol = vf_->computeFrho(1.0/vl,fluid2);
+  double frhoil = frhol;
+  double frhopil = vf_->computeFrhop(1.0/vl,fluid2);
+
+
+  double alphar = vf_->getAlphaWater(fluid1);
+  double betar = vf_->getBetaWater(fluid1);
+  double pinfr = vf_->getPrefWater(fluid1);
+  double Vr[5] = { 1.0/vr, ur, 0.0, 0.0, pr };
+  double cr = vf_->computeSoundSpeed(Vr,fluid1);
+
+//check vacuum
+/*  if(verbose>4) fprintf(stdout, "checking vacuum possibilities\n");
+  double vacuumValues[6]; // rhoil, uil, pil, rhoir, uir, pir 
+  vacuumValues[0] = -1.0; // positive if proper vacuum values are computed
+  bool checkVacuumValues = false;
+  if(checkVacuumValues){
+    if(vacuum(rhol,ul,pl,rhor,ur,pr,vacuumValues)){
+      if(verbose>-1){
+        fprintf(stdout, "rhoil_vac = %e and rhoir_vac = %e\n", vacuumValues[0], vacuumValues[3]);
+        fprintf(stdout, "uil_vac   = %e and uir_vac   = %e\n", vacuumValues[1], vacuumValues[4]);
+        fprintf(stdout, "pil_vac   = %e and pir_vac   = %e\n", vacuumValues[2], vacuumValues[5]);
+      }
+      rhoil = vacuumValues[0];
+      rhoir = vacuumValues[3];
+      ui    = 0.5*(vacuumValues[1]+vacuumValues[4]);
+      pi    = 0.5*(vacuumValues[2]+vacuumValues[5]);
+      return true;
+    }
+    if(verbose>4) fprintf(stdout, "checking vacuum possibilities -- DONE\n");
+  }else{
+    if(verbose>4) fprintf(stdout, "no checking of vacuum possibilities\n");
+  }
+*/
+//start newton iteration loop
+  while(!convergence){
+    if(verbose>0) fprintf(stdout, "\n");
+
+  //compute left  JWL-term (shock or rarefaction)
+    if( vil < vl){
+      if(verbose>0) fprintf(stdout, "shockJWL\n");
+      frhoil  = vf_->computeFrho(1.0/vil,fluid2);
+      frhopil = vf_->computeFrhop(1.0/vil,fluid2);
+      shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
+    }else{
+      if(verbose>0) fprintf(stdout, "rarefactionJWL\n");
+      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,1);
+    }
+  //compute right GAS-term (shock or rarefaction)
+    if( vir < vr){
+      if(verbose>0) fprintf(stdout, "shockTAIT\n");
+      shockTAIT(1.0, alphar,betar,pinfr, vr, ur, pr, vir, uir, pir, duir, dpir,0);
+    }
+    else{
+      if(verbose>0) fprintf(stdout, "rarefactionTAIT\n");
+      rarefactionTAIT(1.0, alphar,betar,pinfr, vr, ur, pr, vir, uir, pir, duir, dpir,0);
+    }
+
+    if(verbose>1){
+      fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+      fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+      fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+      fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+    }
+
+    //solve2x2System: function = jacobian*increment
+    function[0] = uil-uir;
+    function[1] = pil-pir;
+    jacobian[0] = duil; jacobian[1] = -duir;
+    jacobian[2] = dpil; jacobian[3] = -dpir;
+    increment[0] = 0.0; increment[1] = 0.0;
+    
+    bool solved = solve2x2System(jacobian,function,increment);
+    if(!solved){
+      fprintf(stdout, "$$$$\n");
+      fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+      fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+      fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+      fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+      fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+      fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+      fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+      rarefactionTAIT(1.0, alphar,betar,pinfr, vr, ur, pr, vir, uir, pir, duir, dpir,1);
+    }
+
+    if(verbose>2) fprintf(stdout, "dvil = %e and dvir = %e\n", -increment[0],-increment[1]);
+
+    //update values and check bounds
+
+    if(verbose>3) fprintf(stdout, "increment/v = %e %e\n", increment[0]/vil, increment[1]/vir);
+
+    // prevent large increases
+    if(-increment[0]>2.0*vil) increment[0] = -2.0*vil;
+    if(-increment[1]>2.0*vir) increment[1] = -2.0*vir;
+    // prevent large decreases
+    if(increment[0]>0.5*vil) increment[0] = 0.5*vil;
+    if(increment[1]>0.5*vir) increment[1] = 0.5*vir;
+
+    increment[0] *= relaxationFactorJwl;
+    increment[1] *= relaxationFactorGas;
+    
+    vil -= increment[0];
+    vir -= increment[1];
+    if(verbose>2) fprintf(stdout, "2 -- vil = %e and vir = %e\n", vil, vir);
+
+    if(vil < vl){ // at next iteration, leftrarefaction => ensures that some conditions are fulfilled
+      double temp = omegal*vl/(omegal+2.0);
+      if(vil<temp){
+        vil += increment[0];
+        vir += increment[1];
+        double alpha = -0.5*(temp-vil)/increment[0];
+        increment[0] *= alpha;
+        increment[1] *= alpha;
+        vil -= increment[0];
+        vir -= increment[1];
+        count++;
+      }
+    }
+    if(vir < vr){ // at next iteration, rightrarefaction => ensures that some conditions are fulfilled
+      /*fprintf(stdout,"??\n");
+      fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+      fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+      fprintf(stdout, "initrhol, initrhor = %e %e\n", initrhol, initrhor);
+      fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+      fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+      fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+      fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+      fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+      double pit = pinfr+alphar*pow(vir, -betar);
+      fprintf(stdout,"pit = %e pmin = %e\n",pit,pmin);
+      if (pit < pmin) {
+
+	vir = pow( (pmin-pinfr) / alphar, betar);
+      }
+
+      double Pt,Ut,Rigt,Riwt;
+      solveSGTait(rhol,ul,pl, 
+		  rhor,ur,pr,
+		  Pt,Ut, 
+		  Rigt, Riwt,
+		  alphar,betar,
+		  pinfr, omegal+1.0,0.0);
+      fprintf(stdout, "SGTAIT: rhoil  = %e and rhoir  = %e\n", Rigt, Riwt);
+      fprintf(stdout, "SGTAIT: uil  = %e and uir  = %e\n", Ut, Ut);
+      fprintf(stdout, "SGTAIT: pil  = %e and pir  = %e\n", Pt,Pt);*/
+      /*double temp = (gamr-1.0)/(gamr+1.0)*vr;
+      if(vir<temp){
+        vil += increment[0];
+        vir += increment[1];
+        double alpha = -0.5*(temp-vir)/increment[1];
+        increment[0] *= alpha;
+        increment[1] *= alpha;
+        vil -= increment[0];
+        vir -= increment[1];
+        count++;
+	}*/
+      }
+    if(verbose>2) fprintf(stdout, "3 -- vil = %e and vir = %e\n", vil, vir);
+    //check - in case of rarefaction at next iteration, 1.0/rhoil may not be above a certain value
+    /*if(vacuumValues[0] > 0.0 && vil>1.0/vacuumValues[0]){ // vacuumValues is negative if it does not contain any proper value(see declaration and definition above)
+      vil += increment[0];
+      increment[0] = -0.5*(1.0/vacuumValues[0] - vil);
+      vil -= increment[0];
+      }*/
+    if(verbose>2) fprintf(stdout, "4 -- vil = %e and vir = %e\n", vil, vir);
+    if(verbose>0) fprintf(stdout, "rhoil = %e and rhoir = %e\n", 1.0/vil, 1.0/vir);
+    it++;
+
+  //check convergence criterion
+    if(fabs(increment[0])<eps*fabs(vil) &&
+       fabs(increment[1])<eps*fabs(vir) )
+      convergence = true;
+    if(it>MaxIts) break;
+
+
+  }//end newton iteration loop
+
+  if( vil < vl){
+    frhoil  = vf_->computeFrho(1.0/vil,fluid2);
+    frhopil = vf_->computeFrhop(1.0/vil,fluid2);
+    shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
+  }else rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,0);
+  
+  if( vir < vr) shockTAIT(1.0, alphar,betar,pinfr, vr, ur, pr, vir, uir, pir, duir, dpir,0);
+  else rarefactionTAIT(1.0, alphar,betar,pinfr, vr, ur, pr, vir, uir, pir, duir, dpir,0);
+
+  rhoil = 1.0/vil;
+  rhoir = 1.0/vir;
+  ui    = 0.5*(uil+uir);
+  pi    = 0.5*(pil+pir);
+
+  if(convergence){
+    if(verbose>-1) fprintf(stdout, "riemann has converged to an approximate solution in %d iterations\n", it);
+  }else{
+    if(verbose>-1) fprintf(stdout, "riemann solver did not converged\n");
+    if(verbose>-1) fprintf(stdout, "Warning: solution will be state given by vacuum\n");
+    /*    rhoil = vacuumValues[0];
+    rhoir = vacuumValues[3];
+    uil   = vacuumValues[1];
+    uir   = vacuumValues[4];
+    pil   = vacuumValues[2];
+    pir   = vacuumValues[5];
+    ui    = 0.5*(uil+uir);
+    pi    = 0.5*(pil+pir);*/
+    if(verbose>-1) fprintf(stdout, "Warning: uil = %e and uir = %e\n", uil, uir);
+  }
+
+  //if (vir < vr) {
+  /*fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+    fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+    fprintf(stdout, "initrhol, initrhor = %e %e\n", initrhol, initrhor);
+    fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+    fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+    fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+    fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+    fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+
+    double Pt,Ut,Rigt,Riwt;
+  solveSGTait(rhol,ul,pl, 
+	      rhor,ur,pr,
+	      Pt,Ut, 
+	      Rigt, Riwt,
+	      alphar,betar,
+	      pinfr, omegal+1.0,0.0);
+    fprintf(stdout, "SGTAIT: rhoil  = %e and rhoir  = %e\n", Rigt, Riwt);
+    fprintf(stdout, "SGTAIT: uil  = %e and uir  = %e\n", Ut, Ut);
+    fprintf(stdout, "SGTAIT: pil  = %e and pir  = %e\n", Pt,Pt);*/
+    //}
+  
+  if(verbose>-1){
+    fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+    fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+    fprintf(stdout, "initrhol, initrhor = %e %e\n", initrhol, initrhor);
+    fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+    fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+    fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+    fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+    fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+  }
+
+  if(convergence) return true;
+  else            return false;
+
+
+}
+//----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparTaitJWL::riemannInvariantGeneralTabulation(double *in, 
+                                                                 double *res){
+  //fprintf(stdout, "in-value = %e %e\n", in[0],in[1]);
+  sgCluster_->interpolate(1,&in,&res);
+
+}
+
+//----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparTaitJWL::riemannInvariantGeneral1stOrder_wrapper(
+                double *in, double *res, double *para){
+
+  fprintf(stdout, "in[0] = %e\n", in[0]);
+  fprintf(stdout, "in[1] = %e\n", in[1]);
+  fprintf(stdout, "para[1] = %e\n", para[1]);
+  double locin[3] = {in[0], in[1], para[1]};
+  riemannInvariantGeneral1stOrder(locin, res, &(para[0]));
+
+}
+//----------------------------------------------------------------------------
+inline
+void LocalRiemannGfmparTaitJWL::riemannInvariantGeneral2ndOrder_wrapper(
                 double *in, double *res, double *para){
 
   double locin[3] = {in[0], in[1], para[1]};

@@ -1539,7 +1539,119 @@ void DistBcDataEuler<dim>::setBoundaryConditionsJWLGas(IoData &iod,
   }
 
 }
+//------------------------------------------------------------------------------
+template<int dim>
+void DistBcDataEuler<dim>::setBoundaryConditionsJWLLiquid(IoData &iod,
+                                DistSVec<double,3> &X)
+{
+ // flow properties for fluid at boundary
+  double a = this->vf->getAlphaWater();
+  double b = this->vf->getBetaWater();
+  double c = this->vf->getCv();
+  double P = this->vf->getPrefWater();
+  double coeff = (b-1.0)/(a*b);
+  double rhoin = iod.bc.inlet.density;
+  double rhoout = iod.bc.outlet.density;
 
+  double velin2 = 0.0;
+  double velout2 = 0.0;
+  if(iod.bc.inlet.mach >= 0.0 && iod.bc.outlet.mach >= 0.0){
+    velin2 = iod.bc.inlet.mach*iod.bc.inlet.mach * a*b*pow(rhoin, b-1.0);
+    velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach * a*b*pow(rhoout, b-1.0);
+  }else if (iod.bc.inlet.velocity>= 0.0 && iod.bc.outlet.velocity >= 0.0 &&
+            iod.bc.inlet.velocity+iod.bc.outlet.velocity>0.0){
+    velin2 = iod.bc.inlet.velocity*iod.bc.inlet.velocity;
+    velout2 = iod.bc.outlet.velocity*iod.bc.outlet.velocity;
+  }else{
+    this->com->fprintf(stdout, " no proper velocity or mach number specified\n");
+    exit(1);
+  }
+  double velin  = sqrt(velin2);
+  double velout = sqrt(velout2);
+
+// Uin and Uout set up with iod.bc.let.values and properties of fluidModel1 = LiquidModel1
+// computation of boundary values "on average", ie at node of coordinates (0,0,0)
+  this->Uin[0] = rhoin;
+  this->Uin[1] = this->Uin[0] * velin * cos(iod.bc.inlet.alpha) * cos(iod.bc.inlet.beta);
+  this->Uin[2] = this->Uin[0] * velin * cos(iod.bc.inlet.alpha) * sin(iod.bc.inlet.beta);
+  this->Uin[3] = this->Uin[0] * velin * sin(iod.bc.inlet.alpha);
+  this->Uin[4] = this->Uin[0]*(c*iod.bc.inlet.temperature + 0.5 * velin2);
+
+  this->Uout[0] = rhoout;
+  this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
+  this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
+  this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
+  this->Uout[4] = this->Uout[0]*(c*iod.bc.outlet.temperature + 0.5 * velout2);
+
+
+// computation for each node according to its depth
+// this will be passed in DistTimeState to initialize simulation
+#pragma omp parallel for
+  for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+    double (*x)[3]      = X.subData(iSub);
+    double (*uin)[dim]  = this->Ufarin.subData(iSub);
+    double (*uout)[dim] = this->Ufarout.subData(iSub);
+    double rtempin, rtempout, un;
+
+    for(int inode = 0; inode<this->Unode.subSize(iSub); inode++){
+      un = (x[inode][0]*this->ngravity[0]+x[inode][1]*this->ngravity[1]+x[inode][2]*this->ngravity[2]);
+      rtempin  = pow(rhoin ,b-1.0)-coeff*(un-this->gravity*this->depth);
+      rtempout = pow(rhoout,b-1.0)-coeff*(un-this->gravity*this->depth);
+      rtempin  = pow(rtempin, 1.0/(b-1.0));
+      rtempout = pow(rtempout,1.0/(b-1.0));
+
+      uin[inode][0] = rtempin;
+      uin[inode][1] = rtempin*this->Uin[1]/this->Uin[0];
+      uin[inode][2] = rtempin*this->Uin[2]/this->Uin[0];
+      uin[inode][3] = rtempin*this->Uin[3]/this->Uin[0];
+      uin[inode][4] = rtempin*this->Uin[4]/this->Uin[0];
+
+      uout[inode][0] = rtempout;
+      uout[inode][1] = rtempout*this->Uout[1]/this->Uout[0];
+      uout[inode][2] = rtempout*this->Uout[2]/this->Uout[0];
+      uout[inode][3] = rtempout*this->Uout[3]/this->Uout[0];
+      uout[inode][4] = rtempout*this->Uout[4]/this->Uout[0];
+    }
+  }
+
+  if(iod.mf.problem == MultiFluidData::SHOCKTUBE){
+
+
+     // for shock tube type of computation
+// fluidModel1(TAIT)  is on the left/inlet 
+// fluidModel2(JWL) is on the right/outlet
+    int gas = 0, jwl = 1;
+    double Voutlet[5] = {iod.bc.outlet.density, 0, 0, 0, iod.bc.outlet.pressure};
+    if(iod.bc.outlet.mach >= 0.0){
+      velout2 = iod.bc.outlet.mach*iod.bc.outlet.mach / this->vf->computeSoundSpeed(Voutlet,jwl);
+    }else{
+      velout2 = iod.bc.outlet.velocity*iod.bc.outlet.velocity;
+    }
+    velout = sqrt(velout2);
+    // for boundary conditions of shocktube problems
+    // make sure input file is consistent ( Outlet and FluidModel2 with PlaneData and FluidModel2)
+    this->Uout[0] = iod.bc.outlet.density;
+    this->Uout[1] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * cos(iod.bc.outlet.beta);
+    this->Uout[2] = this->Uout[0] * velout * cos(iod.bc.outlet.alpha) * sin(iod.bc.outlet.beta);
+    this->Uout[3] = this->Uout[0] * velout * sin(iod.bc.outlet.alpha);
+    this->Uout[4] = this->vf->computeRhoEpsilon(Voutlet,jwl) + 0.5 * this->Uout[0] * velout2;
+  
+#pragma omp parallel for
+    for(int iSub = 0; iSub<this->numLocSub; ++iSub) {
+      double (*uout)[dim]  = this->Ufarout.subData(iSub);
+  
+      for(int inode = 0; inode<this->Unode.subSize(iSub); inode++){
+        uout[inode][0] = this->Uout[0];
+        uout[inode][1] = this->Uout[1];
+        uout[inode][2] = this->Uout[2];
+        uout[inode][3] = this->Uout[3];
+        uout[inode][4] = this->Uout[4];
+      }
+    }
+    // End shocktube setup
+  }
+
+}
 //------------------------------------------------------------------------------
 
 // Included (MB)
@@ -1580,6 +1692,10 @@ void DistBcDataEuler<dim>::initialize(IoData &iod, DistSVec<double,3> &X)
     else if (iod.eqs.fluidModel.fluid == FluidModelData::GAS &&
         it->second->fluid == FluidModelData::JWL)
       setBoundaryConditionsJWLGas(iod,X);
+
+    else if (iod.eqs.fluidModel.fluid == FluidModelData::LIQUID &&
+        it->second->fluid == FluidModelData::JWL)
+      setBoundaryConditionsJWLLiquid(iod,X);
 
     else{
       fprintf(stderr, "*** Error : no such two-phase simulation is supported by AERO-F\n");

@@ -36,9 +36,9 @@ LevelSetTsDesc<dim,dimLS>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()) 
-{
+  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL)
 
+{
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
@@ -54,6 +54,12 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
   requireSpecialBDF = false;
+
+  int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  if (numBurnableFluids > 0) {
+    programmedBurn = new ProgrammedBurn(ioData,this->X);
+    this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -140,6 +146,11 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
   } else {
     requireSpecialBDF = false;
     LS->update(Phi);
+  }
+
+  if (programmedBurn) {
+
+    programmedBurn->setFluidIds(currentTime, *fluidSelector.fluidId,U);
   }
 
   fluidSelector.update();
@@ -300,3 +311,12 @@ void LevelSetTsDesc<dim,dimLS>::fixSolution(DistSVec<double,dim>& U,DistSVec<dou
     this->domain->fixSolution(this->varFcn,U,dU,fluidSelector.fluidId);
 }
 
+
+template<int dim,int dimLS>
+void LevelSetTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
+
+  currentTime = t;
+
+  if (programmedBurn)
+    programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
+}

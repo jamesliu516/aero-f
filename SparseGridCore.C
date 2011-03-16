@@ -1,5 +1,6 @@
 #include "SparseGrid.h"
 #include <cmath>
+#include <iostream>
 
 
 //------------------------------------------------------------------------------
@@ -573,6 +574,117 @@ void SparseGrid::singleInterpolation(const double *coord, double *output) const{
 
 }
 
+//assumes that each coord is between 0 and 1.
+void SparseGrid::singleInterpolationGradient(const double *coord, double *output) const{
+
+  int firstSurplus = 0; // points to first surplus of the considered subgrid
+  int nPointsSubGrid;
+  int surplusLocalCoord[dim], contributingSurplus;
+  for(int iout=0; iout<out; iout++) output[iout] = 0.0;
+
+  messages(8);
+
+  //std::cout << " coord = " << coord[0] << " " << coord[1] << std::endl;
+
+  for(int subGrid=0; subGrid<nSubGrids; subGrid++){
+
+    // compute subGrid data structures
+    nPointsSubGrid = 1;
+    int nPointsDim[dim];
+    int map[dim];
+    int nCumulatedPointsDim[dim];
+    for(int idim=0; idim<dim; idim++){
+      if(multiIndex[subGrid][idim] == 0)
+        nPointsDim[idim] = 1;
+      else if(multiIndex[subGrid][idim] < 3)
+        nPointsDim[idim] = 2;
+      else
+        nPointsDim[idim] = static_cast<int>(pow(2.0,multiIndex[subGrid][idim]-1)+0.1);
+
+      nCumulatedPointsDim[idim] = nPointsDim[idim];
+      nPointsSubGrid *= nPointsDim[idim];
+      if(idim>0) nCumulatedPointsDim[idim] *= nCumulatedPointsDim[idim-1];
+      map[idim] = 0;
+    }
+
+    // interpolation: value of the basis function at the considered subgrid (basisFnVal)
+    //              : detection of the corresponding surplus in numbering of the
+    //                  considered subgrid (surplusLocalCoord).
+    double basisFnVal = 1.0,basisFnGrad[dim], basisStored[dim];
+    for(int idim=0; idim<dim; idim++){
+      if(multiIndex[subGrid][idim] == 1){
+        if(coord[idim] == 1.0) surplusLocalCoord[idim] = 1;
+        else{
+          int xp = static_cast<int>(floor(coord[idim]*2));
+          if(xp == 0) { 
+            basisStored[idim] = 2.0*(0.5 - coord[idim]);//basisFnVal *= 2.0*(0.5 - coord[idim]);
+            basisFnGrad[idim] = -2.0;
+          }
+          else {
+            basisStored[idim] = 2.0*(coord[idim] - 0.5);
+            basisFnGrad[idim] = 2.0;
+          }
+          surplusLocalCoord[idim] = xp;
+	  map[idim] = 1;
+	  if (basisStored[idim] == 0.0)
+	    break;
+        }
+      }else if(multiIndex[subGrid][idim] == 0) surplusLocalCoord[idim] = 0;
+      else if(coord[idim] == 0.0){
+        basisFnVal = 0.0;
+        break;
+      }else{
+        double scale = pow(2.0,multiIndex[subGrid][idim]);
+        int xp = static_cast<int>(floor(coord[idim] * scale / 2.0));
+        basisStored[idim] = (1.0 - scale*fabs(coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale));
+	if (basisStored[idim] == 0.0)
+	  break;
+
+	double f = coord[idim]-(2.0*static_cast<double>(xp)+1.0)/scale;
+	if (fabs(f) > 1.0e-8)
+	  basisFnGrad[idim] = -scale*fabs(f)/(f); 
+	else
+	  basisFnGrad[idim] = -scale;
+	  
+        surplusLocalCoord[idim] = xp;
+	map[idim] = 1;
+      }
+
+      if(basisFnVal == 0.0) break;
+
+    }
+
+    // contributing surplus in the considered subgrid is added to result
+    if(basisFnVal > 0.0){
+      // position of the contributing surplus in the array of surpluses
+      contributingSurplus = firstSurplus + surplusLocalCoord[0];
+      for(int idim=1; idim<dim; idim++)
+        contributingSurplus += nCumulatedPointsDim[idim-1]*surplusLocalCoord[idim];
+      // contribution added
+      basisFnVal = 1.0;
+      for (int idim=0; idim<dim; ++idim)
+	basisFnVal *= basisStored[idim];
+      
+      for(int iout=0; iout<out; iout++) {
+        //output[iout] += basisFnVal*surplus[contributingSurplus][iout];
+        for (int idim=0; idim < dim; ++idim) {
+          output[iout*dim + idim] = 0.0;
+          for (int idim2 = 0; idim2 < dim; ++idim2) {
+	    if (map[idim2])
+	      output[iout*dim + idim] += basisFnVal/basisStored[idim2]*basisFnGrad[idim2];
+	  }
+	  //std::cout << "Hello" << std::endl;
+          output[iout*dim+idim] *= surplus[contributingSurplus][iout];
+	  //std::cout << "output[iout*dim + idim] = output[" << iout*dim + idim << "] = " << output[iout*dim + idim] << std::endl;
+        }
+      }
+    }
+    firstSurplus += nPointsSubGrid;
+
+  }
+
+}
+
 //------------------------------------------------------------------------------
 
 bool SparseGrid::contains(double *coord){
@@ -592,6 +704,17 @@ void SparseGrid::interpolate(const int numRes, double **coord, double **res){
     scale(coord[iPts],scaledCoord, 2);
     if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
     singleInterpolation(scaledCoord, res[iPts]);
+  }
+
+}
+
+void SparseGrid::interpolateGradient(const int numRes, double **coord, double **res){
+
+  double scaledCoord[dim];
+  for(int iPts=0; iPts<numRes; iPts++){
+    scale(coord[iPts],scaledCoord, 2);
+    if(outOfRange(scaledCoord)) closestPointInRange(scaledCoord);
+    singleInterpolationGradient(scaledCoord, res[iPts]);
   }
 
 }

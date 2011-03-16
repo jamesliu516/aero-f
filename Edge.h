@@ -18,6 +18,8 @@ using std::pair;
 // Included (MB)
 #include <cstdio>
 
+#include <ProgrammedBurn.h>
+
 class FluidSelector;
 class VarFcn;
 class RecFcn;
@@ -62,6 +64,8 @@ class EdgeSet {
   bool *masterFlag;
 
   double* edgeLength;
+
+  ProgrammedBurn* programmedBurn;
 
 public:
 
@@ -207,6 +211,8 @@ public:
                                        const double, const double, const double);
 
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
+
+  void attachProgrammedBurn(ProgrammedBurn*);
 
 };
 
