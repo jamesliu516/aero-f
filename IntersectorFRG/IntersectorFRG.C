@@ -363,6 +363,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     double d2 = project(structX[p3], bestTrId, xi1, xi2);
     if(d2*minDist>0)
       minDist = -minDist;
+    return true;
   } else {
     double dist, alpha;
     double sign = trDist >= 0 ? 1 : -1;
@@ -383,8 +384,10 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
       n1 = cn1;
       n2 = cn2;
       mode = 1;
+      return true;
     }
   }
+  return false;
 }
 
 //----------------------------------------------------------------------------

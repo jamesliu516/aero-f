@@ -109,7 +109,10 @@ class DistLevelSetStructure {
             (*this)(iSub).computeSwept((swept)(iSub));
     }
 
-    virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
+    //virtual DistVec<int> &getStatus() {fprintf(stderr,"ERROR: virtual function getStatus() is not implemented in DistLevelSetStructure!\n"); 
+    //                                   return *pseudoPhi;} 
+    virtual DistVec<int> &getStatus() = 0;
+                                    
 
     virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;
     virtual void recompute(double dtf, double dtfLeft, double dts) = 0;
