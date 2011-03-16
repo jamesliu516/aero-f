@@ -768,6 +768,8 @@ struct ProgrammedBurnData {
   double cjDensity;
   double cjEnergy;
   double ignitionTime;
+  double factorB;
+  double factorS;
   int ignited;
   
   ProgrammedBurnData();
