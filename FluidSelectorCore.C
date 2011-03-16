@@ -6,7 +6,7 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 
-FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom)
+FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : iod(ioData)
 { 
   numPhases = nPhases;
   domain = dom ? dom : 0;
@@ -31,6 +31,9 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom)
     fluidIdnm2 = new DistVec<int>(domain->getNodeDistInfo());
     *fluidIdnm2 = 0;
   }
+
+  programmedBurn = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -110,6 +113,14 @@ int FluidSelector::getLevelSetDim(int fluidId1, int fluidId2, int node1, int nod
     fprintf(stdout, "*** Error: arguments of getLevelSetDim (%d %d)should be positive\n", fluidId1, fluidId2);
     exit(1);
   }
+  int burnTag;
+  if (programmedBurn && programmedBurn->isBurnedEOS(fluidId1,burnTag)) {
+    return programmedBurn->getUnburnedEOS(burnTag)-1;
+  }
+  if (programmedBurn && programmedBurn->isBurnedEOS(fluidId2,burnTag)) {
+    return programmedBurn->getUnburnedEOS(burnTag)-1;
+  }
+    
   if(fluidId1 * fluidId2 != 0){
     fprintf(stdout, "*** Error: it is assumed that all interfaces are between any fluid and fluid 0\n");
     fprintf(stdout, "***      : here fluidIds are %d and %d for nodes %d and %d\n", fluidId1, fluidId2, node1, node2);
@@ -289,6 +300,37 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
     }
   }
 
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+
+      double x0 = prismIt->second->cen_x;
+      double y0 = prismIt->second->cen_y;
+      double z0 = prismIt->second->cen_z;
+      double wx = prismIt->second->w_x;
+      double wy = prismIt->second->w_y;
+      double wz = prismIt->second->w_z;
+      
+#pragma omp parallel for
+      for (int iSub=0; iSub<domain->getNumLocSub(); ++iSub) {
+        SVec<double,3>     &x  (X(iSub));
+        Vec<int> &fId((*fluidId)(iSub));
+        for (int i=0; i<x.size(); i++){
+
+          if(prismIt->second->fluidModelID > 0)
+            if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) {
+              int myId = prismIt->second->fluidModelID;
+              if(fId[i]>0 && fId[i]!=myId)
+                continue; //avoid overwriting.
+                //fprintf(stderr,"WARNING: Overwriting determined fluid Id (%d) by sphere data (%d).\n", fId[i], myId);
+              fId[i] = myId;
+            }
+        }
+      }
+    }
+  }
 }
 
 //------------------------------------------------------------------------------

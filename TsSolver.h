@@ -117,6 +117,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     do { // Subcycling
       itSc++;
+      probDesc->setCurrentTime(t,U);
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
