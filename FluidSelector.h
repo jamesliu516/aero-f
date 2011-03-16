@@ -30,7 +30,7 @@ class DistLevelSetStructure;
 
 class FluidSelector {
 
-  IoData iod;
+  IoData* iodp;
   int numPhases;
   Domain *domain;
   map<int,pair<int,int> > ls2phases; //maps each levelset to the pair of fluid Ids for phi<0 and >0.

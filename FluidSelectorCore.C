@@ -6,7 +6,7 @@ using namespace std;
 
 //------------------------------------------------------------------------------
 
-FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : iod(ioData)
+FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : iodp(&ioData)
 { 
   numPhases = nPhases;
   domain = dom ? dom : 0;
