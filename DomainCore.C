@@ -1486,3 +1486,35 @@ void Domain::setupFluidIdVolumesInitialConditions(const int volid, const int myI
 }
 
 //-------------------------------------------------------------------------------
+
+void Domain::computeMaterialVolumes(double *Vol, int size, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  double subVol[numLocSub][size];
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for(int i=0; i<size; i++)
+      subVol[iSub][i] = 0.0;
+    double *subA = A.subData(iSub);
+    int *subId = fluidId ? fluidId->subData(iSub) : 0;
+    bool *subMasterFlag = A.getMasterFlag(iSub);
+
+    for(int i=0; i<A.subSize(iSub); i++) {
+      if(!subMasterFlag[i])
+        continue;
+      int myId = subId ? subId[i] : 0;
+      if(myId>=size) {
+        fprintf(stderr,"ERROR: Detected FluidId = %d. Maximum should be %d (or less). \n", myId, size-1);
+        exit(-1);
+      }
+      subVol[iSub][myId] += subA[i];
+    }
+  }
+
+  for(int iSub=0; iSub<numLocSub; ++iSub)
+    for(int i=0; i<size; i++)
+      Vol[i] += subVol[iSub][i];
+
+  com->globalSum(size, Vol);
+}
+
+//-------------------------------------------------------------------------------
