@@ -34,6 +34,7 @@ struct InputData {
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
+  const char *oneDimensionalMesh;
 
 // Included (MB)
   const char *shapederivatives;
@@ -1718,8 +1719,10 @@ struct OneDimensionalInfo {
 
   double interfacePosition;
 
-  double density1, velocity1, pressure1;
-  double density2, velocity2, pressure2;
+  double density1, velocity1, pressure1,temperature1;
+  double density2, velocity2, pressure2,temperature2;
+
+  ProgrammedBurnData programmedBurn;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}

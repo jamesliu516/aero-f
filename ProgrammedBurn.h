@@ -12,6 +12,7 @@ class ProgrammedBurn {
  public:
   
   ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet);
+  ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet);
 
   ~ProgrammedBurn();
 
@@ -21,6 +22,7 @@ class ProgrammedBurn {
   static int countBurnableFluids(IoData& ioData);
 
   void setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<double,5>& U);
+  void setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U);
 
   bool isDetonationInterface(int i, int j,int& tag) const;
 
@@ -28,6 +30,10 @@ class ProgrammedBurn {
 
   template <int dim>
     void setCurrentTime(double t,VarFcn* vf,DistSVec<double,dim>& U,DistVec<int>& fid,DistVec<int>& fidn);
+
+  // 1D version!!
+  template <int dim>
+    void setCurrentTime(double t,VarFcn* vf,SVec<double,dim>& U,Vec<int>& fid,Vec<int>& fidn);
 
   bool isBurnedEOS(int eos,int& tag) const;
 
@@ -37,6 +43,7 @@ class ProgrammedBurn {
   int getUnburnedEOS(int tag) const;
 
   bool nodeInside(int tag,int sub, int i);
+  bool nodeInside(int tag,int i);
 
   //bool isBurned(int iSub,int i) { return bBurned->subData(iSub)[i]; }
 
@@ -62,6 +69,8 @@ class ProgrammedBurn {
 
   template <int dim>
     void setCJInitialState(Burn& B,VarFcn* vf,DistSVec<double,dim>& U,DistVec<int>&,DistVec<int>&);
+  template <int dim>
+    void setCJInitialState(Burn& B,VarFcn* vf,SVec<double,dim>& U,Vec<int>&,Vec<int>&);
   
   std::vector<Burn> myBurns;
 
@@ -72,6 +81,7 @@ class ProgrammedBurn {
   const DistInfo* distInfo;
 
   DistSVec<double,3>* nodeSet;
+  SVec<double,1>* nodeSet0;
 
 };
 

@@ -1936,7 +1936,7 @@ protected:
                   double &pi, double &ui, double &rhoil, double &rhoir,
                   double initrhol, double initrhor);
 
-  void riemannInvariantGeneralTabulation(double *in, double *res);
+  int riemannInvariantGeneralTabulation(double *in, double *res);
   bool vacuum(const double rhol, const double ul, const double pl,
               const double rhor, const double ur, const double pr,
               double vacuumValues[6]);
@@ -2343,8 +2343,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 0.5;//1.0; //0.85; // must be between 0 and 1
-  double relaxationFactorGas = 0.5;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorJwl = 0.25;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = 0.25;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
@@ -2395,6 +2395,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
 //start newton iteration loop
   while(!convergence){
     if(verbose>0) fprintf(stdout, "\n");
+    int status = 1;
 
   //compute left  JWL-term (shock or rarefaction)
     if( vil < vl){
@@ -2404,7 +2405,7 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       shockJWL(-1.0, omegal, omp1ooml, frhol, frhoil, frhopil, vl, ul, pl, vil, uil, pil, duil, dpil);
     }else{
       if(verbose>0) fprintf(stdout, "rarefactionJWL\n");
-      rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,1);
+      status = rarefactionJWL(-1.0, vl, ul, pl, vil, uil, pil, duil, dpil, riemannComputationType_,1);
     }
   //compute right GAS-term (shock or rarefaction)
     if( vir < vr){
@@ -2415,7 +2416,6 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
       if(verbose>0) fprintf(stdout, "rarefactionGAS\n");
       rarefactionGAS(1.0, gamr, gam1r, prefr, cr, vr, ur, pr, vir, uir, pir, duir, dpir);
     }
-
     if(verbose>1){
       fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
       fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
@@ -2425,6 +2425,23 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
 
     pastiterates[it][0] = vil;
     pastiterates[it][1] = vir;
+
+    if (!status) {
+      fprintf(stdout, "$$$$ status = 0\n");
+      fprintf(stdout, "rhol, ul, pl = %e %e %e\n", rhol, ul, pl);
+      fprintf(stdout, "rhor, ur, pr = %e %e %e\n", rhor, ur, pr);
+      fprintf(stdout, "rhoil  = %e and rhoir  = %e\n", 1/vil, 1/vir);
+      fprintf(stdout, "initrhoil  = %e and initrhoir  = %e\n", initrhol, initrhor);
+      fprintf(stdout, "uil  = %e and uir  = %e\n", uil, uir);
+      fprintf(stdout, "pil  = %e and pir  = %e\n", pil, pir);
+      fprintf(stdout, "duil = %e and duir = %e\n", duil, duir);
+      fprintf(stdout, "dpil = %e and dpir = %e\n", dpil, dpir);
+      for (int kk = 0; kk <= it; ++kk) {
+	fprintf(stdout, "it = %i: vil = %e, vir = %e\n",kk,pastiterates[kk][0],pastiterates[kk][1]);
+      }
+      exit(1);
+    }
+
     //solve2x2System: function = jacobian*increment
     function[0] = uil-uir;
     function[1] = pil-pir;
@@ -2763,10 +2780,10 @@ double LocalRiemannGfmparGasJWL::sgZeroDensityPJwlDensity(const double density, 
 
 //----------------------------------------------------------------------------
 inline
-void LocalRiemannGfmparGasJWL::riemannInvariantGeneralTabulation(double *in, 
+int LocalRiemannGfmparGasJWL::riemannInvariantGeneralTabulation(double *in, 
                                                                  double *res){
   //fprintf(stdout, "in-value = %e %e\n", in[0],in[1]);
-  sgCluster_->interpolate(1,&in,&res);
+  return sgCluster_->interpolate(1,&in,&res);
 
 }
 
@@ -2801,11 +2818,14 @@ private:
   MultiFluidData::RiemannComputation riemannComputationType_;
   SparseGridCluster *sgCluster_;
 
+  double sign;
+
 public:
   LocalRiemannGfmparTaitJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
                            MultiFluidData::RiemannComputation riemannComputation,
-                           MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
-  LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {
+			    MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION, 
+			    double sgn = 1.0) : 
+    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) , sign(sgn) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -2849,7 +2869,7 @@ protected:
                   double &pi, double &ui, double &rhoil, double &rhoir,
                   double initrhol, double initrhor);
 
-  void riemannInvariantGeneralTabulation(double *in, double *res);
+  int riemannInvariantGeneralTabulation(double *in, double *res);
 };
 
 //----------------------------------------------------------------------------
@@ -2974,22 +2994,22 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     } else
       ImplicitRiemann::computeTaitJwlJacobian(vf_, IDi, IDj, Vi, Vj, Wi,Wj, dWidWi3, dWidWj3,  dWjdWj3, dWjdWi3,NULL);
 
-    dWidWi3[1] *= -1.0;
-    dWidWi3[3] *= -1.0;
-    dWidWi3[5] *= -1.0;
-    dWidWi3[7] *= -1.0;
-    dWidWj3[1] *= -1.0;
-    dWidWj3[3] *= -1.0;
-    dWidWj3[5] *= -1.0;
-    dWidWj3[7] *= -1.0;
-    dWjdWi3[1] *= -1.0;
-    dWjdWi3[3] *= -1.0;
-    dWjdWi3[5] *= -1.0;
-    dWjdWi3[7] *= -1.0;
-    dWjdWj3[1] *= -1.0;
-    dWjdWj3[3] *= -1.0;
-    dWjdWj3[5] *= -1.0;
-    dWjdWj3[7] *= -1.0;
+    dWidWi3[1] *= -1.0*sign;
+    dWidWi3[3] *= -1.0*sign;
+    dWidWi3[5] *= -1.0*sign;
+    dWidWi3[7] *= -1.0*sign;
+    dWidWj3[1] *= -1.0*sign;
+    dWidWj3[3] *= -1.0*sign;
+    dWidWj3[5] *= -1.0*sign;
+    dWidWj3[7] *= -1.0*sign;
+    dWjdWi3[1] *= -1.0*sign;
+    dWjdWi3[3] *= -1.0*sign;
+    dWjdWi3[5] *= -1.0*sign;
+    dWjdWi3[7] *= -1.0*sign;
+    dWjdWj3[1] *= -1.0*sign;
+    dWjdWj3[3] *= -1.0*sign;
+    dWjdWj3[5] *= -1.0*sign;
+    dWjdWj3[7] *= -1.0*sign;
 
     
     /*R_2  = Vj[0];     R_1 = Vi[0];
@@ -3063,22 +3083,22 @@ void LocalRiemannGfmparTaitJWL::computeRiemannJacobian(double *Vi, double *Vj,
     } else
       ImplicitRiemann::computeTaitJwlJacobian(vf_, IDj, IDi, Vj, Vi, Wj,Wi, dWjdWj3, dWjdWi3,  dWidWi3, dWidWj3,NULL);
 
-    dWidWi3[1] *= -1.0;
-    dWidWi3[3] *= -1.0;
-    dWidWi3[5] *= -1.0;
-    dWidWi3[7] *= -1.0;
-    dWidWj3[1] *= -1.0;
-    dWidWj3[3] *= -1.0;
-    dWidWj3[5] *= -1.0;
-    dWidWj3[7] *= -1.0;
-    dWjdWi3[1] *= -1.0;
-    dWjdWi3[3] *= -1.0;
-    dWjdWi3[5] *= -1.0;
-    dWjdWi3[7] *= -1.0;
-    dWjdWj3[1] *= -1.0;
-    dWjdWj3[3] *= -1.0;
-    dWjdWj3[5] *= -1.0;
-    dWjdWj3[7] *= -1.0;
+    dWidWi3[1] *= -1.0*sign;
+    dWidWi3[3] *= -1.0*sign;
+    dWidWi3[5] *= -1.0*sign;
+    dWidWi3[7] *= -1.0*sign;
+    dWidWj3[1] *= -1.0*sign;
+    dWidWj3[3] *= -1.0*sign;
+    dWidWj3[5] *= -1.0*sign;
+    dWidWj3[7] *= -1.0*sign;
+    dWjdWi3[1] *= -1.0*sign;
+    dWjdWi3[3] *= -1.0*sign;
+    dWjdWi3[5] *= -1.0*sign;
+    dWjdWi3[7] *= -1.0*sign;
+    dWjdWj3[1] *= -1.0*sign;
+    dWjdWj3[3] *= -1.0*sign;
+    dWjdWj3[5] *= -1.0*sign;
+    dWjdWj3[7] *= -1.0*sign;
 
     /*R_2  = Vi[0];     R_1  = Vj[0];
     U_2  = vni;       U_1  = vnj;
@@ -3489,10 +3509,10 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
 }
 //----------------------------------------------------------------------------
 inline
-void LocalRiemannGfmparTaitJWL::riemannInvariantGeneralTabulation(double *in, 
+int LocalRiemannGfmparTaitJWL::riemannInvariantGeneralTabulation(double *in, 
                                                                  double *res){
   //fprintf(stdout, "in-value = %e %e\n", in[0],in[1]);
-  sgCluster_->interpolate(1,&in,&res);
+  return sgCluster_->interpolate(1,&in,&res);
 
 }
 

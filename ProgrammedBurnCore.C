@@ -5,7 +5,7 @@
 #include "ProgrammedBurn.h"
 #include <limits>
 
-ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : distInfo(&_nodeSet->info()) {
+ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : distInfo(&_nodeSet->info()) , nodeSet0(NULL) {
 
   nodeSet = _nodeSet;
   std::map<int, SphereData *>::iterator itr;
@@ -53,6 +53,40 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
 
     myBurns.push_back(burn);
   }
+}
+
+ProgrammedBurn::ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet) {
+   
+  nodeSet0 = _nodeSet;
+  ProgrammedBurnData& B = ioData.oneDimensionalInfo.programmedBurn;
+  if (B.unburnedEOS < 0)
+    return;
+  
+  double x0n[3] = {B.ignitionX0,
+		   B.ignitionY0,
+		   B.ignitionZ0 };
+  
+  Burn burn;
+  burn.pgData = &B;
+  burn.ignited = B.ignited;
+  double min_dist = 1000000000.0;
+  int id;
+  for (int i = 0; i < nodeSet0->size(); ++i) {
+    double dist = fabs((*nodeSet0)[i][0]-x0n[0]);
+    if (dist < min_dist) {
+      min_dist = dist;
+      id = i;
+    }
+  }
+  
+  burn.x0[0] = (*nodeSet0)[id][0];
+  burn.x0[1] = 0.0;
+  burn.x0[2] = 0.0;
+  burn.x0id = id;
+
+  std::cout << "burn location = " << burn.x0[0] << " id = " << id << std::endl;
+  
+  myBurns.push_back(burn);
 }
 
 ProgrammedBurn::~ProgrammedBurn() {
@@ -211,6 +245,35 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
   
 }
 
+void ProgrammedBurn::setFluidIds(double t, Vec<int>& fluidIds,SVec<double,5>& U) {
+
+  int iSub;
+  double r;
+  lastTime = t;
+
+  for (int i = 0; i < fluidIds.size(); ++i) {
+    
+    for (int j = 0; j < myBurns.size(); ++j) {
+      Burn& B = myBurns[j];
+      r = sqrt(((*nodeSet0)[i][0]-B.x0[0])*((*nodeSet0)[i][0]-B.x0[0])+
+	       (B.x0[1])*(B.x0[1])+
+	       (B.x0[2])*(B.x0[2]));
+      
+      if (r <= B.pgData->cjDetonationVelocity*(t-B.pgData->ignitionTime) &&
+	  fluidIds[i] == B.pgData->unburnedEOS && B.ignited) {
+	//bBurned->subData(iSub)[i] = true;
+	/*U[i][0] = min(U[i][0],  B.pgData->cjDensity);
+	U[i][4] = min(U[i][4],  
+		      B.pgData->cjDensity*B.pgData->cjEnergy+ 
+		      0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
+	*/
+	fluidIds[i] = B.pgData->burnedEOS;
+      }
+    }
+  }
+  
+}
+
 void ProgrammedBurn::getDetonationNormal(int tag,int i,int j, double xmid[3], double gradphi[3]) {
 
   // Find the burn for fluid i/j
@@ -242,6 +305,22 @@ bool ProgrammedBurn::nodeInside(int tag,int iSub, int i) {
   }
 }
 
+bool ProgrammedBurn::nodeInside(int tag,int i) {
+
+  //std::cout << "last time = " << lastTime << std::endl;
+  SVec<double,1>& x = *nodeSet0;
+  Burn* B = &myBurns[tag];
+  double r = sqrt((x[i][0]-B->x0[0])*(x[i][0]-B->x0[0])+
+	   (B->x0[1])*(B->x0[1])+
+	   (B->x0[2])*(B->x0[2]));
+  
+  if ((r <= B->pgData->cjDetonationVelocity*(lastTime-B->pgData->ignitionTime) ||
+      (i == B->x0id)) && B->ignited ) {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 bool ProgrammedBurn::isBurnedEOS(int eos,int& tag) const {
 
