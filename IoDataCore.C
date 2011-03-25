@@ -41,6 +41,7 @@ InputData::InputData()
   strModesFile = "";
   embeddedSurface= "";
   oneDimensionalSolution = "";
+  oneDimensionalMesh = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -77,6 +78,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
 
   new ClassStr<InputData>(ca, "OneDimensionalSolution", this, &InputData::oneDimensionalSolution);
+  new ClassStr<InputData>(ca, "OneDimensionalMesh", this, &InputData::oneDimensionalMesh);
 
 }
 
@@ -3145,12 +3147,13 @@ OneDimensionalInfo::OneDimensionalInfo(){
 
   density1 = 1.0; velocity1 = 0.0; pressure1 = 1.0;
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
+  temperature1 = 1.0; temperature2 = 1.0;
 
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
 
-  ClassAssigner *ca = new ClassAssigner(name, 11, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 12, 0);
 
   new ClassToken<OneDimensionalInfo>(ca, "Coordinates", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::coordType), 3, "Cartesian", 0, "Cylindrical", 1, "Spherical", 2);
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
@@ -3165,6 +3168,8 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity2", this, &OneDimensionalInfo::velocity2);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure2", this, &OneDimensionalInfo::pressure2);
 
+  programmedBurn.setup("ProgrammedBurn",ca);
+  
 }
 
 //-----------------------------------------------------------------------------
@@ -3619,7 +3624,8 @@ int IoData::checkFileNames()
   int error = 0;
 
   // no input files for Sparse Grid generation, hence no check
-  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+  // or if we are doing a one dimensional problem!
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_ || oneDimensionalInfo.maxDistance > 0.0)
     return 0;
   
   // flow solver requires input files, hence check
@@ -3688,6 +3694,12 @@ int IoData::checkInputValues()
 {
 
   int error = 0;
+
+  if (oneDimensionalInfo.maxDistance > 0.0) {
+
+    bc.inlet.pressure = oneDimensionalInfo.pressure2;
+    bc.inlet.density = oneDimensionalInfo.density2;
+  }
     
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
@@ -3706,8 +3718,9 @@ int IoData::checkInputValues()
   checkInputValuesProgrammedBurn();
 
   error += checkInputValuesAllInitialConditions();
-  error += checkInputValuesEssentialBC();
 
+  error += checkInputValuesEssentialBC();
+  
   // check input values for the Embedded Framework.
   if(problem.framework == ProblemData::EMBEDDED) 
     error += checkInputValuesEmbeddedFramework();
@@ -3718,8 +3731,14 @@ int IoData::checkInputValues()
   checkInputValuesTurbulence();
   checkInputValuesDefaultOutlet();
   nonDimensionalizeAllEquationsOfState();
+
+  if(oneDimensionalInfo.maxDistance > 0.0) {
+    nonDimensionalizeOneDimensionalProblem();
+    return 0;
+  }
+
   nonDimensionalizeAllInitialConditions();
-  nonDimensionalizeOneDimensionalProblem();
+
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -4015,9 +4034,22 @@ void IoData:: nonDimensionalizeOneDimensionalProblem(){
   oneDimensionalInfo.density1  /= ref.rv.density;
   oneDimensionalInfo.velocity1 /= ref.rv.velocity;
   oneDimensionalInfo.pressure1 /= ref.rv.pressure;
+  oneDimensionalInfo.temperature1  /= ref.rv.temperature;
   oneDimensionalInfo.density2  /= ref.rv.density;
   oneDimensionalInfo.velocity2 /= ref.rv.velocity;
   oneDimensionalInfo.pressure2 /= ref.rv.pressure;
+  oneDimensionalInfo.temperature2 /= ref.rv.temperature;
+
+
+  oneDimensionalInfo.programmedBurn.ignitionX0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionY0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionZ0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionTime /= ref.rv.time;
+  oneDimensionalInfo.programmedBurn.e0 /= ref.rv.energy;
+  oneDimensionalInfo.programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+  oneDimensionalInfo.programmedBurn.cjPressure /= ref.rv.pressure;
+  oneDimensionalInfo.programmedBurn.cjDensity /= ref.rv.density;
+  oneDimensionalInfo.programmedBurn.cjEnergy /= ref.rv.energy;
 }
 
 //------------------------------------------------------------------------------
@@ -4927,6 +4959,7 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
   LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
   // Set the initial energy of the Tait EOS appropriately
   IC.temperature = programmedBurn.e0 / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
+  //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
   //std::cout << "T = " << IC.temperature << std::endl;
   return error;
 }
@@ -4960,6 +4993,21 @@ int IoData::checkInputValuesProgrammedBurn() {
 					IC);
     }
   }
+
+  // One Dimensional
+  ProgrammedBurnData& programmedBurn = oneDimensionalInfo.programmedBurn;
+  
+  InitialConditions ICB;
+  ICB.pressure = oneDimensionalInfo.pressure1;
+  ICB.density = oneDimensionalInfo.density1;
+
+  error += checkProgrammedBurnLocal(programmedBurn,
+				    ICB);
+
+  oneDimensionalInfo.pressure1 = ICB.pressure;
+  oneDimensionalInfo.density1 = ICB.density;
+  oneDimensionalInfo.temperature1 = ICB.temperature;
+  
 
   return error;
 }

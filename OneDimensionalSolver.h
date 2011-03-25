@@ -21,8 +21,6 @@
 // DistTimeState and others, but that requires more work/time than I can 
 // afford now).
 //
-// For now, only constant representation of state values in control volumes 
-// and an explicit forward Euler integration scheme are available.
 //
 // Note that state vectors have 5 coordinates. Only three of them are used.
 // The coordinates [2] and [3] are unused but must be present in order to 
@@ -42,6 +40,11 @@
 #include "FluidSelector.h"
 #include "IoData.h"
 #include "RefVal.h"
+#include "RecFcn.h"
+
+#include "RKIntegrator.h"
+#include "ExactRiemannSolver.h"
+#include "ProgrammedBurn.h"
 
 class FluxFcn;
 class VarFcn;
@@ -76,6 +79,7 @@ class OneDimensional {
   SVec<double,5> gradV;
 
   SVec<double,1> Phi;
+  SVec<double,1> Phin;
   SVec<double,1> Rphi;
   SVec<double,1> gradPhi;
   Vec<int> fluidId;
@@ -83,7 +87,7 @@ class OneDimensional {
 
   FluxFcn **fluxFcn;
   VarFcn *varFcn;
-  LocalRiemann *riemann;
+  ExactRiemannSolver<5>* riemann;
   FluidSelector fluidSelector;
   // for cartesian, cylindrical and spherical one-D simulation with source term
   OneDimensionalSourceTermBase *source; 
@@ -92,8 +96,43 @@ class OneDimensional {
   char *outfile;
   RefVal refVal;
 
+  // Riemann solutions at the interface
+  // Needed for appropriate handling of phase change updates.
+  SVec<double,5> Wr;
+
+  SVec<double,5> Vslope;
+  SVec<double,1> Phislope;
+
+  Vec<int> riemannStatus;
+
+  RecFcn* recFcn, *recFcnLS;
+
+  RecFcn* createRecFcn(IoData &ioData);
+  RecFcn* createRecFcnLS(IoData &ioData);
+
+  RKIntegrator< SVec<double, 5> >* Vintegrator;
+  RKIntegrator< SVec<double, 1> >* Phiintegrator;
+
+  double time;
+
+  SVec<double,dim> rupdate;
+  Vec<double> weight;
+  SVec<double,dim-2> interfacialWi;
+  SVec<double,dim-2> interfacialWj;
+
+  void loadSparseGrid(IoData&);
+
+  SparseGridCluster* tabulationC;
+
+  ProgrammedBurn* programmedBurn;
+
+ public:
+
+  void EulerF(double t, SVec<double,5>& y,SVec<double,5>& k);
+  void PhiF(double t, SVec<double,1>& y,SVec<double,1>& k);
+
 public:
-  OneDimensional(IoData &ioData, Domain *domain);
+  OneDimensional(int, double*, IoData &ioData, Domain *domain);
   ~OneDimensional();
 
   void spatialSetup();
@@ -102,9 +141,15 @@ public:
   void totalTimeIntegration();
   void computeTimeSteps(SVec<double,1> &timeSteps);
   void singleTimeIntegration(double dt);
-  void computeEulerFluxes();
-  void computeLevelSetFluxes();
+  void computeEulerFluxes(SVec<double,5>& y);
+  void computeLevelSetFluxes(SVec<double,1>& y);
   void resultsOutput(double time, int iteration);
+
+  static void load1DMesh(IoData& ioData,int& numPts,double* &meshPoints);
+
+  template <int dim>
+    void computeSlopes(SVec<double,dim>& VV, SVec<double,dim>& slopes,
+		       Vec<int>& fid, bool crossInterface);
 
 };
 

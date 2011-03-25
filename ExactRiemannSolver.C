@@ -107,8 +107,10 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		    it2->second->fluid == FluidModelData::JWL){
 	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange);
-	    }
-	    else{
+	    }/* else if(it1->second->fluid  == FluidModelData::JWL &&
+		    it2->second->fluid == FluidModelData::LIQUID){
+	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
+	      }*/ else{
 	      
 	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
 	    }

@@ -65,7 +65,11 @@ int main(int argc, char **argv)
   ioData.readCmdFile();
 
   if(ioData.oneDimensionalInfo.maxDistance>0.0){
-    OneDimensional one(ioData,&domain);
+
+    double* mesh;
+    int nPts;
+    OneDimensional::load1DMesh(ioData,nPts,mesh);
+    OneDimensional one(nPts, mesh, ioData,&domain);
     one.spatialSetup();
     one.stateInitialization(ioData.oneDimensionalInfo);
     one.totalTimeIntegration();
