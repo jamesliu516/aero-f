@@ -17,7 +17,9 @@ template<int dim>
 void FluidSelector::reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin)
 {
   getFluidId(*fluidId, Phin, &fsId);
-  *fluidIdn = *fluidId;
+  //if (fluidIdnm1) getFluidId(*fluidIdm1, Phinm1, &fsId);
+  //if(fluidIdnm2) getFluidId(*fluidIdm2, Phinm1, &fsId);
+  //*fluidIdn = *fluidId;
   if(fluidIdnm1) *fluidIdnm1 = *fluidId;
   if(fluidIdnm2) *fluidIdnm2 = *fluidId;
 }

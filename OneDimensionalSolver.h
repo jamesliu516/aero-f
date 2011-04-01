@@ -46,6 +46,8 @@
 #include "ExactRiemannSolver.h"
 #include "ProgrammedBurn.h"
 
+#include <fstream>
+
 class FluxFcn;
 class VarFcn;
 class LocalRiemann;
@@ -130,6 +132,127 @@ class OneDimensional {
 
   void EulerF(double t, SVec<double,5>& y,SVec<double,5>& k);
   void PhiF(double t, SVec<double,1>& y,SVec<double,1>& k);
+
+  enum ReadMode { ModeU, ModePhi };
+  template <int dimp,int dimLS>
+  static void read1DSolution(IoData& iod, DistSVec<double,dimp>& Up, 
+			     DistSVec<double,dimLS>* Phi,
+			     FluidSelector* fluidSelector,
+			     VarFcn* varFcn,
+			     DistSVec<double,3>& X,
+			     ReadMode mode) {
+    // read 1D solution
+    for (map<int, OneDimensionalInputData *>::iterator itr = iod.input.oneDimensionalInput.dataMap.begin();
+	 itr != iod.input.oneDimensionalInput.dataMap.end(); ++itr) {
+      
+      std::fstream input;
+      int sp = strlen(iod.input.prefix) + 1;
+      char *filename = new char[sp + strlen(itr->second->file)];
+      sprintf(filename, "%s%s", iod.input.prefix, itr->second->file);
+      input.open(filename, fstream::in);
+      //cout << filename << endl;
+      if (!input.is_open()) {
+	cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
+	exit(1);
+      }
+      
+      input.ignore(256,'\n');
+      input.ignore(2,' ');
+      int numPoints = 0;
+      input >> numPoints;
+      //cout << " Num 1d points = " << numPoints << endl;
+      double* x_1D = new double[numPoints];
+      double* v_1D = new double[numPoints*5];/* rho, u, p, phi, T*/
+      int* fids = new int[numPoints];
+      
+      for(int i=0; i<numPoints; i++){
+	input >> x_1D[i] >> v_1D[i*5] >> v_1D[i*5+1] >> v_1D[i*5+2] >> v_1D[i*5+3]>> fids[i] >> v_1D[i*5+4];
+	x_1D[i]    /= iod.ref.rv.length;
+	v_1D[i*5] /= iod.ref.rv.density;
+	v_1D[i*5+1] /= iod.ref.rv.velocity;
+	v_1D[i*5+2] /= iod.ref.rv.pressure;
+	//v_1D[i][3] /= iod.ref.rv.length;
+	v_1D[i*5+4] /= iod.ref.rv.temperature;
+      }
+      
+      input.close();
+
+      int lsdim = 0;
+      if (fluidSelector) {
+	int a = 0;
+	int fid_new = fids[a];
+	if (itr->second->fluidRemap.dataMap.find(fids[a]) != itr->second->fluidRemap.dataMap.end())
+	  fid_new = itr->second->fluidRemap.dataMap.find(fids[a])->second->newID;
+	lsdim = fluidSelector->getLevelSetDim(0,fid_new);
+      }
+      
+      // interpolation assuming 1D solution is centered on bubble_coord0
+      double bubble_x0 = itr->second->x0;
+      double bubble_y0 = itr->second->y0;
+      double bubble_z0 = itr->second->z0;
+      double max_distance = x_1D[numPoints-1]; 
+#pragma omp parallel for
+      for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
+	SVec<double,dimp> &u(Up(iSub));
+	SVec<double, 3> &x(X(iSub));
+	
+	double localRadius; int np;
+	double localAlpha, velocity_r;
+	double localV[5]; double localPhi;
+	for(int i=0; i<u.size(); i++) {
+	  localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	  
+	  // If the node is inside the sphere, set its values accordingly
+	  if (localRadius < max_distance) {
+	    
+	    // Do a binary search to find the closest point whose r
+	    // is less than or equal to localRadius
+	    int a = numPoints/2;
+	    int rmin = 0,rmax=numPoints-2;
+	    cout << "r = " << localRadius << endl;
+	    while (!(x_1D[a] <= localRadius && x_1D[a+1] > localRadius)  ) {
+	      if (x_1D[a] < localRadius)
+		rmin = a;
+	      else
+		rmax = a;
+
+	      if (a == rmin)
+		a = (rmax+rmin)/2 + 1;
+	      else
+		a = (rmax+rmin)/2 ;
+	    }
+	    int fid_new = fids[a];
+	    if (itr->second->fluidRemap.dataMap.find(fids[a]) != itr->second->fluidRemap.dataMap.end())
+	      fid_new = itr->second->fluidRemap.dataMap.find(fids[a])->second->newID;
+
+	    //cout << "fid_new = " << fid_new << " a = " << a << " x[] = {" << x_1D[a] << " " << x_1D[a+1] << "}" << endl;
+	    double alpha = (localRadius-x_1D[a])/(x_1D[a+1]-x_1D[a]);
+	    //cout << "alpha = " << alpha << endl;
+	    if (mode == ModeU) {
+	      localV[0] = v_1D[a*5]*(1.0-alpha)+v_1D[(a+1)*5]*(alpha);
+	      localV[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(x[i][0]-bubble_x0)/max(localRadius,1.0e-8);
+	      localV[2] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(x[i][1]-bubble_y0)/max(localRadius,1.0e-8);
+	      localV[3] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(x[i][2]-bubble_z0)/max(localRadius,1.0e-8);
+	      if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
+		localV[4] = v_1D[a*5+4]*(1.0-alpha)+v_1D[(a+1)*5+4]*(alpha);
+	      else
+		localV[4] = v_1D[a*5+2]*(1.0-alpha)+v_1D[(a+1)*5+2]*(alpha);
+	      varFcn->primitiveToConservative(localV,u[i],fid_new);
+	    } else {
+
+	      
+	      int lsdim=0;
+	      if (fluidSelector) {
+		(*Phi)(iSub)[i][lsdim] = v_1D[(a+1)*5+3];
+	      }
+	    }
+	    
+	  }
+	  
+	}
+      }
+    }
+  }
 
 public:
   OneDimensional(int, double*, IoData &ioData, Domain *domain);

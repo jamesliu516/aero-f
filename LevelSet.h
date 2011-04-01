@@ -66,10 +66,15 @@ class LevelSet {
   // initialization routines
   template<int dim>
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-             DistSVec<double,dimLS> &Phi, IoData &iod);
+             DistSVec<double,dimLS> &Phi, IoData &iod,FluidSelector*, VarFcn*);
   void setupPhiVolumesInitialConditions(IoData &iod, DistSVec<double,dimLS> &Phi);
+  
+  template<int dim>
   void setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X,
-                                      DistSVec<double,dimLS> &Phi);
+				      DistSVec<double,dim>& U,
+                                      DistSVec<double,dimLS> &Phi,
+				      FluidSelector*, VarFcn*);
+
   void setupPhiMultiFluidInitialConditions(IoData &iod, 
                               DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi);
 

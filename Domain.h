@@ -908,6 +908,8 @@ public:
   template<int dimLS>
   void computePrdtPhiCtrlVolRatio(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistVec<double> &, DistGeoState &);
 
+  template<int dim>
+    void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
  };
 
 //------------------------------------------------------------------------------

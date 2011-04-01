@@ -1140,6 +1140,10 @@ public:
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
   Connectivity *getNodeToSubD() { if(!NodeToSubD) NodeToSubD = createNodeToSubDomainConnectivity();  return NodeToSubD; }
   int findFarfieldNode();
+
+
+  template<int dim>
+    void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 };
 //------------------------------------------------------------------------------
 

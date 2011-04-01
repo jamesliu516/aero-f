@@ -98,7 +98,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    }
 	    else if(it1->second->fluid  == FluidModelData::GAS &&
 		    it2->second->fluid == FluidModelData::JWL){
-	      lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,iod.mf.typePhaseChange);
+	      lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
 	    }
 	    else if(it1->second->fluid  == FluidModelData::JWL &&
 		    it2->second->fluid == FluidModelData::JWL){
@@ -106,7 +106,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    }
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		    it2->second->fluid == FluidModelData::JWL){
-	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange);
+	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation, iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
 	    }/* else if(it1->second->fluid  == FluidModelData::JWL &&
 		    it2->second->fluid == FluidModelData::LIQUID){
 	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);

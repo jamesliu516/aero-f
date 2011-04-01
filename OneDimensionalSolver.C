@@ -285,7 +285,7 @@ void OneDimensional::totalTimeIntegration(){
 
     if(time+dt>finalTime) dt = finalTime-time;
     if(iteration % frequency == 0)
-      cout <<endl<<"*** Iteration " << iteration <<": Time = "<<time*refVal.time<<", and dt = "<<dt*refVal.time<<endl;
+      cout <<"*** Iteration " << iteration <<": Time = "<<time*refVal.time<<", and dt = "<<dt*refVal.time<<endl;
     iteration++;
 
     // advance one iteration

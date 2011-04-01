@@ -1870,9 +1870,9 @@ private:
 
 public:
   LocalRiemannGfmparGasJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
-                           MultiFluidData::RiemannComputation riemannComputation,
+                           MultiFluidData::RiemannComputation riemannComputation,double refdensity,double refentropy,
                            MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
-  LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) {
+    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,refdensity,refentropy) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -2822,10 +2822,10 @@ private:
 
 public:
   LocalRiemannGfmparTaitJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
-                           MultiFluidData::RiemannComputation riemannComputation,
+			    MultiFluidData::RiemannComputation riemannComputation,double refdensity,double refentropy,
 			    MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION, 
 			    double sgn = 1.0) : 
-    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange) , sign(sgn) {
+    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,refdensity,refentropy) , sign(sgn) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -2915,8 +2915,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wi[1]  = vti[0]+U_i*nphi[0];      Wi[dim+1]  = Wi[1];
     Wi[2]  = vti[1]+U_i*nphi[1];      Wi[dim+2]  = Wi[2];
     Wi[3]  = vti[2]+U_i*nphi[2];      Wi[dim+3]  = Wi[3];
-    Wi[4] = P_i;
-    Wi[4]  = vf_->computeTemperature(Wi, IDj);         Wi[dim+4]  = Wi[4];
+    Wi[4] = Vi[4];//P_i;
+    /*Wi[4]  = vf_->computeTemperature(Wi, IDj);      */   Wi[dim+4]  = Wi[4];
 
     Wj[0]  = R_i2;                    Wj[dim]    = Wj[0];
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
@@ -2950,8 +2950,8 @@ void LocalRiemannGfmparTaitJWL::computeRiemannSolution(double *Vi, double *Vj,
     Wj[1]  = vtj[0]+U_i*nphi[0];      Wj[dim+1]  = Wj[1];
     Wj[2]  = vtj[1]+U_i*nphi[1];      Wj[dim+2]  = Wj[2];
     Wj[3]  = vtj[2]+U_i*nphi[2];      Wj[dim+3]  = Wj[3];
-    Wj[4]  = P_i;
-    Wj[4]  = vf_->computeTemperature(Wj, IDi);                 Wj[dim+4]  = Wj[4];
+    Wj[4]  = Vj[4];//P_i;
+    /*Wj[4]  = vf_->computeTemperature(Wj, IDi); */                Wj[dim+4]  = Wj[4];
   }
 
 // METHOD 2 : combine averaging and direction of flow

@@ -3959,3 +3959,28 @@ void Domain::setupUVolumesInitialConditions(const int volid, double UU[dim],
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
+{
+  int iSub;
+
+  DistVec<double> loc_weight(getNodeDistInfo());
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    subDomain[iSub]->blur(U(iSub),U0(iSub),loc_weight(iSub));
+  
+  assemble(vecPat, U0);
+  assemble(volPat,loc_weight);
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+
+    for (int i = 0; i < U.subSize(iSub); ++i) {
+      for (int k = 0; k < dim; ++k)
+	U0(iSub)[i][k] = 0.5*U0(iSub)[i][k]/loc_weight(iSub)[i] + 0.5*U(iSub)[i][k];
+    }
+
+  }
+
+}
