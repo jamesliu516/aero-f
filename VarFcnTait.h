@@ -102,7 +102,6 @@ VarFcnTait::VarFcnTait(FluidModelData &data) : VarFcnBase(data) {
   a_     = data.liquidModel.alpha;
   b_     = data.liquidModel.beta;
   p_     = data.liquidModel.Pref;
-  fprintf(stderr,"a = %lf b = %lf\n",a_,b_); fflush(stderr);
 
   pname = new const char*[5];
   pname[0] = "density";

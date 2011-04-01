@@ -46,6 +46,8 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
 		     B.ignitionZ0 };
     
     Burn burn;
+
+
     burn.pgData = &B;
     burn.ignited = B.ignited;
     std::cout << "burn.ignited = " << burn.ignited << std::endl;
@@ -53,6 +55,8 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
 
     myBurns.push_back(burn);
   }
+
+  lastTime = 0.0;
 }
 
 ProgrammedBurn::ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet) {
@@ -87,6 +91,8 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet) {
   std::cout << "burn location = " << burn.x0[0] << " id = " << id << std::endl;
   
   myBurns.push_back(burn);
+
+  lastTime = 0.0;
 }
 
 ProgrammedBurn::~ProgrammedBurn() {
@@ -233,9 +239,10 @@ void ProgrammedBurn::setFluidIds(double t, DistVec<int>& fluidIds,DistSVec<doubl
 	  //bBurned->subData(iSub)[i] = true;
 	  U.subData(iSub)[i][0] = min(U.subData(iSub)[i][0],  B.pgData->cjDensity);
 	  double* v = &(U.subData(iSub)[i][1]);
-	  U.subData(iSub)[i][4] = min(U.subData(iSub)[i][4],  
-				      B.pgData->cjDensity*B.pgData->cjEnergy+ 
-				      0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
+	  if (B.pgData->limitPeak)
+	    U.subData(iSub)[i][4] = min(U.subData(iSub)[i][4],  
+					B.pgData->cjDensity*B.pgData->cjEnergy+ 
+					0.5*B.pgData->cjDensity*pow(B.pgData->cjDetonationVelocity/B.pgData->factorS,2.0));
 	  
 	  fid[i] = B.pgData->burnedEOS;
 	}

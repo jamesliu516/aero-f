@@ -86,7 +86,7 @@ class LocalRiemannGfmpar : public LocalRiemann {
 
 public:
   LocalRiemannGfmpar() : LocalRiemann() {}
-  LocalRiemannGfmpar(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange phaseChangeType) : LocalRiemann(vf,tag1,tag2), phaseChangeType_(phaseChangeType) {}
+    LocalRiemannGfmpar(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange phaseChangeType, double refd = 0.0,double refe = 0.0) : LocalRiemann(vf,tag1,tag2), phaseChangeType_(phaseChangeType), refdensity(refd), refentropy(refe) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
@@ -98,6 +98,9 @@ public:
   }
 
 protected:
+
+  double refdensity,refentropy;
+
   // following functions used when Riemann problem formulated as a system of nonlinear equations.
   bool solve2x2System(double *mat, double *rhs, double *res);
   // valid for JWL phase
@@ -204,7 +207,7 @@ int LocalRiemannGfmpar::rarefactionJWL(double phi,
   double entropy = vf_->computeEntropy(1.0/v1,p1, myFluidId);
   double *in = 0;
   double res1[1] = {0.0};
-  int i1=1,i2=1;
+  int i1=0,i2=1;
   if(type == MultiFluidData::FE){
     in = new double[3];
     in[0] = 1.0/v1; in[1] = entropy; in[2] = 1.0/v;
@@ -219,13 +222,13 @@ int LocalRiemannGfmpar::rarefactionJWL(double phi,
     i1 = riemannInvariantGeneralTabulation(in,res1);
     if (!i1) { // Sparse grid failed
       in[2] = 1.0/v;
+      fprintf(stderr,"*** Warning: Sparse grid failed on coordinate density = %lf, entropy = %lf; Reverting to 2nd order computation\n", in[0]*refdensity, in[1]*refentropy);
       riemannInvariantGeneral2ndOrder(in,res1,&phi);
-      i1 = 1;
     }
   }
 
   double res2[1] = {0.0};
-  if(type == MultiFluidData::TABULATION2){
+  if(type == MultiFluidData::TABULATION2 && i1){
     in[0] = 1.0/v;
     i2 = riemannInvariantGeneralTabulation(in,res2);
     if (!i2) { // Sparse grid failed
@@ -249,7 +252,7 @@ int LocalRiemannGfmpar::rarefactionJWL(double phi,
     fprintf(stdout, "*** rarefactionJWL returns c=%e, u=%e, p=%e, du=%e, dp=%e, s=%e\n", c,u,p,du,dp,entropy);
   }
 
-  return (i1&&i2);
+  return 1;//(i1&&i2);
 }
 
 inline

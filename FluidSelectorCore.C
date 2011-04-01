@@ -48,7 +48,7 @@ FluidSelector::~FluidSelector()
 
 //------------------------------------------------------------------------------
 // takes in the fluidId computed by intersector. Complete it with user-specified FF interfaces.
-void FluidSelector::initializeFluidIds(DistVec<int> &fsId, DistSVec<double,3> &X, IoData &ioData)
+/*void FluidSelector::initializeFluidIds(DistVec<int> &fsId, DistSVec<double,3> &X, IoData &ioData)
 {
   *fluidId = fsId;
   setupFluidIdVolumesInitialConditions(ioData);
@@ -60,7 +60,7 @@ void FluidSelector::initializeFluidIds(DistVec<int> &fsId, DistSVec<double,3> &X
   if(fluidIdnm1) *fluidIdnm1 = *fluidId;
   if(fluidIdnm2) *fluidIdnm2 = *fluidId;
 }
-
+*/
 //------------------------------------------------------------------------------
 
 void FluidSelector::getFluidId(int &tag, double *phi){
@@ -131,7 +131,7 @@ int FluidSelector::getLevelSetDim(int fluidId1, int fluidId2, int node1, int nod
 }
 
 //------------------------------------------------------------------------------
-
+/*
 void FluidSelector::setupFluidIdVolumesInitialConditions(IoData &iod)
 {
   // loop on all Volumes to setup U0
@@ -175,7 +175,7 @@ void FluidSelector::setupFluidIdOneDimensionalSolution(IoData &iod, DistSVec<dou
   input >> numPoints;
   cout <<"number of points in 1D solution is " << numPoints <<endl;
   double x_1D[numPoints];
-  double v_1D[numPoints][4];/* rho, u, p, phi*/
+  double v_1D[numPoints][4];// rho, u, p, phi
 
   for(int i=0; i<numPoints; i++) {
     input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
@@ -332,7 +332,7 @@ void FluidSelector::setupFluidIdMultiFluidInitialConditions(IoData &iod, DistSVe
     }
   }
 }
-
+*/
 //------------------------------------------------------------------------------
 
 void FluidSelector::printFluidId(){
