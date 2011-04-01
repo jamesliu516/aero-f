@@ -34,7 +34,7 @@ void SparseGridCluster::readFromFile(const int numFiles,
   dim_ = sparseGrids_[0].getDim();
 }
 //------------------------------------------------------------------------------
-void SparseGridCluster::interpolate(const int numRes, double **coord, double **res)
+int SparseGridCluster::interpolate(const int numRes, double **coord, double **res)
 {
   bool inSparseGrid = false;
   for(int iRes=0; iRes<numRes; iRes++){
@@ -46,13 +46,15 @@ void SparseGridCluster::interpolate(const int numRes, double **coord, double **r
       }
     }
     if(!inSparseGrid){
-      fprintf(stdout, "coord[%d] = ( ", iRes);
+      fprintf(stdout, "*** Warning: coord[%d] = ( ", iRes);
       for(int idim=0; idim<dim_; idim++)
         fprintf(stdout, "%e ", coord[iRes][idim]);
-      fprintf(stdout, ") is out of range of all SparseGrids. Exiting\n");
-      exit(1);
+      fprintf(stdout, ") is out of range of all SparseGrids.\n");
+      //exit(1);
+      return 0;
     }
   }
+  return 1;
 	
 }
 //------------------------------------------------------------------------------

@@ -15,6 +15,50 @@ class Communicator;
 
 //------------------------------------------------------------------------------
 
+template<class DataType>
+class ObjectMap {
+
+public:
+
+  map<int, DataType *> dataMap;
+  void setup(const char *name, ClassAssigner *);
+  ~ObjectMap()
+    {
+      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
+	{
+	  delete it->second;
+	}
+    }
+};
+
+//------------------------------------------------------------------------------
+struct FluidRemapData {
+
+  FluidRemapData();
+  ~FluidRemapData() {}
+  
+  int oldID,newID;
+
+  void setup(const char *, ClassAssigner * = 0);
+
+  Assigner *getAssigner();
+};
+
+struct OneDimensionalInputData {
+
+  OneDimensionalInputData();
+  ~OneDimensionalInputData() {}
+  const char* file;
+  double x0,y0,z0;
+
+  ObjectMap<FluidRemapData> fluidRemap;
+
+  Assigner *getAssigner();
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+  
+
 struct InputData {
 
   const char *prefix;
@@ -33,10 +77,12 @@ struct InputData {
   const char *podFile2;
   const char *strModesFile;
   const char *embeddedSurface;
-  const char *oneDimensionalSolution;
+  const char *oneDimensionalMesh;
 
 // Included (MB)
   const char *shapederivatives;
+
+  ObjectMap< OneDimensionalInputData > oneDimensionalInput;
 
   InputData();
   ~InputData() {}
@@ -506,24 +552,6 @@ struct VolumeData  {
 
 //------------------------------------------------------------------------------
 
-template<class DataType>
-class ObjectMap {
-
-public:
-
-  map<int, DataType *> dataMap;
-  void setup(const char *name, ClassAssigner *);
-  ~ObjectMap()
-    {
-      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
-	{
-	  delete it->second;
-	}
-    }
-};
-
-//------------------------------------------------------------------------------
-
 struct SAModelData {
 
   double cb1;
@@ -772,6 +800,7 @@ struct ProgrammedBurnData {
   double factorB;
   double factorS;
   int ignited;
+  int limitPeak;
   
   ProgrammedBurnData();
   ~ProgrammedBurnData();
@@ -899,6 +928,7 @@ struct MultiFluidData {
   int frequency;
   double eps;
   int outputdiff;
+  int numBlur;
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
@@ -974,7 +1004,9 @@ struct SchemeData {
   double xic;
   double eps;
 
-  SchemeData();
+  int allowsFlux;
+
+  SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 
   void setup(const char *, ClassAssigner * = 0);
@@ -1719,8 +1751,10 @@ struct OneDimensionalInfo {
 
   double interfacePosition;
 
-  double density1, velocity1, pressure1;
-  double density2, velocity2, pressure2;
+  double density1, velocity1, pressure1,temperature1;
+  double density2, velocity2, pressure2,temperature2;
+
+  ProgrammedBurnData programmedBurn;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}

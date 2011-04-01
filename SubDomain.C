@@ -5969,3 +5969,24 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
     sendLocalForce(flocal, lsRes, Fs);
   }
 }
+
+template<int dim>
+void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weight)
+{
+  const Connectivity &nToN = *getNodeToNode(); 
+  for(int currentNode=0;currentNode<numNodes();++currentNode) {
+        
+    for (int k = 0; k < dim; ++k) {
+      U0[currentNode][k] = 0.0;
+    }
+
+    for(int j=0;j<nToN.num(currentNode);++j){
+      int neighborNode=nToN[currentNode][j];
+      for (int k = 0; k < dim; ++k) {
+	U0[currentNode][k] += U[neighborNode][k];
+      }
+      
+    }
+    weight[currentNode] = (double)nToN.num(currentNode);
+  }
+}
