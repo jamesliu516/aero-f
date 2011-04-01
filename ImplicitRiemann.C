@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include <iostream>
+#include <cstring>
 
 #define max(a,b) ( (a > b) ? (a) : (b) )
 
