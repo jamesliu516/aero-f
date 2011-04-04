@@ -284,13 +284,13 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
-  if (checkTriangulatedSurface()) 
-    com->fprintf(stderr,"Ok.\n");
-  else {
-    com->fprintf(stderr,"\n"); 
-    exit(-1); 
-  }
+//  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
+//  if (checkTriangulatedSurface()) 
+//    com->fprintf(stderr,"Ok.\n");
+//  else {
+//    com->fprintf(stderr,"\n"); 
+//    exit(-1); 
+//  }
 
   initializePhysBAM();
 }
@@ -371,13 +371,13 @@ void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int 
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
-  if (checkTriangulatedSurface())
-    com->fprintf(stderr,"Ok.\n");
-  else {
-    com->fprintf(stderr,"\n"); 
-    exit(-1); 
-  }
+//  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
+//  if (checkTriangulatedSurface())
+//    com->fprintf(stderr,"Ok.\n");
+//  else {
+//    com->fprintf(stderr,"\n"); 
+//    exit(-1); 
+//  }
 
   initializePhysBAM();
 }

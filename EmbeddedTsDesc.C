@@ -54,7 +54,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     forceCalculationType>>newVersion;
     if(newVersion) forceApp++;
   }
-  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
+//  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
