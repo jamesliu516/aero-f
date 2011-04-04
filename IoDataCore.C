@@ -4440,7 +4440,6 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     schemes.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
   
-  com->fprintf(stderr,"Ref pressure = %lf; ref density = %lf\n",ref.rv.pressure,ref.rv.density);
   return error;
 }
 //------------------------------------------------------------------------------------

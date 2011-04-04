@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
-FIND_PACKAGE(OpenMP)
-if(OpenMP_FLAG_DETECTED)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_CXX_FLAGS}")
-  #add_definitions(-D_OPENMP)
-endif(OpenMP_FLAG_DETECTED)
+IF(USE_OPENMP)
+  FIND_PACKAGE(OpenMP REQUIRED)
+  if(OpenMP_FLAG_DETECTED)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_CXX_FLAGS}")
+    #add_definitions(-D_OPENMP)
+  endif(OpenMP_FLAG_DETECTED)
+ENDIF(USE_OPENMP)
 
 # Code to determine if we should add some link libraries
 IF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
