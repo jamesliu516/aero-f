@@ -404,6 +404,8 @@ f77src/g_roeflux5.f
 f77src/g_roeflux6.f
 f77src/roeflux5jwl.f
 f77src/hllcflux.f
+f77src/hllcflux1.f
+f77src/hllcjac.f
 f77src/hlleflux.f
 f77src/hlleflux1.f
 f77src/hllejac.f

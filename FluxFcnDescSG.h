@@ -166,6 +166,7 @@ public:
   ~FluxFcnSGApprJacHLLCEuler3D() { vf = 0; }
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
@@ -555,6 +556,21 @@ class FluxFcnSGFDJacHLLCSA3D : public FluxFcnFDJacHLLCSA3D {
 
 //------------------------------------------------------------------------------
 
+class FluxFcnSGApprJacHLLCSA3D : public FluxFcnApprJacHLLCSA3D {
+
+public:
+
+  FluxFcnSGApprJacHLLCSA3D(int rs, double gg, IoData &ioData, VarFcnSGSA *varFcnSGSA, Type tp = CONSERVATIVE) :
+  FluxFcnApprJacHLLCSA3D(ioData, rs,gg, varFcnSGSA, tp) {}
+  ~FluxFcnSGApprJacHLLCSA3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnSGWallSA3D : public FluxFcnWallSA3D {
 
 public:
@@ -872,6 +888,20 @@ public:
 
   void compute(double, double, double *, double, double *, double *, double *, bool);
 
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnSGApprJacHLLCKE3D : public FluxFcnApprJacHLLCKE3D {
+
+public:
+  FluxFcnSGApprJacHLLCKE3D(int rs, double gg, IoData &ioData, VarFcnSGKE *varFcnSGKE, Type tp = CONSERVATIVE) :
+    FluxFcnApprJacHLLCKE3D(ioData, rs, gg, varFcnSGKE, tp) {}
+  ~FluxFcnSGApprJacHLLCKE3D() { vf = 0; }
+
+  void compute(double, double, double *, double, double *, double *, double *, bool);
+  void computeJacobians(double, double, double *, double, double *, double *, double *, double *, bool);
 
 };
 
