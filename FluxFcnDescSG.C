@@ -1222,6 +1222,16 @@ void FluxFcnSGApprJacHLLESA3D::computeJacobians(double length, double irey, doub
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGFDJacHLLCSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGWallSA3D::compute(double length, double irey, double *normal, double normalVel,
                               double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1597,6 +1607,16 @@ void FluxFcnSGApprJacHLLEKE3D::computeJacobians(double length, double irey, doub
 {
 
   hllejacappr3Dgas<7>(2, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGFDJacHLLCKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
 
 }
 
