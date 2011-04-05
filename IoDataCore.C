@@ -3504,12 +3504,6 @@ void IoData::resetInputValues()
     ts.implicit.ffjacobian = ImplicitData::EXACT;
   }
 
-  if (ts.implicit.mvp == ImplicitData::FD)
-  {
-    // The overwriting is silent because ffjacobian is a "slave" flag.
-    ts.implicit.ffjacobian = ImplicitData::FINITE_DIFFERENCE;
-  }
-
   //
   // Part 3
   //
