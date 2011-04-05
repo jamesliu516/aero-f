@@ -3490,13 +3490,41 @@ void IoData::resetInputValues()
   {
     if (ts.implicit.mvp == ImplicitData::H2)
     {
-      com->fprintf(stderr, " *** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "              Second Order Finite Difference will be used.\n");
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
       ts.implicit.mvp = ImplicitData::FD;
       ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
     }
   } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
 
+  if (schemes.ns.flux != SchemeData::ROE)
+  {
+    if (ts.implicit.mvp == ImplicitData::H2)
+    {
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product only supported with Roe flux.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+      ts.implicit.mvp = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    }
+    if ((eqs.fluidModel.fluid != FluidModelData::GAS) ||
+	(eqs.fluidModel.gasModel.type != GasModelData::IDEAL))
+    {
+      com->fprintf(stderr, "*** Warning: Roe flux has to be used for Stiffened Gas, Tait, or JWL simulations.\n");
+      schemes.ns.flux = SchemeData::ROE;
+    }
+    if(!eqs.fluidModelMap.dataMap.empty())
+    {
+      map<int, FluidModelData *>::iterator it;
+      for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+	if ((it->second->fluid != FluidModelData::GAS) ||
+	    (it->second->gasModel.type != GasModelData::IDEAL))
+	{
+	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Stiffened Gas, Tait, or JWL simulations.\n");
+	  schemes.ns.flux = SchemeData::ROE;
+	}    
+      }
+    }
+  } // END of if (schemes.ns.flux != SchemeData::ROE)
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
