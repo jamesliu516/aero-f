@@ -364,6 +364,18 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
               exit(1);
             }
           }
+	  else if (iod.schemes.ns.flux == SchemeData::HLLC) 
+          {
+            if (iod.ts.implicit.ffjacobian == ImplicitData::FINITE_DIFFERENCE)
+              localff = new FluxFcnSGFDJacHLLCEuler3D(gamma, iod, vfsgeuler, typeJac);
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::APPROXIMATE) {
+              localff = new FluxFcnSGApprJacHLLCEuler3D(rshift, gamma, iod, vfsgeuler, typeJac);
+            }
+            else if (iod.ts.implicit.ffjacobian == ImplicitData::EXACT) {
+              fprintf(stderr,"Error... HLLC with Exact Jacobian not Implemented.. Aborting !!");
+              exit(1);
+            }
+          }
           break;
 
       }

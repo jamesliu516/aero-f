@@ -1135,28 +1135,28 @@ double HeavingMeshMotionHandler::update(bool *lastIt, int it, double t,
                                        DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   
-  if (*lastIt) return dt;
+ if (*lastIt) return dt;
 
-  double hsintheta = 1.0 - cos(omega * (t + dt));
-//  double hsintheta = t + dt;
+ double hsintheta = 1.0 - cos(omega * (t + dt));
+   // double hsintheta = t + dt;
 
-  int numLocSub = domain->getNumLocSub();
+ int numLocSub = domain->getNumLocSub();
 
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
+ #pragma omp parallel for
+   for (int iSub=0; iSub<numLocSub; ++iSub) {
 
-    double (*dx)[3] = dX.subData(iSub);
-    double (*x0)[3] = X0.subData(iSub);
+      double (*dx)[3] = dX.subData(iSub);
+      double (*x0)[3] = X0.subData(iSub);
 
-    for (int i=0; i<dX.subSize(iSub); ++i) {
+      for (int i=0; i<dX.subSize(iSub); ++i) {
 
-      dx[i][0] = x0[i][0] + delta[0]*hsintheta;
-      dx[i][1] = x0[i][1] + delta[1]*hsintheta;
-      dx[i][2] = x0[i][2] + delta[2]*hsintheta;
+           dx[i][0] = x0[i][0] + delta[0]*hsintheta;
+           dx[i][1] = x0[i][1] + delta[1]*hsintheta;
+           dx[i][2] = x0[i][2] + delta[2]*hsintheta;
+
+        }
 
     }
-
-  }
 
   dX -= X;
 

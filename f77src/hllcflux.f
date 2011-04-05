@@ -5,20 +5,26 @@
 
 c---------------------------------------------------------------------   
 c Computes the convective fluxes using the approximate Riemann
-c solver of HLLC
+c solver of HLLC with optional low Mach preconditionning
+c
+c Reference: Extension of Harten-Lax-van Leer Scheme
+c            for Flows at All Speeds
+c            By H. Luo, J. D. Baum, and R. Lohner
+c            (AIAA Journal - Vol. 43, No. 6, June 2005)
 c---------------------------------------------------------------------   
 
       IMPLICIT NONE
       REAL*8 Ug(*), Ud(*), normal(0:2), enormal(3), evitno, phi(*)
-      REAL*8 VdotN , rnorm, invnorm, updir
+      REAL*8 VdotN , rnorm, invnorm, updir, vitno
       REAL*8 Ugr(*), Udr(*), energ, enerd
       REAL*8 flu(0:5),solLft(0:6),solRgt(0:6)
       REAL*8 vnLft,vnRgt,cLft,cRgt,rhoLft,rhoRgt,HLft,HRgt
-      REAL*8 rhoInv,roeMoy(0:5),qRoe,vnRoe,cRoe,pStar,vnStar
+      REAL*8 vpLft,vpRgt,vpLftRoe,vpRgtRoe
+      REAL*8 rhoInv,roeMoy(0:5),qRoe,vnRoe,cRoe,cRoe2,pStar,vnStar
       REAL*8 SLft,SRgt,SStar,uStar(0:5)
       REAL*8 gam , gam1, vitg2, vitd2, pstiff
       REAL*8 locMach, cmach, irey, length
-      REAL*8 gamma, mach, k1
+      REAL*8 gamma, mach, k1, shock, beta, beta2
       REAL*8 shockreducer
       INTEGER type, prec
 
@@ -26,16 +32,17 @@ c
 
       gam1      = gam - 1.d0
 
-      rnorm = DSQRT(enormal(1)*enormal(1) + enormal(2)*enormal(2) +
+      rnorm     = DSQRT(enormal(1)*enormal(1) + enormal(2)*enormal(2) +
      &             enormal(3)*enormal(3))
 
-      invnorm = 1.0d0 / rnorm
+      invnorm   = 1.0d0 / rnorm
 c
       normal(0) = enormal(1) * invnorm
       normal(1) = enormal(2) * invnorm
       normal(2) = enormal(3) * invnorm
-
-
+c
+      vitno = evitno * invnorm
+c
       solLft(0) = Ug(1)
       solLft(1) = Ug(2)
       solLft(2) = Ug(3)
@@ -77,27 +84,62 @@ c     Roe's average to get SLft and SRgt
       roeMoy(3) = (rhoLft*solLft(3)+rhoRgt*solRgt(3)) ! w tilde
       roeMoy(4) = (rhoLft*HLft+rhoRgt*HRgt)           ! H tilde
       qRoe      = 0.5*(roeMoy(1)*roeMoy(1)
-     $ +roeMoy(2)*roeMoy(2)+roeMoy(3)*roeMoy(3))      ! q=.5 |u|^2=Ec/rho
+     & +roeMoy(2)*roeMoy(2)+roeMoy(3)*roeMoy(3))      ! q=.5 |u|^2=Ec/rho
 c
 c     H-q = (1/rho) (E + p) - Ec/rho  ==> p = rho*gam1/gam (H-q)
 c
       cRoe      = sqrt(abs(gam1*(roeMoy(4)-qRoe)))   ! c tilde
       vnRoe     = normal(0)*roeMoy(1)+normal(1)*roeMoy(2)
      &           +normal(2)*roeMoy(3)
+
+c  Computing the preconditionning coefficient
+
+      cRoe2 = cRoe*cRoe
+
+      if (prec .eq. 0) then
+        beta = 1.d0
+      else
+c       local Preconditioning (ARL)
+        shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
+        locMach = DSQRT(2.0d0*qRoe/cRoe2)
+        beta = MAX(k1*locMach, mach)
+        beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
+        beta = MIN(beta, cmach)
+      end if
+
+      beta2 = beta*beta
+
 c
-c  Wave speed SLft, Srgt and SStar if necessary
+c  Wave speed SLft, Srgt and SStar if necessary, with preconditionning if necessary
 c
-      SLft = min(vnLft-cLft,vnRoe-cRoe)
-      SRgt = max(vnRgt+cRgt,vnRoe+cRoe)
+
+c Computing the preconditionned eigenvalues
+      vpLft = 0.5d0*((1.d0+beta2)*vnLft -
+     &      DSQRT(((1.d0-beta2)*vnLft)**2 +
+     &      4.d0*beta2*cLft**2))
+      vpLftRoe =  0.5d0*((1.d0+beta2)*vnRoe -
+     &      DSQRT(((1.d0-beta2)*vnRoe)**2 +
+     &      4.d0*beta2*cRoe**2))
+c
+      vpRgt = 0.5d0*((1.d0+beta2)*vnRgt +
+     &      DSQRT(((1.d0-beta2)*vnRgt)**2 +
+     &      4.d0*beta2*cRgt**2))
+      vpRgtRoe = 0.5d0*((1.d0+beta2)*vnRoe +
+     &      DSQRT(((1.d0-beta2)*vnRoe)**2 +
+     &      4.d0*beta2*cRoe**2))
+
+c Computing the signal velocities
+      SLft = min(vpLft,vpLftRoe)
+      SRgt = max(vpRgt,vpRgtRoe)
 
 c  Flft : left flux by splitting
-      if ( SLft .ge. 0 ) then
+      if ( SLft-vitno .ge. 0 ) then
 
-         flu(0) = solLft(0)*vnLft                           
-         flu(1) = solLft(0)*solLft(1)*vnLft+solLft(4)*normal(0)
-         flu(2) = solLft(0)*solLft(2)*vnLft+solLft(4)*normal(1)
-         flu(3) = solLft(0)*solLft(3)*vnLft+solLft(4)*normal(2)
-         flu(4) = (solLft(5)+solLft(4))*vnLft
+         flu(0) = solLft(0)*(vnLft-vitno)                           
+         flu(1) = flu(0)*solLft(1)+solLft(4)*normal(0)
+         flu(2) = flu(0)*solLft(2)+solLft(4)*normal(1)
+         flu(3) = flu(0)*solLft(3)+solLft(4)*normal(2)
+         flu(4) = solLft(5)*(vnLft-vitno)+solLft(4)*vnLft
 
          phi(1)  = 2.d0*flu(0)
          phi(2)  = 2.d0*flu(1)
@@ -111,13 +153,13 @@ c  Flft : left flux by splitting
 c
 c  Frgt : right flux by splitting
 c
-      if ( SRgt .le. 0 ) then
+      if ( SRgt-vitno .le. 0 ) then
 
-         flu(0) = solRgt(0)*vnRgt                           
-         flu(1) = solRgt(0)*solRgt(1)*vnRgt+solRgt(4)*normal(0)
-         flu(2) = solRgt(0)*solRgt(2)*vnRgt+solRgt(4)*normal(1)
-         flu(3) = solRgt(0)*solRgt(3)*vnRgt+solRgt(4)*normal(2)
-         flu(4) = (solRgt(5)+solRgt(4))*vnRgt
+         flu(0) = solRgt(0)*(vnRgt-vitno)                           
+         flu(1) = flu(0)*solRgt(1)+solRgt(4)*normal(0)
+         flu(2) = flu(0)*solRgt(2)+solRgt(4)*normal(1)
+         flu(3) = flu(0)*solRgt(3)+solRgt(4)*normal(2)
+         flu(4) = solRgt(5)*(vnRgt-vitno)+solRgt(4)*vnRgt
 
          phi(1)  = 2.d0*flu(0)
          phi(2)  = 2.d0*flu(1)
@@ -138,7 +180,7 @@ c
 c
       SStar = SStar/(solLft(0)*(SLft-vnLft) - solRgt(0)*(SRgt-vnRgt))
 c
-      if ( SStar .ge. 0 ) then
+      if ( SStar-vitno .ge. 0 ) then
 c     ========================
 c
         pStar    = solLft(0)*(SLft-vnLft)*(SStar-vnLft)+solLft(4)
@@ -152,23 +194,23 @@ c
      &   (uStar(1)*normal(0)+uStar(2)*normal(1)
      &      +uStar(3)*normal(2))/uStar(0)
 c
-        flu(0) = uStar(0)*vnStar
-        flu(1) = uStar(1)*vnStar+pStar*normal(0)
-        flu(2) = uStar(2)*vnStar+pStar*normal(1)
-        flu(3) = uStar(3)*vnStar+pStar*normal(2)
-        flu(4) = (uStar(4)+pStar)*vnStar
+        flu(0) = uStar(0)*(vnStar-vitno)
+        flu(1) = uStar(1)*(vnStar-vitno)+pStar*normal(0)
+        flu(2) = uStar(2)*(vnStar-vitno)+pStar*normal(1)
+        flu(3) = uStar(3)*(vnStar-vitno)+pStar*normal(2)
+        flu(4) = uStar(4)*(vnStar-vitno)+pStar*vnStar
 
-         phi(1)  = 2.d0*flu(0)
-         phi(2)  = 2.d0*flu(1)
-         phi(3)  = 2.d0*flu(2)
-         phi(4)  = 2.d0*flu(3)
-         phi(5)  = 2.d0*flu(4)
+        phi(1)  = 2.d0*flu(0)
+        phi(2)  = 2.d0*flu(1)
+        phi(3)  = 2.d0*flu(2)
+        phi(4)  = 2.d0*flu(3)
+        phi(5)  = 2.d0*flu(4)
 
         go to 1000
 c
 c     ******
 c
-      else     ! if ( SStar < 0 )
+      else     ! if ( SStar-vitno < 0 )
 c     =====
 c
 c  Fhllc = Frgt + Srgt*(UStar-Urgt) = F(Ustar)
@@ -184,11 +226,11 @@ c
      &   (uStar(1)*normal(0)+uStar(2)*normal(1)+uStar(3)*normal(2))
      &     /uStar(0) 
 
-        flu(0) = uStar(0)*vnStar
-        flu(1) = uStar(1)*vnStar+pStar*normal(0)
-        flu(2) = uStar(2)*vnStar+pStar*normal(1)
-        flu(3) = uStar(3)*vnStar+pStar*normal(2)
-        flu(4) = (uStar(4)+pStar)*vnStar
+        flu(0) = uStar(0)*(vnStar-vitno)
+        flu(1) = uStar(1)*(vnStar-vitno)+pStar*normal(0)
+        flu(2) = uStar(2)*(vnStar-vitno)+pStar*normal(1)
+        flu(3) = uStar(3)*(vnStar-vitno)+pStar*normal(2)
+        flu(4) = uStar(4)*(vnStar-vitno)+pStar*vnStar
 
         phi(1)  = 2.d0*flu(0)
         phi(2)  = 2.d0*flu(1)
