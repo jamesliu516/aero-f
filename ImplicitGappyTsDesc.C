@@ -1,6 +1,7 @@
 #include <Communicator.h>
 
 #include <cmath>
+#include <VecSetOp.h>
 
 //------------------------------------------------------------------------------
 
@@ -22,7 +23,12 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
   VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
   VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
 	dom->readPodBasis(this->input->aMatrix, nPodJac,Afull);
-	dom->readPodBasis(this->input->bMatrix, nPodJac,Bfull);
+	if (*(this->input->bMatrix) == '\0') {	// not specified
+		numABmat = 1;	// same matrix
+	}
+	else {
+		numABmat = 2;	// different matrices
+	}
 
 	//Amat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
 	//Bmat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
@@ -33,13 +39,22 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
 
 	// allocate memory for Amat, Bmat using restrictedDistInfo
-	Amat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
-	Bmat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
+	//Amat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
+	Amat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
+
+	if (numABmat == 1) {
+		Bmat = Amat;
+	}
+	else {
+		dom->readPodBasis(this->input->bMatrix, nPodJac,Bfull);
+		Bmat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
+	}
 
 	// restrict Afull and Bfull to be Amat, Bmat
 	for (int i = 0; i < nPodJac; ++i) {
 		restrictionMapping->restriction(Afull[i],(*Amat)[i]);
-		restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
+		if (numABmat == 2)
+			restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
 	}
 
 	//AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, dom->getNodeDistInfo()));
@@ -47,6 +62,13 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
 }
 
+template<int dim>
+ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc() 
+{
+	delete Amat;
+	if (numABmat == 2)
+		delete Bmat;
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -83,28 +105,33 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
+	double *result = new double [Amat->numVectors() * AJRestrict->numVectors()];
+	transMatMatProd(*Amat, *AJRestrict,result);
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
     const int localICol = leastSquaresSolver.localColIdx(iCol);
+		//transMatVecProd(*Amat, (*AJRestrict)[iCol],result);
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      const double entryValue = (*Amat)[iRow] * (*AJRestrict)[iCol];
+      //const double entryValue = (*Amat)[iRow] * (*AJRestrict)[iCol];
       const bool hasLocalEntry = hasLocalCol && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRowIdx(iRow);
-        leastSquaresSolver.matrixEntry(localIRow, localICol) = entryValue;
+        leastSquaresSolver.matrixEntry(localIRow, localICol) = result[iRow + iCol * leastSquaresSolver.equationCount()];
       }
     }
   }
  
   // Form B * ResRestrict and distribute
+	double *column = new double [Amat->numVectors()];
   {
     const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
+		transMatVecProd(*Bmat, *ResRestrict, column);
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
+      //const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
       const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
-        leastSquaresSolver.rhsEntry(localIRow) = -1.0 * entryValue;	// need to make negative
+        leastSquaresSolver.rhsEntry(localIRow) = -1.0 * column[iRow];	// need to make negative
       }
     }
   }
@@ -128,7 +155,10 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
     this->target = this->epsNewton * this->res0;
   }
 
+	delete [] result;
+	delete [] column;
   breakloop = (res == 0.0) || (res <= this->target);
+
 }
 
 //------------------------------------------------------------------------------

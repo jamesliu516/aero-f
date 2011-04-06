@@ -1,3 +1,4 @@
+#include <VecSetOp.h>
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -40,13 +41,28 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 		// form reduced Jacobian
 
 		this->jac.setNewSize(this->nPod,this->nPod);
+
+		// faster way
+		double *result = new double [this->AJ.numVectors() * this->AJ.numVectors()];
+		transMatMatProd(this->AJ,this->AJ,result);
+		for (int iRow = 0; iRow < this->nPod; ++iRow) {
+			for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
+				this->jac[iRow][iCol] = result[iRow + iCol * this->AJ.numVectors()];
+			}
+		} 
+		delete [] result;
+
+		/*
+		// old way
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol <= iRow; ++iCol) {
-				this->jac[iRow][iCol] = this->AJ[iRow]*this->AJ[iCol];
-				if (iRow > iCol)
+				this->jac[iRow][iCol] = this->AJ[iRow] * this->AJ[iCol];
+				if (iCol < iRow)
 					this->jac[iCol][iRow] = this->jac[iRow][iCol];
 			}
 		} 
+		*/
 
     solveLinearSystem(it, rhs, this->dUrom);
+
 }

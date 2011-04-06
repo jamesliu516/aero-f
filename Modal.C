@@ -35,7 +35,7 @@ extern "C"      {
 
   void F77NAME(thinsvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, double *, int &,
 						           int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
-											int &, double *, int &);
+											int &, double *, int &, int &);
 	void F77NAME(lworksize)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
 
 }
@@ -108,6 +108,7 @@ ModalSolver<dim>::ModalSolver(Communicator *_com, IoData &_ioData, Domain &dom) 
  ksp3 = 0;
  kspComp = 0;
  kspCompGcr = 0;
+ totalEnergy = 0.0;	// for POD basis construction
 
 }
 
@@ -1716,26 +1717,37 @@ void ModalSolver<dim>::freqIntegrateMultipleRhs(VecSet<DistSVec<double, dim> >&s
 //-----------------------------------------------------------------------
 
 template<int dim>
-void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nSnaps){
+void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nSnaps, int nPOD = 0, bool outputToDisk = true){
 
  Timer *modalTimer = domain.getTimer();
 
 #ifdef DO_SCALAPACK
- //int nPOD = ioData->linearizedData.numPOD;
- int nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->Rob.numROB; // CBM--check   
+ if (nPOD == 0)
+	 nPOD = (ioData->linearizedData.numPOD) ? ioData->linearizedData.numPOD : ioData->Rob.numROB; // CBM--check   
+
  int nconv = 0;
+ if (nPOD > nSnaps) {
+	 com->fprintf(stderr, " ... WARNING: nPOD > nSnaps. Changing nPOD from %d to %d\n", nPOD, nSnaps);
+	 nPOD = nSnaps;
+ }
 
  com->fprintf(stderr, " ... Computing %d POD vectors from %d snapshots\n", nPOD, nSnaps);
 
  VecSet<DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
  Vec<double> singVals(nSnaps);
- FullM Vtrue(nSnaps);
+ FullM VtrueDummy(1);	// do not need VtrueDummy
 
  double t0 = modalTimer->getTime();
  ParallelRom<dim> parallelRom(domain,com);
- parallelRom.parallelSVD(snaps, Utrue, singVals.data(), Vtrue, nSnaps);
+ parallelRom.parallelSVD(snaps, Utrue, singVals.data(), VtrueDummy, nSnaps, false);
  modalTimer->addEigSolvTime(t0);
- outputPODVectors(Utrue, singVals, nPOD);
+ if (outputToDisk)
+	 outputPODVectors(Utrue, singVals, nPOD);
+ else {	// overwrite snaps with Utrue and return
+	 for (int i = 0; i < nPOD; ++i) {
+		 snaps[i] = Utrue[i]*singVals[i];
+	 }
+ }
  //exit(-1);
 //  // allocate for upper half of sym. eigprob
 //  double *eigVals = new double[nPOD];
@@ -1776,107 +1788,184 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 template<int dim>
 void ModalSolver<dim>::buildGlobalPOD() {
 
- char *vecFile = tInput->snapFile;
- if (!vecFile) vecFile = "snapshotFiles.in";
- FILE *inFP = fopen(vecFile, "r");
- if (!inFP)  {
-   com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", vecFile);
-   exit (-1);
- }
+	char *vecFile = tInput->snapFile;
+	if (!vecFile) vecFile = "snapshotFiles.in";
+	FILE *inFP = fopen(vecFile, "r");
+	if (!inFP)  {
+		com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", vecFile);
+		exit (-1);
+	}
 
- int nData;
- fscanf(inFP, "%d",&nData);
- com->fprintf(stderr, "Building a global POD basis out of %d solution files \n",nData);
+	int nData;
+	fscanf(inFP, "%d",&nData);
+	com->fprintf(stderr, "Building a global POD basis out of %d solution files \n",nData);
 
-/* // open snapshot reference solution if it exists
- char *snapRefSolFile = tInput->snapRefSolutionFile;
- DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
- //if (inRSFP)  {
-   com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
-   domain.readVectorFromFile(snapRefSolFile, 0, 0, snapRefSol); 
- }
- else{
-    com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", snapRefSolFile);
-   exit (-1); 
- }
-*/
- char **snapFile = new char *[nData];
- for (int iData=0; iData < nData; ++iData)
-   snapFile[iData] = new char[500];
- char snapFile1[500];
- int *numSnaps = new int[nData];
- int *numSkip = new int[nData];
- double *snapWeight = new double[nData];
- int nSnap,nSkip;
- double weight;
+	/* // open snapshot reference solution if it exists
+		 char *snapRefSolFile = tInput->snapRefSolutionFile;
+		 DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
+	//if (inRSFP)  {
+	com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+	domain.readVectorFromFile(snapRefSolFile, 0, 0, snapRefSol); 
+	}
+	else{
+	com->fprintf(stderr, "*** Warning: No snapshots FILES in %s\n", snapRefSolFile);
+	exit (-1); 
+	}
+	*/
+	char **snapFile = new char *[nData];
+	for (int iData=0; iData < nData; ++iData)
+		snapFile[iData] = new char[500];
+	char snapFile1[500];
+	int *numSnaps = new int[nData];
+	int *numSkip = new int[nData];
+	int skipFreq = ioData->Rob.skipFreq;
+	double *snapWeight = new double[nData];
+	int nSnap, nSkip;
+	double weight;
 
- for (int iData = 0; iData < nData; ++iData){
-   fscanf(inFP, "%s %d %d %lf", snapFile1,&nSnap,&nSkip,&weight);
-   strcpy(snapFile[iData],snapFile1);
-   numSnaps[iData] = nSnap;
-   numSkip[iData] = nSkip;
-   snapWeight[iData] = weight;
-   com->fprintf(stderr, " ... Reading snapshots from %s \n", snapFile[iData]);
- }
+	for (int iData = 0; iData < nData; ++iData){
+		fscanf(inFP, "%s %d %d %lf", snapFile1,&nSnap,&nSkip,&weight);
+		strcpy(snapFile[iData],snapFile1);
+		numSnaps[iData] = nSnap;
+		numSkip[iData] = nSkip;
+		snapWeight[iData] = weight;
+		com->fprintf(stderr, " ... Reading snapshots from %s \n", snapFile[iData]);
+	}
 
- if (ioData->output.transient.podFile[0] == 0)  {
-   com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
-   exit (-1);
- }
- 
- // open snapshot reference solution if it exists
- char *snapRefSolFile = tInput->snapRefSolutionFile;
- char **refSnapFile = new char *[nData];
- for (int iData=0; iData < nData; ++iData)
-   refSnapFile[iData] = new char[500]; 
- char refSnapFile1[500];
- FILE *inRSFP = fopen(snapRefSolFile, "r");
+	if (ioData->output.transient.podFile[0] == 0)  {
+		com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
+		exit (-1);
+	}
 
- if (inRSFP){  
-   com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
- 
-   for (int iData = 0; iData < nData; ++iData){
-     fscanf(inRSFP, "%s", refSnapFile1);
-     strcpy(refSnapFile[iData],refSnapFile1);
-     com->fprintf(stderr, " ... Reading reference solution for snapshots from %s \n", refSnapFile[iData]);
-   }
- }
- DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
- //compute the total number of snapshots
- int nTotSnaps = 0;
- for (int iData = 0; iData < nData; ++iData)
-   nTotSnaps += (numSnaps[iData]-numSkip[iData]);
+	// open snapshot reference solution if it exists
+	char *snapRefSolFile = tInput->snapRefSolutionFile;
+	char **refSnapFile = new char *[nData];
+	for (int iData=0; iData < nData; ++iData)
+		refSnapFile[iData] = new char[500]; 
+	char refSnapFile1[500];
+	FILE *inRSFP = fopen(snapRefSolFile, "r");
 
- VecSet< DistSVec<double, dim> > snap(nTotSnaps, domain.getNodeDistInfo());
+	if (inRSFP){  
+		com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
 
- int snapNumVec = 0;
- bool endOfFile;
- int iSnap;
- for (int iData=0; iData < nData; ++iData){
-   // read in Snapshot Vectors
-   double eig = 0.0;
-   endOfFile = true;
-   iSnap = 0;
-   if (inRSFP)
-     domain.readVectorFromFile(refSnapFile[iData], 0, 0, snapRefSol
-);
-   for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
-   //while(endOfFile){
-     endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eig, snap[snapNumVec++]);
-     if (inRSFP) snap[snapNumVec-1] -= snapRefSol;
-     if(snapWeight[iData]) snap[snapNumVec-1] *= snapWeight[iData]; //CBM--check
-     if (iSnap<numSkip[iData])
-       snapNumVec--;
-     //iSnap++;
-   }
-   //snapNumVec--;
- }
+		for (int iData = 0; iData < nData; ++iData){
+			fscanf(inRSFP, "%s", refSnapFile1);
+			strcpy(refSnapFile[iData],refSnapFile1);
+			com->fprintf(stderr, " ... Reading reference solution for snapshots from %s \n", refSnapFile[iData]);
+		}
+	}
 
- makeFreqPOD(snap, nTotSnaps);
+	DistSVec<double,dim> snapRefSol(domain.getNodeDistInfo());
+	//compute the total number of snapshots
+	int nTotSnaps = 0;
+	for (int iData = 0; iData < nData; ++iData) {
+		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
+			if (iSnap>=numSkip[iData] && iSnap % skipFreq == 0 ) {
+				++nTotSnaps;
+			}
+		}
+	}
 
+	int incrementalSnapshots = ioData->Rob.incrementalSnapshots;	// change in solution should be used as a snapshot
+	if (incrementalSnapshots) {	// do not use last snapshot if incremental approach
+		nTotSnaps -= nData;
+		for (int iData = 0 ; iData < nData; ++iData)
+			--numSnaps[iData];
+	}
 
- delete [] numSnaps;
- delete [] snapWeight;
+	int maxVecStorage = ioData->Rob.maxVecStorage;
+	bool limitedMemorySVD = (maxVecStorage == 0 ) ? false : true;
+	if (limitedMemorySVD && maxVecStorage > nTotSnaps) {	// do not need to use limited memory algorithm
+		limitedMemorySVD = false;
+	}
+
+	int nSVD, iSVD, nStoredSnaps, nHandledSnaps;	//nSVD: # of sections for svd; nKeep: # vectors to keep from each section
+	int *nKeep;
+	nStoredSnaps = nTotSnaps;
+
+	if (limitedMemorySVD) {
+		nSVD = ceil((double) nTotSnaps / (double) maxVecStorage);
+		nKeep = new int [nSVD];
+		for (int i = 0; i < nSVD; ++i)
+			nKeep[i] = 0;
+		int nSnapsLastSVD = nTotSnaps - ((nSVD -1)* maxVecStorage);
+		iSVD = 0;
+		nHandledSnaps = 0;
+		while (nHandledSnaps < maxVecStorage) {
+			++nKeep[iSVD];
+			++iSVD;
+			++nHandledSnaps;
+			if ( (iSVD == nSVD) || (iSVD == nSVD - 1 && nKeep[nSVD - 1] == nSnapsLastSVD) )
+				iSVD = 0;
+		}
+
+		// put the smallest window first (first snapshots are most important)
+		int nKeepTmp = nKeep[0];
+		nKeep[0] = nKeep[nSVD - 1];
+		nKeep[nSVD - 1] = nKeepTmp;
+
+		nStoredSnaps = maxVecStorage;
+		iSVD = 0;
+	}
+
+	nHandledSnaps = 0;
+
+	VecSet< DistSVec<double, dim> > snap(nStoredSnaps, domain.getNodeDistInfo());
+	VecSet< DistSVec<double, dim> > fullSnaps(maxVecStorage, domain.getNodeDistInfo());	// for limited memory
+	DistSVec<double, dim> snapBuf(domain.getNodeDistInfo());
+	double *eig = new double [nStoredSnaps];
+	double eigBuf;
+
+	int numCurrentSnapshots = 0;
+	bool endOfFile;
+	int iSnap;
+	int normalizeSnapshots = ioData->Rob.normalizeSnapshots;
+	int iStoredSnaps = 0;	// how many snapshots have been stored so far
+
+	for (int iData=0; iData < nData; ++iData){
+		// read in Snapshot Vectors
+		if (inRSFP)
+			domain.readVectorFromFile(refSnapFile[iData], 0, 0, snapRefSol);
+		for (int iSnap = 0; iSnap < numSnaps[iData]; ++iSnap) {
+			if (!(incrementalSnapshots == 1 && skipFreq == 1)) // always read unless incremental snapshots and not skipping at all
+			endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
+			if (iSnap >= numSkip[iData] && iSnap % skipFreq == 0 ) {	// use snapshot
+				snap[numCurrentSnapshots] = snapBuf;
+				totalEnergy += pow(snapBuf.norm(),2);	// total energy is square of frobenius norm
+				eig[numCurrentSnapshots] = eigBuf;
+				if (inRSFP && incrementalSnapshots == 0) snap[numCurrentSnapshots] -= snapRefSol;	// do not need to subtract snapRefSol if using incremental snapshots
+				if (incrementalSnapshots == 1 ) {
+					endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
+					snap[numCurrentSnapshots] -= snapBuf;
+				}
+				if (normalizeSnapshots > 0) normalizeSnap(snap[numCurrentSnapshots], iSnap, numSnaps[iData]);
+				if (snapWeight[iData]) snap[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
+				++numCurrentSnapshots;
+				++nHandledSnaps;
+				if (limitedMemorySVD && (numCurrentSnapshots == maxVecStorage || nHandledSnaps == nTotSnaps )) {
+					// compute SVD of snaps and put into fullSnaps matrix;
+					makeFreqPOD(snap, numCurrentSnapshots, nKeep[iSVD], false);
+					for (int iFullSnap = 0; iFullSnap < nKeep[iSVD] ; ++iFullSnap) {
+						fullSnaps[iStoredSnaps] = snap[iFullSnap];
+						++iStoredSnaps;
+					}
+					numCurrentSnapshots = 0;
+					++iSVD;
+				}
+			}
+		}
+	}
+
+	if (limitedMemorySVD) {
+		makeFreqPOD(fullSnaps, iStoredSnaps);
+		delete [] nKeep;
+	}
+	else
+		makeFreqPOD(snap, nStoredSnaps);
+
+	delete [] numSnaps;
+	delete [] snapWeight;
+	delete [] eig;
 
 }
 
@@ -1969,279 +2058,279 @@ template<int dim>
 void ModalSolver<dim>::interpolatePOD()  {
 
 
- Timer *modalTimer = domain.getTimer();
- com->fprintf(stderr, " ... Interpolating POD on a tangent space to the Grassmann manifold \n");
+	Timer *modalTimer = domain.getTimer();
+	com->fprintf(stderr, " ... Interpolating POD on a tangent space to the Grassmann manifold \n");
 
- char *vecFile = tInput->podFile;
- if (!vecFile)
-    {
-      string str = "podFiles.in";
-      vecFile    =  new char [str.size()+1];
-      strcpy (vecFile, str.c_str());
-      // vecFile now contains a c-string copy of str. Adam 2010.08.23 : g++4.3 was complaining
-    }
+	char *vecFile = tInput->podFile;
+	if (!vecFile)
+	{
+		string str = "podFiles.in";
+		vecFile    =  new char [str.size()+1];
+		strcpy (vecFile, str.c_str());
+		// vecFile now contains a c-string copy of str. Adam 2010.08.23 : g++4.3 was complaining
+	}
 
- FILE *inFP = fopen(vecFile, "r");
- if (!inFP)  {
-   com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
-   exit (-1);
- }
- int nData;
- fscanf(inFP, "%d",&nData);
+	FILE *inFP = fopen(vecFile, "r");
+	if (!inFP)  {
+		com->fprintf(stderr, "*** Warning: No POD FILES in %s\n", vecFile);
+		exit (-1);
+	}
+	int nData;
+	fscanf(inFP, "%d",&nData);
 
- char **podFile = new char *[nData];
+	char **podFile = new char *[nData];
 
- for (int iData = 0; iData < nData; ++iData){
-   podFile[iData] = new char[500];
-   //char *podFile1 = new char[500];
-   fscanf(inFP, "%s", podFile[iData]);
-   //podFile[iData] = podFile1;
-   com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
- }
-
-
- if (ioData->output.transient.podFile[0] == 0)  {
-   com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
-   exit (-1);
- }
- int sp = strlen(ioData->output.transient.prefix);
- char *outFile = new char[sp + strlen(ioData->output.transient.podFile)+1];
- sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
-
- int numPod = ioData->linearizedData.numPOD;
-
- double *mach = new double[nData];
- double *angle =new double[nData];
- double newMach;
- double newAngle;
- for (int iData = 0; iData < nData; ++iData)
-   fscanf(inFP, "%lf", mach+iData);
- fscanf(inFP, "%lf", &newMach);
- for (int iData = 0; iData < nData; ++iData)
-   fscanf(inFP, "%lf", angle+iData);
- fscanf(inFP, "%lf", &newAngle);
-
- com->fprintf(stderr, " ... Interpolating new POD basis at Mach = %f and angle of attack = %f from :\n",newMach, newAngle);
- for (int iData = 0; iData < nData; ++iData)
-   com->fprintf(stderr,"      -> Mach = %f and angle of attack = %f\n", mach[iData], angle[iData]);
+	for (int iData = 0; iData < nData; ++iData){
+		podFile[iData] = new char[500];
+		//char *podFile1 = new char[500];
+		fscanf(inFP, "%s", podFile[iData]);
+		//podFile[iData] = podFile1;
+		com->fprintf(stderr, " ... Reading POD from %s \n", podFile[iData]);
+	}
 
 
- VecSet< DistSVec<double, dim> > **pod = new VecSet< DistSVec<double, dim> >*[nData];
- for (int iData=0; iData < nData; ++iData){
-   pod[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
-   // read in Pod Vectors
-   double *eig = new double[numPod];
-   domain.readVectorFromFile(podFile[iData], 0, &eig[0], (*pod[iData])[0] );
-   if (numPod > eig[0])  {
-     com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig[0]);
-     numPod = (int) eig[0];
-   }
+	if (ioData->output.transient.podFile[0] == 0)  {
+		com->fprintf(stderr, "*** ERROR: POD Basis File not specified\n");
+		exit (-1);
+	}
+	int sp = strlen(ioData->output.transient.prefix);
+	char *outFile = new char[sp + strlen(ioData->output.transient.podFile)+1];
+	sprintf(outFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
 
-   for (int iPod = 0; iPod < numPod; ++iPod)
-     domain.readVectorFromFile(podFile[iData], iPod+1, &eig[iPod], (*pod[iData])[iPod]);
-     delete [] eig;
- }
+	int numPod = ioData->linearizedData.numPOD;
 
- double t0 = modalTimer->getTime();
+	double *mach = new double[nData];
+	double *angle =new double[nData];
+	double newMach;
+	double newAngle;
+	for (int iData = 0; iData < nData; ++iData)
+		fscanf(inFP, "%lf", mach+iData);
+	fscanf(inFP, "%lf", &newMach);
+	for (int iData = 0; iData < nData; ++iData)
+		fscanf(inFP, "%lf", angle+iData);
+	fscanf(inFP, "%lf", &newAngle);
 
- //build the reduced coordinates
- double *reducedMach = new double[nData];
- double *reducedAngle = new double[nData];
- if (newAngle!=0.0) {
-   for (int iData=0; iData < nData; ++iData) {
-     reducedMach[iData] = mach[iData]/newMach-1;
-     reducedAngle[iData] = angle[iData]/newAngle-1;
-   }
- }
- else {
-   for (int iData=0; iData < nData; ++iData) {
-     reducedMach[iData] = mach[iData]-newMach;
-     reducedAngle[iData] = angle[iData]-newAngle;
-   }
- }
- //find the central point
- int iDataMin = 0;
- double radMinSq = reducedMach[0]*reducedMach[0] + reducedAngle[0]*reducedAngle[0];
- double radSq = 0.0;
- for (int iData=1; iData < nData; ++iData) {
-    radSq = reducedMach[iData]*reducedMach[iData] + reducedAngle[iData]*reducedAngle[iData];
-    if (radSq < radMinSq){
-      iDataMin = iData;
-      radMinSq = radSq;
-    }
-  }
-
- //store the reference pod basis
- VecSet< DistSVec<double, dim> > podRef(*(pod[iDataMin]));
-
- //Logarithmic mappings
- VecSet< DistSVec<double, dim> > **projMap = new VecSet< DistSVec<double, dim> >*[nData];
- FullM matVals(numPod);
-
- //compute the matrices (Phi0'*Phi)^(-1)
- for (int iData=0; iData < nData; ++iData){
-   if (iData!=iDataMin) {
-     for (int j = 0; j < numPod; ++j) {
-       for (int k = 0; k < numPod; ++k) {
-         matVals[j][ k] = podRef[j] * ((*pod[iData])[k]);
-			 }
-		 }	 
-     com->barrier();
-		
-		 matVals.invert();
-
-     //compute the projection mapping = Phi*(Phi0'*Phi)^(-1)-Phi0
-     projMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
-     com->barrier();
-     for (int iPod = 0; iPod < numPod; ++iPod) {
-       (*projMap[iData])[iPod] = 0.0;
-       for (int jPod = 0; jPod < numPod; ++jPod) {
-         (*projMap[iData])[iPod] += (*pod[iData])[jPod] * matVals[jPod][iPod];
-       }
-     }
-     com->barrier();
-     for (int iPod = 0; iPod < numPod; ++iPod)
-       (*projMap[iData])[iPod] = (*projMap[iData])[iPod] - podRef[iPod];
-     com->barrier();
-  }
- }
-
- com->barrier();
- for (int iData=0; iData<nData;++iData){
-   delete pod[iData];
-   com->barrier();
- }
-
- com->barrier();
- delete [] pod;
- //SVD decomposition of projMap
+	com->fprintf(stderr, " ... Interpolating new POD basis at Mach = %f and angle of attack = %f from :\n",newMach, newAngle);
+	for (int iData = 0; iData < nData; ++iData)
+		com->fprintf(stderr,"      -> Mach = %f and angle of attack = %f\n", mach[iData], angle[iData]);
 
 
+	VecSet< DistSVec<double, dim> > **pod = new VecSet< DistSVec<double, dim> >*[nData];
+	for (int iData=0; iData < nData; ++iData){
+		pod[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+		// read in Pod Vectors
+		double *eig = new double[numPod];
+		domain.readVectorFromFile(podFile[iData], 0, &eig[0], (*pod[iData])[0] );
+		if (numPod > eig[0])  {
+			com->fprintf(stderr, "*** Warning: Resetting number of interpolated POD vectors from %d to %d\n", numPod, (int) eig[0]);
+			numPod = (int) eig[0];
+		}
 
- VecSet<DistSVec<double, dim> > U(numPod, domain.getNodeDistInfo());
- double *Sigma = new double[numPod];
- FullM V(numPod);
- double *Theta = new double[numPod];
- VecSet<DistSVec<double, dim> > U2(numPod, domain.getNodeDistInfo());
- double *Sigma2 = new double[numPod];
- FullM V2(numPod);
- //Logarithmic mapping
- VecSet< DistSVec<double, dim> > **logMap = new VecSet< DistSVec<double, dim> >*[nData];
- for (int iData=0; iData < nData; ++iData) {
-   if (iData!=iDataMin) {
-     //compute SVD
-		 ParallelRom<dim> parallelRom(domain,com); 
-     parallelRom.parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here 
+		for (int iPod = 0; iPod < numPod; ++iPod)
+			domain.readVectorFromFile(podFile[iData], iPod+1, &eig[iPod], (*pod[iData])[iPod]);
+		delete [] eig;
+	}
 
-		 com->barrier();
-     delete projMap[iData];
+	double t0 = modalTimer->getTime();
 
-     //compute tan^(-1) Sigma
-     for (int iPod = 0; iPod < numPod; ++iPod)
-       Theta[iPod] = atan(Sigma[iPod]);
-     //compute the logarithmic mapping
-     //build logMap
-     logMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
-     for (int iPod = 0; iPod < numPod; ++iPod) {
-       (*logMap[iData])[iPod] = 0.0;
-       for (int jPod = 0; jPod < numPod; ++jPod){
-         (*logMap[iData])[iPod] += ((Theta[jPod]*V[iPod][jPod])*U[jPod]);  // logMap = U tan^(-1) Sig V^T
-       }
-     }
-  }
- }
- delete [] Theta;
- delete [] Sigma;
+	//build the reduced coordinates
+	double *reducedMach = new double[nData];
+	double *reducedAngle = new double[nData];
+	if (newAngle!=0.0) {
+		for (int iData=0; iData < nData; ++iData) {
+			reducedMach[iData] = mach[iData]/newMach-1;
+			reducedAngle[iData] = angle[iData]/newAngle-1;
+		}
+	}
+	else {
+		for (int iData=0; iData < nData; ++iData) {
+			reducedMach[iData] = mach[iData]-newMach;
+			reducedAngle[iData] = angle[iData]-newAngle;
+		}
+	}
+	//find the central point
+	int iDataMin = 0;
+	double radMinSq = reducedMach[0]*reducedMach[0] + reducedAngle[0]*reducedAngle[0];
+	double radSq = 0.0;
+	for (int iData=1; iData < nData; ++iData) {
+		radSq = reducedMach[iData]*reducedMach[iData] + reducedAngle[iData]*reducedAngle[iData];
+		if (radSq < radMinSq){
+			iDataMin = iData;
+			radMinSq = radSq;
+		}
+	}
 
- VecSet< DistSVec<double, dim> > logMapInterp(numPod, domain.getNodeDistInfo());
- // Interpolation (Hardy's multiquadrics method is here used)
- // see "Two Dimensional Spline Interpolation Algorithms", H. Spath, A.K. Peters Ltd  
- double q = 0.25;
- double Rsq;
+	//store the reference pod basis
+	VecSet< DistSVec<double, dim> > podRef(*(pod[iDataMin]));
 
- //find Rsq
- double minReducedM = reducedMach[0];
- double maxReducedM = reducedMach[0];
- double minReducedA = reducedAngle[0];
- double maxReducedA = reducedAngle[0];
- for (int iData=1; iData < nData; ++iData) {
-   if (reducedMach[iData] < minReducedM)
-     minReducedM = reducedMach[iData];
-   if (reducedMach[iData] > maxReducedM)
-     maxReducedM = reducedMach[iData];
-   if (reducedAngle[iData] < minReducedA)
-     minReducedA = reducedAngle[iData];
-   if (reducedAngle[iData] > maxReducedA)
-     maxReducedA = reducedAngle[iData];
- }
- double maxDelM = maxReducedM - minReducedM;
- double maxDelA = maxReducedA - minReducedA;
- double maxConst = maxDelM > maxDelA ? maxDelM : maxDelA;
- Rsq = 0.1*maxConst;
+	//Logarithmic mappings
+	VecSet< DistSVec<double, dim> > **projMap = new VecSet< DistSVec<double, dim> >*[nData];
+	FullM matVals(numPod);
 
- FullM B(nData), b(nData,1);
+	//compute the matrices (Phi0'*Phi)^(-1)
+	for (int iData=0; iData < nData; ++iData){
+		if (iData!=iDataMin) {
+			for (int j = 0; j < numPod; ++j) {
+				for (int k = 0; k < numPod; ++k) {
+					matVals[j][ k] = podRef[j] * ((*pod[iData])[k]);
+				}
+			}	 
+			com->barrier();
 
+			matVals.invert();
 
- double rsq;
- for (int j=0; j < nData; ++j) {
-   for (int k=0; k < nData; ++k) {
-     rsq = pow(reducedMach[j]-reducedMach[k],2)+pow(reducedAngle[j]-reducedAngle[k],2);
-     B[j][k] = pow(rsq+Rsq,q);
-   }
-   rsq = pow(reducedMach[j],2)+pow(reducedAngle[j],2);
-   b[j][0] = pow(rsq+Rsq,q);
- }
- B.invert();
+			//compute the projection mapping = Phi*(Phi0'*Phi)^(-1)-Phi0
+			projMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+			com->barrier();
+			for (int iPod = 0; iPod < numPod; ++iPod) {
+				(*projMap[iData])[iPod] = 0.0;
+				for (int jPod = 0; jPod < numPod; ++jPod) {
+					(*projMap[iData])[iPod] += (*pod[iData])[jPod] * matVals[jPod][iPod];
+				}
+			}
+			com->barrier();
+			for (int iPod = 0; iPod < numPod; ++iPod)
+				(*projMap[iData])[iPod] = (*projMap[iData])[iPod] - podRef[iPod];
+			com->barrier();
+		}
+	}
 
- //compute the interpolated POD basis
- domain.hardyInterpolationLogMap(logMap,logMapInterp,nData,numPod,iDataMin,B,b);
- //Exponential mapping
- VecSet<DistSVec<double, dim> > UInterp(numPod, domain.getNodeDistInfo());
- double *SigInterp = new double[numPod];
- FullM VInterp(numPod);
- ParallelRom<dim> parallelRom(domain,com);
- parallelRom.parallelSVD(logMapInterp,UInterp,SigInterp,VInterp,numPod);//call SVD here
+	com->barrier();
+	for (int iData=0; iData<nData;++iData){
+		delete pod[iData];
+		com->barrier();
+	}
 
- //compute podRefVInterp
- VecSet<DistSVec<double, dim> > podRefVInterp(numPod, domain.getNodeDistInfo());
- for (int iPod = 0; iPod < numPod; ++iPod) {
-   podRefVInterp[iPod] = 0.0;
-   for (int jPod = 0; jPod < numPod; ++jPod)
-     podRefVInterp[iPod] += VInterp[jPod][iPod]*podRef[jPod];
-}
-
- VecSet<DistSVec<double, dim> >newPOD(numPod,domain.getNodeDistInfo());
-
- for (int iPod = 0; iPod < numPod; ++iPod) {
-   newPOD[iPod] = cos(SigInterp[iPod])*podRefVInterp[iPod]+ sin(SigInterp[iPod])*UInterp[iPod];
-
- //Do a Gramm-Schmidt to finalize the POD reconstruction
- for (int j = 0; j < iPod; ++j)
-   newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
-   newPOD[iPod] *= 1.0/newPOD[iPod].norm();
-
- }
-
- com->fprintf(stderr, " ... Writing Interpolated POD to %s\n", outFile);
- // output interpolated pod vectors
- domain.writeVectorToFile(outFile, 0, numPod, newPOD[0]);
- double newEig=-1.0;
-
- for (int jPod = 0; jPod < numPod; ++jPod)  {
-   com->fprintf(stderr, " ... Writing pod vec %d\n", jPod+1);
-   domain.writeVectorToFile(outFile, jPod+1, newEig, newPOD[jPod]);
- }
- modalTimer->addMeshSolutionTime(t0);
-
- delete[] SigInterp;
- for (int iData=0; iData< nData; ++iData)
-   delete [] podFile[iData];
- delete[] podFile;
- delete[] outFile;
+	com->barrier();
+	delete [] pod;
+	//SVD decomposition of projMap
 
 
-  com->fprintf(stderr,"End of InterpolatePOD\n'");
-  modalTimer->setRunTime();
+
+	VecSet<DistSVec<double, dim> > U(numPod, domain.getNodeDistInfo());
+	double *Sigma = new double[numPod];
+	FullM V(numPod);
+	double *Theta = new double[numPod];
+	VecSet<DistSVec<double, dim> > U2(numPod, domain.getNodeDistInfo());
+	double *Sigma2 = new double[numPod];
+	FullM V2(numPod);
+	//Logarithmic mapping
+	VecSet< DistSVec<double, dim> > **logMap = new VecSet< DistSVec<double, dim> >*[nData];
+	for (int iData=0; iData < nData; ++iData) {
+		if (iData!=iDataMin) {
+			//compute SVD
+			ParallelRom<dim> parallelRom(domain,com); 
+			parallelRom.parallelSVD(*projMap[iData],U,Sigma,V,numPod);//call SVD here 
+
+			com->barrier();
+			delete projMap[iData];
+
+			//compute tan^(-1) Sigma
+			for (int iPod = 0; iPod < numPod; ++iPod)
+				Theta[iPod] = atan(Sigma[iPod]);
+			//compute the logarithmic mapping
+			//build logMap
+			logMap[iData]= new VecSet< DistSVec<double, dim> >(numPod, domain.getNodeDistInfo());
+			for (int iPod = 0; iPod < numPod; ++iPod) {
+				(*logMap[iData])[iPod] = 0.0;
+				for (int jPod = 0; jPod < numPod; ++jPod){
+					(*logMap[iData])[iPod] += ((Theta[jPod]*V[iPod][jPod])*U[jPod]);  // logMap = U tan^(-1) Sig V^T
+				}
+			}
+		}
+	}
+	delete [] Theta;
+	delete [] Sigma;
+
+	VecSet< DistSVec<double, dim> > logMapInterp(numPod, domain.getNodeDistInfo());
+	// Interpolation (Hardy's multiquadrics method is here used)
+	// see "Two Dimensional Spline Interpolation Algorithms", H. Spath, A.K. Peters Ltd  
+	double q = 0.25;
+	double Rsq;
+
+	//find Rsq
+	double minReducedM = reducedMach[0];
+	double maxReducedM = reducedMach[0];
+	double minReducedA = reducedAngle[0];
+	double maxReducedA = reducedAngle[0];
+	for (int iData=1; iData < nData; ++iData) {
+		if (reducedMach[iData] < minReducedM)
+			minReducedM = reducedMach[iData];
+		if (reducedMach[iData] > maxReducedM)
+			maxReducedM = reducedMach[iData];
+		if (reducedAngle[iData] < minReducedA)
+			minReducedA = reducedAngle[iData];
+		if (reducedAngle[iData] > maxReducedA)
+			maxReducedA = reducedAngle[iData];
+	}
+	double maxDelM = maxReducedM - minReducedM;
+	double maxDelA = maxReducedA - minReducedA;
+	double maxConst = maxDelM > maxDelA ? maxDelM : maxDelA;
+	Rsq = 0.1*maxConst;
+
+	FullM B(nData), b(nData,1);
+
+
+	double rsq;
+	for (int j=0; j < nData; ++j) {
+		for (int k=0; k < nData; ++k) {
+			rsq = pow(reducedMach[j]-reducedMach[k],2)+pow(reducedAngle[j]-reducedAngle[k],2);
+			B[j][k] = pow(rsq+Rsq,q);
+		}
+		rsq = pow(reducedMach[j],2)+pow(reducedAngle[j],2);
+		b[j][0] = pow(rsq+Rsq,q);
+	}
+	B.invert();
+
+	//compute the interpolated POD basis
+	domain.hardyInterpolationLogMap(logMap,logMapInterp,nData,numPod,iDataMin,B,b);
+	//Exponential mapping
+	VecSet<DistSVec<double, dim> > UInterp(numPod, domain.getNodeDistInfo());
+	double *SigInterp = new double[numPod];
+	FullM VInterp(numPod);
+	ParallelRom<dim> parallelRom(domain,com);
+	parallelRom.parallelSVD(logMapInterp,UInterp,SigInterp,VInterp,numPod);//call SVD here
+
+	//compute podRefVInterp
+	VecSet<DistSVec<double, dim> > podRefVInterp(numPod, domain.getNodeDistInfo());
+	for (int iPod = 0; iPod < numPod; ++iPod) {
+		podRefVInterp[iPod] = 0.0;
+		for (int jPod = 0; jPod < numPod; ++jPod)
+			podRefVInterp[iPod] += VInterp[jPod][iPod]*podRef[jPod];
+	}
+
+	VecSet<DistSVec<double, dim> >newPOD(numPod,domain.getNodeDistInfo());
+
+	for (int iPod = 0; iPod < numPod; ++iPod) {
+		newPOD[iPod] = cos(SigInterp[iPod])*podRefVInterp[iPod]+ sin(SigInterp[iPod])*UInterp[iPod];
+
+		//Do a Gramm-Schmidt to finalize the POD reconstruction
+		for (int j = 0; j < iPod; ++j)
+			newPOD[iPod] -= (newPOD[iPod] * newPOD[j])*newPOD[j];
+		newPOD[iPod] *= 1.0/newPOD[iPod].norm();
+
+	}
+
+	com->fprintf(stderr, " ... Writing Interpolated POD to %s\n", outFile);
+	// output interpolated pod vectors
+	domain.writeVectorToFile(outFile, 0, numPod, newPOD[0]);
+	double newEig=-1.0;
+
+	for (int jPod = 0; jPod < numPod; ++jPod)  {
+		com->fprintf(stderr, " ... Writing pod vec %d\n", jPod+1);
+		domain.writeVectorToFile(outFile, jPod+1, newEig, newPOD[jPod]);
+	}
+	modalTimer->addMeshSolutionTime(t0);
+
+	delete[] SigInterp;
+	for (int iData=0; iData< nData; ++iData)
+		delete [] podFile[iData];
+	delete[] podFile;
+	delete[] outFile;
+
+
+	com->fprintf(stderr,"End of InterpolatePOD\n'");
+	modalTimer->setRunTime();
 
 
 }
@@ -2490,9 +2579,11 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
  char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
  char *sValsFileName = new char[sp + strlen(ioData->output.transient.podFile)+strlen(sValExtension)];
  sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
- sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile,sValExtension);
-
- FILE *sValsFile = fopen(sValsFileName, "wt");
+ if (com->cpuNum() == 0)
+	 sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile, sValExtension);
+ FILE *sValsFile;
+ if (com->cpuNum() == 0)	// only open with cpu 0
+	 sValsFile = fopen(sValsFileName, "wt");
 
  com->fprintf(sValsFile,"%d\n", nPOD);
  com->fprintf(stderr, " ... Writing %d (%f)podVecs to File\n", nPOD, (double) nPOD);
@@ -2500,14 +2591,27 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
  com->fprintf(sValsFile,"Singular values\n");
  domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);
 
- double t0;
- int jj, kk;
+ for (int jj = 0; jj < nPOD; ++jj)
+	 com->fprintf(sValsFile,"%e ", sVals[jj]);
+ com->fprintf(sValsFile,"\n");
+ computeRelativeEnergy(sValsFile, sVals, nPOD);
+
+ for (int jj = 0; jj < nPOD; ++jj) {
+   com->fprintf(stderr, "%d %e\n", jj, sVals[jj]);
+   domain.writeVectorToFile(podFileName, jj+1, sVals[jj], podVecs[jj]);
+ }
+
+ /*
+
+	Gram-schmidt loop
  DistSVec<double, dim> tmpVec(domain.getNodeDistInfo());
+ double t0;
 
- for (jj = 0; jj < nPOD; jj++)  {
+ for (int jj = 0; jj < nPOD; ++jj)  {
+
+   // gram-schmidt just as a check
+	 // gram-schmidt on podVecs
    t0 = modalTimer->getTime();
-
-   // do gram-schmidt on podVecs
    tmpVec = 0.0;
    for (int jVec = 0; jVec < jj; jVec++)  {
      //podVecs[jj] -= podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
@@ -2518,12 +2622,11 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
    double norm = sqrt(podVecs[jj]*podVecs[jj]);
    podVecs[jj] *= (1.0 / norm);
    modalTimer->addGramSchmidtTime(t0);
+   com->fprintf(stderr, "%d %e, residual = %e, norm divider = %e", jj, sVals[jj], tmpVec.norm(), norm);
+   com->fprintf(stderr, "%d %e\n", jj, sVals[jj]);
    domain.writeVectorToFile(podFileName, jj+1, sVals[jj], podVecs[jj]);
-   com->fprintf(stderr, "%d %e, residual = %e\n", jj, sVals[jj], tmpVec.norm());
-	 com->fprintf(sValsFile,"%e ", sVals[jj]);
  }
- com->fprintf(sValsFile,"\n");
- computeRelativeEnergy(sValsFile, sVals, nPOD);
+	*/
 }
 
 #ifdef DO_MODAL
@@ -2589,39 +2692,65 @@ void ModalSolver<dim>::computeRelativeEnergy(FILE *sValsFile, const Vec<double> 
 
 	com->fprintf(sValsFile,"Relative energy: s(i)^2/sum(s(1:end).^2)\n");
 	std::vector<double> relEnergy;
-	double totalEnergy = 0.0;
-	for (int i = 0; i < nPod; ++i)
-		totalEnergy += pow(sVals[i],2);
-	for (int i = 0; i < nPod; ++i) {
+	int nSnap = sVals.size();
+	/*	// totalEnergy now computed when snapshots are read
+	if (totalEnergy == 0.0) {
+		for (int i = 0; i < nSnap; ++i)
+			totalEnergy += pow(sVals[i],2);
+	}
+	*/
+
+	for (int i = 0; i < nSnap; ++i) {
 		double currentRelEnergy = pow(sVals[i],2)/totalEnergy;
-		com->fprintf(sValsFile,"%e ", currentRelEnergy);
+		com->fprintf(sValsFile,"%d %e\n", i+1, currentRelEnergy);
 		relEnergy.push_back(currentRelEnergy);
 	}
-	com->fprintf(sValsFile,"\n");
-	com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)");
-	com->fprintf(sValsFile,"\n");
+	com->fprintf(sValsFile,"Cumulative energy: sum(s(1:k).^2)/sum(s(1:end).^2)\n");
 	double cumulativeEnergy = 0.0;
-	double criteria [10] = {0.9, 0.95, 0.995, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
+	double criteria [10] = {0.9, 0.95, 0.975, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99995, 0.99999};
 	int energyIndex [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	int handledCriteria  [10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	int critCounter = 0;
-	for (int i = 0; i < nPod; ++i) {
+	for (int i = 0; i < nSnap; ++i) {
 		cumulativeEnergy+=relEnergy[i];
-		com->fprintf(sValsFile,"%e ", cumulativeEnergy);
+		com->fprintf(sValsFile,"%d %e\n", i+1, cumulativeEnergy);
 
+		int critCounterTmp = 0;
 		for (int j = critCounter; j < 10;++j) {
 			if (cumulativeEnergy >= criteria[j] && handledCriteria[j] == 0) {
 				energyIndex[j] = i;
 				handledCriteria[j] = 1;
-				++critCounter;
+				++critCounterTmp;
 			}
 		}
+		critCounter +=critCounterTmp;
 	}
-	com->fprintf(sValsFile,"\n");
-	com->fprintf(sValsFile,"Cumulative energy indices");
-	com->fprintf(sValsFile,"\n");
+	com->fprintf(sValsFile,"Cumulative energy indices\n");
 
 	for (int i = 0; i < 10; ++i) {
 		com->fprintf(sValsFile,"%e: %d\n", criteria[i], energyIndex[i]+1);
 	}
+}
+
+template<int dim>
+void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSnap, const int nSnaps){
+
+	// PURPOSE: normalize snaphots
+
+	double scalingFactor, magnitude;
+
+	const double smallestScaling = 0.1;	// sets smallest scaling of any snaphot
+	const double tau = pow((double)nSnaps-1,2)/log(smallestScaling);	
+
+	//com->fprintf(stderr, " ... Distance weights:\n");
+	magnitude = snap.norm();
+	if (magnitude == 0.0)
+		magnitude = 1.0;
+	scalingFactor = 1.0/magnitude;
+	if (ioData->Rob.normalizeSnapshots == 2) {
+		double distanceWeight = exp(pow((double)iSnap,2)/tau);
+		scalingFactor *= distanceWeight;
+		com->fprintf(stderr, "%d: %e\n", iSnap, distanceWeight);
+	}
+	snap *= scalingFactor;
 }
