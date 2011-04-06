@@ -23,7 +23,7 @@
 template<int dim, int dimLS>
 ImplicitLevelSetTsDesc<dim,dimLS>::
 ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo())
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo()),Fold(this->getVecInfo())
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
@@ -157,6 +157,12 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
     U0 = U;
     this->domain->blur(U0,U);
   }
+
+  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, this->PhiV, 
+					   this->fluidSelector, Fold, this->riemann, 1);
+
+  //this->timeState->multiplyByTimeStep(Fold);
+  //U -= Fold;
   
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);

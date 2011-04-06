@@ -29,7 +29,7 @@ public:
   typedef DistSVec<double,dimLS> PhiVecType;
  protected: 
 
-  DistSVec<double,dim> U0;
+  DistSVec<double,dim> U0,Fold;
   
   int numBlur;
   

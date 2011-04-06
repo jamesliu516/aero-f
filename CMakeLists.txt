@@ -167,6 +167,7 @@ ADD_LIBRARY(FluidBase
              TriangulatedSurface.C
              FluidSelectorCore.C
              OneDimensionalSolver.C
+	     Multigrid.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
