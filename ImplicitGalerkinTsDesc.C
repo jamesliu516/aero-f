@@ -1,3 +1,4 @@
+#include <VecSetOp.h>
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -41,11 +42,15 @@ void ImplicitGalerkinTsDesc<dim>::solveNewtonSystem(const int &it, double &res, 
 		// form reduced Jacobian
 
 		this->jac.setNewSize(this->nPod,this->nPod);
+		double *result = new double [this->pod.numVectors() * this->AJ.numVectors()];
+		transMatMatProd(this->pod,this->AJ,result);
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
-				this->jac[iRow][iCol] = this->pod[iRow]*this->AJ[iCol];	// different from PG (no symmetry)
+				this->jac[iRow][iCol] = result[iRow + iCol * this->pod.numVectors()];
 			}
 		} 
+
+		delete [] result;
 
     solveLinearSystem(it, rhs, this->dUrom);
 }

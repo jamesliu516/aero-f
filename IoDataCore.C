@@ -2692,6 +2692,14 @@ ROB::ROB()
   sampleNodeFactor = 1;
   romsolver = PG; 
 	liftFaces = 0;	// by default, do not include lift faces
+	normalizeSnapshots = 0;	// by default, do not normalize snapshots
+		// 1: all snapshots have magnitude = 1
+		// 2: snapshots first given magnitude 1, then RBF weight
+	skipFreq = 1;	
+	incrementalSnapshots = 0;	
+		// 0: do not do incremental snapshots
+		// 1: do incremental snapshots
+	maxVecStorage = 0;	// maximum vectors for limited memory SVD (0: typical SVD)
 
 }
 
@@ -2709,6 +2717,10 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 5, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4);	// PostProcess reads in pod coordinates
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
+  new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);
+  new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);
+  new ClassInt<ROB>(ca, "IncrementalSnaps", this, &ROB::incrementalSnapshots);
+  new ClassInt<ROB>(ca, "MaxVectorsSVD", this, &ROB::maxVecStorage);
 
 }
 

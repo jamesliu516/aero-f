@@ -9,7 +9,7 @@ extern "C"      {
 
   void F77NAME(thinsvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, double *, int &,
                        int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
-                       int &, double *, int &);
+                       int &, double *, int &, int &);
   void F77NAME(lworksizesvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
 	void F77NAME(globalmatrices)(int &, int &, int &, int &, int &, int&, int &, int &,int &, int *, int *);	
 
@@ -76,24 +76,29 @@ void ParallelRom<dim>::scalapackCpuDecomp(const int nCol) {
 template<int dim>
 template<class VecContainer> 
 void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
-		double *S, FullM &Vtrue, int nSnaps) {
+		double *S, FullM &Vtrue, int nSnaps, bool computeV = true) {
 
 #ifdef DO_SCALAPACK
  	int numLocSub = domain.getNumLocSub();
 
  // specify the block size (in terms of nodes)
- // blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
+ // ***blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
 
- nodesPerBlock = int(floor(2.0*nSnaps/dim));
-
+ //nodesPerBlock = int(floor(2.0*nSnaps/dim));
+ nodesPerBlock = int(ceil(double(nSnaps)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes 
 
  //set the transfer parameters
 
+ com->fprintf(stderr, " ... entering setTransfer ... \n");
  setTransfer();
 
  //create the matrix of snapshots with the right distribution
- double *subMat = new double[nodesPerBlock*dim*maxCpuBlocks*nSnaps];
- for (int i=0; i < nodesPerBlock*dim*maxCpuBlocks*nSnaps; ++i)
+ int subMatSize = nodesPerBlock*dim*maxCpuBlocks*nSnaps;
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for subMat \n");
+ com->fprintf(stderr, " ... subMatSize = %d... \n", subMatSize);
+ double *subMat = new double[subMatSize];
+ for (int i=0; i < subMatSize; ++i)
    subMat[i] =0.0;
  
  //transfer the extra nodes where needed and fill subMat
@@ -111,8 +116,17 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
  if (thisCPU == 0)
    locLLD_V = nSnaps;
  
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for U \n");
+ com->fprintf(stderr, " ... locLLD = %d\n", locLLD);
+ com->fprintf(stderr, " ... maxLocC = %d\n", maxLocC);
  double *U = new double[locLLD*maxLocC];
- double *V = new double[locLLD_V*maxLocC];
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for V \n");
+ com->fprintf(stderr, " ... locLLD_V= %d\n", locLLD_V);
+ double *V;
+ if (computeV)
+	 V	= new double[locLLD_V*maxLocC];
  for (int iSnaps=0; iSnaps<nSnaps; ++iSnaps)
    S[iSnaps] = 0.0;
  int nprow = nTotCpus;
@@ -125,12 +139,25 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
  int colIndex = 1;
  nodesPerBlock *= dim;
  
- F77NAME(lworksizesvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
-                  nodesPerBlock, nodesPerBlock, lwork);
+ com->barrier();
+
+ //DEBUG
+ lwork = -1;
+ double worktemp;
+ int computeVint = 1;
+ if (computeV == false)
+	 computeVint = 0;
+ F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
+                  nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
+                  locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, &worktemp,
+                  info, computeVint);
+ com->barrier();
+ lwork = static_cast<int>(worktemp);
+ com->fprintf(stderr, " ... lwork is %d\n",lwork);
 
  com->barrier();
- lwork *= 3;//debug
- double *work = new double[lwork + 2];
+ com->fprintf(stderr, " ... allocating memory for work of size %d \n", lwork);
+ double *work = new double[lwork];
  work[0] = -99.0;
 
  com->barrier();
@@ -138,20 +165,21 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
  F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                   nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
-                  info);
+                  info, computeVint);
 
  com->barrier();
- 
- for (int i = 0; i < nSnaps; i++){
-   for (int j = 0; j < nSnaps; j++) {
-     Vtrue[i][j] = 0.0;
-     if (thisCPU==0)
-       Vtrue[i][j] = V[nSnaps*i+j];
-   }
- }
- delete[] V;
 
- com->globalSum(nSnaps*nSnaps, Vtrue.data());
+ if (computeV) {
+	 for (int i = 0; i < nSnaps; i++){
+		 for (int j = 0; j < nSnaps; j++) {
+			 Vtrue[i][j] = 0.0;
+			 if (thisCPU==0)
+				 Vtrue[i][j] = V[nSnaps*i+j];
+		 }
+	 }
+	 delete [] V;
+	 com->globalSum(nSnaps*nSnaps, Vtrue.data());
+ }
  
  //Permute back matrix U
  com->barrier();
@@ -160,8 +188,9 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
  transferDataBack(U, Utrue , nSnaps);
 
  com->barrier();
- delete[] work; 
- delete[] U; 
+ delete [] work; 
+ delete [] U; 
+ delete [] subMat;
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
@@ -344,8 +373,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
 
  // when lwork = -1, pdgels returns the optimal lworksize in worktmp
 
- F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex, desc_a, 
-		 								subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork, info);
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
+		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork,
+		 info);
 
  lwork = static_cast<int>(worktmp);
 
@@ -360,8 +390,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
  //===============================
 
  // output: subMatB has been changed to contain the solution
- F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex,
-	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, info);
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
+		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork,
+		 info);
 	//what about rowIndex and colIndex for A and B???
 
  if (info != 0) {

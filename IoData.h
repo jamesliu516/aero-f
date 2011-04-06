@@ -1591,6 +1591,11 @@ struct ROB {
   double sampleNodeFactor;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
 	int liftFaces;
+  int normalizeSnapshots;
+  int timestepWeights;
+  int skipFreq;
+  int incrementalSnapshots;
+  int maxVecStorage;
 
   ROB();
   ~ROB() {}

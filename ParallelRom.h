@@ -37,7 +37,7 @@ class ParallelRom {
 
 	// Parallel operations
 	template<class VecContainer> void parallelSVD(VecContainer &snaps,
-			VecContainer &Utrue, double *S, FullM &Vtrue, int nSnaps);
+			VecContainer &Utrue, double *S, FullM &Vtrue, int nSnaps, bool computeV);
 	template<class VecContainer> void parallelLSMultiRHSInit(const VecContainer
 			&A, const VecContainer &B); 	// initialization
 	template<class VecContainer> void parallelLSMultiRHS(const VecContainer &A,

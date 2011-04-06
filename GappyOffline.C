@@ -12,7 +12,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 	errorJac(0, dom.getNodeDistInfo() ),
 	pseudoInvRhs(0, dom.getNodeDistInfo() ),
 	handledNodes(0), nPodBasis(0),
-	debugging(true),
+	debugging(true), twoLayers(true),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
@@ -743,10 +743,12 @@ void GappyOffline<dim>::buildRemainingMesh() {
 
 	communicateAll();	// all cpus need all nodes/elements for adding neighbors
 
-	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
-		addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
+	if (twoLayers) {
+		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
+			addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
+		communicateAll();	// all cpus need all nodes/elements to define maps
+	}
 
-	communicateAll();	// all cpus need all nodes/elements to define maps
 	defineMaps();	// define element and node maps
 
 	// from now on, use maps and not these vectors

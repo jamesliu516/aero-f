@@ -88,6 +88,7 @@ class ModalSolver {
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
     DistVec<bcomp> controlVolComp;  // failing in this destructor
+		double totalEnergy;
  
   public:
     ModalSolver(Communicator *, IoData &, Domain &);
@@ -114,8 +115,9 @@ class ModalSolver {
     void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
-    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
+    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
     void buildGlobalPOD();
+    void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
     //void projectFullSoltn();
     void interpolatePOD();
     template<class Scalar>

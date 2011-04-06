@@ -85,6 +85,7 @@ protected:
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
+	bool twoLayers; 	// debugging flag
 	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
