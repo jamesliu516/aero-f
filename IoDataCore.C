@@ -3251,6 +3251,38 @@ void ImplosionSetup::setup(const char *name) {
   new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
 }
 
+MultigridInfo::MultigridInfo() {
+
+  fineMesh = "";
+  coarseMesh = "";
+  fineDec = "";
+  coarseDec = "";
+  packageFile = "";
+  collectionFile = "";
+
+  radius0 = 1.0;
+  radiusf = 2.0;
+  threshold = 10;
+}
+
+void MultigridInfo::setup(const char * name) {
+  
+  ClassAssigner *ca = new ClassAssigner(name, 9, 0);
+  new ClassDouble<MultigridInfo>(ca, "Radius0", this, &MultigridInfo::radius0);
+  new ClassDouble<MultigridInfo>(ca, "RadiusF", this, &MultigridInfo::radiusf);
+  new ClassInt<MultigridInfo>(ca, "Threshold", this, &MultigridInfo::threshold);
+
+  new ClassStr<MultigridInfo>(ca, "FineMesh", this, &MultigridInfo::fineMesh);
+  new ClassStr<MultigridInfo>(ca, "CoarseMesh", this, &MultigridInfo::coarseMesh);
+
+  new ClassStr<MultigridInfo>(ca, "FineDec", this, &MultigridInfo::fineDec);
+  new ClassStr<MultigridInfo>(ca, "CoarseDec", this, &MultigridInfo::coarseDec);
+  
+  new ClassStr<MultigridInfo>(ca, "PackageFile", this, &MultigridInfo::packageFile);
+  new ClassStr<MultigridInfo>(ca, "CollectionFile", this, &MultigridInfo::collectionFile);
+
+}
+
 //-----------------------------------------------------------------------------
 
 IoData::IoData(Communicator *communicator)

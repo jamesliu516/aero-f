@@ -1939,6 +1939,8 @@ void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double>
     totVol += Vol[i];
 
   fprintf(fpMatVolumes, "%e\n", totVol);
+
+  fflush(fpMatVolumes);
 }
 
 //------------------------------------------------------------------------------

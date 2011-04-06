@@ -1770,6 +1770,25 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
+struct MultigridInfo {
+ 
+  MultigridInfo();
+  ~MultigridInfo() {}
+  void setup(const char *);
+
+  const char* fineMesh;
+  const char* coarseMesh;
+
+  const char* fineDec;
+  const char* coarseDec;
+
+  const char* packageFile;
+  const char* collectionFile;
+
+  double radius0;
+  double radiusf;
+  int threshold;
+};
 //------------------------------------------------------------------------------
 
 class IoData {
@@ -1808,6 +1827,8 @@ public:
   EmbeddedFramework embed;
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
+
+  MultigridInfo multigrid;
 
 public:
 

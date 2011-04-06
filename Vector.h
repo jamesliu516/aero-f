@@ -13,6 +13,9 @@ using std::cerr;
 using std::endl;
 #endif
 
+// For sort
+#include <cstdlib>
+
 //------------------------------------------------------------------------------
 
 template<class A, class B>
@@ -146,6 +149,24 @@ void resize(int l) {
 } 
 */
 
+  // sort using qsort
+  // 0 sorts least to greatest
+  // 1 sorts greatest to least
+  void sort(int mode = 0) {
+
+    if (mode == 0)
+      std::qsort(v, len, sizeof(Scalar), scalComp0);
+    else
+      std::qsort(v, len, sizeof(Scalar), scalComp1);      
+  }
+
+  void sort(int (*comp)(const void*, const void*),int imin=0,int imax=0) {
+
+    if (imax == 0) imax = len;
+
+    std::qsort(v+imin, imax-imin, sizeof(Scalar), comp);
+  }
+
   void resize(int l) 
   { 
     Scalar* tmp = 0;
@@ -198,6 +219,16 @@ void resize(int l) {
     for (int i=0; i<len; ++i)
     res += sqNorm(v[i]);
     return sqrt(res);
+  }
+
+  static int scalComp0(const void* a, const void* b) {
+
+    return ( *(Scalar*)a - *(Scalar*)b );
+  }
+
+  static int scalComp1(const void* a, const void* b) {
+
+    return ( *(Scalar*)b - *(Scalar*)a );
   }
 
 #ifdef USE_IOSTREAM
@@ -882,6 +913,30 @@ public:
     len = l; 
   }
 */
+  
+  // sort using qsort
+  // 0 sorts least to greatest
+  // 1 sorts greatest to least
+  template<int k>
+  void sort(int mode = 0) {
+
+    if (mode == 0)
+      std::qsort(v, len, sizeof(Scalar)*dim, scalComp0<k>);
+    else
+      std::qsort(v, len, sizeof(Scalar)*dim, scalComp1<k>);
+  }
+
+  template <int k>
+  static int scalComp0(const void* a, const void* b) {
+
+    return ( ((Scalar*)a)[k] - ((Scalar*)b)[k] );
+  }
+
+  template <int k>
+  static int scalComp1(const void* a, const void* b) {
+
+    return ( ((Scalar*)b)[k] - ((Scalar*)a)[k] );
+  }
 
   Scalar min() const {
     Scalar vmin = v[0][0];
