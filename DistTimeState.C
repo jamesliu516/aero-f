@@ -237,6 +237,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     if (!subTimeState[iSub])
       subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
                                               (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
 }
 
 //------------------------------------------------------------------------------

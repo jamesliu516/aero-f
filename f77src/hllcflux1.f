@@ -46,20 +46,22 @@ c
       solLft(2) = Ug(3)
       solLft(3) = Ug(4)
       solLft(4) = Ug(5)
-      solLft(5) = Ug(5)/gam1+0.5d0*Ug(1)*(Ug(2)**2+Ug(3)**2+Ug(4)**2)
+      solLft(5) = (Ug(5)+gam*pstiff)/gam1+0.5d0*Ug(1)*(Ug(2)**2+
+     &     Ug(3)**2+Ug(4)**2)
 c
       solRgt(0) = Ud(1)
       solRgt(1) = Ud(2)
       solRgt(2) = Ud(3)
       solRgt(3) = Ud(4)
       solRgt(4) = Ud(5)
-      solRgt(5) = Ud(5)/gam1+0.5d0*Ud(1)*(Ud(2)**2+Ud(3)**2+Ud(4)**2)
+      solRgt(5) = (Ud(5)+gam*pstiff)/gam1+0.5d0*Ud(1)*(Ud(2)**2+
+     &     Ud(3)**2+Ud(4)**2)
 
 c
 c     Celerity and normal component of the velocity
 c
-      cLft  = sqrt(abs(gam*solLft(4)/solLft(0)))
-      cRgt  = sqrt(abs(gam*solRgt(4)/solRgt(0)))
+      cLft  = sqrt(abs(gam*(solLft(4)+pstiff)/solLft(0)))
+      cRgt  = sqrt(abs(gam*(solRgt(4)+pstiff)/solRgt(0)))
       vnLft = normal(0)*solLft(1)+normal(1)*solLft(2)
      &    +normal(2)*solLft(3)
       vnRgt = normal(0)*solRgt(1)+normal(1)*solRgt(2)

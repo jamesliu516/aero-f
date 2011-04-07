@@ -3506,20 +3506,18 @@ void IoData::resetInputValues()
       ts.implicit.mvp = ImplicitData::FD;
       ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
     }
-    if ((eqs.fluidModel.fluid != FluidModelData::GAS) ||
-	(eqs.fluidModel.gasModel.type != GasModelData::IDEAL))
+    if ((eqs.fluidModel.fluid != FluidModelData::GAS))
     {
-      com->fprintf(stderr, "*** Warning: Roe flux has to be used for Stiffened Gas, Tait, or JWL simulations.\n");
+      com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
       schemes.ns.flux = SchemeData::ROE;
     }
     if(!eqs.fluidModelMap.dataMap.empty())
     {
       map<int, FluidModelData *>::iterator it;
       for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
-	if ((it->second->fluid != FluidModelData::GAS) ||
-	    (it->second->gasModel.type != GasModelData::IDEAL))
+	if ((it->second->fluid != FluidModelData::GAS))
 	{
-	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Stiffened Gas, Tait, or JWL simulations.\n");
+	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
 	  schemes.ns.flux = SchemeData::ROE;
 	}    
       }
