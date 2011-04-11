@@ -148,7 +148,7 @@ protected:
 	void greedyIteration(int greedyIt);
 	virtual void setUpGreedy();
 	void computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError);
-	void findMaxAndFillPodHat(double myMaxNorm, int locSub, int locNode, int globalNode);
+	void findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode);
 	void makeNodeMaxIfUnique(double nodeError, double &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int &globalNode);
 	void getSubDomainError(int iSub);	// computes locError for iSub subdomain
 	void leastSquaresReconstruction();

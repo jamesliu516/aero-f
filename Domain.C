@@ -3737,7 +3737,7 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
   com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);
 
   if (nPod > nPodVecs)  {
-    com->fprintf(stderr, " ... There are only %d POD Vectors \n", nPodVecs);
+    com->fprintf(stderr, " ... WARNING: there are only %d POD Vectors \n", nPodVecs);
     nPod = nPodVecs;
   }
   else

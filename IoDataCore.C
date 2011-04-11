@@ -2700,6 +2700,7 @@ ROB::ROB()
 		// 0: do not do incremental snapshots
 		// 1: do incremental snapshots
 	maxVecStorage = 0;	// maximum vectors for limited memory SVD (0: typical SVD)
+	energyOnly = 0;	// if pod computation should only compute total energy of snapshots
 
 }
 
@@ -2721,6 +2722,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);
   new ClassInt<ROB>(ca, "IncrementalSnaps", this, &ROB::incrementalSnapshots);
   new ClassInt<ROB>(ca, "MaxVectorsSVD", this, &ROB::maxVecStorage);
+  new ClassInt<ROB>(ca, "EnergyOnly", this, &ROB::energyOnly);
 
 }
 

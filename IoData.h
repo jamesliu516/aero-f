@@ -1596,6 +1596,7 @@ struct ROB {
   int skipFreq;
   int incrementalSnapshots;
   int maxVecStorage;
+  int energyOnly;
 
   ROB();
   ~ROB() {}

@@ -358,7 +358,7 @@ void GappyOffline<dim>::buildReducedMesh() {
 //---------------------------------------------------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int locNode, int globalNode) {
+void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode) {
 
 	//===============================================
 	// PURPOSE: fill locPodHat
@@ -369,7 +369,6 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	// 	locNodeSample, globalSampleNodes, xyz
 	//===============================================
 		
-	int thisCPU = com->cpuNum();
 	double globalMaxNorm = myMaxNorm;
 	com->barrier();
 	com->globalMax(1, &globalMaxNorm);  // find the maximum value over all cpus
@@ -384,7 +383,20 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	for (int i=0; i<3; ++i)
 		xyz[i]=0.0;
 
+	// ensure only ONE cpu enters this loop
+
+	int cpuHasMaxVal = 0;	// indicates if CPU ha
+	int cpuNumWithMaxVal = nTotCpus;
 	if (myMaxNorm == globalMaxNorm) {  // if this CPU has the maximum value
+		cpuHasMaxVal = 1;
+		cpuNumWithMaxVal = thisCPU;
+	}
+	com->globalSum(1, &cpuHasMaxVal);	// total CPUs with maximum value
+	if (cpuHasMaxVal > 1) { 
+		com->globalMin(1, &cpuNumWithMaxVal);	// take CPU with smallest number that has max val
+	}
+
+	if (thisCPU == cpuNumWithMaxVal) {  // if this CPU has the maximum value
 
 		// save the global subdomain and local node indices (sum at the very end of
 		// algorithm)
@@ -425,7 +437,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(double myMaxNorm, int locSub, int l
 	com->globalSum(3, xyz);
 
 	if (debugging){
-	 com->fprintf(stderr, "CPU %d has the sample node: globalNode = %d, locNode = %d, locSub = %d  \n",cpuTemp,globalNodeTemp,locNodeTemp,locSubTemp);
+	 com->fprintf(stderr, "CPU %d has sample node: globalNode = %d, locNode = %d, locSub = %d  \n",cpuTemp,globalNodeTemp,locNodeTemp,locSubTemp);
 	}
 
 	assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);

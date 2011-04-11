@@ -1878,6 +1878,11 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	if (limitedMemorySVD && maxVecStorage > nTotSnaps) {	// do not need to use limited memory algorithm
 		limitedMemorySVD = false;
 	}
+	int energyOnly = ioData->Rob.energyOnly;
+	bool computeSVD = true;
+	if (energyOnly)
+		computeSVD = false;
+
 
 	int nSVD, iSVD, nStoredSnaps, nHandledSnaps;	//nSVD: # of sections for svd; nKeep: # vectors to keep from each section
 	int *nKeep;
@@ -1944,7 +1949,7 @@ void ModalSolver<dim>::buildGlobalPOD() {
 				++nHandledSnaps;
 				if (limitedMemorySVD && (numCurrentSnapshots == maxVecStorage || nHandledSnaps == nTotSnaps )) {
 					// compute SVD of snaps and put into fullSnaps matrix;
-					makeFreqPOD(snap, numCurrentSnapshots, nKeep[iSVD], false);
+					if (computeSVD) makeFreqPOD(snap, numCurrentSnapshots, nKeep[iSVD], false);
 					for (int iFullSnap = 0; iFullSnap < nKeep[iSVD] ; ++iFullSnap) {
 						fullSnaps[iStoredSnaps] = snap[iFullSnap];
 						++iStoredSnaps;
@@ -1956,11 +1961,13 @@ void ModalSolver<dim>::buildGlobalPOD() {
 		}
 	}
 
-	if (limitedMemorySVD) {
+	com->fprintf(stderr, " ... Total snapshot energy is %e \n", totalEnergy );
+
+	if (limitedMemorySVD && computeSVD) {
 		makeFreqPOD(fullSnaps, iStoredSnaps);
 		delete [] nKeep;
 	}
-	else
+	else if (computeSVD)
 		makeFreqPOD(snap, nStoredSnaps);
 
 	delete [] numSnaps;
