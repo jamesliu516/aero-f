@@ -422,6 +422,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
+  if (iod.output.transient.materialVolumes[0] != 0) {
+    material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
+    sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
+  }
+  else
+    material_volumes = 0;
+
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
     sprintf(conservation, "%s%s", iod.output.transient.prefix, iod.output.transient.conservation);
@@ -430,6 +437,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     conservation = 0;
 
   it0 = iod.restart.iteration;
+  numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
   length = iod.output.transient.length;
   surface = iod.output.transient.surface;
@@ -438,6 +446,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[2] = iod.output.transient.z0;
 
   fpResiduals = 0;
+  fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
 
@@ -618,6 +627,7 @@ TsOutput<dim>::~TsOutput()
 
   delete[] heatfluxes;
   delete[] residuals;
+  delete[] material_volumes;
   delete[] conservation;
 
   delete[] lift;
@@ -1207,6 +1217,23 @@ void TsOutput<dim>::openAsciiFiles()
     fflush(fpResiduals);
   }
 
+  if (material_volumes) {
+    if (it0 != 0)
+      fpMatVolumes = backupAsciiFile(material_volumes);
+    if (it0 == 0 || fpMatVolumes == 0) {
+      fpMatVolumes = fopen(material_volumes, "w");
+      if (!fpMatVolumes) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", material_volumes);
+        exit(1);
+      }
+      fprintf(fpMatVolumes, "# TimeIteration ElapsedTime ");
+      for(int i=0; i<numFluidPhases; i++)
+        fprintf(fpMatVolumes, "Volume[FluidID==%d] ", i);
+      fprintf(fpMatVolumes, "Volume[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases);
+    }
+    fflush(fpMatVolumes);
+  }
+
   if (conservation) {
     if (it0 != 0) 
       fpConservationErr = backupAsciiFile(conservation);
@@ -1249,6 +1276,7 @@ void TsOutput<dim>::closeAsciiFiles()
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
   if (fpResiduals) fclose(fpResiduals);
+  if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
@@ -1882,6 +1910,39 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
   if (steady)
     com->printf(0, "It %5d: Res = %e, Cfl = %e, Elapsed Time = %.2e s\n", it, res, cfl, cpu);
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  if(!material_volumes)
+    return;
+
+  int myLength = numFluidPhases + 1/*ghost*/;
+  double Vol[myLength];
+  for(int i=0; i<myLength; i++)
+    Vol[i] = 0.0;
+
+  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol
+
+  if (com->cpuNum() !=0 ) return;
+
+  double length3 = length*length*length;
+  for(int i=0; i<myLength; i++)
+    Vol[i] *= length3; //dimensionalize
+
+  fprintf(fpMatVolumes, "%d %e ", it, (refVal->time)*t);
+  for(int i=0; i<numFluidPhases+1; i++)
+    fprintf(fpMatVolumes, "%e ", Vol[i]);
+  
+  double totVol = 0.0;
+  for(int i=0; i<myLength; i++)
+    totVol += Vol[i];
+
+  fprintf(fpMatVolumes, "%e\n", totVol);
+  fflush(fpMatVolumes);
 }
 
 //------------------------------------------------------------------------------
