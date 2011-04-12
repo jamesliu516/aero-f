@@ -43,6 +43,7 @@ private:
   bool steady;
   int it0;
   int frequency;
+  int numFluidPhases; //excludes "ghost" solids
   double length;
   double surface;
   static int counter;
@@ -68,6 +69,7 @@ private:
   char *hydrodynamiclift;
   char *generalizedforces;
   char *residuals;
+  char *material_volumes;
   char *conservation;
   char *modeFile;
   Vec3D *TavF, *TavM; 
@@ -86,6 +88,7 @@ private:
   FILE **fpHydroStaticLift;
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
+  FILE *fpMatVolumes;
   FILE *fpConservationErr;
   FILE *fpGnForces;
 
@@ -144,6 +147,7 @@ public:
                              double* , DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
+  void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,

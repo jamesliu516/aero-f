@@ -872,6 +872,8 @@ public:
 
   void computeCellAveragedStructNormal(DistSVec<double,3> &, DistVec<double> &, DistLevelSetStructure *);
 
+  void computeMaterialVolumes(double*, int, DistVec<double> &, DistVec<int> *);
+
 
   void computeCharacteristicEdgeLength(DistSVec<double,3> &, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);
 

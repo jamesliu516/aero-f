@@ -179,6 +179,7 @@ TransientData::TransientData()
   hydrostaticlift = "";
   hydrodynamiclift = "";
   residuals = "";
+  materialVolumes = "";
   conservation = "";
   podFile = "";
   romFile = "";
@@ -221,7 +222,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 81, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -278,6 +279,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HydroDynamicLiftandDrag", this, &TransientData::hydrodynamiclift);
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
+  new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
   new ClassDouble<TransientData>(ca, "Surface", this, &TransientData::surface);
