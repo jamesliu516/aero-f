@@ -90,7 +90,6 @@ InputData::InputData()
   podFile2 = "";
   strModesFile = "";
   embeddedSurface= "";
-  oneDimensionalMesh = "";
 
 // Included (MB)
   shapederivatives = "";
@@ -103,7 +102,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 18, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -126,9 +125,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
 
-  new ClassStr<InputData>(ca, "OneDimensionalMesh", this, &InputData::oneDimensionalMesh);
-
-  oneDimensionalInput.setup("OneDimensionalSolution",ca);
+  oneDimensionalInput.setup("OneDimensionalRestart",ca);
 
 }
 
@@ -258,7 +255,6 @@ TransientData::TransientData()
   surfaceheatflux = "";
   heatfluxes = "";
   sparseGrid = "SparseGrid";
-  oneDimensionalRes = "res1D";
 
   frequency = 0;
   length = 1.0;
@@ -275,7 +271,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 81, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -366,7 +362,6 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
   new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
-  new ClassStr<TransientData>(ca, "OneDimResults", this, &TransientData::oneDimensionalRes);
 
 }
 
@@ -474,7 +469,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<ProblemData>
     (ca, "Type", this,
-     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 23,
+     reinterpret_cast<int ProblemData::*>(&ProblemData::alltype), 24,
      "Steady", 0, "Unsteady", 1, "AcceleratedUnsteady", 2, "SteadyAeroelastic", 3,
      "UnsteadyAeroelastic", 4, "AcceleratedUnsteadyAeroelastic", 5,
      "SteadyAeroThermal", 6, "UnsteadyAeroThermal", 7, "SteadyAeroThermoElastic", 8,
@@ -482,7 +477,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22);
+     "SparseGridGeneration", 22,"OneDimensional", 23);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -3227,9 +3222,9 @@ void OneDimensionalInfo::setup(const char *name){
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity1", this, &OneDimensionalInfo::velocity1);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure1", this, &OneDimensionalInfo::pressure1);
-  new ClassDouble<OneDimensionalInfo>(ca, "Density2", this, &OneDimensionalInfo::density2);
-  new ClassDouble<OneDimensionalInfo>(ca, "Velocity2", this, &OneDimensionalInfo::velocity2);
-  new ClassDouble<OneDimensionalInfo>(ca, "Pressure2", this, &OneDimensionalInfo::pressure2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Density0", this, &OneDimensionalInfo::density2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Velocity0", this, &OneDimensionalInfo::velocity2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
 
   programmedBurn.setup("ProgrammedBurn",ca);
   
@@ -3720,7 +3715,7 @@ int IoData::checkFileNames()
 
   // no input files for Sparse Grid generation, hence no check
   // or if we are doing a one dimensional problem!
-  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_ || oneDimensionalInfo.maxDistance > 0.0)
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_ || problem.alltype == ProblemData::_ONE_DIMENSIONAL_)
     return 0;
   
   // flow solver requires input files, hence check
@@ -3790,10 +3785,11 @@ int IoData::checkInputValues()
 
   int error = 0;
 
-  if (oneDimensionalInfo.maxDistance > 0.0) {
+  if (problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
 
-    bc.inlet.pressure = oneDimensionalInfo.pressure2;
-    bc.inlet.density = oneDimensionalInfo.density2;
+    bc.inlet.pressure = bc.outlet.pressure;
+    bc.inlet.density = bc.outlet.density;
+    setupOneDimensional();
   }
     
   // input values for flow solver
@@ -3827,7 +3823,7 @@ int IoData::checkInputValues()
   checkInputValuesDefaultOutlet();
   nonDimensionalizeAllEquationsOfState();
 
-  if(oneDimensionalInfo.maxDistance > 0.0) {
+  if(problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
     nonDimensionalizeOneDimensionalProblem();
     return 0;
   }
@@ -4118,6 +4114,44 @@ void IoData::nonDimensionalizeAllInitialConditions(){
 }
 
 //------------------------------------------------------------------------------
+
+void IoData::setupOneDimensional() {
+
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    if (mf.multiInitialConditions.sphereMap.dataMap.size() > 1) {
+      fprintf(stderr,"*** Error: more than one sphere specified for a one dimensional problem!\n");
+      exit(1);
+    }
+      
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+      if (it->second->cen_x != 0.0 ||
+	  it->second->cen_x != 0.0 ||
+	  it->second->cen_x != 0.0) {
+	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
+	exit(1);
+      }
+
+      oneDimensionalInfo.interfacePosition = it->second->radius;
+      memcpy(&oneDimensionalInfo.programmedBurn, &it->second->programmedBurn, sizeof(it->second->programmedBurn));
+      
+      oneDimensionalInfo.fluidId2 = it->second->initialConditions.fluidId;
+      oneDimensionalInfo.density1 = it->second->initialConditions.density;
+      oneDimensionalInfo.velocity1 = it->second->initialConditions.velocity;
+      oneDimensionalInfo.temperature1 = it->second->initialConditions.temperature;
+      oneDimensionalInfo.pressure1 = it->second->initialConditions.pressure;
+
+      oneDimensionalInfo.density2 = bc.outlet.density;
+      oneDimensionalInfo.velocity2 = bc.outlet.velocity;
+      oneDimensionalInfo.temperature2 = bc.outlet.temperature;
+      oneDimensionalInfo.pressure2 = bc.outlet.pressure;
+   
+      
+    }
+  }
+}
 
 void IoData:: nonDimensionalizeOneDimensionalProblem(){
 
