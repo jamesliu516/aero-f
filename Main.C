@@ -64,7 +64,7 @@ int main(int argc, char **argv)
   ioData.readCmdLine(argc, argv);
   ioData.readCmdFile();
 
-  if(ioData.oneDimensionalInfo.maxDistance>0.0){
+  if(ioData.problem.alltype==ProblemData::_ONE_DIMENSIONAL_){
 
     double* mesh;
     int nPts;

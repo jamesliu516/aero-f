@@ -46,6 +46,8 @@
 #include "ExactRiemannSolver.h"
 #include "ProgrammedBurn.h"
 
+#include "PostFcn.h"
+
 #include <fstream>
 
 class FluxFcn;
@@ -127,6 +129,18 @@ class OneDimensional {
   SparseGridCluster* tabulationC;
 
   ProgrammedBurn* programmedBurn;
+
+  double sscale[PostFcn::SSIZE];
+  double vscale[PostFcn::SSIZE];
+
+  char *solutions;
+  char *scalars[PostFcn::SSIZE];
+  char *vectors[PostFcn::VSIZE];
+
+  void setupOutputFiles(IoData& iod);
+  void setupFixes(IoData& iod);
+
+  bool* loctag;
 
  public:
 
@@ -254,6 +268,9 @@ class OneDimensional {
     }
   }
 
+  void resultsOutput(double time, int iteration);
+  void restartOutput(double time, int iteration);
+
 public:
   OneDimensional(int, double*, IoData &ioData, Domain *domain);
   ~OneDimensional();
@@ -266,7 +283,6 @@ public:
   void singleTimeIntegration(double dt);
   void computeEulerFluxes(SVec<double,5>& y);
   void computeLevelSetFluxes(SVec<double,1>& y);
-  void resultsOutput(double time, int iteration);
 
   static void load1DMesh(IoData& ioData,int& numPts,double* &meshPoints);
 

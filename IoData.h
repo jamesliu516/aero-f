@@ -77,7 +77,6 @@ struct InputData {
   const char *podFile2;
   const char *strModesFile;
   const char *embeddedSurface;
-  const char *oneDimensionalMesh;
 
 // Included (MB)
   const char *shapederivatives;
@@ -174,8 +173,6 @@ struct TransientData {
 
   const char *sparseGrid;
 
-  const char *oneDimensionalRes;
-
   int frequency;
   double x0, y0, z0;
   double length;
@@ -256,10 +253,10 @@ struct ProblemData {
 		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
 		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
-		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-                  _SPARSEGRIDGEN_ = 22} alltype;
+		_UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
+		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
+		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -323,7 +320,7 @@ struct BcsFreeStreamData {
   enum Type {EXTERNAL = 0, INTERNAL = 1} type;
 
   double mach;
-	double velocity;
+  double velocity;
   double density;
   double pressure;
   double temperature;
@@ -1748,6 +1745,7 @@ struct OneDimensionalInfo {
   double maxDistance; //mesh goes from 0 to maxDistance
   
   int numPoints; //mesh has numPoints elements
+  int fluidId2;
 
   double interfacePosition;
 
@@ -1863,6 +1861,8 @@ public:
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   int checkInputValuesEmbeddedFramework();
   void printDebug();
+
+  void setupOneDimensional();
 
 };
 
