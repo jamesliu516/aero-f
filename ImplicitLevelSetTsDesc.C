@@ -68,8 +68,6 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc->exportMemory(&mp);
   
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
-
-  numBlur = ioData.mf.numBlur;
 }
 
 //------------------------------------------------------------------------------
@@ -153,10 +151,6 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   int its;
 
   double t0 = this->timer->getTime();
-  for (int i = 0; i < numBlur; ++i) {
-    U0 = U;
-    this->domain->blur(U0,U);
-  }
 
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, this->PhiV, 
 					   this->fluidSelector, Fold, this->riemann, 1);

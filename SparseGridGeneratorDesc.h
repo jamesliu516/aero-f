@@ -35,7 +35,7 @@ public:
   SparseGridGeneratorDesc(IoData &ioData, Communicator *comm){
     com = comm;
     varFcn = createVarFcn(ioData);
-    lriemannGasJwl = new LocalRiemannGfmparGasJWL(varFcn, 0, 1, NULL, MultiFluidData::RK2,1.0,1.0);
+    lriemannGasJwl = new LocalRiemannGfmparGasJWL(varFcn, 0, 1, NULL, MultiFluidData::RK2,1.0,1.0,1.0);
   }
 
   ~SparseGridGeneratorDesc(){

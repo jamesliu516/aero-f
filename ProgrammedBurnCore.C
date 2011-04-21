@@ -50,7 +50,7 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, DistSVec<double,3>* _nodeSet) : d
 
     burn.pgData = &B;
     burn.ignited = B.ignited;
-    std::cout << "burn.ignited = " << burn.ignited << std::endl;
+    //std::cout << "burn.ignited = " << burn.ignited << std::endl;
     computeNearestNode(x0n, burn.x0,burn.x0subdom,burn.x0id);
 
     myBurns.push_back(burn);
@@ -88,7 +88,7 @@ ProgrammedBurn::ProgrammedBurn(IoData& ioData, SVec<double,1>* _nodeSet) {
   burn.x0[2] = 0.0;
   burn.x0id = id;
 
-  std::cout << "burn location = " << burn.x0[0] << " id = " << id << std::endl;
+  //std::cout << "burn location = " << burn.x0[0] << " id = " << id << std::endl;
   
   myBurns.push_back(burn);
 
