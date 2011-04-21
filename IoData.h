@@ -177,6 +177,7 @@ struct TransientData {
   double x0, y0, z0;
   double length;
   double surface;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   TransientData();
   ~TransientData() {}
@@ -199,6 +200,7 @@ struct RestartData {
   const char *data;
 
   int frequency;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   RestartData();
   ~RestartData() {}

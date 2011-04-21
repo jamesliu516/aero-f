@@ -514,6 +514,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
+  this->output->updatePrtout(t);
   if (*lastIt) {
     timer->setRunTime();
     if (com->getMaxVerbose() >= 2)
