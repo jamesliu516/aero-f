@@ -5006,14 +5006,6 @@ int IoData::checkInputValuesEmbeddedFramework() {
     com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
     error ++;
   }
-
-  if(embed.intersectorName == EmbeddedFramework::PHYSBAM &&
-     embed.forceAlg == EmbeddedFramework::RECONSTRUCTED_SURFACE) {
-    com->fprintf(stderr,"WARNING: Currently Force = Reconstructed is not available for the PhysBAM Intersector!\n");
-    com->fprintf(stderr,"WARNING: using 'ControlVolumeFace' instead!\n");
-    embed.forceAlg = EmbeddedFramework::CONTROL_VOLUME_BOUNDARY;
-  }
-
   return error;
 }
 
