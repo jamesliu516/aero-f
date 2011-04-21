@@ -721,12 +721,14 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
  CommPattern<double> *vpat = domain.getVecPat();
  for (int iSnap=0; iSnap < nSnaps; ++iSnap)
    domain.assemble(vpat, Utrue[iSnap]);
+ delete [] totalSentNodes;
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSol, int nRhs, int subMatLLD) {
+void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
+		**lsSol, int nRhs, int subMatLLD) {
 
 	//====================================
 	// Purpose: fill lsSol by using appropriate data from subMatB

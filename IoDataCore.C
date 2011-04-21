@@ -2690,6 +2690,7 @@ ROB::ROB()
   numROBJac = 0;
   numROBRes = 0;
   sampleNodeFactor = 1;
+	nPodGreedy = 0;
   romsolver = PG; 
 	liftFaces = 0;	// by default, do not include lift faces
 	normalizeSnapshots = 0;	// by default, do not normalize snapshots
@@ -2716,6 +2717,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
+  new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 5, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4);	// PostProcess reads in pod coordinates
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
   new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);

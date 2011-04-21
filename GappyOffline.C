@@ -232,29 +232,29 @@ void GappyOffline<dim>::setUpGreedy() {
 	// OUTPUTS
 	// 	nRhsMax, nGreedyIt, nodesToHandle
 	// STRATEGY:
-	// nothing special happens when nSampleNodes < nPodMax < nSampleNodes * dim 
-	// 	1) require nPodMax < nSampleNodes * dim to avoid underdetermined system
-	// 	2) if nSampleNodes > nPodMax, need to treat more globalNodes per iteration
+	// nothing special happens when nSampleNodes < nPodGreedy < nSampleNodes * dim 
+	// 	1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
+	// 	2) if nSampleNodes > nPodGreedy, need to treat more globalNodes per iteration
 	// 	(nRhsMax is 1)
 	//==================================================================
 	
 	//==================================================================
-	// 	1) require nPodMax < nSampleNodes * dim to avoid underdetermined system
+	// 	1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
 	//==================================================================
 
-	nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim)));	// this will give interpolation or the smallest possible least squares
+	int nPodGreedy = ioData->Rob.nPodGreedy;
+	if (nPodGreedy == 0 || nPodGreedy > nPodMax)
+		nPodGreedy = nPodMax;
+	nSampleNodes = static_cast<int>(ceil(double(nPodGreedy)/double(dim)));	// this will give interpolation or the smallest possible least squares
 	nSampleNodes = static_cast<int>(nSampleNodes * ioData->Rob.sampleNodeFactor);	// times the number you really need
 
-	assert(nSampleNodes * dim >= max(nPod[0],nPod[1]));
-
-
-	if (nSampleNodes * dim < nPodMax) {	
+	if (nSampleNodes * dim < nPodGreedy) {	
 		int nSampleNodesOld = nSampleNodes; 
-		nSampleNodes = static_cast<int>(ceil(double(nPodMax)/double(dim))); 
+		nSampleNodes = static_cast<int>(ceil(double(nPodGreedy)/double(dim))); 
 		com->fprintf(stderr,"Warning: not enough sample nodes! Increasing number of sample nodes from %d to %d",nSampleNodesOld,nSampleNodes);
 	}
 
-	nRhsMax = static_cast<int>(ceil(double(nPodMax)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
+	nRhsMax = static_cast<int>(ceil(double(nPodGreedy)/double(nSampleNodes))); // nSampleNodes * nRhsMax >= max(nPod[0],nPod[1])
 
 	// the following should always hold !this should always be true because of the above fix (safeguard)!
 	
@@ -263,23 +263,23 @@ void GappyOffline<dim>::setUpGreedy() {
 	}
 
 	//==================================================================
-	// 2) if nSampleNodes > nPodMax, need to treat more nodes per iteration
+	// 2) if nSampleNodes > nPodGreedy, need to treat more nodes per iteration
 	// strategy: fill more nodes at the earlier iterations because POD basis vectors are optimally ordered
 	//==================================================================
 
-	nGreedyIt = min(nPodMax, nSampleNodes);	// number of greedy iterations (at most nPodMax; if nSampleNodes > nPodMax need to take care of more nodes per iteration)
+	nGreedyIt = min(nPodGreedy, nSampleNodes);	// number of greedy iterations (at most nPodGreedy; if nSampleNodes > nPodGreedy need to take care of more nodes per iteration)
 	nodesToHandle = new int[nGreedyIt];	// number of nodes for each greedy iteration
 
 	for (int iGreedyIt = 0; iGreedyIt < nGreedyIt; ++iGreedyIt)	{
-		nodesToHandle[iGreedyIt] = (nSampleNodes * nRhsMax) / nPodMax;
-		if (iGreedyIt < nSampleNodes % nPodMax && nRhsMax ==1)	// only in the dangerous case with nRhsMax = 1
+		nodesToHandle[iGreedyIt] = (nSampleNodes * nRhsMax) / nPodGreedy;
+		if (iGreedyIt < nSampleNodes % nPodGreedy && nRhsMax ==1)	// only in the dangerous case with nRhsMax = 1
 			++nodesToHandle[iGreedyIt];
 	}
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){
 		nRhsGreedy[iPodBasis] = new int [nGreedyIt];
-		int nRhsMin = nPod[iPodBasis] / nGreedyIt;
-		int nRhsExtra = nPod[iPodBasis] % nGreedyIt;
+		int nRhsMin = min(nPod[iPodBasis],nPodGreedy) / nGreedyIt;
+		int nRhsExtra = min(nPod[iPodBasis],nPodGreedy) % nGreedyIt;
 		for (int iGreedyIt = 0; iGreedyIt < nGreedyIt; ++iGreedyIt) {
 			nRhsGreedy[iPodBasis][iGreedyIt] = nRhsMin;
 			if (iGreedyIt < nRhsExtra) ++nRhsGreedy[iPodBasis][iGreedyIt];
