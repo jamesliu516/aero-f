@@ -1589,6 +1589,7 @@ struct ROB {
   int numROBJac;
   int numROBRes;
   double sampleNodeFactor;
+  int nPodGreedy;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
 	int liftFaces;
   int normalizeSnapshots;

@@ -1888,26 +1888,24 @@ void ModalSolver<dim>::buildGlobalPOD() {
 	int *nKeep;
 	nStoredSnaps = nTotSnaps;
 
+	int nSnapsFirstSVD = 0;
 	if (limitedMemorySVD) {
 		nSVD = ceil((double) nTotSnaps / (double) maxVecStorage);
 		nKeep = new int [nSVD];
 		for (int i = 0; i < nSVD; ++i)
 			nKeep[i] = 0;
-		int nSnapsLastSVD = nTotSnaps - ((nSVD -1)* maxVecStorage);
-		iSVD = 0;
+		nSnapsFirstSVD = nTotSnaps - ((nSVD -1)* maxVecStorage);
+		iSVD = 0;	// start with the second SVD (want first to be smallest window)
 		nHandledSnaps = 0;
 		while (nHandledSnaps < maxVecStorage) {
+			if ( iSVD == 0  && nKeep[0] == nSnapsFirstSVD )
+				iSVD = 1;
 			++nKeep[iSVD];
 			++iSVD;
 			++nHandledSnaps;
-			if ( (iSVD == nSVD) || (iSVD == nSVD - 1 && nKeep[nSVD - 1] == nSnapsLastSVD) )
+			if ( iSVD == nSVD )
 				iSVD = 0;
 		}
-
-		// put the smallest window first (first snapshots are most important)
-		int nKeepTmp = nKeep[0];
-		nKeep[0] = nKeep[nSVD - 1];
-		nKeep[nSVD - 1] = nKeepTmp;
 
 		nStoredSnaps = maxVecStorage;
 		iSVD = 0;
@@ -1936,7 +1934,6 @@ void ModalSolver<dim>::buildGlobalPOD() {
 			endOfFile = domain.readVectorFromFile(snapFile[iData], iSnap, &eigBuf, snapBuf);
 			if (iSnap >= numSkip[iData] && iSnap % skipFreq == 0 ) {	// use snapshot
 				snap[numCurrentSnapshots] = snapBuf;
-				totalEnergy += pow(snapBuf.norm(),2);	// total energy is square of frobenius norm
 				eig[numCurrentSnapshots] = eigBuf;
 				if (inRSFP && incrementalSnapshots == 0) snap[numCurrentSnapshots] -= snapRefSol;	// do not need to subtract snapRefSol if using incremental snapshots
 				if (incrementalSnapshots == 1 ) {
@@ -1945,9 +1942,10 @@ void ModalSolver<dim>::buildGlobalPOD() {
 				}
 				if (normalizeSnapshots > 0) normalizeSnap(snap[numCurrentSnapshots], iSnap, numSnaps[iData]);
 				if (snapWeight[iData]) snap[numCurrentSnapshots] *= snapWeight[iData]; //CBM--check
+				totalEnergy += pow(snap[numCurrentSnapshots].norm(),2);	// total energy is square of frobenius norm
 				++numCurrentSnapshots;
 				++nHandledSnaps;
-				if (limitedMemorySVD && (numCurrentSnapshots == maxVecStorage || nHandledSnaps == nTotSnaps )) {
+				if (limitedMemorySVD && (numCurrentSnapshots == maxVecStorage || nHandledSnaps == nTotSnaps || (iSVD == 0 && numCurrentSnapshots == nSnapsFirstSVD ))) {
 					// compute SVD of snaps and put into fullSnaps matrix;
 					if (computeSVD) makeFreqPOD(snap, numCurrentSnapshots, nKeep[iSVD], false);
 					for (int iFullSnap = 0; iFullSnap < nKeep[iSVD] ; ++iFullSnap) {
