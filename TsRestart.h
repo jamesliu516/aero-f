@@ -34,13 +34,19 @@ public:
   char *structPos;
 
   int frequency;
+  double frequency_dt, prtout;
 
   bool deleteCharStar;
+
+private:
+  bool toWrite(int it, bool lastIt, double t);
 
 public:
 
   TsRestart(IoData &, RefVal *);
   TsRestart();
+
+  void updatePrtout(double t);
 
   template<int dim, int dimLS>
   void writeToDisk(int, bool, int, double, double, 

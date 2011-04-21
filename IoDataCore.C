@@ -209,6 +209,7 @@ TransientData::TransientData()
   oneDimensionalRes = "res1D";
 
   frequency = 0;
+  frequency_dt = -1.0;
   length = 1.0;
   surface = 1.0;
   x0 = 0.0;
@@ -223,7 +224,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -282,6 +283,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
   new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
+  new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
   new ClassDouble<TransientData>(ca, "Surface", this, &TransientData::surface);
   new ClassDouble<TransientData>(ca, "XM", this, &TransientData::x0);
@@ -333,6 +335,7 @@ RestartData::RestartData()
 
 
   frequency = 0;
+  frequency_dt = -1.0;
 
 }
 
@@ -341,7 +344,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
@@ -353,6 +356,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
+  new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
 
 }
 
@@ -3924,6 +3928,10 @@ int IoData::checkInputValuesAllInitialConditions(){
 void IoData::nonDimensionalizeAllEquationsOfState(){
 
   if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //non-dimensionalize the time interval for output
+  output.transient.frequency_dt /= ref.rv.time;
+  output.restart.frequency_dt /= ref.rv.time;
 
   if(!eqs.fluidModelMap.dataMap.empty()){
     map<int, FluidModelData *>::iterator it;

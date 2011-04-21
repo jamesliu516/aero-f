@@ -43,6 +43,7 @@ private:
   bool steady;
   int it0;
   int frequency;
+  double frequency_dt, prtout;
   int numFluidPhases; //excludes "ghost" solids
   double length;
   double surface;
@@ -116,14 +117,16 @@ private:
   FILE **fpHeatFluxes;
   
   
-
-
+private:
+  bool toWrite(int it, bool lastIt, double t);
+  int getStep(int it, bool lastIt, double t);
 
 public:
 
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
   ~TsOutput();
 
+  void updatePrtout(double t);
   void setMeshMotionHandler(IoData&, MeshMotionHandler*);
   FILE *backupAsciiFile(char *);
   void openAsciiFiles();

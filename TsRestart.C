@@ -22,7 +22,7 @@ void TsRestart::writeToDisk(int cpuNum, bool lastIt, int it, double t, double dt
   double dt_nm1 = timeState.getData().dt_nm1;
   double dt_nm2 = timeState.getData().dt_nm2;
 
-  if (lastIt || (frequency > 0 && iteration % frequency == 0)) {
+  if (toWrite(iteration, lastIt, etime)) {
 
     if (lastIt) 
       index = 0;
