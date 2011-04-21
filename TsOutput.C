@@ -439,6 +439,8 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   it0 = iod.restart.iteration;
   numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
+  frequency_dt = iod.output.transient.frequency_dt;
+  prtout = 0.0;
   length = iod.output.transient.length;
   surface = iod.output.transient.surface;
   x0[0] = iod.output.transient.x0;
@@ -659,6 +661,49 @@ TsOutput<dim>::~TsOutput()
      delete[]  avvectors[i];
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool TsOutput<dim>::toWrite(int it, bool lastIt, double t)
+{
+  if(frequency_dt<=0.0)
+    return (((frequency > 0) && (it % frequency == 0)) || lastIt);
+
+  return (t>=prtout || lastIt);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int TsOutput<dim>::getStep(int it, bool lastIt, double t)
+{
+  int step = 0;
+  if(frequency_dt<=0.0) {
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+        ++step;
+    }
+  } else {
+    step = (int)(t / frequency_dt);
+    if (lastIt && (t<prtout))
+      ++step;
+  }
+
+  return step;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::updatePrtout(double t)
+{
+  if(frequency_dt<=0.0)
+    return;
+  if(t>=prtout)
+    prtout += frequency_dt;
 }
 
 //------------------------------------------------------------------------------
@@ -1990,13 +2035,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 					     DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {
 
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-	++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2059,13 +2099,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
 {
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2133,7 +2168,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 template<int dim>
 void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
 {
-
   int    step = it-1;
   double tag  = (double)actvar;
 
@@ -2169,13 +2203,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
                                              DistSVec<double,1> &Phi, DistVec<int> &fluidId)
 {
  
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2219,18 +2248,12 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 
 // This routine outputs the time averaged values of the scalar and vector output files
 // in binary format
-
   int i;
   static double tprev,tinit;
   double time = refVal->time*t;
   double del_t;
 
-  int step = 0;
-  if (frequency > 0) {
-    step = it / frequency;
-    if (lastIt && (it % frequency != 0))
-    ++step;
-  }
+  int step = getStep(it,lastIt,t);
 
   double tag;
   if (rmmh)
@@ -2302,8 +2325,7 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
     tprev = time;
   }
 
-  
-  if (((frequency > 0) && (it % frequency == 0) && (counter > 0)) || lastIt) {
+  if (toWrite(it,lastIt,t) && counter>0) {
     for (i=0; i<PostFcn::AVSSIZE; ++i) {
       if(avscalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());

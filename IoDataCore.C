@@ -257,6 +257,7 @@ TransientData::TransientData()
   sparseGrid = "SparseGrid";
 
   frequency = 0;
+  frequency_dt = -1.0;
   length = 1.0;
   surface = 1.0;
   x0 = 0.0;
@@ -271,7 +272,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 81, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -330,6 +331,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
   new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
+  new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
   new ClassDouble<TransientData>(ca, "Surface", this, &TransientData::surface);
   new ClassDouble<TransientData>(ca, "XM", this, &TransientData::x0);
@@ -380,6 +382,7 @@ RestartData::RestartData()
 
 
   frequency = 0;
+  frequency_dt = -1.0;
 
 }
 
@@ -388,7 +391,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
@@ -400,6 +403,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
+  new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
 
 }
 
@@ -3585,13 +3589,39 @@ void IoData::resetInputValues()
   {
     if (ts.implicit.mvp == ImplicitData::H2)
     {
-      com->fprintf(stderr, " *** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "              Second Order Finite Difference will be used.\n");
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
       ts.implicit.mvp = ImplicitData::FD;
       ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
     }
   } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
 
+  if (schemes.ns.flux != SchemeData::ROE)
+  {
+    if (ts.implicit.mvp == ImplicitData::H2)
+    {
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product only supported with Roe flux.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+      ts.implicit.mvp = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    }
+    if ((eqs.fluidModel.fluid != FluidModelData::GAS))
+    {
+      com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
+      schemes.ns.flux = SchemeData::ROE;
+    }
+    if(!eqs.fluidModelMap.dataMap.empty())
+    {
+      map<int, FluidModelData *>::iterator it;
+      for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+	if ((it->second->fluid != FluidModelData::GAS))
+	{
+	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
+	  schemes.ns.flux = SchemeData::ROE;
+	}    
+      }
+    }
+  } // END of if (schemes.ns.flux != SchemeData::ROE)
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
@@ -4009,6 +4039,10 @@ int IoData::checkInputValuesAllInitialConditions(){
 void IoData::nonDimensionalizeAllEquationsOfState(){
 
   if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //non-dimensionalize the time interval for output
+  output.transient.frequency_dt /= ref.rv.time;
+  output.restart.frequency_dt /= ref.rv.time;
 
   if(!eqs.fluidModelMap.dataMap.empty()){
     map<int, FluidModelData *>::iterator it;
@@ -5136,14 +5170,6 @@ int IoData::checkInputValuesEmbeddedFramework() {
     com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
     error ++;
   }
-
-  if(embed.intersectorName == EmbeddedFramework::PHYSBAM &&
-     embed.forceAlg == EmbeddedFramework::RECONSTRUCTED_SURFACE) {
-    com->fprintf(stderr,"WARNING: Currently Force = Reconstructed is not available for the PhysBAM Intersector!\n");
-    com->fprintf(stderr,"WARNING: using 'ControlVolumeFace' instead!\n");
-    embed.forceAlg = EmbeddedFramework::CONTROL_VOLUME_BOUNDARY;
-  }
-
   return error;
 }
 

@@ -1,6 +1,5 @@
-      SUBROUTINE HLLCFLUX(type,gamma,gam,pstiff,enormal,evitno,
-     &     Ugr,Ug,Udr,Ud,phi,mach,k1,cmach,shockreducer,
-     &     irey,length,prec)
+      SUBROUTINE HLLCFLUX1(gamma,gam,pstiff,enormal,evitno,
+     &     Ug,Ud,phi1,mach,k1,cmach,irey,prec)
 
 
 c---------------------------------------------------------------------   
@@ -14,19 +13,18 @@ c            (AIAA Journal - Vol. 43, No. 6, June 2005)
 c---------------------------------------------------------------------   
 
       IMPLICIT NONE
-      REAL*8 Ug(*), Ud(*), normal(0:2), enormal(3), evitno, phi(*)
+      REAL*8 Ug(*), Ud(*), normal(0:2), enormal(3), evitno, phi1
       REAL*8 VdotN , rnorm, invnorm, updir, vitno
-      REAL*8 Ugr(*), Udr(*), energ, enerd
+      REAL*8 energ, enerd
       REAL*8 flu(0:5),solLft(0:6),solRgt(0:6)
       REAL*8 vnLft,vnRgt,cLft,cRgt,rhoLft,rhoRgt,HLft,HRgt
       REAL*8 vpLft,vpRgt,vpLftRoe,vpRgtRoe
       REAL*8 rhoInv,roeMoy(0:5),qRoe,vnRoe,cRoe,cRoe2,pStar,vnStar
       REAL*8 SLft,SRgt,SStar,uStar(0:5)
       REAL*8 gam , gam1, vitg2, vitd2, pstiff
-      REAL*8 locMach, cmach, irey, length
+      REAL*8 locMach, cmach, irey
       REAL*8 gamma, mach, k1, shock, beta, beta2
-      REAL*8 shockreducer
-      INTEGER type, prec
+      INTEGER prec
 
 c
 
@@ -99,16 +97,13 @@ c  Computing the preconditionning coefficient
       cRoe2 = cRoe*cRoe
 
       if (prec .eq. 0) then
-        beta = 1.d0
+         beta = 1.d0
       else
-c       local Preconditioning (ARL)
-        shock = DABS(Ugr(5) - Udr(5))/(Ugr(5)+Udr(5))/length
-        locMach = DSQRT(2.0d0*qRoe/cRoe2)
-        beta = MAX(k1*locMach, mach)
-        beta = (1.0d0+DSQRT(irey))*beta+shockreducer*shock
-        beta = MIN(beta, cmach)
+c     local Preconditioning (ARL)
+         locMach = DSQRT(2.0d0*qRoe/cRoe2)
+         beta = MIN((1.0d0+DSQRT(irey))*MAX(k1*locMach, mach),cmach)
       end if
-
+c
       beta2 = beta*beta
 
 c
@@ -143,11 +138,7 @@ c  Flft : left flux by splitting
          flu(3) = flu(0)*solLft(3)+solLft(4)*normal(2)
          flu(4) = solLft(5)*(vnLft-vitno)+solLft(4)*vnLft
 
-         phi(1)  = 2.d0*flu(0)
-         phi(2)  = 2.d0*flu(1)
-         phi(3)  = 2.d0*flu(2)
-         phi(4)  = 2.d0*flu(3)
-         phi(5)  = 2.d0*flu(4)
+         phi1   = 2.d0*flu(0)
 
          go to 1000
 
@@ -163,11 +154,7 @@ c
          flu(3) = flu(0)*solRgt(3)+solRgt(4)*normal(2)
          flu(4) = solRgt(5)*(vnRgt-vitno)+solRgt(4)*vnRgt
 
-         phi(1)  = 2.d0*flu(0)
-         phi(2)  = 2.d0*flu(1)
-         phi(3)  = 2.d0*flu(2)
-         phi(4)  = 2.d0*flu(3)
-         phi(5)  = 2.d0*flu(4)
+         phi1   = 2.d0*flu(0)
 
          go to 1000
 c
@@ -202,11 +189,7 @@ c
         flu(3) = uStar(3)*(vnStar-vitno)+pStar*normal(2)
         flu(4) = uStar(4)*(vnStar-vitno)+pStar*vnStar
 
-        phi(1)  = 2.d0*flu(0)
-        phi(2)  = 2.d0*flu(1)
-        phi(3)  = 2.d0*flu(2)
-        phi(4)  = 2.d0*flu(3)
-        phi(5)  = 2.d0*flu(4)
+        phi1   = 2.d0*flu(0)
 
         go to 1000
 c
@@ -234,11 +217,7 @@ c
         flu(3) = uStar(3)*(vnStar-vitno)+pStar*normal(2)
         flu(4) = uStar(4)*(vnStar-vitno)+pStar*vnStar
 
-        phi(1)  = 2.d0*flu(0)
-        phi(2)  = 2.d0*flu(1)
-        phi(3)  = 2.d0*flu(2)
-        phi(4)  = 2.d0*flu(3)
-        phi(5)  = 2.d0*flu(4)
+        phi1   = 2.d0*flu(0)
 
         go to 1000
 c
@@ -247,23 +226,7 @@ c     *****
 c
  1000 continue
 
-      phi(1) = phi(1)*0.5d0*rnorm
-      phi(2) = phi(2)*0.5d0*rnorm
-      phi(3) = phi(3)*0.5d0*rnorm
-      phi(4) = phi(4)*0.5d0*rnorm
-      phi(5) = phi(5)*0.5d0*rnorm
+      phi1 = phi1*0.5d0*rnorm
 
-c
-c For one and two equation turbulence models
-c
-
-      if (type.eq.1) then
-         updir = 0.5d0 + dsign(0.5d0, phi(1))
-         phi(6) = phi(1) * (updir * Ugr(6) + (1.0d0 - updir) * Udr(6))
-      else if (type.eq.2) then
-         updir = 0.5d0 + dsign(0.5d0, phi(1))
-         phi(6) = phi(1) * (updir * Ugr(6) + (1.0d0 - updir) * Udr(6))
-         phi(7) = phi(1) * (updir * Ugr(7) + (1.0d0 - updir) * Udr(7))
-      endif
 
       END
