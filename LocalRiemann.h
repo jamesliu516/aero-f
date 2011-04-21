@@ -86,7 +86,10 @@ class LocalRiemannGfmpar : public LocalRiemann {
 
 public:
   LocalRiemannGfmpar() : LocalRiemann() {}
-    LocalRiemannGfmpar(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange phaseChangeType, double refd = 0.0,double refe = 0.0) : LocalRiemann(vf,tag1,tag2), phaseChangeType_(phaseChangeType), refdensity(refd), refentropy(refe) {}
+    LocalRiemannGfmpar(VarFcn *vf, int tag1, int tag2, MultiFluidData::TypePhaseChange phaseChangeType,
+		       double relaxationFacJwl = 1.0,
+		       double refd = 0.0,double refe = 0.0) : LocalRiemann(vf,tag1,tag2), phaseChangeType_(phaseChangeType), refdensity(refd), refentropy(refe),
+      relaxFactorJwl(relaxationFacJwl) {}
   virtual ~LocalRiemannGfmpar() { vf_ = 0; }
 
   void updatePhaseChange(double *V, int ID, int IDn, double *newV, double weight){
@@ -99,7 +102,7 @@ public:
 
 protected:
 
-  double refdensity,refentropy;
+  double refdensity,refentropy,relaxFactorJwl;
 
   // following functions used when Riemann problem formulated as a system of nonlinear equations.
   bool solve2x2System(double *mat, double *rhs, double *res);

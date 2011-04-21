@@ -638,13 +638,13 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
 //------------------------------------------------------------------------------
 void OneDimensional::spatialSetup(){
 
-  cout << "computing cell boundaries" <<endl;
+  //cout << "computing cell boundaries" <<endl;
   Y = 0.0;
   Y[0][0] = X[0][0];
   for(int i=1; i<numPoints; i++) Y[i][0] = 0.5*(X[i-1][0]+X[i][0]);
   Y[numPoints][0] = X[numPoints-1][0];
 
-  cout << "computing control volumes"<<endl;
+  //cout << "computing control volumes"<<endl;
   // computation of control volumes, for volumeType == CONSTANT_VOLUME
   ctrlVol[0][0] = 0.5*(X[1][0]-X[0][0]);
   for(int i=1; i<numPoints-1; i++)
@@ -652,7 +652,7 @@ void OneDimensional::spatialSetup(){
   ctrlVol[numPoints-1][0] = 0.5*(X[numPoints-1][0]-X[numPoints-2][0]);
 
   // computation of control surfaces, for volumeType == CONSTANT_VOLUME
-  cout << "computing control surfaces"<<endl;
+  //cout << "computing control surfaces"<<endl;
   for(int i=0; i<numPoints+1; i++) ctrlSurf[i][0] = 1.0;
 
 
@@ -707,6 +707,10 @@ void OneDimensional::stateInitialization(OneDimensionalInfo &data){
       }
     }
   }
+
+  //cout << data.density1 << " " << data.velocity1 << " " << data.pressure1 << " " << data.temperature1 << endl;
+  //cout << data.density2 << " " << data.velocity2 << " " << data.pressure2 << " " << data.temperature2 << endl;
+  
 
   // initialize Phi
   for(int i=0; i<numPoints; i++)

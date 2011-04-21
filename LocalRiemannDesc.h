@@ -1870,9 +1870,9 @@ private:
 
 public:
   LocalRiemannGfmparGasJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
-                           MultiFluidData::RiemannComputation riemannComputation,double refdensity,double refentropy,
+                           MultiFluidData::RiemannComputation riemannComputation,double rfac,double refdensity,double refentropy,
                            MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION) : 
-    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,refdensity,refentropy) {
+    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,rfac,refdensity,refentropy) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -2343,8 +2343,8 @@ bool LocalRiemannGfmparGasJWL::eriemanngj(double rhol, double ul, double pl,
   double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 0.25;//1.0; //0.85; // must be between 0 and 1
-  double relaxationFactorGas = 0.25;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorJwl = relaxFactorJwl;//1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = relaxFactorJwl;//1.0; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;
@@ -2822,10 +2822,10 @@ private:
 
 public:
   LocalRiemannGfmparTaitJWL(VarFcn *vf, int tag1, int tag2, SparseGridCluster *sgCluster, 
-			    MultiFluidData::RiemannComputation riemannComputation,double refdensity,double refentropy,
+			    MultiFluidData::RiemannComputation riemannComputation,double rfac,double refdensity,double refentropy,
 			    MultiFluidData::TypePhaseChange typePhaseChange = MultiFluidData::RIEMANN_SOLUTION, 
 			    double sgn = 1.0) : 
-    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,refdensity,refentropy) , sign(sgn) {
+    LocalRiemannGfmpar(vf,tag1,tag2,typePhaseChange,rfac,refdensity,refentropy) , sign(sgn) {
     riemannComputationType_ = riemannComputation;
     sgCluster_ = sgCluster;
   }
@@ -3248,8 +3248,8 @@ bool LocalRiemannGfmparTaitJWL::eriemanntj(double rhol, double ul, double pl,
   double eps = 1.e-3;
   int MaxIts = 100;
   int it = 0;
-  double relaxationFactorJwl = 1.0; //0.85; // must be between 0 and 1
-  double relaxationFactorGas = 1.0; //0.85; // must be between 0 and 1
+  double relaxationFactorJwl = relaxFactorJwl; //0.85; // must be between 0 and 1
+  double relaxationFactorGas = relaxFactorJwl; //0.85; // must be between 0 and 1
   int count = 0;
 
   double vl  = 1.0/rhol;

@@ -925,7 +925,7 @@ struct MultiFluidData {
   int frequency;
   double eps;
   int outputdiff;
-  int numBlur;
+  double jwlRelaxationFactor;
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;

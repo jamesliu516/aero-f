@@ -1718,13 +1718,13 @@ MultiFluidData::MultiFluidData()
   subIt = 10; //hidden
   cfl = 0.7; //hidden
   frequency = 0;
-  numBlur = 0;
   eps = 1.e-6; //hidden
   outputdiff = 0; //hidden
   copy = TRUE; //hidden
 
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
+  jwlRelaxationFactor = 1.0;
 
 }
 
@@ -1776,8 +1776,8 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
-  new ClassInt<MultiFluidData>(ca, "NumBlur", this,
-             &MultiFluidData::numBlur);
+  new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
+				  &MultiFluidData::jwlRelaxationFactor);
 
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
@@ -3785,13 +3785,6 @@ int IoData::checkInputValues()
 
   int error = 0;
 
-  if (problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
-
-    bc.inlet.pressure = bc.outlet.pressure;
-    bc.inlet.density = bc.outlet.density;
-    setupOneDimensional();
-  }
-    
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
 
@@ -3807,6 +3800,14 @@ int IoData::checkInputValues()
   // initial conditions that do not need to be specified in the
   // input file
   checkInputValuesProgrammedBurn();
+  if (problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
+
+    bc.inlet.pressure = bc.outlet.pressure;
+    bc.inlet.density = bc.outlet.density;
+    bc.inlet.alpha = bc.inlet.beta = 0.0;
+    setupOneDimensional();
+  }
+    
 
   error += checkInputValuesAllInitialConditions();
 
@@ -4137,14 +4138,14 @@ void IoData::setupOneDimensional() {
       oneDimensionalInfo.interfacePosition = it->second->radius;
       memcpy(&oneDimensionalInfo.programmedBurn, &it->second->programmedBurn, sizeof(it->second->programmedBurn));
       
-      oneDimensionalInfo.fluidId2 = it->second->initialConditions.fluidId;
+      oneDimensionalInfo.fluidId2 = it->second->fluidModelID;
       oneDimensionalInfo.density1 = it->second->initialConditions.density;
       oneDimensionalInfo.velocity1 = it->second->initialConditions.velocity;
       oneDimensionalInfo.temperature1 = it->second->initialConditions.temperature;
       oneDimensionalInfo.pressure1 = it->second->initialConditions.pressure;
 
       oneDimensionalInfo.density2 = bc.outlet.density;
-      oneDimensionalInfo.velocity2 = bc.outlet.velocity;
+      oneDimensionalInfo.velocity2 = 0.0;//bc.outlet.velocity;
       oneDimensionalInfo.temperature2 = bc.outlet.temperature;
       oneDimensionalInfo.pressure2 = bc.outlet.pressure;
    
@@ -4157,8 +4158,8 @@ void IoData:: nonDimensionalizeOneDimensionalProblem(){
 
   if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
 
+  oneDimensionalInfo.maxDistance /= ref.rv.length;
   oneDimensionalInfo.interfacePosition /= ref.rv.length;
-  oneDimensionalInfo.maxDistance       /= ref.rv.length;
 
   oneDimensionalInfo.density1  /= ref.rv.density;
   oneDimensionalInfo.velocity1 /= ref.rv.velocity;
@@ -5121,19 +5122,6 @@ int IoData::checkInputValuesProgrammedBurn() {
     }
   }
 
-  // One Dimensional
-  ProgrammedBurnData& programmedBurn = oneDimensionalInfo.programmedBurn;
-  
-  InitialConditions ICB;
-  ICB.pressure = oneDimensionalInfo.pressure1;
-  ICB.density = oneDimensionalInfo.density1;
-
-  error += checkProgrammedBurnLocal(programmedBurn,
-				    ICB);
-
-  oneDimensionalInfo.pressure1 = ICB.pressure;
-  oneDimensionalInfo.density1 = ICB.density;
-  oneDimensionalInfo.temperature1 = ICB.temperature;
   
 
   return error;
