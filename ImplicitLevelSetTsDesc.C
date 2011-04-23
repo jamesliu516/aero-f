@@ -152,12 +152,6 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
 
   double t0 = this->timer->getTime();
 
-  this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, U, this->PhiV, 
-					   this->fluidSelector, Fold, this->riemann, 1);
-
-  //this->timeState->multiplyByTimeStep(Fold);
-  //U -= Fold;
-  
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
   if(!(this->interfaceType==MultiFluidData::FSF)){
