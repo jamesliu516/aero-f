@@ -25,6 +25,9 @@ struct PhantomElement {
                  double phia, double phib, double phic, double phid);
   // destructor
   ~PhantomElement() {if(phi) delete[] phi;  if(nodes) delete[] nodes;}
+
+  // update nodes
+  void update(int* nod, double* ph); //KW: Doesn't have to update both nodes and phi. Use "NULL".
 };
 
 //------------------------------------------------------------------------------
@@ -45,7 +48,7 @@ class CrackingSurface : public LocalLevelSet {
 
   std::map<int,PhantomElement*> phantoms; //size: number of cracked (quad) elements
   LatestCracking latest;
-//  std::set<int> latestCrackedQuads;
+  bool gotNewCracking;
   int (*tria2quad)[2]; //size: nTotalTrias
   int (*quad2tria)[2]; //size: nTotalQuads
   bool *cracked; //size: nTotalQuads
@@ -56,11 +59,14 @@ public:
 
   //called by EmbeddedStructure only!
   int splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3]);
-  int updateCracking(int nNew, int* newPhan, double* phi, int(*triaTopo)[3], int nUsedNd);
+  int updateCracking(int numConnUpdate, int numLSUpdate, int* connUpdate, double* phi,
+                     int* phiIndex, int(*triaTopo)[3], int nUsedNd, int* new2old, int numNewNodes);
 
   int numCrackedElements() {return phantoms.size();}
   bool hasCracked(int trId);
   double getPhi(int trId, double xi1, double xi2, bool* hasCracked=0);
+  bool getNewCrackingFlag() const {return gotNewCracking;}
+  void setNewCrackingFlag(bool flag) {gotNewCracking = flag;}
 
   int totNodes()  const {return nTotalNodes;}
   int usedNodes() const {return nUsedNodes;}

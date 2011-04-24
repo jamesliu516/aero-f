@@ -12,6 +12,7 @@
 #include <MatchNode.h>
 #include <StructExc.h>
 #include <DistVector.h>
+#include <assert.h>
 #include <list>
 #include <map>
 
@@ -118,9 +119,9 @@ DynamicNodalTransfer::getNewCracking()
     com.fprintf(stderr,"WARNING: Cracking is not considered in the structure simulation!\n");
     return 0;
   }
-  int nCracked = structure.getNewCracking();
+  int numConnUpdate = structure.getNewCracking();
 
-  if(nCracked) { //update "windows".
+  if(numConnUpdate) { //update "windows".
     int N = structure.nNodes;
     if((N*2*3*sizeof(double) == winDisp->size())) {com.fprintf(stderr,"WEIRD!\n");exit(-1);}
 
@@ -135,7 +136,7 @@ DynamicNodalTransfer::getNewCracking()
     winForce = new Communication::Window<double> (com, 3*length*sizeof(double), embeddedData);
   }
 
-  return nCracked;
+  return numConnUpdate;
 }
 
 //------------------------------------------------------------------------------
@@ -155,12 +156,16 @@ DynamicNodalTransfer::getDisplacement()
   structure.sendDisplacement(winDisp);
   winDisp->fence(false);
 
-  for(int i=0; i<N; i++) 
+  if(com.cpuNum()==20) fprintf(stderr,"*********DISP RECEIVED********\n");
+  for(int i=0; i<N; i++) { 
+    if(com.cpuNum()==20) fprintf(stderr," %d  | %e %e %e | %e %e %e\n", i+1, XandUdot[i*3], XandUdot[i*3+1], XandUdot[i*3+2], XandUdot[(N+i)*3], XandUdot[(N+i)*3+1],
+                                                        XandUdot[(N+i)*3+2]);
     for(int j=0; j<3; j++) {
       XandUdot[i*3+j] *= 1.0/XScale;
       XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
-//  com.fprintf(stderr,"norm of received disp/velo = %.12e/%.12e.\n", structU.norm(), structUdot.norm());
+  }
+  if(com.cpuNum()==20) fprintf(stderr,"******************************\n");
 }
 
 //------------------------------------------------------------------------------
@@ -313,25 +318,12 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     tMax = tScale*structExc->getMaxTime();
     algNum = structExc->getAlgorithmNumber();
 
-    if(cracking)
+    if(cracking) {
       getInitialCrack();
+      cracking->setNewCrackingFlag(false);
+    }
   }
 
-  //KEVIN's DEBUG
-/*  FILE *mytest = fopen("test.in","r");
-  while(1){
-    bool cracked_or_not;
-    double xi1, xi2;
-    int tId;
-    fscanf(mytest, "%d %lf %lf\n", &tId, &xi1, &xi2);
-    if(tId<0) break;
-
-    if(com.cpuNum()==30) {
-//      cracking->printInfo("cs.out");
-      double ls = cracking->getPhi(tId-1,xi1,xi2,&cracked_or_not);
-      fprintf(stderr,"tId = %d, xi = (%e, %e, %e), Cracked = %d, phi = %e;\n", tId, xi1, xi2, 1.0-xi1-xi2, cracked_or_not, ls);
-    }
-  }*/
   // ----------------------------------
   //               End
   // ----------------------------------
@@ -452,7 +444,6 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
   // ----------------------------------
   //               End
   // ----------------------------------
-
 
   // allocate memory for other stuff...
   U = new (com) double[totalNodes][3];
@@ -735,33 +726,37 @@ EmbeddedStructure::splitQuads(int* quads, int nStElems)
 void
 EmbeddedStructure::getInitialCrack()
 {
-  int newNodes, nCracked;
-  nCracked = structExc->getNumberOfNewCrackedElems(newNodes); //newNodes get filled.
-  if(!nCracked) return; //Nothing new :)
+  int newNodes, numConnUpdate, numLSUpdate;
+  bool need2update = structExc->getNewCrackingStats(numConnUpdate, numLSUpdate, newNodes); //inputs will be modified.
+  if(!need2update) return; //Nothing new :)
 
   // get initial phantom nodes.
   structExc->getInitialPhantomNodes(newNodes,X,nNodes);
     //NOTE: nNodes will be updated in "getNewCracking"
 
   // get initial phantom elements (topo change).
-  getNewCracking(nCracked, newNodes);
+  getNewCracking(numConnUpdate, numLSUpdate, newNodes);
 }
 
 //------------------------------------------------------------------------------
 
 void
-EmbeddedStructure::getNewCracking(int nCracked, int newNodes)
+EmbeddedStructure::getNewCracking(int numConnUpdate, int numLSUpdate, int newNodes)
 {
-  if(nCracked<1)  return;
+  if(numConnUpdate<1)  return;
 
-  int phantElems[10*nCracked]; // elem.id and node id.
-  double phi[8*nCracked];
+  int phantElems[5*numConnUpdate]; // elem.id and node id.
+  double phi[4*numLSUpdate];
+  int phiIndex[numLSUpdate];
+  int new2old[newNodes*2];
  
-  structExc->getNewCracking(nCracked, phantElems, phi); 
+  structExc->getNewCracking(numConnUpdate, numLSUpdate, phantElems, phi, phiIndex, new2old, newNodes); 
 
   if(elemType!=4) {com.fprintf(stderr,"ERROR: only support quadrangles for cracking!\n");exit(1);} 
   nNodes += newNodes;
-  nElems += cracking->updateCracking(nCracked, phantElems, phi, Tria, nNodes);
+  nElems += cracking->updateCracking(numConnUpdate, numLSUpdate, phantElems, phi, phiIndex, Tria, nNodes, new2old, newNodes);
+  if(nElems!=cracking->usedTrias()) {
+    com.fprintf(stderr,"ERROR: inconsistency in the number of used triangles. (Software bug.)\n");exit(-1);}
 
   if(com.cpuNum()==0)
     structExc->updateNumStrNodes(nNodes); //set numStrNodes to nNodes in structExc and mns
@@ -772,11 +767,11 @@ EmbeddedStructure::getNewCracking(int nCracked, int newNodes)
 int
 EmbeddedStructure::getNewCracking()
 {
-  int newNodes, nCracked;
-  nCracked = structExc->getNumberOfNewCrackedElems(newNodes);
-  if(!nCracked) return nCracked; //Nothing new :)
-  getNewCracking(nCracked, newNodes);
-  return nCracked;
+  int newNodes, numConnUpdate, numLSUpdate;
+  bool need2update = structExc->getNewCrackingStats(numConnUpdate, numLSUpdate, newNodes); //inputs will be modified.
+  if(!need2update) {assert(numConnUpdate==0); return 0;} //Nothing new :)
+  getNewCracking(numConnUpdate, numLSUpdate, newNodes);
+  return numConnUpdate;
 }
 
 //------------------------------------------------------------------------------

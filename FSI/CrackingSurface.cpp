@@ -30,6 +30,17 @@ PhantomElement::PhantomElement(int a, int b, int c, int d,
 
 //------------------------------------------------------------------------------
 
+void PhantomElement::update(int* nod, double* ph) {
+  if(nod)
+    for(int i=0; i<nNodes; i++)
+      nodes[i] = nod[i];
+  if(ph)
+    for(int i=0; i<nNodes; i++)
+      phi[i] = ph[i];
+}
+
+//------------------------------------------------------------------------------
+
 CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, int nTotNodes): elemType(eType)
 {
   if(eType!=4) {fprintf(stderr,"ERROR: ElemType(%d) is not supported for CrackingSurface!\n");exit(1);}
@@ -47,6 +58,8 @@ CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, 
     cracked[i] = false;
     quad2tria[i][0] = quad2tria[i][1] = -1;
   }
+
+  gotNewCracking = false;
 }
 
 //------------------------------------------------------------------------------
@@ -109,29 +122,55 @@ int CrackingSurface::splitQuads(int* quadTopo, int nQuads, int(*triaTopo)[3])
 
 //------------------------------------------------------------------------------
 
-int CrackingSurface::updateCracking(int nNew, int* newPhan, double* phi, int(*triaTopo)[3], int nUsedNd)
+int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* connUpdate, double* phi, 
+                                    int* phiIndex, int(*triaTopo)[3], int nUsedNd, int* new2old, int numNewNodes)
 {
-  if(nNew==0)
+  if(numConnUpdate==0)
     return 0;
+
+  if(gotNewCracking) 
+    fprintf(stderr,"WARNING: last cracking update hasn't been pushed to intersector!\n");
+  gotNewCracking = true;
 
   latest.phantomQuads.clear();
   latest.phantomNodes.clear(); //flush
-  int quadId,maxtrId=0,count=0;
+  int quadId,nNew=0,maxtrId=0;
+  int maxQuad=0, nNewQuad=0;
 
-  for(int i=0; i<2*nNew; i++) {
-    quadId = newPhan[5*i];
+  //build a reverse map of phiIndex. The cost is trivial since phiIndex is very short.
+  map<int,int> temp;
+  map<int,int>::iterator itor;
+  for(int i=0; i<numLSUpdate; i++)
+    temp[phiIndex[i]] = i;
+
+  for(int i=0; i<numConnUpdate; i++) {
+    quadId = connUpdate[5*i];
+    if(quadId>maxQuad)
+      maxQuad = quadId;
+
+    bool already_cracked = cracked[quadId];
     cracked[quadId] = true;
-    latest.phantomQuads.insert(quadId);
-    //insert a new phantom element
-    PhantomElement *thisone = new PhantomElement(newPhan[5*i+1],newPhan[5*i+2],newPhan[5*i+3],newPhan[5*i+4],
-                                                 phi[4*i],phi[4*i+1],phi[4*i+2],phi[4*i+3]);
-    phantoms[quadId] = thisone; 
+    latest.phantomQuads.insert(quadId); 
+    //insert a new phantom element or modify an existing one
+    itor = temp.find(quadId);
+    if(already_cracked) {
+      if(itor!=temp.end()) fprintf(stderr,"WARNING: Shouldn't modify the levelset of a previously-cracked element!\n");
+      phantoms[quadId]->update(&(connUpdate[5*i+1]), itor==temp.end() ? NULL : &(phi[itor->second]));
+    } else {
+      if(itor==temp.end()) {
+        fprintf(stderr,"ERROR: Need the level-set for a new cracked element!\n"); exit(-1);}
+      int ind = itor->second;
+      phantoms[quadId] = new PhantomElement(connUpdate[5*i+1],connUpdate[5*i+2],connUpdate[5*i+3],connUpdate[5*i+4],
+                                            phi[4*ind],phi[4*ind+1],phi[4*ind+2],phi[4*ind+3]);
+    }
+ 
     //modify the triangle mesh connectivity
     int trId1, trId2;
     if(quadId>=nUsedQuads) { //this is a new quad
-      if(quadId>=nUsedQuads+nNew) {
-        fprintf(stderr,"ERROR: nUsed = %d, nNew = %d, currentId = %d!\n", nUsedQuads, nNew, quadId+1);exit(-1);}
-      count++;
+      nNewQuad++;
+      if(quadId>nUsedQuads+numConnUpdate/2) {
+        fprintf(stderr,"ERROR: nUsed = %d, newConn/2 = %d, currentId = %d!\n", nUsedQuads, numConnUpdate/2, quadId+1);exit(-1);}
+      nNew+=2;
       trId1 = nUsedTrias + 2*(quadId-nUsedQuads);
       trId2 = trId1 + 1;
       if(maxtrId<trId2) maxtrId = trId2;
@@ -141,34 +180,37 @@ int CrackingSurface::updateCracking(int nNew, int* newPhan, double* phi, int(*tr
       if(trId2<0) {fprintf(stderr,"SOFTWARE BUG: CAPTURED TRIANGLE ID %d for QUAD %D\n", trId2+1, quadId+1);exit(-1);}
     }
 
-    triaTopo[trId1][0] = newPhan[5*i+1];
-    triaTopo[trId1][1] = newPhan[5*i+2];
-    triaTopo[trId1][2] = newPhan[5*i+3];
-    triaTopo[trId2][0] = newPhan[5*i+1];
-    triaTopo[trId2][1] = newPhan[5*i+3];
-    triaTopo[trId2][2] = newPhan[5*i+4];
+    triaTopo[trId1][0] = connUpdate[5*i+1];
+    triaTopo[trId1][1] = connUpdate[5*i+2];
+    triaTopo[trId1][2] = connUpdate[5*i+3];
+    triaTopo[trId2][0] = connUpdate[5*i+1];
+    triaTopo[trId2][1] = connUpdate[5*i+3];
+    triaTopo[trId2][2] = connUpdate[5*i+4];
   }
 
   //construct latest.phantomNodes.
-  for(int i=0; i<2*nNew; i+=2) {
+  for(int i=0; i<numNewNodes; i++)
+    latest.phantomNodes[new2old[2*i]] = new2old[2*i+1];
+/*  for(int i=0; i<nNew; i+=2) {
     int j=i+1;
     for(int myNode=1; myNode<5; myNode++)
-      if(newPhan[5*i+myNode]>=nUsedNodes && newPhan[5*j+myNode]<nUsedNodes) //newPhan[5*i+myNode] is new
-        latest.phantomNodes[newPhan[5*i+myNode]] = newPhan[5*j+myNode];
-      else if(newPhan[5*j+myNode]>=nUsedNodes && newPhan[5*i+myNode]<nUsedNodes) //newPhan[5*j+myNode] is new
-        latest.phantomNodes[newPhan[5*j+myNode]] = newPhan[5*i+myNode];
-      else {fprintf(stderr,"SOFTWARE BUG: Node numbering is wrong! Aborting.\n");exit(-1);}
-  }
+      if(connUpdate[5*i+myNode]>=nUsedNodes && connUpdate[5*j+myNode]<nUsedNodes) //connUpdate[5*i+myNode] is new
+        latest.phantomNodes[connUpdate[5*i+myNode]] = connUpdate[5*j+myNode];
+      else if(connUpdate[5*j+myNode]>=nUsedNodes && connUpdate[5*i+myNode]<nUsedNodes) //connUpdate[5*j+myNode] is new
+        latest.phantomNodes[connUpdate[5*j+myNode]] = connUpdate[5*i+myNode];
+      else {fprintf(stderr,"SOFTWARE BUG: Node numbering is wrong! Aborting.\n");exit(-1);} 
+  }*/
 
-  if(count!=nNew) {fprintf(stderr,"SOFTWARE BUG: Inconsistent on the number of new quads(%d v.s. %d)!\n", nNew, count);exit(-1);}
-  nUsedQuads += nNew;
-  if(maxtrId+1!=nUsedTrias+2*nNew) {
+  if(maxQuad+1!=nUsedQuads+nNewQuad) {
+    fprintf(stderr,"ERROR: Inconsistency in the number of structure quad elements! (Could be a software bug.)\n");exit(-1);}
+
+  nUsedQuads += nNewQuad;
+  if(maxtrId+1!=nUsedTrias+nNew) {
     fprintf(stderr,"SOFTWARE BUG: Violated the ordering of new elements (%d v.s. %d)\n", maxtrId+1,nUsedTrias+2*nNew);exit(-1);}
-  nUsedTrias += 2*nNew;
+  nUsedTrias += nNew;
 
   nUsedNodes = nUsedNd;
-
-  return 2*nNew;
+  return nNew;
 }
 
 //------------------------------------------------------------------------------

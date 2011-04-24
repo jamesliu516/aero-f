@@ -726,7 +726,13 @@ void
 DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
 {
   int previous = numStNodes;
-  gotNewCracking = (nNodes!=numStNodes);
+  gotNewCracking = cracking->getNewCrackingFlag();
+  if(gotNewCracking)
+    cracking->setNewCrackingFlag(false);
+  if((nNodes!=numStNodes) != gotNewCracking){
+    fprintf(stderr,"ERROR: AERO-F is not sure if there is a new cracking... (Could be a software bug.) nNodes = %d, numStNodes = %d, gotNewCracking = %d\n", nNodes, numStNodes, gotNewCracking);
+    exit(-1);
+  }
 
   if(gotNewCracking) {
     if(!cracking || nNodes<numStNodes) {
