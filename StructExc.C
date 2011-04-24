@@ -242,14 +242,17 @@ void StructExc::getInitialCrackingSetup(int& totalNodes, int& totalElems)
 
 //------------------------------------------------------------------------------
 
-int StructExc::getNumberOfNewCrackedElems(int &newNodes)
+bool StructExc::getNewCrackingStats(int &numConnUpdate, int &numLSUpdate, int &newNodes)
 {
-  int nNew[2];
+  int size = 4;
+  int nNew[size];
   if(strCom->cpuNum()==0) 
-    strCom->recFrom(CRACK_TAG1, nNew, 2);
-  com->broadcast(2, nNew);
-  newNodes = nNew[1];
-  return nNew[0];
+    strCom->recFrom(CRACK_TAG1, nNew, size);
+  com->broadcast(size, nNew);
+  numConnUpdate = nNew[1];
+  numLSUpdate = nNew[2];
+  newNodes = nNew[3];
+  return nNew[0]>0;
 }
 
 //------------------------------------------------------------------------------
@@ -268,15 +271,26 @@ void StructExc::getInitialPhantomNodes(int newNodes, double(*xyz)[3], int nNodes
 
 //------------------------------------------------------------------------------
 
-void StructExc::getNewCracking(int nCracked, int* phantoms, double* phi)
+void StructExc::getNewCracking(int numConnUpdate, int numLSUpdate, int* phantoms, double* phi, int* phiIndex, int* new2old, int newNodes)
 {
+  int integer_pack_size = 5*numConnUpdate + numLSUpdate + 2*newNodes;
+  int integer_pack[integer_pack_size]; //KW: This should be a short array since there will not be many new cracked elements in 
+                                       //    one time-step. Therefore it should be OK to create and destroy it repeatedly.
   if(strCom->cpuNum()==0)
-    strCom->recFrom(CRACK_TAG2, phantoms, 10*nCracked);
-  com->broadcast(10*nCracked, phantoms);
+    strCom->recFrom(CRACK_TAG2, integer_pack, integer_pack_size);
+  com->broadcast(integer_pack_size, integer_pack);
+  for(int i=0; i<5*numConnUpdate; i++)
+    phantoms[i] = integer_pack[i];
+  for(int i=0; i<numLSUpdate; i++)
+    phiIndex[i] = integer_pack[5*numConnUpdate+i];
+  for(int i=0; i<newNodes; i++) {
+    new2old[2*i] = integer_pack[5*numConnUpdate+numLSUpdate+2*i];
+    new2old[2*i+1] = integer_pack[5*numConnUpdate+numLSUpdate+2*i+1];
+  }
 
   if(strCom->cpuNum()==0)
-    strCom->recFrom(CRACK_TAG3, phi, 4*2*nCracked);
-  com->broadcast(4*2*nCracked, phi); 
+    strCom->recFrom(CRACK_TAG3, phi, 4*numLSUpdate);
+  com->broadcast(4*numLSUpdate, phi); 
 }
 
 //------------------------------------------------------------------------------
@@ -348,9 +362,7 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
       if (numStrNodes[iCpu][0] > 0) {
 	int size = bufsize * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
-        fprintf(stderr,"<AERO-F> Going to receive the displacement. size = %d\n", size);
 	strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
-        fprintf(stderr,"<AERO-F> Displacement received!\n");
 //        for(int i=0; i<size/3; i++)
 //          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
 
