@@ -19,7 +19,7 @@ void FluidSelector::reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim
   getFluidId(*fluidId, Phin, &fsId);
   //if (fluidIdnm1) getFluidId(*fluidIdm1, Phinm1, &fsId);
   //if(fluidIdnm2) getFluidId(*fluidIdm2, Phinm1, &fsId);
-  //*fluidIdn = *fluidId;
+  *fluidIdn = *fluidId;
   if(fluidIdnm1) *fluidIdnm1 = *fluidId;
   if(fluidIdnm2) *fluidIdnm2 = *fluidId;
 }

@@ -33,6 +33,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 
     numLriemann = (iod.eqs.numPhase-1)*(iod.eqs.numPhase)/2;
     lriemann = new LocalRiemann*[numLriemann];
+    memset(lriemann, 0, sizeof(LocalRiemann*)*numLriemann) ;
     int iRiemann = 0;
 
     for (int iPhase = 0; iPhase < iod.eqs.numPhase; ++iPhase) {
@@ -130,8 +131,10 @@ template<int dim>
 ExactRiemannSolver<dim>::~ExactRiemannSolver() 
 {
 
-  for(int iLriemann=0; iLriemann<numLriemann; iLriemann++)
-    delete lriemann[iLriemann];
+  for(int iLriemann=0; iLriemann<numLriemann; iLriemann++) {
+    if (lriemann[iLriemann])
+      delete lriemann[iLriemann];
+  }
   delete [] lriemann;
   delete fsiRiemann;
 
