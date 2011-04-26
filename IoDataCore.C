@@ -30,15 +30,15 @@ FluidRemapData::FluidRemapData() {
 void FluidRemapData::setup(const char * name, ClassAssigner * father) {
   
   ClassAssigner *ca = new ClassAssigner(name, 2, father);
-  new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
-  new ClassInt<FluidRemapData>(ca, "NewID", this, &FluidRemapData::newID);
+  //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
+  new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
 }
 
 Assigner* FluidRemapData::getAssigner() {
   
   ClassAssigner *ca = new ClassAssigner("normal", 2, nullAssigner);
-  new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
-  new ClassInt<FluidRemapData>(ca, "NewID", this, &FluidRemapData::newID);
+  //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
+  new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
   return ca;
 }
 
@@ -56,7 +56,7 @@ void OneDimensionalInputData::setup(const char * name, ClassAssigner * father) {
   new ClassDouble<OneDimensionalInputData>(ca, "Y0", this, &OneDimensionalInputData::y0);
   new ClassDouble<OneDimensionalInputData>(ca, "Z0", this, &OneDimensionalInputData::z0);
   
-  fluidRemap.setup("FluidRemap",ca);
+  fluidRemap.setup("FluidIDMap",ca);
 }
 
 Assigner* OneDimensionalInputData::getAssigner() {
@@ -67,7 +67,7 @@ Assigner* OneDimensionalInputData::getAssigner() {
   new ClassDouble<OneDimensionalInputData>(ca, "Y0", this, &OneDimensionalInputData::y0);
   new ClassDouble<OneDimensionalInputData>(ca, "Z0", this, &OneDimensionalInputData::z0);
   
-  fluidRemap.setup("FluidRemap",ca);
+  fluidRemap.setup("FluidIDMap",ca);
   return ca;
 }
 
@@ -125,7 +125,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
 
-  oneDimensionalInput.setup("OneDimensionalRestart",ca);
+  oneDimensionalInput.setup("1DRestartData",ca);
 
 }
 
@@ -481,7 +481,7 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
      "RigidRoll", 12, "RbmExtractor", 13, "UnsteadyLinearizedAeroelastic", 14,
      "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
      "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20, "SteadySensitivityAnalysis", 21,
-     "SparseGridGeneration", 22,"OneDimensional", 23);
+     "SparseGridGeneration", 22,"1DProgrammedBurn", 23);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -1428,12 +1428,19 @@ Assigner *PrismData::getAssigner()
 
   new ClassInt<PrismData> (ca, "FluidID", this, &PrismData::fluidModelID);
 
-  new ClassDouble<PrismData> (ca, "Center_x", this, &PrismData::cen_x);
-  new ClassDouble<PrismData> (ca, "Center_y", this, &PrismData::cen_y);
-  new ClassDouble<PrismData> (ca, "Center_z", this, &PrismData::cen_z);
-  new ClassDouble<PrismData> (ca, "Width_x", this, &PrismData::w_x);
-  new ClassDouble<PrismData> (ca, "Width_y", this, &PrismData::w_y);
-  new ClassDouble<PrismData> (ca, "Width_z", this, &PrismData::w_z);
+  //new ClassDouble<PrismData> (ca, "Center_x", this, &PrismData::cen_x);
+  //new ClassDouble<PrismData> (ca, "Center_y", this, &PrismData::cen_y);
+  //new ClassDouble<PrismData> (ca, "Center_z", this, &PrismData::cen_z);
+  //new ClassDouble<PrismData> (ca, "Width_x", this, &PrismData::w_x);
+  //new ClassDouble<PrismData> (ca, "Width_y", this, &PrismData::w_y);
+  //new ClassDouble<PrismData> (ca, "Width_z", this, &PrismData::w_z);
+
+  new ClassDouble<PrismData> (ca, "X0", this, &PrismData::X0);
+  new ClassDouble<PrismData> (ca, "Y0", this, &PrismData::Y0);
+  new ClassDouble<PrismData> (ca, "Z0", this, &PrismData::Z0);
+  new ClassDouble<PrismData> (ca, "X1", this, &PrismData::X1);
+  new ClassDouble<PrismData> (ca, "Y1", this, &PrismData::Y1);
+  new ClassDouble<PrismData> (ca, "Z1", this, &PrismData::Z1);
 
   initialConditions.setup("InitialState", ca);
 
@@ -1524,7 +1531,7 @@ void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 
   ClassAssigner *ca = new ClassAssigner(name, 4, father);
   sphereMap.setup("Sphere", ca);
-  prismMap.setup("Prism", ca);
+  prismMap.setup("Box", ca);
   planeMap.setup("Plane", ca);
   pointMap.setup("Point", ca);
 
@@ -1683,8 +1690,8 @@ void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
     (ca, "IgnitionZ0", this, &ProgrammedBurnData::ignitionZ0);
   new ClassDouble<ProgrammedBurnData>
     (ca, "IgnitionTime", this, &ProgrammedBurnData::ignitionTime);
-  new ClassInt<ProgrammedBurnData>
-    (ca, "Ignited", this, &ProgrammedBurnData::ignited);
+  new ClassToken<ProgrammedBurnData>
+    (ca, "Ignite", this, &ProgrammedBurnData::ignited, 2, "False", 1, "True", 0);
 
   new ClassDouble<ProgrammedBurnData>
     (ca, "E0", this, &ProgrammedBurnData::e0);
@@ -3200,7 +3207,7 @@ void EmbeddedFramework::setup(const char *name) {
 //------------------------------------------------------------------------------
 OneDimensionalInfo::OneDimensionalInfo(){
 
-  coordType  = CARTESIAN;
+  coordType  = SPHERICAL;//CARTESIAN;
   volumeType = REAL_VOLUME;
 
   maxDistance = 0.0;
@@ -3219,7 +3226,7 @@ void OneDimensionalInfo::setup(const char *name){
 
   new ClassToken<OneDimensionalInfo>(ca, "Coordinates", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::coordType), 3, "Cartesian", 0, "Cylindrical", 1, "Spherical", 2);
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
-  new ClassDouble<OneDimensionalInfo>(ca, "MaxDistance", this, &OneDimensionalInfo::maxDistance);
+  new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
@@ -3349,7 +3356,7 @@ void IoData::setupCmdFileVariables()
   rotations.setup("Velocity");
   volumes.setup("Volumes");
   embed.setup("EmbeddedFramework");
-  oneDimensionalInfo.setup("OneDimensionalInfo");
+  oneDimensionalInfo.setup("1DGrid");
   implosion.setup("ImplosionSetup");
 }
 
@@ -3963,12 +3970,21 @@ int IoData::checkInputValuesAllInitialConditions(){
          it!=mf.multiInitialConditions.prismMap.dataMap.end();
          it++){
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+
+      it->second->w_x = it->second->X1-it->second->X0;
+      it->second->w_y = it->second->Y1-it->second->Y0;
+      it->second->w_z = it->second->Z1-it->second->Z0;
+
+      it->second->cen_x = (it->second->X1+it->second->X0)*0.5;
+      it->second->cen_y = (it->second->Y1+it->second->Y0)*0.5;
+      it->second->cen_z = (it->second->Z1+it->second->Z0)*0.5;
+
       
       if(it->second->w_x <= 0.0 || 
 	 it->second->w_y <= 0.0 || 
 	 it->second->w_z <= 0.0 ){
         error++;
-        com->fprintf(stderr, "*** Error: a size must be specified for prism[%d] initial conditions\n", it->first);
+        com->fprintf(stderr, "*** Error: a size must be specified for box[%d] initial conditions\n", it->first);
       }
     }
   }

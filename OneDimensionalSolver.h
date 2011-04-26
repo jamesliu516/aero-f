@@ -223,7 +223,6 @@ class OneDimensional {
 	    // is less than or equal to localRadius
 	    int a = numPoints/2;
 	    int rmin = 0,rmax=numPoints-2;
-	    cout << "r = " << localRadius << endl;
 	    while (!(x_1D[a] <= localRadius && x_1D[a+1] > localRadius)  ) {
 	      if (x_1D[a] < localRadius)
 		rmin = a;

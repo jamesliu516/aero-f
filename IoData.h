@@ -825,6 +825,7 @@ struct SphereData {
 struct PrismData {
 
   double cen_x, cen_y, cen_z, w_x,w_y,w_z;
+  double X0,Y0,Z0,X1,Y1,Z1;
   int fluidModelID;
   InitialConditions initialConditions;
 
