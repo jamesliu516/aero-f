@@ -32,7 +32,6 @@ OBJS = $(LIB)(boundflux5.o) \
        $(LIB)(hlleflux1.o) \
        $(LIB)(hllcflux.o)
 
-#usescalapack = true
 ifeq ($(usescalapack), true)
 
   SOBJS = $(LIB)(thinsvd.o) \
