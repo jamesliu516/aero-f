@@ -1600,6 +1600,7 @@ struct ROB {
   int energyOnly;
   int podMethod;
   int pseudoInverseNodes;
+  int subtractIC;
 
   ROB();
   ~ROB() {}
