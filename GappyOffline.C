@@ -216,9 +216,6 @@ void GappyOffline<dim>::setUpPseudoInverse() {
 	if (nPodBasis == 2)
 		computePodTPod();
 
-	pseudoInvRhs.resize(nSampleNodes * dim);	// make correct size
-	for (int i = 0; i < nSampleNodes * dim; ++i) pseudoInvRhs[i] = 0.0;
-
 }
 
 //---------------------------------------------------------------------------------------
@@ -409,12 +406,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 
 		// fill out restricted matrices (all columns for the current rows)
 
-		SubDomainData<dim> locPod, locPodHat, locPodPseudoInvRhs;
-
-		for (int iDim = 0; iDim < dim ; ++iDim) {
-			locPodPseudoInvRhs = pseudoInvRhs[(handledNodes*dim)+iDim].subData(locSub);
-			locPodPseudoInvRhs[locNode][iDim] = 1.0;
-		}
+		SubDomainData<dim> locPod, locPodHat;
 
 		for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 			for (int iPod = 0 ; iPod < nPod[iPodBasis]; ++iPod) {
@@ -1522,7 +1514,6 @@ void GappyOffline<dim>::buildGappyMatrices() {
 
 template<int dim>
 void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
-
 //======================================
 // Purpose
 // 	compute pseudo inverses of podHatRes or podHatJac
@@ -1535,23 +1526,51 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 // 	where ei is zero except 1 at the node and dim of interest
 //======================================
 
-	int numRhs = nSampleNodes * dim;	// number of RHS treated
+	// generate pseudoInvRhs in chunks
 
-	// compute rhs matrix pseudoInvRhs
-	// 	for each column, all zeros but one if it is the [iSampleNode][iDim]
-	// 	location
+	int nNodesAtATime = ioData->Rob.pseudoInverseNodes;	// TODO: make this an input
+	nNodesAtATime = min(nSampleNodes,nNodesAtATime);	// fix if needed
+	int numRhs = nNodesAtATime * dim;
 
-	// allocate memory for pseudo-inverse with dimension: (numRhs) x nPod 
+	int nHandledVectors = 0;
 
-	podHatPseudoInv[iPodBasis] = new double * [numRhs] ;
-	for (int iRhs = 0; iRhs < numRhs; ++iRhs)  
+	pseudoInvRhs.resize(numRhs);	// make correct size (possible memory problem!)
+	for (int iRhs = 0; iRhs < numRhs; ++iRhs)
+		pseudoInvRhs[iRhs] = 0.0;
+
+	podHatPseudoInv[iPodBasis] = new double * [nSampleNodes * dim] ;
+	for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)  
 		podHatPseudoInv[iPodBasis][iRhs] = new double [nPod[iPodBasis] ] ;
 
-	// compute pseudo-inverse
-	// numRhs = nSampleNodes * dim
-	// A: (nSampleNodes * dim) x nPod
-	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
-			nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]);
+	int iVector = 0;
+	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+		// compute unit vectors
+		int currentGlobalNode = globalSampleNodes[iSampleNodes];
+		int currentCPU = globalNodeToCpuMap.find(currentGlobalNode)->second;
+		if (thisCPU == currentCPU) {
+			int iSubDomain = globalNodeToLocSubDomainsMap.find(currentGlobalNode)->second;
+			int iLocalNode = globalNodeToLocalNodesMap.find(currentGlobalNode)->second;
+			for (int iDim = 0; iDim < dim; ++iDim) {
+				SubDomainData<dim> locValue = pseudoInvRhs[iVector+iDim].subData(iSubDomain);
+				locValue[iLocalNode][iDim] = 1.0;
+			}
+		}
+		iVector += dim;
+
+		// compute part of pseudo-inverse
+		if ((iSampleNodes + 1)  % nNodesAtATime == 0  || iSampleNodes == nSampleNodes - 1) {
+
+			parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
+					nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]+nHandledVectors);
+			nHandledVectors+=numRhs;
+			nNodesAtATime = min(nNodesAtATime, nSampleNodes - iSampleNodes - 1);
+			numRhs = nNodesAtATime * dim;
+			pseudoInvRhs.resize(numRhs);
+			for (int iRhs = 0; iRhs < numRhs; ++iRhs)
+				pseudoInvRhs[iRhs] = 0.0;
+			iVector = 0;	// re-filling rhs
+		}
+	}
 
 	if (iPodBasis == 0)	// set them equal by default
 		podHatPseudoInv[1] = podHatPseudoInv[0];
