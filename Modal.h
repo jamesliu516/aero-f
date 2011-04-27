@@ -83,6 +83,7 @@ class ModalSolver {
     double dt;
     double dt0;
     double *K;
+		int podMethod;
 
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
