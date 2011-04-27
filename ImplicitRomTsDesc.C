@@ -29,6 +29,8 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
   nPod = ioData.Rob.numROB;
   dom->readPodBasis(this->input->podFile, nPod, pod);
 
+	subtractIC = ioData.Rob.subtractIC;
+
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
 
@@ -59,6 +61,22 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   int it = 0;
   int fsIt = 0;
 	updateGlobalTimeSteps(totalTimeSteps);
+
+	if (totalTimeSteps == 1 && subtractIC > 1) {
+		this->com->fprintf(stderr, "... Subtracting initial condition from reduced-order basis...\n");
+		for (int iPod = 0; iPod < nPod; ++iPod)
+			pod[iPod] -= U;
+		if (subtractIC == 2) {
+			this->com->fprintf(stderr, "... Orthogonalizing modified reduced-order basis...\n");
+			for (int iPod = 0; iPod < nPod; ++iPod) {
+				for (int jPod = 0; jPod < iPod - 1; ++jPod) {
+					pod[iPod] -= pod[jPod] * (pod[iPod] * pod[jPod]);
+				}
+				pod[iPod] *= 1.0/(pod[iPod].norm());
+			}
+		}
+
+	}
 
   Vec<double> Urom(nPod); // reduced coordinates
   Urom = 0.0; // total solution increment in ROM coordinates (the unknowns for reduced problem)

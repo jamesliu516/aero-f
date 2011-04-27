@@ -1732,7 +1732,6 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
  com->fprintf(stderr, " ... Computing %d POD vectors from %d snapshots\n", nPOD, nSnaps);
 
- podMethod = ioData->Rob.podMethod;
  if (podMethod == 0) {	// svd
 #ifdef DO_SCALAPACK
 	 VecSet<DistSVec<double, dim> > Utrue(nSnaps, domain.getNodeDistInfo());
@@ -1784,8 +1783,8 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   nconv = podEigProb.FindEigenvectors();
   modalTimer->addEigSolvTime(t0);
 
-  com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, nSnaps);
-  outputPODVectors(podEigProb, snaps, nPOD, nSnaps);
+	com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, nSnaps);
+	outputPODVectors(podEigProb, snaps, nPOD, nSnaps);
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
@@ -1885,7 +1884,13 @@ void ModalSolver<dim>::buildGlobalPOD() {
 			--numSnaps[iData];
 	}
 
+	podMethod = ioData->Rob.podMethod;
 	int maxVecStorage = ioData->Rob.maxVecStorage;
+	if (maxVecStorage > 0 && podMethod == 1){	// eigenvalue problem
+		com->fprintf(stderr, "*** Warning: Not using limited memory POD (not implemented with eigenvalue decomposition) \n");
+		maxVecStorage = 0;
+	}
+
 	bool limitedMemorySVD = (maxVecStorage == 0 ) ? false : true;
 	if (limitedMemorySVD && maxVecStorage > nTotSnaps) {	// do not need to use limited memory algorithm
 		limitedMemorySVD = false;

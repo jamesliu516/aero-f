@@ -35,6 +35,7 @@ protected:
   FullM jac;
   
   int nPod;
+	int subtractIC;	// =1 if you subtract IC from basis
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
