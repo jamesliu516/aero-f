@@ -1598,6 +1598,7 @@ struct ROB {
   int incrementalSnapshots;
   int maxVecStorage;
   int energyOnly;
+  int pseudoInverseNodes;
 
   ROB();
   ~ROB() {}

@@ -2702,6 +2702,7 @@ ROB::ROB()
 		// 1: do incremental snapshots
 	maxVecStorage = 0;	// maximum vectors for limited memory SVD (0: typical SVD)
 	energyOnly = 0;	// if pod computation should only compute total energy of snapshots
+	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
 
 }
 
@@ -2725,6 +2726,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "IncrementalSnaps", this, &ROB::incrementalSnapshots);
   new ClassInt<ROB>(ca, "MaxVectorsSVD", this, &ROB::maxVecStorage);
   new ClassInt<ROB>(ca, "EnergyOnly", this, &ROB::energyOnly);
+  new ClassInt<ROB>(ca, "PseudoInvNodes", this, &ROB::pseudoInverseNodes);
 
 }
 
