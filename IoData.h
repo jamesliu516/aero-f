@@ -135,6 +135,8 @@ struct TransientData {
   const char *podStateRed;
   const char *wallDistanceRed;
   const char *staterom;
+  const char *error;
+  const char *dUnormAccum;
 
 // Included (MB)
   const char *velocitynorm;
@@ -1590,7 +1592,7 @@ struct ROB {
   int numROBRes;
   double sampleNodeFactor;
   int nPodGreedy;
-  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
+  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, GALERKIN = 3, POSTPROCESS = 4, PROJERROR = 5} romsolver;
 	int liftFaces;
   int normalizeSnapshots;
   int timestepWeights;

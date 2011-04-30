@@ -452,6 +452,14 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     staterom = 0;
 
+  if (iod.output.transient.error[0] != 0) {
+    error = new char[sp + strlen(iod.output.transient.error)];
+    sprintf(error, "%s%s", iod.output.transient.prefix, iod.output.transient.error);
+  }
+  else
+    error = 0;
+
+
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
     sprintf(conservation, "%s%s", iod.output.transient.prefix, iod.output.transient.conservation);
@@ -650,6 +658,7 @@ TsOutput<dim>::~TsOutput()
   delete[] heatfluxes;
   delete[] residuals;
   delete[] staterom;
+  delete[] error;
   delete[] conservation;
 
   delete[] lift;
@@ -1252,6 +1261,19 @@ void TsOutput<dim>::openAsciiFiles()
     }
     fflush(fpStateRom);
   }
+  if (error) {
+    if (it0 != 0) 
+      fpError = backupAsciiFile(error);
+    if (it0 == 0 || fpError == 0) {
+      fpError = fopen(error, "w");
+      if (!fpError) {
+	fprintf(stderr, "*** Error: could not open \'%s\'\n", error);
+	exit(1);
+      }
+      fprintf(fpError, "# TimeIteration ElapsedTime RelativeError AbsoluteError \n");
+    }
+    fflush(fpError);
+  }
   if (conservation) {
     if (it0 != 0) 
       fpConservationErr = backupAsciiFile(conservation);
@@ -1295,6 +1317,7 @@ void TsOutput<dim>::closeAsciiFiles()
   }
   if (fpResiduals) fclose(fpResiduals);
   if (fpStateRom) fclose(fpStateRom);
+  if (fpError) fclose(fpError);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
@@ -2606,6 +2629,23 @@ void TsOutput<dim>::writeStateRomToDisk(int it, double cpu, int nPod, const Vec<
 		}
     fprintf(fpStateRom, "\n");
     fflush(fpStateRom);
+  }
+
+}
+
+template<int dim>
+void TsOutput<dim>::writeErrorToDisk(const int it, const double cpu, const int nErr, const double *error)
+{
+
+  if (com->cpuNum() != 0) return;
+
+  if (fpError) {
+    fprintf(fpError, "%d %e", it, cpu);
+		for (int iErr = 0; iErr < nErr; ++iErr) {
+			fprintf(fpError, " %23.15e", error[iErr]);	// write out with high precision
+		}
+    fprintf(fpError, "\n");
+    fflush(fpError);
   }
 
 }
