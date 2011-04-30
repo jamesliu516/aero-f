@@ -22,6 +22,7 @@ class ImplicitRomTsDesc : public TsDesc<dim> {
 
 protected:
 
+	IoData *ioData;
 
   int maxItsNewton;
   double epsNewton;
@@ -42,6 +43,7 @@ protected:
 
   Vec<double> dUrom;
   Vec<double> UromTotal;
+  Vec<double> dUnormAccum;	// accumulated contributions
 
 	double target, res0;	// for Newton convergence
 
@@ -62,6 +64,7 @@ protected:
   void resetFixesTag();
   void projectVector(VecSet<DistSVec<double, dim> >&, DistSVec<double, dim> &, Vec<double> &);
   void expandVector(Vec<double> &, DistSVec<double, dim> &);
+	void savedUnormAccum();
 	virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
 

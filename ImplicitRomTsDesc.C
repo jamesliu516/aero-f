@@ -10,34 +10,37 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  TsDesc<dim>(ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
+ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource, Domain *dom) :
+  TsDesc<dim>(_ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
 
+	ioData = &_ioData;
   tag = 0;
 
-  maxItsNewton = ioData.ts.implicit.newton.maxIts;
-  epsNewton = ioData.ts.implicit.newton.eps;  
+  maxItsNewton = ioData->ts.implicit.newton.maxIts;
+  epsNewton = ioData->ts.implicit.newton.eps;  
 
   //ns = new NewtonSolver<ImplicitRomTsDesc<dim> >(this);
-  this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
+  this->timeState = new DistTimeState<dim>(*ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   ImplicitData fddata;
   fddata.mvp = ImplicitData::FD;
-  mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+  mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
 
   // read Pod Basis
-  nPod = ioData.Rob.numROB;
+  nPod = ioData->Rob.numROB;
   dom->readPodBasis(this->input->podFile, nPod, pod);
 
-	subtractIC = ioData.Rob.subtractIC;
+	subtractIC = ioData->Rob.subtractIC;
 
   MemoryPool mp;
-  this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
+  this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
 
   AJ.resize(nPod);
   dUrom.resize(nPod);
   UromTotal.resize(nPod);
 	UromTotal = 0.0;	// before any time step, it is zero
+  dUnormAccum.resize(nPod);
+	dUnormAccum = 0.0;	// before any time step, it is zero
 
 }
 
@@ -46,6 +49,20 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
 template<int dim>
 ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
+
+	// output net dUnormAccum
+	const char *dUnormAccumFile = ioData->output.transient.dUnormAccum;
+	char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
+		strlen(dUnormAccumFile)+1];
+	if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
+			ioData->output.transient.prefix, dUnormAccumFile);
+	FILE *writingFile;
+	if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
+	this->com->fprintf(writingFile, "PodCoefficient NetContribution\n");
+	for (int i = 0; i < nPod; ++i) { 
+		this->com->fprintf(writingFile, "%d %e \n", i + 1, dUnormAccum[i]);
+	}
+
   if (tag) delete tag;
 }
 
@@ -62,7 +79,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   int fsIt = 0;
 	updateGlobalTimeSteps(totalTimeSteps);
 
-	if (totalTimeSteps == 1 && subtractIC > 1) {
+	if (totalTimeSteps == 1 && subtractIC > 0) {
 		this->com->fprintf(stderr, "... Subtracting initial condition from reduced-order basis...\n");
 		for (int iPod = 0; iPod < nPod; ++iPod)
 			pod[iPod] -= U;
@@ -131,9 +148,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     }
    }	// end Newton loop
 
-
-
-
+	savedUnormAccum();
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
 
@@ -685,4 +700,11 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 	// for now, do not output on last iteration (first argument = false)
 	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
 	
+}
+template<int dim>
+void ImplicitRomTsDesc<dim>::savedUnormAccum() {
+	
+	for (int iPod = 0; iPod < nPod; ++iPod) {
+		dUnormAccum[iPod] += fabs(dUrom[iPod]);
+	}
 }

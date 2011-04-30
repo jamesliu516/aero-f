@@ -213,6 +213,8 @@ TransientData::TransientData()
   reducedjacxdurom = "";
   reducedjac = "";
   staterom = "";
+  error = "";
+  dUnormAccum = "";
 
 // Included (MB)
   velocitynorm = "";
@@ -335,6 +337,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ReducedJacxdUrom", this, &TransientData::reducedjacxdurom);
   new ClassStr<TransientData>(ca, "ReducedJac", this, &TransientData::reducedjac);
   new ClassStr<TransientData>(ca, "StateReducedCoordinates", this, &TransientData::staterom);
+  new ClassStr<TransientData>(ca, "Error", this, &TransientData::error);
+  new ClassStr<TransientData>(ca, "NetStateReducedCoordinates", this, &TransientData::dUnormAccum);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
   new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
@@ -2721,7 +2725,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
   new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 5, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4);	// PostProcess reads in pod coordinates
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 6, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
   new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);
   new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);
