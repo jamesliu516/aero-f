@@ -45,8 +45,20 @@ extern "C" int entrypoint(int argc, char **argv)
 int main(int argc, char **argv)
 #endif
 {
+  // Navy requested that AERO-F look for a specific file if no input file is provided
+  // at the command line 
+  int argc0 = argc>1 ? argc : 2;
+  char **argv0 = argc>1 ? argv : NULL;
+  if(!argv0) {
+    argv0 = new char*[2];
+    argv0[0] = new char[512];
+    argv0[1] = new char[16];
+    std::strcpy(argv0[0],argv[0]);
+    std::strcpy(argv0[1],"input.st");
+  }
+
 #ifndef CREATE_DSO
-  initCommunication(argc, argv);
+  initCommunication(argc0, argv0);
 #endif
 
   //sleep(20);
@@ -61,11 +73,15 @@ int main(int argc, char **argv)
   Communicator *com = domain.getCommunicator();
   // iodata obtains all the problem parameters from the cmd line and input file(s)
   IoData ioData(com);
-  ioData.readCmdLine(argc, argv);
+  ioData.readCmdLine(argc0, argv0);
   ioData.readCmdFile();
 
-  if(ioData.oneDimensionalInfo.maxDistance>0.0){
-    OneDimensional one(ioData,&domain);
+  if(ioData.problem.alltype==ProblemData::_ONE_DIMENSIONAL_){
+
+    double* mesh;
+    int nPts;
+    OneDimensional::load1DMesh(ioData,nPts,mesh);
+    OneDimensional one(nPts, mesh, ioData,&domain);
     one.spatialSetup();
     one.stateInitialization(ioData.oneDimensionalInfo);
     one.totalTimeIntegration();
@@ -94,6 +110,12 @@ int main(int argc, char **argv)
 #ifndef CREATE_DSO
   closeCommunication();
 #endif
+
+  if(argc<=1) {
+    delete [] argv0[0];
+    delete [] argv0[1];
+    delete [] argv0;
+  }
 
   return 0;
 

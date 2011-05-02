@@ -302,6 +302,39 @@ public:
 
 //------------------------------------------------------------------------------
 
+class FluxFcnFDJacHLLCSA3D : public FluxFcnFD<6> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+ public:
+
+  FluxFcnFDJacHLLCSA3D(IoData &ioData, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<6>(vf, tp) { sprec.setup(ioData), gamma = gg; }
+  ~FluxFcnFDJacHLLCSA3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLCSA3D : public FluxFcnBase {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnApprJacHLLCSA3D(IoData &ioData, int rs, double gg, VarFcnBase* vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+  ~FluxFcnApprJacHLLCSA3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
 class FluxFcnWallSA3D : public FluxFcnFD<6> {
 
 public:
@@ -483,6 +516,38 @@ public:
   FluxFcnApprJacHLLEKE3D(IoData &ioData, int rs, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
     FluxFcnBase(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
   ~FluxFcnApprJacHLLEKE3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnFDJacHLLCKE3D : public FluxFcnFD<7> {
+
+ protected:
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+
+  FluxFcnFDJacHLLCKE3D(IoData &ioData, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnFD<7>(vf, tp) { sprec.setup(ioData), gamma = gg; }
+  ~FluxFcnFDJacHLLCKE3D() {}
+
+};
+
+//------------------------------------------------------------------------------
+
+class FluxFcnApprJacHLLCKE3D : public FluxFcnBase {
+
+ protected:
+  int rshift;
+  double gamma;
+  SpatialLowMachPrec sprec;
+
+public:
+  FluxFcnApprJacHLLCKE3D(IoData &ioData, int rs, double gg, VarFcnBase *vf, Type tp = CONSERVATIVE) :
+    FluxFcnBase(vf, tp) { sprec.setup(ioData), rshift = rs; gamma = gg; }
+  ~FluxFcnApprJacHLLCKE3D() {}
 
 };
 

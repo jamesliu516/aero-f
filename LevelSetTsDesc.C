@@ -82,7 +82,7 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   // initalize solution
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData,&fluidSelector,this->varFcn);
   fluidSelector.initializeFluidIds(Phi, LS->Phinm1, LS->Phinm2); //setup fluidId in fluidSelector
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
@@ -224,6 +224,8 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)

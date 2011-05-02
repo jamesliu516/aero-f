@@ -246,16 +246,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
   // Initialize level-sets 
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
-  if(this->input->levelsets[0] == 0) // init
-    fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
-  else //restart
-    fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  //if(this->input->levelsets[0] == 0) // init
+  //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
+  //else //restart
+  fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
 
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
@@ -442,8 +442,10 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
-  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n());
+  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)

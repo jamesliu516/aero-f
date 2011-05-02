@@ -15,6 +15,50 @@ class Communicator;
 
 //------------------------------------------------------------------------------
 
+template<class DataType>
+class ObjectMap {
+
+public:
+
+  map<int, DataType *> dataMap;
+  void setup(const char *name, ClassAssigner *);
+  ~ObjectMap()
+    {
+      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
+	{
+	  delete it->second;
+	}
+    }
+};
+
+//------------------------------------------------------------------------------
+struct FluidRemapData {
+
+  FluidRemapData();
+  ~FluidRemapData() {}
+  
+  int oldID,newID;
+
+  void setup(const char *, ClassAssigner * = 0);
+
+  Assigner *getAssigner();
+};
+
+struct OneDimensionalInputData {
+
+  OneDimensionalInputData();
+  ~OneDimensionalInputData() {}
+  const char* file;
+  double x0,y0,z0;
+
+  ObjectMap<FluidRemapData> fluidRemap;
+
+  Assigner *getAssigner();
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+  
+
 struct InputData {
 
   const char *prefix;
@@ -33,10 +77,11 @@ struct InputData {
   const char *podFile2;
   const char *strModesFile;
   const char *embeddedSurface;
-  const char *oneDimensionalSolution;
 
 // Included (MB)
   const char *shapederivatives;
+
+  ObjectMap< OneDimensionalInputData > oneDimensionalInput;
 
   InputData();
   ~InputData() {}
@@ -128,12 +173,11 @@ struct TransientData {
 
   const char *sparseGrid;
 
-  const char *oneDimensionalRes;
-
   int frequency;
   double x0, y0, z0;
   double length;
   double surface;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   TransientData();
   ~TransientData() {}
@@ -156,6 +200,7 @@ struct RestartData {
   const char *data;
 
   int frequency;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   RestartData();
   ~RestartData() {}
@@ -210,10 +255,10 @@ struct ProblemData {
 		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
 		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
-		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-                  _SPARSEGRIDGEN_ = 22} alltype;
+		_UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
+		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
+		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -277,7 +322,7 @@ struct BcsFreeStreamData {
   enum Type {EXTERNAL = 0, INTERNAL = 1} type;
 
   double mach;
-	double velocity;
+  double velocity;
   double density;
   double pressure;
   double temperature;
@@ -502,24 +547,6 @@ struct VolumeData  {
   VolumeData();
   Assigner *getAssigner();
 
-};
-
-//------------------------------------------------------------------------------
-
-template<class DataType>
-class ObjectMap {
-
-public:
-
-  map<int, DataType *> dataMap;
-  void setup(const char *name, ClassAssigner *);
-  ~ObjectMap()
-    {
-      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
-	{
-	  delete it->second;
-	}
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -772,6 +799,7 @@ struct ProgrammedBurnData {
   double factorB;
   double factorS;
   int ignited;
+  int limitPeak;
   
   ProgrammedBurnData();
   ~ProgrammedBurnData();
@@ -797,6 +825,7 @@ struct SphereData {
 struct PrismData {
 
   double cen_x, cen_y, cen_z, w_x,w_y,w_z;
+  double X0,Y0,Z0,X1,Y1,Z1;
   int fluidModelID;
   InitialConditions initialConditions;
 
@@ -899,6 +928,7 @@ struct MultiFluidData {
   int frequency;
   double eps;
   int outputdiff;
+  double jwlRelaxationFactor;
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
@@ -974,7 +1004,9 @@ struct SchemeData {
   double xic;
   double eps;
 
-  SchemeData();
+  int allowsFlux;
+
+  SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 
   void setup(const char *, ClassAssigner * = 0);
@@ -1716,11 +1748,14 @@ struct OneDimensionalInfo {
   double maxDistance; //mesh goes from 0 to maxDistance
   
   int numPoints; //mesh has numPoints elements
+  int fluidId2;
 
   double interfacePosition;
 
-  double density1, velocity1, pressure1;
-  double density2, velocity2, pressure2;
+  double density1, velocity1, pressure1,temperature1;
+  double density2, velocity2, pressure2,temperature2;
+
+  ProgrammedBurnData programmedBurn;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}
@@ -1736,6 +1771,25 @@ struct ImplosionSetup {
   void setup(const char *);
 };
 
+struct MultigridInfo {
+ 
+  MultigridInfo();
+  ~MultigridInfo() {}
+  void setup(const char *);
+
+  const char* fineMesh;
+  const char* coarseMesh;
+
+  const char* fineDec;
+  const char* coarseDec;
+
+  const char* packageFile;
+  const char* collectionFile;
+
+  double radius0;
+  double radiusf;
+  int threshold;
+};
 //------------------------------------------------------------------------------
 
 class IoData {
@@ -1775,6 +1829,8 @@ public:
   OneDimensionalInfo oneDimensionalInfo;
   ImplosionSetup implosion;
 
+  MultigridInfo multigrid;
+
 public:
 
   IoData(Communicator *);
@@ -1808,6 +1864,8 @@ public:
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
   int checkInputValuesEmbeddedFramework();
   void printDebug();
+
+  void setupOneDimensional();
 
 };
 
