@@ -145,10 +145,10 @@ void FloodFill::generateSubDToProcessorMap(Domain& domain,Communicator& com)
     int number_global_sub=-1;
 #pragma omp parallel for
     for(int iSub=0;iSub<domain.getNumLocSub();++iSub)
-	number_global_sub=std::max(number_global_sub,(domain.getSubDomain())[iSub]->getGlobSubNum());
+	number_global_sub=std::max(number_global_sub,(domain.getSubDomain())[iSub]->getGlobSubNum()+1);
 
     PHYSBAM_MPI_UTILITIES::synchronizeMaxNumber(com,number_global_sub);
-    nGlobalSubDomains=GLOBAL_SUBD_ID(number_global_sub+1);
+    nGlobalSubDomains=GLOBAL_SUBD_ID(number_global_sub);
 
     SubDomain **subD = domain.getSubDomain();
     subDomainToProcessorMap = new int[number_global_sub];

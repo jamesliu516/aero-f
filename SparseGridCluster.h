@@ -26,7 +26,7 @@ public:
   void readFromFile(const int numFiles, const double *refIn, const double *refOut, 
                     const char *filename, int outputRangeFlag=0);
   
-  void interpolate(const int numRes, double **coord, double **res);
+  int interpolate(const int numRes, double **coord, double **res);
   void interpolateGradient(const int numRes, double **coord, double **res);
 };
 #ifdef TEMPLATE_FIX

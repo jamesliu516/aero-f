@@ -6,6 +6,8 @@
 #include "Domain.h"
 #include "TimeData.h"
 
+#include <OneDimensionalSolver.h>
+
 using namespace std;
 
 //-------------------------------------------------------------------------
@@ -49,7 +51,8 @@ LevelSet<dimLS>::~LevelSet()
 template<int dimLS>
 template<int dim>
 void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                     DistSVec<double,dimLS> &Phi, IoData &iod)
+			    DistSVec<double,dimLS> &Phi, IoData &iod, FluidSelector* fs,
+			    VarFcn* vf)
 {
 
   map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
@@ -69,8 +72,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
   Phi0 = -1.0;
   setupPhiVolumesInitialConditions(iod, Phi0);
-  if(iod.input.oneDimensionalSolution[0] != 0)
-    setupPhiOneDimensionalSolution(iod,X,Phi0);
+  setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
   primitiveToConservative(Phi0, Phi, U);
 
@@ -144,69 +146,13 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
-void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+template<int dim>
+void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi, FluidSelector* fs, VarFcn* vf){
 
-  // read 1D solution
-  fstream input;
-  int sp = strlen(iod.input.prefix) + 1;
-  char *filename = new char[sp + strlen(iod.input.oneDimensionalSolution)];
-  sprintf(filename, "%s%s", iod.input.prefix, iod.input.oneDimensionalSolution);
-  input.open(filename, fstream::in);
-  if (!input.is_open()) {
-    cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
-    exit(1);
-  }
-
-  input.ignore(256,'\n');
-  input.ignore(2,' ');
-  int numPoints = 0;
-  input >> numPoints;
-  cout <<"number of points in 1D solution is " << numPoints <<endl;
-  double x_1D[numPoints];
-  double v_1D[numPoints][4];/* rho, u, p, phi*/
-
-  for(int i=0; i<numPoints; i++) {
-    input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
-    x_1D[i]    /= iod.ref.rv.length;
-    v_1D[i][0] /= iod.ref.rv.density;
-    v_1D[i][1] /= iod.ref.rv.velocity;
-    v_1D[i][2] /= iod.ref.rv.pressure;
-    v_1D[i][3] /= iod.ref.rv.length;
-  }
-
-  input.close();
-
-  // interpolation assuming 1D solution is centered on bubble_coord0
-  double bubble_x0 = 0.0;
-  double bubble_y0 = 0.0;
-  double bubble_z0 = 0.0;
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    SVec<double,dimLS> &phi(Phi(iSub));
-    SVec<double, 3> &x(X(iSub));
-
-    double localRadius; int np;
-    double localAlpha;
-    for(int i=0; i<phi.size(); i++) {
-      localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
-      np = static_cast<int>(floor(localRadius/x_1D[numPoints-1]*(numPoints-1)));
-
-      if(np>numPoints-1){
-      //further away from the max radius of the 1D simulation, take last value
-      //<==> constant extrapolation
-        np = numPoints-1;
-        phi[i][0] = v_1D[np][3];
-      }else{
-      //linear interpolation
-        localAlpha = (localRadius-x_1D[np])/(x_1D[np+1]-x_1D[np]);
-        phi[i][0]  = localAlpha*v_1D[np][3] + (1.0-localAlpha)*v_1D[np+1][3];
-      }
-      // assumes that the fluidTag==0 is outside flow
-      // and that the fluidTag==1 is the inside flow!!!
-      
-    }
-  }
-
+  OneDimensional::read1DSolution(iod, U, 
+				 &Phi, fs,
+				 vf, X,
+				 OneDimensional::ModePhi);
 }
 
 static inline double min(double a,double b, double c, double d, double e, double f) {

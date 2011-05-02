@@ -24,9 +24,15 @@ template<class VecType, class MvpOp, class PrecOp, class IoOp, class ScalarT = d
 template<int dim, int dimLS>
 class ImplicitLevelSetTsDesc : public LevelSetTsDesc<dim, dimLS> {
 
+
 public:
   typedef DistSVec<double,dimLS> PhiVecType;
  protected: 
+
+  DistSVec<double,dim> U0,Fold;
+  
+  int numBlur;
+  
   DistSVec<bool,2> *tag;
 
   MatVecProdMultiPhase<dim,dimLS> *mvp;

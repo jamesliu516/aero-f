@@ -17,6 +17,8 @@ template<int dim>
 void FluidSelector::reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin)
 {
   getFluidId(*fluidId, Phin, &fsId);
+  //if (fluidIdnm1) getFluidId(*fluidIdm1, Phinm1, &fsId);
+  //if(fluidIdnm2) getFluidId(*fluidIdm2, Phinm1, &fsId);
   *fluidIdn = *fluidId;
   if(fluidIdnm1) *fluidIdnm1 = *fluidId;
   if(fluidIdnm2) *fluidIdnm2 = *fluidId;
@@ -47,8 +49,8 @@ void FluidSelector::getFluidId(DistSVec<double,dim> &Phi){
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
 	    break;
 	  }
-	  else
-	    tag[iNode] = i+1; break;
+	  else 
+	    {  tag[iNode] = i+1; break; }
 	}
       }
     }
@@ -70,10 +72,23 @@ void FluidSelector::getFluidId(int &tag, double *phi){
 template<int dim>
 void FluidSelector::getFluidId(Vec<int> &tag, SVec<double,dim> &phi){
   assert(dim<=numPhases-1);
+  int burnTag;
   for(int iNode=0; iNode<phi.size(); iNode++){
     tag[iNode] = 0;
-    for(int i=0; i<dim; i++)
-      if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
+    for(int i=0; i<dim; i++) {
+      if(phi[iNode][i]>0.0) {
+	if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
+			       programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
+	  if (programmedBurn->nodeInside(burnTag,iNode))
+	    tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
+	  else
+	    tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
+	  break;
+	}
+	else
+	  { tag[iNode] = i+1; break; }
+      }
+    }
   }
 }
 

@@ -23,7 +23,7 @@
 template<int dim, int dimLS>
 ImplicitLevelSetTsDesc<dim,dimLS>::
 ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom)
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo()),Fold(this->getVecInfo())
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
@@ -68,7 +68,6 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc->exportMemory(&mp);
   
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
-
 }
 
 //------------------------------------------------------------------------------
@@ -152,6 +151,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   int its;
 
   double t0 = this->timer->getTime();
+
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
   if(!(this->interfaceType==MultiFluidData::FSF)){
