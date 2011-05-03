@@ -30,6 +30,19 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   nPod = ioData->Rob.numROB;
   dom->readPodBasis(this->input->podFile, nPod, pod);
 
+
+	char *snapRefSolFile = this->input->snapRefSolutionFile;
+	FILE *inRSFP = fopen(snapRefSolFile, "r");
+	if (inRSFP){  
+		DistSVec<double,dim> referenceSolution(dom->getNodeDistInfo());
+		this->com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+		dom->readVectorFromFile(snapRefSolFile, 0, 0, referenceSolution);
+		for (int iPod = 0; iPod < nPod; ++iPod) {
+			pod[iPod] -= referenceSolution;
+		}
+	}
+
+
 	subtractIC = ioData->Rob.subtractIC;
 
   MemoryPool mp;
@@ -52,15 +65,18 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 
 	// output net dUnormAccum
 	const char *dUnormAccumFile = ioData->output.transient.dUnormAccum;
-	char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
-		strlen(dUnormAccumFile)+1];
-	if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
-			ioData->output.transient.prefix, dUnormAccumFile);
-	FILE *writingFile;
-	if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
-	this->com->fprintf(writingFile, "PodCoefficient NetContribution\n");
-	for (int i = 0; i < nPod; ++i) { 
-		this->com->fprintf(writingFile, "%d %e \n", i + 1, dUnormAccum[i]);
+	if (strcmp(dUnormAccumFile, "") != 0)  {
+		char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
+			strlen(dUnormAccumFile)+1];
+		if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
+				ioData->output.transient.prefix, dUnormAccumFile);
+		FILE *writingFile;
+		if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
+		this->com->fprintf(writingFile, "PodCoefficient NetContribution\n");
+		for (int i = 0; i < nPod; ++i) { 
+			this->com->fprintf(writingFile, "%d %e \n", i + 1, dUnormAccum[i]);
+		}
+		delete [] outdUnormAccumFile;
 	}
 
   if (tag) delete tag;
@@ -78,22 +94,6 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
   int it = 0;
   int fsIt = 0;
 	updateGlobalTimeSteps(totalTimeSteps);
-
-	if (totalTimeSteps == 1 && subtractIC > 0) {
-		this->com->fprintf(stderr, "... Subtracting initial condition from reduced-order basis...\n");
-		for (int iPod = 0; iPod < nPod; ++iPod)
-			pod[iPod] -= U;
-		if (subtractIC == 2) {
-			this->com->fprintf(stderr, "... Orthogonalizing modified reduced-order basis...\n");
-			for (int iPod = 0; iPod < nPod; ++iPod) {
-				for (int jPod = 0; jPod < iPod - 1; ++jPod) {
-					pod[iPod] -= pod[jPod] * (pod[iPod] * pod[jPod]);
-				}
-				pod[iPod] *= 1.0/(pod[iPod].norm());
-			}
-		}
-
-	}
 
   Vec<double> Urom(nPod); // reduced coordinates
   Urom = 0.0; // total solution increment in ROM coordinates (the unknowns for reduced problem)
