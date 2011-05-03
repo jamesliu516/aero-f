@@ -1528,7 +1528,8 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 
 	// generate pseudoInvRhs in chunks
 
-	int nNodesAtATime = ioData->Rob.pseudoInverseNodes;	// TODO: make this an input
+	int nNodesAtATime = ioData->Rob.pseudoInverseNodes;	
+	bool lastTime = false;
 	nNodesAtATime = min(nSampleNodes,nNodesAtATime);	// fix if needed
 	int numRhs = nNodesAtATime * dim;
 
@@ -1558,12 +1559,16 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 		iVector += dim;
 
 		// compute part of pseudo-inverse
-		if ((iSampleNodes + 1)  % nNodesAtATime == 0  || iSampleNodes == nSampleNodes - 1) {
+		if (((iSampleNodes + 1)  % nNodesAtATime == 0 && !lastTime) || iSampleNodes == nSampleNodes - 1) {
 
 			parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
 					nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]+nHandledVectors);
 			nHandledVectors+=numRhs;
-			nNodesAtATime = min(nNodesAtATime, nSampleNodes - iSampleNodes - 1);
+			if (nNodesAtATime > nSampleNodes - iSampleNodes - 1) {
+				nNodesAtATime = nSampleNodes - iSampleNodes - 1;
+				lastTime = true;
+			}
+
 			numRhs = nNodesAtATime * dim;
 			pseudoInvRhs.resize(numRhs);
 			for (int iRhs = 0; iRhs < numRhs; ++iRhs)
