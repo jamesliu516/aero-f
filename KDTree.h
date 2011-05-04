@@ -5,6 +5,7 @@
 #pragma once
 
 #include <list>
+#include <cstring>
 
 #include <float.h>
 
