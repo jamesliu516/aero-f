@@ -54,8 +54,12 @@ IF(UNIX)
   MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME} ".")
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
-    FIND_LIBRARY(ARPACKLIB NAMES arpack 
-       PATHS  . /usr/lib /usr/local/lib)
+    IF(NOT WITH_ARPACK EQUAL 0)
+      FIND_LIBRARY(ARPACKLIB NAMES arpack 
+         PATHS  . /usr/lib /usr/local/lib)
+    ELSE(NOT WITH_ARPACK EQUAL 0)
+      SET(ARPACKLIB "ARPACKLIB-NOTFOUND")
+    ENDIF(NOT WITH_ARPACK EQUAL 0)
 
     SET(DO_MODAL 0)
     IF(ARPACKLIB AND LAPACK_FOUND)
@@ -68,12 +72,21 @@ IF(UNIX)
     ENDIF(ARPACKLIB AND LAPACK_FOUND)
 
     SET(CMAKE_FIND_LIBRARY_PREFIXES "lib" "")
-    FIND_LIBRARY(SCALAPACKLIB NAMES scalapack scalapack-openmpi
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    IF(NOT WITH_SCALAPACK EQUAL 0)
+      FIND_LIBRARY(SCALAPACKLIB NAMES scalapack scalapack-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    ELSE(NOT WITH_SCALAPACK EQUAL 0)
+      SET(SCALAPACKLIB "SCALAPACKLIB-NOTFOUND")
+    ENDIF(NOT WITH_SCALAPACK EQUAL 0)
+    IF(NOT WITH_BLACS EQUAL 0)
+      FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+      FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    ELSE(NOT WITH_BLACS EQUAL 0)
+      SET(BLACSLIB "BLACSLIB-NOTFOUND")
+      SET(BLACSCLIB "BLACSCLIB-NOTFOUND")
+    ENDIF(NOT WITH_BLACS EQUAL 0)
 
     #SET(USE_SCALAPACK 0)
     IF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
@@ -298,8 +311,7 @@ SET(INC_DIR .)
 ##############################
 # For the embedded framework #
 ##############################
-SET (DO_EMBEDDED 1)
-if (DO_EMBEDDED)
+if (NOT WITH_PHYSBAM EQUAL 0)
 
   FIND_PACKAGE(Boost 1.19.0 REQUIRED)
   if(Boost_FOUND)
@@ -379,9 +391,12 @@ if (DO_EMBEDDED)
               IntersectorPhysBAM/Mpi_Utilities.C)
   TARGET_LINK_LIBRARIES(Intersector physbam)
 
+  SET (DO_EMBEDDED 1)
   ADD_DEFINITIONS(-DDO_EMBEDDED)
   SET (EXTRALIBRARIES ${EXTRALIBRARIES} Intersector)
-ENDIF (DO_EMBEDDED)
+ELSE (NOT WITH_PHYSBAM EQUAL 0)
+  SET (DO_EMBEDDED 0)
+ENDIF (NOT WITH_PHYSBAM EQUAL 0)
 ##############################
 
 ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
