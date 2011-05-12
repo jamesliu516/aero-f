@@ -210,7 +210,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (VWeights) delete VWeights;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
-  if (Fs) delete[] Fs;
+  //PJSA if (Fs) delete[] Fs;
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();

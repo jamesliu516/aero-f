@@ -3565,7 +3565,11 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
                                      DistLevelSetStructure *distLSS,
                                      DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
 {
-  double subFs[numLocSub][sizeFs][3];
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
@@ -3592,6 +3596,9 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
 }
 
 //-----------------------------------------------------------------------------
@@ -3604,7 +3611,11 @@ void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, D
 					    DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints, 
 					    PostFcn *postFcn, DistNodalGrad<dim, double> *ngrad)
 {
-  double subFs[numLocSub][sizeFs][3];
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
   Vec<GhostPoint<dim>*> *gp=0;
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -3626,6 +3637,9 @@ void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, D
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
 }
 
 //-------------------------------------------------------------------------------
@@ -3635,7 +3649,11 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
                                          double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
                                          DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
 {
-  double subFs[numLocSub][sizeFs][3];
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
@@ -3662,6 +3680,9 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
 }
 
 //-------------------------------------------------------------------------------
@@ -3672,7 +3693,11 @@ void Domain::computeRecSurfBasedForceLoadViscous(int forceApp, int orderOfAccura
 						 double pInfty, DistSVec<double,dim> &V, 
 						 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
 {
-  double subFs[numLocSub][sizeFs][3];
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
   Vec<GhostPoint<dim>*> *gp;
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -3693,6 +3718,9 @@ void Domain::computeRecSurfBasedForceLoadViscous(int forceApp, int orderOfAccura
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
 }
 
 //-------------------------------------------------------------------------------
@@ -3704,7 +3732,11 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
 					     DistSVec<double,dim> &V, 
 					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
 {
-  double subFs[numLocSub][sizeFs][3];
+  //PJSA double subFs[numLocSub][sizeFs][3];
+  typedef double array3d[3];
+  array3d **subFs = new array3d * [numLocSub];
+  for(int i=0; i<numLocSub; ++i) subFs[i] = new array3d[sizeFs];
+
   Vec<GhostPoint<dim>*> *gp=0;
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -3726,6 +3758,9 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
       Fs[is][1] += subFs[iSub][is][1];
       Fs[is][2] += subFs[iSub][is][2];
     }
+
+  for(int i=0; i<numLocSub; ++i) delete [] subFs[i];
+  delete [] subFs;
 }
 
 //-------------------------------------------------------------------------------
