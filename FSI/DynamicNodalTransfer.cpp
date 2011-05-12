@@ -326,12 +326,14 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
 EmbeddedStructure::~EmbeddedStructure()
 {
+/* PJSA
   if(X)         delete[] X;
   if(Tria)      delete[] Tria;
   if(U)         delete[] U;
   if(Udot)      delete[] Udot;
   if(UandUdot)  delete[] UandUdot;
   if(F)         delete[] F;
+*/
   if(structExc) delete structExc;  
   delete[] meshFile;
   delete[] matcherFile;
