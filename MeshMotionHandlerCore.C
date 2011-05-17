@@ -1458,7 +1458,7 @@ void EmbeddedMeshMotionHandler::setup(double *maxTime)
 double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X, double *tmax)
 {
-  com->fprintf(stderr,"<AERO-F> I'm in Step 1!\n");
+//  com->fprintf(stderr,"<AERO-F> I'm in Step 1!\n");
 
   Timer *timer;
   timer = domain->getTimer();
@@ -1615,7 +1615,7 @@ void EmbeddedMeshMotionHandler::step1ForC0XFEM3D(bool *lastIt, int it, double t,
 double EmbeddedMeshMotionHandler::updateStep2(bool *lastIt, int it, double t,
                                               DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
-  com->fprintf(stderr,"<AERO-F> I'm in Step 2!\n");
+//  com->fprintf(stderr,"<AERO-F> I'm in Step 2!\n");
 
   Timer *timer;
   timer = domain->getTimer();

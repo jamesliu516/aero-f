@@ -229,7 +229,7 @@ bool CrackingSurface::hasCracked(int trId)
 
 //------------------------------------------------------------------------------
 
-double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracked)
+double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracked, bool debug)
 {
   if(trId>=nUsedTrias) {
     fprintf(stderr,"ERROR: Unable to access Triangle %d of the embedded surface(%d)!\n", trId+1, nUsedTrias);
@@ -238,6 +238,9 @@ double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracke
 
   if(!cracked[tria2quad[trId][0]]) { //no cracking :)
     if(hasCracked) *hasCracked = false;
+    if(debug) 
+      fprintf(stderr,"--- Debug info: trId = %d, tria2quad = %d/%d, cracked = %d, phi = 1.0.\n", 
+              trId, tria2quad[trId][0]+1, tria2quad[trId][1], *hasCracked);           
     return 1.0;
   }
 
@@ -251,10 +254,16 @@ double CrackingSurface::getPhi(int trId, double xi1, double xi2, bool* hasCracke
   switch (tria2quad[trId][1]) {
     case 0: // This triangle is ABC
       xi3 = 1.0 - xi1 - xi2;
-//      fprintf(stderr,"Now in getPhi! input:(%d,%e,%e), Quad %d, phi = %e\n", trId+1, xi1, xi2, tria2quad[trId][0]+1, phi[0]*xi1*(1.0-xi3) + phi[1]*(1.0-xi1)*(1.0-xi3) + phi[2]*(1.0-xi1)*xi3 + phi[3]*xi1*xi3);
+      if(debug)
+        fprintf(stderr,"--- Now in getPhi! input:(%d,%e,%e), Quad %d/%d, phi = (%e %e %e %e), phix = %e\n", 
+                trId+1, xi1, xi2, tria2quad[trId][0]+1, tria2quad[trId][1], phi[0], phi[1], phi[2], phi[3],
+                phi[0]*xi1*(1.0-xi3) + phi[1]*(1.0-xi1)*(1.0-xi3) + phi[2]*(1.0-xi1)*xi3 + phi[3]*xi1*xi3);
       return phi[0]*xi1*(1.0-xi3) + phi[1]*(1.0-xi1)*(1.0-xi3) + phi[2]*(1.0-xi1)*xi3 + phi[3]*xi1*xi3;
     case 1: // This triangle is ACD
-//      fprintf(stderr,"Now in getPhi! input:(%d,%e,%e), Quad %d, phi = %e\n", trId+1, xi1, xi2, tria2quad[trId][0]+1, phi[0]*xi1*(1.0-xi2) + phi[1]*xi1*xi2 + phi[2]*(1.0-xi1)*xi2 + phi[3]*(1.0-xi1)*(1.0-xi2));
+      if(debug)
+        fprintf(stderr,"--- Now in getPhi! input:(%d,%e,%e), Quad %d/%d, phi = (%e %e %e %e), phix = %e\n", 
+                trId+1, xi1, xi2, tria2quad[trId][0]+1, tria2quad[trId][1], phi[0], phi[1], phi[2], phi[3],
+                phi[0]*xi1*(1.0-xi2) + phi[1]*xi1*xi2 + phi[2]*(1.0-xi1)*xi2 + phi[3]*(1.0-xi1)*(1.0-xi2));
       return phi[0]*xi1*(1.0-xi2) + phi[1]*xi1*xi2 + phi[2]*(1.0-xi1)*xi2 + phi[3]*(1.0-xi1)*(1.0-xi2);
     default:
       fprintf(stderr,"Software bug in the cracking surface...\n");

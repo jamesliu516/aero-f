@@ -98,10 +98,11 @@ SaveOldState()
 // HasCloseTriangle
 //#####################################################################
 template<class T> bool PhysBAMInterface<T>::
-HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV max_corner,int* index,bool* is_occluded,ARRAY<int>* cand)
+HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV max_corner,int* index,bool* is_occluded,ARRAY<int>* cand) 
 {
     SubDInterface<T>& sub = SubD(subD);
     ARRAY<int> candidates;
+    VECTOR<T,3> weights;
     RANGE<TV> bounding_box(min_corner, max_corner);
     sub.triangle_hierarchy->Intersection_List(bounding_box,candidates,thickness_over_two);
 
@@ -109,9 +110,20 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
         if(index) *index = sub.candidates.Append(candidates);
         for(int i=1;i<=candidates.Size();++i) sub.next_scope.insert(sub.scope(candidates(i)));
         if(cand) for(int i=1;i<=candidates.Size();++i) cand->Append(sub.scope(candidates(i)));
-        if(is_occluded){*is_occluded=false;
-            for(int t=1;t<=candidates.Size() && !*is_occluded;++t) *is_occluded=(sub.triangle_list(candidates(t)).Point_Inside_Triangle(position,thickness_over_two));}
-        return true;}
+        if(is_occluded){
+            *is_occluded=false;
+            for(int t=1;t<=candidates.Size() && !*is_occluded;++t) 
+                if(sub.triangle_list(candidates(t)).Point_Inside_Triangle(position,thickness_over_two)) //occluded
+                    if(!surface_levelset) //cracking not considered.
+                        *is_occluded=true;
+                    else {  //check if occluded in the active part of inactive part.
+                        weights = sub.triangle_list(candidates(t)).Barycentric_Coordinates(position);
+                        if(surface_levelset->getPhi(sub.scope(candidates(t))-1,weights.x,weights.y) > (T)0)
+                            *is_occluded=true;
+                    }
+        }
+        return true;
+    }
     else return false;
 }
 //#####################################################################
@@ -156,36 +168,45 @@ Assign_Intersection_Information(const int triangleID,const T alpha,const VECTOR<
 }
 
 template<class T> void
-Ray_Intersection(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>& candidates,const T thickness_over_two,RAY<VECTOR<T,3> >& ray,VECTOR<T,3>& weights, LocalLevelSet *cs)
+Ray_Intersection(const ARRAY<int> &scope, const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>& candidates,
+                 const T thickness_over_two,RAY<VECTOR<T,3> >& ray,VECTOR<T,3>& weights, LocalLevelSet *cs)
 {
     bool intersected=false;
     for(int t=1;t<=candidates.m;++t){
-        RAY<VECTOR<T,3> > ray_temp=ray;bool intersected_temp=intersected;
+        RAY<VECTOR<T,3> > ray_temp=ray;
+        bool intersected_temp=intersected;
         if(INTERSECTION::Intersects(ray,triangle_list(candidates(t)),thickness_over_two)) {
-            ray.aggregate_id=candidates(t);intersected=true;
-            if(cs){VECTOR<T,3> local_weights;
+            ray.aggregate_id=candidates(t);
+            intersected=true;
+            if(cs){
+                VECTOR<T,3> local_weights;
                 triangle_list(ray.aggregate_id).Closest_Point(ray.Point(ray.t_max),local_weights);
-		if(cs->getPhi(ray.aggregate_id-1,local_weights.x,local_weights.y) <= (T)0){
+		if(cs->getPhi(scope(ray.aggregate_id)-1,local_weights.x,local_weights.y) <= (T)0){
 		    ray.Restore_Intersection_Information(ray_temp);
 		    intersected=intersected_temp;}}}}
-    if(intersected) triangle_list(ray.aggregate_id).Closest_Point(ray.Point(ray.t_max),weights);
+    if(intersected) 
+        triangle_list(ray.aggregate_id).Closest_Point(ray.Point(ray.t_max),weights);
 }
 
 template<class T> bool
-Point_Inside_Triangle(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const VECTOR<T,3>& point,const T thickness_over_two, int& triangleID, VECTOR<T,3>& weights,
-		LocalLevelSet* cs, const ARRAY<int>* candidates=0)
+Point_Inside_Triangle(const ARRAY<int> &scope, const ARRAY<TRIANGLE_3D<T> >& triangle_list,const VECTOR<T,3>& point,
+                      const T thickness_over_two, int& triangleID, VECTOR<T,3>& weights, LocalLevelSet* cs, const ARRAY<int>* candidates=0)
 {
     if(candidates){
         for(int i=1;i<=candidates->Size();++i) if(triangle_list((*candidates)(i)).Point_Inside_Triangle(point,thickness_over_two)){
             int triangleID_temp=triangleID;
-            triangleID=(*candidates)(i);weights=triangle_list((*candidates)(i)).Barycentric_Coordinates(point);
-            if(cs && cs->getPhi(triangleID-1,weights.x,weights.y) <= (T)0){triangleID=triangleID_temp;}
+            triangleID=(*candidates)(i);
+            weights=triangle_list((*candidates)(i)).Barycentric_Coordinates(point);
+            if(cs && cs->getPhi(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
+              triangleID=triangleID_temp;}
 	    else return true;}}
     else {
         for(int i=1;i<=triangle_list.Size();++i) if(triangle_list(i).Point_Inside_Triangle(point,thickness_over_two)){
             int triangleID_temp=triangleID;
-            triangleID=i;weights=triangle_list(i).Barycentric_Coordinates(point);
-            if(cs && cs->getPhi(triangleID-1,weights.x,weights.y) <= (T)0){triangleID=triangleID_temp;}
+            triangleID=i;
+            weights=triangle_list(i).Barycentric_Coordinates(point);
+            if(cs && cs->getPhi(scope(triangleID)-1,weights.x,weights.y) <= (T)0){
+              triangleID=triangleID_temp;}
 	    else return true;}}
     return false;
 }
@@ -202,40 +223,70 @@ Intersection_Helper(const ARRAY<TRIANGLE_3D<T> >& triangle_list,const ARRAY<int>
     TV weights(0,0,0);
 
     if(!start_node_occluded) // The usual case
-        Ray_Intersection(triangle_list,candidates,thickness_over_two,intersection_ray,weights, cs);
+        Ray_Intersection(scope,triangle_list,candidates,thickness_over_two,intersection_ray,weights, cs);
     else{ // if(start_node_occluded)
         int triangleID=-10;
         modified_thickness_over_two=thickness_over_two;
         for(int number_of_attempts=0;number_of_attempts<PERMITTED_ATTEMPTS;++number_of_attempts) {
             if(number_of_attempts) ++retryAttempts;
-            if(Point_Inside_Triangle(triangle_list,start,modified_thickness_over_two,triangleID,weights,cs,&candidates)) {
+            if(Point_Inside_Triangle(scope,triangle_list,start,modified_thickness_over_two,triangleID,weights,cs,&candidates)) {
                 Assign_Intersection_Information(scope(triangleID),modified_thickness_over_two,weights,result);break;}
             modified_thickness_over_two*=(T)2;}
-        if(triangleID <= 0 && Point_Inside_Triangle(triangle_list,start,modified_thickness_over_two,triangleID,weights,cs)) {
+        if(triangleID <= 0 && Point_Inside_Triangle(scope,triangle_list,start,modified_thickness_over_two,triangleID,weights,cs)) {
             Assign_Intersection_Information(scope(triangleID),modified_thickness_over_two,weights,result);}
         if(triangleID <= 0){
-            LOG::cerr<<"An occluded node is found that appears to be visible!"<<std::endl;Assign_Intersection_Information(-1,(T)0,weights,result);}
-        return retryAttempts;}
+            LOG::cerr<<"An occluded node is found that appears to be visible! "<<start.x<<", "<<start.y<<", "<<start.z<<" -> "<<end.x<<", "<<end.y<<", "
+                     <<end.z<<std::endl;
+            Assign_Intersection_Information(-1,(T)0,weights,result);
+            for(int i=1; i<=candidates.Size(); i++) {
+                LOG::cerr<<"  -- Candidate: " << scope(candidates(i))
+                     << " (" << triangle_list(candidates(i)).x1(1) << ", " << triangle_list(candidates(i)).x1(2) << ", " << triangle_list(candidates(i)).x1(3) << ") "
+                     << " (" << triangle_list(candidates(i)).x2(1) << ", " << triangle_list(candidates(i)).x2(2) << ", " << triangle_list(candidates(i)).x2(3) << ") "
+                     << " (" << triangle_list(candidates(i)).x3(1) << ", " << triangle_list(candidates(i)).x3(2) << ", " << triangle_list(candidates(i)).x3(3) << ") "
+                     << std::endl;
+                int Inside = triangle_list((candidates)(i)).Point_Inside_Triangle(start,thickness_over_two) ;
+                LOG::cerr<<"       Inside = " << Inside << " thickness/2 = " << thickness_over_two << std::endl;
+                if(Inside) {
+                    weights=triangle_list(candidates(i)).Barycentric_Coordinates(start);
+                    LOG::cerr<<"      coords = " << weights.x << ", " << weights.y << ", Phi = " <<  
+                         cs->getPhi(scope(candidates(i))-1,weights.x,weights.y,NULL,true) << std::endl;
+                }
+            }
+        }
+        return retryAttempts;
+    }
 
     if(intersection_ray.intersection_location == RAY<TV>::START_POINT) {
         for(int number_of_attempts=0;number_of_attempts<PERMITTED_ATTEMPTS && intersection_ray.intersection_location == RAY<TV>::START_POINT;++number_of_attempts) {
             ++retryAttempts;
             modified_thickness_over_two=thickness_over_two*(T).5;
             intersection_ray.Restore_Intersection_Information(original_ray);
-            Ray_Intersection(triangle_list,candidates,modified_thickness_over_two,intersection_ray,weights, cs);}
-        if(intersection_ray.intersection_location == RAY<TV>::START_POINT){LOG::cerr<<"A visible node appears to be occluded!"<<std::endl;Assign_Intersection_Information(-2,(T)0,weights,result);return retryAttempts;}}
+            Ray_Intersection(scope,triangle_list,candidates,modified_thickness_over_two,intersection_ray,weights, cs);}
+        if(intersection_ray.intersection_location == RAY<TV>::START_POINT){
+            LOG::cerr<<"A visible node appears to be occluded! "<<std::endl;Assign_Intersection_Information(-2,(T)0,weights,result);return retryAttempts;}}
 
     if(end_node_occluded && intersection_ray.intersection_location != RAY<TV>::INTERIOR_POINT) {
         modified_thickness_over_two=thickness_over_two;
         int triangleID=-2;
         for(int number_of_attempts=0;number_of_attempts<PERMITTED_ATTEMPTS;++number_of_attempts) {
             ++retryAttempts;
-            if(Point_Inside_Triangle(triangle_list,end,modified_thickness_over_two,triangleID,weights,cs,&candidates)) {
+            if(Point_Inside_Triangle(scope,triangle_list,end,modified_thickness_over_two,triangleID,weights,cs,&candidates)) {
                 Assign_Intersection_Information(scope(triangleID),(T)1-modified_thickness_over_two,weights,result);break;}
             modified_thickness_over_two*=(T)2;}
-        if(triangleID <= 0 && Point_Inside_Triangle(triangle_list,end,modified_thickness_over_two,triangleID,weights,cs)) {
+        if(triangleID <= 0 && Point_Inside_Triangle(scope,triangle_list,end,modified_thickness_over_two,triangleID,weights,cs)) {
             Assign_Intersection_Information(scope(triangleID),(T)1-modified_thickness_over_two,weights,result);}
-        if(triangleID <= 0){LOG::cerr<<"An occluded node is reported visible!"<<std::endl;Assign_Intersection_Information(-3,(T)0,weights,result);}}
+        if(triangleID <= 0){
+            LOG::cerr<<"An occluded node is reported visible! "<<start.x<<", "<<start.y<<", "<<start.z<<" -> "<<end.x<<", "<<end.y<<", "
+                     <<end.z<<std::endl;
+            Assign_Intersection_Information(-3,(T)0,weights,result);
+            for(int i=1; i<=candidates.Size(); i++)
+                LOG::cerr<<"  -- Candidate: " << scope(candidates(i))
+                     << " (" << triangle_list(candidates(i)).x1(1) << ", " << triangle_list(candidates(i)).x1(2) << ", " << triangle_list(candidates(i)).x1(3) << ") "
+                     << " (" << triangle_list(candidates(i)).x2(1) << ", " << triangle_list(candidates(i)).x2(2) << ", " << triangle_list(candidates(i)).x2(3) << ") "
+                     << " (" << triangle_list(candidates(i)).x3(1) << ", " << triangle_list(candidates(i)).x3(2) << ", " << triangle_list(candidates(i)).x3(3) << ") "
+                     << std::endl;
+        }
+    }
     else Assign_Intersection_Information(scope,intersection_ray,original_ray,weights,result);
 
     return retryAttempts;
@@ -254,8 +305,10 @@ Intersect(const int subD,const ARRAY<TV>& node_positions,const ARRAY<bool>& occl
         VECTOR<T,3> left_node=node_positions(start_node),right_node=node_positions(end_node);
         bool left_node_occluded=occluded_node(start_node),right_node_occluded=occluded_node(end_node);
         ARRAY<int> candidates; // Perform an intersect on candidate lists.
-        for(int j=1;j<=sub.candidates(start_node).Size();++j) for(int k=1;k<=sub.candidates(end_node).Size();++k)
-            if(sub.candidates(start_node)(j)==sub.candidates(end_node)(k)) candidates.Append(sub.candidates(start_node)(j));
+        for(int j=1;j<=sub.candidates(start_node).Size();++j) 
+            for(int k=1;k<=sub.candidates(end_node).Size();++k)
+                if(sub.candidates(start_node)(j)==sub.candidates(end_node)(k))
+                    candidates.Append(sub.candidates(start_node)(j));
 
         retryAttempts += Intersection_Helper(sub.triangle_list,sub.scope,candidates,left_node,right_node,
                                              left_node_occluded,right_node_occluded,thickness_over_two,edges_and_results(i).y,surface_levelset);

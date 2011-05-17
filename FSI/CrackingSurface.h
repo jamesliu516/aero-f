@@ -64,7 +64,7 @@ public:
 
   int numCrackedElements() {return phantoms.size();}
   bool hasCracked(int trId);
-  double getPhi(int trId, double xi1, double xi2, bool* hasCracked=0);
+  double getPhi(int trId, double xi1, double xi2, bool* hasCracked=0, bool debug=false);
   bool getNewCrackingFlag() const {return gotNewCracking;}
   void setNewCrackingFlag(bool flag) {gotNewCracking = flag;}
 

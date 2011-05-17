@@ -3,6 +3,7 @@
 #ifndef _DEBUG_TOOLS_H_
 #define _DEBUG_TOOLS_H_
 
+#define GCCBACKTRACE
 #ifdef GCCBACKTRACE
 #include <execinfo.h>
 #include <stdio.h>
