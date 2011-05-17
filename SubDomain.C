@@ -3991,28 +3991,32 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 {
 
   int ierr = 0;
+  int numclipping = 0;
+  double V[dim];
+  double rho,p;
 
-  for (int i=0; i<U.size(); ++i) {
-
-    double V[dim];
-    varFcn->conservativeToPrimitive(U[i], V);
-    double rho = varFcn->getDensity(V);
-    double p = varFcn->checkPressure(V);
-
-    if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-	      rho, locToGlobNodeMap[i] + 1);
-      ++ierr;
-    }
-    if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
-	      p, locToGlobNodeMap[i] + 1, rho);
-      ++ierr;
+  if(varFcn->doVerification())
+    for(int i=0; i<U.size(); i++)
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1,U[i],V);
+  else {
+    for (int i=0; i<U.size(); ++i) {
+      varFcn->conservativeToPrimitive(U[i], V);
+      rho = varFcn->getDensity(V);
+      p = varFcn->checkPressure(V);
+      if (rho <= 0.0) {
+        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+      	        rho, locToGlobNodeMap[i] + 1);
+        ++ierr;
+      }
+      if (p <= 0.0) {
+        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
+                p, locToGlobNodeMap[i] + 1, rho);
+        ++ierr;
+      }
     }
   }
 
   return ierr;
-
 }
 
 //------------------------------------------------------------------------------
@@ -4020,30 +4024,33 @@ int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U)
 template<int dim>
 int SubDomain::checkSolution(VarFcn *varFcn, SVec<double,dim> &U, Vec<int> &fluidId)
 {
-
   int ierr = 0;
+  int numclipping = 0;
+  double V[dim];
+  double rho,p;
 
-  for (int i=0; i<U.size(); ++i) {
-
-    double V[dim];
-    varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
-    double rho = varFcn->getDensity(V, fluidId[i]);
-    double p = varFcn->checkPressure(V, fluidId[i]);
-
-    if (rho <= 0.0) {
-      fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
-              rho, locToGlobNodeMap[i] + 1);
-      ++ierr;
-    }
-    if (p <= 0.0) {
-      fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
-              p, locToGlobNodeMap[i] + 1, rho);
-      ++ierr;
+  if(varFcn->doVerification())
+    for(int i=0; i<U.size(); i++)
+      numclipping += varFcn->conservativeToPrimitiveVerification(locToGlobNodeMap[i]+1, U[i], V, fluidId[i]);
+  else {
+    for (int i=0; i<U.size(); ++i) {
+      varFcn->conservativeToPrimitive(U[i], V, fluidId[i]);
+      rho = varFcn->getDensity(V, fluidId[i]);
+      p = varFcn->checkPressure(V, fluidId[i]);
+      if (rho <= 0.0) {
+        fprintf(stderr, "*** Error: negative density (%e) for node %d\n",
+                rho, locToGlobNodeMap[i] + 1);
+        ++ierr;
+      }
+      if (p <= 0.0) {
+        fprintf(stderr, "*** Error: negative pressure (%e) for node %d (rho = %e)\n",
+                p, locToGlobNodeMap[i] + 1, rho);
+        ++ierr;
+      }
     }
   }
 
   return ierr;
-
 }
 
 //------------------------------------------------------------------------------

@@ -468,8 +468,6 @@ void StructExc::sendForce(DistSVec<double,3> &F)
       }
     }
     strCom->waitForAllReq();
-    fprintf(stderr,"<AERO-F> Force sent!\n");
-
   }
 
   com->barrier();

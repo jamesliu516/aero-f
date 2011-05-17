@@ -409,6 +409,7 @@ struct LiquidModelData {
 struct FluidModelData {
 
   enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
+  double rhomin;
   double pmin;
 
   GasModelData gasModel;

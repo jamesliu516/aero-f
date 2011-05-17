@@ -726,6 +726,7 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
+  rhomin = -1.e6;
   pmin = -1.e6;
 
 }
@@ -736,11 +737,12 @@ RootClassAssigner *nullAssigner = new RootClassAssigner;
 Assigner *FluidModelData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -756,11 +758,12 @@ Assigner *FluidModelData::getAssigner()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -775,6 +778,7 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
 FluidModelData & FluidModelData::operator=(const FluidModelData &fm){
 
   this->fluid = fm.fluid;
+  this->rhomin  = fm.rhomin;
   this->pmin  = fm.pmin;
 
   this->gasModel.type              = fm.gasModel.type;
@@ -4571,6 +4575,7 @@ void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialCondit
 
 void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
 
+  fluidModel.rhomin /= ref.rv.density;
   fluidModel.pmin /= ref.rv.pressure;
 
   if(fluidModel.fluid == FluidModelData::GAS)
@@ -4710,6 +4715,7 @@ void IoData::printDebug(){
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++){
       com->fprintf(stderr, "FluidModelData::tag          = %d\n", it->first);
       com->fprintf(stderr, "FluidModelData::fluid        = %d\n", it->second->fluid);
+      com->fprintf(stderr, "FluidModelData::rhomin         = %e\n", it->second->rhomin);
       com->fprintf(stderr, "FluidModelData::pmin         = %e\n", it->second->pmin);
       if(it->second->fluid == FluidModelData::GAS){
         com->fprintf(stderr, "GasModelData::type              = %d\n", it->second->gasModel.type);

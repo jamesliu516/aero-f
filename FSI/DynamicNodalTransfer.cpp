@@ -156,16 +156,12 @@ DynamicNodalTransfer::getDisplacement()
   structure.sendDisplacement(winDisp);
   winDisp->fence(false);
 
-  if(com.cpuNum()==20) fprintf(stderr,"*********DISP RECEIVED********\n");
   for(int i=0; i<N; i++) { 
-    if(com.cpuNum()==20) fprintf(stderr," %d  | %e %e %e | %e %e %e\n", i+1, XandUdot[i*3], XandUdot[i*3+1], XandUdot[i*3+2], XandUdot[(N+i)*3], XandUdot[(N+i)*3+1],
-                                                        XandUdot[(N+i)*3+2]);
     for(int j=0; j<3; j++) {
       XandUdot[i*3+j] *= 1.0/XScale;
       XandUdot[(N+i)*3+j] *= 1.0/UScale;
     }
   }
-  if(com.cpuNum()==20) fprintf(stderr,"******************************\n");
 }
 
 //------------------------------------------------------------------------------

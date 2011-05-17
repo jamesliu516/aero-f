@@ -280,13 +280,26 @@ int ImplicitEmbeddedTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
   double t0 = this->timer->getTime();
   DistSVec<double,dim> Ubc(this->getVecInfo());
 
+  //Kevin's debug
+//  int BuggyNode = 340680;
+//  this->printNodalDebug(BuggyNode,1,&U,&(this->nodeTag),&(this->nodeTag0));
+
   commonPart(U);
 
+  //Kevin's debug
+//  this->printNodalDebug(BuggyNode,2,&U,&(this->nodeTag),&(this->nodeTag0));
+
   int its = this->ns->solve(U);
+
+  //Kevin's debug
+//  this->printNodalDebug(BuggyNode,3,&U,&(this->nodeTag),&(this->nodeTag0));
   
   this->timer->addFluidSolutionTime(t0);
    
   checkSolution(U);
+
+  //Kevin's debug
+//  this->printNodalDebug(BuggyNode,4,&U,&(this->nodeTag),&(this->nodeTag0));
 
   return its;
 }
@@ -299,11 +312,14 @@ template<int dim>
 void ImplicitEmbeddedTsDesc<dim>::computeFunction(int it, DistSVec<double,dim> &Q,
                                                   DistSVec<double,dim> &F)
 {
+  //Kevin's debug
+//  int BuggyNode = 340680;
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
   this->spaceOp->computeResidual(*this->X, *this->A, Q, *this->Wstarij, *this->Wstarji, this->distLSS,
                                  this->linRecAtInterface, this->nodeTag, F, this->riemann, 
                                  this->riemannNormal, this->Nsbar, 1, this->ghostPoints);
+//  this->printNodalDebug(BuggyNode,-100,&F,&(this->nodeTag),&(this->nodeTag0));
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F,this->distLSS);
   this->spaceOp->applyBCsToResidual(Q, F,this->distLSS);
 }

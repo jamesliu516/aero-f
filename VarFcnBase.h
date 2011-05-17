@@ -35,12 +35,13 @@ public:
   const char** pname;
   enum Type{ PERFECTGAS = 0, STIFFENEDGAS = 1, TAIT = 2, JWL = 3} type;
 
-  double pmin;
-  bool verif_clipping;
+  double rhomin,pmin;
+  bool verif_clipping; //KW(05/09/2011): This seems to be a flag for screen output...
 
   VarFcnBase(FluidModelData &data) {
+    rhomin = data.rhomin;
     pmin = data.pmin;
-    verif_clipping = false;
+    verif_clipping = true;
   }
   virtual ~VarFcnBase() {}
 
@@ -90,7 +91,7 @@ public:
 
   //----- General Functions -----//
   virtual int getType() const{ return type; }
-  virtual bool doVerification() const{ return (pmin>=0.0); }
+  virtual bool doVerification() const{ return (rhomin>=0.0||pmin>=0.0); }
 
   virtual double getDensity(double *V)   const{ return V[0]; }
   virtual Vec3D  getVelocity(double *V)  const{ return Vec3D(V[1], V[2], V[3]); }

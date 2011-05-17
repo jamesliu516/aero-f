@@ -644,9 +644,9 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
   int localColorCount[numLocSub];
 #pragma omp parallel for
   for(int iSub=0;iSub<numLocSub;++iSub) {
-      localColorCount[iSub]=FloodFill::floodFillSubDomain(*domain->getSubDomain()[iSub],intersector[iSub]->edges,
-                                                       intersector[iSub]->edgeIntersections,
-                                                       intersector[iSub]->occluded_node,nodeColors(iSub));}
+    localColorCount[iSub]=FloodFill::floodFillSubDomain(*domain->getSubDomain()[iSub],intersector[iSub]->edges,
+                                                        intersector[iSub]->edgeIntersections,
+                                                        intersector[iSub]->occluded_node,nodeColors(iSub));}
   floodFill->generateConnectionsSet(*domain,*com,nodeColors);
 
   map<pair<GLOBAL_SUBD_ID,int>,int> localToGlobalColorMap; // only contains valid data for local SubDomains.
@@ -654,33 +654,60 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 
 // Determine the status of local colors
   map<int,int> globalColorToGlobalStatus;
-  for(list<pair<Vec3D,int> >::const_iterator iter = points.begin(); iter!=points.end(); iter++)
-    com->fprintf(stderr,"found Point %d(%e %e %e) with specified fluid model and initial conditions.\n", iter->second, (iter->first)[0], (iter->first)[1], (iter->first)[2]);
 
-  for(int iSub=0;iSub<numLocSub;++iSub){int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
+#if 0 // Debug output
+  for(list<pair<Vec3D,int> >::const_iterator iter = points.begin(); iter!=points.end(); iter++)
+    com->fprintf(stderr,"found Point %d (%e %e %e) with specified fluid model and initial conditions.\n", 
+                 iter->second, (iter->first)[0], (iter->first)[1], (iter->first)[2]);
+#endif
+
+  for(int iSub=0;iSub<numLocSub;++iSub){
+    int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
     if(ffNode >= 0){
-//      fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
-      globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;}}
+#if 0 // Debug output
+      fprintf(stderr,"%02d: Setting global color %d [from %d, %d] to Fluid Model %d BASED ON FF NODE\n",com->cpuNum(),
+              localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],
+	      PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]).Value(),nodeColors(iSub)[ffNode],IntersectorPhysBAM::INSIDE);
+#endif
+      globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;
+    }
+  }
 
   for(int iSub=0;iSub<numLocSub;++iSub){
     SubDomain& sub=intersector[iSub]->subD;
     for(int iElem=0; iElem<sub.numElems(); iElem++)
       for(list<pair<Vec3D,int> >::const_iterator iP=points.begin(); iP!=points.end(); iP++){
         if(sub.isINodeinITet(iP->first, iElem, (*X)(iSub))){ // TODO(jontg): Use a robust implementation of this routine
-//          fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
-          globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;}}}
+#if 0 // Debug output
+          fprintf(stderr,"%02d: Setting global color %d [from %d, %d] to Fluid Model %d BASED ON POINT DATA\n",com->cpuNum(),
+			  localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],
+			  PhysBAM::getGlobSubNum(sub).Value(),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]], iP->second);
+#endif
+          globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;
+        }
+      }
+  }
 
   PHYSBAM_MPI_UTILITIES::syncMap(*domain,*com,globalColorToGlobalStatus);
 
 // Compute node status (occluded nodes are OUTSIDE the fluid regime)
 #pragma omp parallel for
   for(int iSub=0;iSub<numLocSub;++iSub){
-      SubDomain& sub=intersector[iSub]->subD;
-      for(int i=0;i<(*status)(iSub).size();++i){int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
-          if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end())
-              (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;
-          else 
-              (*status)(iSub)[i]=globalColorToGlobalStatus[color];}}
+    SubDomain& sub=intersector[iSub]->subD;
+    for(int i=0;i<(*status)(iSub).size();++i){
+      int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
+      if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
+#if 0 // Debug output
+        fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",
+			intersector[iSub]->locToGlobNodeMap[i]+1, IntersectorPhysBAM::OUTSIDECOLOR, (*occluded_node)(iSub)[i],
+			globalColorToGlobalStatus.find(color)!=globalColorToGlobalStatus.end());
+        fprintf(stderr,"\t\tGLOBAL COLOR = %d, local color given as (%d, %d)\n", color, PhysBAM::getGlobSubNum(sub).Value(), nodeColors(iSub)[i]);
+#endif
+        (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;}
+      else 
+        (*status)(iSub)[i]=globalColorToGlobalStatus[color];
+    }
+  }
 }
 
 //----------------------------------------------------------------------------

@@ -633,7 +633,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
         if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i]);
+          //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
           for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
         }
       }
@@ -663,7 +664,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j]);
+          //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
           for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
         }
 
@@ -728,6 +730,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
                                      SVec<int,2>& tag, int failsafe, int rshift)
 {
   int farfieldFluid = 0; 
+//  int BuggyNode = 340680; //KEVIN: DEBUG ONLY
 
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -754,6 +757,10 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     bool intersect = LSS.edgeIntersectsStructure(0,i,j);
     bool iActive = LSS.isActive(0.0,i);
     bool jActive = LSS.isActive(0.0,j);
+
+//    if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode) {
+//      fprintf(stderr,"--- (%d(%d), %d(%d)): intersect = %d, normal = %e %e %e\n", locToGlobNodeMap[i]+1, iActive, locToGlobNodeMap[j]+1, jActive, intersect, normal[l][0], normal[l][1], normal[l][2]);
+//    }
     
     if( !iActive && !jActive ) {
       if(it>0) for(int k=0;k<dim;k++) Wstarij[l][k] = Wstarji[l][k] = 0.0; //clean-up Wstar
@@ -820,17 +827,31 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     }
 
 
+//    if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode) {
+//      fprintf(stderr,"--- %d: %e %e %e %e %e | %d: %e %e %e %e %e\n", locToGlobNodeMap[i]+1, Vi[0], Vi[1], Vi[2], Vi[3], Vi[4], 
+//                      locToGlobNodeMap[j]+1, Vj[0], Vj[1], Vj[2], Vj[3], Vj[4]);
+//    }
     // --------------------------------------------------------
     //                   Compute fluxes
     // --------------------------------------------------------
     if (!intersect) {  // same fluid
       if (!masterFlag[l]) continue; //not a master edge
 
+      if(!(iActive && jActive)) {
+        fprintf(stderr,"Really odd... (%d(%d),%d(%d): intersect = %d; iSwept = %d, jSwept = %d, iOccluded = %d, jOcculded = %d, model = %d/%d.\n",
+                locToGlobNodeMap[i]+1, iActive, locToGlobNodeMap[j]+1, jActive, intersect, LSS.isSwept(0.0,i), LSS.isSwept(0.0,j), 
+                LSS.isOccluded(0.0,i), LSS.isOccluded(0.0,j), LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
+        continue;
+      }
+
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
         fluxes[j][k] -= flux[k];
       }
+//      if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
+//        fprintf(stderr,"--- A flux(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, flux[0], flux[1], flux[2], flux[3], flux[4]);
+      
     }
     else{// interface
 
@@ -862,8 +883,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if (it>0) //if it>0 (i.e. not called in computeResidualNorm), store Wstarij.
           for (int k=0; k<dim; k++)  Wstarij[l][k] = Wstar[k];
         if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i]);
+          //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Wstar, fluxi, fluidId[i], false);
           for (int k=0; k<dim; k++) fluxes[i][k] += fluxi[k];
+//          if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
+//            fprintf(stderr,"--- B fluxi(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, fluxi[0], fluxi[1], fluxi[2], fluxi[3], fluxi[4]);
         }
       }
 
@@ -895,8 +919,11 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         if (it>0)
           for (int k=0; k<dim; k++) Wstarji[l][k] = Wstar[k];
         if (masterFlag[l]) {
-          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
+          fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j]);
+          //fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Wstar, Vj, fluxj, fluidId[j], false);
           for (int k=0; k<dim; k++)  fluxes[j][k] -= fluxj[k];
+//          if(locToGlobNodeMap[i]+1==BuggyNode || locToGlobNodeMap[i]+1==BuggyNode)
+//            fprintf(stderr,"--- C fluxj(%d,%d) = %e %e %e %e %e\n", locToGlobNodeMap[i]+1, locToGlobNodeMap[j]+1, fluxj[0], fluxj[1], fluxj[2], fluxj[3], fluxj[4]);
         }
       }
     }
@@ -1694,6 +1721,13 @@ void EdgeSet::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,
     }
  
     if (!intersect) {  // same fluid
+
+      if(!(iActive && jActive)) {
+        fprintf(stderr,"Really odd too... (-(%d),-(%d): intersect = %d; iSwept = %d, jSwept = %d, iOccluded = %d, jOcculded = %d, model = %d/%d.\n",
+                iActive, jActive, intersect, LSS.isSwept(0.0,i), LSS.isSwept(0.0,j), 
+                LSS.isOccluded(0.0,i), LSS.isOccluded(0.0,j), LSS.fluidModel(0.0,i), LSS.fluidModel(0.0,j));
+        continue;
+      }
 
       fluxFcn[BC_INTERNAL]->computeJacobians(length, 0.0, normal[l], normalVel[l], Vi, Vj, dfdUi, dfdUj, fluidId[i]);
       Aii = A.getElem_ii(i);

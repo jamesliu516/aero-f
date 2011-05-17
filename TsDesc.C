@@ -828,6 +828,28 @@ void TsDesc<dim>::updateGhostFluid(DistSVec<double,dim> &U, Vec3D& totalForce, d
 */
 }
 
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id, DistVec<int> *Id0)
+{ //Kevin:For debug only!
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  for(int iSub=0; iSub<nSub; iSub++) {
+    int* locToGlob = sub[iSub]->getNodeMap();
+    for(int i=0; i<(*U)(iSub).size(); i++)
+      if(locToGlob[i]+1==globNodeId) { 
+        fprintf(stderr,"*** %d Node %d: U = %e %e %e %e %e ", identifier, globNodeId, 
+                (*U)(iSub)[i][0], (*U)(iSub)[i][1], (*U)(iSub)[i][2], (*U)(iSub)[i][3], (*U)(iSub)[i][4]);
+        if(Id)
+          fprintf(stderr,", Id = %d ", (*Id)(iSub)[i]);
+        if(Id0)
+          fprintf(stderr,", Id0 = %d ", (*Id0)(iSub)[i]);
+        fprintf(stderr,"\n");
+      }
+  }
+}
+
 //----------------------------------------------------------------------------
 
 

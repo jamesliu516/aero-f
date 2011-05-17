@@ -58,7 +58,7 @@ void gatherSet(Communicator& com, set<pair<pair<GLOBAL_SUBD_ID,int>,pair<GLOBAL_
 
     if(masterProcessor == com.cpuNum())
         for(int iCPU=1;iCPU<com.size();++iCPU){ pair<pair<GLOBAL_SUBD_ID,int>,pair<GLOBAL_SUBD_ID,int> > buffer_input;
-            for(int i=1;i<setLengths[iCPU];++i){
+            for(int i=0;i<setLengths[iCPU];++i){
                 buffer_input.first.first=GLOBAL_SUBD_ID(buffer[iCPU*bufferSize+4*i]);buffer_input.first.second=buffer[iCPU*bufferSize+4*i+1];
                 buffer_input.second.first=GLOBAL_SUBD_ID(buffer[iCPU*bufferSize+4*i+2]);buffer_input.second.second=buffer[iCPU*bufferSize+4*i+3];
                 set.insert(buffer_input);}}
@@ -94,8 +94,8 @@ void distributeColorMap(Domain& domain, Communicator& com,const int* colorCount,
             localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(gSub,i+1)]=buffer[gSub.Value()*bufferSize+i];
 
 #if 0 // Debug output
-    for(map<pair<int,int>,int>::const_iterator iter=localToGlobalColorMap.begin();iter!=localToGlobalColorMap.end();iter++)
-        fprintf(stderr,"%02d: Mapping (%d %d) -> %d\n",com.cpuNum(),iter->first.first,iter->first.second,iter->second);
+    for(map<pair<GLOBAL_SUBD_ID,int>,int>::const_iterator iter=localToGlobalColorMap.begin();iter!=localToGlobalColorMap.end();iter++)
+        fprintf(stderr,"%02d: Mapping (Global SubD %d, Local Color %d) To Global Color %d\n",com.cpuNum(),iter->first.first.Value(),iter->first.second,iter->second);
 #endif
 }
 
@@ -112,6 +112,7 @@ void syncMap(Domain& domain, Communicator& com,map<int,int>& localMap){
         int offset=0;
         int *buffer = reinterpret_cast<int*>(alloca((com.cpuNum()==masterProcessor?com.size()*bufferSize:bufferSize)*sizeof(int)));
         for(map<int,int>::const_iterator iter=localMap.begin();iter!=localMap.end();offset+=2,iter++){
+            // fprintf(stderr,"%d REPORTING globalMap[%d] = %d\n", com.cpuNum(), iter->first, iter->second);
             buffer[offset]=iter->first;buffer[offset+1]=iter->second;}
 
         if(com.cpuNum()==masterProcessor){
@@ -127,7 +128,19 @@ void syncMap(Domain& domain, Communicator& com,map<int,int>& localMap){
                 for(int i=0;i<mapLengths[iCPU];++i){
                     std::pair<map<int,int>::iterator,bool> result=globalMap.insert(std::make_pair(buffer[iCPU*bufferSize+2*i],buffer[iCPU*bufferSize+2*i+1]));
                     if(!result.second && globalMap[buffer[iCPU*bufferSize+2*i]] != buffer[iCPU*bufferSize+2*i+1]){
-                        fprintf(stderr,"CONFLICT: Tried to insert (%d %d) into globalMap, but %d was already there!\n",buffer[iCPU*bufferSize+2*i],buffer[iCPU*bufferSize+2*i+1],globalMap[buffer[iCPU*bufferSize+2*i]]);exit(-1);}}
+                        if(result.first->second == 0){
+			    fprintf(stderr,"Tried to assign globalMap[%d] = %d, but globalMap[%d] = %d.  OVERWRITING VALUE!\n",
+					    buffer[iCPU*bufferSize+2*i], buffer[iCPU*bufferSize+2*i+1], buffer[iCPU*bufferSize+2*i], result.first->second);
+			    globalMap.erase(result.first);
+			    globalMap.insert(std::make_pair(buffer[iCPU*bufferSize+2*i],buffer[iCPU*bufferSize+2*i+1]));
+			} else if(buffer[iCPU*bufferSize+2*i+1] != 0){
+			    fprintf(stderr,"CONFLICT: Tried to set globalMap[color %d]=%d, but %d was already there!\n",buffer[iCPU*bufferSize+2*i],buffer[iCPU*bufferSize+2*i+1],globalMap[buffer[iCPU*bufferSize+2*i]]);exit(-1);
+			}
+#if 0 // Debug output
+			else fprintf(stderr,"Tried to insert FF color; ignoring...\n");
+#endif
+		    }
+		}
     }
 
 #if 0 // Debug output
@@ -209,11 +222,11 @@ void syncNodeColors(Domain& domain, Communicator& com,const DistVec<int>& nodeCo
             if(nodeLocalColor(iSub)[i].size() > 1){
                 set<pair<int,int> >::const_iterator first_element=nodeLocalColor(iSub)[i].begin();
                 if(first_element->second <= 0) continue;
-                for(set<pair<int,int> >::const_iterator iter=first_element; iter!=nodeLocalColor(iSub)[i].end();iter++)
+                for(set<pair<int,int> >::const_iterator iter=first_element; iter!=nodeLocalColor(iSub)[i].end();iter++){
                     if(iter==first_element || iter->second <= 0) continue; // connections to uncolored, undecided and occluded nodes should be neglected
                     else connections.insert(pair<pair<GLOBAL_SUBD_ID,int>,pair<GLOBAL_SUBD_ID,int> >(
                             pair<GLOBAL_SUBD_ID,int>(GLOBAL_SUBD_ID(first_element->first),first_element->second),
-                            pair<GLOBAL_SUBD_ID,int>(GLOBAL_SUBD_ID(iter->first),iter->second)));}
+                            pair<GLOBAL_SUBD_ID,int>(GLOBAL_SUBD_ID(iter->first),iter->second)));}}
 }
 
 //----------------------------------------------------------------------------
