@@ -4,16 +4,25 @@
 template<int dim>
 ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), From(this->nPod), rhs(this->nPod) {
+
+		this->jac.setNewSize(this->nPod,this->nPod);
+		jactmp = new double [this->nPod * this->nPod];
   
 }
 
+template<int dim>
+ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc()
+{
+
+		if (jactmp) delete [] jactmp;
+  
+}
 //------------------------------------------------------------------------------
 
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
 		projectVector(this->AJ, this->F, From);
-		Vec<double> rhs(this->nPod);
 		rhs = -1.0 * From;
 
 		// KTC FIX!
@@ -40,17 +49,13 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
 
 		// form reduced Jacobian
 
-		this->jac.setNewSize(this->nPod,this->nPod);
-
 		// faster way
-		double *result = new double [this->AJ.numVectors() * this->AJ.numVectors()];
-		transMatMatProd(this->AJ,this->AJ,result);
+		transMatMatProd(this->AJ,this->AJ,jactmp);
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
-				this->jac[iRow][iCol] = result[iRow + iCol * this->AJ.numVectors()];
+				this->jac[iRow][iCol] = jactmp[iRow + iCol * this->AJ.numVectors()];
 			}
 		} 
-		delete [] result;
 
 		/*
 		// old way

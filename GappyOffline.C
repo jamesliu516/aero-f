@@ -74,6 +74,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom
 		nRhsGreedy[i] = NULL;
 	}
 
+	onlyInletOutletBC = true;	// first node should be on inlet/outlet
 }
 
 template<int dim>
@@ -86,32 +87,9 @@ GappyOffline<dim>::~GappyOffline()
 	if (tsDescTmp) delete tsDescTmp;
 	if (geoSourceTmp) delete geoSourceTmp;
 
-	for (int i = 0; i < 2; ++i) {
-		for (int j = 0; j < 3; ++j)
-			delete [] bcFaces[i][j];
-	}
 
-	if (nodesToHandle) delete [] nodesToHandle;
 	if (globalNodes) delete [] globalNodes;
-	if (cpus) delete [] cpus;
-	if (locSubDomains) delete [] locSubDomains;
-	if (localNodes) delete [] localNodes;
-	if (totalNodesCommunicated) delete [] totalNodesCommunicated;
-	if (totalEleCommunicated) delete [] totalEleCommunicated;
-for (int i = 0; i < 3; ++i)
-		if (nodesXYZ) delete [] nodesXYZ[i];
-	if (elements) delete [] elements;
-	for (int i = 0; i < 4; ++i)
-		if (elemToNode[i]) delete [] elemToNode[i];
 
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)
-			if (podHatPseudoInv[iPodBasis]) {
-				if (podHatPseudoInv[iPodBasis][iRhs]) delete [] podHatPseudoInv[iPodBasis][iRhs];
-			}
-		if (podHatPseudoInv[iPodBasis]) delete [] podHatPseudoInv[iPodBasis];
-		if (nRhsGreedy[iPodBasis]) delete [] nRhsGreedy[iPodBasis];
-	}
 
 }
 	//---------------------------------------------------------------------------------------
@@ -123,13 +101,65 @@ void GappyOffline<dim>::buildReducedModel() {
 
 	// compute the reduced mesh used by Gappy POD
 
-	buildReducedMesh();
+	//======================================
+	// PURPOSE
+	// 	build reduced mesh by selecting sample globalNodes
+	// INPUTS
+	// 	nPod[0], nPod[1], nSampleNodes
+	// 	full domain decomposition: pod[0], pod[1]
+	// OUTPUTS
+	// 	reduced domain decomposition: mesh, podHat[0], podHat[1],
+	//======================================
 
-	 com->barrier();
+	//======================================
+	// NOTES
+	// nRhsMax = number of POD vectors for each interpolation node that is
+	// selected. It can be 1 to dim, where dim corresponds to interpolation.
+	//
+	// Mesh will be entirely disconnected, which makes decomposition trivial
+	// (tradeoff: possibly more (redundant) unknowns, but no communication
+	//
+	// Fix the size of PhiHat using trick 1
+	//
+	// First compute a node, then compute the associated mask
+	//
+	// First node captures the inlet boundary conditions
+	//======================================
 
-	// compute matries A and B required online
+	//======================================
+	// compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
+	//======================================
 
-	buildGappyMatrices();
+	//==================
+	// Option 1: build on a reduced mesh, which is currently unknown
+	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
+	//==================
+
+	determineSampleNodes();	// use greedy algorithm to determine sample nodes
+
+	buildRemainingMesh();	// need two node layers b/c 2nd order flux
+
+	computePseudoInverse();	// only requires sample nodes
+
+	if (thisCPU == 0) {
+
+		outputTopFile();
+
+		assembleOnlineMatrices(); // handle online matrices so you can free up pseudo inverse matrix
+
+		outputOnlineMatrices();
+
+		outputSampleNodes();
+
+	}
+
+	// from here on, only require:
+	// geoState, ioData, nReducedNodes, domain
+	// globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
+
+	outputStateReduced();	// distributed info (parallel)
+
+	outputWallDistanceReduced();	// distributed info (parallel)
 
 	com->fprintf(stderr," ... finished with buildGappy ...\n");
 
@@ -197,8 +227,6 @@ void GappyOffline<dim>::setUpPodResJac() {
 
 	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
 		pod[i].resize(nPod[i]);
-		podHat[i].resize(nPod[i]);
-		error[i].resize(nPod[i]);
 	}
 
 	//	read in both bases
@@ -239,11 +267,11 @@ void GappyOffline<dim>::setUpGreedy() {
 	// 	1) require nPodGreedy < nSampleNodes * dim to avoid underdetermined system
 	//==================================================================
 
-	int nPodGreedy = ioData->Rob.nPodGreedy;
+	nPodGreedy = ioData->Rob.nPodGreedy;
 	if (nPodGreedy == 0 || nPodGreedy > nPodMax)
 		nPodGreedy = nPodMax;
-	nSampleNodes = static_cast<int>(ceil(double(nPodGreedy)/double(dim)));	// this will give interpolation or the smallest possible least squares
-	nSampleNodes = static_cast<int>(nSampleNodes * ioData->Rob.sampleNodeFactor);	// times the number you really need
+	//nSampleNodes = ceil (nPodMax * sampleNodeFactor/dim)
+	nSampleNodes = static_cast<int>(ceil(double(nPodMax * ioData->Rob.sampleNodeFactor)/double(dim)));	// this will give interpolation or the smallest possible least squares
 
 	if (nSampleNodes * dim < nPodGreedy) {	
 		int nSampleNodesOld = nSampleNodes; 
@@ -303,59 +331,8 @@ void GappyOffline<dim>::setUpGreedy() {
 //---------------------------------------------------------------------------------------
 
 template<int dim>
-void GappyOffline<dim>::buildReducedMesh() {
-
-	//======================================
-	// PURPOSE
-	// 	build reduced mesh by selecting sample globalNodes
-	// INPUTS
-	// 	nPod[0], nPod[1], nSampleNodes
-	// 	full domain decomposition: pod[0], pod[1]
-	// OUTPUTS
-	// 	reduced domain decomposition: mesh, podHat[0], podHat[1],
-	//======================================
-
-	//======================================
-	// NOTES
-	// nRhsMax = number of POD vectors for each interpolation node that is
-	// selected. It can be 1 to dim, where dim corresponds to interpolation.
-	//
-	// Mesh will be entirely disconnected, which makes decomposition trivial
-	// (tradeoff: possibly more (redundant) unknowns, but no communication
-	//
-	// Fix the size of PhiHat using trick 1
-	//
-	// First compute a node, then compute the associated mask
-	//
-	// First node captures the inlet boundary conditions
-	//======================================
-
-	//======================================
-	// compute nRhsMax, nGreedyIt, nodesToHandle, possibly fix nSampleNodes
-	//======================================
-
-	//==================
-	// Option 1: build on a reduced mesh, which is currently unknown
-	// *Option 2*: build on the full mesh, which is currently known (easier, but slower computations)
-	//==================
-
-	determineSampleNodes();	// use greedy algorithm to determine sample nodes
-
-	buildRemainingMesh();	// need two node layers b/c 2nd order flux
-
-	outputTopFile();
-
-	outputSampleNodes();
-
-	outputStateReduced();
-
-	outputWallDistanceReduced();
-}
-
-//---------------------------------------------------------------------------------------
-
-template<int dim>
-void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode) {
+void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int
+		locSub, const int locNode, const int globalNode) {
 
 	//===============================================
 	// PURPOSE: fill locPodHat
@@ -376,7 +353,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 	int locSubTemp = 0;
 	int locNodeTemp = 0;
 	int globalNodeTemp = 0;
-	double *xyz = new double [3];
+	double xyz [3];
 	for (int i=0; i<3; ++i)
 		xyz[i]=0.0;
 
@@ -402,6 +379,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 		locSubTemp = locSub;
 		locNodeTemp = locNode;
 		globalNodeTemp = globalNode;
+		assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
 		computeXYZ(locSub, locNode, xyz);
 
 		// fill out restricted matrices (all columns for the current rows)
@@ -432,8 +410,6 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 	 com->fprintf(stderr, "CPU %d has sample node: globalNode = %d, locNode = %d, locSub = %d  \n",cpuTemp,globalNodeTemp,locNodeTemp,locSubTemp);
 	}
 
-	assert(locSubTemp!=-1 && locNodeTemp !=-1 && globalNodeTemp != -1);
-
 	// add information to all cpus copies
 
 	cpuSample.push_back(cpuTemp);
@@ -441,7 +417,7 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 	locNodeSample.push_back(locNodeTemp);
 	globalSampleNodes.push_back(globalNodeTemp);
 
-	// define maps
+	// define maps for SAMPLE nodes
 	
 	globalSampleNodeRankMap.insert(pair<int, int > (globalNodeTemp, handledNodes));
 	globalNodeToCpuMap.insert(pair<int, int > (globalNodeTemp, cpuTemp));
@@ -452,14 +428,20 @@ void GappyOffline<dim>::findMaxAndFillPodHat(const double myMaxNorm, const int l
 
 	++handledNodes;
 
-	delete [] xyz;
 }
 
 template<int dim>
 void GappyOffline<dim>::determineSampleNodes() {
 
-	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt) 
+	for (int greedyIt = 0; greedyIt < nGreedyIt; ++greedyIt)  {
+		com->fprintf(stderr,"... greedy iteration %d ...\n", greedyIt);
 		greedyIteration(greedyIt);
+	}
+
+	if (nodesToHandle) delete [] nodesToHandle;
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+		if (nRhsGreedy[iPodBasis]) delete [] nRhsGreedy[iPodBasis];
+	}
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis){	// pod no longer needed
 		pod[iPodBasis].resize(0);
@@ -486,11 +468,9 @@ void GappyOffline<dim>::greedyIteration(int greedyIt) {
 	int locSub, locNode, globalNode;  // temporary global subdomain and local node
 
 	bool doLeastSquares = true;
-	bool onlyInletOutletBC = false;
 
 	if (greedyIt == 0) {	
 		doLeastSquares = false;// don't do least squares if first iteration
-		onlyInletOutletBC = true;// first iteration, only consider inlet BC
 	}
 
 	// determine number of rhs for each
@@ -528,10 +508,14 @@ void GappyOffline<dim>::greedyIteration(int greedyIt) {
 
 		findMaxAndFillPodHat(myMaxNorm, locSub, locNode, globalNode);
 
+
+		if (onlyInletOutletBC == true)	// only add one 
+			onlyInletOutletBC = false;
 	}
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)	
 		handledVectors[iPodBasis] += nRhs[iPodBasis];
+
 }
 
 
@@ -539,15 +523,18 @@ template<int dim>
 void GappyOffline<dim>::initializeGappyLeastSquares() {
 
 	// initialize least squares problems
+	// TODO: only allocate memory for required columns!
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis]);
+		parallelRom[iPodBasis]->parallelLSMultiRHSInit(podHat[iPodBasis], error[iPodBasis], nPodGreedy);
 	}
 
 }
 
 template<int dim>
-void GappyOffline<dim>::makeNodeMaxIfUnique(double nodeError, double &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int &globalNode) {
+void GappyOffline<dim>::makeNodeMaxIfUnique(double nodeError, double
+		&myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int
+		&globalNode) {
 
 	// PURPOSE: make the node the current maximum on this cpu if it hasn't been added already
 	// INPUT
@@ -705,9 +692,12 @@ template<int dim> void GappyOffline<dim>::subDFindMaxError(int iSub, bool
 
 template<int dim>
 void GappyOffline<dim>::parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff) {
-		parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
-				handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff);
+
+	bool lsCoeffAllCPU = true; // all cpus need solution
+	parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis],error[iPodBasis],
+			handledVectors[iPodBasis], nRhs[iPodBasis], lsCoeff, lsCoeffAllCPU);
 }
+
 template<int dim>
 void GappyOffline<dim>::buildRemainingMesh() {
 
@@ -738,8 +728,10 @@ void GappyOffline<dim>::buildRemainingMesh() {
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
 		nodeOffset[iSampleNodes] = 0;
 
+	com->fprintf(stderr," ... adding sample nodes and neighbors ...\n");
 	addSampleNodesAndNeighbors();	
 
+	com->fprintf(stderr," ... computing BC faces ...\n");
 	computeBCFaces(true);	// compute BC faces and add nodes/elements for lift surfaces
 
 	// add all neighbor globalNodes and elements of the sample node's neighbors
@@ -748,12 +740,19 @@ void GappyOffline<dim>::buildRemainingMesh() {
 	communicateAll();	// all cpus need all nodes/elements for adding neighbors
 
 	if (twoLayers) {
-		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) 
+		com->fprintf(stderr," ... adding second layer of neighbors ...\n");
+		for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+			com->fprintf(stderr," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
 			addNeighbors(iSampleNodes, nodeOffset[iSampleNodes]);
+		}
 		communicateAll();	// all cpus need all nodes/elements to define maps
 	}
 
+	com->fprintf(stderr," ... defining maps ...\n");
 	defineMaps();	// define element and node maps
+		// deletes cpus, locSubDomains, locNodes, totalNodesCommunicated,
+		// totalEleCommunicated, nodesXYZ, elemToNode
+		// (want to keep globalNodes and elements: see below)
 
 	// from now on, use maps and not these vectors
 
@@ -779,6 +778,7 @@ template<int dim>
 void GappyOffline<dim>::addSampleNodesAndNeighbors() {
 
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
+		com->fprintf(stderr," ... adding neighbors for sample node %d of %d...\n",iSampleNodes,nSampleNodes);
 
 		// add the sample node itself to all processors
 
@@ -998,6 +998,7 @@ void GappyOffline<dim>::communicateAll() {
 		totalEleCommunicated[i] = elements[i].size();
 	}
 }
+
 template<int dim>
 void GappyOffline<dim>::defineMaps() {
 
@@ -1042,6 +1043,19 @@ void GappyOffline<dim>::defineMaps() {
 			elemToNodeMap.insert(pair<int, StaticArray <int, 4> > (globalEleNumTmp, elemToNodeTmp));
 		}
 	}
+
+	// no longer need this information (use in the form of maps)
+
+	if (cpus) delete [] cpus;
+	if (locSubDomains) delete [] locSubDomains;
+	if (localNodes) delete [] localNodes;
+	if (totalNodesCommunicated) delete [] totalNodesCommunicated;
+	if (totalEleCommunicated) delete [] totalEleCommunicated;
+for (int i = 0; i < 3; ++i)
+		if (nodesXYZ) delete [] nodesXYZ[i];
+	for (int i = 0; i < 4; ++i)
+		if (elemToNode[i]) delete [] elemToNode[i];
+
 }
 
 template<int dim>
@@ -1145,8 +1159,8 @@ bool GappyOffline<dim>::checkFaceInMesh(FaceSet& currentFaces, const int iFace, 
 		faceInMesh = true;
 	}
 	
-
 	delete [] globalNodeNum;
+	delete [] nodeSomewhereInMesh;
 
 	return faceInMesh;
 }
@@ -1334,9 +1348,9 @@ void GappyOffline<dim>::outputTopFile() {
 
 	int sp = strlen(ioData->output.transient.prefix);
 	char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
-	if (thisCPU ==0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
+	sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
 	FILE *reducedMesh;
-	if (thisCPU ==0) reducedMesh = fopen(outMeshFile, "w");
+	reducedMesh = fopen(outMeshFile, "w");
 
 	// write out globalNodes
 
@@ -1433,6 +1447,14 @@ void GappyOffline<dim>::outputTopFile() {
 	}
 
 	delete [] outMeshFile;
+
+	for (int i = 0; i < 2; ++i) {
+		for (int j = 0; j < 3; ++j)
+			delete [] bcFaces[i][j];
+		delete [] bcFaceSurfID[i];
+	}
+	if (elements) delete [] elements;
+
 }
 
 template<int dim>
@@ -1445,6 +1467,9 @@ void GappyOffline<dim>::outputSampleNodes() {
 
 	com->fprintf(stderr," ... Writing sample node file with respect to full mesh...\n");
 	outputSampleNodesGeneral(globalSampleNodes,ioData->output.transient.sampleNodesFull);
+
+	reducedSampleNodes.resize(0);
+	globalSampleNodes.resize(0);
 }
 
 template<int dim>
@@ -1479,36 +1504,7 @@ void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 }
 
 //---------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------
 
-template<int dim>
-void GappyOffline<dim>::buildGappyMatrices() {
-
-//======================================
-// Inputs
-// 	full domain decomposition: pod[0], pod[1]
-// 	reduced domain decomposition: podHat[0], podHat[1]
-// Outputs
-// 	reduced domain decomposition: A, B
-//======================================
-
-	// compute podHatPseudoInv (pseudo-inverses of podHatRes and podHatJac)
-	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
-		computePseudoInverse(iPodBasis);
-	
-	checkConsistency();
-
-	// pod[0]^Tpod[1] already computed
-
-	// assemble onlineMatrices (A and B)
-	assembleOnlineMatrices();
-
-	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
-	// DistSVec defined on the reduced mesh. Each column in this VecSet
-	// corresponds to a row of A or B.
-
-	outputOnlineMatrices();
-}
 
 //---------------------------------------------------------------------------------------
 
@@ -1539,9 +1535,21 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 	for (int iRhs = 0; iRhs < numRhs; ++iRhs)
 		pseudoInvRhs[iRhs] = 0.0;
 
-	podHatPseudoInv[iPodBasis] = new double * [nSampleNodes * dim] ;
-	for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)  
-		podHatPseudoInv[iPodBasis][iRhs] = new double [nPod[iPodBasis] ] ;
+	if (thisCPU == 0) {
+		podHatPseudoInv[iPodBasis] = new double * [nSampleNodes * dim] ;	// TODO: only on CPU = 0
+		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs)  
+			podHatPseudoInv[iPodBasis][iRhs] = new double [nPod[iPodBasis] ] ;
+	}
+
+	// all processors store the temporary solution
+	double **podHatPseudoInvTmp;
+	/*
+ 	if (thisCPU !=0 ) {
+		podHatPseudoInvTmp = new double * [nNodesAtATime * dim];
+		for (int iRhs = 0; iRhs < nNodesAtATime * dim; ++iRhs)  
+			podHatPseudoInvTmp[iRhs] = new double [nPod[iPodBasis] ] ;
+	}
+	*/
 
 	int iVector = 0;
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
@@ -1559,28 +1567,59 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 		iVector += dim;
 
 		// compute part of pseudo-inverse
-		if (((iSampleNodes + 1)  % nNodesAtATime == 0 && !lastTime) || iSampleNodes == nSampleNodes - 1) {
 
+		if (thisCPU == 0)	// directly store computed value on cpu 0
+			podHatPseudoInvTmp = podHatPseudoInv[iPodBasis]+nHandledVectors;
+
+		if (((iSampleNodes + 1)  % nNodesAtATime == 0 && !lastTime) || iSampleNodes == nSampleNodes - 1) {
+			com->fprintf(stderr," computing Pseudo Inverse at sample node %d of %d \n", iSampleNodes+1, nSampleNodes);
 			parallelRom[iPodBasis]->parallelLSMultiRHS(podHat[iPodBasis], pseudoInvRhs,
-					nPod[iPodBasis], numRhs, podHatPseudoInv[iPodBasis]+nHandledVectors);
+					nPod[iPodBasis], numRhs, podHatPseudoInvTmp, false);
+
 			nHandledVectors+=numRhs;
 			if (nNodesAtATime > nSampleNodes - iSampleNodes - 1) {
 				nNodesAtATime = nSampleNodes - iSampleNodes - 1;
 				lastTime = true;
 			}
-
+			
+			int numRhsOld = numRhs;
 			numRhs = nNodesAtATime * dim;
-			pseudoInvRhs.resize(numRhs);
+			if (numRhs != numRhsOld)
+				pseudoInvRhs.resize(numRhs);
 			for (int iRhs = 0; iRhs < numRhs; ++iRhs)
 				pseudoInvRhs[iRhs] = 0.0;
 			iVector = 0;	// re-filling rhs
 		}
 	}
 
-	if (iPodBasis == 0)	// set them equal by default
+	/*
+	if (thisCPU != 0 ) {
+		for (int iRhs = 0; iRhs < nNodesAtATime * dim; ++iRhs) {
+			delete [] podHatPseudoInvTmp[iRhs];
+		}
+		delete [] podHatPseudoInvTmp;
+	}
+	*/
+
+	if (thisCPU == 0 && iPodBasis == 0) {
 		podHatPseudoInv[1] = podHatPseudoInv[0];
+	}
+
 }
 
+template<int dim>
+void GappyOffline<dim>::computePseudoInverse() {
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
+		computePseudoInverse(iPodBasis);
+	//checkConsistency();	// TODO: remove
+
+	// podHat no loger needed
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
+		podHat[iPodBasis].resize(0);
+
+}
 //---------------------------------------------------------------------------------------
 
 template<int dim>
@@ -1591,14 +1630,19 @@ void GappyOffline<dim>::computePodTPod() {
 	// since podTpod = I for nPodBasis = 1, only call this function for
 	// nPodBasis = 2
 
-	podTpod = new double * [nPod[1]];
-	for (int i = 0; i < nPod[1]; ++i)
-		podTpod[i] = new double [nPod[0]];
+	if (thisCPU == 0) { 
+		podTpod = new double * [nPod[1]];
+		for (int i = 0; i < nPod[1]; ++i)
+			podTpod[i] = new double [nPod[0]];
+	}
 
-
+	double podTpodTmp;
 	for (int i = 0; i < nPod[1]; ++i)
-		for (int j = 0; j < nPod[0]; ++j)
-			podTpod[i][j] = pod[1][i]*pod[0][j];
+		for (int j = 0; j < nPod[0]; ++j) { 
+			podTpodTmp = pod[1][i]*pod[0][j];
+			if (thisCPU == 0)
+				podTpod[i][j] = podTpodTmp;
+		}
 }
 
 template<int dim>
@@ -1642,6 +1686,10 @@ void GappyOffline<dim>::assembleOnlineMatrices() {
 template<int dim>
 void GappyOffline<dim>::outputOnlineMatrices() {
 
+	// output matrices A and B in ASCII form as VecSet< DistSVec> with the
+	// DistSVec defined on the reduced mesh. Each column in this VecSet
+	// corresponds to a row of A or B.
+
 	outputReducedToFullNodes();
 
 	com->fprintf(stderr," ... Writing online matrices ...\n");
@@ -1653,12 +1701,28 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	if (ioData->output.transient.onlineMatrixFull[0] != 0) 
 		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrixFull,
 				numFullNodes, globalSampleNodeRankMap, globalSampleNodes);
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
+		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
+			delete [] podHatPseudoInv[iPodBasis][iRhs];
+		}
+		delete [] podHatPseudoInv[iPodBasis];
+	}
+
+	if (nPodBasis == 2) {	// only need to delete memory if 2 POD bases 
+												// (see assembleOnlineMatrices)
+		for (int i = 0; i < nSampleNodes * dim; ++i)  
+			delete [] onlineMatrices[0][i];
+		delete [] onlineMatrices[0];
+	}
 }
 
 template<int dim>
 void GappyOffline<dim>::outputStateReduced() {
-
-	// write both initial condition and pod for the state in reduced mesh
+	//INPUTS
+	// ioData, nReducedNodes, domain
+	// needed by outputReducedSVec: globalNodes, globalNodeToCpuMap,
+	// globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap 
 
 	com->fprintf(stderr," ... Writing POD state and initial condition in reduced mesh coordinates ...\n");
 	int sp = strlen(ioData->output.transient.prefix);
@@ -1684,7 +1748,7 @@ void GappyOffline<dim>::outputStateReduced() {
 	outputReducedSVec(*initialCondition,outInitialCondition,0);
 	delete initialCondition;
 
-	// note: need to output the first pod basis vector twice
+	// note: need to output the first POD basis vector twice
 
 	com->fprintf(stderr, " ... Reading POD basis for the state ...\n");
 	nPodState = ioData->Rob.numROB;
@@ -1706,6 +1770,9 @@ void GappyOffline<dim>::outputStateReduced() {
 template<int dim>
 void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 		&distSVec, FILE* outFile , int iVector) {
+
+	// INPUTS: vector, output file name, vector index
+	// globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
 	com->fprintf(outFile,"%d\n", iVector);
 
@@ -1735,6 +1802,8 @@ void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 
 template<int dim>
 void GappyOffline<dim>::outputWallDistanceReduced() {
+	// INPUTS: geoState, ioData, nReducedNodes
+	// needed by outputReducedVec: globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
 	com->fprintf(stderr," ... Writing wall distance for reduced mesh ...\n");
 
@@ -1754,7 +1823,7 @@ void GappyOffline<dim>::outputWallDistanceReduced() {
 	FILE *outWallDist;
 	if (thisCPU ==0) outWallDist = fopen(outWallDistFile, "wt");
 
-	// note: need to output the first pod basis vector twice
+	// note: need to output the first POD basis vector twice
 
 	com->fprintf(outWallDist,"Scalar walldist under load for FluidNodesRed\n");
 	com->fprintf(outWallDist,"%d\n", nReducedNodes);
@@ -1803,7 +1872,7 @@ void GappyOffline<dim>::outputReducedToFullNodes() {
 }
 
 template<int dim>
-void GappyOffline<dim>::checkConsistency() {
+void GappyOffline<dim>::checkConsistency() { 	//TODO: remove
 	int numRhs = nSampleNodes * dim;	// number of RHS treated
 	double **consistency = new double * [numRhs];
 	for (int i = 0; i < numRhs; ++i)
@@ -1909,12 +1978,5 @@ template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 			}
 		}
 		delete [] onlineMatrixFile;
-	}
-
-	if (nPodBasis == 2) {	// only need to delete memory if 2 pod bases 
-												// (see assembleOnlineMatrices)
-		for (int i = 0; i < nSampleNodes * dim; ++i)  
-			delete [] onlineMatrices[0][i];
-		delete [] onlineMatrices[0];
 	}
 }

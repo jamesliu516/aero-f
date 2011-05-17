@@ -2,22 +2,25 @@
 
 template<int dim>
 ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uold(dom->getNodeDistInfo()), Unew(dom->getNodeDistInfo()), dUtrue(dom->getNodeDistInfo()), dUproj(dom->getNodeDistInfo()), dUerr(dom->getNodeDistInfo()), projDU(this->nPod){
+  ImplicitRomTsDesc<dim>(ioData, geoSource, dom), Uold(dom->getNodeDistInfo()), Unew(dom->getNodeDistInfo()), dUtrue(dom->getNodeDistInfo()), dUproj(dom->getNodeDistInfo()), dUerr(dom->getNodeDistInfo()) {
 
-	this->maxItsNewton = 0;	// do 1 iteration
+		// assume vectors are orthonormal if not a snapshot basis
+		snapshotBasis = (this->ioData->Rob.basisType == 0);
+		this->maxItsNewton = 0;	// do 1 iteration
 
-	// jac = phi^T phi
+		// jac = phi^T phi
 
-	this->jac.setNewSize(this->nPod,this->nPod);
-	double *result = new double [this->pod.numVectors() * this->pod.numVectors()];
-	transMatMatProd(this->pod,this->pod,result);
-	for (int iRow = 0; iRow < this->nPod; ++iRow) {
-		for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
-			this->jac[iRow][iCol] = result[iRow + iCol * this->pod.numVectors()];
+		if (snapshotBasis) {
+			this->jac.setNewSize(this->nPod,this->nPod);
+			double *result = new double [this->pod.numVectors() * this->pod.numVectors()];
+			transMatMatProd(this->pod,this->pod,result);
+			for (int iRow = 0; iRow < this->nPod; ++iRow) {
+				for (int iCol = 0; iCol < this->nPod; ++iCol) {	// different from PG
+					this->jac[iRow][iCol] = result[iRow + iCol * this->pod.numVectors()];
+				}
+			} 
+			this->jac.factor();
 		}
-	} 
-
-  this->jac.factor();
 
 }
 
@@ -60,15 +63,17 @@ void ImplicitProjErrorTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int tot
 
 	// compute dUproj = phi(phi^Tphi)^{-1}phi^TdUtrue
 
-	projDU = 0.0;
-	projectVector(this->pod,dUtrue,projDU);	// Phi^T dUtrue
+	this->dUrom = 0.0;
+	projectVector(this->pod,dUtrue,this->dUrom);	// Phi^T dUtrue
 	// output redcoords
 	
-	double *x = projDU.data();
-  this->jac.reSolve(x);
+	if (snapshotBasis){
+		double *x = this->dUrom.data();
+		this->jac.reSolve(x);
+	}
 
 	// dUtrue
-  expandVector(projDU, dUproj);
+  expandVector(this->dUrom, dUproj);
 	dUerr = dUtrue - dUproj;
 	
 	// error measures
@@ -83,7 +88,7 @@ void ImplicitProjErrorTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int tot
 template<int dim>
 void ImplicitProjErrorTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
 
-	this->output->writeStateRomToDisk(it, cpu, this->nPod, projDU);
+	this->output->writeStateRomToDisk(it, cpu, this->nPod, this->dUrom);
 
 }
 

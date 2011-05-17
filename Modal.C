@@ -1759,8 +1759,6 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 #ifdef DO_MODAL
 
   // allocate for upper half of sym. eigprob
-  double *eigVals = new double[nPOD];
-  double *eigVecs = new double[nPOD*nSnaps];
   double *rVals = new double[nSnaps*(nSnaps+1)/2];
   for (int i = 0; i < nSnaps; i++){
     com->fprintf(stderr," ... processing snap %d\n",i);//CBM
@@ -1771,11 +1769,12 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
   //double tolerance = ioData->linearizedData.tolerance;
   double tolerance = (ioData->linearizedData.tolerance) ? ioData->linearizedData.tolerance : ioData->Rob.tolerance; //CBM--check   
 
+	com->barrier();
   ARdsSymMatrix<double> pod(nSnaps, rVals, 'U');
   com->fprintf(stderr, " ... Factoring Correlation Matrix\n");
 
- double t0 = modalTimer->getTime();
-  pod.FactorA();
+	double t0 = modalTimer->getTime();
+	pod.FactorA();
   ARluSymStdEig<double> podEigProb(nPOD, pod, "LM", nSnaps-1, tolerance, 300*nPOD);
   modalTimer->addCorrelMatrixTime(t0);
 
@@ -1785,6 +1784,7 @@ void ModalSolver<dim>::makeFreqPOD(VecSet<DistSVec<double, dim> > &snaps, int nS
 
 	com->fprintf(stderr, " ... Got %d converged eigenvectors out of %d snaps\n", nconv, nSnaps);
 	outputPODVectors(podEigProb, snaps, nPOD, nSnaps);
+	delete [] rVals;
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH ARPACK and DO_MODAL Flag\n");
@@ -2618,37 +2618,16 @@ void ModalSolver<dim>::outputPODVectors(VecSet<DistSVec<double, dim> > &podVecs,
  com->fprintf(sValsFile,"\n");
  computeRelativeEnergy(sValsFile, sVals, nPOD);
 
+ //const int waitTime = 60;
+
  for (int jj = 0; jj < nPOD; ++jj) {
    com->fprintf(stderr, "%d %e\n", jj, sVals[jj]);
+	 //com->fprintf(stderr, " ... waiting %d seconds ...\n", waitTime);
+	 com->barrier();
+	 //wait(waitTime);	// avoid file system crash due to excessive I/O
    domain.writeVectorToFile(podFileName, jj+1, sVals[jj]*sVals[jj], podVecs[jj]);
  }
 
- /*
-
-	Gram-schmidt loop
- DistSVec<double, dim> tmpVec(domain.getNodeDistInfo());
- double t0;
-
- for (int jj = 0; jj < nPOD; ++jj)  {
-
-   // gram-schmidt just as a check
-	 // gram-schmidt on podVecs
-   t0 = modalTimer->getTime();
-   tmpVec = 0.0;
-   for (int jVec = 0; jVec < jj; jVec++)  {
-     //podVecs[jj] -= podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
-     tmpVec += podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
-   }
-   podVecs[jj] -= tmpVec;
-
-   double norm = sqrt(podVecs[jj]*podVecs[jj]);
-   podVecs[jj] *= (1.0 / norm);
-   modalTimer->addGramSchmidtTime(t0);
-   com->fprintf(stderr, "%d %e, residual = %e, norm divider = %e", jj, sVals[jj], tmpVec.norm(), norm);
-   com->fprintf(stderr, "%d %e\n", jj, sVals[jj]);
-   domain.writeVectorToFile(podFileName, jj+1, sVals[jj], podVecs[jj]);
- }
-	*/
 }
 
 #ifdef DO_MODAL
@@ -2659,8 +2638,8 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
 
   Timer *modalTimer = domain.getTimer();
 
- // output POD Vectors
- VecSet<DistSVec<double, dim> > podVecs(nPOD, domain.getNodeDistInfo());
+ DistSVec<double, dim> podVec(domain.getNodeDistInfo());
+ podVec = 0.0;
 
  // write header
  int sp = strlen(ioData->output.transient.prefix) + 1;
@@ -2669,52 +2648,58 @@ void ModalSolver<dim>::outputPODVectors(ARluSymStdEig<double> &podEigProb,
  char *podFileName = new char[sp + strlen(ioData->output.transient.podFile)];
  char *sValsFileName = new char[sp + strlen(ioData->output.transient.podFile)+strlen(sValExtension)];
  sprintf(podFileName, "%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile);
- podVecs[0] = 0;
  if (com->cpuNum() == 0)
 	 sprintf(sValsFileName, "%s%s%s", ioData->output.transient.prefix, ioData->output.transient.podFile, sValExtension);
  FILE *sValsFile;
  if (com->cpuNum() == 0)	// only open with cpu 0
 	 sValsFile = fopen(sValsFileName, "wt");
+ delete [] sValsFileName;
 
  com->fprintf(sValsFile,"%d\n", nPOD);
- com->fprintf(stderr, " ... Writing %d (%f) podVecs to File\n", nPOD, (double) nPOD);
+ com->fprintf(stderr, " ... Writing %d (%f) POD vectors to File\n", nPOD, (double) nPOD);
  //const char *podFileName = ioData->output.transient.podFile;
 
  com->fprintf(sValsFile,"Singular values\n");
- domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVecs[0]);	// dummy vector
+ domain.writeVectorToFile(podFileName, 0, (double) nPOD, podVec);	// dummy vector
 
  double t0;
  double *rawEigVec = new double[numSnapsTot];
  int jj, kk;
  Vec<double> sVals(nPOD);
+ //const int waitTime = 60;
  for (jj = 0; jj < nPOD; jj++)  {
    t0 = modalTimer->getTime();
    for (kk = 0; kk < numSnapsTot; kk++)
      rawEigVec[kk] = podEigProb.Eigenvector(nPOD-jj-1, kk);
 
    Vec<double> pVec(numSnapsTot, rawEigVec);
-   podVecs[jj] = 0.0;
+   podVec = 0.0;
    for (kk = 0; kk < numSnapsTot; kk++)
-     podVecs[jj] += snaps[kk] * pVec[kk];
+     podVec += snaps[kk] * pVec[kk];
 
    double eig = podEigProb.Eigenvalue(nPOD-jj-1);
    if (eig < 0.0) {
      com->fprintf(stderr,"Negative eigenvalue: %e\n",eig);
      break;
    }
-   podVecs[jj] *= 1.0/sqrt(eig);
+   podVec *= 1.0/sqrt(eig);
 
-   // do gram-schmidt on podVecs
-   for (int jVec = 0; jVec < jj; jVec++)
-     podVecs[jj] -= podVecs[jVec] * (podVecs[jj]*podVecs[jVec]);
+   // do gram-schmidt on podVec
+   //for (int jVec = 0; jVec < jj; jVec++)
+     //podVec[jj] -= podVec[jVec] * (podVec[jj]*podVec[jVec]);
 
-   double norm = sqrt(podVecs[jj]*podVecs[jj]);
-   podVecs[jj] *= (1.0 / norm);
+   //norm = podVec.norm();
+   //podVec *= (1.0 / norm);
    modalTimer->addGramSchmidtTime(t0);
-	 domain.writeVectorToFile(podFileName, jj+1, eig, podVecs[jj]);
+	 //com->barrier();
+	 //com->fprintf(stderr, " ... waiting %d seconds ...\n", waitTime);
+	 //wait(waitTime);	// avoid file system crash
+	 domain.writeVectorToFile(podFileName, jj+1, eig, podVec);
 	 com->fprintf(stderr, "%d %e\n", jj, sqrt(eig));
 	 sVals[jj] = sqrt(eig);
  }
+ delete [] rawEigVec;
+ delete [] podFileName;
 
  for (int jj = 0; jj < nPOD; ++jj) {
 	 com->fprintf(sValsFile,"%e ", sVals[jj]);
@@ -2794,3 +2779,13 @@ void ModalSolver<dim>::normalizeSnap(DistSVec<double, dim> &snap, const int iSna
 	}
 	snap *= scalingFactor;
 }
+
+
+template<int dim>
+void ModalSolver<dim>::wait(const int seconds )
+{
+	clock_t endwait;
+	endwait = clock () + seconds * CLOCKS_PER_SEC ;
+	while (clock() < endwait) {}
+}
+

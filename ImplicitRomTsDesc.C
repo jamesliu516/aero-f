@@ -28,12 +28,11 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 
   // read Pod Basis
   nPod = ioData->Rob.numROB;
-  dom->readPodBasis(this->input->podFile, nPod, pod);
-
+	readPodBasis();
 
 	char *snapRefSolFile = this->input->snapRefSolutionFile;
 	FILE *inRSFP = fopen(snapRefSolFile, "r");
-	if (inRSFP){  
+	if (snapRefSolFile[0] != '\0'){  
 		DistSVec<double,dim> referenceSolution(dom->getNodeDistInfo());
 		this->com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
 		dom->readVectorFromFile(snapRefSolFile, 0, 0, referenceSolution);
@@ -42,9 +41,6 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
 		}
 	}
 
-
-	subtractIC = ioData->Rob.subtractIC;
-
   MemoryPool mp;
   this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
 
@@ -52,8 +48,11 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource,
   dUrom.resize(nPod);
   UromTotal.resize(nPod);
 	UromTotal = 0.0;	// before any time step, it is zero
-  dUnormAccum.resize(nPod);
-	dUnormAccum = 0.0;	// before any time step, it is zero
+	dUnormAccum = new Vec<double> [2];
+	for (int i = 0 ; i < 2; ++i) {
+		dUnormAccum[i].resize(nPod);	// before any time step, it is zero
+		dUnormAccum[i] = 0.0;	// before any time step, it is zero
+	}
 
 }
 
@@ -64,6 +63,9 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
 
 	// output net dUnormAccum
+	for (int iPod = 0; iPod < nPod; ++iPod)
+		dUnormAccum[1][iPod] = sqrt(dUnormAccum[1][iPod]);	// to complete 2-norm definition
+
 	const char *dUnormAccumFile = ioData->output.transient.dUnormAccum;
 	if (strcmp(dUnormAccumFile, "") != 0)  {
 		char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
@@ -72,13 +74,14 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 				ioData->output.transient.prefix, dUnormAccumFile);
 		FILE *writingFile;
 		if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
-		this->com->fprintf(writingFile, "PodCoefficient NetContribution\n");
+		this->com->fprintf(writingFile, "PodCoefficient NetContribution(1norm) NetContribution(2norm)\n");
 		for (int i = 0; i < nPod; ++i) { 
-			this->com->fprintf(writingFile, "%d %e \n", i + 1, dUnormAccum[i]);
+			this->com->fprintf(writingFile, "%d %e %e \n", i + 1, dUnormAccum[0][i],dUnormAccum[1][i]);
 		}
 		delete [] outdUnormAccumFile;
 	}
 
+	delete [] dUnormAccum;
   if (tag) delete tag;
 }
 
@@ -705,6 +708,14 @@ template<int dim>
 void ImplicitRomTsDesc<dim>::savedUnormAccum() {
 	
 	for (int iPod = 0; iPod < nPod; ++iPod) {
-		dUnormAccum[iPod] += fabs(dUrom[iPod]);
+		dUnormAccum[0][iPod] += fabs(dUrom[iPod]);	// 1 norm
+		dUnormAccum[1][iPod] += dUrom[iPod] * dUrom[iPod];	// 2 norm
 	}
+}
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::readPodBasis() {
+
+  this->domain->readPodBasis(this->input->podFile, nPod, pod,this->ioData->Rob.basisType == 0);
+	
 }

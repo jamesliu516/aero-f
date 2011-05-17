@@ -93,9 +93,6 @@ protected:
 	virtual void setUpPodResJac();
 	virtual void setUpPseudoInverse();
 
-	void buildReducedMesh();	// build reduced mesh offline
-	virtual void buildGappyMatrices();	// build matrices A and B
-
 	int nSampleNodes;	// number of parent sample globalNodes
 	void newNeighbors();	// add unique neighbors of a node
 
@@ -116,6 +113,7 @@ protected:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
+	int nPodGreedy; // number of basis vectors used for greedy
 
 	std::vector<int> cpuSample, locSubSample, locNodeSample;
 	std::vector<int> globalSampleNodes, reducedSampleNodes;
@@ -141,6 +139,7 @@ protected:
 	VecSubDomainData<dim> locError;
 
 	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+	bool onlyInletOutletBC;
 
 	// greedy functions
 
@@ -226,6 +225,7 @@ protected:
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
+	void computePseudoInverse();
 	void computePseudoInverse(int iPodBasis);
 	//void computePseudoInverseRHS();
 	void checkConsistency();

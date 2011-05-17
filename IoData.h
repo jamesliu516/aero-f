@@ -1603,6 +1603,7 @@ struct ROB {
   int podMethod;
   int pseudoInverseNodes;
   int subtractIC;
+  int basisType;
 
   ROB();
   ~ROB() {}

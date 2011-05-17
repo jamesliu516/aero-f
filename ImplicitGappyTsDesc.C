@@ -60,6 +60,9 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	//AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, dom->getNodeDistInfo()));
 	AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
 	ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
+
+	jactmp = new double [Amat->numVectors() * AJRestrict->numVectors()];
+	column = new double [Amat->numVectors()];
 }
 
 template<int dim>
@@ -68,6 +71,8 @@ ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc()
 	delete Amat;
 	if (numABmat == 2)
 		delete Bmat;
+	if (jactmp) delete [] jactmp;
+	if (column) delete [] column;
 }
 //------------------------------------------------------------------------------
 
@@ -105,36 +110,33 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
-	double *result = new double [Amat->numVectors() * AJRestrict->numVectors()];
-	transMatMatProd(*Amat, *AJRestrict,result);
+	// TODO: don't recreate logic
+	transMatMatProd(*Amat, *AJRestrict,jactmp);
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
     const int localICol = leastSquaresSolver.localColIdx(iCol);
-		//transMatVecProd(*Amat, (*AJRestrict)[iCol],result);
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      //const double entryValue = (*Amat)[iRow] * (*AJRestrict)[iCol];
       const bool hasLocalEntry = hasLocalCol && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRowIdx(iRow);
-        leastSquaresSolver.matrixEntry(localIRow, localICol) = result[iRow + iCol * leastSquaresSolver.equationCount()];
+        leastSquaresSolver.matrixEntry(localIRow, localICol) = jactmp[iRow + iCol * leastSquaresSolver.equationCount()];
       }
     }
   }
  
   // Form B * ResRestrict and distribute
-	double *column = new double [Amat->numVectors()];
   {
     const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
 		transMatVecProd(*Bmat, *ResRestrict, column);
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      //const double entryValue = (*Bmat)[iRow] * (*ResRestrict);
       const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
       if (hasLocalEntry) {
         const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
-        leastSquaresSolver.rhsEntry(localIRow) = -1.0 * column[iRow];	// need to make negative
+        leastSquaresSolver.rhsEntry(localIRow) = -1.0 * column[iRow];
       }
     }
   }
+
   // Solve least squares problem
   leastSquaresSolver.solve();
 
@@ -155,8 +157,6 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
     this->target = this->epsNewton * this->res0;
   }
 
-	delete [] result;
-	delete [] column;
   breakloop = (res == 0.0) || (res <= this->target);
 
 }

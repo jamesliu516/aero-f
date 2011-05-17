@@ -679,7 +679,7 @@ public:
 	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
 
   template<int dim>
-  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &);
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
 
   void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
 

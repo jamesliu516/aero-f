@@ -203,7 +203,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer &snaps, VecContainer &Utrue,
 
 template<int dim>
 template<class VecContainer>
-void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecContainer &B) {
+void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecContainer &B, int nA = 0) {
 
 	//====================================
 	// PURPOSE: initialize the least squares problems for scalapack when
@@ -252,7 +252,9 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecCo
 
 	// inputs: nA
 	// outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
-	int nA = A.numVectors();
+	if (nA == 0)
+		nA = A.numVectors();
+		
 	scalapackCpuDecomp(nA); 
 
  //===============================
@@ -287,7 +289,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer &A, const VecCo
 template<int dim>
 template<class VecContainer>
 void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
-		const VecContainer &B, int n, int nRhs, double **lsSol) {
+		const VecContainer &B, int n, int nRhs, double **lsSol, bool lsCoeffAllCPU = true) {
 
 	// each time
   // 	ScaLAPACK only operates on submatrices; these are the submatrices of interest
@@ -314,7 +316,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
 	//===============================
 	
 	if (n != desc_a[3] || nRhs != desc_b[3])
-		parallelLSMultiRHSInit(A, B);	// (re)-initialization needed
+		parallelLSMultiRHSInit(A, B, n);	// (re)-initialization needed
 
 	// KTC: can make this more elegant if needed
 	
@@ -393,6 +395,8 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
  F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
 		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork,
 		 info);
+ delete[] work;
+ delete[] subMatA;
 	//what about rowIndex and colIndex for A and B???
 
  if (info != 0) {
@@ -408,18 +412,16 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer &A,
 
  // output: lsSol
 
- transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD);
+ transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD, lsCoeffAllCPU);
 
  com->barrier();
 
+ delete[] locSendReceive;
+ delete[] subMatB;
  //===============================
  // clean up
  //===============================
 
- delete[] work;
- delete[] locSendReceive;
- delete[] subMatA;
- delete[] subMatB;
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
@@ -728,12 +730,13 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
 
 template<int dim>
 void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
-		**lsSol, int nRhs, int subMatLLD) {
+		**lsSol, int nRhs, int subMatLLD, bool lsCoeffAllCPU) {
 
 	//====================================
 	// Purpose: fill lsSol by using appropriate data from subMatB
 	// Inputs: subMatB (scalapack fills in B with solution), n (number of columns in A), subMatLLD (so you know where the data for various RHS resides on subMatB)
 	// Outputs: lsSol
+	// NOTE: only CPU 0 needs memory allocated for lsSol!
 	//====================================
 
 	// distribution info
@@ -749,12 +752,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 	int *subMatEntry = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 	int *subMatLLDset = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 
-	// initialize lsSol
-
-	for (int i = 0; i < nRhs; ++i){
-		for (int j = 0; j < n; ++j)
-		  lsSol[i][j] = 0.0;
-  }
+	double *lsSolTmp = new double[n];
 
 	for (int i = 0; i < nTotCpus; ++i)
 		subMatLLDset[i] = 0;
@@ -767,6 +765,8 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 	// compute lsSol from distributed data
 
   for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
+		for (int j = 0; j < n; ++j)
+		  lsSolTmp[j] = 0.0;
 		
 		// initialize subMatEntry for this RHS
 	  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
@@ -774,7 +774,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 	  for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
 			// currentCpu: cpu which is filling up lsSol
 		  if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
-			  lsSol[iRhs][lsSolCount] = subMatB[subMatEntry[currentCpu]];
+			  lsSolTmp[lsSolCount] = subMatB[subMatEntry[currentCpu]];
 		  ++subMatEntry[currentCpu];	// current cpu has moved on
 			//KTC CHECK 
 			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu 
@@ -783,16 +783,19 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
 				  currentCpu = 0;
 		  }
 		}
-		currentCpu = 0;
 
+		com->barrier();
+
+		com->globalSum(n, lsSolTmp);
+		if (lsCoeffAllCPU || thisCPU == 0 ) {
+			for (int j = 0; j < n; ++j)
+				lsSol[iRhs][j] = lsSolTmp[j];	// only store solution on cpu 0 or if all cpus need it
+		}
+
+		currentCpu = 0;
 	}
 
-
-	com->barrier();
-
-	for (int iRhs = 0; iRhs < nRhs; ++iRhs)
-		com->globalSum(n, lsSol[iRhs]);
-
+	delete[] lsSolTmp;
 	delete[] subMatEntry;
 	delete[] subMatLLDset;
 

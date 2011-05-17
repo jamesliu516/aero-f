@@ -2709,6 +2709,7 @@ ROB::ROB()
 	podMethod = 0;	// 0: SVD, 1: EVD
 	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
 	subtractIC = 0;	// if pod computation should only compute total energy of snapshots
+	basisType = 1;	// use pod by default
 
 }
 
@@ -2735,6 +2736,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassToken<ROB> (ca, "PODMethod", this, reinterpret_cast<int ROB::*>(&ROB::podMethod), 2, "SVD", 0, "Eig", 1);
   new ClassInt<ROB>(ca, "PseudoInvNodes", this, &ROB::pseudoInverseNodes);
   new ClassInt<ROB>(ca, "SubtractIC", this, &ROB::subtractIC);
+  new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 2, "Snaps", 0, "POD", 1);
 
 }
 

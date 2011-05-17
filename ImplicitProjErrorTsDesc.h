@@ -12,8 +12,8 @@ protected:
 
   DistSVec<double, dim> Uold, Unew;
   DistSVec<double, dim> dUtrue, dUproj, dUerr;
-  Vec<double> projDU;
 	double dUerrnorm, dUrelerr;
+	bool snapshotBasis;
 
 	//jac is Phi^TPhi
 
