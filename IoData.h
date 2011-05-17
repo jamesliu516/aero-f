@@ -43,6 +43,7 @@ struct InputData {
 
   const char *sampleNodes;
   const char *podFileResJac;
+  const char *podFileResJacHat;
   const char *aMatrix;
   const char *bMatrix;
   const char *mesh;
@@ -245,8 +246,10 @@ struct ProblemData {
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ = 24, _SURFACE_MESH_CONSTRUCTION_ = 25,
-			_REDUCED_MESH_SHAPE_CHANGE_ = 26} alltype;
+			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ =
+				24, _SURFACE_MESH_CONSTRUCTION_ = 25, _REDUCED_MESH_SHAPE_CHANGE_ =
+				26, _GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ = 27,
+			_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ = 28} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;

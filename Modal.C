@@ -136,6 +136,18 @@ void ModalSolver<dim>::solve()  {
 	 GappyOffline<dim> gappy(com,*ioData,domain,geoState);
 	 gappy.buildReducedModel();
  }
+ else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_NO_PSEUDO_){
+	 geoState = new DistGeoState(*ioData, &domain);
+	 geoState->setup1(tInput->positions, &Xref, &controlVol);
+	 GappyOfflineNoPseudo<dim> gappy(com,*ioData,domain,geoState);
+	 gappy.buildReducedModel();
+ }
+ else if (ioData->problem.alltype == ProblemData::_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_){
+	 geoState = new DistGeoState(*ioData, &domain);
+	 geoState->setup1(tInput->positions, &Xref, &controlVol);
+	 GappyOfflineOnlyPseudo<dim> gappy(com,*ioData,domain,geoState);
+	 gappy.buildReducedModel();
+ }
  else if (ioData->problem.alltype == ProblemData::_SURFACE_MESH_CONSTRUCTION_){
 	 geoState = new DistGeoState(*ioData, &domain);
 	 geoState->setup1(tInput->positions, &Xref, &controlVol);

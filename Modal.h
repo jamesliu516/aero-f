@@ -23,6 +23,8 @@ template<int dim> class PostOperator;
 #include <TsOutput.h>
 #include <TsRestart.h>
 #include <GappyOffline.h>
+#include <GappyOfflineNoPseudo.h>
+#include <GappyOfflineOnlyPseudo.h>
 #include <SurfMeshGen.h>
 #include <ReducedMeshShapeChanger.h>
 #include <ParallelRom.h> 

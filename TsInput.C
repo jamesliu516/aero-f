@@ -17,6 +17,7 @@ TsInput::TsInput(IoData &iod) {
   snapFile  = absolutePath(iod.input.snapFile,  prefix);
   snapRefSolutionFile = absolutePath(iod.input.snapRefSolutionFile, prefix);
   podFileResJac = absolutePath(iod.input.podFileResJac, prefix);
+  podFileResJacHat = absolutePath(iod.input.podFileResJacHat, prefix);
   sampleNodes = absolutePath(iod.input.sampleNodes, prefix);
   aMatrix = absolutePath(iod.input.aMatrix, prefix);
   bMatrix = absolutePath(iod.input.bMatrix, prefix);
@@ -49,6 +50,7 @@ TsInput::~TsInput() {
   delete[] snapFile;
   delete[] snapRefSolutionFile;
   delete[] podFileResJac;
+  delete[] podFileResJacHat;
   delete[] sampleNodes;
   delete[] aMatrix;
   delete[] bMatrix;
