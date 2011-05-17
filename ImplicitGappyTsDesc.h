@@ -40,6 +40,7 @@ protected:
 	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
 	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
 
+	double *jactmp, *column;
 public:
   
   ImplicitGappyTsDesc(IoData &, GeoSource &, Domain *);

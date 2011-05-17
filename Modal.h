@@ -26,6 +26,7 @@ template<int dim> class PostOperator;
 #include <SurfMeshGen.h>
 #include <ReducedMeshShapeChanger.h>
 #include <ParallelRom.h> 
+#include <time.h> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
@@ -118,6 +119,7 @@ class ModalSolver {
     void outputModalDisp(double *, double *, double, int, int, FILE *);
     void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
     void buildGlobalPOD();
+    void wait(const int seconds);
     void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
     //void projectFullSoltn();
     void interpolatePOD();

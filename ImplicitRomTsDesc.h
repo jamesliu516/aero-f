@@ -37,13 +37,14 @@ protected:
   
   int nPod;
 	int subtractIC;	// =1 if you subtract IC from basis
+  virtual void readPodBasis();  
 
   DistSVec<double, dim> F;	// residual
   VecSet<DistSVec<double, dim> > AJ; // Action of Jacobian (AJ) on reduced-order basis
 
   Vec<double> dUrom;
   Vec<double> UromTotal;
-  Vec<double> dUnormAccum;	// accumulated contributions
+  Vec<double> *dUnormAccum;	// accumulated contributions
 
 	double target, res0;	// for Newton convergence
 
