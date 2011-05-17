@@ -2,7 +2,8 @@
 #include <TsDesc.h>
 
 template<int dim>
-GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain &dom, DistGeoState *_geoState) : 
+GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
+		&dom, DistGeoState *_geoState) : 
 	domain(dom), 	com(_com), ioData(&_ioData), 
 	podRes(0, dom.getNodeDistInfo() ),	// two pod bases (residual + jacobian)
 	podJac(0, dom.getNodeDistInfo() ),
@@ -225,13 +226,7 @@ void GappyOffline<dim>::setUpPodResJac() {
 		nPod[0] = nPod[1];	// from now on, only deal with the first basis
 	}
 
-	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
-		pod[i].resize(nPod[i]);
-	}
-
-	//	read in both bases
-	com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
-  domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+	readInPodResJac(podFiles);
 
 }
 
@@ -1510,6 +1505,7 @@ void GappyOffline<dim>::computeXYZ(int iSub, int iLocNode, double *xyz) {
 
 template<int dim>
 void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
+
 //======================================
 // Purpose
 // 	compute pseudo inverses of podHatRes or podHatJac
@@ -1543,13 +1539,6 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 
 	// all processors store the temporary solution
 	double **podHatPseudoInvTmp;
-	/*
- 	if (thisCPU !=0 ) {
-		podHatPseudoInvTmp = new double * [nNodesAtATime * dim];
-		for (int iRhs = 0; iRhs < nNodesAtATime * dim; ++iRhs)  
-			podHatPseudoInvTmp[iRhs] = new double [nPod[iPodBasis] ] ;
-	}
-	*/
 
 	int iVector = 0;
 	for (int iSampleNodes = 0; iSampleNodes < nSampleNodes; ++iSampleNodes) {
@@ -1591,15 +1580,6 @@ void GappyOffline<dim>::computePseudoInverse(int iPodBasis) {
 			iVector = 0;	// re-filling rhs
 		}
 	}
-
-	/*
-	if (thisCPU != 0 ) {
-		for (int iRhs = 0; iRhs < nNodesAtATime * dim; ++iRhs) {
-			delete [] podHatPseudoInvTmp[iRhs];
-		}
-		delete [] podHatPseudoInvTmp;
-	}
-	*/
 
 	if (thisCPU == 0 && iPodBasis == 0) {
 		podHatPseudoInv[1] = podHatPseudoInv[0];
@@ -1677,8 +1657,8 @@ void GappyOffline<dim>::assembleOnlineMatrices() {
 		// no longer need podTpod
 
 		for (int i = 0; i < nPod[1]; ++i)
-			delete [] podTpod[i];
-		delete [] podTpod;
+			if (podTpod[i]) delete [] podTpod[i];
+		if (podTpod) delete [] podTpod;
 	}
 
 }
@@ -1695,8 +1675,9 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 	com->fprintf(stderr," ... Writing online matrices ...\n");
 
 	// reduced mesh
-	outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrix,
-			nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
+	if (ioData->output.transient.onlineMatrix[0] != 0)
+		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrix,
+				nReducedNodes, reducedSampleNodeRankMap, reducedSampleNodes);
 	
 	if (ioData->output.transient.onlineMatrixFull[0] != 0) 
 		outputOnlineMatricesGeneral(ioData->output.transient.onlineMatrixFull,
@@ -1704,16 +1685,16 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
 		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
-			delete [] podHatPseudoInv[iPodBasis][iRhs];
+			if (podHatPseudoInv[iPodBasis][iRhs]) delete [] podHatPseudoInv[iPodBasis][iRhs];
 		}
-		delete [] podHatPseudoInv[iPodBasis];
+		if (podHatPseudoInv[iPodBasis]) delete [] podHatPseudoInv[iPodBasis];
 	}
 
 	if (nPodBasis == 2) {	// only need to delete memory if 2 POD bases 
 												// (see assembleOnlineMatrices)
 		for (int i = 0; i < nSampleNodes * dim; ++i)  
-			delete [] onlineMatrices[0][i];
-		delete [] onlineMatrices[0];
+			if (onlineMatrices[0][i]) delete [] onlineMatrices[0][i];
+		if (onlineMatrices[0]) delete [] onlineMatrices[0];
 	}
 }
 
@@ -1740,7 +1721,6 @@ void GappyOffline<dim>::outputStateReduced() {
 	com->fprintf(outInitialCondition,"%d\n", nReducedNodes);
 	
 	// read in initial condition
-  //ioData->output.restart.solutions
 
 	DistSVec<double,dim> *initialCondition = new DistSVec<double,dim>( domain.getNodeDistInfo() );
 	double tmp;
@@ -1918,7 +1898,8 @@ void GappyOffline<dim>::checkConsistency() { 	//TODO: remove
 
 }
 
-template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
+template<int dim>
+void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 		*onlineMatricesName, int numNodes,
 		const std::map<int,int> &sampleNodeMap, const std::vector<int>
 		&sampleNodeVec) {
@@ -1979,4 +1960,17 @@ template<int dim> void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 		}
 		delete [] onlineMatrixFile;
 	}
+}
+
+template<int dim>
+void GappyOffline<dim>::readInPodResJac(int *podFiles) {
+
+	for (int i = 0 ; i < nPodBasis ; ++i){	// only do for number of required bases
+		pod[i].resize(nPod[i]);
+	}
+
+	//	read in both bases
+	com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
+  domain.readMultiPodBasis(input->podFileResJac, pod.a, nPod, nPodBasis, podFiles);
+
 }

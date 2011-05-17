@@ -3721,7 +3721,8 @@ void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps = false) {
+void Domain::readPodBasis(const char *podFile, int &nPod,
+		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps = false) {
 
   // read in POD Vectors
   const char *vecFile = podFile;
@@ -3767,4 +3768,22 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
 		firstEigDisplayed = firstEig;
 	}
   com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
+}
+
+void Domain::readSampleNodes(std::vector<int> sampleNodes, int &nSampleNodes,
+		const char *sampleNodeFileName) {
+
+	// INPUT: sample node file name
+	// OUTPUT: nSampleNodes, sampleNodes
+
+	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
+	fscanf(sampleNodeFile, "%d",&nSampleNodes);	// first entry is the number of sample nodes
+	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
+
+	int index, currentSampleNode;
+	for (int i = 0; i < nSampleNodes; ++i){
+		fscanf(sampleNodeFile, "%d",&index);
+		fscanf(sampleNodeFile, "%d",&currentSampleNode);
+		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
+	}
 }

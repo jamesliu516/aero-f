@@ -11,7 +11,8 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	leastSquaresSolver(this->com, this->com->size(), 1)	// all cpus along rows
 {
 
-	readSampleNodes(this->input->sampleNodes);
+	// NOTE: Amat corresponds to RESIDUAL, Bmat corresponds to JACOBIAN
+	dom->readSampleNodes(sampleNodes, nSampleNodes, this->input->sampleNodes);
 
 	// assume we have nPodJac
   nPodJac = ioData.Rob.numROBJac; 
@@ -111,7 +112,7 @@ template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
 	// TODO: don't recreate logic
-	transMatMatProd(*Amat, *AJRestrict,jactmp);
+	transMatMatProd(*Bmat, *AJRestrict,jactmp);
   for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
     const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
     const int localICol = leastSquaresSolver.localColIdx(iCol);
@@ -127,7 +128,7 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   // Form B * ResRestrict and distribute
   {
     const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
-		transMatVecProd(*Bmat, *ResRestrict, column);
+		transMatVecProd(*Amat, *ResRestrict, column);
     for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
       const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
       if (hasLocalEntry) {
@@ -159,24 +160,4 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
 
   breakloop = (res == 0.0) || (res <= this->target);
 
-}
-
-//------------------------------------------------------------------------------
-
-template<int dim>
-void ImplicitGappyTsDesc<dim>::readSampleNodes(const char *sampleNodeFileName)  {
-
-	// INPUT: sample node file name
-	// OUTPUT: nSampleNodes, sampleNodes
-
-	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
-	fscanf(sampleNodeFile, "%d",&nSampleNodes);	// first entry is the number of sample nodes
-	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
-
-	int index, currentSampleNode;
-	for (int i = 0; i < nSampleNodes; ++i){
-		fscanf(sampleNodeFile, "%d",&index);
-		fscanf(sampleNodeFile, "%d",&currentSampleNode);
-		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
-	}
 }

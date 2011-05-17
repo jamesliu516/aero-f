@@ -225,7 +225,8 @@ protected:
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
-	void computePseudoInverse();
+	virtual void computePseudoInverse();
+	virtual void readInPodResJac(int *podFiles);
 	void computePseudoInverse(int iPodBasis);
 	//void computePseudoInverseRHS();
 	void checkConsistency();
@@ -239,9 +240,9 @@ protected:
 		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
 		// onlineMatrices[1] is related to the jacobian: 
 		// 		podHatPseudoInv[1]^T
-	void assembleOnlineMatrices();
+	virtual void assembleOnlineMatrices();
 	void outputOnlineMatrices();
-	void outputOnlineMatricesGeneral(const char *onlineMatrix, 
+	virtual void outputOnlineMatricesGeneral(const char *onlineMatrix, 
 			int numNodes, const std::map<int,int> &sampleNodeMap, const
 			std::vector<int> &sampleNodeVec);
 	void outputReducedToFullNodes();

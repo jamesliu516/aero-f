@@ -33,7 +33,6 @@ protected:
 	std::auto_ptr< RestrictionMapping<dim> > restrictionMapping;
 
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
-	void readSampleNodes(const char *sampleNodeFileName);
 	const DistInfo & getRestrictedDistInfo () const {return restrictionMapping->restrictedDistInfo();};
 	const RestrictionMapping<dim> * restrictMapping() const { return restrictionMapping.get(); } 
 

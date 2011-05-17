@@ -17,6 +17,7 @@ struct TsInput {
 
 // Gappy offline
   char *podFileResJac;
+  char *podFileResJacHat;
 
 // Gappy online
   char *sampleNodes;
