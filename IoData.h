@@ -43,8 +43,11 @@ struct InputData {
 
   const char *sampleNodes;
   const char *podFileResJac;
+  const char *podFileResJacHat;
   const char *aMatrix;
   const char *bMatrix;
+  const char *mesh;
+  const char *reducedfullnodemap;
 
 // Included (MB)
   const char *shapederivatives;
@@ -133,6 +136,8 @@ struct TransientData {
   const char *podStateRed;
   const char *wallDistanceRed;
   const char *staterom;
+  const char *error;
+  const char *dUnormAccum;
 
 // Included (MB)
   const char *velocitynorm;
@@ -241,7 +246,10 @@ struct ProblemData {
 		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ = 24} alltype;
+			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ =
+				24, _SURFACE_MESH_CONSTRUCTION_ = 25, _REDUCED_MESH_SHAPE_CHANGE_ =
+				26, _GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ = 27,
+			_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ = 28} alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1586,8 +1594,19 @@ struct ROB {
   int numROBJac;
   int numROBRes;
   double sampleNodeFactor;
-  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, OLDGAPPYPG = 3} romsolver;
+  int nPodGreedy;
+  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, GALERKIN = 3, POSTPROCESS = 4, PROJERROR = 5} romsolver;
 	int liftFaces;
+  int normalizeSnapshots;
+  int timestepWeights;
+  int skipFreq;
+  int incrementalSnapshots;
+  int maxVecStorage;
+  int energyOnly;
+  int podMethod;
+  int pseudoInverseNodes;
+  int subtractIC;
+  int basisType;
 
   ROB();
   ~ROB() {}

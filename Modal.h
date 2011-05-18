@@ -22,8 +22,13 @@ template<int dim> class PostOperator;
 #include <TsInput.h>
 #include <TsOutput.h>
 #include <TsRestart.h>
-#include <GappyOffline.h> // KTC
-#include <ParallelRom.h> // KTC
+#include <GappyOffline.h>
+#include <GappyOfflineNoPseudo.h>
+#include <GappyOfflineOnlyPseudo.h>
+#include <SurfMeshGen.h>
+#include <ReducedMeshShapeChanger.h>
+#include <ParallelRom.h> 
+#include <time.h> 
 
 #ifdef DO_MODAL
   #include <arpack++/include/ardnsmat.h>
@@ -81,11 +86,13 @@ class ModalSolver {
     double dt;
     double dt0;
     double *K;
+		int podMethod;
 
     VecSet< DistSVec<double,dim> > DX;
     VecSet< DistSVec<double,dim> > DE;
     DistVec<double> controlVol;
     DistVec<bcomp> controlVolComp;  // failing in this destructor
+		double totalEnergy;
  
   public:
     ModalSolver(Communicator *, IoData &, Domain &);
@@ -112,8 +119,10 @@ class ModalSolver {
     void computeModalDisp(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void computeModalDispStep1(double, DistSVec<double, 3> &, DistSVec<double, dim> &, double *, double *, Vec<double> &);
     void outputModalDisp(double *, double *, double, int, int, FILE *);
-    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int);
+    void makeFreqPOD(VecSet<DistSVec<double, dim> > &, int, int, bool);
     void buildGlobalPOD();
+    void wait(const int seconds);
+    void normalizeSnap(DistSVec<double, dim>  &, const int, const int);
     //void projectFullSoltn();
     void interpolatePOD();
     template<class Scalar>

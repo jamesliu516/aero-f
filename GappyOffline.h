@@ -81,16 +81,17 @@ class StaticArray {	//used for the value of a map
 template <int dim>
 class GappyOffline {
 
-private:
+protected:
 
 	typedef VecSet< DistSVec<double,dim> > SetOfVec;
 	bool debugging; 	// debugging flag
+	bool twoLayers; 	// debugging flag
 	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
-	void setUpPodBases();	// read in POD bases
-	void buildGappyMesh();	// build reduced mesh offline
-	void buildGappyMatrices();	// build matrices A and B
+	void setUp();	// read in POD bases
+	virtual void setUpPodResJac();
+	virtual void setUpPseudoInverse();
 
 	int nSampleNodes;	// number of parent sample globalNodes
 	void newNeighbors();	// add unique neighbors of a node
@@ -112,6 +113,7 @@ private:
 	const int jacobian;
 	int nPod [2];	// nPod[0] = nPodRes, nPod[1] = nPodJac
 	int nPodMax;
+	int nPodGreedy; // number of basis vectors used for greedy
 
 	std::vector<int> cpuSample, locSubSample, locNodeSample;
 	std::vector<int> globalSampleNodes, reducedSampleNodes;
@@ -137,13 +139,15 @@ private:
 	VecSubDomainData<dim> locError;
 
 	void parallelLSMultiRHSGap(int iPodBasis, double **lsCoeff);
+	bool onlyInletOutletBC;
 
 	// greedy functions
 
-	void greedy(int greedyIt);
-	void computeGreedyIterationInfo();
+	virtual void determineSampleNodes();
+	void greedyIteration(int greedyIt);
+	virtual void setUpGreedy();
 	void computeNodeError(bool *locMasterFlag, int locNodeNum, double &nodeError);
-	void findMaxAndFillPodHat(double myMaxNorm, int locSub, int locNode, int globalNode);
+	void findMaxAndFillPodHat(const double myMaxNorm, const int locSub, const int locNode, const int globalNode);
 	void makeNodeMaxIfUnique(double nodeError, double &myMaxNorm, int iSub, int locNodeNum, int &locSub, int &locNode, int &globalNode);
 	void getSubDomainError(int iSub);	// computes locError for iSub subdomain
 	void leastSquaresReconstruction();
@@ -168,6 +172,7 @@ private:
 	std::vector <double> *(nodesXYZ [3]);	// nodesXYZ[iXYZ][iSampleNode][iNode] is the iXYZ coordinate of the iNode in the iSampleNode island
 	std::vector <int> *elements;		// elements[iSampleNode][iEle] is the global element number of the iEle element in the iSampleNode island 
 	std::vector <int> *(elemToNode [4]);	// elemToNode[iNode][iSampleNode][iEle] is the global node number of the iNode attached to the iEle element of the iSampleNode island 
+	int *nodeOffset;
 	int *totalNodesCommunicated;
 	int *totalEleCommunicated;
 	std::vector< int > *(bcFaces [2][3]);	// boundary faces. bcfaces[iSign][whichNode][BCtype][iFace] returns the global node number of whichNode on the iFace face corresponding to iSign/BCtype. iSign = 0 if the BC definition is negative, and iSign = 1 if positive. BCtype can be found in BcDefs.h
@@ -181,7 +186,7 @@ private:
 	std::map <int, StaticArray <int, 4> > elemToNodeMap;	// key: global elem #, values: global node #s
 	std::map <int, std::string > boundaryConditionsMap;	// mapping between BC numbers in BcDef.h and Sower's identification
 		//above maps have been defined for vector entries [iSampleNode][0:j]
-	int numFullNodes, numReducedNodes;	// number of nodes in full and reduced meshes
+	int numFullNodes, nReducedNodes;	// number of nodes in full and reduced meshes
 
 		// KTC!!! then, when outputting the TOP file, need another key that maps global
 		// node # to reduced mesh node #... this mapping will be different for
@@ -191,7 +196,7 @@ private:
 		// boundary conditions
 
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
-	void addTwoNodeLayers();
+	virtual void buildRemainingMesh();
 	void computeBCFaces(bool);
 	bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
 	bool checkFaceAlreadyAdded(const int cpuNum, const int
@@ -204,14 +209,15 @@ private:
 			const int iSub, const int *locToGlobNodeMap, int *globalNodeNums);
 	void addElementOfFace(FaceSet& currentFaces, const int iFace,
 			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
+	virtual void addSampleNodesAndNeighbors();
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
 	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
 	void communicateAll();
 	void defineMaps();
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
-	void outputTopFile();
-	void outputSampleNodes();
+	virtual void outputTopFile();
+	virtual void outputSampleNodes();
 	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
 			char *sampleNodeFile);
 
@@ -219,6 +225,8 @@ private:
 
 	// pseudo-inverse functions
 	double **(podHatPseudoInv [2]);	// each dimension: (nSampleNode*dim) x nPod[i]
+	virtual void computePseudoInverse();
+	virtual void readInPodResJac(int *podFiles);
 	void computePseudoInverse(int iPodBasis);
 	//void computePseudoInverseRHS();
 	void checkConsistency();
@@ -226,27 +234,27 @@ private:
 
 	// podTpod
 	double **podTpod;	// stores phiJ^TphiR
-	void computePodTPod();
+	virtual void computePodTPod();
 	double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
 		// onlineMatrices[0] is related to the residual: 
 		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
 		// onlineMatrices[1] is related to the jacobian: 
 		// 		podHatPseudoInv[1]^T
-	void assembleOnlineMatrices();
+	virtual void assembleOnlineMatrices();
 	void outputOnlineMatrices();
-	void outputOnlineMatricesGeneral(const char *onlineMatrix, 
+	virtual void outputOnlineMatricesGeneral(const char *onlineMatrix, 
 			int numNodes, const std::map<int,int> &sampleNodeMap, const
 			std::vector<int> &sampleNodeVec);
-	void outputReducedToFullNodes();
-	void outputStateReduced();
-	void outputWallDistanceReduced();
+	virtual void outputReducedToFullNodes();
+	virtual void outputStateReduced();
+	virtual void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 
 public:
 	GappyOffline(Communicator *, IoData &, Domain &, DistGeoState *);
 	~GappyOffline();
-	void buildGappy();	// build all offline info (do everything)
+	virtual void buildReducedModel();	// build all offline info (do everything)
 
 };
 #include "GappyOffline.C"
