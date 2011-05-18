@@ -46,10 +46,7 @@ private:
   double surface;
   static int counter;
   Vec3D x0;
-  int output_step;
-  int output_step2;
-  int output_step_reducedjacxdurom; //CBM--TEMP --> GAPPY STUFF
-  int output_step_reducedjac; //CBM--TEMP --> GAPPY STUFF
+  int *output_newton_step;	// points to domain's
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];

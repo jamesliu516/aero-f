@@ -100,6 +100,9 @@ Domain::Domain()
   meshMotionBCs = 0; //HB
 
 	numGlobNode = 0;	// only compute if needed
+
+	output_newton_step = 0;
+
 }
 
 //------------------------------------------------------------------------------
@@ -741,13 +744,12 @@ int Domain::computeControlVolumes(double lscale, DistSVec<double,3> &X, DistVec<
 
 //------------------------------------------------------------------------------
 
-// Included (MB)
 int Domain::computeDerivativeOfControlVolumes(double lscale, DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &dCtrlVol)
 {
 
   int iSub;
 
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->computeDerivativeOfControlVolumes(0, lscale, X(iSub), dX(iSub), dCtrlVol(iSub));
     double (*locdCtrlVol)[1] = reinterpret_cast<double (*)[1]>(dCtrlVol.subData(iSub));
@@ -1417,7 +1419,7 @@ void Domain::computeTetsConnectedToNode(DistVec<int> &Ni)
 
  int iSub;
 
-#pragma omp parallel for reduction(+: ierr)
+#pragma omp parallel for
   for (iSub = 0; iSub < numLocSub; ++iSub)
      subDomain[iSub]->computeTetsConnectedToNode(Ni(iSub));
 

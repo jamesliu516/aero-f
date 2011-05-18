@@ -43,7 +43,7 @@ public:
 
   NewtonSolver(ProblemDescriptor *);
   ~NewtonSolver() {}
-  int solve(typename ProblemDescriptor::SolVecType &);
+  int solve(typename ProblemDescriptor::SolVecType &, const int timeStep, const double time);
   int solveLS(typename ProblemDescriptor::PhiVecType &, typename ProblemDescriptor::SolVecType &);
 
 };
@@ -65,7 +65,7 @@ NewtonSolver<ProblemDescriptor>::NewtonSolver(ProblemDescriptor *prbd) :
 
 template<class ProblemDescriptor>
 int
-NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q )
+NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q , const int timeStep = 0, const double t = 0.0)
 {
 
   double res, target;
@@ -104,7 +104,9 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
     rhs = -1.0 * F;
 
-		probDesc->writeBinaryVectorsToDiskRom(false, it, 0.0, &F);	// save residuals for rom
+		// arguments: lastIt, time step, total time, vector
+		// for now, do not output on last time step (lastIt = false)
+		probDesc->writeBinaryVectorsToDiskRom(false, timeStep, 0.0, &F);	// save residuals for rom (must know time step)
     probDesc->recomputeFunction(Q, rhs);
     probDesc->computeJacobian(it, Q, F);
 
