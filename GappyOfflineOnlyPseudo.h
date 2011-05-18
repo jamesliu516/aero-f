@@ -6,7 +6,7 @@
 template <int dim>
 class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
 
-	virtual void setUpPodResJac();
+	virtual void setUpGreedy();
 
 	virtual void readInPodResJac(int *);
 

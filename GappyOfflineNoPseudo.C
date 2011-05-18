@@ -1,5 +1,4 @@
 #include <GappyOfflineNoPseudo.h>
-#include <GappyOffline.h>
 
 template<int dim>
 GappyOfflineNoPseudo<dim>::GappyOfflineNoPseudo(Communicator *_com, IoData
@@ -44,7 +43,7 @@ void GappyOfflineNoPseudo<dim>::computePodTPod() {
 
 	for (int iPodJac = 0; iPodJac < this->nPod[1]; ++iPodJac) {
 		for (int iPodRes = 0; iPodRes < this->nPod[0]; ++iPodRes) {
-			this->com->fprintf(onlineMatrix,"%e ", this->podTpod[iPodJac][iPodRes]);
+			this->com->fprintf(onlineMatrix,"%8.16e ", this->podTpod[iPodJac][iPodRes]);
 		}
 		this->com->fprintf(onlineMatrix,"\n");
 	}
@@ -73,9 +72,7 @@ void GappyOfflineNoPseudo<dim>::outputOnlineMatricesGeneral(const
 		onlineMatrixFile = new char[sp +
 			strlen(onlineMatricesName)+strlen(onlineMatExtension[iPodBasis])+1];
 		if (this->thisCPU ==0){
-			sprintf(onlineMatrixFile, "%s%s%s",
-					this->ioData->output.transient.prefix, onlineMatricesName,
-					onlineMatExtension[iPodBasis]); 
+			sprintf(onlineMatrixFile, "%s%s%s", this->ioData->output.transient.prefix, onlineMatricesName, onlineMatExtension[iPodBasis]); 
 			onlineMatrix = fopen(onlineMatrixFile, "wt");
 		}
 
@@ -83,9 +80,9 @@ void GappyOfflineNoPseudo<dim>::outputOnlineMatricesGeneral(const
 		this->com->fprintf(onlineMatrix,"%d\n", numNodes);
 		outputReducedSVec(this->podHat[iPodBasis][0],onlineMatrix,this->nPod[iPodBasis]); // dummy output
 		for (int iPod = 0; iPod < this->nPod[iPodBasis]; ++iPod) {	// # rows in A and B
+			this->com->fprintf(stderr," ... writing vector %d of %d ... \n", iPod, this->nPod[iPodBasis]);
 			outputReducedSVec(this->podHat[iPodBasis][iPod],onlineMatrix,iPod);
 		}
 		delete [] onlineMatrixFile;
 	}
-
 }
