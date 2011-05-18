@@ -2,9 +2,10 @@
 
 template<int dim>
 ImplicitPGTsDesc<dim>::ImplicitPGTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  rhsVS(1, (*this->domain).getNodeDistInfo()),
-  ImplicitRomTsDesc<dim>(ioData, geoSource, dom), parallelRom(*dom,this->com), From(this->nPod), rhs(this->nPod) {
-  parallelRom.parallelLSMultiRHSInit(this->AJ,rhsVS);  
+  residualRef(this->F),
+  ImplicitRomTsDesc<dim>(ioData, geoSource, dom), From(this->nPod), rhs(this->nPod) {
+  parallelRom = new ParallelRom<dim>(*dom,this->com);
+  parallelRom->parallelLSMultiRHSInit(this->AJ,residualRef);  
   lsCoeff = new double*[1];
   lsCoeff[0] = new double[this->nPod];
 }
@@ -18,21 +19,18 @@ ImplicitPGTsDesc<dim>::~ImplicitPGTsDesc(){
 
 }
 //-----------------------------------------------------------------------------
-
 template<int dim>
 void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
 
-		projectVector(this->AJ, this->F, From);
-		Vec<double> rhs(this->nPod);
-		rhs = -1.0 * From;
+  projectVector(this->AJ, this->F, From);
+  Vec<double> rhs(this->nPod);
+  rhs = -1.0 * From;
 
-		// KTC FIX!
-		// saving residual vectors (for GappyPOD)
-		//writeBinaryVectorsToDisk1(false, it, 0.0, this->F, Dummy);
+  // KTC FIX!
+  // saving residual vectors (for GappyPOD)
+  //writeBinaryVectorsToDisk1(false, it, 0.0, this->F, Dummy);
     
     res = rhs*rhs;
-
-//    res=this->F*this->F;
   
     if (res < 0.0){
       fprintf(stderr, "*** negative residual: %e\n", res);
@@ -65,20 +63,11 @@ void ImplicitPGTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &
     solveLinearSystem(it, rhs, this->dUrom);
 */
     //Option 2: solve a Least Squares Problem
-    //double **lsCoeff;
-    //lsCoeff = new double*[1];
-    //lsCoeff[0] = new double[this->nPod];
-// copy this->F in rhsVS
-  //parallelRom.parallelLSMultiRHSInit(this->AJ,rhsVS);
-
-
-    rhsVS[0] = (this->F);
-     parallelRom.parallelLSMultiRHS(this->AJ,rhsVS,this->nPod,1,lsCoeff);
+    RefVec<DistSVec<double, dim> > residualRef2(this->F);
+    parallelRom->parallelLSMultiRHS(this->AJ,residualRef2,this->nPod,1,lsCoeff);
     for (int iPod=0; iPod<this->nPod; ++iPod)
       this->dUrom[iPod] = -lsCoeff[0][iPod];
 
-    //delete [] lsCoeff[0];
-    //delete [] lsCoeff;
 
 
 }

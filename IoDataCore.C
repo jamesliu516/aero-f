@@ -33,8 +33,9 @@ InputData::InputData()
   positions = "";
   levelsets = "";
   rstdata = "";
-  podFile = "";
-        snapRefSolutionFile = "";
+	podFile = "";
+	snapRefSolutionFile = "";
+	staterom = "";
 	snapFile = "";
 	sampleNodes = "";
 	aMatrix = "";
@@ -76,6 +77,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
   new ClassStr<InputData>(ca, "BMatrix", this, &InputData::bMatrix);
   new ClassStr<InputData>(ca, "PODResJac", this, &InputData::podFileResJac);
   new ClassStr<InputData>(ca, "SnapshotsReferenceSolution", this, &InputData::snapRefSolutionFile);
+  new ClassStr<InputData>(ca, "StateReducedCoordinates", this, &InputData::staterom);
 // Included (MB)
   new ClassStr<InputData>(ca, "ShapeDerivative", this, &InputData::shapederivatives);
   new ClassStr<InputData>(ca, "StrModes", this, &InputData::strModesFile);
@@ -403,6 +405,7 @@ RestartParametersData::RestartParametersData()
   dt_nm2 = 1.0;
   residual = 1.0;
   energy = 0.0;
+  output_newton_step = 0;
 
 }
 
@@ -411,7 +414,7 @@ RestartParametersData::RestartParametersData()
 void RestartParametersData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 6, father);
+  ClassAssigner *ca = new ClassAssigner(name, 7, father);
 
   new ClassInt<RestartParametersData>(ca, "Iteration", this, &RestartParametersData::iteration);
   new ClassDouble<RestartParametersData>(ca, "Time", this, &RestartParametersData::etime);
@@ -419,6 +422,7 @@ void RestartParametersData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<RestartParametersData>(ca, "TimeStep2", this, &RestartParametersData::dt_nm2);
   new ClassDouble<RestartParametersData>(ca, "Residual", this, &RestartParametersData::residual);
   new ClassDouble<RestartParametersData>(ca, "Energy", this, &RestartParametersData::energy);
+  new ClassInt<RestartParametersData>(ca, "NewtonOutputStep", this, &RestartParametersData::output_newton_step);
 
 }
 
@@ -2698,7 +2702,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 3, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3);
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 5, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4);	// PostProcess reads in pod coordinates
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
 
 }

@@ -32,6 +32,7 @@ struct InputData {
   const char *podFile;
   const char *snapFile;
   const char *snapRefSolutionFile;
+  const char *staterom;
   const char *strModesFile;
   const char *embeddedSurface;
   const char *oneDimensionalSolution;
@@ -215,6 +216,7 @@ struct RestartParametersData {
   double dt_nm2;
   double residual;
   double energy;
+  int output_newton_step;
 
   RestartParametersData();
   ~RestartParametersData() {}

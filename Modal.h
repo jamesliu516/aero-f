@@ -122,7 +122,7 @@ class ModalSolver {
     void outputPODVectors(ARluSymStdEig<double> &podEigProb, VecSet<DistSVec<double, dim> > &, int nPod, int numSnaps);
 #endif
     void outputPODVectors(VecSet<DistSVec<double, dim> > &U, Vec<double> &, int nPod);
-
+    void computeRelativeEnergy(FILE *sValsFile, const Vec<double> &sVals, const int nPod);
 };
 
 #include "Modal.C"

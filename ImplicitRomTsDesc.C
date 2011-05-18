@@ -50,7 +50,7 @@ ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 
 //------------------------------------------------------------------------------
 template<int dim>
-int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _it)  {
+int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const int totalTimeSteps)  {
 
 	// initializations 
 
@@ -58,7 +58,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
 
   int it = 0;
   int fsIt = 0;
-	updateGlobalTimeSteps(_it);
+	updateGlobalTimeSteps(totalTimeSteps);
 
   Vec<double> Urom(nPod); // reduced coordinates
   Urom = 0.0; // total solution increment in ROM coordinates (the unknowns for reduced problem)
@@ -72,6 +72,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
   double alpha;
   bool convergeFlag=0;
 
+	postProStep(U,totalTimeSteps);
 
   for (it = 0; it < maxItsNewton; it++)  {
 
@@ -94,7 +95,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
     UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
 
-		saveNewtonSystemVectors(_it);	// only implemeted for PG rom
+		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
     // verify that the solution is physical
     if (checkSolution(U)) {
@@ -113,10 +114,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, int _
    }	// end Newton loop
 
 
+
+
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
 
-  if (it == maxItsNewton && maxItsNewton != 1) {
+  if (it == maxItsNewton && maxItsNewton != 1 && maxItsNewton !=0) {
     this->com->fprintf(stderr, "*** Warning: ROM Newton solver reached %d its", maxItsNewton);
     this->com->fprintf(stderr, " (Residual: initial=%.2e, reached=%.2e, target=%.2e)\n", res0, res, target);
   }
@@ -646,7 +649,7 @@ void ImplicitRomTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
 }
 
 template<int dim>
-void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int _it) {
+void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSteps) {
 	// only do for PG and Galerkin
 
   DistSVec<double, dim> AJsol(this->domain->getNodeDistInfo()); //CBM--NEED TO CHANGE NAME OF DISTVECTOR
@@ -655,6 +658,7 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int _it) {
 		 AJsol += this->AJ[i] * this->dUrom[i]; 
 
 	// saving this->AJ * this->dUrom (for GappyPOD)
-	writeBinaryVectorsToDiskRom(false, _it, 0.0, &(this->F), &AJsol, &(this->AJ));
+	// for now, do not output on last iteration (first argument = false)
+	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
 	
 }

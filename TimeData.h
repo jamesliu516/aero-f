@@ -20,6 +20,7 @@ public:
   double dt_n;
   double dt_nm1;
   double dt_nm2;
+  int output_newton_step;
 
   double tau_n;
   double tau_nm1;
@@ -47,6 +48,7 @@ public:
 			 DistSVec<double,3> &, DistSVec<double,3> &, DistSVec<double,3> &);
 
   double getTauN() const { return tau_n; }
+  int getOutputNewtonStep() const { return output_newton_step; }
 
 // Included
   void rstVar(IoData &);

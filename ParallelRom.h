@@ -25,9 +25,9 @@ class ParallelRom {
 	int desc_a [9], desc_b [9];
 
 	// private functions
-	void scalapackCpuDecomp(int nCol);	// transfer data from VecSet<DistSVec> to scalapack format
-	void transferData(VecSet< DistSVec<double, dim> > &snaps, double* subMat, int nSnaps);
-	void transferDataBack(double *U, VecSet< DistSVec<double, dim> > &Utrue , int nSnaps);
+	void scalapackCpuDecomp(const int nCol);	// transfer data from VecSet<DistSVec> to scalapack format
+	template<class VecContainer> void transferData (VecContainer &snaps, double* subMat, int nSnaps);
+	template<class VecContainer> void transferDataBack(double *U, VecContainer &Utrue , int nSnaps);
 	void transferDataBackLS(double *subMatB, int n, double **lsSol, int nRhs, int subMatLLD); 
 	void setTransfer();
 
@@ -36,9 +36,12 @@ class ParallelRom {
 	~ParallelRom();
 
 	// Parallel operations
-	void parallelSVD(VecSet< DistSVec<double, dim> > &snaps, VecSet<DistSVec<double, dim> > &Utrue, double *S, FullM &Vtrue, int nSnaps);
-	void parallelLSMultiRHSInit(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B); 	// initialization
-	void parallelLSMultiRHS(VecSet< DistSVec<double, dim> > &A, VecSet<DistSVec<double, dim> > &B, int n, int nRhs, double **lsSol); // least-squares
+	template<class VecContainer1, class VecContainer2> void parallelSVD(VecContainer1 &snaps,
+			VecContainer2 &Utrue, double *S, FullM &Vtrue, int nSnaps);
+	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHSInit(const VecContainer1
+			&A, const VecContainer2 &B); 	// initialization
+	template<class VecContainer1, class VecContainer2> void parallelLSMultiRHS(const VecContainer1 &A,
+			const VecContainer2 &B, int n, int nRhs, double **lsSol); // least-squares
 			// via QR with multiple RHS
 };
 #include "ParallelRom.C"

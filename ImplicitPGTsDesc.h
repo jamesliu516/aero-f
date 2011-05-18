@@ -3,6 +3,7 @@
 
 #include <ImplicitRomTsDesc.h>
 #include <ParallelRom.h>
+#include <RefVector.h>
 #include <VectorSet.h>
 #include <DistVector.h>
 //------------------------------------------------------------------------------
@@ -11,17 +12,16 @@ template<int dim>
 class ImplicitPGTsDesc : public ImplicitRomTsDesc<dim> {
 
 private:
-  typedef VecSet< DistSVec<double,dim> > SetOfVec;
-  SetOfVec rhsVS;
   double **lsCoeff;
+  RefVec<DistSVec<double, dim> >residualRef;
 
 protected:
 
-  ParallelRom<dim> parallelRom;
+  ParallelRom<dim> *parallelRom;
   Vec<double> rhs;
   Vec<double> From;
-  void saveNewtonSystemVectors(const int _it) {this->saveNewtonSystemVectorsAction(_it);}
-	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
+  void saveNewtonSystemVectors(const int totalTimeSteps) {this->saveNewtonSystemVectorsAction(totalTimeSteps);}
+  void solveNewtonSystem(const int &it, double &res, bool &breakloop);
 
 public:
   
