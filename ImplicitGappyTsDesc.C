@@ -113,29 +113,24 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   // Form A * of and distribute
 	// TODO: don't recreate logic
 	transMatMatProd(*Bmat, *AJRestrict,jactmp);
-  for (int iCol = 0; iCol < leastSquaresSolver.unknownCount(); ++iCol) {
-    const bool hasLocalCol = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.colHostCpu(iCol));
-    const int localICol = leastSquaresSolver.localColIdx(iCol);
-    for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      const bool hasLocalEntry = hasLocalCol && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rowHostCpu(iRow));
-      if (hasLocalEntry) {
-        const int localIRow = leastSquaresSolver.localRowIdx(iRow);
-        leastSquaresSolver.matrixEntry(localIRow, localICol) = jactmp[iRow + iCol * leastSquaresSolver.equationCount()];
-      }
-    }
-  }
- 
+
+  for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
+		const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
+		const int colOffset = globalColIdx * leastSquaresSolver.equationCount();
+    for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+			const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
+			leastSquaresSolver.matrixEntry(iRow, iCol) = jactmp[globalRowIdx + colOffset];
+		}
+	}
+
   // Form B * ResRestrict and distribute
+	// NOTE: do not check if current CPU has rhs
   {
-    const bool hasLocalRhs = (leastSquaresSolver.localCpuCol() == leastSquaresSolver.rhsRankHostCpu(0));
 		transMatVecProd(*Amat, *ResRestrict, column);
-    for (int iRow = 0; iRow < leastSquaresSolver.equationCount(); ++iRow) {
-      const bool hasLocalEntry = hasLocalRhs && (leastSquaresSolver.localCpuRow() == leastSquaresSolver.rhsRowHostCpu(iRow));
-      if (hasLocalEntry) {
-        const int localIRow = leastSquaresSolver.localRhsRowIdx(iRow);
-        leastSquaresSolver.rhsEntry(localIRow) = -1.0 * column[iRow];
-      }
-    }
+    for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+			const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
+			leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
+		}
   }
 
   // Solve least squares problem
@@ -159,5 +154,4 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   }
 
   breakloop = (res == 0.0) || (res <= this->target);
-
 }

@@ -196,7 +196,7 @@ protected:
 		// boundary conditions
 
 	void computeXYZ(int iSub, int iLocNode, double *xyz);
-	void buildRemainingMesh();
+	virtual void buildRemainingMesh();
 	void computeBCFaces(bool);
 	bool checkFaceInMesh(FaceSet& currentFaces, const int iFace, const int iSub, const int *locToGlobNodeMap);
 	bool checkFaceAlreadyAdded(const int cpuNum, const int
@@ -216,7 +216,7 @@ protected:
 	void defineMaps();
 	void communicateBCFaces();
 	void makeUnique( std::vector <int>  *nodeOrEle, int length);
-	void outputTopFile();
+	virtual void outputTopFile();
 	virtual void outputSampleNodes();
 	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const
 			char *sampleNodeFile);
@@ -234,7 +234,7 @@ protected:
 
 	// podTpod
 	double **podTpod;	// stores phiJ^TphiR
-	void computePodTPod();
+	virtual void computePodTPod();
 	double **(onlineMatrices [2]);	// dimension: (nSampleNode*dim) x nPod[1]
 		// onlineMatrices[0] is related to the residual: 
 		// 		pod[1]^Tpod[0] * podHatPseudoInv[0]^T
@@ -245,9 +245,9 @@ protected:
 	virtual void outputOnlineMatricesGeneral(const char *onlineMatrix, 
 			int numNodes, const std::map<int,int> &sampleNodeMap, const
 			std::vector<int> &sampleNodeVec);
-	void outputReducedToFullNodes();
-	void outputStateReduced();
-	void outputWallDistanceReduced();
+	virtual void outputReducedToFullNodes();
+	virtual void outputStateReduced();
+	virtual void outputWallDistanceReduced();
 	void outputReducedSVec(const DistSVec<double,dim> &distSVec, FILE* outFile , int iVector);
 	void outputReducedVec(const DistVec<double> &distVec, FILE* outFile , int iVector);
 

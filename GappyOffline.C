@@ -70,7 +70,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	for (int i = 0; i < 4; ++i)
 		elemToNode[i] = NULL;
 
-	for (int i = 0; i < nPodBasis; ++i) {
+	for (int i = 0; i < 2; ++i) {
 		podHatPseudoInv[i] = NULL;
 		nRhsGreedy[i] = NULL;
 	}
@@ -97,6 +97,15 @@ GappyOffline<dim>::~GappyOffline()
 
 template<int dim>
 void GappyOffline<dim>::buildReducedModel() {
+	
+	/*
+	int dbgWait = 1;
+	
+	if (thisCPU == 1)
+		dbgWait = 0;
+	while (dbgWait == 0) {}
+	com->barrier();
+	*/
 
 	setUp();
 
@@ -147,12 +156,12 @@ void GappyOffline<dim>::buildReducedModel() {
 		outputTopFile();
 
 		assembleOnlineMatrices(); // handle online matrices so you can free up pseudo inverse matrix
-
-		outputOnlineMatrices();
-
-		outputSampleNodes();
-
 	}
+
+	outputOnlineMatrices();
+
+	if (thisCPU == 0)
+		outputSampleNodes();
 
 	// from here on, only require:
 	// geoState, ioData, nReducedNodes, domain
@@ -1343,9 +1352,9 @@ void GappyOffline<dim>::outputTopFile() {
 
 	int sp = strlen(ioData->output.transient.prefix);
 	char *outMeshFile = new char[sp + strlen(ioData->output.transient.mesh)+1];
-	sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
+	if (thisCPU == 0) sprintf(outMeshFile, "%s%s", ioData->output.transient.prefix, ioData->output.transient.mesh);
 	FILE *reducedMesh;
-	reducedMesh = fopen(outMeshFile, "w");
+	if (thisCPU == 0) reducedMesh = fopen(outMeshFile, "w");
 
 	// write out globalNodes
 
@@ -1365,7 +1374,7 @@ void GappyOffline<dim>::outputTopFile() {
 		// compute xyz position of the node
 		globalNodeNum = globalNodes[0][j];	// global node numbers on reduced mesh have been sorted in increasing order
 		xyzVals = nodesXYZmap.find(globalNodeNum)->second;
-		com->fprintf(reducedMesh, "%d %e %e %e \n", j+1, xyzVals[0], xyzVals[1], xyzVals[2]);	
+		com->fprintf(reducedMesh, "%d %8.15e %8.15e %8.15e \n", j+1, xyzVals[0], xyzVals[1], xyzVals[2]);	
 
 		// associate global node to the current reduced node
 		globalToReducedNodeNumbering.insert(pair<int, int> (globalNodeNum, j));
@@ -1594,7 +1603,7 @@ void GappyOffline<dim>::computePseudoInverse() {
 		computePseudoInverse(iPodBasis);
 	//checkConsistency();	// TODO: remove
 
-	// podHat no loger needed
+	// podHat no longer needed
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis)
 		podHat[iPodBasis].resize(0);
@@ -1684,17 +1693,21 @@ void GappyOffline<dim>::outputOnlineMatrices() {
 				numFullNodes, globalSampleNodeRankMap, globalSampleNodes);
 
 	for (int iPodBasis = 0; iPodBasis < nPodBasis; ++iPodBasis) {
-		for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
-			if (podHatPseudoInv[iPodBasis][iRhs]) delete [] podHatPseudoInv[iPodBasis][iRhs];
+		if (podHatPseudoInv[iPodBasis]) {
+			for (int iRhs = 0; iRhs < nSampleNodes * dim; ++iRhs) {
+				if (podHatPseudoInv[iPodBasis][iRhs]) delete [] podHatPseudoInv[iPodBasis][iRhs];
+			}
+			delete [] podHatPseudoInv[iPodBasis];
 		}
-		if (podHatPseudoInv[iPodBasis]) delete [] podHatPseudoInv[iPodBasis];
 	}
 
 	if (nPodBasis == 2) {	// only need to delete memory if 2 POD bases 
 												// (see assembleOnlineMatrices)
-		for (int i = 0; i < nSampleNodes * dim; ++i)  
-			if (onlineMatrices[0][i]) delete [] onlineMatrices[0][i];
-		if (onlineMatrices[0]) delete [] onlineMatrices[0];
+		if (onlineMatrices[0]) {
+			for (int i = 0; i < nSampleNodes * dim; ++i)  
+				if (onlineMatrices[0][i]) delete [] onlineMatrices[0][i];
+			delete [] onlineMatrices[0];
+		}
 	}
 }
 
@@ -1754,6 +1767,7 @@ void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 	// INPUTS: vector, output file name, vector index
 	// globalNodes, globalNodeToCpuMap, globalNodeToLocSubDomainsMap, globalNodeToLocalNodesMap
 
+	com->barrier();	// temporary debugging
 	com->fprintf(outFile,"%d\n", iVector);
 
 	// save the reduced node number for the sample node
@@ -1774,7 +1788,7 @@ void GappyOffline<dim>::outputReducedSVec(const DistSVec<double,dim>
 				value = locValue[iLocalNode][iDim];
 			}
 			com->globalSum(1, &value);
-			com->fprintf(outFile,"%e ", value);
+			com->fprintf(outFile,"%8.15e ", value);
 		}
 		com->fprintf(outFile,"\n");
 	}
@@ -1830,7 +1844,7 @@ void GappyOffline<dim>::outputReducedVec(const DistVec<double> &distVec, FILE* o
 		}
 
 		com->globalSum(1, &value);
-		com->fprintf(outFile,"%e ", value);
+		com->fprintf(outFile,"%8.15e ", value);
 		com->fprintf(outFile,"\n");
 	}
 }
@@ -1904,6 +1918,8 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 		const std::map<int,int> &sampleNodeMap, const std::vector<int>
 		&sampleNodeVec) {
 
+	if (thisCPU != 0)	return;	// only execute for cpu 0
+
 	// prepare files
 
 	char *onlineMatrixFile;
@@ -1930,7 +1946,7 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 		// dummy loop needed by POD
 		for (int iNode = 0; iNode < numNodes; ++iNode) {
 			for (int iDim = 0; iDim < dim; ++iDim) { 
-				com->fprintf(onlineMatrix,"%e ", 0.0);
+				com->fprintf(onlineMatrix,"%8.15e ", 0.0);
 			}
 			com->fprintf(onlineMatrix,"\n");
 		}
@@ -1950,10 +1966,11 @@ void GappyOffline<dim>::outputOnlineMatricesGeneral(const char
 
 				for (int iDim = 0; iDim < dim; ++iDim) { 
 					if (isSampleNode)
-						com->fprintf(onlineMatrix,"%e ",
+						com->fprintf(onlineMatrix,"%8.15e ",
 							onlineMatrices[iPodBasis][sampleNodeRank * dim + iDim][iPod]);
 					else // must output zeros if it is not a sample node
-						com->fprintf(onlineMatrix,"%e ", 0.0);
+						com->fprintf(onlineMatrix,"%8.15e ", 0.0);
+						//com->fprintf(onlineMatrix,"%8.15e ", 0.0);
 				}
 				com->fprintf(onlineMatrix,"\n");
 			}

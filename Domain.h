@@ -685,7 +685,7 @@ public:
 
   void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
 
-	void readSampleNodes(std::vector<int>, int &,
+	void readSampleNodes(std::vector<int> &, int &,
 			const char *);
 
   template<class Scalar, int dim>

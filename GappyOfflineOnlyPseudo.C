@@ -1,5 +1,5 @@
 #include <GappyOfflineOnlyPseudo.h>
-#include <GappyOffline.h>
+#include <Domain.h>
 
 template<int dim>
 GappyOfflineOnlyPseudo<dim>::GappyOfflineOnlyPseudo(Communicator *_com, IoData
@@ -9,7 +9,7 @@ GappyOfflineOnlyPseudo<dim>::GappyOfflineOnlyPseudo(Communicator *_com, IoData
 }
 
 template<int dim>
-void GappyOfflineOnlyPseudo<dim>::setUpPodResJac() {
+void GappyOfflineOnlyPseudo<dim>::setUpGreedy() {
 
 }
 
@@ -43,7 +43,7 @@ void GappyOfflineOnlyPseudo<dim>::computePodTPod() {
 			this->podTpod[i] = new double [this->nPod[0]];
 		for (int i = 0; i < this->nPod[1]; ++i)
 			for (int j = 0; j < this->nPod[0]; ++j) { 
-				fscanf(onlineMatrix, "%e",&(this->podTpod[i][j]));
+				fscanf(onlineMatrix, "%8.15e",&(this->podTpod[i][j]));
 			}
 	}
 	delete [] onlineMatrixFile;
