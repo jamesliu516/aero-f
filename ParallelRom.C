@@ -9,7 +9,7 @@ extern "C"      {
 
   void F77NAME(thinsvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, double *, int &,
                        int &, int &, int &, int &, int &, int &, double *U, double *S, double *V,
-                       int &, double *, int &);
+                       int &, double *, int &, int &);
   void F77NAME(lworksizesvd)(int &, int &, int &, int &, int&, int&, int&, int&, int&, int &);
 	void F77NAME(globalmatrices)(int &, int &, int &, int &, int &, int&, int &, int &,int &, int *, int *);	
 
@@ -76,24 +76,29 @@ void ParallelRom<dim>::scalapackCpuDecomp(const int nCol) {
 template<int dim>
 template<class VecContainer1, class VecContainer2> 
 void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
-		double *S, FullM &Vtrue, int nSnaps) {
+		double *S, FullM &Vtrue, int nSnaps, bool computeV = true) {
 
 #ifdef DO_SCALAPACK
  	int numLocSub = domain.getNumLocSub();
 
  // specify the block size (in terms of nodes)
- // blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
+ // ***blockfactor > nSnaps => the right singular vector matrix V is computed by cpu 0
 
- nodesPerBlock = int(floor(2.0*nSnaps/dim));
-
+ //nodesPerBlock = int(floor(2.0*nSnaps/dim));
+ nodesPerBlock = int(ceil(double(nSnaps)/double(dim)));	// ensures that square blocks can be used with one processor containing all the columns for its nodes 
 
  //set the transfer parameters
 
+ com->fprintf(stderr, " ... entering setTransfer ... \n");
  setTransfer();
 
  //create the matrix of snapshots with the right distribution
- double *subMat = new double[nodesPerBlock*dim*maxCpuBlocks*nSnaps];
- for (int i=0; i < nodesPerBlock*dim*maxCpuBlocks*nSnaps; ++i)
+ int subMatSize = nodesPerBlock*dim*maxCpuBlocks*nSnaps;
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for subMat \n");
+ com->fprintf(stderr, " ... subMatSize = %d... \n", subMatSize);
+ double *subMat = new double[subMatSize];
+ for (int i=0; i < subMatSize; ++i)
    subMat[i] =0.0;
  
  //transfer the extra nodes where needed and fill subMat
@@ -103,7 +108,7 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
 
  // Allocate for svd call
  // allocate for eigenvectors and eigenvalues
- int locLLD = dim * cpuNodes[thisCPU];
+ int locLLD = max(1,dim * cpuNodes[thisCPU]);
  int maxLLD = locLLD;
  com->globalMax(1, &maxLLD);
  int maxLocC = nSnaps;
@@ -111,8 +116,17 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  if (thisCPU == 0)
    locLLD_V = nSnaps;
  
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for U \n");
+ com->fprintf(stderr, " ... locLLD = %d\n", locLLD);
+ com->fprintf(stderr, " ... maxLocC = %d\n", maxLocC);
  double *U = new double[locLLD*maxLocC];
- double *V = new double[locLLD_V*maxLocC];
+ com->barrier();
+ com->fprintf(stderr, " ... allocating memory for V \n");
+ com->fprintf(stderr, " ... locLLD_V= %d\n", locLLD_V);
+ double *V;
+ if (computeV)
+	 V	= new double[locLLD_V*maxLocC];
  for (int iSnaps=0; iSnaps<nSnaps; ++iSnaps)
    S[iSnaps] = 0.0;
  int nprow = nTotCpus;
@@ -125,12 +139,25 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  int colIndex = 1;
  nodesPerBlock *= dim;
  
- F77NAME(lworksizesvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
-                  nodesPerBlock, nodesPerBlock, lwork);
+ com->barrier();
+
+ //DEBUG
+ lwork = -1;
+ double worktemp;
+ int computeVint = 1;
+ if (computeV == false)
+	 computeVint = 0;
+ F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
+                  nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
+                  locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, &worktemp,
+                  info, computeVint);
+ com->barrier();
+ lwork = static_cast<int>(worktemp);
+ com->fprintf(stderr, " ... lwork is %d\n",lwork);
 
  com->barrier();
- lwork *= 3;//debug
- double *work = new double[lwork + 2];
+ com->fprintf(stderr, " ... allocating memory for work of size %d \n", lwork);
+ double *work = new double[lwork];
  work[0] = -99.0;
 
  com->barrier();
@@ -138,20 +165,21 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  F77NAME(thinsvd)(ictxt, nprow, npcol, myrow, mycol, globNumRows, nSnaps,
                   nodesPerBlock, nodesPerBlock, subMat, maxLLD, locLLD, nSnaps,
                   locLLD_V, thisCPU, rowIndex, colIndex, U, S, V, lwork, work,
-                  info);
+                  info, computeVint);
 
  com->barrier();
- 
- for (int i = 0; i < nSnaps; i++){
-   for (int j = 0; j < nSnaps; j++) {
-     Vtrue[i][j] = 0.0;
-     if (thisCPU==0)
-       Vtrue[i][j] = V[nSnaps*i+j];
-   }
- }
- delete[] V;
 
- com->globalSum(nSnaps*nSnaps, Vtrue.data());
+ if (computeV) {
+	 for (int i = 0; i < nSnaps; i++){
+		 for (int j = 0; j < nSnaps; j++) {
+			 Vtrue[i][j] = 0.0;
+			 if (thisCPU==0)
+				 Vtrue[i][j] = V[nSnaps*i+j];
+		 }
+	 }
+	 delete [] V;
+	 com->globalSum(nSnaps*nSnaps, Vtrue.data());
+ }
  
  //Permute back matrix U
  com->barrier();
@@ -160,20 +188,22 @@ void ParallelRom<dim>::parallelSVD(VecContainer1 &snaps, VecContainer2 &Utrue,
  transferDataBack(U, Utrue , nSnaps);
 
  com->barrier();
- delete[] work; 
- delete[] U; 
+ delete [] work; 
+ delete [] U; 
+ delete [] subMat;
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
  exit(-1);
 #endif
+
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
 template<class VecContainer1, class VecContainer2> 
-void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecContainer2 &B) {
+void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecContainer2 &B, int nA = 0) {
 
 	//====================================
 	// PURPOSE: initialize the least squares problems for scalapack when
@@ -217,14 +247,14 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 	// decomposition information
 
 	int numLocSub = domain.getNumLocSub();
-	nTotCpus = com->size(); 
-	thisCPU = com->cpuNum(); 
 
-	maxCpuBlocks=0;	// maximum number of blocks per cpu 
+	maxCpuBlocks = 0;	// maximum number of blocks per cpu 
 
 	// inputs: nA
 	// outputs: rowsPerBlock, cpuMasterNodes, cpuNodes (number of nodes in scalapack block cyclic decomp), maxCpuBlocks
-	int nA = A.numVectors();
+	if (nA == 0)
+		nA = A.numVectors();
+		
 	scalapackCpuDecomp(nA); 
 
  //===============================
@@ -259,7 +289,7 @@ void ParallelRom<dim>::parallelLSMultiRHSInit(const VecContainer1 &A, const VecC
 template<int dim>
 template<class VecContainer1, class VecContainer2> 
 void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
-		const VecContainer2 &B, int n, int nRhs, double **lsSol) {
+		const VecContainer2 &B, int n, int nRhs, double **lsSol, bool lsCoeffAllCPU = true) {
 
 	// each time
   // 	ScaLAPACK only operates on submatrices; these are the submatrices of interest
@@ -286,7 +316,7 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 	//===============================
 	
 	if (n != desc_a[3] || nRhs != desc_b[3])
-		parallelLSMultiRHSInit(A, B);	// (re)-initialization needed
+		parallelLSMultiRHSInit(A, B, n);	// (re)-initialization needed
 
 	// KTC: can make this more elegant if needed
 	
@@ -345,8 +375,9 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 
  // when lwork = -1, pdgels returns the optimal lworksize in worktmp
 
- F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex, desc_a, 
-		 								subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork, info);
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
+		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, &worktmp, lwork,
+		 info);
 
  lwork = static_cast<int>(worktmp);
 
@@ -361,8 +392,11 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
  //===============================
 
  // output: subMatB has been changed to contain the solution
- F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex, colIndex,
-	desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork, info);
+ F77NAME(pdgels)(normalChar, globNumRows, n, nRhs, subMatA, rowIndex,
+		 colIndex, desc_a, subMatB, rowIndex, colIndex, desc_b, work, lwork,
+		 info);
+ delete[] work;
+ delete[] subMatA;
 	//what about rowIndex and colIndex for A and B???
 
  if (info != 0) {
@@ -378,18 +412,16 @@ void ParallelRom<dim>::parallelLSMultiRHS(const VecContainer1 &A,
 
  // output: lsSol
 
- transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD);
+ transferDataBackLS(subMatB, n, lsSol, nRhs, subMatLLD, lsCoeffAllCPU);
 
  com->barrier();
 
+ delete[] locSendReceive;
+ delete[] subMatB;
  //===============================
  // clean up
  //===============================
 
- delete[] work;
- delete[] locSendReceive;
- delete[] subMatA;
- delete[] subMatB;
 
 #else
  com->fprintf(stderr, "  ... ERROR: REQUIRES COMPILATION WITH SCALAPACK and DO_SCALAPACK Flag\n");
@@ -691,17 +723,20 @@ void ParallelRom<dim>::transferDataBack(double *U, VecContainer &Utrue , int nSn
  CommPattern<double> *vpat = domain.getVecPat();
  for (int iSnap=0; iSnap < nSnaps; ++iSnap)
    domain.assemble(vpat, Utrue[iSnap]);
+ delete [] totalSentNodes;
 }
 
 //----------------------------------------------------------------------------------
 
 template<int dim>
-void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSol, int nRhs, int subMatLLD) {
+void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double
+		**lsSol, int nRhs, int subMatLLD, bool lsCoeffAllCPU) {
 
 	//====================================
 	// Purpose: fill lsSol by using appropriate data from subMatB
 	// Inputs: subMatB (scalapack fills in B with solution), n (number of columns in A), subMatLLD (so you know where the data for various RHS resides on subMatB)
 	// Outputs: lsSol
+	// NOTE: only CPU 0 needs memory allocated for lsSol!
 	//====================================
 
 	// distribution info
@@ -717,12 +752,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 	int *subMatEntry = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 	int *subMatLLDset = new int[nTotCpus];	// current entry of submatrices (seen by all cpus)
 
-	// initialize lsSol
-
-	for (int i = 0; i < nRhs; ++i){
-		for (int j = 0; j < n; ++j)
-		  lsSol[i][j] = 0.0;
-  }
+	double *lsSolTmp = new double[n];
 
 	for (int i = 0; i < nTotCpus; ++i)
 		subMatLLDset[i] = 0;
@@ -735,6 +765,8 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 	// compute lsSol from distributed data
 
   for (int iRhs = 0; iRhs < nRhs; ++iRhs) {
+		for (int j = 0; j < n; ++j)
+		  lsSolTmp[j] = 0.0;
 		
 		// initialize subMatEntry for this RHS
 	  for (int iCpu = 0; iCpu < nTotCpus; ++iCpu)
@@ -742,7 +774,7 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 	  for (int lsSolCount = 0; lsSolCount < n; ++lsSolCount) {	// loop on entries of the solution
 			// currentCpu: cpu which is filling up lsSol
 		  if (thisCPU == currentCpu)	// fill lsSol with appropriate subMatB entry
-			  lsSol[iRhs][lsSolCount] = subMatB[subMatEntry[currentCpu]];
+			  lsSolTmp[lsSolCount] = subMatB[subMatEntry[currentCpu]];
 		  ++subMatEntry[currentCpu];	// current cpu has moved on
 			//KTC CHECK 
 			if (subMatEntry[currentCpu] % rowsPerBlock == 0) {	// reached the end of a block, so go to the next cpu 
@@ -751,16 +783,19 @@ void ParallelRom<dim>::transferDataBackLS (double *subMatB, int n, double **lsSo
 				  currentCpu = 0;
 		  }
 		}
-		currentCpu = 0;
 
+		com->barrier();
+
+		com->globalSum(n, lsSolTmp);
+		if (lsCoeffAllCPU || thisCPU == 0 ) {
+			for (int j = 0; j < n; ++j)
+				lsSol[iRhs][j] = lsSolTmp[j];	// only store solution on cpu 0 or if all cpus need it
+		}
+
+		currentCpu = 0;
 	}
 
-
-	com->barrier();
-
-	for (int iRhs = 0; iRhs < nRhs; ++iRhs)
-		com->globalSum(n, lsSol[iRhs]);
-
+	delete[] lsSolTmp;
 	delete[] subMatEntry;
 	delete[] subMatLLDset;
 

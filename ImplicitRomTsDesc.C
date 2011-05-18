@@ -10,32 +10,49 @@
 //------------------------------------------------------------------------------
 
 template<int dim>
-ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
-  TsDesc<dim>(ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
+ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &_ioData, GeoSource &geoSource, Domain *dom) :
+  TsDesc<dim>(_ioData, geoSource, dom), pod(0, dom->getNodeDistInfo()), F(dom->getNodeDistInfo()), AJ(0, dom->getNodeDistInfo()) {
 
+	ioData = &_ioData;
   tag = 0;
 
-  maxItsNewton = ioData.ts.implicit.newton.maxIts;
-  epsNewton = ioData.ts.implicit.newton.eps;  
+  maxItsNewton = ioData->ts.implicit.newton.maxIts;
+  epsNewton = ioData->ts.implicit.newton.eps;  
 
   //ns = new NewtonSolver<ImplicitRomTsDesc<dim> >(this);
-  this->timeState = new DistTimeState<dim>(ioData, this->spaceOp, this->varFcn, this->domain, this->V);
+  this->timeState = new DistTimeState<dim>(*ioData, this->spaceOp, this->varFcn, this->domain, this->V);
 
   ImplicitData fddata;
   fddata.mvp = ImplicitData::FD;
-  mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, ioData);
+  mvpfd = new MatVecProdFD<dim,dim>(fddata, this->timeState, this->geoState, this->spaceOp, this->domain, *ioData);
 
   // read Pod Basis
-  nPod = ioData.Rob.numROB;
-  dom->readPodBasis(this->input->podFile, nPod, pod);
+  nPod = ioData->Rob.numROB;
+	readPodBasis();
+
+	char *snapRefSolFile = this->input->snapRefSolutionFile;
+	FILE *inRSFP = fopen(snapRefSolFile, "r");
+	if (snapRefSolFile[0] != '\0'){  
+		DistSVec<double,dim> referenceSolution(dom->getNodeDistInfo());
+		this->com->fprintf(stderr, "Reading reference solution for snapshots in %s\n", snapRefSolFile);
+		dom->readVectorFromFile(snapRefSolFile, 0, 0, referenceSolution);
+		for (int iPod = 0; iPod < nPod; ++iPod) {
+			pod[iPod] -= referenceSolution;
+		}
+	}
 
   MemoryPool mp;
-  this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
+  this->mmh = this->createMeshMotionHandler(*ioData, geoSource, &mp);
 
   AJ.resize(nPod);
   dUrom.resize(nPod);
   UromTotal.resize(nPod);
 	UromTotal = 0.0;	// before any time step, it is zero
+	dUnormAccum = new Vec<double> [2];
+	for (int i = 0 ; i < 2; ++i) {
+		dUnormAccum[i].resize(nPod);	// before any time step, it is zero
+		dUnormAccum[i] = 0.0;	// before any time step, it is zero
+	}
 
 }
 
@@ -44,6 +61,27 @@ ImplicitRomTsDesc<dim>::ImplicitRomTsDesc(IoData &ioData, GeoSource &geoSource, 
 template<int dim>
 ImplicitRomTsDesc<dim>::~ImplicitRomTsDesc()
 {
+
+	// output net dUnormAccum
+	for (int iPod = 0; iPod < nPod; ++iPod)
+		dUnormAccum[1][iPod] = sqrt(dUnormAccum[1][iPod]);	// to complete 2-norm definition
+
+	const char *dUnormAccumFile = ioData->output.transient.dUnormAccum;
+	if (strcmp(dUnormAccumFile, "") != 0)  {
+		char *outdUnormAccumFile = new char[strlen(ioData->output.transient.prefix) +
+			strlen(dUnormAccumFile)+1];
+		if (this->com->cpuNum() ==0) sprintf(outdUnormAccumFile, "%s%s",
+				ioData->output.transient.prefix, dUnormAccumFile);
+		FILE *writingFile;
+		if (this->com->cpuNum() ==0) writingFile = fopen(outdUnormAccumFile, "wt");
+		this->com->fprintf(writingFile, "PodCoefficient NetContribution(1norm) NetContribution(2norm)\n");
+		for (int i = 0; i < nPod; ++i) { 
+			this->com->fprintf(writingFile, "%d %e %e \n", i + 1, dUnormAccum[0][i],dUnormAccum[1][i]);
+		}
+		delete [] outdUnormAccumFile;
+	}
+
+	delete [] dUnormAccum;
   if (tag) delete tag;
 }
 
@@ -113,9 +151,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
     }
    }	// end Newton loop
 
-
-
-
+	savedUnormAccum();
 	if (fsIt > 0 && checkFailSafe(U) == 1)
 		resetFixesTag();
 
@@ -499,6 +535,12 @@ void ImplicitRomTsDesc<dim>::expandVector(Vec<double> &romV, DistSVec<double, di
 template<int dim>
 void ImplicitRomTsDesc<dim>::projectVector(VecSet<DistSVec<double, dim> > &leftProj, DistSVec<double,dim> &fullV, Vec<double> &romV)  {
 
+	// TODO KTC: this is not very efficient because of the delay time (latency) to
+	// establish communication for each vector-vector product. Currently,
+	// communiction is done after every vector-vector product. It would be
+	// better to express leftProj as DistMat insteat of a VecSet<DistSVec> so
+	// that communication is done only once. Or, introduce a multiplication
+	// function within the VecSet to minimize communication 
   for (int iVec = 0; iVec < pod.numVectors(); iVec++)
     romV[iVec] = leftProj[iVec]*fullV;
 }
@@ -660,5 +702,20 @@ void ImplicitRomTsDesc<dim>::saveNewtonSystemVectorsAction(const int totalTimeSt
 	// saving this->AJ * this->dUrom (for GappyPOD)
 	// for now, do not output on last iteration (first argument = false)
 	writeBinaryVectorsToDiskRom(false, totalTimeSteps, 0.0, &(this->F), &AJsol, &(this->AJ));
+	
+}
+template<int dim>
+void ImplicitRomTsDesc<dim>::savedUnormAccum() {
+	
+	for (int iPod = 0; iPod < nPod; ++iPod) {
+		dUnormAccum[0][iPod] += fabs(dUrom[iPod]);	// 1 norm
+		dUnormAccum[1][iPod] += dUrom[iPod] * dUrom[iPod];	// 2 norm
+	}
+}
+
+template<int dim>
+void ImplicitRomTsDesc<dim>::readPodBasis() {
+
+  this->domain->readPodBasis(this->input->podFile, nPod, pod,this->ioData->Rob.basisType == 0);
 	
 }

@@ -42,12 +42,13 @@ void ImplicitBroydenTsDesc<dim>::solveNewtonSystem(const int &it, double &res, b
     }
 
     if (res == 0.0 || res <= this->target) {
-			breakloop = true;
-			return;	// do not solve the system
+			breakloop = true; return;	// do not solve the system
 		}
 
 		// form reduced Jacobian
 
+		// TODO KTC: computing AJ[iRom]AJ[iCol] requires communication after every
+		// vec-vec product. We could express 
 		this->jac.setNewSize(this->nPod,this->nPod);
 		for (int iRow = 0; iRow < this->nPod; ++iRow) {
 			for (int iCol = 0; iCol <= iRow; ++iCol) {
@@ -82,7 +83,7 @@ void ImplicitBroydenTsDesc<dim>::broydenUpdate(Vec<double> &dFrom) {
 
   Vec<double> zrom(this->nPod);
   zrom = dFrom;	// zrom = (yk-Bk*sk)
-  for (int iPod = 0; iPod < this->nPod; ++iPod) { // KTC: parallelize
+  for (int iPod = 0; iPod < this->nPod; ++iPod) { // KTC: parallelize rows of Bk
     for (int jPod = 0; jPod < this->nPod; ++jPod)
      zrom[iPod] -= this->jac[iPod][jPod]*this->dUrom[jPod];
   }
@@ -90,7 +91,7 @@ void ImplicitBroydenTsDesc<dim>::broydenUpdate(Vec<double> &dFrom) {
   double invNormSq = 1.0/ (this->dUrom*this->dUrom);
   zrom *= invNormSq;
   
-  for (int iPod = 0; iPod < this->nPod; ++iPod) { // KTC: parallelize
+  for (int iPod = 0; iPod < this->nPod; ++iPod) { // KTC: parallelize rows of zrom
     for (int jPod = 0; jPod < this->nPod; ++jPod)
       this->jac[iPod][jPod] += zrom[iPod]*this->dUrom[jPod];
   }

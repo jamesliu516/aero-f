@@ -15,10 +15,12 @@ protected:
 	void saveNewtonSystemVectors(const int totalTimeSteps)
 		{this->saveNewtonSystemVectorsAction(totalTimeSteps);}
 	void solveNewtonSystem(const int &it, double &res, bool &breakloop);
+	double *jactmp;
 
 public:
   
   ImplicitGalerkinTsDesc(IoData &, GeoSource &, Domain *);
+  ~ImplicitGalerkinTsDesc();
 
 };
 

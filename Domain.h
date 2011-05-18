@@ -679,11 +679,14 @@ public:
 	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
 
   template<int dim>
-  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &);
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
 
   void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
 
   void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
+
+	void readSampleNodes(std::vector<int> &, int &,
+			const char *);
 
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);

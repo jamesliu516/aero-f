@@ -3721,7 +3721,8 @@ void Domain::readMultiPodBasis(const char *multiPodFile,VecSet< DistSVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double, dim> > &podVecs) {
+void Domain::readPodBasis(const char *podFile, int &nPod,
+		VecSet<DistSVec<double, dim> > &podVecs, bool useSnaps = false) {
 
   // read in POD Vectors
   const char *vecFile = podFile;
@@ -3731,13 +3732,17 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
 
   // read number of vecs
   DistSVec<double,dim> tmpVec(getNodeDistInfo());
-  readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
 
-  nPodVecs = (int) eigValue;
-  com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);
+	if (useSnaps)	// reading snapshots, not a pod basis
+		nPodVecs = nPod;
+	else {
+		readVectorFromFile(vecFile, 0, &eigValue, tmpVec);
+		nPodVecs = (int) eigValue;
+		com->fprintf(stderr, " ... There are %d total podVecs \n", nPodVecs);	// unique POD vectors (first one repeated)
+	}
 
   if (nPod > nPodVecs)  {
-    com->fprintf(stderr, " ... There are only %d POD Vectors \n", nPodVecs);
+    com->fprintf(stderr, " ... WARNING: there are only %d POD Vectors \n", nPodVecs);
     nPod = nPodVecs;
   }
   else
@@ -3749,9 +3754,11 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
 
   int iVec;
   double firstEig;
-  readVectorFromFile(vecFile, 1, &firstEig, podVecs[0]);
-  for (iVec = 1; iVec < nPodVecs; iVec++)
-    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);
+  for (iVec = 0; iVec < nPodVecs; iVec++) { 
+    readVectorFromFile(vecFile, iVec+1, &eigValue, podVecs[iVec]);	// read in one more
+		if (iVec == 0)
+			firstEig = eigValue;
+	}
 
 	double firstEigDisplayed;
 	if (firstEig == 0){
@@ -3762,3 +3769,4 @@ void Domain::readPodBasis(const char *podFile, int &nPod, VecSet<DistSVec<double
 	}
   com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
 }
+

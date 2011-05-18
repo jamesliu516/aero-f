@@ -129,6 +129,7 @@ public:
   virtual void outputToDisk(IoData &, bool*, int, int, int, double, double,
 				DistSVec<double,dim> &);
 	virtual void writeStateRomToDisk(int it, double cpu) {};
+	virtual void writeErrorToDisk(int it, double cpu) {};
 
   virtual void outputForces(IoData &, bool*, int, int, int, double, double,
 		    DistSVec<double,dim> &);
