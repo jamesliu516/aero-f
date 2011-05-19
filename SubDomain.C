@@ -222,7 +222,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
                 const Vec<int> &fluidId, SVec<double,6> &R,
                 SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
                 SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz,
-                bool linRecFSI)  {
+                bool linRecFSI, LevelSetStructure *LSS)  {
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -238,7 +238,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
     int i = edgePtr[l][0];
     int j = edgePtr[l][1];
 
-    if(fluidId[i]!=fluidId[j]) continue;
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) continue;
 
     double Wi[3], Wj[3];
     Scalar deltaVar;
@@ -279,7 +279,7 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X,
       int i = edgePtr[l][0];
       int j = edgePtr[l][1];
 
-      if (fluidId[i]!=fluidId[j]) //WARNING: double intersection ignored
+      if (fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) 
         for (int k=0; k<dim; ++k)
           ddx[i][k] = ddy[i][k] = ddz[i][k] = ddx[j][k] = ddy[j][k] = ddz[j][k] = 0.0;
     }

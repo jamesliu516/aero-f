@@ -915,7 +915,7 @@ void SubDomain::computeDerivativeOfWeightsLeastSquaresEdgePart(SVec<double,3> &X
 //------------------------------------------------------------------------------
 // least square gradient involving only nodes of same fluid (multiphase flow)
 void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<int> &fluidId,
-                                                   SVec<int,1> &count, SVec<double,6> &R)
+                                                   SVec<int,1> &count, SVec<double,6> &R, LevelSetStructure *LSS)
 {
   R = 0.0;
   count = 0;
@@ -931,7 +931,7 @@ void SubDomain::computeWeightsLeastSquaresEdgePart(SVec<double,3> &X, const Vec<
     int j = edgePtr[l][1];
 
   //  if( !(Phi[i]*Phi[j]>0.0) ) continue;
-    if(fluidId[i]!=fluidId[j]) continue;
+    if(fluidId[i]!=fluidId[j] || (LSS && LSS->edgeIntersectsStructure(0.0,i,j))) continue;
     count[i][0]++;
     count[j][0]++;
 
