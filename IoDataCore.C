@@ -726,8 +726,8 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
-  rhomin = -1.e6;
-  pmin = -1.e6;
+  rhomin = -1.e9;
+  pmin = -1.e9;
 
 }
 

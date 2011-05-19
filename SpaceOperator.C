@@ -970,7 +970,7 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
     // for node with Phi, gradient of V is computed using V-values of neighbours
     // that have the same Phi-sign
     ngrad->compute(geoState->getConfig(), X, ctrlVol, 
-                   fluidId, *V, linRecAtInterface);
+                   fluidId, *V, linRecAtInterface, distLSS);
     timer->addNodalGradTime(t0);
   }
 
@@ -1731,7 +1731,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
                                     sizeFs, distLSS, Wstarij, Wstarji, pinternal);
       break;
     case 2: // New Method - Control Volume Boundaries
-      if(orderOfAccuracy>1) ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true);
+      if(orderOfAccuracy>1) ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true,distLSS);
       domain->computeCVBasedForceLoadViscous(forceApp, orderOfAccuracy, *geoState, X, Fs,
 						sizeFs, distLSS, pinternal, Wstarij, Wstarji,
 						*V,ghostPoints,postFcn,ngrad);
@@ -1929,7 +1929,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidId, *(this->V));
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, fluidId, *(this->V), true, distLSS);
     this->timer->addLSNodalWeightsAndGradTime(t0);
   }
 
@@ -1982,7 +1982,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (dynamic_cast<RecFcnConstant<dim> *>(this->recFcn) == 0){
     double t0 = this->timer->getTime();
-    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V), linRecAtInterface);
+    this->ngrad->compute(this->geoState->getConfig(), X, ctrlVol, *fluidSelector.fluidId, *(this->V), linRecAtInterface, distLSS);
     this->timer->addNodalGradTime(t0);
   }
 
