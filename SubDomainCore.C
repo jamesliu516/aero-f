@@ -4520,16 +4520,16 @@ int SubDomain::getPolygons(int iElem, LevelSetStructure &LSS, PolygonReconstruct
             int e0=oppositeNodes[current_node][(n+1)%3],e1=oppositeNodes[current_node][(n+2)%3];
             if(!isBlocked[current_node][neighbor_node] && isBlocked[current_node][e0] && isBlocked[current_node][e1]){
                 if(isBlocked[neighbor_node][e0] && isBlocked[neighbor_node][e1]){
-                    assert(!finished[current_node] && !finished[neighbor_node]); finished[current_node] = finished[neighbor_node] = true;
+                    finished[current_node] = finished[neighbor_node] = true;
                     polygons[numberOfPolygons++].AssignQuadrilateral(T[current_node],T[neighbor_node],T[e0],T[e1]);}
                 else if(isBlocked[neighbor_node][e0]){
-                    assert(!finished[current_node] && !finished[neighbor_node]); finished[current_node] = finished[neighbor_node] = true;
+                    finished[current_node] = finished[neighbor_node] = true;
                     polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e0],T[e1]);}
                 else if(isBlocked[neighbor_node][e1]){
-                    assert(!finished[current_node] && !finished[neighbor_node]); finished[current_node] = finished[neighbor_node] = true;
+                    finished[current_node] = finished[neighbor_node] = true;
                     polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e1],T[e0]);}
                 else {
-                    assert(!finished[current_node]); finished[current_node] = true;
+                    finished[current_node] = true;
                     polygons[numberOfPolygons++].AssignTwoEdges(T[current_node],T[e1],T[e0]);}}}}
 
     // Finally, check for single-intersection edge cases
