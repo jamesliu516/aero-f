@@ -5,7 +5,7 @@
 
 class RecFcn;
 class Domain;
-class DistFluidTypeCriterion;
+class DistLevelSetStructure;
 
 #ifndef _NDGRAD_TMPL_
 #define _NDGRAD_TMPL_
@@ -84,7 +84,7 @@ public:
 
   template<class Scalar2>
   void compute(int, DistSVec<double,3> &, DistVec<double> &,
-               DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true);
+               DistVec<int> &, DistSVec<Scalar2,dim> &, bool linFSI = true, DistLevelSetStructure* =0);
 
   void compute(int config, DistSVec<double,3> &X, DistSVec<double,dim> &Psi);
 
