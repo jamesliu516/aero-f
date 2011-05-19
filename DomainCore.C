@@ -1155,7 +1155,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
-                                        DistSVec<double,6> &R)
+                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -1163,8 +1163,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub));
+  for (iSub=0; iSub<numLocSub; ++iSub) { 
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
