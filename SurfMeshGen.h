@@ -5,14 +5,23 @@
 template <int dim>
 class SurfMeshGen : public GappyOffline<dim> {
 
-	void setUpPodResJac() { ;}
-	void setUpGreedy() { ;}
-	void setUpPseudoInverse() { ;}
+	void setUp() { ;}
 
 	void determineSampleNodes() { ;}
-	void addSampleNodesAndNeighbors() { ;}
+
+	void computePseudoInverse() { ;}
+
+	void assembleOnlineMatrices() { ;}
+
+	void outputOnlineMatrices() { ;}
+
 	void outputSampleNodes() { ;}
-	void buildGappyMatrices() { ;}
+
+	void addSampleNodesAndNeighbors() { ;}
+
+
+
+
 
 	public:
 	SurfMeshGen(Communicator *, IoData &, Domain &, DistGeoState *);
