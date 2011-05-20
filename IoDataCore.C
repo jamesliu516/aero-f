@@ -2740,7 +2740,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassToken<ROB> (ca, "PODMethod", this, reinterpret_cast<int ROB::*>(&ROB::podMethod), 2, "SVD", 0, "Eig", 1);
   new ClassInt<ROB>(ca, "PseudoInvNodes", this, &ROB::pseudoInverseNodes);
   new ClassInt<ROB>(ca, "SubtractIC", this, &ROB::subtractIC);
-  new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 2, "Snaps", 0, "POD", 1);
+  new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 3, "Snaps", 0, "POD", 1, "None", 2);
 
 }
 

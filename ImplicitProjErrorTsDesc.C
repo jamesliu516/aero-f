@@ -6,6 +6,7 @@ ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource 
 
 		// assume vectors are orthonormal if not a snapshot basis
 		snapshotBasis = (this->ioData->Rob.basisType == 0);
+		noBasis = (this->ioData->Rob.basisType == 2);	// no basis used: just for generating output files
 		this->maxItsNewton = 0;	// do 1 iteration
 
 		// jac = phi^T phi
@@ -21,6 +22,7 @@ ImplicitProjErrorTsDesc<dim>::ImplicitProjErrorTsDesc(IoData &ioData, GeoSource 
 			} 
 			this->jac.factor();
 		}
+
 
 }
 
@@ -59,36 +61,43 @@ void ImplicitProjErrorTsDesc<dim>::postProStep(DistSVec<double, dim> &U, int tot
 	// compute new state
 	bool endOfFile = this->domain->readVectorFromFile(this->input->snapFile, totalTimeSteps, 0, Unew);
 
-	dUtrue = Unew - Uold;
-
-	// compute dUproj = phi(phi^Tphi)^{-1}phi^TdUtrue
-
-	this->dUrom = 0.0;
-	projectVector(this->pod,dUtrue,this->dUrom);	// Phi^T dUtrue
-	// output redcoords
-	
-	if (snapshotBasis){
-		double *x = this->dUrom.data();
-		this->jac.reSolve(x);
+	if (noBasis) {
+		U = Unew;
+		return;
 	}
+	else {
+		dUtrue = Unew - Uold;
 
-	// dUtrue
-  expandVector(this->dUrom, dUproj);
-	dUerr = dUtrue - dUproj;
-	
-	// error measures
-	dUerrnorm = dUerr.norm();
-	double dUtruenorm = dUtrue.norm();
-	dUrelerr = dUerrnorm/dUtruenorm;
+		// compute dUproj = phi(phi^Tphi)^{-1}phi^TdUtrue
 
-	U += dUproj;
-	Uold = Unew;
+		this->dUrom = 0.0;
+		projectVector(this->pod,dUtrue,this->dUrom);	// Phi^T dUtrue
+		// output redcoords
+
+		if (snapshotBasis){
+			double *x = this->dUrom.data();
+			this->jac.reSolve(x);
+		}
+
+		// dUtrue
+		expandVector(this->dUrom, dUproj);
+		dUerr = dUtrue - dUproj;
+
+		// error measures
+		dUerrnorm = dUerr.norm();
+		double dUtruenorm = dUtrue.norm();
+		dUrelerr = dUerrnorm/dUtruenorm;
+
+		U += dUproj;
+		Uold = Unew;
+	}
 }
 
 template<int dim>
 void ImplicitProjErrorTsDesc<dim>::writeStateRomToDisk(int it, double cpu)  {
 
-	this->output->writeStateRomToDisk(it, cpu, this->nPod, this->dUrom);
+	if (!noBasis)
+		this->output->writeStateRomToDisk(it, cpu, this->nPod, this->dUrom);
 
 }
 
@@ -97,7 +106,9 @@ void ImplicitProjErrorTsDesc<dim>::writeErrorToDisk(int it, double cpu)  {
 	// write out change in state coordinate
 
 	//RelativeError AbsoluteError
-	double errorMeasure [2] = {dUrelerr, dUerrnorm};
-	this->output->writeErrorToDisk(it, cpu, 2, errorMeasure);
+	if (!noBasis) {
+		double errorMeasure [2] = {dUrelerr, dUerrnorm};
+		this->output->writeErrorToDisk(it, cpu, 2, errorMeasure);
+	}
 
 }

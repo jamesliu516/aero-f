@@ -13,7 +13,7 @@ protected:
   DistSVec<double, dim> Uold, Unew;
   DistSVec<double, dim> dUtrue, dUproj, dUerr;
 	double dUerrnorm, dUrelerr;
-	bool snapshotBasis;
+	bool snapshotBasis, noBasis;
 
 	//jac is Phi^TPhi
 

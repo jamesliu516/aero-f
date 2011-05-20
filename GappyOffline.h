@@ -89,9 +89,9 @@ protected:
 	int includeLiftFaces; 	// if the reduced mesh should include lift faces
 
 	std::vector< ParallelRom<dim> *> parallelRom;	// object for all parallel operations
-	void setUp();	// read in POD bases
-	virtual void setUpPodResJac();
-	virtual void setUpPseudoInverse();
+	virtual void setUp();	// read in POD bases
+	void setUpPodResJac();
+	void setUpPseudoInverse();
 
 	int nSampleNodes;	// number of parent sample globalNodes
 	void newNeighbors();	// add unique neighbors of a node

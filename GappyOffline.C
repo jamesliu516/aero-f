@@ -54,6 +54,8 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	}
 
   numFullNodes = domain.getNumGlobNode();	// # globalNodes in full mesh
+
+	com->fprintf(stderr," ... Number of full nodes in domain is %d ...\n",numFullNodes);
 	
 	nodesToHandle = NULL;
 	globalNodes = NULL;
@@ -97,15 +99,12 @@ GappyOffline<dim>::~GappyOffline()
 
 template<int dim>
 void GappyOffline<dim>::buildReducedModel() {
-	
-	/*
-	int dbgWait = 1;
-	
-	if (thisCPU == 1)
-		dbgWait = 0;
-	while (dbgWait == 0) {}
-	com->barrier();
-	*/
+	//int dbgWait = 1;
+	//
+	//if (thisCPU == 1)
+	//	dbgWait = 0;
+	//while (dbgWait == 0) {}
+	//com->barrier();
 
 	setUp();
 
@@ -156,6 +155,7 @@ void GappyOffline<dim>::buildReducedModel() {
 		outputTopFile();
 
 		assembleOnlineMatrices(); // handle online matrices so you can free up pseudo inverse matrix
+
 	}
 
 	outputOnlineMatrices();

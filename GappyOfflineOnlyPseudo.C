@@ -56,8 +56,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 
 	this->domain.readSampleNodes(this->globalSampleNodes, this->nSampleNodes,
 			this->input->sampleNodes);
-
-	for (int iSampleNode; iSampleNode < this->nSampleNodes; ++iSampleNode) {
+	for (int iSampleNode = 0; iSampleNode < this->nSampleNodes; ++iSampleNode) {
 		int cpuTmp = 0;
 		int subDTmp = 0;
 		int locNodeTmp = 0;
@@ -68,8 +67,9 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 		for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
 			int nLocNodes = this->nodeDistInfo.subSize(iSub);	// number of nodes in this subdomain
 			int *locToGlobNodeMap = this->subD[iSub]->getNodeMap();
+			bool *locMasterFlag = this->nodeDistInfo.getMasterFlag(iSub); // master nodes on subdomain
 			for (int iLocNode = 0; iLocNode < this->subD[iSub]->numNodes(); ++iLocNode) {	// all local globalNodes in subdomain
-				if (locToGlobNodeMap[iLocNode] == globalSampleNode) {
+				if (locToGlobNodeMap[iLocNode] == globalSampleNode && locMasterFlag[iLocNode]) {
 					cpuTmp = this->thisCPU;
 					subDTmp = iSub;
 					locNodeTmp = iLocNode;
