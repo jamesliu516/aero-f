@@ -11,6 +11,8 @@
 #include <ImplicitGalerkinTsDesc.h>
 #include <ImplicitBroydenTsDesc.h>
 #include <ImplicitGappyTsDesc.h>
+#include <ImplicitCollLSTsDesc.h>
+#include <ImplicitCollGalTsDesc.h>
 #include <ImplicitRomPostproTsDesc.h>
 #include <ImplicitProjErrorTsDesc.h>
 // Included (MB)
@@ -58,6 +60,16 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
     else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 5) {
 				ImplicitProjErrorTsDesc <dim> tsDesc(ioData, geoSource, &domain);
 				TsSolver<ImplicitProjErrorTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 6) { 
+				ImplicitCollLSTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitCollLSTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 7) { 
+				ImplicitCollGalTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitCollGalTsDesc<dim> > tsSolver(&tsDesc);
 				tsSolver.solve(ioData);
 		}
     else if (ioData.ts.type == TsData::IMPLICIT) {

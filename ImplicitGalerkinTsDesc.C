@@ -5,7 +5,7 @@ template<int dim>
 ImplicitGalerkinTsDesc<dim>::ImplicitGalerkinTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom), From(this->nPod), rhs(this->nPod) {
   
-		this->jac.setNewSize(this->nPod*this->nPod);
+		this->jac.setNewSize(this->nPod,this->nPod);
 		jactmp = new double [this->nPod * this->nPod];
 }
 

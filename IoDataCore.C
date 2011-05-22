@@ -2697,7 +2697,7 @@ ROB::ROB()
   numROB = 0;
   numROBJac = 0;
   numROBRes = 0;
-  sampleNodeFactor = 1;
+  sampleNodeFactor = -1;
 	nPodGreedy = 0;
   romsolver = PG; 
 	liftFaces = 0;	// by default, do not include lift faces
@@ -2730,7 +2730,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
   new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
-  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 6, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
+  new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 8, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5, "CollLS", 6, "CollGal",7);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
   new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);
   new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);

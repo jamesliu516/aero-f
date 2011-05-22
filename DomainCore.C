@@ -1561,7 +1561,12 @@ void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
 	// OUTPUT: nSampleNodes, sampleNodes
 
 	FILE *sampleNodeFile = fopen(sampleNodeFileName, "r");
-	fscanf(sampleNodeFile, "%d",&nSampleNodes);	// first entry is the number of sample nodes
+	int nSampleNodesTmp;
+	fscanf(sampleNodeFile, "%d",&nSampleNodesTmp);	// first entry is the number of sample nodes
+
+	if (nSampleNodes == 0) {
+		nSampleNodes = nSampleNodesTmp;
+	}
 	sampleNodes.reserve(nSampleNodes);	// know it will be nSampleNodes long (efficiency)
 
 	int index, currentSampleNode;
