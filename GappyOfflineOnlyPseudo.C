@@ -54,6 +54,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 
 	// set globalSampleNodes, nSampleNodes
 
+	this->nSampleNodes = 0;
 	this->domain.readSampleNodes(this->globalSampleNodes, this->nSampleNodes,
 			this->input->sampleNodes);
 	for (int iSampleNode = 0; iSampleNode < this->nSampleNodes; ++iSampleNode) {

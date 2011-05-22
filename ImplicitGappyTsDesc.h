@@ -22,6 +22,7 @@ protected:
 
 	int nSampleNodes, nPodJac;	//nPodJac specified under ROB{ NumROB2 }
 	std::vector<int> sampleNodes;
+	double sampleNodeFactor;
 
 	int numABmat;	// number of matrices for A and B (1 if they use the same)
   //std::auto_ptr< VecSet < DistSVec < double, dim> > > Amat, Bmat;

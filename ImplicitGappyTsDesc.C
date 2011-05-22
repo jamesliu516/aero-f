@@ -8,14 +8,22 @@
 template<int dim>
 ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) :
   ImplicitRomTsDesc<dim>(ioData, geoSource, dom),
-	leastSquaresSolver(this->com, this->com->size(), 1)	// all cpus along rows
+	leastSquaresSolver(this->com, this->com->size(), 1)// all cpus along rows
 {
 
 	// NOTE: Amat corresponds to RESIDUAL, Bmat corresponds to JACOBIAN
+  nPodJac = ioData.Rob.numROBJac; 
+
+	nSampleNodes = 0;
+
+	if (ioData.Rob.sampleNodeFactor != -1) {
+		nSampleNodes = static_cast<int>(ceil(double(nPodJac *
+						ioData.Rob.sampleNodeFactor)/double(dim)));
+	}
+
 	dom->readSampleNodes(sampleNodes, nSampleNodes, this->input->sampleNodes);
 
 	// assume we have nPodJac
-  nPodJac = ioData.Rob.numROBJac; 
 
 	leastSquaresSolver.blockSizeIs(32);
 	leastSquaresSolver.problemSizeIs(nPodJac, this->nPod);
@@ -23,7 +31,8 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 	// read in Afull, Bfull (temporary) (binary files because in reduced mesh)
   VecSet<DistSVec<double, dim> > Afull(0,dom->getNodeDistInfo());
   VecSet<DistSVec<double, dim> > Bfull(0,dom->getNodeDistInfo());
-	dom->readPodBasis(this->input->aMatrix, nPodJac,Afull);
+	if (*(this->input->aMatrix) != '\0')
+		dom->readPodBasis(this->input->aMatrix, nPodJac,Afull);
 	if (*(this->input->bMatrix) == '\0') {	// not specified
 		numABmat = 1;	// same matrix
 	}

@@ -75,6 +75,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	for (int i = 0; i < 2; ++i) {
 		podHatPseudoInv[i] = NULL;
 		nRhsGreedy[i] = NULL;
+		onlineMatrices[i] = NULL;
 	}
 
 	onlyInletOutletBC = true;	// first node should be on inlet/outlet
