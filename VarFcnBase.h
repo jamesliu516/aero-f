@@ -52,7 +52,7 @@ public:
     conservativeToPrimitive(U, V);
     return verification(glob, U, V);
   }
-  virtual int  verification(int glob, double *U, double *V) {}
+  virtual int  verification(int glob, double *U, double *V) { return 0; }
   virtual void computedVdU(double *V, double *dVdU) = 0;
   virtual void computedUdV(double *V, double *dUdV) = 0;
   

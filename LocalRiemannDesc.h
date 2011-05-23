@@ -2860,7 +2860,7 @@ private:
   LocalRiemannGfmparTaitJWL();
 
 protected:
-  bool eriemanntj_selector(double rhol, double ul, double pl, 
+  void eriemanntj_selector(double rhol, double ul, double pl, 
                            double rhor, double ur, double pr, 
                            double &pi, double &ui, double &rhoil, double &rhoir,
                            double initrhol, double initrhor);
@@ -3178,7 +3178,7 @@ void LocalRiemannGfmparTaitJWL::eriemanntj_wrapper(
 
 //----------------------------------------------------------------------------
 inline
-bool LocalRiemannGfmparTaitJWL::eriemanntj_selector(
+void LocalRiemannGfmparTaitJWL::eriemanntj_selector(
                                double rhol, double ul, double pl, 
                                double rhor, double ur, double pr, 
                                double &pi, double &ui,  
