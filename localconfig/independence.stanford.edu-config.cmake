@@ -1,0 +1,5 @@
+## blas and lapack with scalapack and blacs (using intel math kernel library)
+SET(LAPACK_LIBRARIES -Wl,--start-group /opt/intel/compilerpro-12.0.2.137/mkl/lib/intel64/libmkl_scalapack_lp64.a /opt/intel/compilerpro-12.0.2.137/mkl/lib/intel64/libmkl_blacs_openmpi_lp64.a  /opt/intel/compilerpro-12.0.2.137/mkl/lib/intel64/libmkl_intel_lp64.a /opt/intel/compilerpro-12.0.2.137/mkl/lib/intel64/libmkl_sequential.a /opt/intel/compilerpro-12.0.2.137/mkl/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread CACHE STRING "Path to a library.")
+SET(LAPACK_FOUND true)
+add_definitions(-DDO_SCALAPACK)
+SET(USE_SCALAPACK 1)
