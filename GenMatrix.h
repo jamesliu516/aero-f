@@ -20,8 +20,8 @@ public:
   virtual Scalar *getElem_ij(int) = 0;
   virtual Scalar *getElem_ji(int) = 0;
 
-  virtual Scalar *getBcElem_ij(int l) {fprintf(stderr, "No Implementation\n");}
-  virtual Scalar *getBcElem_ji(int l) {fprintf(stderr, "No Implementation\n");}
+  virtual Scalar *getBcElem_ij(int l) {fprintf(stderr, "No Implementation\n"); return 0;}
+  virtual Scalar *getBcElem_ji(int l) {fprintf(stderr, "No Implementation\n"); return 0;}
   virtual void addContrib(int, int *, double *) = 0;
 
 };
