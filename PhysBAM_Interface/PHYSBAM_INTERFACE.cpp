@@ -104,7 +104,7 @@ HasCloseTriangle(const int subD,const TV position,const TV min_corner,const TV m
     ARRAY<int> candidates;
     VECTOR<T,3> weights;
     RANGE<TV> bounding_box(min_corner, max_corner);
-    sub.triangle_hierarchy->Intersection_List(bounding_box,candidates,thickness_over_two);
+    sub.triangle_hierarchy->Intersection_List(bounding_box,candidates,thickness_parameter);//KW: thickness_over_two doesn't always work. don't know why...
 
     if(candidates.Size()>0){
         if(index) *index = sub.candidates.Append(candidates);
