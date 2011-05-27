@@ -9,7 +9,7 @@
 #include <WaleLESTerm.h>
 #include <DynamicLESTerm.h>
 #include <GenMatrix.h>
-#include <math.h>
+#include <cmath>
 #include <GeoState.h>
 #include <BasicGeometry.h>
 

@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <alloca.h>
 
 #include <Connectivity.h>

@@ -17,7 +17,7 @@
 #ifndef ARRGCOMP_H
 #define ARRGCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arrscomp.h"
 #include "arrgeig.h"

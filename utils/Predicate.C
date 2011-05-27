@@ -113,9 +113,9 @@
 /*                                                                           */
 /*****************************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 #include <sys/time.h>
 
 /* On some machines, the exact arithmetic routines might be defeated by the  */

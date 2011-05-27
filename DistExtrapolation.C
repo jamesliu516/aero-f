@@ -9,7 +9,7 @@
 
 #include <Communicator.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------------
 

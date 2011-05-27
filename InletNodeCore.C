@@ -5,9 +5,9 @@
 #include <Vector3D.h>
 #include <Extrapolation.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 

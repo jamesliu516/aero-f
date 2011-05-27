@@ -1,5 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <BcFcn.h>
 #include <BcDef.h>
 #include <IoData.h>

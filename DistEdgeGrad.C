@@ -5,7 +5,7 @@
 #include <MacroCell.h>
 #include <CurvatureDetection.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------------
 

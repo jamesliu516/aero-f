@@ -7,8 +7,9 @@
 #include <DistGeoState.h>
 #include <DistMatrix.h>
 #include <DistVectorOp.h>
-#include <math.h>
+#include <cmath>
 #include <fstream>
+#include <OneDimensionalSolver.h>
 using namespace std;
 //------------------------------------------------------------------------------
 
@@ -98,6 +99,7 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     dIdti = 0; 
     dIdtv = 0; 
     dIrey = 0;
+        //each volume (volIt->first) is setup using
   }
 
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
@@ -205,7 +207,9 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
-  if(iod.input.oneDimensionalSolution[0] != 0) setupUOneDimensionalSolution(iod,X);
+  
+  setupUOneDimensionalSolution(iod,X);
+
   setupUMultiFluidInitialConditions(iod,X);
 
   if(point_based_id && iod.eqs.numPhase>=2) 
@@ -236,6 +240,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     if (!subTimeState[iSub])
       subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
                                               (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
 }
 
 //------------------------------------------------------------------------------
@@ -352,81 +357,10 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
 template<int dim>
 void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X)
 {
-  // read 1D solution
-  fstream input;
-  int sp = strlen(iod.input.prefix) + 1;
-  char *filename = new char[sp + strlen(iod.input.oneDimensionalSolution)];
-  sprintf(filename, "%s%s", iod.input.prefix, iod.input.oneDimensionalSolution);
-  input.open(filename, fstream::in);
-  if (!input.is_open()) {
-    cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
-    exit(1);
-  }
-
-  input.ignore(256,'\n');
-  input.ignore(2,' ');
-  int numPoints = 0;
-  input >> numPoints;
-  cout <<"number of points in 1D solution is " << numPoints <<endl;
-  double x_1D[numPoints];
-  double v_1D[numPoints][4];/* rho, u, p, phi*/
-
-  for(int i=0; i<numPoints; i++){
-    input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
-    x_1D[i]    /= iod.ref.rv.length;
-    v_1D[i][0] /= iod.ref.rv.density;
-    v_1D[i][1] /= iod.ref.rv.velocity;
-    v_1D[i][2] /= iod.ref.rv.pressure;
-    v_1D[i][3] /= iod.ref.rv.length;
-  }
-
-  input.close();
-
-  // interpolation assuming 1D solution is centered on bubble_coord0
-  double bubble_x0 = 0.0;
-  double bubble_y0 = 0.0;
-  double bubble_z0 = 0.0;
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    SVec<double,dim> &u((*Un)(iSub));
-    SVec<double, 3> &x(X(iSub));
-
-    double localRadius; int np;
-    double localAlpha, velocity_r;
-    double localV[5]; double localPhi;
-    for(int i=0; i<u.size(); i++) {
-      localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
-      np = static_cast<int>(floor(localRadius/x_1D[numPoints-1]*(numPoints-1)));
-      //cout<<"coord is between point "<<np<<" and "<<np+1<<endl;
-
-      if(np>numPoints-1){
-      //further away from the max radius of the 1D simulation, take last value
-      //<==> constant extrapolation
-        np = numPoints-1;
-        localV[0] = v_1D[np][0];
-        localV[1] = v_1D[np][1]*x[i][0]/localRadius;
-        localV[2] = v_1D[np][1]*x[i][1]/localRadius;
-        localV[3] = v_1D[np][1]*x[i][2]/localRadius;
-        localV[4] = v_1D[np][2];
-        localPhi  = v_1D[np][3];
-      }else{
-      //linear interpolation
-        localAlpha = (localRadius-x_1D[np])/(x_1D[np+1]-x_1D[np]);
-        velocity_r = localAlpha*v_1D[np][1] + (1.0-localAlpha)*v_1D[np+1][1];
-        localV[0] = localAlpha*v_1D[np][0] + (1.0-localAlpha)*v_1D[np+1][0];
-        localV[1] = u[i][0]*velocity_r*x[i][0]/localRadius;
-        localV[2] = u[i][0]*velocity_r*x[i][1]/localRadius;
-        localV[3] = u[i][0]*velocity_r*x[i][2]/localRadius;
-        localV[4] = localAlpha*v_1D[np][2] + (1.0-localAlpha)*v_1D[np+1][2];
-        localPhi  = localAlpha*v_1D[np][3] + (1.0-localAlpha)*v_1D[np+1][3];
-      }
-      varFcn->primitiveToConservative(localV,u[i],localPhi>0.0 ? 1 : 0);
-      // assumes that the fluidTag==0 is outside flow
-      // and that the fluidTag==1 is the inside flow!!!
-      
-    }
-  }
-
+  OneDimensional::read1DSolution(iod, *Un, 
+				 (DistSVec<double,1>*)NULL,NULL,
+				 varFcn, X,
+				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -496,6 +430,36 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
             for (int idim=0; idim<dim; idim++)
               u[i][idim] = UU[idim];
           }
+        }
+      }
+    }
+  }
+
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(prismIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", prismIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(prismIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing PrismData[%d] = (%g %g %g with EOS %d\n", prismIt->first, prismIt->second->cen_x, prismIt->second->cen_y,prismIt->second->cen_z, prismIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stderr, "    and non-dimensionalized primitive state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double dist = 0.0;
+        for(int i=0; i<X.subSize(iSub); i++) {
+          if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) { //node is inside the sphere
+	    for (int idim=0; idim<dim; idim++)
+	      u[i][idim] = UU[idim];
+	  }
         }
       }
     }

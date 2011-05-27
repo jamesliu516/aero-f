@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -419,11 +419,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double gradphi[3];
   double gphii[3];
   double gphij[3];
+  double Udummy[dim];
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
 
   int ierr=0;
   riemann.reset(it);
+
+  programmedBurn = fluidSelector.getProgrammedBurn();
 
   for (int l=0; l<numEdges; ++l) {
     if (!masterFlag[l]) continue;
@@ -444,6 +447,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     //else                    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj, Phi[i], Phi[j]);
 
     // check for negative pressure or density //
+
+    if (programmedBurn) {
+
+      //std::cout << "Hello" << std::endl;
+      varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+      varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
+    }
+
     if (!rshift)
       ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
                                        failsafe, tag, V[i], V[j], fluidId[i], fluidId[j]);
@@ -466,21 +477,34 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     else{			// interface
       //ngradLS returns nodal gradients of primitive phi
       // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-      gphii[0] = -dPdx[i][lsdim];
-      gphii[1] = -dPdy[i][lsdim];
-      gphii[2] = -dPdz[i][lsdim];
-      gphij[0] = -dPdx[j][lsdim];
-      gphij[1] = -dPdy[j][lsdim];
-      gphij[2] = -dPdz[j][lsdim];
-      for (int k=0; k<3; k++)
-        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-      double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
-      for (int k=0; k<3; k++)
-        gradphi[k] /= normgradphi;
+      int lsdim, burnTag;
+      
+      if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
+	lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+	gphii[0] = -dPdx[i][lsdim];
+	gphii[1] = -dPdy[i][lsdim];
+	gphii[2] = -dPdz[i][lsdim];
+	gphij[0] = -dPdx[j][lsdim];
+	gphij[1] = -dPdy[j][lsdim];
+	gphij[2] = -dPdz[j][lsdim];
+	for (int k=0; k<3; k++)
+	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+	for (int k=0; k<3; k++)
+	  gradphi[k] /= normgradphi;
+      } else {
+	
+	double xmid[3];
+	for (int k=0; k<3; k++)
+	  xmid[k] = (X[j][k]+X[i][k])*0.5;
 
+	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
+      }
+	
+      
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
                                     Wi,Wj,i,j,l,dx);
+
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
                                     Vi, Wi, fluxi, fluidId[i]);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
@@ -525,6 +549,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   double length;
 
   int ierr=0;
+  int burnTag;
   riemann.reset(it);
 
   // ------------------------------------------------
@@ -541,7 +566,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   SVec<double,dimLS>& dPdy = ngradLS.getY();
   SVec<double,dimLS>& dPdz = ngradLS.getZ();
   double Wi[2*dim], Wj[2*dim]; //FF Riemann solution
-  double gradphi[3], gphii[3], gphij[3];
+  double gradphi[3], gphii[3], gphij[3], Udummy[dim];
 
   // ------------------------------------------------
   //  THE MAIN EDGE LOOP...
@@ -583,6 +608,18 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           for (int k=0; k<dim; k++) Vj[k] = V[j][k];
         } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vtemp, Vj);
       }
+    }    
+    
+    // int myrank;
+    //MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+
+    programmedBurn = fluidSelector.getProgrammedBurn();
+
+    if (programmedBurn) {
+
+      //std::cout << "Hello" << std::endl;
+      varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+      varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
     }
 
     // check for negative pressure or density //
@@ -671,30 +708,45 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
       }
     }
-
     else if(fluidId[i]!=fluidId[j]) { //NOTE: It's NOT equivalent with checking Phi_i x Phi_j < 0!
       if(!masterFlag[l]) continue;
       //ngradLS returns nodal gradients of primitive phi
-      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface
-      int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
-      gphii[0] = -dPdx[i][lsdim];
-      gphii[1] = -dPdy[i][lsdim];
-      gphii[2] = -dPdz[i][lsdim];
-      gphij[0] = -dPdx[j][lsdim];
-      gphij[1] = -dPdy[j][lsdim];
-      gphij[2] = -dPdz[j][lsdim];
-      for (int k=0; k<3; k++)
-        gradphi[k] = 0.5*(gphii[k]+gphij[k]);
-      double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
-      for (int k=0; k<3; k++)
-        gradphi[k] /= normgradphi;
+      // need fluidSelector to determine which level set to look at knowing which two fluids are considered at this interface   
+      if (!(programmedBurn && programmedBurn->isDetonationInterface(fluidId[i],fluidId[j],burnTag)) ) {
+
+	int lsdim = fluidSelector.getLevelSetDim(fluidId[i],fluidId[j],locToGlobNodeMap[i]+1,locToGlobNodeMap[j]+1);
+	gphii[0] = -dPdx[i][lsdim];
+	gphii[1] = -dPdy[i][lsdim];
+	gphii[2] = -dPdz[i][lsdim];
+	gphij[0] = -dPdx[j][lsdim];
+	gphij[1] = -dPdy[j][lsdim];
+	gphij[2] = -dPdz[j][lsdim];
+	for (int k=0; k<3; k++)
+	  gradphi[k] = 0.5*(gphii[k]+gphij[k]);
+	double normgradphi = sqrt(gradphi[0]*gradphi[0]+gradphi[1]*gradphi[1]+gradphi[2]*gradphi[2]);
+	for (int k=0; k<3; k++)
+	  gradphi[k] /= normgradphi;
+      } else {
+	double xmid[3];
+	for (int k=0; k<3; k++)
+	  xmid[k] = (X[j][k]+X[i][k])*0.5;
+
+	programmedBurn->getDetonationNormal(burnTag,fluidId[i],fluidId[j], xmid, gradphi);
+      }
+
+      //if (myrank == 46 && (fluidId[i] == 3 ||fluidId[j] == 3) )
+      //	std::cout << "difffluid" << std::endl;
 
       riemann.computeRiemannSolution(Vi,Vj,fluidId[i],fluidId[j],gradphi,varFcn,
-                                    Wi,Wj,i,j,l,dx);
+				     Wi,Wj,i,j,l,dx);
+
+      checkReconstructedValues(i, j, Wi, Wj, varFcn, locToGlobNodeMap,
+      			       failsafe, tag, Vi, Vj, fluidId[i], fluidId[j]);
+
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Vi, Wi, fluxi, fluidId[i]);
+				    Vi, Wi, fluxi, fluidId[i]);
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l],
-                                    Wj, Vj, fluxj, fluidId[j]);
+				    Wj, Vj, fluxj, fluidId[j]);
 
       for (int k=0; k<dim; k++){
         fluxes[i][k] += fluxi[k];
@@ -704,6 +756,8 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     else {
       if(!masterFlag[l]) continue;
+      //if (myrank == 46 && fluidId[i] == 3)
+      //	std::cout << "samefluid" << std::endl;
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];

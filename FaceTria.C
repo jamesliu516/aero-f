@@ -11,7 +11,7 @@
 #include <GenMatrix.h>
 #include <VectorSet.h>
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>

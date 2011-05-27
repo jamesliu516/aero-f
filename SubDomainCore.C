@@ -15,9 +15,9 @@
 #include <LinkF77.h>
 #include <Extrapolation.h>
 
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
+#include <cstdio>
+#include <cmath>
+#include <cstring>
 #include <alloca.h>
 
 #ifdef OLD_STL
@@ -4157,7 +4157,7 @@ bool SubDomain::insideOutside(double *position, const double xmin, const double 
 
 //-----------------------------------------------------------------------------------------------
 
-double SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const double xmax,
+void SubDomain::getMeshInBoundingBox(SVec<double,3> &X, const double xmin, const double xmax,
                                        const double ymin, const double ymax,
                                        const double zmin, const double zmax,
                                        int* nodeTag, int& numChosenNodes, int* tempNodeList,
@@ -4293,6 +4293,50 @@ void SubDomain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, GeoSt
 */
 //-----------------------------------------------------------------------------------------------
 
+struct PolygonReconstructionData {
+    PolygonReconstructionData() : numberOfEdges(0) {}
+    int numberOfEdges;
+    int edgeWithVertex[4][2];
+
+    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
+        numberOfEdges=1;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+    }
+
+    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
+        numberOfEdges=2;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+    }
+
+    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
+        numberOfEdges=3;
+        if(owned_by_single_vertex){
+            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
+        else{
+            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
+            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
+            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
+    }
+
+    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
+        numberOfEdges=3;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
+    }
+
+    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
+        numberOfEdges=4;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
+        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
+    }
+};
+
 void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
                                              double (*Fs)[3], int sizeFs, LevelSetStructure &LSS,
                                              Vec<double> &pstarij, Vec<double> &pstarji, double pInfty)
@@ -4300,8 +4344,6 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   int T[4]; //nodes in a tet.
   double x[4][3]; //coords of nodes in a tet.
   int nPos, nNeg;
-  int count; //count = 3: get a triangle;  = 4: get a quadrangle.
-  int polygon[4][2];
   int (*ptr)[2];
   ptr = edges.getPtr();
 
@@ -4312,208 +4354,194 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
-  // for debuging: output the reconstructed surface.
+  // for debugging: output the reconstructed surface.
+  char nodeFileName[1024];std::sprintf(nodeFileName,"firstLayer/nodes_%d.top",globSubNum);
+  char elemFileName[1024];std::sprintf(elemFileName,"firstLayer/elems_%d.top",globSubNum);
+  char nodesName[1024];std::sprintf(nodesName,"InsideNodes%d",globSubNum);
+  char elemsName[1024];std::sprintf(elemsName,"InsideElems%d",globSubNum);
+#if 0 // Debug 
+  FILE* nodeFile = fopen(nodeFileName,"w");
+  FILE* elemFile = fopen(elemFileName,"w");
+#else
   FILE* nodeFile = 0;
-//  FILE* nodeFile = fopen("recNodes.top","w");
-//  char nodeFileName[10] = "recNodes0";
-//  nodeFileName[8] += globSubNum;
-//  FILE* nodeFile = fopen(nodeFileName,"w");
-  int nodeCount = 1;
-  if(nodeFile) fprintf(nodeFile, "Nodes recNodes\n");
-
   FILE* elemFile = 0;
-//  FILE* elemFile = fopen("recElems.top","w");
-//  char elemFileName[10] = "recElems0";
-//  elemFileName[8] += globSubNum;
-//  FILE* elemFile = fopen(elemFileName,"w");
+#endif
+  int nodeCount = 1;
+  if(nodeFile) fprintf(nodeFile, "Nodes %s\n",nodesName);
+
   int elemCount = 1;
-  if(elemFile) fprintf(elemFile, "Elements recSurface using recNodes\n");
+  if(elemFile) fprintf(elemFile, "Elements %s using %s\n",elemsName,nodesName);
   // -----------------------------------------------
 
   for (int iElem=0; iElem<elems.size(); iElem++) {
-    for (int i=0; i<4; i++) 
-      T[i] = elems[iElem][i];
-    if(LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[1]) && 
-       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[2]) && 
-       LSS.fluidModel(0,T[0]) == LSS.fluidModel(0,T[3]))
-      continue; // this tet is away from interface. (Doesn't work for membranes.)
+    for (int i=0; i<4; i++) T[i] = elems[iElem][i];
+    for (int i=0; i<4; i++) {
+        x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
+    PolygonReconstructionData polygons[4];
+    Vec3D nf;
+    int numberOfPolygons = getPolygons(iElem, LSS, polygons); assert(numberOfPolygons<=4);
+    int index,vertex1,vertex2;
+    for(int i=0; i < numberOfPolygons; ++i){
+        PolygonReconstructionData& polygon=polygons[i];
+        LevelSetResult lsRes[4];
+        if(!polygon.numberOfEdges) continue;
+        for (int k=0; k<polygon.numberOfEdges; ++k) {
+            lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon.edgeWithVertex[k][0],polygon.edgeWithVertex[k][1]);
+            if (lsRes[k].alpha<0){fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n"); exit(-1);}}
 
-        for (int i=0; i<4; i++) {
-      x[i][0] = X[T[i]][0];  x[i][1] = X[T[i]][1];  x[i][2] = X[T[i]][2];}
-    count = getPolygon(iElem, LSS, polygon);
+        Vec3D Xinter[4];
+        Vec3D start_vertex;
+        double pStar[4];
+        double dist13,dist02;
+        for(int k=0; k<polygon.numberOfEdges; ++k) {
+            vertex1 = polygon.edgeWithVertex[k][0];
+            vertex2 = polygon.edgeWithVertex[k][1];
+            if(k==0){start_vertex[0]=X[vertex1][0];start_vertex[1]=X[vertex1][1];start_vertex[2]=X[vertex1][2];}
+            int l = edges.find(polygon.edgeWithVertex[k][0], polygon.edgeWithVertex[k][1]);
+            double alpha = lsRes[k].alpha;
+            Xinter[k][0] = alpha*X[vertex1][0] + (1.0-alpha)*X[vertex2][0];
+            Xinter[k][1] = alpha*X[vertex1][1] + (1.0-alpha)*X[vertex2][1];
+            Xinter[k][2] = alpha*X[vertex1][2] + (1.0-alpha)*X[vertex2][2];
 
-    if (count==3) { //get a triangle
-      LevelSetResult lsRes[3];
-      for (int k=0; k<3; k++) {
-        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-        if (lsRes[k].alpha<0) {
-          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-          exit(-1);
+            if(LSS.isActive(0,vertex1)){pStar[k] = (vertex1<vertex2) ? pstarij[l] : pstarji[l];}
+            else{pStar[k] = pInfty;}}
+
+        switch(polygon.numberOfEdges){
+#if 0
+        // TODO(jontg): Verify that these reconstructions are necessary
+        case 1:
+              index=1;
+              for(int search_node=0; search_node < 4; ++search_node)
+                  if(vertex1 != T[search_node] && vertex2 != T[search_node]){
+                      Xinter[index][0]   = 0.333333333333333*(X[vertex1][0]+X[vertex2][0]+x[search_node][0]);
+                      Xinter[index][1]   = 0.333333333333333*(X[vertex1][1]+X[vertex2][1]+x[search_node][1]);
+                      Xinter[index++][2] = 0.333333333333333*(X[vertex1][2]+X[vertex2][2]+x[search_node][2]);}
+              pStar[1] = pStar[2] = pStar[0];
+              lsRes[1].alpha=-10.0; lsRes[2].alpha=-10.0;
+              nf = (0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]));
+              if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+              addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
+              break;
+        case 2:
+              Xinter[2][0] = 0.25*(x[0][0]+x[1][0]+x[2][0]+x[3][0]);
+              Xinter[2][1] = 0.25*(x[0][1]+x[1][1]+x[2][1]+x[3][1]);
+              Xinter[2][2] = 0.25*(x[0][2]+x[1][2]+x[2][2]+x[3][2]);
+              pStar[2]=0.5*(pStar[0]+pStar[1]);
+              lsRes[2].alpha=-10.0;
+              nf = (0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]));
+              if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+              addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
+              break;
+#endif
+        case 3:
+              nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+              if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+              addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
+              break;
+        case 4:
+              dist02 = (Xinter[2]-Xinter[0]).norm();
+              dist13 = (Xinter[3]-Xinter[1]).norm();
+              if(dist02<dist13){ // connect 0,2.
+                  nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
+                  if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+                  addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[2], lsRes[0], lsRes[1], lsRes[2], Fs);
+                  nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
+                  if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+                  addLocalForce(CODE,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);}
+              else{
+                  nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
+                  if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+                  addLocalForce(CODE,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
+                  nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
+                  if(nf*(Xinter[1]-start_vertex) >= 0) nf *=-1;
+                  addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);}
+              break;
+#if 0
+        default: fprintf(stderr,"ANOTHER PROBLEM!!!\n");break;
+#endif
+        default: break;
         }
-      }
-
-      Vec3D Xinter[3];
-      double pStar[3];
-      for (int k=0; k<3; k++) {
-        int l = edges.find(polygon[k][0], polygon[k][1]);
-        int i = polygon[k][0];
-        int j = polygon[k][1];
-        double alpha = lsRes[k].alpha;
-        Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
-        Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
-        Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
-
-        switch (LSS.numOfFluids()) {
-          case 1:
-            pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-            pStar[k] -= pInfty;
-            break;
-          case 2:
-          case 3:
-          case 4:
-            pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
-            break;
-          default:
-            fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
-            exit(-1);
-        }
-      }
-
-      for (int k=0; k<3; k++) {
-        int N1 = lsRes[k].trNodes[0];
-        int N2 = lsRes[k].trNodes[1];
-        int N3 = lsRes[k].trNodes[2];
-        LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
-        double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
-        if (dist>1e-2) {
-          fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
-/*
-          int l = edges.find(polygon[k][0], polygon[k][1]);
-          int i = polygon[k][0];
-          int j = polygon[k][1];
-          double alpha = 1.0-lsRes[k].alpha;
-          Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
-          Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
-          Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
-*/          
-        }
-      }
-
-      //print the reconstructed surface
-      if(nodeFile&&elemFile) {
-        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
-        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
-        fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
-        fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);
-      }
-
-      Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-      addLocalForce(CODE,nf,pStar[0],pStar[1],pStar[2],lsRes[0],lsRes[1],lsRes[2],Fs);
-
-    } else if (count==4) { //get a quadrangle.
-
-      LevelSetResult lsRes[4];
-      for (int k=0; k<4; k++) {
-        lsRes[k] = LSS.getLevelSetDataAtEdgeCenter(0,polygon[k][0],polygon[k][1]);
-        if (lsRes[k].alpha<0) {
-          fprintf(stderr,"Unable to get intersection results at edge center! Abort...\n");
-          exit(-1);
-        }
-      }
-
-      Vec3D Xinter[4];
-      double pStar[4];
-      for (int k=0; k<4; k++) {
-        int l = edges.find(polygon[k][0], polygon[k][1]);
-        int i = polygon[k][0];
-        int j = polygon[k][1];
-        double alpha = lsRes[k].alpha;
-        Xinter[k][0] = (1.0-alpha)*X[j][0] + alpha*X[i][0];
-        Xinter[k][1] = (1.0-alpha)*X[j][1] + alpha*X[i][1];
-        Xinter[k][2] = (1.0-alpha)*X[j][2] + alpha*X[i][2];
-
-        switch (LSS.numOfFluids()) {
-          case 1:
-            pStar[k] = (i<j) ? pstarij[l] : pstarji[l];
-            pStar[k] -= pInfty;
-            break;
-          case 2:
-          case 3:
-          case 4:
-            pStar[k] = (i<j) ? (pstarij[l] - pstarji[l]) : (pstarji[l] - pstarij[l]);
-            break;
-          default:
-            fprintf(stderr,"ERROR: (force calculation) numFluid = %d\n", LSS.numOfFluids());
-            exit(-1);
-        }
-      }
-      // check if intersection point is really on surface.
-      for (int k=0; k<4; k++) {
-        int N1 = lsRes[k].trNodes[0];
-        int N2 = lsRes[k].trNodes[1];
-        int N3 = lsRes[k].trNodes[2];
-        double dist = LSS.isPointOnSurface(Xinter[k], N1, N2, N3);
-        if (dist>1e-2) {
-          fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface! dist = %e.\n",dist); 
-/*
-          int l = edges.find(polygon[k][0], polygon[k][1]);
-          int i = polygon[k][0];
-          int j = polygon[k][1];
-          double alpha = 1.0-lsRes[k].alpha;
-          Xinter[k][0] = alpha*X[j][0] + (1-alpha)*X[i][0];
-          Xinter[k][1] = alpha*X[j][1] + (1-alpha)*X[i][1];
-          Xinter[k][2] = alpha*X[j][2] + (1-alpha)*X[i][2];
-*/        
-        }
-      }
-
-      double dist02 = (Xinter[2]-Xinter[0]).norm();
-      double dist13 = (Xinter[3]-Xinter[1]).norm();
-      if (dist02<dist13) { // connect 0,2.
-        Vec3D nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[2]-Xinter[0]);
-        addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[2], lsRes[0], lsRes[1], lsRes[2], Fs);
-
-        nf = 0.5*(Xinter[2]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        addLocalForce(CODE,nf, pStar[0], pStar[2], pStar[3], lsRes[0], lsRes[2], lsRes[3], Fs);
-
-        //print the reconstructed surface
         if(nodeFile&&elemFile) {
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[3][0], Xinter[3][1], Xinter[3][2]); 
-          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-2);
-          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-2, nodeCount-1);
+            fprintf(stderr,"Printing FirstLayers to Disc \"%s\" and \"%s\" %d\n",nodeFileName,elemFileName,polygon.numberOfEdges);
+            fprintf(stderr,"%d %e %e %e\n", nodeCount, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
+            fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
+            fprintf(stderr,"%d %e %e %e\n", nodeCount, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
+            fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
+            fprintf(stderr,"%d %e %e %e\n", nodeCount, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
+            fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
+            if(polygon.numberOfEdges<=3){
+                fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);}
+            else{
+                fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[3][0], Xinter[3][1], Xinter[3][2]); 
+                if(dist02<dist13){
+                    fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-2);
+                    fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-2, nodeCount-1);}
+                else{
+                    fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);
+                    fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-1);}
+            }
         }
-
-      } else { // connect 1,3.
-        Vec3D nf = 0.5*(Xinter[2]-Xinter[1])^(Xinter[3]-Xinter[1]);
-        addLocalForce(CODE,nf, pStar[1], pStar[2], pStar[3], lsRes[1], lsRes[2], lsRes[3], Fs);
-
-        nf = 0.5*(Xinter[1]-Xinter[0])^(Xinter[3]-Xinter[0]);
-        addLocalForce(CODE,nf, pStar[0], pStar[1], pStar[3], lsRes[0], lsRes[1], lsRes[3], Fs);
-
-        //print the reconstructed surface
-        if(nodeFile&&elemFile) {
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[0][0], Xinter[0][1], Xinter[0][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[1][0], Xinter[1][1], Xinter[1][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[2][0], Xinter[2][1], Xinter[2][2]); 
-          fprintf(nodeFile,"%d %e %e %e\n", nodeCount++, Xinter[3][0], Xinter[3][1], Xinter[3][2]); 
-          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-4, nodeCount-3, nodeCount-1);
-          fprintf(elemFile,"%d %d %d %d %d\n", elemCount++, 4, nodeCount-3, nodeCount-2, nodeCount-1);
-        }
-      }
-
-    } else {
-      fprintf(stderr,"Error: contradiction in getPolygon. (edgeCount = %d). Abort.\n", count);
-      exit(-1);
     }
   }
   if(nodeFile) fclose(nodeFile);
   if(elemFile) fclose(elemFile);
 }
 
-//-----------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------
+
+int SubDomain::getPolygons(int iElem, LevelSetStructure &LSS, PolygonReconstructionData* polygons)
+{
+    int numberOfPolygons=0;
+    int oppositeNodes[4][3] = {{1,2,3},{0,2,3},{0,1,3},{0,1,2}};
+    int edgeToNodes[6][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
+    int edgeToOppositeNodes[6][2] = {{2,3}, {0,3}, {3,1}, {1,2}, {0,2}, {0,1}};
+    int T[4]; for (int i=0; i<4; ++i) T[i] = elems[iElem][i]; //nodes in a tet.
+    bool isBlocked[4][4],exit_early(true);
+    for(int i=0; i<6; ++i){int ni=edgeToNodes[i][0],nj=edgeToNodes[i][1];
+        isBlocked[ni][nj] = isBlocked[nj][ni] = LSS.edgeIntersectsStructure(0,T[ni],T[nj]);
+        if(isBlocked[ni][nj]) exit_early=false;}
+
+    if(exit_early) return 0; // No intersections detected; don't bother finding a reconstructed surface that does not exist.
+
+    bool finished[4]; for(int i=0; i<4; ++i) finished[i]=false;
+
+    // First, identify any of the simple cases
+    for(int current_node=0; current_node<4; ++current_node){
+        int n0=oppositeNodes[current_node][0],n1=oppositeNodes[current_node][1],n2=oppositeNodes[current_node][2];
+        if(isBlocked[current_node][n0] && isBlocked[current_node][n1] && isBlocked[current_node][n2]){
+            finished[current_node]=true;
+            polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2]);
+            if(!isBlocked[n0][n1] && !isBlocked[n0][n2] && !isBlocked[n1][n2]){
+                polygons[numberOfPolygons++].AssignTriangle(T[current_node],T[n0],T[n1],T[n2],false);
+                return numberOfPolygons;}}} // REALLY simple case...
+    
+    for(int current_node=0; current_node<4; ++current_node){if(finished[current_node]) continue;
+        for(int n=0; n<3; ++n){int neighbor_node=oppositeNodes[current_node][n];
+            int e0=oppositeNodes[current_node][(n+1)%3],e1=oppositeNodes[current_node][(n+2)%3];
+            if(!isBlocked[current_node][neighbor_node] && isBlocked[current_node][e0] && isBlocked[current_node][e1]){
+                if(isBlocked[neighbor_node][e0] && isBlocked[neighbor_node][e1]){
+                    finished[current_node] = finished[neighbor_node] = true;
+                    polygons[numberOfPolygons++].AssignQuadrilateral(T[current_node],T[neighbor_node],T[e0],T[e1]);}
+                else if(isBlocked[neighbor_node][e0]){
+                    finished[current_node] = finished[neighbor_node] = true;
+                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e0],T[e1]);}
+                else if(isBlocked[neighbor_node][e1]){
+                    finished[current_node] = finished[neighbor_node] = true;
+                    polygons[numberOfPolygons++].AssignQuadTriangle(T[current_node],T[neighbor_node],T[e1],T[e0]);}
+                else {
+                    finished[current_node] = true;
+                    polygons[numberOfPolygons++].AssignTwoEdges(T[current_node],T[e1],T[e0]);}}}}
+
+    // Finally, check for single-intersection edge cases
+    for(int current_node=0; current_node<4; ++current_node) if(!finished[current_node]){
+        for(int i=0; i<3; ++i) if(isBlocked[current_node][oppositeNodes[current_node][i]]){
+            polygons[numberOfPolygons++].AssignSingleEdge(T[current_node],T[oppositeNodes[current_node][i]]);}}
+
+    assert(numberOfPolygons);
+    return numberOfPolygons;
+}
+
+//--------------------------------------------------------------------------
 
 int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
 {
@@ -4598,7 +4626,6 @@ int SubDomain::getPolygon(int iElem, LevelSetStructure &LSS, int polygon[4][2])
 }
 
 //--------------------------------------------------------------------------
-
 void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double p3,
                               LevelSetResult& lsRes1, LevelSetResult& lsRes2, LevelSetResult& lsRes3,
                               double(*Fs)[3])
@@ -4639,6 +4666,7 @@ void SubDomain::addLocalForce(int METHOD, Vec3D nf, double p1, double p2, double
 
 void SubDomain::sendLocalForce(Vec3D flocal, LevelSetResult& lsRes, double(*Fs)[3])
 {
+  if(lsRes.alpha < 0) return;
   for(LevelSetResult::iterator it = lsRes.begin(); it != lsRes.end(); ++it) {
     int n = it.nodeNum();
     double coef = it.Ni();

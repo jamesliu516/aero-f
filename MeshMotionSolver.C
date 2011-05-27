@@ -11,7 +11,7 @@
 #include <Timer.h>
 #include <BCApplier.h> 
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef TYPE_PREC_MESH
 #define PrecScalar TYPE_PREC_MESH

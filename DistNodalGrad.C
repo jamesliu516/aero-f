@@ -5,10 +5,10 @@
 #include <DistVector.h>
 #include <Vector3D.h>
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 #include <alloca.h>
-#include <assert.h>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 

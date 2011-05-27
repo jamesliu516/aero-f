@@ -17,5 +17,6 @@ class BlockAlloc {
 };
 
 void * operator new(size_t nbyte, BlockAlloc &block);
+void operator delete(void *p, BlockAlloc &block);
 
 #endif

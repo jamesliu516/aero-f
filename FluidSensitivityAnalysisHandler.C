@@ -11,7 +11,7 @@
 #include <KspSolver.h>
 #include <MemoryPool.h>
 
-#include <math.h>
+#include <cmath>
 
 #include <iostream>
 #include <string>

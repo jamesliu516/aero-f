@@ -18,7 +18,7 @@
 #ifndef ARUGCOMP_H
 #define ARUGCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arunsmat.h"
 #include "arunspen.h"

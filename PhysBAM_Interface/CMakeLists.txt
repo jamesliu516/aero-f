@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 2.6)
 SET(INC_DIR . Public_Library)
 INCLUDE_DIRECTORIES(${INC_DIR})
 
+FIND_PACKAGE(Boost 1.19.0 REQUIRED)
+if(Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif(Boost_FOUND)
+
 ADD_LIBRARY(physbam SHARED PHYSBAM_INTERFACE.cpp
 ./Public_Library/PhysBAM_Tools/Arrays/ARRAY_COLLECTION.cpp
 ./Public_Library/PhysBAM_Tools/Vectors/VECTOR.cpp

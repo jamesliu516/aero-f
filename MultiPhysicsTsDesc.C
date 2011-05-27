@@ -11,7 +11,7 @@
 #include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -28,7 +28,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo())
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo()), programmedBurn(NULL)
 {
   simType = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
@@ -37,6 +37,13 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
+
+  int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
+  if (numBurnableFluids > 0) {
+    programmedBurn = new ProgrammedBurn(ioData,this->X);
+    this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
 
   setupEmbeddedFSISolver(ioData);
   setupMultiPhaseFlowSolver(ioData);
@@ -56,6 +63,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   
   requireSpecialBDF = false;
   increasingPressure = false;
+
+  ioData.printDebug();
 }
 
 //------------------------------------------------------------------------------
@@ -254,13 +263,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
   // Initialize level-sets 
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn);
+
+  if (programmedBurn)
+    programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
 
   // Initialize or reinitialize (i.e. at the beginning of a restart) fluid Ids
-  if(this->input->levelsets[0] == 0) // init
-    fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
-  else //restart
-    fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
+  //if(this->input->levelsets[0] == 0) // init
+  //  fluidSelector.initializeFluidIds(distLSS->getStatus(), *this->X, ioData);
+  //else //restart
+  fluidSelector.reinitializeFluidIds(distLSS->getStatus(), Phi);
 
   // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
@@ -372,6 +384,11 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
     LS->update(Phi);
   }
 
+  if (programmedBurn) {
+
+     programmedBurn->setFluidIds(currentTime, *fluidSelector.fluidId,U);
+  }
+
   fluidSelector.update();
 
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
@@ -413,6 +430,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
+    this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, fluidSelector.fluidId);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //    this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
 //    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
@@ -437,12 +455,15 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+  this->output->writeMaterialVolumesToDisk(it, t, *this->A, fluidSelector.fluidId);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
-  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n());
+  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)
@@ -678,11 +699,14 @@ bool MultiPhysicsTsDesc<dim,dimLS>::IncreasePressure(double dt, double t, DistSV
 }
 //-------------------------------------------------------------------------------
 
+template<int dim,int dimLS>
+void MultiPhysicsTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
 
+  currentTime = t;
 
-
-
-
+  if (programmedBurn)
+    programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
+}
 
 
 

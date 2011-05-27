@@ -18,7 +18,7 @@
 #ifndef ARLSCOMP_H
 #define ARLSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arscomp.h"
 #include "arlnsmat.h"

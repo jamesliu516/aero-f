@@ -40,7 +40,7 @@ struct LevelSetResult {
 	   int *nodep;
    public:
 	   iterator(double *x, int *n) : xip(x), nodep(n) { }
-	   iterator & operator++() { xip++; nodep++; }
+	   iterator & operator++() { xip++; nodep++; return (*this); }
 	   bool operator !=(const iterator &it) const {
 		   return xip != it.xip || nodep != it.nodep;
 	   }
@@ -109,7 +109,8 @@ class DistLevelSetStructure {
             (*this)(iSub).computeSwept((swept)(iSub));
     }
 
-    virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
+    virtual DistVec<int> &getStatus() = 0;
+                                    
 
     virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
     virtual void recompute(double dtf, double dtfLeft, double dts) = 0;

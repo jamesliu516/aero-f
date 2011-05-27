@@ -8,7 +8,7 @@
 #include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -55,7 +55,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     forceCalculationType>>newVersion;
     if(newVersion) forceApp++;
   }
-  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
+//  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
@@ -229,7 +229,7 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (VWeights) delete VWeights;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
-  if (Fs) delete[] Fs;
+  //PJSA if (Fs) delete[] Fs;
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();
@@ -400,26 +400,12 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    /*    if (numFluid>=2) {*/
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-      /*    } else {
-      this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      }*/
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    /*
-    if (numFluid>=2){
-      //   DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
-      //      tempPhi = distLSS->getPhi();
-      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
-    }
-    else
-    */ 
+    this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
@@ -440,31 +426,21 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  /*  if (numFluid>=2) {*/
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
-    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-    /*
-  } 
-    else { //numFluid == 1
-
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,0,nodeTag); // 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
-    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-  }
-  */
+  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+  this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
   restart2->writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
-  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n());
+  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)

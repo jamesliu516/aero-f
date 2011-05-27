@@ -17,7 +17,7 @@
 #ifndef ARRGNSYM_H
 #define ARRGNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arrsnsym.h"
 #include "arrgeig.h"

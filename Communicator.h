@@ -1,9 +1,9 @@
 #ifndef _COMMUNICATOR_H_
 #define _COMMUNICATOR_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstdarg>
 
 #ifdef USE_MPI
 #include <mpi.h>

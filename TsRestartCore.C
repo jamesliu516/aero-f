@@ -1,4 +1,4 @@
-#include <string.h>
+#include <cstring>
 
 #include <TsRestart.h>
 
@@ -92,7 +92,29 @@ TsRestart::TsRestart(IoData &iod, RefVal *rv) : refVal(rv)
   energy[0] = iod.restart.energy;
   energy[1] = iod.restart.energy;
   frequency = iod.output.restart.frequency;
+  frequency_dt = iod.output.restart.frequency_dt;
+  prtout = 0.0;
 
+}
+
+//------------------------------------------------------------------------------
+
+bool TsRestart::toWrite(int it, bool lastIt, double t)
+{
+  if(frequency_dt<=0.0)
+    return (((frequency > 0) && (it % frequency == 0)) || lastIt);
+
+  return (t>=prtout || lastIt);
+}
+
+//------------------------------------------------------------------------------
+
+void TsRestart::updatePrtout(double t)
+{
+  if(frequency_dt<=0.0)
+    return;
+  if(t>=prtout)
+    prtout += frequency_dt;
 }
 
 //------------------------------------------------------------------------------
@@ -102,7 +124,8 @@ void TsRestart::writeStructPosToDisk(int cpuNum, bool lastIt, Vec<Vec3D>& Xs)
   
   if(cpuNum>0) return; //only Proc.#1 will work.
 
-  if ((lastIt || (frequency > 0 && iteration % frequency == 0)) && structPos[0]!=0) {
+  if (structPos[0]!=0 && toWrite(iteration, lastIt, etime)) {
+  //if ((lastIt || (frequency > 0 && iteration % frequency == 0)) && structPos[0]!=0) {
     FILE *fp = fopen(structPos,"w");
     if (!fp) {
       fprintf(stderr, "*** Error: could not open \'%s\'\n", structPos);

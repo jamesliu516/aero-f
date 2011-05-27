@@ -96,8 +96,8 @@ MatchNodeSet::MatchNodeSet(const char *name) {
   }
 
   char line[MAXLINE];
-  fgets(line, MAXLINE, fp);
-  fgets(line, MAXLINE, fp);
+  char *toto = fgets(line, MAXLINE, fp);
+  toto = fgets(line, MAXLINE, fp);
   sscanf(line, "%*s %d", &numNodes);
 
   index = new int[numNodes][3];
@@ -106,7 +106,7 @@ MatchNodeSet::MatchNodeSet(const char *name) {
   // read match points
   int i;
   for (i = 0; i < numNodes; i++) {
-    fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
     sscanf(line, "%d", index[i]);
     index[i][0]--;
     index[i][1] = index[i][0];
