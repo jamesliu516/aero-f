@@ -18,7 +18,7 @@
 #ifndef ARBSCOMP_H
 #define ARBSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arscomp.h"
 #include "arbnsmat.h"

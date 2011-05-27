@@ -7,9 +7,9 @@
 #include <BinFileHandler.h>
 #include <AutoDiff/Taylor.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
 #include <iostream>
 #include <LinkF77.h>
 const double ElemTet::third = 1.0/3.0;

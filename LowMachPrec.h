@@ -43,7 +43,7 @@
 #ifndef _LOW_MACH_PREC_H
 #define _LOW_MACH_PREC_H
 
-#include <math.h>
+#include <cmath>
 
 #include <IoData.h>
 //------------------------------------------------------------------------------

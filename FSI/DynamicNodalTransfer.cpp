@@ -336,7 +336,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     char c1[200], c2[200], c3[200];
     int num0 = 0, num1 = 0, count, nInputs;
     double x1,x2,x3;
-    fscanf(topFile, "%s %s\n", c1, c2);
+    int toto = fscanf(topFile, "%s %s\n", c1, c2);
     char debug[6]="Nodes";
     for (int i=0; i<5; i++) 
       if(debug[i]!=c1[i]) {com.fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", meshFile); exit(-1);}
@@ -358,7 +358,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
       if(num1>maxIndex)
         maxIndex = num1;
 
-      fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList.push_back(Vec3D(x1,x2,x3));
     }
     nNodes = totalNodes = nodeList.size();
@@ -401,7 +401,7 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
     while(1) {
       nInputs = fscanf(topFile,"%d", &num0);
       if(nInputs!=1) break;
-      fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+      toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
       if(num0<1) {com.fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, meshFile); exit(-1);}
       elemIdList.push_back(num0-1);  //start from 0.
       elemList1.push_back(node1-1);
@@ -472,12 +472,14 @@ EmbeddedStructure::EmbeddedStructure(IoData& iod, Communicator &comm, Communicat
 
 EmbeddedStructure::~EmbeddedStructure()
 {
+/* PJSA
   if(X)         delete[] X;
   if(Tria)      delete[] Tria;
   if(U)         delete[] U;
   if(Udot)      delete[] Udot;
   if(XandUdot)  delete[] XandUdot;
   if(F)         delete[] F;
+*/
   if(structExc) delete structExc;  
   if(mns)      {delete mns[0]; delete [] mns;}
   delete[] meshFile;

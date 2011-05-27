@@ -2,9 +2,12 @@
 
 #include <LinkF77.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
 
 //------------------------------------------------------------------------------
 // fortran routines located in f77src folder
@@ -42,10 +45,25 @@ void FluxFcnJwlFDJacRoeEuler3D::compute(double length, double irey, double *norm
 
 //------------------------------------------------------------------------------
 
+FILE* ftest = NULL;
+
 void FluxFcnJwlApprJacRoeEuler3D::compute(double length, double irey, double *normal, double normalVel, 
 				       double *VL, double *VR, double *flux, bool useLimiter)
 {
+  /*if (!ftest) {
+    int myrank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    char fname[80];
+    sprintf(fname,"test%d.log",myrank);
+    ftest = fopen(fname,"w");
+  }
 
+  std::stringstream str;
+  str << VL[0] << " " << VL[1] << " " << VL[2] << " " << VL[3] << " " << VL[4] << std::endl;
+  str << VR[0] << " " << VR[1] << " " << VR[2] << " " << VR[3] << " " << VR[4] << std::endl << std::endl;
+  fprintf(ftest,"%s",str.str().c_str());
+  fflush(ftest);
+  */
    F77NAME(roeflux5jwl)(0, gamma, vf->getOmega(), vf->getA1(), vf->getA2(), vf->getR1r(), vf->getR2r(),
                         normal, normalVel, 
                         VL, VL+rshift, VR, VR+rshift, flux, 

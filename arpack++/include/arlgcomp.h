@@ -18,7 +18,7 @@
 #ifndef ARLGCOMP_H
 #define ARLGCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arlnsmat.h"
 #include "arlnspen.h"

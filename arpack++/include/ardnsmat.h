@@ -20,7 +20,7 @@
 #ifndef ARDNSMAT_H
 #define ARDNSMAT_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "armat.h"
 #include "arerror.h"

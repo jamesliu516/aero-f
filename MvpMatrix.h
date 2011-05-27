@@ -3,7 +3,7 @@
 
 #include <Vector.h>
 #include <GenMatrix.h>
-#include <stdio.h>
+#include <cstdio>
 
 //------------------------------------------------------------------------------
 

@@ -5,7 +5,7 @@
 #include <Vector3D.h>
 #include <LocalRiemannDesc.h>
 
-#include <math.h>
+#include <cmath>
 
 
 //------------------------------------------------------------------------------
@@ -29,71 +29,98 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
 
 // Multiphase Riemann problem
-// Assumption: there are only numPhase-1 interfaces (between fluid 0 and each one of the other fluids)
   if(iod.eqs.numPhase > 1){
-    numLriemann = iod.eqs.numPhase-1;
+
+    numLriemann = (iod.eqs.numPhase-1)*(iod.eqs.numPhase)/2;
     lriemann = new LocalRiemann*[numLriemann];
-    for(int iPhase=0; iPhase<numLriemann; iPhase++){
-      map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(iPhase+1);
-      if(it == iod.eqs.fluidModelMap.dataMap.end()){
-        fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", iPhase+1);
-        exit(1);
+    memset(lriemann, 0, sizeof(LocalRiemann*)*numLriemann) ;
+    int iRiemann = 0;
+
+    for (int iPhase = 0; iPhase < iod.eqs.numPhase; ++iPhase) {
+      for (int jPhase = iPhase + 1; jPhase < iod.eqs.numPhase; ++jPhase) {
+    
+	int fluidI = iPhase;
+	int fluidJ = jPhase;
+	int fluid1,fluid2;
+	
+	for (int k = 0; k < 1; ++k,++iRiemann) {
+	  if (k == 0) {
+	    fluid1 = fluidI;
+	    fluid2 = fluidJ;
+	  } else {
+	    fluid1 = fluidJ;
+	    fluid2 = fluidI;
+	  }
+	  levelSetMap[fluid1][fluid2] = iRiemann;
+	  levelSetMap[fluid2][fluid1] = iRiemann;
+	  
+	  map<int, FluidModelData *>::iterator it1 = iod.eqs.fluidModelMap.dataMap.find(fluid1);
+	  if(it1 == iod.eqs.fluidModelMap.dataMap.end()){
+	    fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", fluid1);
+	    exit(1);
+	  }
+	  map<int, FluidModelData *>::iterator it2 = iod.eqs.fluidModelMap.dataMap.find(fluid2);
+	  if(it2 == iod.eqs.fluidModelMap.dataMap.end()){
+	    fprintf(stderr, "*** Error: no FluidModel[%d] was specified\n", fluid2);
+	    exit(1);
+	  }
+	  if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
+	    if(it1->second->fluid  == FluidModelData::GAS &&
+	       it2->second->fluid == FluidModelData::GAS)
+	      lriemann[iRiemann] = new LocalRiemannGfmpGasGas(vf,fluid1,fluid2);
+	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		    it2->second->fluid == FluidModelData::LIQUID)
+	      lriemann[iRiemann] = new LocalRiemannGfmpTaitTait(vf,fluid1,fluid2);
+	    else if(it1->second->fluid  == FluidModelData::JWL &&
+		    it2->second->fluid == FluidModelData::JWL)
+	      lriemann[iRiemann] = new LocalRiemannGfmpJWLJWL(vf,fluid1,fluid2);
+	    else if(it1->second->fluid == FluidModelData::GAS &&
+		    it2->second->fluid == FluidModelData::JWL)
+	      lriemann[iRiemann] = new LocalRiemannGfmpGasJWL(vf,fluid1,fluid2);
+	    else{
+	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
+	    }
+	  }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
+	    if(it1->second->fluid  == FluidModelData::GAS &&
+	       it2->second->fluid == FluidModelData::GAS){
+	      lriemann[iRiemann] = new LocalRiemannGfmparGasGas(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		    it2->second->fluid == FluidModelData::GAS){
+	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid2,fluid1, iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		    it2->second->fluid == FluidModelData::LIQUID){
+	      lriemann[iRiemann] = new LocalRiemannGfmparTaitTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::GAS &&
+		    it2->second->fluid == FluidModelData::LIQUID){
+	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::GAS &&
+		    it2->second->fluid == FluidModelData::JWL){
+	      lriemann[iRiemann] = new LocalRiemannGfmparGasJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
+								iod.mf.jwlRelaxationFactor,
+								iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::JWL &&
+		    it2->second->fluid == FluidModelData::JWL){
+	      lriemann[iRiemann] = new LocalRiemannGfmparJWLJWL(vf,fluid1,fluid2, iod.mf.typePhaseChange);
+	    }
+	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
+		    it2->second->fluid == FluidModelData::JWL){
+	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid1,fluid2,sgCluster,iod.mf.riemannComputation,
+								iod.mf.jwlRelaxationFactor, iod.ref.rv.density,iod.ref.rv.entropy,iod.mf.typePhaseChange);
+	    }/* else if(it1->second->fluid  == FluidModelData::JWL &&
+		    it2->second->fluid == FluidModelData::LIQUID){
+	      lriemann[iRiemann] = new LocalRiemannGfmparTaitJWL(vf,fluid2,fluid1,sgCluster,iod.mf.riemannComputation, iod.mf.typePhaseChange,-1.0);
+	      }*/ else{
+	      
+	      fprintf(stdout, "*** Warning: No GFMP possible between fluid models %i and %i\n",fluid1, fluid2);
+	    }
+	  }
+	} 
       }
-      if(iod.mf.method == MultiFluidData::GHOSTFLUID_FOR_POOR){
-        if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-           it->second->fluid == FluidModelData::GAS)
-          lriemann[iPhase] = new LocalRiemannGfmpGasGas(vf,0,iPhase+1);
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-                it->second->fluid == FluidModelData::LIQUID)
-          lriemann[iPhase] = new LocalRiemannGfmpTaitTait(vf,0,iPhase+1);
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
-                it->second->fluid == FluidModelData::JWL)
-          lriemann[iPhase] = new LocalRiemannGfmpJWLJWL(vf,0,iPhase+1);
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-                it->second->fluid == FluidModelData::JWL)
-          lriemann[iPhase] = new LocalRiemannGfmpGasJWL(vf,0,iPhase+1);
-        else{
-          fprintf(stdout, "*** Error: no gfmp possible for that simulation\n");
-          exit(1);
-        }
-      }else if(iod.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN){
-        if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-           it->second->fluid == FluidModelData::GAS){
-          lriemann[iPhase] = new LocalRiemannGfmparGasGas(vf,0,iPhase+1, iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasGas\n", iPhase);
-        }
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-                it->second->fluid == FluidModelData::GAS){
-	  lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
-          //lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,iPhase+1,0, iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasTait\n", iPhase);
-        }
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::LIQUID &&
-                it->second->fluid == FluidModelData::LIQUID){
-          lriemann[iPhase] = new LocalRiemannGfmparTaitTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparTaitTait\n", iPhase);
-        }
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-                it->second->fluid == FluidModelData::LIQUID){
-	  lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,iPhase+1,0, iod.mf.typePhaseChange);
-          //lriemann[iPhase] = new LocalRiemannGfmparGasTait(vf,0,iPhase+1, iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasTait\n", iPhase);
-        }
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::GAS &&
-                it->second->fluid == FluidModelData::JWL){
-          lriemann[iPhase] = new LocalRiemannGfmparGasJWL(vf,0,iPhase+1,sgCluster,iod.mf.riemannComputation,iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparGasJwl\n", iPhase);
-        }
-        else if(iod.eqs.fluidModel.fluid  == FluidModelData::JWL &&
-                it->second->fluid == FluidModelData::JWL){
-          lriemann[iPhase] = new LocalRiemannGfmparJWLJWL(vf,0,iPhase+1, iod.mf.typePhaseChange);
-          //fprintf(stdout, "Debug: created %d - LocalRiemannGfmparJwlJwl\n", iPhase);
-        }
-        else{
-          fprintf(stdout, "*** Error: no gfmpar possible for that simulation\n");
-          exit(1);
-        }
-      } 
     }
   }
 
@@ -104,8 +131,10 @@ template<int dim>
 ExactRiemannSolver<dim>::~ExactRiemannSolver() 
 {
 
-  for(int iLriemann=0; iLriemann<numLriemann; iLriemann++)
-    delete lriemann[iLriemann];
+  for(int iLriemann=0; iLriemann<numLriemann; iLriemann++) {
+    if (lriemann[iLriemann])
+      delete lriemann[iLriemann];
+  }
   delete [] lriemann;
   delete fsiRiemann;
 
@@ -134,7 +163,8 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 {
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
-  lriemann[IDi+IDj-1]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
+  int riemannId = levelSetMap[IDi][IDj];
+  lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
           Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
           dx,iteration);
 
@@ -147,7 +177,8 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
 						     int i, int j, int edgeNum, double dx[3],
 						     double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj) {
 
-  lriemann[IDi+IDj-1]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
+  int riemannId = levelSetMap[IDi][IDj];
+  lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
           Wi,Wj,
           dx,iteration, dWidUi, dWidUj,dWjdUi, dWjdUj);
 }
@@ -211,3 +242,13 @@ void ExactRiemannSolver<dim>::resetInterfacialW(int edgeNum)
 
 }
 //------------------------------------------------------------------------------
+template <int dim>
+int ExactRiemannSolver<dim>::getRiemannSolverId(int i, int j) const {
+  
+  if (i == j) {
+    fprintf(stderr, "Error: getInterfaceId called with fluididi = fluididj!\n");
+    return 0;
+  }
+
+  return levelSetMap[i][j];
+}

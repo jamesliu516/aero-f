@@ -3,7 +3,7 @@
 
 #include <IoData.h>
 
-#include <math.h>
+#include <cmath>
 
 
 const double twothird = 2.0/3.0;

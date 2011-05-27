@@ -18,7 +18,7 @@
 #ifndef ARUSSYM_H
 #define ARUSSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arssym.h"
 #include "arusmat.h"

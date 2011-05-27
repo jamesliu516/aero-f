@@ -12,7 +12,7 @@
 #include <DistInfo.h>
 #include <Timer.h>
 #include <map>
-#include <string.h>
+#include <cstring>
 
 using std::pair;
 

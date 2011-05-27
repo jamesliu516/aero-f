@@ -29,8 +29,14 @@ public:
 				    double* Vi, double* Vj,
 				    double* Wi, double* Wj,
 				    double* jacii,double* jacij,
-				    double* jacji,double* jacjj);
+				    double* jacji,double* jacjj,double* dVdv);
 
+  static void computeTaitJwlJacobian(VarFcn* vf, int fluidi, int fluidj,
+				     double* Vi, double* Vj,
+				     double* Wi, double* Wj,
+				     double* jacii,double* jacij,
+				     double* jacjj,double* jacji,
+				     double* dVdv);
  private:
 
   static double computeJwlIntegral2(VarFcn* vf_, int fluidId, double omega,
@@ -45,10 +51,19 @@ public:
 				      double rhostar, double rho, 
 				      double out[6]) ;
 
+  static void computeTaitDerivRarefaction2x2(double alpha,double beta,double pinf,double p,
+					     double rhostar, double rho, double out[6], 
+					     double c, double cstar);
+
+  static void computeTaitDerivShock2x2(double alpha,double beta,double pinf,double p,
+				       double rhostar, double rho, 
+				       double out[6]);
+
   static void computeJwlDerivRarefaction(VarFcn* vf_, int fluidId,double omega,
 					 double entropy,
 					 double rhostar, double rho, 
-					 double out[6], double c, double cstar);
+					 double out[6], double c, double cstar,
+					 double* dVdv = NULL);
 
   static void computeJwlDerivShock(double omega,
 				   double rhostar, double rho, 

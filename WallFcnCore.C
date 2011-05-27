@@ -6,7 +6,7 @@
 #include <ViscoFcn.h>
 #include <Vector3D.h>
 
-#include <math.h>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 

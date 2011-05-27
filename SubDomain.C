@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -109,7 +109,7 @@ inline
 void computeLocalWeightsLeastSquares(double dx[3], double *R, double *W)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double or22 = 1.0 / R[3];
@@ -137,7 +137,7 @@ inline
 void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], double *R, double *dR, double *W, double *dW)
 {
 
-  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %f %f %f\n",
+  if(R[0]*R[3]*R[5] == 0.0) fprintf(stderr, "Going to divide by 0 %e %e %e\n",
          R[0], R[3], R[5]);
   double or11 = 1.0 / R[0];
   double dor11 = -1.0 / ( R[0]*R[0] )*dR[0];
@@ -5974,5 +5974,26 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
 	}
     }
     sendLocalForce(flocal, lsRes, Fs);
+  }
+}
+
+template<int dim>
+void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weight)
+{
+  const Connectivity &nToN = *getNodeToNode(); 
+  for(int currentNode=0;currentNode<numNodes();++currentNode) {
+        
+    for (int k = 0; k < dim; ++k) {
+      U0[currentNode][k] = 0.0;
+    }
+
+    for(int j=0;j<nToN.num(currentNode);++j){
+      int neighborNode=nToN[currentNode][j];
+      for (int k = 0; k < dim; ++k) {
+	U0[currentNode][k] += U[neighborNode][k];
+      }
+      
+    }
+    weight[currentNode] = (double)nToN.num(currentNode);
   }
 }

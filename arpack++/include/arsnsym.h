@@ -17,7 +17,7 @@
 #ifndef ARSNSYM_H
 #define ARSNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arseig.h"
 #include "arrsnsym.h"

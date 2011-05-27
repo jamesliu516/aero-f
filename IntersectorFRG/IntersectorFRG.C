@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include "IntersectorFRG.h"
 #include "Vector3D.h"
@@ -363,6 +363,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     double d2 = project(structX[p3], bestTrId, xi1, xi2);
     if(d2*minDist>0)
       minDist = -minDist;
+    return true;
   } else {
     double dist, alpha;
     double sign = trDist >= 0 ? 1 : -1;
@@ -383,8 +384,10 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
       n1 = cn1;
       n2 = cn2;
       mode = 1;
+      return true;
     }
   }
+  return false;
 }
 
 //----------------------------------------------------------------------------
@@ -508,7 +511,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   char c1[200], c2[200], c3[200];
   int num0 = 0, num1 = 0, nInputs;
   double x1,x2,x3;
-  fscanf(topFile, "%s %s\n", c1, c2);
+  int toto = fscanf(topFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++)
     if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
@@ -530,7 +533,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
     if(num1>maxIndex)
       maxIndex = num1;
 
-    fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
     x1 /= XScale;
     x2 /= XScale;
     x3 /= XScale;
@@ -571,7 +574,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   // load the elements.
   if(nInputs!=1) {
     com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
-  fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+  toto = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
   char debug2[6] = "using";
   for (int i=0; i<5; i++) 
     if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
@@ -590,7 +593,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
   while(1) {
     nInputs = fscanf(topFile,"%d", &num0);
     if(nInputs!=1) break;
-    fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
     if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
     elemIdList.push_back(num0-1);  //start from 0.
     elemList1.push_back(node1-1);
@@ -640,7 +643,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, dou
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
@@ -728,7 +731,7 @@ void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3]
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }

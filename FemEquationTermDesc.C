@@ -1,7 +1,7 @@
 #include <FemEquationTermDesc.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -1228,6 +1228,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
   }
+
+  return (porousmedia);
 
 }
 

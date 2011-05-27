@@ -1,5 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <KspPrec.h>
 #include <MemoryPool.h>
 #include <BCApplier.h>

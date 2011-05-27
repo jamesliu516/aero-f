@@ -47,9 +47,11 @@ public:
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *);
   void primitiveToConservativeDerivative(double *, double *, double *, double *);
   void multiplyBydVdU(double *, double *, double *);
+  void multiplyBydVdU(double *, bcomp *, bcomp *) {fprintf(stderr,"ERROR: multiplyBydVdU needs to be implemented...\n");}
   void preMultiplyBydUdV(double *, double *, double *);
   void postMultiplyBydVdU(double *, double *, double *);
   void postMultiplyBydUdV(double *, double *, double *);
+  void postMultiplyBydUdV(double *, bcomp *, bcomp *) {fprintf(stderr,"ERROR: postMultiplyBydUdV needs to be implemented...\n");}
 
   //----- General Functions -----//
   double checkPressure(double *V) const { 

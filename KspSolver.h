@@ -1,7 +1,7 @@
 #ifndef _KSP_SOLVER_H_
 #define _KSP_SOLVER_H_
 
-#include <stdio.h>
+#include <cstdio>
 #include <Vector.h>
 #include <DenseMatrix.h>
 #include <VectorSet.h>

@@ -1,8 +1,8 @@
 #ifndef _DENSE_MATRIX_OPS_H_
 #define _DENSE_MATRIX_OPS_H_
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <complex>
 

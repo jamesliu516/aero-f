@@ -3,6 +3,8 @@
 
 #include <TsDesc.h>
 
+#include <ProgrammedBurn.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -67,9 +69,16 @@ class LevelSetTsDesc : public TsDesc<dim> {
   void fixSolution(DistSVec<double,dim>& U, DistSVec<double,dim>& dU);
 
   virtual int solveNonLinearSystem(DistSVec<double,dim> &)=0;
+  
+  void setCurrentTime(double t,DistSVec<double,dim>& U);
 
  protected:
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi);
+
+  double currentTime,progBurnIgnitionTime;
+  bool progBurnIgnited;
+
+  ProgrammedBurn* programmedBurn;
 
 };
 

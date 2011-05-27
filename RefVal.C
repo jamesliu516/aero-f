@@ -1,6 +1,6 @@
 #include <RefVal.h>
 #include <IoData.h>
-#include <math.h>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 //CHANGES_FOR_WATER

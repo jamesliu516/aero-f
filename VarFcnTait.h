@@ -97,6 +97,7 @@ VarFcnTait::VarFcnTait(FluidModelData &data) : VarFcnBase(data) {
   type = TAIT;
  
   Cv_    = 1.0;
+  Cv_    = data.liquidModel.Cv;
   invCv_ = 1.0/Cv_;
   a_     = data.liquidModel.alpha;
   b_     = data.liquidModel.beta;

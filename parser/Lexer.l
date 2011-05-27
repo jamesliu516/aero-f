@@ -49,10 +49,6 @@ SPACES [ \t]+
 
 "under" return UNDER;
 
-[_A-Za-z][A-Za-z0-9_]*  {
-     yyCmdflval.token = dictionary->token(yytext); return Symbol; 
-    }
-
 [+-]?{DIGIT}+ {
     yyCmdflval.ival = atoi(yyCmdftext) ; return IntConstant ; 
   }
@@ -72,6 +68,10 @@ SPACES [ \t]+
 	for(il = 0; yyCmdftext[il] != 'd' && yyCmdftext[il] != 'D';) ++il;
 	yyCmdftext[il] = 'e'; yyCmdflval.dval = atof(yyCmdftext) ; return DblConstant; 
 	}
+
+[_A-Za-z0-9][A-Za-z0-9_]*  {
+     yyCmdflval.token = dictionary->token(yytext); return Symbol; 
+    }
 
 <<EOF>> { return EoF; }
 %%

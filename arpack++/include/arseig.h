@@ -19,7 +19,7 @@
 #ifndef ARSEIG_H
 #define ARSEIG_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arerror.h"
 #include "arrseig.h"

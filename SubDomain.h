@@ -59,6 +59,7 @@ class FluidSelector;
 struct V6NodeData;
 struct Vec3D;
 struct compStruct;
+struct PolygonReconstructionData;
 struct ExtrapolationNodeData;
 
 template<int dimLS> class LevelSet;
@@ -1121,6 +1122,7 @@ public:
 					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
 					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
+  int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
                      LevelSetResult&, double(*)[3]);
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
@@ -1130,7 +1132,7 @@ public:
   bool insideOutside(double*, const double, const double, const double, const double,
                      const double, const double);
 
-  double getMeshInBoundingBox(SVec<double,3> &, const double, const double,
+  void getMeshInBoundingBox(SVec<double,3> &, const double, const double,
                               const double, const double,
                               const double, const double,
                               int*, int&, int*,
@@ -1140,6 +1142,10 @@ public:
   Connectivity *getNodeToNode() { if(!NodeToNode) NodeToNode = createEdgeBasedConnectivity();  return NodeToNode; }
   Connectivity *getNodeToSubD() { if(!NodeToSubD) NodeToSubD = createNodeToSubDomainConnectivity();  return NodeToSubD; }
   int findFarfieldNode();
+
+
+  template<int dim>
+    void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
 };
 //------------------------------------------------------------------------------
 

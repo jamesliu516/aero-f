@@ -1,5 +1,5 @@
-#include <stdarg.h>
-#include <stdlib.h>
+#include <cstdarg>
+#include <cstdlib>
 #include "Assigner.h"
 #include "Dictionary.h"
 

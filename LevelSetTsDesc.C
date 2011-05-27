@@ -7,7 +7,7 @@
 #include <DistExactRiemannSolver.h>
 #include <FluidSelector.h>
 
-#include <math.h>
+#include <cmath>
                                                                                                         
 #ifdef OLD_STL
 #include <algo.h>
@@ -36,9 +36,9 @@ LevelSetTsDesc<dim,dimLS>::
 LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
   PhiV(this->getVecInfo()),
-  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()) 
-{
+  fluidSelector(ioData.eqs.numPhase, ioData, dom),umax(this->getVecInfo()), programmedBurn(NULL)
 
+{
   multiPhaseSpaceOp = new MultiPhaseSpaceOperator<dim,dimLS>(ioData, this->varFcn, this->bcData, this->geoState, 
                                                              this->domain, this->V);
   this->timeState = new DistTimeState<dim>(ioData, multiPhaseSpaceOp, this->varFcn, this->domain, this->V);
@@ -54,6 +54,13 @@ LevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
   requireSpecialBDF = false;
+
+  int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
+  //std::cout << "Num burnable fluids = " << numBurnableFluids << std::endl;
+  if (numBurnableFluids > 0) {
+    programmedBurn = new ProgrammedBurn(ioData,this->X);
+    this->fluidSelector.attachProgrammedBurn(programmedBurn);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -75,7 +82,7 @@ void LevelSetTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, IoDat
 
   // initalize solution
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), *U, ioData);
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData);
+  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData,&fluidSelector,this->varFcn);
   fluidSelector.initializeFluidIds(Phi, LS->Phinm1, LS->Phinm2); //setup fluidId in fluidSelector
 
   AeroMeshMotionHandler* _mmh = dynamic_cast<AeroMeshMotionHandler*>(this->mmh);
@@ -142,6 +149,11 @@ void LevelSetTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, int 
     LS->update(Phi);
   }
 
+  if (programmedBurn) {
+
+    programmedBurn->setFluidIds(currentTime, *fluidSelector.fluidId,U);
+  }
+
   fluidSelector.update();
  
   this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann);
@@ -183,6 +195,7 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
+    this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, fluidSelector.fluidId);
     this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId,&Phi);
     this->output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   }
@@ -207,9 +220,12 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, fluidSelector.fluidId);
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+  this->output->writeMaterialVolumesToDisk(it, t, *this->A, fluidSelector.fluidId);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)
@@ -300,3 +316,12 @@ void LevelSetTsDesc<dim,dimLS>::fixSolution(DistSVec<double,dim>& U,DistSVec<dou
     this->domain->fixSolution(this->varFcn,U,dU,fluidSelector.fluidId);
 }
 
+
+template<int dim,int dimLS>
+void LevelSetTsDesc<dim,dimLS>::setCurrentTime(double t,DistSVec<double,dim>& U) { 
+
+  currentTime = t;
+
+  if (programmedBurn)
+    programmedBurn->setCurrentTime(t,multiPhaseSpaceOp->getVarFcn(), U,*(fluidSelector.fluidId),*(fluidSelector.fluidIdn));
+}

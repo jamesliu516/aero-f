@@ -6,8 +6,8 @@
 #define GCCBACKTRACE
 #ifdef GCCBACKTRACE
 #include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #endif
 
 

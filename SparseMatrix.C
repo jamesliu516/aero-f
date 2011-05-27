@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <cstdlib>
 
 #ifdef OLD_STL
 #include <defalloc.h>

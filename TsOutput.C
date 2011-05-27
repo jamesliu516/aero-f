@@ -1,5 +1,5 @@
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 
 #include <TsOutput.h>
 
@@ -422,6 +422,13 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else
     residuals = 0;
 
+  if (iod.output.transient.materialVolumes[0] != 0) {
+    material_volumes = new char[sp + strlen(iod.output.transient.materialVolumes)];
+    sprintf(material_volumes, "%s%s", iod.output.transient.prefix, iod.output.transient.materialVolumes);
+  }
+  else
+    material_volumes = 0;
+
   if (iod.output.transient.conservation[0] != 0) {
     conservation = new char[sp + strlen(iod.output.transient.conservation)];
     sprintf(conservation, "%s%s", iod.output.transient.prefix, iod.output.transient.conservation);
@@ -430,7 +437,10 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
     conservation = 0;
 
   it0 = iod.restart.iteration;
+  numFluidPhases = iod.eqs.numPhase;
   frequency = iod.output.transient.frequency;
+  frequency_dt = iod.output.transient.frequency_dt;
+  prtout = 0.0;
   length = iod.output.transient.length;
   surface = iod.output.transient.surface;
   x0[0] = iod.output.transient.x0;
@@ -438,6 +448,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   x0[2] = iod.output.transient.z0;
 
   fpResiduals = 0;
+  fpMatVolumes = 0;
   fpConservationErr = 0;
   fpGnForces  = 0;
 
@@ -618,6 +629,7 @@ TsOutput<dim>::~TsOutput()
 
   delete[] heatfluxes;
   delete[] residuals;
+  delete[] material_volumes;
   delete[] conservation;
 
   delete[] lift;
@@ -649,6 +661,49 @@ TsOutput<dim>::~TsOutput()
      delete[]  avvectors[i];
   }
 
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+bool TsOutput<dim>::toWrite(int it, bool lastIt, double t)
+{
+  if(frequency_dt<=0.0)
+    return (((frequency > 0) && (it % frequency == 0)) || lastIt);
+
+  return (t>=prtout || lastIt);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int TsOutput<dim>::getStep(int it, bool lastIt, double t)
+{
+  int step = 0;
+  if(frequency_dt<=0.0) {
+    if (frequency > 0) {
+      step = it / frequency;
+      if (lastIt && (it % frequency != 0))
+        ++step;
+    }
+  } else {
+    step = (int)(t / frequency_dt);
+    if (lastIt && (t<prtout))
+      ++step;
+  }
+
+  return step;
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void TsOutput<dim>::updatePrtout(double t)
+{
+  if(frequency_dt<=0.0)
+    return;
+  if(t>=prtout)
+    prtout += frequency_dt;
 }
 
 //------------------------------------------------------------------------------
@@ -712,7 +767,7 @@ FILE *TsOutput<dim>::backupAsciiFile(char *name)
 
   fpback = fopen(nameback, "r");
   fp = fopen(name, "w");
-  fgets(line, MAXLINE, fpback);
+  char* toto = fgets(line, MAXLINE, fpback);
   fprintf(fp, "%s", line);
   while (fgets(line, MAXLINE, fpback) != 0) {
     int iter;
@@ -1190,9 +1245,6 @@ void TsOutput<dim>::openAsciiFiles()
     }
   }
 
-
-
-
   if (residuals) {
     if (it0 != 0) 
       fpResiduals = backupAsciiFile(residuals);
@@ -1205,6 +1257,23 @@ void TsOutput<dim>::openAsciiFiles()
       fprintf(fpResiduals, "# TimeIteration ElapsedTime RelativeResidual CflNumber\n");
     }
     fflush(fpResiduals);
+  }
+
+  if (material_volumes) {
+    if (it0 != 0)
+      fpMatVolumes = backupAsciiFile(material_volumes);
+    if (it0 == 0 || fpMatVolumes == 0) {
+      fpMatVolumes = fopen(material_volumes, "w");
+      if (!fpMatVolumes) {
+        fprintf(stderr, "*** Error: could not open \'%s\'\n", material_volumes);
+        exit(1);
+      }
+      fprintf(fpMatVolumes, "# TimeIteration ElapsedTime ");
+      for(int i=0; i<numFluidPhases; i++)
+        fprintf(fpMatVolumes, "Volume[FluidID==%d] ", i);
+      fprintf(fpMatVolumes, "Volume[FluidID==%d(GhostSolid)] TotalVolume\n", numFluidPhases);
+    }
+    fflush(fpMatVolumes);
   }
 
   if (conservation) {
@@ -1249,6 +1318,7 @@ void TsOutput<dim>::closeAsciiFiles()
      if (fpHeatFluxes[iSurf]) fclose(fpHeatFluxes[iSurf]);
   }
   if (fpResiduals) fclose(fpResiduals);
+  if (fpMatVolumes) fclose(fpMatVolumes);
   if (fpGnForces) fclose(fpGnForces);
   if (fpConservationErr) fclose(fpConservationErr);
 
@@ -1887,6 +1957,40 @@ void TsOutput<dim>::writeResidualsToDisk(int it, double cpu, double res, double 
 //------------------------------------------------------------------------------
 
 template<int dim>
+void TsOutput<dim>::writeMaterialVolumesToDisk(int it, double t, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  if(!material_volumes)
+    return;
+
+  int myLength = numFluidPhases + 1/*ghost*/;
+  double Vol[myLength];
+  for(int i=0; i<myLength; i++)
+    Vol[i] = 0.0;
+
+  domain->computeMaterialVolumes(Vol,myLength,A,fluidId); //computes Vol
+
+  if (com->cpuNum() !=0 ) return;
+
+  double length3 = length*length*length;
+  for(int i=0; i<myLength; i++)
+    Vol[i] *= length3; //dimensionalize
+
+  fprintf(fpMatVolumes, "%d %e ", it, (refVal->time)*t);
+  for(int i=0; i<numFluidPhases+1; i++)
+    fprintf(fpMatVolumes, "%e ", Vol[i]);
+  
+  double totVol = 0.0;
+  for(int i=0; i<myLength; i++)
+    totVol += Vol[i];
+
+  fprintf(fpMatVolumes, "%e\n", totVol);
+
+  fflush(fpMatVolumes);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
 void TsOutput<dim>::writeConservationErrors(IoData &iod, int it, double t,
                     int numPhases, double **expected, double **computed)
 {
@@ -1931,13 +2035,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 					     DistVec<double> &A, DistSVec<double,dim> &U, DistTimeState<dim> *timeState)
 {
 
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-	++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2000,13 +2099,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistTimeState<dim> *timeState,
                                              DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
 {
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2074,7 +2168,6 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 template<int dim>
 void TsOutput<dim>::writeBinaryDerivativeOfVectorsToDisk(int it, int actvar, double dS[3], DistSVec<double,3> &X, DistSVec<double,3> &dX, DistSVec<double,dim> &U, DistSVec<double,dim> &dU, DistTimeState<dim> *timeState)
 {
-
   int    step = it-1;
   double tag  = (double)actvar;
 
@@ -2110,13 +2203,8 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t,
                                              DistSVec<double,1> &Phi, DistVec<int> &fluidId)
 {
  
-  if (((frequency > 0) && (it % frequency == 0)) || lastIt) {
-    int step = 0;
-    if (frequency > 0) {
-      step = it / frequency;
-      if (lastIt && (it % frequency != 0))
-        ++step;
-    }
+  if (toWrite(it,lastIt,t)) {
+    int step = getStep(it,lastIt,t);
     double tag;
     if (rmmh)
       tag = rmmh->getTagValue(t);
@@ -2160,18 +2248,12 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
 
 // This routine outputs the time averaged values of the scalar and vector output files
 // in binary format
-
   int i;
   static double tprev,tinit;
   double time = refVal->time*t;
   double del_t;
 
-  int step = 0;
-  if (frequency > 0) {
-    step = it / frequency;
-    if (lastIt && (it % frequency != 0))
-    ++step;
-  }
+  int step = getStep(it,lastIt,t);
 
   double tag;
   if (rmmh)
@@ -2243,8 +2325,7 @@ void TsOutput<dim>::writeAvgVectorsToDisk(bool lastIt, int it, double t, DistSVe
     tprev = time;
   }
 
-  
-  if (((frequency > 0) && (it % frequency == 0) && (counter > 0)) || lastIt) {
+  if (toWrite(it,lastIt,t) && counter>0) {
     for (i=0; i<PostFcn::AVSSIZE; ++i) {
       if(avscalars[i]) {
         if (!Qs) Qs = new DistVec<double>(domain->getNodeDistInfo());

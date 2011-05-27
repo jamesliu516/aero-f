@@ -1,7 +1,7 @@
 #ifndef _CONNECTIVITY_H_
 #define _CONNECTIVITY_H_
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <map.h>

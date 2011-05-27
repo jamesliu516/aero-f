@@ -18,7 +18,7 @@
 #ifndef ARBGCOMP_H
 #define ARBGCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arbnsmat.h"
 #include "arbnspen.h"

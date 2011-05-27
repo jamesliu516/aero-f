@@ -4,7 +4,7 @@
 #include <SparseMatrix.h>
 #include <DenseMatrixOps.h>
 
-#include <stdlib.h>
+#include <cstdlib>
 
 //------------------------------------------------------------------------------
 
