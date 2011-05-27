@@ -753,7 +753,8 @@ void
 DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
 {
   int previous = numStNodes;
-  gotNewCracking = cracking->getNewCrackingFlag();
+  if(cracking)
+    gotNewCracking = cracking->getNewCrackingFlag();
   if(gotNewCracking)
     cracking->setNewCrackingFlag(false);
   if((nNodes!=numStNodes) != gotNewCracking){
@@ -879,10 +880,6 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
 DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
-
-  com->barrier();
-  com->fprintf(stderr,"<AERO-F> in IntersectorPhysBAM::recompute\n");
-
 
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
