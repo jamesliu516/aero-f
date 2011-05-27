@@ -71,6 +71,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   else
     Rn = Un->alias();
 
+  errorEstiNorm = 0.0;
+  dtMin = 1.e-10;
+
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
@@ -628,7 +631,85 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 }
 
 //------------------------------------------------------------------------------
-                                                                                                         
+
+template<int dim>
+double DistTimeState<dim>::computeTimeStepFailSafe(double* dtLeft, int* numSubCycles)
+{
+  // time step is repeated with half the time step size
+  double dt_glob;
+  *dtLeft += dt->min();
+  dt_glob = dt->min() / 2.0;
+
+  *dtLeft -= dt_glob;
+
+  data->computeCoefficients(*dt, dt_glob);
+
+  return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> 
+double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCycles)
+{
+  double incfac = 1.25 + (1.15 * pow((2.71828),(- double(it-2) / 3.0)));
+  double decfac = max(0.2 , (0.75 + (-1.25 * pow((2.71828),(- double(it-2) / 3.0)))));
+
+  double factor;
+  if (errorEstiNorm == 0.0)
+    printf("errorEstiNorm equals zero! Division by zero! \n");
+  else   
+    factor = min( max( pow((data->errorTol / errorEstiNorm),(1.0 / 2.0)) , decfac ), incfac );
+
+  if(factor==decfac && it==2)
+    printf("WARNING: Cfl0 is chosen too big!! \n");
+
+  double dt_glob;
+  if (data->dt_imposed > 0.0) 
+    dt_glob = data->dt_imposed;
+  else 
+    dt_glob = max ( dtMin, (factor * data->dt_nm1));
+
+  if (data->typeStartup == ImplicitData::MODIFIED && 
+      ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
+       (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
+    if (*dtLeft != 0.0 && dt_glob > *dtLeft)
+      dt_glob = *dtLeft / 1000.0;
+    else 
+      dt_glob /= 1000.0;
+  }
+
+  if (*dtLeft != 0.0) {
+    *numSubCycles = int(*dtLeft / dt_glob);
+    if (*numSubCycles == 0 || (*numSubCycles)*dt_glob != *dtLeft) ++(*numSubCycles);
+    dt_glob = *dtLeft / double(*numSubCycles);
+    *dtLeft -= dt_glob;
+  }
+  data->computeCoefficients(*dt, dt_glob);
+
+  return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::calculateErrorEstiNorm(DistSVec<double,dim> &U, DistSVec<double,dim> &F)
+{
+  //linear extrapolation for error estimation
+  //F = *Un + ( data->dt_n / data->dt_nm1 )*( *Un-*Unm1 );
+
+  //Forward Euler step for error estimation
+  F = *Un - ( data->dt_n * F);
+
+  //common for both approaches
+  F -= U;
+  errorEstiNorm = F.norm() / U.norm();
+}
+
+//------------------------------------------------------------------------------
+                                                                
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,

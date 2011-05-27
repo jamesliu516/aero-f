@@ -417,11 +417,47 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
   it++;
   if(!coupled) {
     double time;
-    if(it==1 && algNum==6)
-      time = t0 + 0.5*dt*(double)it;
-    else
-      time = t0 + dt*(double)it;
-     
+    //hack for fluid dominates time step size
+    time = t0 + dt;
+
+    int perturbationFlag=1;
+
+    if(perturbationFlag == 1){ 
+    double dzTemp = 0.0;
+    double omegaTemp = 0.0;
+      if(0.0 <= time && time < 0.008){
+        omegaTemp = omega * 1.0;
+        dzTemp = dz * 1.0;
+        time = time - 0.0;
+      }   
+      else if(0.008 <= time && time <= 0.01175){
+        omegaTemp = omega * 6.4;
+        dzTemp = dz * 10.0;
+        time = time - 0.008;
+      }   
+      else if(0.01175 < time && time <= 0.02175){
+        omegaTemp = omega * 1.6;
+        dzTemp = dz * 3.0;
+        time = time - 0.01175;
+      }   
+      else if(0.02175 < time){
+        omegaTemp = omega * 1.0;
+        dzTemp = dz * 0.0;
+      }   
+      if (mode==1) //heaving
+        for(int i=0; i < nNodes; ++i) {
+          U[i][0] = (1-cos(omegaTemp*time))*dx;
+          U[i][1] = (1-cos(omegaTemp*time))*dy;
+          U[i][2] = (1-cos(omegaTemp*time))*dzTemp;
+          Udot[i][0] = dx*omegaTemp*sin(omegaTemp*time);
+          Udot[i][1] = dy*omegaTemp*sin(omegaTemp*time); 
+          Udot[i][2] = dzTemp*omegaTemp*sin(omegaTemp*time); 
+      }   
+    }  
+    else{
+    if (time >= 2*3.14159/omega)
+      time = 0.0;
+
     if (mode==1) //heaving
       for(int i=0; i < nNodes; ++i) {
         U[i][0] = (1-cos(omega*time))*dx;
@@ -451,8 +487,8 @@ EmbeddedStructure::sendDisplacement(Communication::Window<double> *window)
         Udot[i][1] = dy*cosTheta;
         Udot[i][2] = dz*sinTheta;
       }
+    }
   }
-
   for(int i=0; i<nNodes; i++)
     for(int j=0; j<3; j++) {
       UandUdot[i][j] = U[i][j];

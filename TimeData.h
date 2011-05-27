@@ -28,6 +28,8 @@ public:
   double alpha_nm1;
   double alpha_nm2;
 
+  double errorTol;
+
   bool exist_nm1;
   bool exist_nm2;
   bool use_nm1;

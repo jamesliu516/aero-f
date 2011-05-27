@@ -53,7 +53,7 @@ public:
                      MatVecProdOp *_mvp, KspPrec<neq> *_pc,
                      Communicator *_com);
 
-  void commonPart(DistSVec<double,dim> &U);
+  int commonPart(DistSVec<double,dim> &U);
 
   int solveNonLinearSystem(DistSVec<double,dim> &U);
   
@@ -62,6 +62,8 @@ public:
 
   void recomputeFunction(DistSVec<double,dim> &Q,
                          DistSVec<double,dim> &rhs);
+
+  void doErrorEstimation(DistSVec<double,dim> &U);
 
   int checkFailSafe(DistSVec<double,dim>& U);
 
