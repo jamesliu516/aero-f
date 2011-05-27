@@ -5,6 +5,7 @@
 
 class IoData;
 
+
 //------------------------------------------------------------------------------
 /** Class which handles the algorithmic organization of the solution for all problems */
 template<class ProblemDescriptor>
@@ -107,6 +108,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   while (!lastIt) {
     probDesc->resetOutputToStructure(U);
+    int stat = 0;
     int itSc = 0;
     int itNl = 0;
     int itNlLS = 0;
@@ -117,10 +119,16 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
     do { // Subcycling
       itSc++;
+      stat = 0;
       probDesc->setCurrentTime(t,U);
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
+      probDesc->printf(1, "current time step: %f \n",dt);
+
+      if(itSc == 1)
+        probDesc->computePositionVector(&lastIt, it, t);
+ 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
       // compute control volumes and velocities
@@ -128,19 +136,28 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // Fluid Solution
       bool solveOrNot = probDesc->IncreasePressure(dt,t,U);
       if(solveOrNot){
-        itNl += probDesc->solveNonLinearSystem(U);
+        stat = probDesc->solveNonLinearSystem(U);
       }
-      // compute the current aerodynamic force
-      probDesc->updateOutputToStructure(dt, dtLeft, U);
-      probDesc->updateStateVectors(U, it);
-    } while (dtLeft != 0.0);
+      if(stat>0){
+        itNl += stat;
+        // compute the current aerodynamic force
+        probDesc->updateOutputToStructure(dt, dtLeft, U);
+        probDesc->updateStateVectors(U, it);
+      }
+      else{
+        if(itSc > 200) exit(-1);
+        probDesc->printf(1, "itSc:  %i \n",itSc);
+        t -= dt;
+        probDesc->setFailSafe(true);
+      }
+    } while (dtLeft != 0.0 || stat<0);
 
 
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t);
+    //dts = probDesc->computePositionVector(&lastIt, it, t);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
   }
   return 0;

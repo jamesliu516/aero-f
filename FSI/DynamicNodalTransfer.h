@@ -120,6 +120,11 @@ public:
         double getStructureTimeStep() {return dts;}
         double getStructureMaxTime() {return tMax;}
 
+        //structure time step is set; for heaving with variable time step 'it' 
+        //must not be equal zero or one at any time 
+        void setStructureTimeInfo(double dtn, double tn) { dts = dtn; structure.dt = dtn*tScale; 
+                                               structure.t0=tn*tScale; structure.it=2; }   
+
         void updateOutputToStructure(double  dt, double dtLeft, SVec<double,3> &Fs);
         bool embeddedMeshByFEM() {return structure.embeddedMeshByFEM();}
         int  numStNodes() {return structure.nNodes;}

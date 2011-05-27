@@ -1102,7 +1102,7 @@ void SpaceOperator<dim>::computeRiemannWeightsForEmbeddedStruct(DistSVec<double,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
+int SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
                              DistSVec<double,dim> &U,
                              DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
                              DistLevelSetStructure *distLSS, double* vfar,
@@ -1129,7 +1129,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 
       if(subWeights[i] <= 0.0){
           fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, subD[iSub]->getGlobSubNum(), (fluidId?(*fluidId)(iSub)[i]:0), subWeights[i]);
-          exit(-1);
+          //exit(-1);
+          return -2;
       } else {
         for (int iDim=0; iDim<dim; iDim++) 
           subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
@@ -1175,6 +1176,8 @@ void SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
     }*/
   }
   varFcn->primitiveToConservative(V, U, fluidId);
+
+  return 0;
 }
 
 //-----------------------------------------------------------------------------

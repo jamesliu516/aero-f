@@ -1434,6 +1434,7 @@ EmbeddedMeshMotionHandler::EmbeddedMeshMotionHandler(IoData &iod, Domain *dom, D
   distLSS = distlss;
   dts = 0.0;
   it0 = iod.restart.iteration; //restart time-step
+  t_n = 0.0;
  
   switch (iod.embed.structVelocity){
     case EmbeddedFramework::FINITE_DIFFERENCE:
@@ -1525,6 +1526,25 @@ double EmbeddedMeshMotionHandler::updateStep1(bool *lastIt, int it, double t,
 void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
+  //hack for fluid dominating the time step size
+  bool variableTimeStepping = true;
+  if(variableTimeStepping == true) {
+    dts = (t - t_n);
+    
+
+  //careful, because structure time step is stored dimensionalized and in DynNT non-dim
+  if(dts<0) //hack for repeating time steps
+    dynNodalTransfer->setStructureTimeInfo(-dts,(t_n+2*dts));
+  else
+    dynNodalTransfer->setStructureTimeInfo(dts,t_n);
+  
+  t_n = t; 
+     
+  // send force
+  if (it>0 && it>it0)
+    dynNodalTransfer->sendForce(); //send force to structure
+  }
+  else{
   dts = dynNodalTransfer->getStructureTimeStep();
 
   if (it==0)
@@ -1533,6 +1553,7 @@ void EmbeddedMeshMotionHandler::step1ForA6(bool *lastIt, int it, double t,
   // send force
   if (it>0 && it>it0)
     dynNodalTransfer->sendForce(); //send force to structure
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1719,10 +1740,11 @@ void EmbeddedMeshMotionHandler::step2ForA6(bool *lastIt, int it, double t,
                                              DistSVec<double,3> &Xdot, DistSVec<double,3> &X)
 {
   int numStructNodes = distLSS->getNumStructNodes();
-  dts = dynNodalTransfer->getStructureTimeStep();
+  dts = fabs( dynNodalTransfer->getStructureTimeStep() );
 
-  if(it==0)
-    dts *= 0.5;
+  //hack for fluid dominating the time step size
+  //if(it==0)
+  //  dts *= 0.5;
 
   // get displacement
   if(it==it0 || !*lastIt) {

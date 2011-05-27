@@ -1042,10 +1042,11 @@ void DistIntersectorFRG::updatePhysBAMInterface()
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts) 
+int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts) 
 {
 
-  updateStructCoords(0.0, 1.0);
+  //updateStructCoords(0.0, 1.0);
+  updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));
   buildSolidNormals();
   expandScope();
 
@@ -1068,6 +1069,8 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
         intersector[iSub]->ReverseCrossingEdgeRes.clear();
         error = intersector[iSub]->findIntersections((*X)(iSub), true);
       }
+      if(error)
+        return -1;
     }
   }
 
@@ -1086,9 +1089,11 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
         intersector[iSub]->ReverseCrossingEdgeRes.clear();
         error = intersector[iSub]->findIntersections((*X)(iSub), true);
       }
+      if(error)
+        return -1;
     }
   }
-
+  return 0;
 }
 
 //----------------------------------------------------------------------------

@@ -65,6 +65,8 @@ private:
   DistSVec<double,dim> *Unm1Bar;
   DistSVec<double,dim> *Unm2Bar;
   DistSVec<double,dim> *Rn;
+  double errorEstiNorm;                 //norm of estimated error
+  double dtMin;
 
   Domain *domain;
 
@@ -107,6 +109,18 @@ public:
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   double computeTimeStep(double, double*, int*, DistGeoState &,
                          DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
+
+  //computes time step size when time step failed
+  double computeTimeStepFailSafe(double* , int*);
+
+  //computes time step with error estimation
+  double computeTimeStep(int, double* , int*);
+
+  //calculates the norm of the error estimator
+  void calculateErrorEstiNorm(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  //minimum time step size is set for error estimation
+  void setDtMin(double dt){dtMin = dt;}
 
   void computeCoefficients(double);
 

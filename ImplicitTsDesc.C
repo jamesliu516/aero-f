@@ -45,11 +45,36 @@ template<int dim>
 int ImplicitTsDesc<dim>::solveNonLinearSystem(DistSVec<double,dim> &U)
 {
 
+  int its = 0;
   double t0 = this->timer->getTime();
-  int its = ns->solve(U);
-  this->timer->addFluidSolutionTime(t0);
+
+  TsDesc<dim>::setFailSafe(false);
+
+  its = this->ns->solve(U);
+  if(its<0){  //failSafe
+    U = this->timeState->getUn();
+    return its;
+  }
+
+  if(TsDesc<dim>::timeState->getData().typeIntegrator == ImplicitData::THREE_POINT_BDF &&
+               TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION )
+    doErrorEstimation(U);
 
   return its;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void ImplicitTsDesc<dim>::doErrorEstimation(DistSVec<double,dim> &U)
+{
+  DistSVec<double,dim> *flux = new DistSVec<double,dim>(TsDesc<dim>::domain->getNodeDistInfo());
+
+  this->spaceOp->computeResidual(*this->X, *this->A, this->timeState->getUn(), *flux, this->timeState);
+  this->timeState->calculateErrorEstiNorm(U, *flux);
+
+  delete flux;
 
 }
 
