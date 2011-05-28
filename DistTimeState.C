@@ -658,7 +658,7 @@ double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCy
 
   double factor;
   if (errorEstiNorm == 0.0)
-    printf("errorEstiNorm equals zero! Division by zero! \n");
+    printf("Error: errorEstiNorm equals zero! Division by zero! \n");
   else   
     factor = min( max( pow((data->errorTol / errorEstiNorm),(1.0 / 2.0)) , decfac ), incfac );
 

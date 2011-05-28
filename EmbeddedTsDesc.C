@@ -347,10 +347,6 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
   int numSubCycles = 1;
   double dt=0.0;
 
-  // fluid determines structural time step and subcycling
-  if(inSubCycling == false)   //if(itSc==1)
-    *dtLeft = 0.0;
-
   if(TsDesc<dim>::failSafeFlag == false){
     if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
       this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);

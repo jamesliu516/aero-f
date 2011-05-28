@@ -118,17 +118,12 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     it++;
 
     do { // Subcycling
-      itSc++;
       stat = 0;
+      itSc++;
       probDesc->setCurrentTime(t,U);
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
       t += dt;
 
-      probDesc->printf(1, "current time step: %f \n",dt);
-
-      if(itSc == 1)
-        probDesc->computePositionVector(&lastIt, it, t);
- 
       // estimate mesh position in subcycle
       probDesc->interpolatePositionVector(dt, dtLeft);
       // compute control volumes and velocities
@@ -145,7 +140,10 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
         probDesc->updateStateVectors(U, it);
       }
       else{
-        if(itSc > 200) exit(-1);
+        if(itSc > 200){ 
+          probDesc->printf(1, "Fail safe failed! \n",itSc);
+          exit(-1);
+        }
         probDesc->printf(1, "itSc:  %i \n",itSc);
         t -= dt;
         probDesc->setFailSafe(true);
