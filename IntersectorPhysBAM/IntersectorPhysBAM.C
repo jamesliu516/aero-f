@@ -878,7 +878,7 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-void
+int
 DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
 
   if (dtfLeft<-1.0e-6) {
@@ -918,6 +918,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
       intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
 
   findActiveNodes(tId);
+  return 0;
 }
 
 //----------------------------------------------------------------------------

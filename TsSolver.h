@@ -5,6 +5,7 @@
 
 class IoData;
 
+
 //------------------------------------------------------------------------------
 /** Class which handles the algorithmic organization of the solution for all problems */
 template<class ProblemDescriptor>
@@ -107,6 +108,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
 
   while (!lastIt) {
     probDesc->resetOutputToStructure(U);
+    int stat = 0;
     int itSc = 0;
     int itNl = 0;
     int itNlLS = 0;
@@ -116,6 +118,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     it++;
 
     do { // Subcycling
+      stat = 0;
       itSc++;
       probDesc->setCurrentTime(t,U);
       dt = probDesc->computeTimeStep(it, &dtLeft, U);
@@ -128,19 +131,31 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       // Fluid Solution
       bool solveOrNot = probDesc->IncreasePressure(dt,t,U);
       if(solveOrNot){
-        itNl += probDesc->solveNonLinearSystem(U);
+        stat = probDesc->solveNonLinearSystem(U);
       }
-      // compute the current aerodynamic force
-      probDesc->updateOutputToStructure(dt, dtLeft, U);
-      probDesc->updateStateVectors(U, it);
-    } while (dtLeft != 0.0);
+      if(stat>0){
+        itNl += stat;
+        // compute the current aerodynamic force
+        probDesc->updateOutputToStructure(dt, dtLeft, U);
+        probDesc->updateStateVectors(U, it);
+      }
+      else{
+        if(itSc > 200){ 
+          probDesc->printf(1, "Fail safe failed! \n",itSc);
+          exit(-1);
+        }
+        probDesc->printf(1, "itSc:  %i \n",itSc);
+        t -= dt;
+        probDesc->setFailSafe(true);
+      }
+    } while (dtLeft != 0.0 || stat<0);
 
 
 // Modified (MB)
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-    dts = probDesc->computePositionVector(&lastIt, it, t);
+    //dts = probDesc->computePositionVector(&lastIt, it, t);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
   }
   return 0;

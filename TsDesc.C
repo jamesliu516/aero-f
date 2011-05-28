@@ -42,6 +42,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   clippingType = ioData.ts.typeClipping;
   wallType = ioData.bc.wall.integration;
   wallRecType = ioData.bc.wall.reconstruction;
+  timeStepCalculation = ioData.ts.timeStepCalculation;
 
   refVal = new RefVal(ioData.ref.rv);
 
@@ -75,6 +76,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   riemann1 = new DistExactRiemannSolver<dim>(ioData, domain, varFcn);
 // Included (MB)
   forceNorm = 0.0;
+  failSafeFlag = false;
   if (ioData.sa.avgsIt) {
     forceNorms = new double[ioData.sa.avgsIt];
   }
@@ -295,7 +297,20 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
   int numSubCycles = 1;
-  double dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+
+  double dt = 0.0;
+  if(failSafeFlag == false){
+    if(timeStepCalculation == TsData::CFL || it==1)
+      dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+    else  //time step size with error estimation
+      dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+  }
+  else //if time step is repeated
+    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+
+  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+    this->timeState->setDtMin(dt * data->getCflMinOverCfl0());
+
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
   timer->addFluidSolutionTime(t0);

@@ -1276,6 +1276,7 @@ struct TsData {
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
   enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
+  enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
   double viscousCst;
@@ -1291,7 +1292,9 @@ struct TsData {
   double cflCoef1;
   double cflCoef2;
   double cflMax;
+  double cflMin;
   double ser;
+  double errorTol;
 
   const char *output;
 

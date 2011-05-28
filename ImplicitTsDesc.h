@@ -57,6 +57,7 @@ public:
   int solveNonLinearSystem(DistSVec<double,dim> &);
   void computeFunction(int, DistSVec<double,dim> &, DistSVec<double,dim> &);  
   void recomputeFunction(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void doErrorEstimation(DistSVec<double,dim> &);
 
   int checkFailSafe(DistSVec<double,dim>&);
   void resetFixesTag();

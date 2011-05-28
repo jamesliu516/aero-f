@@ -139,8 +139,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 	++fsIt;
       }
       else{
-	probDesc->printf(1, "***Exiting\n");
-	exit(1);
+	probDesc->printf(1, "Newton solver failed\n");
+	return -3;
       }
     }
 

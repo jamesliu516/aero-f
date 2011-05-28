@@ -11,6 +11,7 @@ class TsParameters {
   double cflCoef1;
   double cflCoef2;
   double cflMax;
+  double cflMin;
   double ser;
 
 public:
@@ -30,6 +31,8 @@ public:
   ~TsParameters();
 
   void computeCflNumber(int, double);
+  double getCflMinOverCfl0(){return (cflMin/cfl0);}
+
 
 // Included (MB)
   void rstVar(IoData &);
