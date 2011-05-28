@@ -114,6 +114,7 @@ public:
   double computeTimeStepFailSafe(double* , int*);
 
   //computes time step with error estimation
+  //see: "Adaptive Time Stepping for Non-Linear Hyperbolic Problems"
   double computeTimeStep(int, double* , int*);
 
   //calculates the norm of the error estimator
