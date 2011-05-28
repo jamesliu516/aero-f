@@ -30,6 +30,8 @@ TimeData::TimeData(IoData &ioData)
   dt_nm1 = ioData.restart.dt_nm1;
   dt_nm2 = ioData.restart.dt_nm2;
 
+  errorTol = ioData.ts.errorTol;
+
   exist_nm1 = false;
   exist_nm2 = false;
   use_nm1 = false;

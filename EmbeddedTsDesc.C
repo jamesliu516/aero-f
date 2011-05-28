@@ -146,15 +146,33 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  //copies for fail safe
+  WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  WstarjiCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  *WstarijCopy = 0.0;
+  *WstarjiCopy = 0.0;
+
+
+
   if (this->timeState->useNm1()) {
     Wstarij_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
     Wstarji_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
     *Wstarij_nm1 = 0.0;
     *Wstarji_nm1 = 0.0;
+
+    Wstarij_nm1Copy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1Copy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1Copy = 0.0;
+    *Wstarji_nm1Copy = 0.0;
   } else {
     Wstarij_nm1 = 0;
     Wstarji_nm1 = 0;
+
+    Wstarij_nm1Copy = 0;
+    Wstarji_nm1Copy = 0;
   }
+  UCopy = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+
   //cell-averaged structure normals
   if(riemannNormal==2) {
     Nsbar        = new DistSVec<double,3>(this->domain->getNodeDistInfo());
@@ -165,6 +183,12 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   //TODO: should be merged with fluidId in TsDesc
   nodeTag0 = 0;
   nodeTag = 0;
+
+ nodeTagCopy = new DistVec<int>(this->getVecInfo());
+ *nodeTagCopy = 0;
+ nodeTag0Copy = new DistVec<int>(this->getVecInfo());
+ *nodeTag0Copy = 0;
+
 
   //only for IncreasePressure
   Prate = ioData.implosion.Prate;
@@ -225,6 +249,11 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (Wstarji) delete Wstarji;
   if (Wstarij_nm1) delete Wstarij_nm1;
   if (Wstarji_nm1) delete Wstarji_nm1;
+  if (WstarijCopy) delete WstarijCopy;
+  if (WstarjiCopy) delete WstarjiCopy;
+  if (Wstarij_nm1Copy) delete Wstarij_nm1Copy;
+  if (Wstarji_nm1Copy) delete Wstarji_nm1Copy;
+  if (UCopy) delete UCopy;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
 
@@ -320,7 +349,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 template<int dim>
 double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
-                                                  DistSVec<double,dim> &U)
+                                             DistSVec<double,dim> &U)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -335,17 +364,29 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
 
   this->com->barrier();
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
   int numSubCycles = 1;
+  double dt=0.0;
 
-  double dt;
-  if(numFluid==1)
-    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->X, *this->A, U);
-  else {//numFLuid>1
-    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+  if(TsDesc<dim>::failSafeFlag == false){
+    if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
+      this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+      if(numFluid==1)
+        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                                &numSubCycles, *this->geoState, *this->X, *this->A, U);
+      else {//numFLuid>1
+        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                                &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+      }
+    }
+    else  //time step size with error estimation
+      dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
   }
+  else    //if time step is repeated
+    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+
+  if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+    this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
+
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",

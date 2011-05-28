@@ -100,7 +100,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
     void updateStructure(double* xs, double *Vs, int nNodes, int(*abc)[3]=0);
     void updatePhysBAMInterface();
-    void recompute(double dtf, double dtfLeft, double dts);
+    int recompute(double dtf, double dtfLeft, double dts);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -112,6 +112,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
+    void setStatus(DistVec<int> nodeTag) { *status = nodeTag; } //for reset after failSafe
+
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
 };

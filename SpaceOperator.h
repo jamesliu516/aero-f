@@ -157,7 +157,7 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId =  0);
-  void updatePhaseChange(DistSVec<double,dim> &V,
+  int updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);

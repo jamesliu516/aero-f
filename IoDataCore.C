@@ -2265,6 +2265,7 @@ TsData::TsData()
   type = IMPLICIT;
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
+  timeStepCalculation = CFL;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2280,7 +2281,9 @@ TsData::TsData()
   cflCoef1 = 0.0;
   cflCoef2 = 0.0;
   cflMax = 1000.0;
+  cflMin = 1.0;
   ser = 0.7;
+  errorTol = 1.e-10;
 
   output = "";
 
@@ -2291,7 +2294,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 22, father);
 
   new ClassToken<TsData>(ca, "Type", this,
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -2302,6 +2305,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
+			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
                          reinterpret_cast<int TsData::*>(&TsData::prec), 2,
                          "NonPreconditioned", 0, "LowMach", 1);
@@ -2317,7 +2323,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
   new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
+  new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
+  new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
 
   expl.setup("Explicit", ca);

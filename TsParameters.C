@@ -23,6 +23,7 @@ TsParameters::TsParameters(IoData &ioData)
   cflCoef1 = ioData.ts.cflCoef1;
   cflCoef2 = ioData.ts.cflCoef2;
   cflMax = ioData.ts.cflMax;
+  cflMin = ioData.ts.cflMin;
   ser = ioData.ts.ser;
 
   maxIts = ioData.ts.maxIts;
