@@ -155,7 +155,7 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
     lastIt = probDesc->checkForLastIteration(ioData, it, t, dt, U);
 
     probDesc->outputForces(ioData, &lastIt, it, itSc, itNl, t, dt, U);
-    //dts = probDesc->computePositionVector(&lastIt, it, t);
+    dts = probDesc->computePositionVector(&lastIt, it, t);
     probDesc->outputToDisk(ioData, &lastIt, it, itSc, itNl, t, dt, U);
   }
   return 0;
