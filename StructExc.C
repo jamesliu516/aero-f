@@ -463,7 +463,7 @@ void StructExc::sendForce(DistSVec<double,3> &F)
       if (numStrNodes[iCpu][0] > 0) {
 	int size = 3 * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
-        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
+//        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
 	strCom->sendTo(iCpu, FORCE_TAG + sndParity, localBuffer, size);
       }
     }
