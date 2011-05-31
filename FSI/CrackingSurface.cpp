@@ -6,6 +6,7 @@
  */
 
 #include<FSI/CrackingSurface.h>
+#include<cstdlib>
 using std::map;
 using std::set;
 
@@ -43,7 +44,7 @@ void PhantomElement::update(int* nod, double* ph) {
 
 CrackingSurface::CrackingSurface(int eType, int nUsed, int nTotal, int nUsedNd, int nTotNodes): elemType(eType)
 {
-  if(eType!=4) {fprintf(stderr,"ERROR: ElemType(%d) is not supported for CrackingSurface!\n");exit(1);}
+  if(eType!=4) {fprintf(stderr,"ERROR: ElemType(%d) is not supported for CrackingSurface!\n",eType);exit(1);}
   nTotalNodes = nTotNodes; nUsedNodes = nUsedNd;
   nTotalQuads = nTotal;    nUsedQuads = nUsed;
   nTotalTrias = nTotal*2,  nUsedTrias = 0; //surface not splitted yet!
@@ -177,7 +178,7 @@ int CrackingSurface::updateCracking(int numConnUpdate, int numLSUpdate, int* con
     } else { //this is an existing quad
       trId1 = quad2tria[quadId][0];
       trId2 = quad2tria[quadId][1];
-      if(trId2<0) {fprintf(stderr,"SOFTWARE BUG: CAPTURED TRIANGLE ID %d for QUAD %D\n", trId2+1, quadId+1);exit(-1);}
+      if(trId2<0) {fprintf(stderr,"SOFTWARE BUG: CAPTURED TRIANGLE ID %d for QUAD %d\n", trId2+1, quadId+1);exit(-1);}
     }
 
     triaTopo[trId1][0] = connUpdate[5*i+1];
@@ -281,7 +282,7 @@ void CrackingSurface::printInfo(char* filename)
   fprintf(myout, "  elemType = %d, n{Total,Used}Quads = %d/%d, n{Total,Used}Trias = %d/%d, n{Total,Used}Nodes = %d/%d.\n",
                   elemType, nTotalQuads, nUsedQuads, nTotalTrias, nUsedTrias, nTotalNodes, nUsedNodes); 
 
-  fprintf(myout, "phantoms(%d)...\n", phantoms.size());
+  fprintf(myout, "phantoms(%d)...\n", int(phantoms.size()));
   for(map<int,PhantomElement*>::iterator it=phantoms.begin(); it!=phantoms.end(); it++) {
     fprintf(myout, "  %d --> nodes(%d): ", it->first+1, it->second->nNodes);
     int* nod = it->second->nodes;
@@ -296,11 +297,11 @@ void CrackingSurface::printInfo(char* filename)
   }
 
   fprintf(myout, "latest...\n");
-  fprintf(myout, "  phantomQuads(%d): ", latest.phantomQuads.size());
+  fprintf(myout, "  phantomQuads(%d): ", int(latest.phantomQuads.size()));
   for(set<int>::iterator it=latest.phantomQuads.begin(); it!=latest.phantomQuads.end(); it++)
     fprintf(myout,"%d ", (*it)+1);
   fprintf(myout, "\n");
-  fprintf(myout, "  phantomNodes(%d): ", latest.phantomNodes.size());
+  fprintf(myout, "  phantomNodes(%d): ", int(latest.phantomNodes.size()));
   for(map<int,int>::iterator it=latest.phantomNodes.begin(); it!=latest.phantomNodes.end(); it++)
     fprintf(myout,"%d(%d)  ", it->first+1, it->second+1);
   fprintf(myout, "\n");
