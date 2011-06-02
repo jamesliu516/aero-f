@@ -227,7 +227,7 @@ BcFcn *SpaceOperator<dim>::createBcFcn(IoData &ioData)
 	  ioData.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_DES)
 	bf = new BcFcnSA(ioData);
       else if (ioData.eqs.tc.tm.type == TurbulenceModelData::TWO_EQUATION_KE)
-	bf = new BcFcnKE;
+	bf = new BcFcnKE(ioData);
     }
     else {
       if (ioData.bc.wall.integration != BcsWallData::WALL_FUNCTION)
