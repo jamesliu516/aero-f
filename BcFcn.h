@@ -184,6 +184,8 @@ public:
 
 class BcFcnKE : public BcFcn {
 
+  bool wallFcn;
+
   template<class Scalar>
   void template_applyToDiagonalTerm(int, double *, double *, Scalar *);
  
@@ -192,9 +194,10 @@ class BcFcnKE : public BcFcn {
 
 public:
 
-  BcFcnKE() {}
+  BcFcnKE(IoData&);
   ~BcFcnKE() {}
 
+  void applyToSolutionVector(int, double *, double *);
   void applyToResidualTerm(int, double *, double *, double *);
   void applyToDiagonalTerm(int, double *, double *, float *);
   void applyToDiagonalTerm(int, double *, double *, double *);
