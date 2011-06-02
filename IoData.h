@@ -1594,6 +1594,7 @@ struct ROB {
   int numROBJac;
   int numROBRes;
   double sampleNodeFactor;
+  int nSampleNodes;
   int nPodGreedy;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, GALERKIN = 3, POSTPROCESS = 4, PROJERROR = 5} romsolver;
 	int liftFaces;
@@ -1607,6 +1608,8 @@ struct ROB {
   int pseudoInverseNodes;
   int subtractIC;
   int basisType;
+  int notRestricted;
+  int errorBasis;
 
   ROB();
   ~ROB() {}

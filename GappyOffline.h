@@ -94,6 +94,7 @@ protected:
 	void setUpPseudoInverse();
 
 	int nSampleNodes;	// number of parent sample globalNodes
+	int errorBasis[2];	// basis indices for determining error
 	void newNeighbors();	// add unique neighbors of a node
 
 	Domain &domain;

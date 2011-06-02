@@ -4,7 +4,9 @@
 template<int dim>
 GappyOfflineOnlyPseudo<dim>::GappyOfflineOnlyPseudo(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GappyOffline<dim>(_com,
-			_ioData, dom, _geoState) {
+			_ioData, dom, _geoState), podHatTmp(0, dom.getNodeDistInfo() ) ,
+		notRestricted(this->ioData->Rob.notRestricted){ 
+			//TODO: define notRestricted
 
 }
 
@@ -24,6 +26,12 @@ void GappyOfflineOnlyPseudo<dim>::readInPodResJac(int * podFiles) {
 	this->com->fprintf(stderr, " ... Reading POD bases for the residual and/or Jacobian ...\n");
 	this->domain.readMultiPodBasis(this->input->podFileResJacHat, this->podHat.a,
 			this->nPod, this->nPodBasis, podFiles);
+	if (notRestricted) {
+		podHatTmp.resize(this->nPod[0]);
+		for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
+			podHatTmp[iPod] = 0.0;
+		}
+	}
 }
 
 template<int dim>
@@ -65,6 +73,7 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 
 		this->globalSampleNodeRankMap.insert(pair<int, int > (globalSampleNode, iSampleNode));
 
+		SubDomainData<dim> locPodHat, locPodHatTmp;
 		for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
 			int nLocNodes = this->nodeDistInfo.subSize(iSub);	// number of nodes in this subdomain
 			int *locToGlobNodeMap = this->subD[iSub]->getNodeMap();
@@ -74,6 +83,16 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 					cpuTmp = this->thisCPU;
 					subDTmp = iSub;
 					locNodeTmp = iLocNode;
+					if (notRestricted) {
+						assert(this->nPodBasis == 1);
+						for (int iPod = 0; iPod < this->nPod[0]; ++iPod) {
+							locPodHat = this->podHat[0][iPod].subData(iSub);
+							locPodHatTmp = podHatTmp[iPod].subData(iSub);
+							for (int iDim = 0; iDim < dim ; ++iDim) {
+								locPodHatTmp[iLocNode][iDim] = locPodHat[iLocNode][iDim];	// zeros everywhere except at the chosen sample nodes
+							}
+						}
+					}
 					break;
 				}
 			}
@@ -86,6 +105,9 @@ void GappyOfflineOnlyPseudo<dim>::determineSampleNodes() {
 		this->globalNodeToLocSubDomainsMap.insert(pair<int, int > (globalSampleNode, subDTmp));
 		this->globalNodeToLocalNodesMap.insert(pair<int, int > (globalSampleNode, locNodeTmp));
 	}
+
+	if (notRestricted) 
+		this->podHat.a[0] = &podHatTmp;	// set podHatTmp to be the right one
 }
 
 template<int dim>

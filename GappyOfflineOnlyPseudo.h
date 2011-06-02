@@ -6,6 +6,11 @@
 template <int dim>
 class GappyOfflineOnlyPseudo : public GappyOffline<dim> {
 
+	typedef VecSet< DistSVec<double,dim> > SetOfVec;
+	SetOfVec podHatTmp;
+
+	int notRestricted;	// true if reading in full pod basis`
+
 	virtual void setUpGreedy();
 
 	virtual void readInPodResJac(int *);

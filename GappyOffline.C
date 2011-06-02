@@ -236,6 +236,16 @@ void GappyOffline<dim>::setUpPodResJac() {
 		nPod[0] = nPod[1];	// from now on, only deal with the first basis
 	}
 
+	int errorBasisOnly = ioData->Rob.errorBasis;
+	if (errorBasisOnly == -1) {
+		errorBasis[0] = 0;
+		errorBasis[1] = nPodBasis;
+	}
+	else {
+		errorBasis[0] = errorBasisOnly;
+		errorBasis[1] = errorBasisOnly;
+	}
+
 	readInPodResJac(podFiles);
 
 }
@@ -275,8 +285,9 @@ void GappyOffline<dim>::setUpGreedy() {
 	nPodGreedy = ioData->Rob.nPodGreedy;
 	if (nPodGreedy == 0 || nPodGreedy > nPodMax)
 		nPodGreedy = nPodMax;
-	//nSampleNodes = ceil (nPodMax * sampleNodeFactor/dim)
-	nSampleNodes = static_cast<int>(ceil(double(nPodMax * ioData->Rob.sampleNodeFactor)/double(dim)));	// this will give interpolation or the smallest possible least squares
+	nSampleNodes = ioData->Rob.nSampleNodes;
+	if (nSampleNodes == 0)
+		nSampleNodes = static_cast<int>(ceil(double(nPodMax * ioData->Rob.sampleNodeFactor)/double(dim)));	// this will give interpolation or the smallest possible least squares
 
 	if (nSampleNodes * dim < nPodGreedy) {	
 		int nSampleNodesOld = nSampleNodes; 
@@ -591,7 +602,7 @@ void GappyOffline<dim>::computeNodeError(bool *locMasterFlag, int locNodeNum, do
 	 nodeError = 0.0; // initialize normed error to zero
 
 	 if (locMasterFlag[locNodeNum]) { 	// use subdomain node number
-		 for (int iPodBasis = 0; iPodBasis  < nPodBasis ; ++iPodBasis)
+		 for (int iPodBasis = errorBasis[0]; iPodBasis  <= errorBasis[1] ; ++iPodBasis)
 			 for (int iRhs = 0; iRhs < nRhs[iPodBasis]; ++iRhs){  // add components of error from all vectors on this node
 				 for (int k = 0; k < dim ; ++k){	// add contributions from residual and jacobian reconstruction errors where possible
 					 double componentError = locError[iPodBasis][iRhs][locNodeNum][k];
@@ -1627,12 +1638,14 @@ void GappyOffline<dim>::computePodTPod() {
 	}
 
 	double podTpodTmp;
-	for (int i = 0; i < nPod[1]; ++i)
+	for (int i = 0; i < nPod[1]; ++i) {
+		com->fprintf(stderr," ... computing podJac^TpodRes row %d of %d ...\n",i,nPod[1]);
 		for (int j = 0; j < nPod[0]; ++j) { 
 			podTpodTmp = pod[1][i]*pod[0][j];
 			if (thisCPU == 0)
 				podTpod[i][j] = podTpodTmp;
 		}
+	}
 }
 
 template<int dim>
