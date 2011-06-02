@@ -2697,6 +2697,7 @@ ROB::ROB()
   numROB = 0;
   numROBJac = 0;
   numROBRes = 0;
+  nSampleNodes = 0;
   sampleNodeFactor = -1;
 	nPodGreedy = 0;
   romsolver = PG; 
@@ -2714,6 +2715,8 @@ ROB::ROB()
 	pseudoInverseNodes = 20;	// if pod computation should only compute total energy of snapshots
 	subtractIC = 0;	// if pod computation should only compute total energy of snapshots
 	basisType = 1;	// use pod by default
+	notRestricted = 0;	// already restricted by default
+	errorBasis = -1;
 
 }
 
@@ -2729,6 +2732,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
+  new ClassInt<ROB>(ca, "SampleNodes", this, &ROB::nSampleNodes);
   new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 8, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5, "CollLS", 6, "CollGal",7);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
@@ -2741,6 +2745,8 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "PseudoInvNodes", this, &ROB::pseudoInverseNodes);
   new ClassInt<ROB>(ca, "SubtractIC", this, &ROB::subtractIC);
   new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 3, "Snaps", 0, "POD", 1, "None", 2);
+  new ClassInt<ROB>(ca, "NotRestricted", this, &ROB::notRestricted);
+  new ClassInt<ROB>(ca, "ErrorBasis", this, &ROB::errorBasis);
 
 }
 
