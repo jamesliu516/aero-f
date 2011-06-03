@@ -13,7 +13,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	errorJac(0, dom.getNodeDistInfo() ),
 	pseudoInvRhs(0, dom.getNodeDistInfo() ),
 	handledNodes(0), nPodBasis(0),
-	debugging(true), twoLayers(ioData->Rob.layers == 2),
+	debugging(true),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),
@@ -22,6 +22,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 {
 	// create temporary objects to build postOp, which is needed for lift
 	// surfaces
+	twoLayers = ioData->Rob.layers == 2;
 	geoSourceTmp = new GeoSource(*ioData);
 	tsDescTmp = new TsDesc<dim>(*ioData, *geoSourceTmp, &domain);
   bcDataTmp = tsDescTmp->createBcData(*ioData);
