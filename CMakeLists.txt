@@ -393,7 +393,7 @@ IF(MPI_FOUND)
                           PROPERTIES 
                           LIBRARY_OUTPUT_DIRECTORY ${BINDIR}
                           RELEASE_OUTPUT_NAME aerof.newopt
-                          DEBUG_OUTPUT_NAME aerof.debug
+                          DEBUG_OUTPUT_NAME aerof.newdebug
                           PREFIX ""
                          )
     SET(TARGETS_INST ${TARGETS_INST} fluidlib)
@@ -424,7 +424,7 @@ ELSE(USE_SCALAPACK)
 ENDIF(USE_SCALAPACK)
 
 SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
-	RELEASE_OUTPUT_NAME aerof.newopt DEBUG_OUTPUT_NAME aerof.debug)
+	RELEASE_OUTPUT_NAME aerof.newopt DEBUG_OUTPUT_NAME aerof.newdebug)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
