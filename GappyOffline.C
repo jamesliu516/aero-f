@@ -13,7 +13,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	errorJac(0, dom.getNodeDistInfo() ),
 	pseudoInvRhs(0, dom.getNodeDistInfo() ),
 	handledNodes(0), nPodBasis(0),
-	debugging(true), twoLayers(true),
+	debugging(true), twoLayers(ioData->Rob.layers == 2),
 	// distribution info
 	numLocSub(dom.getNumLocSub()), nTotCpus(_com->size()), thisCPU(_com->cpuNum()),
 	nodeDistInfo(dom.getNodeDistInfo()), subD(dom.getSubDomain()),parallelRom(2),

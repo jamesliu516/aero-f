@@ -1598,6 +1598,7 @@ struct ROB {
   int nPodGreedy;
   enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, GALERKIN = 3, POSTPROCESS = 4, PROJERROR = 5} romsolver;
 	int liftFaces;
+	int layers;
   int normalizeSnapshots;
   int timestepWeights;
   int skipFreq;
