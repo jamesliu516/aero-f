@@ -495,6 +495,72 @@ double Timer::addEigSolvTime(double t0)
 
 //------------------------------------------------------------------------------
 
+double Timer::addResidualTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[residual]++;
+  data[residual] += t;
+
+  return t;
+
+}
+
+//------------------------------------------------------------------------------
+
+double Timer::addRestrictionTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[restriction]++;
+  data[restriction] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addSolutionIncrementTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[solutionIncrement]++;
+  data[solutionIncrement] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addLinearSystemFormTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[linearSystemForm]++;
+  data[linearSystemForm] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
+double Timer::addLinearSystemSolveTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[linearSystemSolve]++;
+  data[linearSystemSolve] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
 double Timer::addGramSchmidtTime(double t0)
 {
 
@@ -861,6 +927,24 @@ void Timer::print(Timer *str, FILE *fp)
                counter[structUpd]);
   }
   com->fprintf(fp, "\n");
+
+  if (ioData->problem.alltype == ProblemData::_UNSTEADY_ROM_)  {
+    com->fprintf(fp, "  Residual evaluation         : %10.2f %10.2f %10.2f %9d\n",
+              tmin[residual], tmax[residual], tavg[residual],
+							counter[residual]);
+    com->fprintf(fp, "  Solution increment          : %10.2f %10.2f %10.2f %9d\n",
+              tmin[solutionIncrement], tmax[solutionIncrement], tavg[solutionIncrement],
+							counter[solutionIncrement]);
+    com->fprintf(fp, "  Linear system form          : %10.2f %10.2f %10.2f %9d\n",
+              tmin[linearSystemForm], tmax[linearSystemForm], tavg[linearSystemForm],
+							counter[linearSystemForm]);
+    com->fprintf(fp, "  Linear system solve         : %10.2f %10.2f %10.2f %9d\n",
+              tmin[linearSystemSolve], tmax[linearSystemSolve], tavg[linearSystemSolve],
+							counter[linearSystemSolve]);
+    com->fprintf(fp, "  Restriction                 : %10.2f %10.2f %10.2f %9d\n",
+              tmin[restriction], tmax[restriction], tavg[restriction],
+							counter[restriction]);
+	}
 
   // Output Mesh solution time (except for Euler FSI)
   if(ioData->problem.framework != ProblemData::EMBEDDED) {

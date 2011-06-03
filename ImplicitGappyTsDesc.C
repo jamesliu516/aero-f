@@ -89,14 +89,16 @@ ImplicitGappyTsDesc<dim>::~ImplicitGappyTsDesc()
 template<int dim>
 void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim> &Q) {
 
- // Evaluate residual on full mesh
+	// Evaluate residual on full mesh
 
- ImplicitRomTsDesc<dim>::computeFullResidual(it, Q);
+	ImplicitRomTsDesc<dim>::computeFullResidual(it, Q);
 
- // Restrict down
- restrictMapping()->restriction(this->F, *ResRestrict);
+	double t0 = this->timer->getTime();
+	// Restrict down
+	restrictMapping()->restriction(this->F, *ResRestrict);
+	this->timer->addRestrictionTime(t0);
 
- //*ResRestrict=this->F;
+	//*ResRestrict=this->F;
 }
 
 //------------------------------------------------------------------------------
@@ -106,12 +108,15 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 	// Evaluate action of Jacobian on full mesh
 
- ImplicitRomTsDesc<dim>::computeAJ(it, Q);
+	ImplicitRomTsDesc<dim>::computeAJ(it, Q);
 
- for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
-   restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
-	 //(*AJRestrict)[iPod] = this->AJ[iPod];
- }
+	double t0 = this->timer->getTime();
+	for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
+		restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
+
+		this->timer->addRestrictionTime(t0);
+		//(*AJRestrict)[iPod] = this->AJ[iPod];
+	}
 
 }
 
@@ -120,7 +125,8 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
-	// TODO: don't recreate logic
+
+	double t0 = this->timer->getTime();
 	transMatMatProd(*Bmat, *AJRestrict,jactmp);
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
@@ -141,9 +147,13 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
 			leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
 		}
   }
+	this->timer->addLinearSystemFormTime(t0);
 
   // Solve least squares problem
+
+	t0 = this->timer->getTime();
   leastSquaresSolver.solve();
+	this->timer->addLinearSystemSolveTime(t0);
 
   // Update vector: The first nPod rows give the components in the pod basis
   this->dUrom = 0.0;
