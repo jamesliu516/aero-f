@@ -74,6 +74,25 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoState, 
+				  SVec<double,3> &X, SVec<double,dim> &V, 
+				  SVec<double,dim> &R,const std::vector<int> &sampledLocElem,
+				  Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+
+  Vec<double> &d2wall = geoState.getDistanceToWall();
+
+  //for (int i=0; i<numElems; ++i){	// TODO TODOKTC: only do this
+	int i;
+	for (int iSampledElem=0; iSampledElem<sampledLocElem.size(); ++iSampledElem) {
+		i = sampledLocElem[iSampledElem];
+    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+	}
+
+}
+//------------------------------------------------------------------------------
+
 // Included
 template<int dim>
 void ElemSet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,

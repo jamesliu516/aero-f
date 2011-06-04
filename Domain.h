@@ -400,6 +400,12 @@ public:
 			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
+  void computeFiniteVolumeTermRestrict(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
+			       DistSVec<double,3>&, DistSVec<double,dim>&,
+			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
+			       DistSVec<double,dim>&, int, int, const std::vector<std::vector<int> > &);
+
+  template<int dim>
   void computeFiniteVolumeTerm(DistExactRiemannSolver<dim>&,
                                DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
 			       DistSVec<double,3>&, DistSVec<double,dim>&,
@@ -489,6 +495,12 @@ public:
 			   DistGeoState &, DistSVec<double,3> &,
 			   DistSVec<double,dim> &, DistSVec<double,dim> &,
 			   DistVec<GhostPoint<dim>*> *ghostPoints=0,DistLevelSetStructure *LSS=0);
+
+  template<int dim>
+	void computeGalerkinTermRestrict(FemEquationTerm *, DistBcData<dim> &,
+			DistGeoState &, DistSVec<double,3> &, DistSVec<double,dim> &,
+			DistSVec<double,dim> &,const std::vector<std::vector<int> > &,
+			DistVec<GhostPoint<dim>*> *ghostPoints=0,DistLevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVolumicForceTerm(VolumicForceTerm *, DistVec<double> &,
@@ -603,6 +615,10 @@ public:
   template<int dim>
   void applyBCsToResidual(BcFcn *, DistBcData<dim> &,
 			  DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  template<int dim>
+	void applyBCsToResidualRestrict(BcFcn *, DistBcData<dim> &,
+			DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobian(BcFcn *, DistBcData<dim> &,

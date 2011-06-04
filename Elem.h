@@ -10,6 +10,7 @@
 #include <map.h>
 #else
 #include <map>
+#include <vector>
 using std::map;
 #endif
 
@@ -805,6 +806,10 @@ public:
 			   SVec<double,dim> &, SVec<double,dim> &,
 			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
 
+  template<int dim>
+  void computeGalerkinTermRestrict(FemEquationTerm *, GeoState &, SVec<double,3> &, 
+			   SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &,
+			   Vec<GhostPoint<dim>*> *ghostPoints=0, LevelSetStructure *LSS=0);
   template<int dim>
   void computeVMSLESTerm(VMSLESTerm *, SVec<double,dim> &, SVec<double,3> &, 
 			 SVec<double,dim> &, SVec<double,dim> &);

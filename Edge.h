@@ -5,6 +5,7 @@
 #include <map.h>
 #else
 #include <map>
+#include <vector>
 using std::map;
 #endif
 
@@ -84,6 +85,10 @@ public:
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
+  template<int dim>
+  int computeFiniteVolumeTermRestrict(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dim>&, SVec<int,2>&, int, int, const std::vector<int> &);
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,

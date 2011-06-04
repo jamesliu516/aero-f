@@ -63,6 +63,47 @@ void TimeState<dim>::add_dAW_dt(bool *nodeFlag, GeoState &geoState,
   }
 }
 
+template<int dim>
+void TimeState<dim>::add_dAW_dtRestrict(bool *nodeFlag, GeoState &geoState, 
+					Vec<double> &ctrlVol, SVec<double,dim> &Q, 
+					SVec<double,dim> &R, const std::vector<int> &sampledLocNodes)
+{
+
+  Vec<double>& ctrlVol_n = geoState.getCtrlVol_n();
+  Vec<double>& ctrlVol_nm1 = geoState.getCtrlVol_nm1();
+  Vec<double>& ctrlVol_nm2 = geoState.getCtrlVol_nm2();
+
+  double c_np1, c_n, c_nm1, c_nm2;
+
+  int i;
+  for (int iSampledNode=0; iSampledNode<sampledLocNodes.size(); ++iSampledNode) {
+		i = sampledLocNodes[iSampledNode];
+
+    double invDt = 1.0 / dt[i];
+    if (data.use_modal == true)  {
+      c_np1 = data.alpha_np1 * ctrlVol[i];
+      c_n   = data.alpha_n * ctrlVol_n[i];
+      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i];
+      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i];
+    }
+    else  {
+      double invCtrlVol = 1.0 / ctrlVol[i];
+      c_np1 = data.alpha_np1;
+      c_n   = data.alpha_n * ctrlVol_n[i] * invCtrlVol;
+      c_nm1 = data.alpha_nm1 * ctrlVol_nm1[i] * invCtrlVol;
+      c_nm2 = data.alpha_nm2 * ctrlVol_nm2[i] * invCtrlVol;
+    }
+
+    for (int k=0; k<dim; ++k) {
+      double dAWdt = invDt * (c_np1*Q[i][k] + c_n*Un[i][k] +
+                            c_nm1*Unm1[i][k] + c_nm2*Unm2[i][k]);
+      if (data.typeIntegrator == ImplicitData::CRANK_NICOLSON)
+        R[i][k] = dAWdt + 0.5 * (R[i][k] + Rn[i][k]);
+      else
+        R[i][k] += dAWdt;
+    }
+  }
+}
 //------------------------------------------------------------------------------
 // Add Time Derivative Term, d(AW)/dt to the flux F
 // If running Non-Modal, adds invA*d(AW)/dt to the flux invA*F

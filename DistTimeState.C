@@ -655,6 +655,23 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 }
                                                                                                                       
 //------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::add_dAW_dtRestrict(int it, DistGeoState &geoState, 
+					    DistVec<double> &ctrlVol,
+					    DistSVec<double,dim> &Q, 
+					    DistSVec<double,dim> &R, const std::vector<std::vector<int> > &sampledLocNodes)
+{
+
+  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->add_dAW_dtRestrict(Q.getMasterFlag(iSub), geoState(iSub), 
+				   ctrlVol(iSub), Q(iSub), R(iSub), sampledLocNodes[iSub]);
+
+}
+//------------------------------------------------------------------------------
 template<int dim>
 template<int dimLS>
 void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,

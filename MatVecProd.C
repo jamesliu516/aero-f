@@ -102,6 +102,37 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
 
 //------------------------------------------------------------------------------
 
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
+		DistVec<double> &cv, DistSVec<double,dim> &q, DistSVec<double,dim> &f,
+		RestrictionMapping<dim> & restrictionMapping)
+{
+
+	std::vector<std::vector<int> > sampledLocNodes =
+		restrictionMapping.getRestrictedToOriginLocNode() ;
+  X = &x;
+  ctrlVol = &cv;
+  Qeps = q;
+
+  if (recFcnCon) {
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(it, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+
+  }
+  else  {
+    Feps = f;
+  }
+
+  Qeps.strip(Q);
+  Feps.strip(F);
+  
+}
+//------------------------------------------------------------------------------
+
 // Included (MB)
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::evaluateInviscid(int it, DistSVec<double,3> &x, DistVec<double> &cv,
@@ -154,7 +185,6 @@ void MatVecProdFD<dim, neq>::evaluateViscous(int it, DistSVec<double,3> &x, Dist
   Feps.strip(F);
 
 }
-
 //------------------------------------------------------------------------------
 template<int dim, int neq>
 void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq> &prod)
@@ -237,6 +267,55 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   
   prod = (1.0/eps) * (Fepstmp - F);
 */
+
+}
+//------------------------------------------------------------------------------
+template<int dim, int neq>
+void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
+		DistSVec<double,neq> &prod, RestrictionMapping<dim> & restrictionMapping)
+{
+	std::vector<std::vector<int> > sampledLocNodes =
+		restrictionMapping.getRestrictedToOriginLocNode() ;
+
+  double eps = computeEpsilon(Q, p);
+
+// Included (MB)
+  Qepstmp = Q + eps * p;
+
+  Qepstmp.pad(Qeps);
+
+  spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+  if (timeState)
+    timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+  spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+
+  Feps.strip(Fepstmp);
+
+  if (fdOrder == 1) {
+
+    prod = (1.0/eps) * (Fepstmp - F);
+ 
+  }
+  else if (fdOrder == 2) {
+
+    Qepstmp = Q - eps * p;
+    
+    Qepstmp.pad(Qeps);
+
+    spaceOp->computeResidualRestrict(*X, *ctrlVol, Qeps, Feps, timeState, restrictionMapping);
+
+    if (timeState)
+      timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
+
+    spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+
+    Feps.strip(Ftmp);
+
+    prod = (0.5/eps) * (Fepstmp - Ftmp);
+
+  }
 
 }
 

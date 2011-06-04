@@ -91,12 +91,16 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
 
  // Evaluate residual on full mesh
 
- ImplicitRomTsDesc<dim>::computeFullResidual(it, Q);
+  this->spaceOp->computeResidualRestrict(*this->X, *this->A, Q, this->F, this->timeState, *restrictionMapping);
+
+	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
+			this->F, restrictionMapping->getRestrictedToOriginLocNode());
+
+  this->spaceOp->applyBCsToResidualRestrict(Q, this->F, restrictionMapping->getRestrictedToOriginLocNode());
 
  // Restrict down
  restrictMapping()->restriction(this->F, *ResRestrict);
 
- //*ResRestrict=this->F;
 }
 
 //------------------------------------------------------------------------------
@@ -106,11 +110,16 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 
 	// Evaluate action of Jacobian on full mesh
 
- ImplicitRomTsDesc<dim>::computeAJ(it, Q);
+	this->mvpfd->evaluateRestrict(it, *this->X, *this->A, Q, this->F,
+			*restrictionMapping);	// very cheap
+  
+  for (int iPod = 0; iPod < this->nPod; iPod++) {
+		this->mvpfd->applyRestrict(this->pod[iPod], this->AJ[iPod],
+				*restrictionMapping);
+	}
 
  for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
    restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
-	 //(*AJRestrict)[iPod] = this->AJ[iPod];
  }
 
 }
@@ -120,7 +129,6 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 template<int dim>
 void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, bool &breakloop)  {
   // Form A * of and distribute
-	// TODO: don't recreate logic
 	transMatMatProd(*Bmat, *AJRestrict,jactmp);
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {

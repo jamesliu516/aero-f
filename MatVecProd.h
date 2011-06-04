@@ -99,7 +99,10 @@ public:
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void evaluateRestrict(int, DistSVec<double,3> &, DistVec<double> &, 
+		DistSVec<double,dim> &, DistSVec<double,dim> &, RestrictionMapping<dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  void applyRestrict(DistSVec<double,neq> &, DistSVec<double,neq> &, RestrictionMapping<dim> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
 

@@ -776,6 +776,26 @@ int SubDomain::computeFiniteVolumeTerm(Vec<double> &irey, FluxFcn** fluxFcn, Rec
 }
 
 //------------------------------------------------------------------------------
+template<int dim>
+int SubDomain::computeFiniteVolumeTermRestrict(Vec<double> &irey, FluxFcn** fluxFcn, RecFcn* recFcn,
+                                       BcData<dim>& bcData, GeoState& geoState,
+                                       SVec<double,3>& X, SVec<double,dim>& V,
+                                       NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
+                                       SVec<double,dim>& fluxes, SVec<int,2>& tag,
+                                       int failsafe, int rshift, const std::vector<int> & sampledLocEdges)
+{
+
+	int ierr = edges.computeFiniteVolumeTermRestrict(locToGlobNodeMap, irey,
+			fluxFcn, recFcn, elems, geoState, X, V, ngrad, egrad, fluxes, tag,
+			failsafe, rshift,sampledLocEdges);
+
+  faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
+
+  return(ierr);
+
+}
+
+//------------------------------------------------------------------------------
 
 template<int dim>
 int SubDomain::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, 
@@ -1154,6 +1174,21 @@ void SubDomain::computeGalerkinTerm(FemEquationTerm *fet, BcData<dim> &bcData,
 {
 
   elems.computeGalerkinTerm(fet, geoState, X, V, R,ghostPoints,LSS);
+
+  faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::computeGalerkinTermRestrict(FemEquationTerm *fet, BcData<dim>
+		&bcData, GeoState &geoState, SVec<double,3> &X, SVec<double,dim> &V,
+		SVec<double,dim> &R, const std::vector<int> &sampledLocElem,
+		Vec<GhostPoint<dim>*> *ghostPoints,LevelSetStructure *LSS)
+{
+
+  elems.computeGalerkinTermRestrict(fet, geoState, X, V, R,sampledLocElem,ghostPoints,LSS);
 
   faces.computeGalerkinTerm(elems, fet, bcData, geoState, X, V, R);
 
@@ -1859,6 +1894,24 @@ void SubDomain::applyBCsToResidual(BcFcn *bcFcn, BcData<dim> &bcData,
   for (int i=0; i<nodes.size(); ++i)
     if (nodeType[i] != BC_INTERNAL)
       bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void SubDomain::applyBCsToResidualRestrict(BcFcn *bcFcn, BcData<dim> &bcData,
+				   SVec<double,dim> &U, SVec<double,dim> &F, const std::vector<int> &sampledLocNodes)
+{
+
+  SVec<double,dim> &Vwall = bcData.getNodeStateVector();
+
+	int i;
+  for (int iSampledNode=0; iSampledNode<sampledLocNodes.size(); ++iSampledNode) {
+		i = sampledLocNodes[iSampledNode];
+    if (nodeType[i] != BC_INTERNAL)
+      bcFcn->applyToResidualTerm(nodeType[i], Vwall[i], U[i], F[i]);
+	}
+
 }
 
 //------------------------------------------------------------------------------

@@ -17,6 +17,9 @@ public:
   int localSubdomainCount() const { return localSubdomainCount_; }
   const DistInfo & originDistInfo() const { return originDistInfo_; }
   const DistInfo & restrictedDistInfo() const { return restrictedDistInfo_; }
+	const std::vector<std::vector<int> > & getRestrictedToOriginLocNode() { return restrictedToOrigin_;}
+	const std::vector<std::vector<int> > & getRestrictedToOriginLocElem() { return restrictedToOriginElems_;}
+	const std::vector<std::vector<int> > & getRestrictedToOriginLocEdges() { return restrictedToOriginEdges_;}
 
 	// from one DistInfo to another
 	const DistSVec<double, dim> & restriction(const DistSVec<double, dim>
@@ -38,7 +41,12 @@ private:
   
   std::set<int> sampleNodes_;
   std::vector<NumberingMap> originToRestricted_;
-  std::vector<std::vector<int> > restrictedToOrigin_;
+  std::vector<std::vector<int> > restrictedToOrigin_;	// local node number in original
+  std::vector<std::vector<int> > restrictedToOriginElems_;	// local node number in original
+  std::vector<std::vector<int> > restrictedToOriginEdges_;	// local node number in original
+  std::vector<std::vector<int> > restrictedToOriginFaces_;	// local node number in original
+
+	void determineConnectedElementsEdges(const Domain *);
 
   // Disallow copy and assignment
   RestrictionMapping(const RestrictionMapping &); // = delete;

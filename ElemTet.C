@@ -119,8 +119,6 @@ void ElemTet::computeGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X,
     }
 }
 
-//------------------------------------------------------------------------------
-
 // Included (MB)
 template<int dim>
 void ElemTet::computeDerivativeOfGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, SVec<double,3> &dX,
