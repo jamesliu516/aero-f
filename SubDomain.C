@@ -782,12 +782,12 @@ int SubDomain::computeFiniteVolumeTermRestrict(Vec<double> &irey, FluxFcn** flux
                                        SVec<double,3>& X, SVec<double,dim>& V,
                                        NodalGrad<dim>& ngrad, EdgeGrad<dim>* egrad,
                                        SVec<double,dim>& fluxes, SVec<int,2>& tag,
-                                       int failsafe, int rshift, const std::vector<int> & sampledLocEdges)
+                                       int failsafe, int rshift)
 {
 
 	int ierr = edges.computeFiniteVolumeTermRestrict(locToGlobNodeMap, irey,
 			fluxFcn, recFcn, elems, geoState, X, V, ngrad, egrad, fluxes, tag,
-			failsafe, rshift,sampledLocEdges);
+			failsafe, rshift);
 
   faces.computeFiniteVolumeTerm(fluxFcn, bcData, geoState, V, fluxes);
 

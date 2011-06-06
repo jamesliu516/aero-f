@@ -353,7 +353,7 @@ public:
 	int computeFiniteVolumeTermRestrict(Vec<double> &, FluxFcn**, RecFcn*,
 			BcData<dim>&, GeoState&, SVec<double,3>&, SVec<double,dim>&,
 			NodalGrad<dim>&, EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int,
-			int, const std::vector<int> &);
+			int);
 
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,

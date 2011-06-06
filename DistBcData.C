@@ -1962,7 +1962,6 @@ void DistBcDataKE<dim>::computeNodeValue(DistSVec<double,3> &X)
       }
     }
   }
-
 }
 
 //------------------------------------------------------------------------------
