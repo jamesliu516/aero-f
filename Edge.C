@@ -254,8 +254,10 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
   double edgeirey, length;
 
   int ierr = 0;
+	int l;
 
-  for (int l=0; l<numEdges; ++l) {
+  for (int iEdge=0; iEdge<numSampledEdges; ++iEdge) {
+		l = sampleMesh ? edgesConnectedToSampleNode[iEdge]: iEdge;
 
     if (!masterFlag[l]) continue;
 
@@ -309,7 +311,7 @@ int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
 		&irey, FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, GeoState&
 		geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
 		EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, SVec<int,2>& tag, int
-		failsafe, int rshift, const std::vector<int> & sampledLocEdges) 
+		failsafe, int rshift) 
 {
   Vec<Vec3D>& normal = geoState.getEdgeNormal();
   Vec<double>& normalVel = geoState.getEdgeNormalVel();
@@ -323,7 +325,6 @@ int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
 
   int ierr = 0;
 
-  //for (int l=0; l<numEdges; ++l) {	//TODO: only some edges
 	int l;
   for (int iSampledEdge=0; iSampledEdge<edgesConnectedToSampleNode.size(); ++iSampledEdge) {	//TODO: only some edges
 		l = edgesConnectedToSampleNode[iSampledEdge];

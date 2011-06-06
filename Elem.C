@@ -67,9 +67,16 @@ void ElemSet::computeGalerkinTerm(FemEquationTerm *fet, GeoState &geoState,
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-  for (int i=0; i<numElems; ++i)
-    elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
-
+	if (sampleMesh) {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ (elemsConnectedToSampleNode[iElem]) ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
+	else {
+		for (int iElem=0; iElem<numSampledElems; ++iElem) {
+			elems[ iElem ]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -83,10 +90,9 @@ void ElemSet::computeGalerkinTermRestrict(FemEquationTerm *fet, GeoState &geoSta
 
   Vec<double> &d2wall = geoState.getDistanceToWall();
 
-  //for (int i=0; i<numElems; ++i){	// TODO TODOKTC: only do this
 	int i;
-	for (int iSampledElem=0; iSampledElem<sampledLocElem.size(); ++iSampledElem) {
-		i = sampledLocElem[iSampledElem];
+	for (int iElem=0; iElem<numSampledElems; ++iElem) {
+		i = sampleMesh ? elemsConnectedToSampleNode[iElem]: iElem;
     elems[i]->computeGalerkinTerm(fet, X, d2wall, V, R, ghostPoints,LSS);
 	}
 

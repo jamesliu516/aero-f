@@ -403,7 +403,7 @@ public:
   void computeFiniteVolumeTermRestrict(DistVec<double> &, DistVec<double> &, FluxFcn**, RecFcn*, DistBcData<dim>&, DistGeoState&,
 			       DistSVec<double,3>&, DistSVec<double,dim>&,
 			       DistNodalGrad<dim>&, DistEdgeGrad<dim>*,
-			       DistSVec<double,dim>&, int, int, const std::vector<std::vector<int> > &);
+			       DistSVec<double,dim>&, int, int);
 
   template<int dim>
   void computeFiniteVolumeTerm(DistExactRiemannSolver<dim>&,

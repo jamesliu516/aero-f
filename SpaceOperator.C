@@ -579,11 +579,6 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 {
 	std::vector<std::vector<int> > sampledLocNodes =
 		restrictionMapping.getRestrictedToOriginLocNode() ;
-	std::vector<std::vector<int> > sampledLocElem =
-		restrictionMapping.getRestrictedToOriginLocElem() ;
-	// 	KTC figure out edges
-	std::vector<std::vector<int> > sampledLocEdges =
-		restrictionMapping.getRestrictedToOriginLocEdges() ;
 
 	R = 0.0;
 	varFcn->conservativeToPrimitive(U, *V);
@@ -592,8 +587,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
     double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
-    timer->addNodalGradTime(t0);
-  }
+    timer->addNodalGradTime(t0); }
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -622,11 +616,8 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
     *irey = 0.0;
   }
 
-	// NEEDED ELEMENTS 
-
-  if (fet) {	// TODO: efficient
-    domain->computeGalerkinTermRestrict(fet, *bcData, *geoState, X, *V, R, sampledLocElem);
-    //domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
+  if (fet) {	// KTC: made efficient
+    domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
     bcData->computeNodeValue(X);
   }
 
@@ -636,15 +627,12 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
     ngrad->limit(recFcn, X, ctrlVol, *V);
 
-	// TODO: efficient
-	// NEEDED EDGES AND FACES
-	domain->computeFiniteVolumeTermRestrict(ctrlVol, *irey, fluxFcn, recFcn,
-			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift,
-			sampledLocEdges);
-	//domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
-	//		*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
+	// KTC: made efficient
+	domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
+			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
 
 // Included
+	// KTC: not needed
   //domain->getGradP(*ngrad);	 // not needed
 
   if (volForce)

@@ -643,7 +643,7 @@ void Domain::computeFiniteVolumeTermRestrict(DistVec<double> &ctrlVol, DistVec<d
                                      DistBcData<dim>& bcData, DistGeoState& geoState,
                                      DistSVec<double,3>& X, DistSVec<double,dim>& V,
                                      DistNodalGrad<dim>& ngrad, DistEdgeGrad<dim>* egrad,
-                                     DistSVec<double,dim>& R, int failsafe, int rshift, const std::vector<std::vector<int> > & sampledLocEdges)
+                                     DistSVec<double,dim>& R, int failsafe, int rshift)
 {
 
   double t0 = timer->getTime();
@@ -663,7 +663,7 @@ void Domain::computeFiniteVolumeTermRestrict(DistVec<double> &ctrlVol, DistVec<d
     EdgeGrad<dim>* legrad = (egrad) ? &((*egrad)(iSub)) : 0;
     ierr += subDomain[iSub]->computeFiniteVolumeTermRestrict(irey(iSub), fluxFcn, recFcn, bcData(iSub),
                                                      geoState(iSub), X(iSub), V(iSub), ngrad(iSub),
-                                                     legrad, (*RR)(iSub), (*tag)(iSub), failsafe, rshift, sampledLocEdges[iSub]);
+                                                     legrad, (*RR)(iSub), (*tag)(iSub), failsafe, rshift);
   }
 
   com->globalSum(1, &ierr);

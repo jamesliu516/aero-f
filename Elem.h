@@ -780,9 +780,12 @@ public:
 class ElemSet {
 
   int numElems;
+	int numSampledElems;
 
   Elem **elems;
   BlockAlloc memElems;
+	bool sampleMesh;
+	std::vector<int> elemsConnectedToSampleNode;	// for Gappy ROM
   
 public:
 
@@ -863,6 +866,7 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
+	void computeConnectedElems(std::vector<int> &);
 
 };
 

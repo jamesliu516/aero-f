@@ -20,10 +20,6 @@ RestrictionMapping<dim>::RestrictionMapping(const Domain * domain, InputIterator
   originToRestricted_.resize(restrictedDistInfo_.numLocSub);
   restrictedToOrigin_.resize(restrictedDistInfo_.numLocSub);
 
-  restrictedToOriginElems_.resize(restrictedDistInfo_.numLocSub);	// local node number in original
-  restrictedToOriginEdges_.resize(restrictedDistInfo_.numLocSub);	// local node number in original
-  restrictedToOriginFaces_.resize(restrictedDistInfo_.numLocSub);	// local node number in original
-
   for (int iSub = 0; iSub < localSubdomainCount(); ++iSub) {
     const int * nodeTopology = domain->getSubDomain()[iSub]->getNodeMap();
 
@@ -52,7 +48,6 @@ RestrictionMapping<dim>::RestrictionMapping(const Domain * domain, InputIterator
   }
 
 	determineConnectedElementsEdges(domain);
-	int tmp;
 	
 }
 
@@ -191,33 +186,12 @@ RestrictionMapping<dim>::dotProduct(const DistSVec<double, dim> & originVec, con
 
 template <int dim>
 void RestrictionMapping<dim>::determineConnectedElementsEdges(const Domain * domain) {
-	
-  std::vector<std::set<int> > restrictedToOriginElemsSet_;	// local node number in original
-  std::vector<std::set<int> > restrictedToOriginEdgeSet_;	// local node number in original
-  restrictedToOriginElemsSet_.resize(restrictedDistInfo_.numLocSub);	// local node number in original
-  restrictedToOriginEdgeSet_.resize(restrictedDistInfo_.numLocSub);	// local node number in original
-	Connectivity *nodeToEle;
-	int iLocNode, locEleNum,nEleToAdd;	// number of globalNodes that should be added
-	int *nToEpointer;
 
 	SubDomain** subD = domain->getSubDomain();
   for (int iSub = 0; iSub < localSubdomainCount(); ++iSub) {
-		nodeToEle = subD[iSub]->createNodeToElementConnectivity();
-		nToEpointer = nodeToEle->ptr();
-		for (int iSampleNode = 0; iSampleNode < restrictedToOrigin_[iSub].size(); ++iSampleNode ) {
-			iLocNode = restrictedToOrigin_[iSub][iSampleNode];	// local number for sample node
-			nEleToAdd = nToEpointer[iLocNode+1] - nToEpointer[iLocNode];		// number of neighbor elements
-			// number of neighbors this node has
-			for (int iEleToAdd = 0; iEleToAdd < nEleToAdd; ++iEleToAdd) { 
-				locEleNum = *((*nodeToEle)[iLocNode]+iEleToAdd);
-				if (restrictedToOriginElemsSet_[iSub].find(locEleNum) == restrictedToOriginElemsSet_[iSub].end()) {
-					restrictedToOriginElems_[iSub].push_back(locEleNum);
-					restrictedToOriginElemsSet_[iSub].insert(locEleNum);
-				}
-			}
-		}
+		ElemSet& elems = subD[iSub]->getElems();
+		elems.computeConnectedElems(restrictedToOrigin_[iSub]);
 		EdgeSet& edges = subD[iSub]->getEdges();
 		edges.computeConnectedEdges(restrictedToOrigin_[iSub]);
-
 	}
 }

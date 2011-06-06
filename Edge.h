@@ -60,6 +60,7 @@ class EdgeSet {
   int numEdges;
 	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
 	bool sampleMesh;
+	int numSampledEdges;
 
   int (*ptr)[2];
   bool *masterFlag;
@@ -90,7 +91,7 @@ public:
   template<int dim>
   int computeFiniteVolumeTermRestrict(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
-			      SVec<double,dim>&, SVec<int,2>&, int, int, const std::vector<int> &);
+			      SVec<double,dim>&, SVec<int,2>&, int, int);
 
   template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,

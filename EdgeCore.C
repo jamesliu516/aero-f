@@ -52,6 +52,7 @@ int EdgeSet::find(int first, int second)
 
   if (v == mp->end()) { 
     (*mp)[ Pair(first, second) ] = numEdges;
+		++numSampledEdges;
     return numEdges++;
   }
 
@@ -267,4 +268,5 @@ void EdgeSet::computeConnectedEdges(std::vector<int> &locSampleNodes)
 			}
 		}
 	}
+	numSampledEdges = edgesConnectedToSampleNode.size();
 }
