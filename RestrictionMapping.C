@@ -52,6 +52,8 @@ RestrictionMapping<dim>::RestrictionMapping(const Domain * domain, InputIterator
   }
 
 	determineConnectedElementsEdges(domain);
+	int tmp;
+	
 }
 
 //------------------------------------------------------------------------------
@@ -189,7 +191,6 @@ RestrictionMapping<dim>::dotProduct(const DistSVec<double, dim> & originVec, con
 
 template <int dim>
 void RestrictionMapping<dim>::determineConnectedElementsEdges(const Domain * domain) {
-	// TODO determine layer 1 elements
 	
   std::vector<std::set<int> > restrictedToOriginElemsSet_;	// local node number in original
   std::vector<std::set<int> > restrictedToOriginEdgeSet_;	// local node number in original
@@ -203,7 +204,6 @@ void RestrictionMapping<dim>::determineConnectedElementsEdges(const Domain * dom
   for (int iSub = 0; iSub < localSubdomainCount(); ++iSub) {
 		nodeToEle = subD[iSub]->createNodeToElementConnectivity();
 		nToEpointer = nodeToEle->ptr();
-		ElemSet elems = subD[iSub]->getElems();//[locEleNum];
 		for (int iSampleNode = 0; iSampleNode < restrictedToOrigin_[iSub].size(); ++iSampleNode ) {
 			iLocNode = restrictedToOrigin_[iSub][iSampleNode];	// local number for sample node
 			nEleToAdd = nToEpointer[iLocNode+1] - nToEpointer[iLocNode];		// number of neighbor elements
@@ -213,24 +213,11 @@ void RestrictionMapping<dim>::determineConnectedElementsEdges(const Domain * dom
 				if (restrictedToOriginElemsSet_[iSub].find(locEleNum) == restrictedToOriginElemsSet_[iSub].end()) {
 					restrictedToOriginElems_[iSub].push_back(locEleNum);
 					restrictedToOriginElemsSet_[iSub].insert(locEleNum);
-
-					// loop over edges and add if one is connected to sample node
-
-					//for (int iEdge = 0; iEdge < elems[locEleNum].numEdges(); ++iEdge) {
-					//	for (int iNode = 0; iNode < 2; ++iNode ) {
-					//		int locNodeNum = elems[locEleNum].nodeNum(elems[locEleNum].edgeEnd(iEdge,iNode));
-					//		if ( locNodeNum == iLocNode) {
-					//			int locEdgeNum = elems[locEleNum].edgeNum(iEdge);
-					//			if ( restrictedToOriginEdgeSet_[iSub].find(locEdgeNum) ==
-					//					restrictedToOriginEdgeSet_[iSub].end()) {
-					//				restrictedToOriginEdges_[iSub].push_back(locEdgeNum);
-					//				restrictedToOriginEdgeSet_[iSub].insert(locEdgeNum);
-					//			}
-					//		}
-					//	}
-					//}
 				}
 			}
 		}
+		EdgeSet& edges = subD[iSub]->getEdges();
+		edges.computeConnectedEdges(restrictedToOrigin_[iSub]);
+
 	}
 }
