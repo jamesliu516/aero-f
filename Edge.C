@@ -325,8 +325,8 @@ int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
 
   //for (int l=0; l<numEdges; ++l) {	//TODO: only some edges
 	int l;
-  for (int iSampledEdge=0; iSampledEdge<sampledLocEdges.size(); ++iSampledEdge) {	//TODO: only some edges
-		l = sampledLocEdges[iSampledEdge];
+  for (int iSampledEdge=0; iSampledEdge<edgesConnectedToSampleNode.size(); ++iSampledEdge) {	//TODO: only some edges
+		l = edgesConnectedToSampleNode[iSampledEdge];
 
     if (!masterFlag[l]) continue;
 

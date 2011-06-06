@@ -22,6 +22,7 @@ EdgeSet::EdgeSet()
   ptr       = 0;
   masterFlag= 0;
   mp        = new MapPair;
+	sampleMesh = false;
 
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
@@ -249,3 +250,21 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
 //------------------------------------------------------------------------------
 
 
+void EdgeSet::computeConnectedEdges(std::vector<int> &locSampleNodes) 
+{
+
+	sampleMesh = true;
+
+  for(int l=0; l<numEdges; l++){
+		//compute which nodes are attached
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+		// check if either node is a sample node
+		for (int iSampleNode = 0; iSampleNode < locSampleNodes.size(); ++iSampleNode) {
+			if (i == locSampleNodes[iSampleNode] || j == locSampleNodes[iSampleNode]) {
+				edgesConnectedToSampleNode.push_back(l);
+				break;
+			}
+		}
+	}
+}

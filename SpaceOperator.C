@@ -626,6 +626,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 
   if (fet) {	// TODO: efficient
     domain->computeGalerkinTermRestrict(fet, *bcData, *geoState, X, *V, R, sampledLocElem);
+    //domain->computeGalerkinTerm(fet, *bcData, *geoState, X, *V, R);
     bcData->computeNodeValue(X);
   }
 
@@ -637,11 +638,11 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
 
 	// TODO: efficient
 	// NEEDED EDGES AND FACES
-	//domain->computeFiniteVolumeTermRestrict(ctrlVol, *irey, fluxFcn, recFcn,
-	//		*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift,
-	//		sampledLocEdges);
-	domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
-			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
+	domain->computeFiniteVolumeTermRestrict(ctrlVol, *irey, fluxFcn, recFcn,
+			*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift,
+			sampledLocEdges);
+	//domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,
+	//		*bcData, *geoState, X, *V, *ngrad, egrad, R, failsafe, rshift);
 
 // Included
   //domain->getGradP(*ngrad);	 // not needed
