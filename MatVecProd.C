@@ -120,7 +120,7 @@ void MatVecProdFD<dim, neq>::evaluateRestrict(int it, DistSVec<double,3> &x,
     if (timeState)
       timeState->add_dAW_dtRestrict(it, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
 
-    spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
   }
   else  {
@@ -289,7 +289,7 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
   if (timeState)
     timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
 
-  spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+  spaceOp->applyBCsToResidual(Qeps, Feps);
 
   Feps.strip(Fepstmp);
 
@@ -309,7 +309,7 @@ void MatVecProdFD<dim, neq>::applyRestrict(DistSVec<double,neq> &p,
     if (timeState)
       timeState->add_dAW_dtRestrict(-1, *geoState, *ctrlVol, Qeps, Feps, sampledLocNodes);
 
-    spaceOp->applyBCsToResidualRestrict(Qeps, Feps, sampledLocNodes);
+    spaceOp->applyBCsToResidual(Qeps, Feps);
 
     Feps.strip(Ftmp);
 

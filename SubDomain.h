@@ -154,6 +154,11 @@ class SubDomain {
   int numOffDiagEntries;
   double *dGradP[3];
 
+	bool sampleMesh;
+	int numSampledNodes;
+	std::vector<int> locSampleNodes;	// for Gappy ROM
+
+
 public:
 
   SubDomain(int, int, int, int, char *, NodeSet *, FaceSet *, ElemSet *,
@@ -171,6 +176,8 @@ public:
   int *getRcvChannel() { return rcvChannel; }
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
+
+	void computeConnectedTopology(std::vector<int> &);
 
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();
@@ -350,12 +357,6 @@ public:
                               EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int, int);
 
   template<int dim>
-	int computeFiniteVolumeTermRestrict(Vec<double> &, FluxFcn**, RecFcn*,
-			BcData<dim>&, GeoState&, SVec<double,3>&, SVec<double,dim>&,
-			NodalGrad<dim>&, EdgeGrad<dim>*, SVec<double,dim>&, SVec<int,2>&, int,
-			int);
-
-  template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&,
                               Vec<double> &, FluxFcn**, RecFcn*, BcData<dim>&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&,
@@ -444,11 +445,6 @@ public:
   void computeGalerkinTerm(FemEquationTerm *, BcData<dim> &, GeoState &,
 			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &,
 			   Vec<GhostPoint<dim>*> *ghostPoints=0,LevelSetStructure *LSS=0);
-  template<int dim>
-	void computeGalerkinTermRestrict(FemEquationTerm *, BcData<dim> &, GeoState
-			&, SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, const
-			std::vector<int> &, Vec<GhostPoint<dim>*>
-			*ghostPoints=0,LevelSetStructure *LSS=0);
 
   template<int dim>
   void computeVolumicForceTerm(VolumicForceTerm *, Vec<double> &,
@@ -551,8 +547,6 @@ public:
 
   template<int dim>
   void applyBCsToResidual(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &);
-  template<int dim>
-  void applyBCsToResidualRestrict(BcFcn *, BcData<dim> &, SVec<double,dim> &, SVec<double,dim> &, const std::vector<int> &);
 
   template<int dim, class Scalar, int neq>
   void applyBCsToJacobian(BcFcn *, BcData<dim> &, SVec<double,dim> &, GenMat<Scalar,neq> &);

@@ -212,7 +212,6 @@ public:
   void applyBCsToSolutionVector(DistSVec<double,dim> &);
 
   void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
-	void applyBCsToResidualRestrict(DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
 
   template<class Scalar, int neq>
   void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);

@@ -313,3 +313,28 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
 }
 
 //------------------------------------------------------------------------------
+
+void FaceSet::computeConnectedFaces(std::vector<int> &locSampleNodes) 
+{
+
+	sampleMesh = true;
+
+	int nSampleNode = locSampleNodes.size();
+  for(int l=0; l<numFaces; ++l) {
+		bool connectedFace = false;
+		for (int iNode = 0; iNode < (*faces[l]).numNodes(); ++iNode) {
+			for (int iSampleNode = 0; iSampleNode < nSampleNode; ++iSampleNode) {
+				if ((*faces[l])[iNode] == locSampleNodes[iSampleNode]) {
+					facesConnectedToSampleNode.push_back(l);
+					connectedFace = true;
+					break;
+				}
+			}
+			if (connectedFace)
+				break;
+		}
+	}
+
+	numSampledFaces = facesConnectedToSampleNode.size();
+	int tmp;
+}

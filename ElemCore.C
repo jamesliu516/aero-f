@@ -225,17 +225,3 @@ void ElemSet::computeConnectedElems(std::vector<int> &locSampleNodes)
 	numSampledElems = elemsConnectedToSampleNode.size();
 	int tmp;
 }
-//------------------------------------------------------------------------------
-
-void ElemSet::setConnectedElems(std::vector<int> &locSampleNodes) 
-{
-
-	sampleMesh = true;
-
-  for(int l=0; l<locSampleNodes.size(); l++){
-		elemsConnectedToSampleNodeDBG.push_back(locSampleNodes[l]);
-	}
-
-	numSampledElems = elemsConnectedToSampleNodeDBG.size();
-	int tmp;
-}
