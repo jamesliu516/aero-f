@@ -2702,6 +2702,7 @@ ROB::ROB()
 	nPodGreedy = 0;
   romsolver = PG; 
 	liftFaces = 0;	// by default, do not include lift faces
+	layers = 2;	// by default, include two layers of nodes
 	normalizeSnapshots = 0;	// by default, do not normalize snapshots
 		// 1: all snapshots have magnitude = 1
 		// 2: snapshots first given magnitude 1, then RBF weight
@@ -2736,6 +2737,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);
   new ClassToken<ROB> (ca, "ROMSolver", this, reinterpret_cast<int ROB::*>(&ROB::romsolver), 8, "PG", 0, "BroydenPG", 1, "GappyPG", 2, "Galerkin", 3, "PostProcess", 4, "ProjError", 5, "CollLS", 6, "CollGal",7);	// PostProcess reads in pod coordinates, ProjErrorcomputes projection error onto a basis
   new ClassInt<ROB>(ca, "IncludeLiftDragFaces", this, &ROB::liftFaces);
+  new ClassInt<ROB>(ca, "Layers", this, &ROB::layers);
   new ClassInt<ROB>(ca, "NormalizeSnaps", this, &ROB::normalizeSnapshots);
   new ClassInt<ROB>(ca, "SkipFrequency", this, &ROB::skipFreq);
   new ClassInt<ROB>(ca, "IncrementalSnaps", this, &ROB::incrementalSnapshots);
