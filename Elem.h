@@ -786,6 +786,7 @@ class ElemSet {
   BlockAlloc memElems;
 	bool sampleMesh;
 	std::vector<int> elemsConnectedToSampleNode;	// for Gappy ROM
+	std::vector<int> elemsConnectedToSampleNodeDBG;	// for Gappy ROM
   
 public:
 
@@ -867,6 +868,7 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
 	void computeConnectedElems(std::vector<int> &);
+	void setConnectedElems(std::vector<int> &);
 
 };
 
