@@ -1502,17 +1502,6 @@ void SpaceOperator<dim>::applyBCsToResidual(DistSVec<double,dim> &U, DistSVec<do
     domain->applyBCsToResidual(bcFcn, *bcData, U, R);
 
 }
-//------------------------------------------------------------------------------
-
-template<int dim>
-void SpaceOperator<dim>::applyBCsToResidualRestrict(DistSVec<double,dim> &U,
-		DistSVec<double,dim> &R, const std::vector<std::vector<int> > &sampledLocNodes)
-{
-
-  if (bcFcn)
-    domain->applyBCsToResidualRestrict(bcFcn, *bcData, U, R, sampledLocNodes);
-
-}
 
 //------------------------------------------------------------------------------
 

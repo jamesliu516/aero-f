@@ -4664,3 +4664,14 @@ int SubDomain::findFarfieldNode()
 
 //-----------------------------------------------------------------------------------------------
 
+void SubDomain::computeConnectedTopology(std::vector<int> &locSampleNodes_) 
+{
+
+	sampleMesh = true;
+	numSampledNodes = locSampleNodes_.size();
+	locSampleNodes = locSampleNodes_;
+	elems.computeConnectedElems(locSampleNodes);
+	edges.computeConnectedEdges(locSampleNodes);
+	faces.computeConnectedFaces(locSampleNodes);
+
+}

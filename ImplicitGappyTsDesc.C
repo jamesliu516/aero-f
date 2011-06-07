@@ -96,7 +96,7 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
 	this->timeState->add_dAW_dtRestrict(it, *this->geoState, *this->A, Q,
 			this->F, restrictionMapping->getRestrictedToOriginLocNode());
 
-  this->spaceOp->applyBCsToResidualRestrict(Q, this->F, restrictionMapping->getRestrictedToOriginLocNode());
+  this->spaceOp->applyBCsToResidual(Q, this->F);
 
  // Restrict down
  restrictMapping()->restriction(this->F, *ResRestrict);
