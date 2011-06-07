@@ -206,22 +206,36 @@ void ElemSet::computeConnectedElems(std::vector<int> &locSampleNodes)
 
 	sampleMesh = true;
 
-	int maxNumNodes = (*elems)[0].MaxNumNd;
 	int nSampleNode = locSampleNodes.size();
   for(int l=0; l<numElems; l++){
-		for (int iNode = 0; iNode < maxNumNodes; ++iNode) {
-			bool connectedNode = false;
+		bool connectedElement = false;
+		for (int iNode = 0; iNode < (*elems[l]).numNodes(); ++iNode) {
 			for (int iSampleNode = 0; iSampleNode < nSampleNode; ++iSampleNode) {
 				if ((*elems[l])[iNode] == locSampleNodes[iSampleNode]) {
 					elemsConnectedToSampleNode.push_back(l);
-					connectedNode = true;
+					connectedElement = true;
 					break;
 				}
 			}
-			if (connectedNode)
+			if (connectedElement)
 				break;
 		}
 	}
 
 	numSampledElems = elemsConnectedToSampleNode.size();
+	int tmp;
+}
+//------------------------------------------------------------------------------
+
+void ElemSet::setConnectedElems(std::vector<int> &locSampleNodes) 
+{
+
+	sampleMesh = true;
+
+  for(int l=0; l<locSampleNodes.size(); l++){
+		elemsConnectedToSampleNodeDBG.push_back(locSampleNodes[l]);
+	}
+
+	numSampledElems = elemsConnectedToSampleNodeDBG.size();
+	int tmp;
 }
