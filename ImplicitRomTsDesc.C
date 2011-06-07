@@ -114,8 +114,11 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   for (it = 0; it < maxItsNewton; it++)  {
 
+		double tRes = this->timer->getTime();
     computeFullResidual(it, U);
 		computeAJ(it, U);	// skipped some times for Broyden
+		this->timer->addResidualTime(tRes);
+
 		solveNewtonSystem(it, res, breakloop);	// 1) check if residual small enough, 2) solve 
 			// INPUTS: AJ, F
 			// OUTPUTS: dUrom, res, breakloop
@@ -128,10 +131,12 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 //    dUrom *= alpha;
 // END LINE SEARCH
 
+		double tSol = this->timer->getTime();
     expandVector(dUrom, dUfull); // solution increment in full coordinates
     Urom += dUrom; // solution increment in reduced coordinates
     UromTotal += dUrom; // solution increment in reduced coordinates
     U += dUfull;
+		this->timer->addSolutionIncrementTime(tSol);
 
 		saveNewtonSystemVectors(totalTimeSteps);	// only implemeted for PG rom
 
