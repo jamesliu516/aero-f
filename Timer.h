@@ -14,7 +14,7 @@ class Timer {
 		feJac, vms, dvms, h2Assembly, fluidPrecSetup, fluidKsp, meshMetrics,
 		structUpd, mesh, meshAssembly, meshPrecSetup, meshKsp, podConstr,
 		snapsLinSolv, padeReconstr, correlMatrix, eigSolv, residual, restriction,
-		solutionIncrement, linearSystemForm, linearSystemSolve, gramSchmidt, romSol,
+		solutionIncrement, linearSystemForm, linearSystemSolve, checkConvergence, gramSchmidt, romSol,
 		romConstr, romTimeInteg, comm, localCom, globalCom, interCom, rmaCom, io,
 		binread, binwrite, levelSet, lsNodalWeightsAndGrad, lsFvTerm,
 		lsKsp,lsPrecSetup,lsJac, waitrec, timeStep, intersect, embedPhaseChange,
@@ -76,6 +76,7 @@ public:
   double addSolutionIncrementTime(double);
   double addLinearSystemFormTime(double);
   double addLinearSystemSolveTime(double);
+  double addCheckConvergenceTime(double);
   double addGramSchmidtTime(double);
   double addRomSolTime(double);
   double addRomConstrTime(double);

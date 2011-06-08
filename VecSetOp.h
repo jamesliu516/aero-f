@@ -115,10 +115,11 @@ void transMatVecProdRestrict(const VecSet< DistSVec<double, dim> > &matrix, cons
 
 	// see DistVec<double>::operator*(const DistVec<double> &vector)
 
-	assert(&vector.info() == &matrix.size());
+	//assert(&vector.info() == &matrix.size());
 
 	int numVec = matrix.numVectors();
 
+	const DistInfo &distInfo1 = matrix.size();
 	const DistInfo &distInfo = vector.info();
 
 	int iSub, i;
@@ -147,16 +148,15 @@ void transMatVecProdRestrict(const VecSet< DistSVec<double, dim> > &matrix, cons
 #endif
 			for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
 
+				int locOffset1 = distInfo1.subOffset[iSub];
 				int locOffset = distInfo.subOffset[iSub];
-				int locLen = distInfo.subLen[iSub];
 
 				double locres = 0;
 
 				for (int iNode = 0; iNode < sampleNodes[iSub].size(); ++iNode) {
-					i = sampleNodes[iSub][iNode];
-					if (distInfo.masterFlag[locOffset+i])
+					if (distInfo1.masterFlag[locOffset1+iNode])
 						for (int j = 0; j < dim; ++j)
-							locres += matVector.data()[locOffset+i][j] * vector.data()[locOffset+i][j];
+							locres += matVector.data()[locOffset1+iNode][j] * vector.data()[locOffset+(sampleNodes[iSub][iNode])][j];
 				}
 
 #ifdef MPI_OMP_REDUCTION
@@ -178,7 +178,6 @@ void transMatVecProdRestrict(const VecSet< DistSVec<double, dim> > &matrix, cons
 			for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
 
 				int locOffset = distInfo.subOffset[iSub];
-				int locLen = distInfo.subLen[iSub];
 
 				double locres = 0;
 
@@ -327,17 +326,23 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 
 	// see DistVec<double>::operator*(const DistVec<double> &matrix2)
 
-	assert(&matrix1.size() == &matrix2.size());
+	//assert(&matrix1.size() == &matrix2.size());
 
 	int numVec1 = matrix1.numVectors();
 	int numVec2 = matrix2.numVectors();
 
-	const DistInfo &distInfo = matrix1.size();
+	const DistInfo &distInfo1 = matrix1.size();
+	const DistInfo &distInfo = matrix2.size();
 
-	int iSub, i;
+	const int numGlobSub1 = distInfo1.numGlobSub;
+	const int numGlobSub = distInfo.numGlobSub;
+	//KTC REMOVE
+	assert(numGlobSub1 == numGlobSub);
+
+	int iSub;
 
 	double *totalAllRes = reinterpret_cast<double *>(alloca(sizeof(double) *
-				distInfo.numGlobSub * numVec1 * numVec2));
+				numGlobSub * numVec1 * numVec2));
 
 	for (int iVec1 = 0; iVec1 < numVec1; ++iVec1) {
 		for (int iVec2 = 0; iVec2 < numVec2; ++iVec2) {
@@ -348,10 +353,10 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 			res = 0;
 
 #ifndef MPI_OMP_REDUCTION
-			double *allres = &totalAllRes[iVec1 * distInfo.numGlobSub + iVec2 *
-				(numVec1 *distInfo.numGlobSub)];
+			double *allres = &totalAllRes[iVec1 * numGlobSub + iVec2 *
+				(numVec1 *numGlobSub)];
 
-			for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) allres[iSub] = 0;
+			for (iSub=0; iSub<numGlobSub; ++iSub) allres[iSub] = 0;
 #endif
 
 			if (distInfo.masterFlag) {
@@ -363,16 +368,15 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 #endif
 				for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
 
+					int locOffset1 = distInfo1.subOffset[iSub];
 					int locOffset = distInfo.subOffset[iSub];
-					int locLen = distInfo.subLen[iSub];
 
 					double locres = 0;
 					for (int iNode = 0; iNode < sampleNodes[iSub].size(); ++iNode) {
-						i = sampleNodes[iSub][iNode];
 
-						if (distInfo.masterFlag[locOffset+i])
+						if (distInfo1.masterFlag[locOffset1+iNode])
 							for (int j = 0; j < dim; ++j)
-								locres += matVector1.data()[locOffset+i][j] * matVector2.data()[locOffset+i][j];
+								locres += matVector1.data()[locOffset1+iNode][j] * matVector2.data()[locOffset+(sampleNodes[iSub][iNode]) ][j];
 					}
 
 #ifdef MPI_OMP_REDUCTION
@@ -394,14 +398,13 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 				for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
 
 					int locOffset = distInfo.subOffset[iSub];
-					int locLen = distInfo.subLen[iSub];
+					int locOffset1 = distInfo1.subOffset[iSub];
 
 					double locres = 0;
 
 					for (int iNode = 0; iNode < sampleNodes[iSub].size(); ++iNode) {
-						i = sampleNodes[iSub][iNode];
 						for (int j = 0; j < dim; ++j)
-							locres += matVector1.data()[locOffset+i][j] * matVector2.data()[locOffset+i][j];
+							locres += matVector1.data()[locOffset1+iNode][j] * matVector2.data()[locOffset+(sampleNodes[iSub][iNode])][j];
 					}
 
 #ifdef MPI_OMP_REDUCTION

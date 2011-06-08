@@ -13,6 +13,7 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 
 	// NOTE: Amat corresponds to RESIDUAL, Bmat corresponds to JACOBIAN
   nPodJac = ioData.Rob.numROBJac; 
+  performRestriction = ioData.Rob.performRestriction == 1 ? true : false; 
 
 	nSampleNodes = 0;
 
@@ -40,48 +41,35 @@ ImplicitGappyTsDesc<dim>::ImplicitGappyTsDesc(IoData &ioData, GeoSource &geoSour
 		numABmat = 2;	// different matrices
 	}
 
-	//Amat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
-	//Bmat.reset(new VecSet<DistSVec<double, dim> >(0, dom->getNodeDistInfo()));
-	//dom->readPodBasis(ioData.input.aMatrix, nPodJac,*Amat);
-	//dom->readPodBasis(ioData.input.bMatrix, nPodJac,*Bmat);
-
 	// determine mapping to restricted nodes
 	restrictionMapping.reset(new RestrictionMapping<dim>(dom, sampleNodes.begin(), sampleNodes.end()));
 
 	// allocate memory for Amat, Bmat using restrictedDistInfo
-	//Amat.reset(new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo()));
-	//Amat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
-	Amat = new VecSet<DistSVec<double, dim> >(nPodJac, dom->getNodeDistInfo());
+	Amat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
 
 	if (numABmat == 1) {
 		Bmat = Amat;
 	}
 	else {
 		dom->readPodBasis(this->input->bMatrix, nPodJac,Bfull);
-		//Bmat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
-		Bmat = new VecSet<DistSVec<double, dim> >(nPodJac, dom->getNodeDistInfo());
+		Bmat = new VecSet<DistSVec<double, dim> >(nPodJac, getRestrictedDistInfo());
 	}
 
 	// restrict Afull and Bfull to be Amat, Bmat
-	/*
 	for (int i = 0; i < nPodJac; ++i) {
 		restrictionMapping->restriction(Afull[i],(*Amat)[i]);
 		if (numABmat == 2)
 			restrictionMapping->restriction(Bfull[i],(*Bmat)[i]);
 	}
-	*/
-	for (int i = 0; i < nPodJac; ++i) {
-		(*Amat)[i] = Afull[i];
-		if (numABmat == 2)
-			(*Bmat)[i] = Bfull[i];
+
+	jactmp = new double [nPodJac * this->nPod];
+	column = new double [nPodJac];
+
+	if (performRestriction) {
+		AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
+		ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
 	}
 
-	//AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, dom->getNodeDistInfo()));
-	//AJRestrict.reset(new VecSet<DistSVec<double, dim> >(this->nPod, getRestrictedDistInfo()));
-	//ResRestrict.reset(new DistSVec<double, dim> (getRestrictedDistInfo()));
-
-	jactmp = new double [Amat->numVectors() * this->nPod];
-	column = new double [Amat->numVectors()];
 }
 
 template<int dim>
@@ -109,7 +97,9 @@ void ImplicitGappyTsDesc<dim>::computeFullResidual(int it, DistSVec<double, dim>
 
 	double t0 = this->timer->getTime();
 	// Restrict down
-	//restrictMapping()->restriction(this->F, *ResRestrict);
+	if (performRestriction) {
+		restrictMapping()->restriction(this->F, *ResRestrict);
+	}
 	this->timer->addRestrictionTime(t0);
 
 }
@@ -130,15 +120,12 @@ void ImplicitGappyTsDesc<dim>::computeAJ(int it, DistSVec<double, dim> &Q)  {
 	}
 
 	double t0 = this->timer->getTime();
-	/*
-	for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
-		restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
-
-		this->timer->addRestrictionTime(t0);
-		//(*AJRestrict)[iPod] = this->AJ[iPod];
+	if (performRestriction) {
+		for (int iPod = 0; iPod < this->nPod; iPod++) { // TODO only on local pod
+			restrictMapping()->restriction(this->AJ[iPod], (*AJRestrict)[iPod]);
+		}
 	}
-	*/
-
+	this->timer->addRestrictionTime(t0);
 }
 
 //------------------------------------------------------------------------------
@@ -148,7 +135,12 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   // Form A * of and distribute
 
 	double t0 = this->timer->getTime();
-	transMatMatProdRestrict(*Bmat, this->AJ,jactmp,restrictionMapping->getRestrictedToOriginLocNode());
+	if (performRestriction) {
+		transMatMatProd(*Bmat, *AJRestrict,jactmp);
+	}
+	else {
+		transMatMatProdRestrict(*Bmat, this->AJ,jactmp,restrictionMapping->getRestrictedToOriginLocNode());
+	}
 
   for (int iCol = 0; iCol < leastSquaresSolver.localCols(); ++iCol) {
 		const int globalColIdx = leastSquaresSolver.globalColIdx(iCol);
@@ -161,13 +153,18 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
 
   // Form B * ResRestrict and distribute
 	// NOTE: do not check if current CPU has rhs
-  {
+
+	if (performRestriction) {
+		transMatVecProd(*Amat, *ResRestrict, column);
+	}
+	else {
 		transMatVecProdRestrict(*Amat, this->F, column,restrictionMapping->getRestrictedToOriginLocNode());
-    for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
-			const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
-			leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
-		}
-  }
+	}
+
+	for (int iRow = 0; iRow < leastSquaresSolver.localRows(); ++iRow) {
+		const int globalRowIdx = leastSquaresSolver.globalRowIdx(iRow);
+		leastSquaresSolver.rhsEntry(iRow) = -column[globalRowIdx];
+	}
 	this->timer->addLinearSystemFormTime(t0);
 
   // Solve least squares problem
@@ -177,6 +174,7 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
 	this->timer->addLinearSystemSolveTime(t0);
 
   // Update vector: The first nPod rows give the components in the pod basis
+	t0 = this->timer->getTime();
   this->dUrom = 0.0;
   for (int localIRow = 0; localIRow < leastSquaresSolver.localSolutionRows(); ++localIRow) {
     const int iRow = leastSquaresSolver.globalRhsRowIdx(localIRow);
@@ -194,4 +192,5 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   }
 
   breakloop = (res == 0.0) || (res <= this->target);
+	this->timer->addCheckConvergenceTime(t0);
 }

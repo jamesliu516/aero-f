@@ -2697,6 +2697,7 @@ ROB::ROB()
   numROB = 0;
   numROBJac = 0;
   numROBRes = 0;
+  performRestriction = 0;
   nSampleNodes = 0;
   sampleNodeFactor = -1;
 	nPodGreedy = 0;
@@ -2732,6 +2733,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassInt<ROB>(ca, "NumROB", this, &ROB::numROB);
   new ClassInt<ROB>(ca, "NumROBJac", this, &ROB::numROBJac);
   new ClassInt<ROB>(ca, "NumROBRes", this, &ROB::numROBRes);
+  new ClassInt<ROB>(ca, "PerformRestriction", this, &ROB::performRestriction);
   new ClassDouble<ROB>(ca, "SampleNodeFactor", this, &ROB::sampleNodeFactor);
   new ClassInt<ROB>(ca, "SampleNodes", this, &ROB::nSampleNodes);
   new ClassInt<ROB>(ca, "NumROBGreedy", this, &ROB::nPodGreedy);

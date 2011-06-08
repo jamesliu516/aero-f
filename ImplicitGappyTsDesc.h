@@ -20,6 +20,7 @@ protected:
 	// scalapack stuff
 	// nPod in ImplicitRomTsDesc
 
+	bool performRestriction;
 	int nSampleNodes, nPodJac;	//nPodJac specified under ROB{ NumROB2 }
 	std::vector<int> sampleNodes;
 	double sampleNodeFactor;
