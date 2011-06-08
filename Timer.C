@@ -561,6 +561,19 @@ double Timer::addLinearSystemSolveTime(double t0)
 }
 //------------------------------------------------------------------------------
 
+double Timer::addCheckConvergenceTime(double t0)
+{
+
+  double t = getTime() - t0;
+
+  counter[checkConvergence]++;
+  data[checkConvergence] += t;
+
+  return t;
+
+}
+//------------------------------------------------------------------------------
+
 double Timer::addGramSchmidtTime(double t0)
 {
 
@@ -944,6 +957,9 @@ void Timer::print(Timer *str, FILE *fp)
     com->fprintf(fp, "  Restriction                 : %10.2f %10.2f %10.2f %9d\n",
               tmin[restriction], tmax[restriction], tavg[restriction],
 							counter[restriction]);
+    com->fprintf(fp, "  Check convergence           : %10.2f %10.2f %10.2f %9d\n",
+              tmin[checkConvergence], tmax[checkConvergence], tavg[checkConvergence],
+							counter[checkConvergence]);
 	}
 
   // Output Mesh solution time (except for Euler FSI)
