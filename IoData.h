@@ -1611,7 +1611,6 @@ struct ROB {
   int basisType;
   int notRestricted;
   int errorBasis;
-  int performRestriction;
 
   ROB();
   ~ROB() {}
