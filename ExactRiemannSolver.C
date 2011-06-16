@@ -28,6 +28,11 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
   if(iod.problem.framework==ProblemData::EMBEDDED) 
     fsiRiemann = new LocalRiemannFluidStructure<dim>();
 
+  for (int i = 0; i < 10; ++i) {
+    for (int j = 0; j < 10; ++j)
+      levelSetSign[i][j]=1.0;
+  }
+
 // Multiphase Riemann problem
   if(iod.eqs.numPhase > 1){
 
@@ -87,6 +92,7 @@ ExactRiemannSolver<dim>::ExactRiemannSolver(IoData &iod, SVec<double,dim> &_rupd
 	    }
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
 		    it2->second->fluid == FluidModelData::GAS){
+	      levelSetSign[fluid1][fluid2] = levelSetSign[fluid2][fluid1] = -1.0;
 	      lriemann[iRiemann] = new LocalRiemannGfmparGasTait(vf,fluid2,fluid1, iod.mf.typePhaseChange);
 	    }
 	    else if(it1->second->fluid  == FluidModelData::LIQUID &&
@@ -164,6 +170,10 @@ void ExactRiemannSolver<dim>::computeRiemannSolution(double *Vi, double *Vj,
 
   //fprintf(stdout, "Debug: calling computeRiemannSolution with IDi = %d - IDj = %d for LocalRiemann[%d]\n", IDi, IDj, IDi+IDj-1);
   int riemannId = levelSetMap[IDi][IDj];
+  double lssign = levelSetSign[IDi][IDj];
+  for (int k=0; k < 3; ++k) {
+    nphi[k]*=lssign;
+  }
   lriemann[riemannId]->computeRiemannSolution(Vi,Vj,IDi,IDj,nphi,interfacialWi[edgeNum],interfacialWj[edgeNum],
           Wi,Wj,rupdate[i],rupdate[j],weight[i],weight[j],
           dx,iteration);
@@ -178,6 +188,10 @@ void ExactRiemannSolver<dim>::computeRiemannJacobian(double *Vi, double *Vj,
 						     double* dWidUi,double*  dWidUj,double* dWjdUi,double*  dWjdUj) {
 
   int riemannId = levelSetMap[IDi][IDj];
+  double lssign = levelSetSign[IDi][IDj];
+  for (int k=0; k < 3; ++k) {
+    nphi[k]*=lssign;
+  }
   lriemann[riemannId]->computeRiemannJacobian(Vi,Vj,IDi,IDj,nphi,
           Wi,Wj,
           dx,iteration, dWidUi, dWidUj,dWjdUi, dWjdUj);
