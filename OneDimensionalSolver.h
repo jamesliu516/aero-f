@@ -140,7 +140,7 @@ class OneDimensional {
   void setupOutputFiles(IoData& iod);
   void setupFixes(IoData& iod);
 
-  bool* loctag;
+  int* loctag;
 
  public:
 
