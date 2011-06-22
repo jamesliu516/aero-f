@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
+###################
+# Local Variables #
+###################
+SITE_NAME(HOSTNAME)
+FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+MARK_AS_ADVANCED(HOSTNAME)
+MARK_AS_ADVANCED(LOCAL_DIR)
+###################
+
 IF(USE_OPENMP)
   FIND_PACKAGE(OpenMP REQUIRED)
   if(OpenMP_FLAG_DETECTED)
@@ -75,25 +84,36 @@ IF(UNIX)
 
     SET(CMAKE_FIND_LIBRARY_PREFIXES "lib" "")
     IF(NOT WITH_SCALAPACK EQUAL 0)
-      FIND_LIBRARY(SCALAPACKLIB NAMES scalapack scalapack-openmpi
-                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+      IF(NOT SCALAPACK_FOUND)
+        FIND_LIBRARY(SCALAPACKLIB NAMES scalapack scalapack-openmpi
+                     PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+        IF(SCALAPACKLIB)
+          MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
+          SET(SCALAPACK_FOUND TRUE)
+        ENDIF(SCALAPACKLIB)
+      ENDIF(NOT SCALAPACK_FOUND)
     ELSE(NOT WITH_SCALAPACK EQUAL 0)
       SET(SCALAPACKLIB "SCALAPACKLIB-NOTFOUND")
     ENDIF(NOT WITH_SCALAPACK EQUAL 0)
+
     IF(NOT WITH_BLACS EQUAL 0)
-      FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
-                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-      FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
-                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+      IF(NOT BLACS_FOUND)
+        FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
+                     PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+        FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
+                     PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+        IF(BLACSLIB AND BLACSCLIB)
+          MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSCLIB} " found.")
+          SET(BLACS_FOUND TRUE)
+        ENDIF(BLACSLIB AND BLACSCLIB)
+      ENDIF(NOT BLACS_FOUND)
     ELSE(NOT WITH_BLACS EQUAL 0)
       SET(BLACSLIB "BLACSLIB-NOTFOUND")
       SET(BLACSCLIB "BLACSCLIB-NOTFOUND")
     ENDIF(NOT WITH_BLACS EQUAL 0)
 
     #SET(USE_SCALAPACK 0)
-    IF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
-      MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
-      MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSCLIB} " found.")    
+    IF(SCALAPACK_FOUND AND BLACS_FOUND)
       add_definitions(-DDO_SCALAPACK)
       SET(EXTRALIBRARIES
           ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
@@ -101,7 +121,7 @@ IF(UNIX)
       SET(USE_SCALAPACK 1)
     ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB)
       SET(USE_SCALAPACK 0)
-    ENDIF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
+    ENDIF(SCALAPACK_FOUND AND BLACS_FOUND)
     
   ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 ENDIF(UNIX)
@@ -299,10 +319,10 @@ ENDIF (MERCURIAL_EXECUTABLE)
 ###################
 # Local Variables #
 ###################
-SITE_NAME(HOSTNAME)
-FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
-MARK_AS_ADVANCED(HOSTNAME)
-MARK_AS_ADVANCED(LOCAL_DIR)
+#SITE_NAME(HOSTNAME)
+#FIND_PACKAGE(LOCAL NAMES ${HOSTNAME} PATHS . ./localconfig QUIET)
+#MARK_AS_ADVANCED(HOSTNAME)
+#MARK_AS_ADVANCED(LOCAL_DIR)
 ###################
 
 IF(EXTRALIB)
