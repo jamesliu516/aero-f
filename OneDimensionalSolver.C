@@ -621,11 +621,11 @@ void OneDimensional::load1DMesh(IoData& ioData,int& numPts,double* &meshPoints) 
     
     sprintf(mesh1d,"%s%s",ioData.input.prefix,ioData.input.geometry);
     FILE* fin = fopen(mesh1d,"r");
-    fscanf(fin, "%i",&numPts);
+    int n = fscanf(fin, "%i",&numPts);
     meshPoints = new double[numPts];
     for (int i = 0; i < numPts; ++i) {
 
-      fscanf(fin,"%lf",&meshPoints[i]);
+      int m = fscanf(fin,"%lf",&meshPoints[i]);
     }
   } else {
 

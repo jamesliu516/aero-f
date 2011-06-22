@@ -7,7 +7,7 @@ class BinFileHandler;
 
 class MatchNodeSet {
 
-  int numNodes;
+  int numNodes, totalSize;
 
   int (*index)[3];
   double (*gap)[3];
@@ -21,6 +21,7 @@ public:
 
   void read(BinFileHandler &, int, int (*)[2]);
   void autoInit(int);
+  void updateNumStNodes(int nn) {numNodes = nn;}
 
   template<class NodeMap>
   void renumberNodes(NodeMap &);
@@ -35,6 +36,7 @@ public:
   double (*getGap(int, int *))[3];
 
   int size() const { return numNodes; }
+  int totSize() const { return totalSize; }
   int subMatchNode(int i) { return(index[i][0]); } //HB: returns the subdomain node of the ith matched node 	
 };
 

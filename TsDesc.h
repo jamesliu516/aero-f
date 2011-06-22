@@ -55,6 +55,7 @@ protected:
   TsData::Clipping clippingType;
   BcsWallData::Integration wallType;
   BcsWallData::Reconstruction wallRecType;
+  TsData::TimeStepCalculation timeStepCalculation;
 
 //  TsParameters *data;
   TsInput *input;
@@ -92,6 +93,8 @@ protected:
   double forceNorm;
   double *forceNorms;
 
+  bool failSafeFlag;
+
 protected:
 
 //  void monitorInitialState(int, DistSVec<double,dim> &);
@@ -121,6 +124,8 @@ public:
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
   bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
+
+  void setFailSafe(bool flag){ failSafeFlag = flag; }
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
@@ -154,6 +159,7 @@ public:
 
   void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
+  void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 };
 
 //------------------------------------------------------------------------------

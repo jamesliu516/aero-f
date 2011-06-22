@@ -381,18 +381,29 @@ void VarFcnSGEuler::characteristicToPrimitiveVariations(double n[3], double *V,
 inline
 int VarFcnSGEuler::verification(int glob, double *U, double *V)
 {
-//verification of pressure value
-//if pressure < pmin, set pressure to pmin
+//verification of density and pressure value
+//if pressure/density < pmin/rhomin, set pressure/density to pmin/rhomin
 //and rewrite V and U!!
+  int count = 0;
+
+  if(V[0]<rhomin){
+    if(verif_clipping)
+      fprintf(stderr,"clip density[%d] in gas(Euler) from %e to %e\n", glob, V[0], rhomin);
+    V[0] = rhomin;
+    count++; 
+  }
+
   if(V[4]<pmin){
     if (verif_clipping)
-      fprintf(stdout, "clip pressure[%d] in gas from %e to %e\n", glob, V[4], pmin);
+      fprintf(stdout, "clip pressure[%d] in gas(Euler) from %e to %e\n", glob, V[4], pmin);
     V[4] = pmin;
-    U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
-          +(pmin+gam*Pstiff)/(gam-1.0);
-    return 1;
+    count++;
   }
-  return 0;
+
+  if(count) //also modify U
+    primitiveToConservative(V,U);
+
+  return count;
 
 }
 //------------------------------------------------------------------------------

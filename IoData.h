@@ -455,6 +455,7 @@ struct LiquidModelData {
 struct FluidModelData {
 
   enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
+  double rhomin;
   double pmin;
 
   GasModelData gasModel;
@@ -1275,6 +1276,7 @@ struct TsData {
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
   enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
+  enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
   double viscousCst;
@@ -1290,7 +1292,9 @@ struct TsData {
   double cflCoef1;
   double cflCoef2;
   double cflMax;
+  double cflMin;
   double ser;
+  double errorTol;
 
   const char *output;
 
@@ -1733,7 +1737,6 @@ struct EmbeddedFramework {
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2, AUTO = 3} riemannNormal;
-  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -1849,6 +1852,7 @@ public:
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();
+  void nonDimensionalizeForcedMotion();
   void nonDimensionalizeOneDimensionalProblem();
   int checkInputValuesNonDimensional();
   int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);

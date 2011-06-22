@@ -780,7 +780,8 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
-  pmin = -1.e6;
+  rhomin = -1.e9;
+  pmin = -1.e9;
 
 }
 
@@ -789,11 +790,12 @@ FluidModelData::FluidModelData()
 Assigner *FluidModelData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -809,11 +811,12 @@ Assigner *FluidModelData::getAssigner()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -828,6 +831,7 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
 FluidModelData & FluidModelData::operator=(const FluidModelData &fm){
 
   this->fluid = fm.fluid;
+  this->rhomin  = fm.rhomin;
   this->pmin  = fm.pmin;
 
   this->gasModel.type              = fm.gasModel.type;
@@ -2261,6 +2265,7 @@ TsData::TsData()
   type = IMPLICIT;
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
+  timeStepCalculation = CFL;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2276,7 +2281,9 @@ TsData::TsData()
   cflCoef1 = 0.0;
   cflCoef2 = 0.0;
   cflMax = 1000.0;
+  cflMin = 1.0;
   ser = 0.7;
+  errorTol = 1.e-10;
 
   output = "";
 
@@ -2287,7 +2294,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 22, father);
 
   new ClassToken<TsData>(ca, "Type", this,
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -2298,6 +2305,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
+			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
                          reinterpret_cast<int TsData::*>(&TsData::prec), 2,
                          "NonPreconditioned", 0, "LowMach", 1);
@@ -2313,7 +2323,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
   new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
+  new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
+  new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
 
   expl.setup("Explicit", ca);
@@ -3170,7 +3182,6 @@ EmbeddedFramework::EmbeddedFramework() {
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
   riemannNormal = AUTO;
-  structVelocity = COMPUTED_BY_STRUCTURE;
 
 }
 
@@ -3200,8 +3211,6 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
-  new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
-                                      "ComputedByStructure", 0, "FiniteDifference", 1);
 }
 
 //------------------------------------------------------------------------------
@@ -3859,15 +3868,14 @@ int IoData::checkInputValues()
 
   checkInputValuesTurbulence();
   checkInputValuesDefaultOutlet();
-  nonDimensionalizeAllEquationsOfState();
+  nonDimensionalizeAllEquationsOfState(); 
+  nonDimensionalizeForcedMotion();
 
   if(problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
     nonDimensionalizeOneDimensionalProblem();
     return 0;
   }
-
   nonDimensionalizeAllInitialConditions();
-
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -4008,11 +4016,8 @@ int IoData::checkInputValuesAllInitialConditions(){
     for (it=embed.embedIC.pointMap.dataMap.begin();
          it!=embed.embedIC.pointMap.dataMap.end();
          it++) {
-      if(it->second->fluidModelID==0) {
-        com->fprintf(stderr,"*** Error: FluidID on a user-specified point (for initial condition setup) can not be 0!\n");
-        com->fprintf(stderr,"    Note : It's a convention in AERO-F that FluidID = 0 only in the ambient fluid.\n");
-        error ++;
-      }
+//      if(it->second->fluidModelID==0)
+        //com->fprintf(stderr,"*** WARNING: FluidID on a user-specified point (for initial condition setup) \n");
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
     }
   }
@@ -4204,6 +4209,8 @@ void IoData::setupOneDimensional() {
   }
 }
 
+//------------------------------------------------------------------------------
+
 void IoData:: nonDimensionalizeOneDimensionalProblem(){
 
   if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
@@ -4234,6 +4241,25 @@ void IoData:: nonDimensionalizeOneDimensionalProblem(){
 
 //------------------------------------------------------------------------------
 
+void IoData:: nonDimensionalizeForcedMotion(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //heaving
+  forced.hv.ax /= ref.rv.length;
+  forced.hv.ay /= ref.rv.length;
+  forced.hv.az /= ref.rv.length;
+
+  //pitching
+  forced.pt.x1 /= ref.rv.length;
+  forced.pt.y1 /= ref.rv.length;
+  forced.pt.z1 /= ref.rv.length;
+  forced.pt.x2 /= ref.rv.length;
+  forced.pt.y2 /= ref.rv.length;
+  forced.pt.z2 /= ref.rv.length;
+}
+
+//------------------------------------------------------------------------------
 int IoData::checkInputValuesNonDimensional()
 {
   int error = 0;
@@ -4952,6 +4978,7 @@ void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialCondit
 
 void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
 
+  fluidModel.rhomin /= ref.rv.density;
   fluidModel.pmin /= ref.rv.pressure;
 
   if(fluidModel.fluid == FluidModelData::GAS)
@@ -5201,6 +5228,7 @@ void IoData::printDebug(){
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++){
       com->fprintf(stderr, "FluidModelData::tag          = %d\n", it->first);
       com->fprintf(stderr, "FluidModelData::fluid        = %d\n", it->second->fluid);
+      com->fprintf(stderr, "FluidModelData::rhomin         = %e\n", it->second->rhomin);
       com->fprintf(stderr, "FluidModelData::pmin         = %e\n", it->second->pmin);
       if(it->second->fluid == FluidModelData::GAS){
         com->fprintf(stderr, "GasModelData::type              = %d\n", it->second->gasModel.type);

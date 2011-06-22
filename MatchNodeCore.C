@@ -15,6 +15,7 @@ MatchNodeSet::MatchNodeSet(int value)
 
   index = new int[value][3];
   gap = new double[value][3];
+  totalSize = numNodes;
 
 }
 
@@ -76,6 +77,7 @@ void MatchNodeSet::autoInit(int nNodes)
   numNodes = nNodes;
   index = new int[numNodes][3];
   gap = new double[numNodes][3];
+  totalSize = numNodes; //nNodes may change in a "cracking" simulation. But totalSize should never change!
 
   for(int i=0; i<numNodes; i++) {
     index[i][0] = index[i][1] = i;
@@ -166,6 +168,7 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
 
   norms[0] = 0.0;
   norms[1] = 0.0;
+
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
       if (flag==0||flag[ index[i][0] ]) {

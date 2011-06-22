@@ -79,16 +79,22 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
   double res0, res2=0.0;
   int it;
+//  int BuggyNode = 340680;
+
   for (it=0; it<maxIts; ++it) {
+
+//    probDesc->printNodalDebug(BuggyNode,11,&Q);
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
+//    probDesc->printNodalDebug(BuggyNode,1000,&F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
     if(res<0.0){
       probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
     }
+//    probDesc->printNodalDebug(BuggyNode,12,&Q);
 
     // UH (08/10) After the test, it is safe to take the square root.
     //res = sqrt(F*F-res2);
@@ -104,6 +110,7 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
+//    probDesc->printNodalDebug(BuggyNode,13,&Q);
 
     probDesc->recomputeFunction(Q, rhs);
     probDesc->computeJacobian(it, Q, F);
@@ -111,13 +118,17 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     // apply preconditioner if available
     probDesc->setOperators(Q);
 
+//    probDesc->printNodalDebug(BuggyNode,14,&Q);
     probDesc->solveLinearSystem(it, rhs, dQ);
 
+//    probDesc->printNodalDebug(BuggyNode,995,&dQ);
 // Included (MB)
     probDesc->fixSolution(Q, dQ);
+//    probDesc->printNodalDebug(BuggyNode,996,&dQ);
 
     rhs = Q;
     Q += dQ;
+//    probDesc->printNodalDebug(BuggyNode,17,&Q);
 
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
@@ -128,8 +139,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 	++fsIt;
       }
       else{
-	probDesc->printf(1, "***Exiting\n");
-	exit(1);
+	probDesc->printf(1, "Newton solver failed\n");
+	return -3;
       }
     }
 

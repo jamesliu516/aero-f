@@ -28,10 +28,12 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double timeStep;
 
+  bool withCracking;
+
   double (*Fs)[3]; //force distribution on the structure surfac3
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
-  int numStructElems;
+  int totStructNodes;
   bool linRecAtInterface;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
@@ -59,6 +61,15 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
   // ------------------------------------------------------------------------------------
+
+  // Copies for fail safe ----- -----------------------------
+  DistSVec<double,dim> *WstarijCopy,*Wstarij_nm1Copy;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *WstarjiCopy,*Wstarji_nm1Copy;  //<! stores the FS Riemann solution (j->i) along edges
+  DistVec<int> *nodeTagCopy; // = 1 for fluid #1; = -1 for fluid #2.
+  DistVec<int> *nodeTag0Copy; // node tag for the previous time-step.
+  DistSVec<double,dim> *UCopy;     //<! the primitive variables.
+  // ------------------------------------------------------------------------------------
+
   DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
 
@@ -126,12 +137,6 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
 };
-
-
-
-
-
-
 
 
 #ifdef TEMPLATE_FIX

@@ -21,8 +21,12 @@
 #define WET_SURF_TAG1 555
 #define WET_SURF_TAG2 666
 #define WET_SURF_TAG3 888
+#define WET_SURF_TAG4 999
 
-
+#define CRACK_TAG1 22
+#define CRACK_TAG2 33
+#define CRACK_TAG3 44
+#define CRACK_TAG4 55
 //------------------------------------------------------------------------------
 
 StructExc::StructExc(IoData& iod, MatchNodeSet** mns, int bs, Communicator* sc, Communicator* fluidCom, int nSub)
@@ -64,6 +68,14 @@ StructExc::~StructExc()
   if (numStrNodes) delete [] numStrNodes;
   if (buffer) delete [] buffer;
 
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::updateNumStrNodes(int nn) 
+{
+  numStrNodes[0][0] = nn; 
+  matchNodes[0]->updateNumStNodes(nn);
 }
 
 //------------------------------------------------------------------------------
@@ -191,27 +203,94 @@ double StructExc::getInfo()
 
 //------------------------------------------------------------------------------
 
-void StructExc::getEmbeddedWetSurfaceInfo(int& nNodes, int& nElems)
+void StructExc::getEmbeddedWetSurfaceInfo(int& elemType, bool& crack, int& nNodes, int& nElems)
 {
-  int info[2];
+  int info[4];
   if(strCom->cpuNum()==0) 
-    strCom->recFrom(WET_SURF_TAG1, info, 2);
-  com->broadcast(2, info);
-  nNodes = info[0];
-  nElems = info[1];
+    strCom->recFrom(WET_SURF_TAG1, info, 4);
+  com->broadcast(4, info);
+  elemType = info[0]; //3~triangles, 4~quadrangles (triangles can be represented by degenerated quads)
+  crack    = info[1] ? true : false;
+  nNodes   = info[2];
+  nElems   = info[3];
 }
 
 //------------------------------------------------------------------------------
 
-void StructExc::getEmbeddedWetSurface(int nNodes, double *nodes, int nElems, int *elems)
+void StructExc::getEmbeddedWetSurface(int nNodes, double *nodes, int nElems, int *elems, int eType)
 {
   if(strCom->cpuNum()==0)
     strCom->recFrom(WET_SURF_TAG2, nodes, nNodes*3);
   com->broadcast(nNodes*3, nodes);
 
   if(strCom->cpuNum()==0)
-    strCom->recFrom(WET_SURF_TAG3, elems, nElems*3);
-  com->broadcast(nElems*3, elems);
+    strCom->recFrom(WET_SURF_TAG3, elems, nElems*eType);
+  com->broadcast(nElems*eType, elems);
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getInitialCrackingSetup(int& totalNodes, int& totalElems)
+{
+  int info[2];
+  if(strCom->cpuNum()==0) 
+    strCom->recFrom(WET_SURF_TAG4, info, 2);
+  com->broadcast(2, info);
+  totalNodes = info[0];
+  totalElems = info[1];
+}
+
+//------------------------------------------------------------------------------
+
+bool StructExc::getNewCrackingStats(int &numConnUpdate, int &numLSUpdate, int &newNodes)
+{
+  int size = 4;
+  int nNew[size];
+  if(strCom->cpuNum()==0) 
+    strCom->recFrom(CRACK_TAG1, nNew, size);
+  com->broadcast(size, nNew);
+  numConnUpdate = nNew[1];
+  numLSUpdate = nNew[2];
+  newNodes = nNew[3];
+  return nNew[0]>0;
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getInitialPhantomNodes(int newNodes, double(*xyz)[3], int nNodes)
+{
+  double coords[newNodes*3];
+  if(strCom->cpuNum()==0)
+    strCom->recFrom(CRACK_TAG4, coords, newNodes*3); //assume the correct ordering: nNodes, nNodes+1, ..., nNodes+newNodes-1
+  com->broadcast(newNodes*3,coords);
+
+  for(int i=0; i<newNodes; i++)
+    for(int j=0; j<3; j++)
+      xyz[nNodes+i][j] = coords[i*3+j];
+}
+
+//------------------------------------------------------------------------------
+
+void StructExc::getNewCracking(int numConnUpdate, int numLSUpdate, int* phantoms, double* phi, int* phiIndex, int* new2old, int newNodes)
+{
+  int integer_pack_size = 5*numConnUpdate + numLSUpdate + 2*newNodes;
+  int integer_pack[integer_pack_size]; //KW: This should be a short array since there will not be many new cracked elements in 
+                                       //    one time-step. Therefore it should be OK to create and destroy it repeatedly.
+  if(strCom->cpuNum()==0)
+    strCom->recFrom(CRACK_TAG2, integer_pack, integer_pack_size);
+  com->broadcast(integer_pack_size, integer_pack);
+  for(int i=0; i<5*numConnUpdate; i++)
+    phantoms[i] = integer_pack[i];
+  for(int i=0; i<numLSUpdate; i++)
+    phiIndex[i] = integer_pack[5*numConnUpdate+i];
+  for(int i=0; i<newNodes; i++) {
+    new2old[2*i] = integer_pack[5*numConnUpdate+numLSUpdate+2*i];
+    new2old[2*i+1] = integer_pack[5*numConnUpdate+numLSUpdate+2*i+1];
+  }
+
+  if(strCom->cpuNum()==0)
+    strCom->recFrom(CRACK_TAG3, phi, 4*numLSUpdate);
+  com->broadcast(4*numLSUpdate, phi); 
 }
 
 //------------------------------------------------------------------------------
@@ -284,10 +363,23 @@ void StructExc::getDisplacement(DistSVec<double,3> &X0, DistSVec<double,3> &X,
 	int size = bufsize * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + bufsize * numStrNodes[iCpu][1];
 	strCom->recFrom(iCpu, DISP_TAG + recParity, localBuffer, size);
+//        for(int i=0; i<size/3; i++)
+//          fprintf(stderr,"STEXC: %d %e %e %e\n", i+1, localBuffer[3*i], localBuffer[3*i+1], localBuffer[3*i+2]);
+
       }
     }
-
+/*
+    for(int i=0; i<800*2; i++)
+      fprintf(stderr,"buffer %d %e %e %e\n", i+1, buffer[3*i], buffer[3*i+1], buffer[3*i+2]);
+*/
     double (*disp)[2][3] = reinterpret_cast<double (*)[2][3]>(buffer);
+/*
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp0 %d %e %e %e\n", i+1, disp[i][0][0], disp[i][0][1], disp[i][0][2]);
+
+    for(int i=0; i<800; i++)
+      fprintf(stderr, "disp1 %d %e %e %e\n", i+1, disp[i][1][0], disp[i][1][1], disp[i][1][2]);
+*/
 
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
@@ -371,11 +463,11 @@ void StructExc::sendForce(DistSVec<double,3> &F)
       if (numStrNodes[iCpu][0] > 0) {
 	int size = 3 * numStrNodes[iCpu][0];
 	double *localBuffer = buffer + 3 * numStrNodes[iCpu][1];
+//        fprintf(stderr,"<AERO-F> Sending the force. size = %d\n", size);
 	strCom->sendTo(iCpu, FORCE_TAG + sndParity, localBuffer, size);
       }
     }
     strCom->waitForAllReq();
-
   }
 
   com->barrier();

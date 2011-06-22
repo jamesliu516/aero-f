@@ -12,6 +12,7 @@
 #include <PhysBAM_Tools/Data_Structures/TRIPLE.h>
 #include <PhysBAM_Tools/Vectors/VECTOR.h>
 #include <PhysBAM_Geometry/Basic_Geometry/TRIANGLE_3D.h>
+#include "LOCAL_LEVELSET.h"
 
 #include <set>
 
@@ -46,6 +47,7 @@ template<class T>
 class PhysBAMInterface {
     typedef VECTOR<T,3> TV;
     T thickness_parameter,thickness_over_two;
+    LocalLevelSet *surface_levelset;
 
 public:
     TRIANGLE_MESH& triangle_mesh;
@@ -57,7 +59,7 @@ public:
     GEOMETRY_PARTICLES<TV>& particles;
     PAIR<T,GEOMETRY_PARTICLES<TV>*> saved_state;
 
-    PhysBAMInterface(TRIANGLE_MESH& triangle_mesh,GEOMETRY_PARTICLES<TV>& particles);
+    PhysBAMInterface(TRIANGLE_MESH& triangle_mesh,GEOMETRY_PARTICLES<TV>& particles, LocalLevelSet* cs=0);
 
     ~PhysBAMInterface();
 

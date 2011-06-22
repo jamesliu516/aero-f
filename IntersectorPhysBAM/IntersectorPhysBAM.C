@@ -10,6 +10,7 @@
 #include <Vector.h>
 #include <DistVector.h>
 #include <Timer.h>
+#include "FSI/CrackingSurface.h"
 #include "LevelSet/LevelSetStructure.h"
 #include "parser/Assigner.h"
 #include <Connectivity.h>
@@ -36,12 +37,11 @@ int IntersectorPhysBAM::OUTSIDECOLOR;
 //----------------------------------------------------------------------------
 
 DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, int nNodes,
-                                               double (*xyz)[3], int nElems, int (*abc)[3])
+                                               double *xyz, int nElems, int (*abc)[3], CrackingSurface *cs)
 {
   this->numFluid = iod.eqs.numPhase;
   floodFill=new FloodFill();
   com = comm;
-  com->fprintf(stderr,"- Using Intersector: PhysBAM\n");
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -71,11 +71,16 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   boxMin = 0;
   boxMax = 0;
 
+  cracking = cs;
+  gotNewCracking = false;
+
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
-  else
-    init(struct_mesh, struct_restart_pos);
+  else {
+    double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
+    init(struct_mesh, struct_restart_pos, XScale);
+  }
   comm->barrier();
 
   delete[] struct_mesh;
@@ -119,7 +124,7 @@ DistIntersectorPhysBAM::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface) {
+void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface, double XScale) {
 
   // Read data from the solid surface input file.
   FILE *topFile;
@@ -155,6 +160,9 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
       maxIndex = num1;
 
     toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    x1 /= XScale;
+    x2 /= XScale;
+    x3 /= XScale;
     nodeList.push_back(Vec3D(x1,x2,x3));
   }
 
@@ -283,6 +291,9 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
     fclose(resTopFile);
   }
 
+  totStNodes = numStNodes;
+  totStElems = numStElems;
+
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
 //  com->fprintf(stderr,"- IntersectorPhysBAM: Checking the embedded structure surface...   ");
 //  if (checkTriangulatedSurface()) 
@@ -300,22 +311,27 @@ void DistIntersectorPhysBAM::init(char *solidSurface, char *restartSolidSurface)
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+void DistIntersectorPhysBAM::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
+  if(cracking && nNodes!=cracking->usedNodes()) {com->fprintf(stderr,"SOFTWARE BUG!\n");exit(-1);}
+
   numStNodes = nNodes;
+  totStNodes = cracking ? cracking->totNodes() : numStNodes;
+
   // feed data to Xss. 
-  Xs      = new Vec3D[numStNodes];
-  Xs0     = new Vec3D[numStNodes];
-  Xs_n    = new Vec3D[numStNodes];
-  Xs_np1  = new Vec3D[numStNodes];
-  Xsdot   = new Vec3D[numStNodes];
-  solidX  = new Vec<Vec3D>(numStNodes, Xs);
-  solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
-  solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
+  Xs      = new Vec3D[totStNodes];
+  Xs0     = new Vec3D[totStNodes];
+  Xs_n    = new Vec3D[totStNodes];
+  Xs_np1  = new Vec3D[totStNodes];
+  Xsdot   = new Vec3D[totStNodes];
+  solidX  = new Vec<Vec3D>(totStNodes, Xs);
+  solidX0 = new Vec<Vec3D>(totStNodes, Xs0);
+  solidXn = new Vec<Vec3D>(totStNodes, Xs_n);
 
   for (int k=0; k<numStNodes; k++) {
-    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
+    Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
+//    if(k<5) fprintf(stderr,"(%d) %d %e %e %e\n", com->cpuNum(), k+1, Xs[k][0], Xs[k][1], Xs[k][2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -323,14 +339,20 @@ void DistIntersectorPhysBAM::init(int nNodes, double (*xyz)[3], int nElems, int 
   }
 
   // elem set
+  if(cracking && nElems!=cracking->usedTrias()) {com->fprintf(stderr,"SOFTWARE BUG 2!\n");exit(-1);}
+
   numStElems = nElems;
-  stElem = new int[numStElems][3];
+  totStElems = cracking ? cracking->totTrias() : numStElems;
+
+  stElem = new int[totStElems][3];
   for (int i=0; i<numStElems; i++)
     for (int k=0; k<3; k++)
       stElem[i][k] = abc[i][k];
 
   // load solid nodes at restart time.
   if (restartSolidSurface[0] != 0) {
+    if(cracking) com->fprintf(stderr,"WARNING: not sure if restart works with cracking...\n");
+
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
     int ndMax2 = 0;
@@ -401,7 +423,7 @@ DistIntersectorPhysBAM::initializePhysBAM() { //NOTE: In PhysBAM array index sta
 
   // Construct TRIANGULATED_SURFACE.
   if(physInterface) delete physInterface;
-  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle);
+  physInterface = new PhysBAMInterface<double>(*mesh,*physbam_solids_particle,cracking);
   physInterface->SetThickness(1e-4);
 }
 
@@ -459,11 +481,11 @@ bool DistIntersectorPhysBAM::checkTriangulatedSurface()
 
 void
 DistIntersectorPhysBAM::buildSolidNormals() {
-  if(!triNorms) triNorms = new Vec3D[numStElems];
-  if(!triSize)  triSize = new double[numStElems];
+  if(!triNorms) triNorms = new Vec3D[totStElems];
+  if(!triSize)  triSize = new double[totStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
-      nodalNormal = new Vec3D[numStNodes];
+      nodalNormal = new Vec3D[totStNodes];
     for(int i=0; i<numStNodes; i++)
       nodalNormal[i] = 0.0;
   }
@@ -511,6 +533,8 @@ DistIntersectorPhysBAM::buildSolidNormals() {
     // normalize the normal.
     if(nrm > 0.0)
        triNorms[iTriangle] /= nrm;
+    else
+       fprintf(stderr,"ERROR: Tri %d: (%d(%e,%e,%e), %d(%e,%e,%e), %d(%e,%e,%e)\n", iTriangle+1, n1, x1,y1,z1, n2, dx2,dy2,dz2, n3, dx3,dy3,dz3);
   }
 
   if(interpolatedNormal) //normalize nodal normals.
@@ -548,6 +572,14 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
     intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*occluded_node)(i), (*swept_node)(i), *this);}
 
   updatePhysBAMInterface(Xs, numStNodes,X,true);
+
+  //Kevin's debug
+/*  if(com->cpuNum()==44) {
+    for(int i=0; i<numStNodes; i++)
+      fprintf(stderr,"%d %e %e %e\n",i+1,Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(stderr,"%d %d %d %d\n", i+1, stElem[i][0]+1, stElem[i][1]+1, stElem[i][2]+1);
+  }*/
 
   buildSolidNormals();
   d->findNodeBoundingBoxes(X,*boxMin,*boxMax);
@@ -612,9 +644,9 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
   int localColorCount[numLocSub];
 #pragma omp parallel for
   for(int iSub=0;iSub<numLocSub;++iSub) {
-      localColorCount[iSub]=FloodFill::floodFillSubDomain(*domain->getSubDomain()[iSub],intersector[iSub]->edges,
-                                                       intersector[iSub]->edgeIntersections,
-                                                       intersector[iSub]->occluded_node,nodeColors(iSub));}
+    localColorCount[iSub]=FloodFill::floodFillSubDomain(*domain->getSubDomain()[iSub],intersector[iSub]->edges,
+                                                        intersector[iSub]->edgeIntersections,
+                                                        intersector[iSub]->occluded_node,nodeColors(iSub));}
   floodFill->generateConnectionsSet(*domain,*com,nodeColors);
 
   map<pair<GLOBAL_SUBD_ID,int>,int> localToGlobalColorMap; // only contains valid data for local SubDomains.
@@ -622,33 +654,60 @@ DistIntersectorPhysBAM::findActiveNodesUsingFloodFill(const DistVec<bool>& tId,c
 
 // Determine the status of local colors
   map<int,int> globalColorToGlobalStatus;
-  for(list<pair<Vec3D,int> >::const_iterator iter = points.begin(); iter!=points.end(); iter++)
-    com->fprintf(stderr,"found Point %d(%e %e %e) with specified fluid model and initial conditions.\n", iter->second, (iter->first)[0], (iter->first)[1], (iter->first)[2]);
 
-  for(int iSub=0;iSub<numLocSub;++iSub){int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
+#if 0 // Debug output
+  for(list<pair<Vec3D,int> >::const_iterator iter = points.begin(); iter!=points.end(); iter++)
+    com->fprintf(stderr,"found Point %d (%e %e %e) with specified fluid model and initial conditions.\n", 
+                 iter->second, (iter->first)[0], (iter->first)[1], (iter->first)[2]);
+#endif
+
+  for(int iSub=0;iSub<numLocSub;++iSub){
+    int ffNode=domain->getSubDomain()[iSub]->findFarfieldNode();
     if(ffNode >= 0){
-//      fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],IntersectorPhysBAM::INSIDE);
-      globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;}}
+#if 0 // Debug output
+      fprintf(stderr,"%02d: Setting global color %d [from %d, %d] to Fluid Model %d BASED ON FF NODE\n",com->cpuNum(),
+              localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])],
+	      PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]).Value(),nodeColors(iSub)[ffNode],IntersectorPhysBAM::INSIDE);
+#endif
+      globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(*domain->getSubDomain()[iSub]),nodeColors(iSub)[ffNode])]]=IntersectorPhysBAM::INSIDE;
+    }
+  }
 
   for(int iSub=0;iSub<numLocSub;++iSub){
     SubDomain& sub=intersector[iSub]->subD;
     for(int iElem=0; iElem<sub.numElems(); iElem++)
       for(list<pair<Vec3D,int> >::const_iterator iP=points.begin(); iP!=points.end(); iP++){
         if(sub.isINodeinITet(iP->first, iElem, (*X)(iSub))){ // TODO(jontg): Use a robust implementation of this routine
-//          fprintf(stderr,"Setting global color %d to Fluid Model on Point %d\n",localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],iP->second);
-          globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;}}}
+#if 0 // Debug output
+          fprintf(stderr,"%02d: Setting global color %d [from %d, %d] to Fluid Model %d BASED ON POINT DATA\n",com->cpuNum(),
+			  localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])],
+			  PhysBAM::getGlobSubNum(sub).Value(),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]], iP->second);
+#endif
+          globalColorToGlobalStatus[localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[sub.getElemNodeNum(iElem)[0]])]]=iP->second;
+        }
+      }
+  }
 
   PHYSBAM_MPI_UTILITIES::syncMap(*domain,*com,globalColorToGlobalStatus);
 
 // Compute node status (occluded nodes are OUTSIDE the fluid regime)
 #pragma omp parallel for
   for(int iSub=0;iSub<numLocSub;++iSub){
-      SubDomain& sub=intersector[iSub]->subD;
-      for(int i=0;i<(*status)(iSub).size();++i){int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
-          if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end())
-              (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;
-          else 
-              (*status)(iSub)[i]=globalColorToGlobalStatus[color];}}
+    SubDomain& sub=intersector[iSub]->subD;
+    for(int i=0;i<(*status)(iSub).size();++i){
+      int color=localToGlobalColorMap[pair<GLOBAL_SUBD_ID,int>(PhysBAM::getGlobSubNum(sub),nodeColors(iSub)[i])];
+      if((*occluded_node)(iSub)[i] || globalColorToGlobalStatus.find(color)==globalColorToGlobalStatus.end()){
+#if 0 // Debug output
+        fprintf(stderr,"Flagging node %d as OUTSIDE COLOR %d, based on occluded = %d, global_color found = %d\n",
+			intersector[iSub]->locToGlobNodeMap[i]+1, IntersectorPhysBAM::OUTSIDECOLOR, (*occluded_node)(iSub)[i],
+			globalColorToGlobalStatus.find(color)!=globalColorToGlobalStatus.end());
+        fprintf(stderr,"\t\tGLOBAL COLOR = %d, local color given as (%d, %d)\n", color, PhysBAM::getGlobSubNum(sub).Value(), nodeColors(iSub)[i]);
+#endif
+        (*status)(iSub)[i]=IntersectorPhysBAM::OUTSIDECOLOR;}
+      else 
+        (*status)(iSub)[i]=globalColorToGlobalStatus[color];
+    }
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -691,15 +750,60 @@ DistIntersectorPhysBAM::findActiveNodes(const DistVec<bool>& tId) {
 //----------------------------------------------------------------------------
 
 void
-DistIntersectorPhysBAM::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) {
-  if(nNodes!=numStNodes) {
-    com->fprintf(stderr,"Number of structure nodes has changed!\n");
-    exit(-1);}
+DistIntersectorPhysBAM::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3])
+{
+  int previous = numStNodes;
+  if(cracking)
+    gotNewCracking = cracking->getNewCrackingFlag();
+  if(gotNewCracking)
+    cracking->setNewCrackingFlag(false);
+  if((nNodes!=numStNodes) != gotNewCracking){
+    fprintf(stderr,"ERROR: AERO-F is not sure if there is a new cracking... (Could be a software bug.) nNodes = %d, numStNodes = %d, gotNewCracking = %d\n", nNodes, numStNodes, gotNewCracking);
+    exit(-1);
+  }
 
-  for (int i=0; i<nNodes; i++) {
-    Xs_n[i] = Xs_np1[i];
-    Xs_np1[i] = xs[i];
-    Xsdot[i] = Vs[i];}
+  if(gotNewCracking) {
+    if(!cracking || nNodes<numStNodes) {
+      com->fprintf(stderr,"ERROR: Number of structure nodes has changed! Cracking is not considered in this simulation.\n");
+      exit(-1);}
+    // need to get the topology change caused by cracking.
+    updateCracking(abc);
+    if(nNodes!=numStNodes) {com->fprintf(stderr,"ERROR: horrible! %d v.s. %d\n", nNodes, numStNodes);exit(-1);}
+  }
+
+  for (int i=0; i<nNodes; i++)
+    for(int j=0; j<3; j++) {
+      Xs_n[i][j] = (i<previous) ? Xs_np1[i][j] : xs[3*i+j];
+      Xs_np1[i][j] = xs[3*i+j];
+      Xsdot[i][j] = Vs[3*i+j];}
+
+  if(gotNewCracking) {
+    std::map<int,int> newNodes = cracking->getLatestPhantomNodes();
+    if(numStNodes-previous!=newNodes.size()) {
+      com->fprintf(stderr,"SOFTWARE BUG: How many new phantom nodes, %d or %d ?!\n", numStNodes-previous, newNodes.size());
+      exit(-1);
+    }
+    for(std::map<int,int>::iterator it=newNodes.begin(); it!=newNodes.end(); it++)
+      Xs[it->first] = Xs[it->second]; //add new phantom nodes but keep the old node corrdinates.
+    initializePhysBAM(); //delete the old interface and create a new one. Use the modified Xs.
+  }
+}
+
+//----------------------------------------------------------------------------
+
+void DistIntersectorPhysBAM::updateCracking(int (*abc)[3])
+{ //update the topology, but not the node coordinates
+  numStNodes = cracking->usedNodes();
+  numStElems = cracking->usedTrias(); 
+  std::set<int> newQuads = cracking->getLatestPhantomQuads();
+  for(std::set<int>::iterator it=newQuads.begin(); it!=newQuads.end(); it++) {
+    int trId1,trId2;
+    cracking->getQuad2Tria(*it,trId1,trId2); //obtain trId1 and trId2;
+    for(int j=0; j<3; j++) {
+      stElem[trId1][j] = abc[trId1][j];
+      stElem[trId2][j] = abc[trId2][j];
+    } 
+  } 
 }
 
 //----------------------------------------------------------------------------
@@ -774,8 +878,9 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-void
+int
 DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
+
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
     exit(-1);
@@ -786,12 +891,24 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
   for (int i=0; i<numStNodes; i++) 
     Xs[i] = (1.0-alpha)*Xs_n[i] + alpha*Xs_np1[i];
 
+/*  //Debug only!
+  if(com->cpuNum()==0) {
+    for(int i=0; i<numStNodes; i++)
+      fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
+    for(int i=0; i<numStElems; i++)
+      fprintf(stderr,"%d 4 %d %d %d\n", i+1, stElem[i][0]+1, stElem[i][1]+1, stElem[i][2]+1);
+  }
+*/
+
   // for hasCloseTriangle
   DistVec<bool> tId(X->info());
   
-  updatePhysBAMInterface(Xs, numStNodes,*X);
+  updatePhysBAMInterface(Xs, numStNodes,*X, gotNewCracking);
 
   buildSolidNormals();
+
+//  for(int i=0; i<numStNodes; i++)
+//    fprintf(stderr,"%d %e %e %e\n", i+1, Xs[i][0], Xs[i][1], Xs[i][2]);
 
 #pragma omp parallel for
   for(int iSub = 0; iSub < numLocSub; ++iSub){
@@ -801,6 +918,7 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
       intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
 
   findActiveNodes(tId);
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -1033,6 +1151,12 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     lsRes.gradPhi = lsRes.xi[0]*ns0 + lsRes.xi[1]*ns1 + lsRes.xi[2]*ns2;
     lsRes.gradPhi /= lsRes.gradPhi.norm();
   }
+
+/*  if(trueTriangleID+1 == 1 || trueTriangleID+1 == 2 || trueTriangleID+1 == 319 || trueTriangleID+1 == 320 ||
+     trueTriangleID+1 == 641 || trueTriangleID+1 == 642 || trueTriangleID+1 == 643 || trueTriangleID+1 == 644) {
+    fprintf(stderr,"Intersection(%d,%d): triangle %d, alpha = %e, xi = (%e,%e), phi = %e, normal = (%e,%e,%e)\n", 
+                    ni+1,nj+1,trueTriangleID+1, lsRes.alpha, lsRes.xi[0], lsRes.xi[1], distIntersector.cracking->getPhi(trueTriangleID, lsRes.xi[0],lsRes.xi[1]),lsRes.gradPhi[0], lsRes.gradPhi[1], lsRes.gradPhi[2]); 
+  }*/
 
   return lsRes;
 }

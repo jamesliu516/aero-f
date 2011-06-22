@@ -181,6 +181,7 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK2(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  checkSolution(U0);
 
   // Ghost-Points Population
   if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
@@ -208,16 +209,19 @@ void ExplicitEmbeddedTsDesc<dim>::solveNLAllRK4(DistSVec<double,dim> &U, double 
   this->spaceOp->getExtrapolationValue(U, Ubc, *this->X);
   U0 = U - k1;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  checkSolution(U0);
 
   computeRKUpdate(U0, k2, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - 0.5 * k2;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  checkSolution(U0);
 
   computeRKUpdate(U0, k3, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
   U0 = U - k3;
   this->spaceOp->applyExtrapolationToSolutionVector(U0, Ubc);
+  checkSolution(U0);
 
   computeRKUpdate(U0, k4, 1);
   this->spaceOp->getExtrapolationValue(U0, Ubc, *this->X);
