@@ -1720,7 +1720,8 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
 					  DistVec<double> &ctrlVol, double (*Fs)[3], int sizeFs, 
 					  DistLevelSetStructure *distLSS,
 					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
-					  DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+					  DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,
+					  DistVec<int>* fid)
 {
   double pinternal = iod->aero.pressure;
   
@@ -1728,7 +1729,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
     {
     case 1: // Kevin's Old Integration - Control Volume Boundaries
       domain->computeCVBasedForceLoad(forceApp, orderOfAccuracy, *geoState, X, Fs,
-                                    sizeFs, distLSS, Wstarij, Wstarji, pinternal);
+				      sizeFs, distLSS, Wstarij, Wstarji, pinternal,varFcn,fid);
       break;
     case 2: // New Method - Control Volume Boundaries
       if(orderOfAccuracy>1) ngrad->compute(geoState->getConfig(), X, ctrlVol,distLSS->getStatus(),*V,true);
@@ -1738,7 +1739,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       break;
     case 3: // Kevin's Old Integration - Reconstructed Surface
       domain->computeRecSurfBasedForceLoad(forceApp, orderOfAccuracy, X, Fs,
-					   sizeFs, distLSS, Wstarij, Wstarji, pinternal);
+					   sizeFs, distLSS, Wstarij, Wstarji, pinternal,varFcn,fid);
       break;
     case 4: // New Method - Reconstructed Surface
       // To be deleted once everything is working properly

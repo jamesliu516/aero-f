@@ -2192,6 +2192,7 @@ ImplicitData::ImplicitData()
   tmcoupling = WEAK;
   mvp = H1;
   fdOrder = FIRST_ORDER;
+  fvmers_3pbdf = BDF_SCHEME2;
   //normals = AUTO;
   //velocities = AUTO_VEL;
  
@@ -2235,6 +2236,10 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
       "FirstOrder", FIRST_ORDER, "SecondOrder", SECOND_ORDER);
 
 
+  new ClassToken<ImplicitData>
+    (ca, "FVMERSBDFScheme", this,
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::fvmers_3pbdf), 2,
+      "Scheme1", BDF_SCHEME1, "Scheme2", BDF_SCHEME2);
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this,

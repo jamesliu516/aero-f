@@ -191,7 +191,6 @@ public:
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
 
-
   // geometry
 
   void setFaceType(int *);

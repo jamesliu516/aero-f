@@ -3563,7 +3563,8 @@ template<int dim>
 void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
                                      DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                      DistLevelSetStructure *distLSS,
-                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
+                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty,
+				     VarFcn* vf, DistVec<int>* fid)
 {
   double subFs[numLocSub][sizeFs][3];
   DistVec<double> pstarij(Wstarij.info());
@@ -3571,8 +3572,8 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
     for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
-      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
+      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[i]:0);
+      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[i]:0);
     }
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -3632,18 +3633,30 @@ void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, D
 
 template<int dim>
 void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
-                                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
+					  double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty,
+					  VarFcn* vf, DistVec<int>* fid)
 {
   double subFs[numLocSub][sizeFs][3];
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
-      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    int (*ptr )[2] = subDomain[iSub]->getEdges().getPtr();
+    if (fid) {
+      for (int i=0; i<Wstarij(iSub).size(); i++) {
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],(*fid)(iSub)[ptr[i][0]]);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],(*fid)(iSub)[ptr[i][1]]);//Wstarji(iSub)[i][4];
+      }
+    } else {
+      for (int i=0; i<Wstarij(iSub).size(); i++) {
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],ptr[i][0]);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],ptr[i][1]);//Wstarji(iSub)[i][4];
+      }
+
     }
+  }
+
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
