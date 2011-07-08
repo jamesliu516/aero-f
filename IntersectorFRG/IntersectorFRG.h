@@ -56,8 +56,10 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
-    int (*stElem)[3]; //structure elements (topology)
-
+    int (*stElem)[3];     //structural elements (element to node connectivity)
+    set<int> *node2node;  //structural node to node connectivity
+    set<int> *node2elem;  //structural node to element (triangle) connectivity
+    
     Vec3D *Xsdot; //velocity
 
     DistVec<int> *status;   //node status
@@ -79,6 +81,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     DistVec<bool> *poly; //true if a node lies in n>2 subdomains (not used!)
     void findPoly(); //not used!
+    void buildConnectivity();
     void buildSolidNormals();
     void expandScope();
     void findInAndOut();
