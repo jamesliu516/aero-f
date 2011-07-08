@@ -441,6 +441,7 @@ double ClosestTriangle::findSignedVertexDistance()
     if(d_xp_xr>=ry)
       ry = d_xp_xr;
 
+    if(npx*(xp-xr)<1.0e-14) continue;
     double t = npx*(x-xr)/(npx*(xp-xr)); 
     Vec3D xt = xr + t*(xp-xr);
     double d_x_xt = (xt - x).norm();
@@ -449,12 +450,12 @@ double ClosestTriangle::findSignedVertexDistance()
       rr  = d_x_xt;
     }
   }
-  if(rr<1.0e-16) {fprintf(stderr,"ERROR: (in IntersectorFRG) distance = %e.\n",rr);exit(-1);}
+  if(rr<1.0e-14) {fprintf(stderr,"ERROR: (in IntersectorFRG) distance = %e.\n",rr);exit(-1);}
   dir *= 1.0/rr; //normalize dir
-  rr = std::max(1.5*rr, std::max((x-xp).norm(), ry)); 
+  rr = std::min(1.5*rr, std::max((x-xp).norm(), ry)); 
   rr *= 0.05;
 
-  int nTrial = 50; //TODO: 1 should be enough?
+  int nTrial = 50;
   for(int iTrial=0; iTrial<nTrial; iTrial++) {
     Vec3D x_trial;
     if(iTrial%2==1)
