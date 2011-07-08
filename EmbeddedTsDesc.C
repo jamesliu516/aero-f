@@ -59,14 +59,7 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
 
 
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
-    riemannNormal = (int)ioData.embed.riemannNormal;
-  else {//auto
-    if(ioData.problem.type[ProblemData::UNSTEADY] && !ioData.problem.type[ProblemData::FORCED])
-      riemannNormal = 1;
-    else //steady or forced
-      riemannNormal = 0;
-  }
+  riemannNormal = (int)ioData.embed.riemannNormal;
       
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 

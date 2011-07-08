@@ -59,7 +59,6 @@ class FluidSelector;
 struct V6NodeData;
 struct Vec3D;
 struct compStruct;
-struct PolygonReconstructionData;
 struct ExtrapolationNodeData;
 
 template<int dimLS> class LevelSet;
@@ -76,6 +75,52 @@ template<class Scalar, int dim> class SparseMat;
 template<class Scalar, int dim> class GenMat;
 
 #include "LevelSet/FluidTypeCriterion.h"
+//------------------------------------------------------------------------------
+
+struct PolygonReconstructionData { //for force computation under the embedded framework
+    PolygonReconstructionData() : numberOfEdges(0) {}
+    int numberOfEdges;
+    int edgeWithVertex[4][2];
+
+    void AssignSingleEdge(int n1, int n2){ //for PhysBAM only
+        numberOfEdges=1;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+    }
+
+    void AssignTwoEdges(int n1, int n2, int n3){ //for PhysBAM only
+        numberOfEdges=2;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+    }
+
+    void AssignTriangle(int n1, int n2, int n3, int n4,bool owned_by_single_vertex=true){
+        numberOfEdges=3;
+        if(owned_by_single_vertex){
+            edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n2;
+            edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n3;
+            edgeWithVertex[2][0]=n1; edgeWithVertex[2][1]=n4;}
+        else{
+            edgeWithVertex[0][0]=n2; edgeWithVertex[0][1]=n1;
+            edgeWithVertex[1][0]=n3; edgeWithVertex[1][1]=n1;
+            edgeWithVertex[2][0]=n4; edgeWithVertex[2][1]=n1;}
+    }
+
+    void AssignQuadTriangle(int n1, int n2, int n3, int n4){ //for PhysBAM only
+        numberOfEdges=3;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n3;
+    }
+
+    void AssignQuadrilateral(int n1, int n2, int n3, int n4){
+        numberOfEdges=4;
+        edgeWithVertex[0][0]=n1; edgeWithVertex[0][1]=n3;
+        edgeWithVertex[1][0]=n1; edgeWithVertex[1][1]=n4;
+        edgeWithVertex[2][0]=n2; edgeWithVertex[2][1]=n4;
+        edgeWithVertex[3][0]=n2; edgeWithVertex[3][1]=n3;
+    }
+};
+
 //------------------------------------------------------------------------------
 
 struct EdgeDef {
@@ -1106,25 +1151,22 @@ public:
 
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
-  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
-                               Vec<double>&, Vec<double>&, double pInfty);
+//  void computeCVBasedForceLoad(int, int, GeoState&, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
+//                               Vec<double>&, Vec<double>&, double pInfty);
   template<int dim>
-    void computeCVBasedForceLoadViscous(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad);
-  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
-                                    Vec<double>&, Vec<double>&, double pInfty);  
+  void computeCVBasedForceLoad(int, int, GeoState &,SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+                               SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+                               Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,NodalGrad<dim,double> &ngrad);
+//  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double(*)[3], int, LevelSetStructure&,
+//                                    Vec<double>&, Vec<double>&, double pInfty);  
   template<int dim>
-    void computeRecSurfBasedForceLoadViscous(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					   SVec<double,dim> &V, Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);  
-  template<int dim>
-    void computeRecSurfBasedForceLoadNew(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
-					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
-  int getPolygon(int, LevelSetStructure&, int[4][2]);
+  void computeRecSurfBasedForceLoad(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
+                                    SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
+                                    Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+  int getPolygon(int, LevelSetStructure&, int[4][2]); //not used?
   int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
-                     LevelSetResult&, double(*)[3]);
+                     LevelSetResult&, double(*)[3]); //not used.
   void sendLocalForce(Vec3D, LevelSetResult&, double(*)[3]);
 
   void computeCharacteristicEdgeLength(SVec<double,3>&, double&, double&, double&, int&, const double, const double, const double, const double, const double, const double);

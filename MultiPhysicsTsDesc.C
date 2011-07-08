@@ -78,14 +78,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupEmbeddedFSISolver(IoData &ioData)
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
-  if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
-    riemannNormal = (int)ioData.embed.riemannNormal;
-  else {//auto
-    if(ioData.problem.type[ProblemData::UNSTEADY] && !ioData.problem.type[ProblemData::FORCED])
-      riemannNormal = 1;
-    else //steady or forced
-      riemannNormal = 0;
-  }
+  riemannNormal = (int)ioData.embed.riemannNormal;
 
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false;

@@ -3174,6 +3174,7 @@ EmbeddedFramework::EmbeddedFramework() {
   structNormal = ELEMENT_BASED;
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
+  riemannNormal = STRUCTURE;
 
   nLevelset = 0;
 
@@ -3181,7 +3182,6 @@ EmbeddedFramework::EmbeddedFramework() {
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
-  riemannNormal = AUTO;
 
 }
 
@@ -3189,7 +3189,7 @@ EmbeddedFramework::EmbeddedFramework() {
 
 void EmbeddedFramework::setup(const char *name) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, 0); //father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, 0); //father);
 
   new ClassToken<EmbeddedFramework> (ca, "Intersector", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::intersectorName), 2,
                                       "PhysBAM", 0, "FRG", 1);
@@ -3199,6 +3199,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "NodalState", 0, "RiemannSolution", 1);
   new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
                                       "Reconstructed", 0, "ControlVolumeFace", 1);
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
+                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2);
   embedIC.setup("InitialConditions", ca); 
 
 
@@ -3209,8 +3211,6 @@ void EmbeddedFramework::setup(const char *name) {
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
-  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
-                                      "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
 }
 
 //------------------------------------------------------------------------------
