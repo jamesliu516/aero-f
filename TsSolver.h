@@ -132,22 +132,26 @@ int TsSolver<ProblemDescriptor>::resolve(typename ProblemDescriptor::SolVecType 
       bool solveOrNot = probDesc->IncreasePressure(dt,t,U);
       if(solveOrNot){
         stat = probDesc->solveNonLinearSystem(U);
-      }
-      if(stat>0){
-        itNl += stat;
-        // compute the current aerodynamic force
+        if(stat>0){
+          itNl += stat;
+          // compute the current aerodynamic force
+          probDesc->updateOutputToStructure(dt, dtLeft, U);
+          probDesc->updateStateVectors(U, it);
+        }
+        else{
+          if(itSc > 200){ 
+            probDesc->printf(1, "Fail safe failed! \n",itSc);
+            exit(-1);
+          }
+          probDesc->printf(1, "itSc:  %i \n",itSc);
+          t -= dt;
+          probDesc->setFailSafe(true);
+        }
+      } else {
         probDesc->updateOutputToStructure(dt, dtLeft, U);
         probDesc->updateStateVectors(U, it);
       }
-      else{
-        if(itSc > 200){ 
-          probDesc->printf(1, "Fail safe failed! \n",itSc);
-          exit(-1);
-        }
-        probDesc->printf(1, "itSc:  %i \n",itSc);
-        t -= dt;
-        probDesc->setFailSafe(true);
-      }
+
     } while (dtLeft != 0.0 || stat<0);
 
 
