@@ -64,7 +64,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   requireSpecialBDF = false;
   increasingPressure = false;
 
-  ioData.printDebug();
+//  ioData.printDebug();
 }
 
 //------------------------------------------------------------------------------

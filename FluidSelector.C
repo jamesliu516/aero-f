@@ -186,7 +186,6 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 {
   assert(dim<=numPhases-1);
   int numLocSub = Phi.numLocSub();
-  int oldtag;
   int burnTag;
   DistVec<int> &fsId(distLSS->getStatus());
 #pragma omp parallel for
@@ -200,11 +199,8 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
           fprintf(stderr,"This must be a bug!\n"); exit(-1);}
         continue;
       }
-      oldtag = tag[iNode];
       tag[iNode] = 0;
       for(int i=0; i<dim; i++) {
-	//if (!programmedBurn || programmedBurn->getBurnedEOS() != oldtag)
-
 	if(phi[iNode][i]>0.0) {
 	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
