@@ -32,16 +32,6 @@ class Timer;
 class IoData;
 class CrackingSurface;
 
-struct ClosestPoint {
-  int mode; //-2: unknown, -1: far from interface, 0: face, 1: edge, 2: vertex.
-  double dist; //this is the unsigned distance. always >= 0.
-  int tracker[2]; // for mode=0: tracker[0] = tria Id; for mode=1: the two vertices; for mode=2: the vertex
-  double xi1,xi2; // local coordinates.
-  ClosestPoint() {mode=-2;}
-  bool known() {return mode!=-2;}
-  bool nearInterface() {return mode!=-1;}
-};
-
 template<class Scalar, int dim> class SVec;
 
 class DistIntersectorPhysBAM : public DistLevelSetStructure {
@@ -122,7 +112,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false);
-    int recompute(double dtf, double dtfLeft, double dts);
+    int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -134,6 +124,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
+    DistVec<ClosestPoint> &getClosestPoints() {return *closest;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }

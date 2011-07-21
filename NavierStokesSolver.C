@@ -12,15 +12,21 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
   if (ioData.problem.framework==ProblemData::EMBEDDED) { //Trigger the embedded framework
     if (ioData.eqs.type == EquationsData::EULER) {
       com->fprintf(stderr, "*** Running an Embedded Inviscid %d Phase Fluid-Structure simulation with %d Level-set(s) ***\n", ioData.eqs.numPhase, ioData.embed.nLevelset);
-      switch(ioData.embed.nLevelset) {
-        case 0 : NavierStokesEmbedded<5>::solve(ioData, geoSource, domain); break;
-        case 1 : NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain); break;
-        case 2 : NavierStokesMultiPhysicsEmbedded<5,2>::solve(ioData,geoSource,domain); break;
-        case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
-        // Feel free to add more here. e.g. case 4 : NavierStokesMultiPhysicsEmbedded<5,4>::solve(ioData,geoSource,domain); break;
-        default: 
-          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", ioData.embed.nLevelset); 
-          exit(-1);
+      if(ioData.embed.mixedLevelset==EmbeddedFramework::ON) {
+        com->fprintf(stderr, "--- FF & FS Mixed Level-set ACTIVATED ---\n");
+        NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain);
+      } else {
+        switch(ioData.embed.nLevelset) {
+          case 0 : NavierStokesEmbedded<5>::solve(ioData, geoSource, domain); break;
+          case 1 : NavierStokesMultiPhysicsEmbedded<5,1>::solve(ioData,geoSource,domain); break;
+          case 2 : NavierStokesMultiPhysicsEmbedded<5,2>::solve(ioData,geoSource,domain); break;
+          case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
+          // Feel free to add more here. e.g. case 4 : NavierStokesMultiPhysicsEmbedded<5,4>::solve(ioData,geoSource,domain); break;
+          default: 
+            com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", 
+                         ioData.embed.nLevelset); 
+            exit(-1);
+        }
       }
     }
     else if (ioData.eqs.type == EquationsData::NAVIER_STOKES)

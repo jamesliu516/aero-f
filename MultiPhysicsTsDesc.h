@@ -81,6 +81,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   //------------------------------------------------------------------------
   // MultiPhaseFlow: basics
+  bool withMixedLS;
   MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   int frequencyLS; // frequency for reinitialization of level set
 

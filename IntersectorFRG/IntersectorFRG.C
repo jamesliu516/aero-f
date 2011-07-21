@@ -1238,8 +1238,12 @@ void DistIntersectorFRG::updatePhysBAMInterface()
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts) 
+int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts, bool findStatus) 
 {
+  if(!findStatus) {
+    fprintf(stderr,"ERROR: findStatus = %d. IntersectorFRG always needs to determine status.\n", findStatus);
+    exit(-1);
+  }
 
   //updateStructCoords(0.0, 1.0);
   updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));

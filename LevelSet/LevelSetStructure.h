@@ -52,6 +52,17 @@ struct LevelSetResult {
    iterator end() { return iterator(xi+3, trNodes+3); }
 };
 
+/** Storing the closest point on the interface */
+struct ClosestPoint {
+  int mode; //-2: unknown, -1: far from interface, 0: face, 1: edge, 2: vertex.
+  double dist; //this is the unsigned distance. always >= 0.
+  int tracker[2]; // for mode=0: tracker[0] = tria Id; for mode=1: the two vertices; for mode=2: the vertex
+  double xi1,xi2; // local coordinates.
+  ClosestPoint() {mode=-2;}
+  bool known() {return mode!=-2;}
+  bool nearInterface() {return mode!=-1;}
+};
+
 /** Abstract class for finding levelset information */
 class LevelSetStructure {
   public:
@@ -110,10 +121,11 @@ class DistLevelSetStructure {
     }
 
     virtual DistVec<int> &getStatus() = 0;
+    virtual DistVec<ClosestPoint> &getClosestPoints() = 0;
     virtual void setStatus(DistVec<int> nodeTag) = 0;                                
 
     virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
-    virtual int recompute(double dtf, double dtfLeft, double dts) = 0;
+    virtual int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;
