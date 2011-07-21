@@ -215,7 +215,8 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
 
   setupUMultiFluidInitialConditions(iod,X);
 
-  if(point_based_id && iod.eqs.numPhase>=2) 
+  //if(point_based_id && iod.eqs.numPhase>=2)
+  if(point_based_id) //KW: used to be the line above
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
   if (name[0] != 0) {

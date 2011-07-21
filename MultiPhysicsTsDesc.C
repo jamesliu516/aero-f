@@ -218,6 +218,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupMultiPhaseFlowSolver(IoData &ioData)
 {
   LS = new LevelSet<dimLS>(ioData, this->domain);
   frequencyLS = ioData.mf.frequency;
+  withMixedLS = (ioData.embed.mixedLevelset==EmbeddedFramework::ON);
 }
 
 //------------------------------------------------------------------------------
@@ -262,8 +263,13 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+
   // Initialize level-sets 
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn);
+  if(withCracking && withMixedLS) 
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
+              &(distLSS->getClosestPoints()), &(distLSS->getStatus()));
+  else
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -370,7 +376,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
   
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
-    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+    LS->reinitializeLevelSet(*this->X, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
     LS->update(Phi);
     if (this->timeState->useNm1()) {

@@ -3178,6 +3178,7 @@ EmbeddedFramework::EmbeddedFramework() {
   nLevelset = 0;
 
   //debug variables
+  mixedLevelset = OFF;
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
@@ -3203,6 +3204,8 @@ void EmbeddedFramework::setup(const char *name) {
 
 
   //debug variables
+  new ClassToken<EmbeddedFramework> (ca, "MixedLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::mixedLevelset), 2,
+                                      "Off", 0, "On", 1);
   new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
                                       "TwoWay", 0, "OneWay", 1);
   new ClassToken<EmbeddedFramework> (ca, "TwoDimension", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::dim2Treatment), 2,
@@ -4024,7 +4027,7 @@ int IoData::checkInputValuesAllInitialConditions(){
 
   embed.nLevelset = 0;
 
-  // count number levelsets (consider only bubbles!) for the Embedded Framework.
+  // count number of levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();

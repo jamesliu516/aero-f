@@ -92,7 +92,11 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::recomputeIntersections()
   this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
 
   double tw = this->timer->getTime();
-  this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts);
+  if(this->withCracking && this->withMixedLS) // no need for the intersector to determine fluidId.
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, false);
+  else
+    this->distLSS->recompute(this->dtf, this->dtfLeft, this->dts, true);
+
   if(this->riemannNormal==2)
     this->multiPhaseSpaceOp->computeCellAveragedStructNormal(*(this->Nsbar), this->distLSS);
   this->timer->addIntersectionTime(tw);

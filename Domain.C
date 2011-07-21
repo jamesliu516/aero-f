@@ -3956,7 +3956,7 @@ void Domain::computeDistanceLevelNodes(int lsdim, DistVec<int> &Tag, int level,
 {
   double res(_res);
 
-  if(copy==MultiFluidData::TRUE && level==2){
+  if(copy==MultiFluidData::TRUE && level==2){ //KW: why?
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subDomain[iSub]->copyCloseNodes(lsdim, 2,Tag(iSub),Phi(iSub),Psi(iSub));

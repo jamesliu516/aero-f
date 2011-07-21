@@ -881,7 +881,7 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 int
-DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
+DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool findStatus) {
 
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
@@ -919,7 +919,9 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
       intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
       intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
 
-  findActiveNodes(tId);
+  if(findStatus)
+    findActiveNodes(tId);
+
   return 0;
 }
 
@@ -1028,6 +1030,7 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
       closest[i].mode = -1; // set to "far"
     }
   }
+
   nFirstLayer += numCloseNodes;
   reverse_mapping.Resize(nFirstLayer); xyz.Resize(nFirstLayer); // Trim the fat.
 
