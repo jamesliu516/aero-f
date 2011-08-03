@@ -5945,16 +5945,16 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
       if(ghostPoints) // Viscous Simulation
 	{
-	  gradP[0] = gradX[i][4];
-	  gradP[1] = gradY[i][4];
-	  gradP[2] = gradZ[i][4];
+	  gradP[0] = gradX[j][4];
+	  gradP[1] = gradY[j][4];
+	  gradP[2] = gradZ[j][4];
 	  // Minus, cause the normal points toward j
-	  flocal   -= (v[0][4] + 0.5*(gradP*vectorIJ))*normal[l];
+	  flocal   -= (v[0][4] - 0.5*(gradP*vectorIJ))*normal[l];
 	  // Compute Velocity Gradient
 	  // ***************** Method 1 **********************
-	  dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
-	  dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
-	  dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
+	  dudxj[0][0] = gradX[j][1]; dudxj[0][1] = gradY[j][1]; dudxj[0][2] = gradZ[j][1];
+	  dudxj[1][0] = gradX[j][2]; dudxj[1][1] = gradY[j][2]; dudxj[1][2] = gradZ[j][2];
+	  dudxj[2][0] = gradX[j][3]; dudxj[2][1] = gradY[j][3]; dudxj[2][2] = gradZ[j][3];
 	  // ***************** Method 2 **********************
 	  /*
 	  double norm = vectorIJ.norm();
@@ -5966,7 +5966,7 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
 	  dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
 	  */
 	  // Minus, cause the normal points toward j
-	  flocal  -= postFcn->computeViscousForceCVBoundary(normal[l],v[0],dudxj);
+	  flocal  -= postFcn->computeViscousForceCVBoundary(normal[l],v[1],dudxj);
 	}
       else
 	{

@@ -740,37 +740,38 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
       j = edgeEnd(l,0);
     }
 
-    Scalar *Aij = A.getElem_ij(edgeNum(l));
-    Scalar *Aji = A.getElem_ji(edgeNum(l));
+    if (LSS->isActive(0,nodeNum(i)) && LSS->isActive(0,nodeNum(j))) {
+      Scalar *Aij = A.getElem_ij(edgeNum(l));
+      Scalar *Aji = A.getElem_ji(edgeNum(l));
 
-    if (Aij && Aji) {
-      double cij = 1.0 / ctrlVol[ nodeNum(i) ];
-      double cji = 1.0 / ctrlVol[ nodeNum(j) ];
-      int m;
-
-      for (m=0; m<neq*neq; ++m) {
-        Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
-                         dRdU[j][2][m] * dp1dxj[i][2]);
-        Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
-                         dRdU[i][2][m] * dp1dxj[j][2]);
+      if (Aij && Aji) {
+	double cij = 1.0 / ctrlVol[ nodeNum(i) ];
+	double cji = 1.0 / ctrlVol[ nodeNum(j) ];
+	int m;
+	
+	for (m=0; m<neq*neq; ++m) {
+	  Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
+			   dRdU[j][2][m] * dp1dxj[i][2]);
+	  Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
+			   dRdU[i][2][m] * dp1dxj[j][2]);
+	}
+	
+	if (sourceTermExists) {
+	  double cij4 = cij * vol4;
+	  double cji4 = cji * vol4;
+	  for (m=0; m<neq*neq; ++m) {
+	    Aij[m] -= cij4 * dSdU[j][m];
+	    Aji[m] -= cji4 * dSdU[i][m];
+	  }
+	}
+	
+	if (porousTermExists) {
+	  for (m=1;m<neq*neq;++m) {
+	    Aij[m] += cij * dPdU[i][j][m];
+	    Aji[m] += cji * dPdU[j][i][m];
+	  }
+	}
       }
-
-      if (sourceTermExists) {
-        double cij4 = cij * vol4;
-        double cji4 = cji * vol4;
-        for (m=0; m<neq*neq; ++m) {
-          Aij[m] -= cij4 * dSdU[j][m];
-          Aji[m] -= cji4 * dSdU[i][m];
-        }
-      }
-
-      if (porousTermExists) {
-        for (m=1;m<neq*neq;++m) {
-           Aij[m] += cij * dPdU[i][j][m];
-           Aji[m] += cji * dPdU[j][i][m];
-        }
-      }
-
     }
   }
 
