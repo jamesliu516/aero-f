@@ -4350,8 +4350,6 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   int CODE;
   if (forceApp==3 && orderOfAccuracy==1)  CODE = 1;
   else if (forceApp==3 && orderOfAccuracy==2)  CODE = 3;
-  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 2;
-  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   // for debugging: output the reconstructed surface.
