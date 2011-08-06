@@ -682,7 +682,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
   double dpdrho = alpha*beta*pow(Riw,beta-1.0);
   
   int k = 0;
-  while (++k < 100) {
+  while (++k < 1000) {
 
     // Gas relations
     if (Pi > Pg) {
@@ -728,7 +728,7 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     
   }
 
-  if (k == 100) {
+  if (k == 1000) {
     std::cout << "No convergence in Newton iteration for gas-tait ERS" << std::endl;
     std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
     std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
@@ -746,9 +746,9 @@ inline void solveSGTait(double Rg,double Ug,double Pg,
     Rig = Rg*pow( (Pi+Pinf)/(Pg+Pinf), 1.0/gamma);
   }
 
-  //std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
-  //std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
-  // std::cout << "Pi = " << Pi << " Riw = " << Riw << " Rig = " << Rig << " Ui = " << Ui << std::endl;
+  /*std::cout << "Rg = " << Rg << " Ug = " << Ug << " Pg = " << Pg << std::endl;
+  std::cout << "Rw = " << Rw << " Uw = " << Uw << " Pw = " << Pw << std::endl;
+   std::cout << "Pi = " << Pi << " Riw = " << Riw << " Rig = " << Rig << " Ui = " << Ui << std::endl;*/
 }
 
 inline

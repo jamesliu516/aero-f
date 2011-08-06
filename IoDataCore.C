@@ -175,6 +175,44 @@ void OutputData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
+void Probes::Node::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 1, father);
+
+  new ClassInt<Probes::Node>(ca, "ID", this, &Probes::Node::id);
+}
+
+Probes::Probes() {
+
+  prefix = "";
+  density = "";
+  pressure = "";
+  temperature = "";
+  velocity = "";
+  displacement = "";
+}
+
+void Probes::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 56, father);
+
+  new ClassStr<Probes>(ca, "Prefix", this, &Probes::prefix);
+  new ClassStr<Probes>(ca, "Density", this, &Probes::density);
+  new ClassStr<Probes>(ca, "Pressure", this, &Probes::pressure);
+  new ClassStr<Probes>(ca, "Temperature", this, &Probes::temperature);
+  new ClassStr<Probes>(ca, "Velocity", this, &Probes::velocity);
+  new ClassStr<Probes>(ca, "Displacement", this, &Probes::displacement);
+
+  char nodename[12];
+  for (int i = 0; i < MAXNODES; ++i) {
+    sprintf(nodename,"Node%d",i+1);
+    
+    myNodes[i].setup(nodename, ca);
+  }
+
+}
+
 TransientData::TransientData()
 {
 
@@ -365,6 +403,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
   new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
 
+
+  probes.setup("Probes", ca);
 }
 
 

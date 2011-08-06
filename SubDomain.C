@@ -3902,6 +3902,19 @@ inline void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostF
   }
 }
 
+template<int dim, int dimLS>
+inline double SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
+						   SVec<double,dim> &V, SVec<double,3> &X,
+						   Vec<int> &fluidId,int i,SVec<double,dimLS>* phi) 
+{
+  
+  if (phi) {
+    return postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],(*phi)[i]);
+  } else { 
+    return postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],NULL);
+  }
+}
+
 //------------------------------------------------------------------------------
 
 template<class S1, class S2>
@@ -5990,3 +6003,11 @@ void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weig
     weight[currentNode] = (double)nToN.num(currentNode);
   }
 }
+
+template<int dim, class Obj>
+void SubDomain::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				  int npt) 
+{
+  elems.integrateFunction(obj,X,V,F,npt);
+}
+

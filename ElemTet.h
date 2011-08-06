@@ -27,6 +27,12 @@ protected:
     return h->forClassTet(this,size,memorySpace);
   }
 
+  void *getWrapper_dim_obj(GenElemHelper_dim_obj *h, 
+				  int size, char *memorySpace) {
+
+    return h->forClassTet(this,size,memorySpace);
+  }
+
 public:
 
   ElemTet() { volume_id = 0; }
@@ -176,6 +182,9 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
+
 
 private:
 
@@ -227,8 +236,6 @@ private:
 
   template<int dim>
   double computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi);
-
-
 
 };
 

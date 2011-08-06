@@ -107,7 +107,9 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   }
 
   // determine which level-sets must be updated and reinitialized
+  //exit(-1);
   conservativeToPrimitive(Phi,Phi0,U);
+
   double minDist[dimLS];
   double maxDist[dimLS];
   Phi0.min(minDist);
@@ -151,7 +153,7 @@ void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<doubl
 
   OneDimensional::read1DSolution(iod, U, 
 				 &Phi, fs,
-				 vf, X,
+				 vf, X,*domain,
 				 OneDimensional::ModePhi);
 }
 
