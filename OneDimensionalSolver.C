@@ -799,6 +799,7 @@ void OneDimensional::singleTimeIntegration(double dt){
 // for now, assume forward Euler
 
   double Vtemp[5];
+  
 
   fluidSelector.getFluidId(fluidId,Phi);
 
@@ -866,11 +867,12 @@ void OneDimensional::singleTimeIntegration(double dt){
       varFcn->conservativeToPrimitiveVerification(i+1, U[i], Vtemp, fluidId[i]);
     }
   }
-
+  
   if (programmedBurn) {
 
     programmedBurn->setFluidIds(time, fluidId,U);
   }
+
 }   
 
 void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
@@ -1091,14 +1093,15 @@ void OneDimensional::resultsOutput(double time, int iteration){
       else
 	output.open(vectors[i], fstream::out | fstream::app);
 
-      output << time << endl;
+      output << time*refVal.time << endl;
       for (int j = 0; j < numPoints; ++j) {
 	switch ( (PostFcn::VectorType)i ) {
 	case PostFcn::VELOCITY:
 	  output << V[j][1]*vscale[i] << " " << 0.0 << " " << 0.0; break;
 	default:
 	  break;
-	}  
+	} 
+        output << endl; 
       }
       output << endl;
       output.close();

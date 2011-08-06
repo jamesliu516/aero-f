@@ -1132,6 +1132,37 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 
 }
 
+// -----------------------------------------------------------------------------------------------------------------------------
+
+template<int dim>
+template<int dimLS>
+void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
+					      DistSVec<double,3>& X,
+					      DistSVec<double,dim>& U,
+					      DistVec<double>& A,
+					      DistTimeState<dim> *timeState,
+					      DistVec<int>& fluidId,int* subId,int* locNodeId,
+					      int count,
+					      double* results,
+					      DistSVec<double,dimLS> *Phi)
+{
+  memset(results,0,count*sizeof(double));
+  for (int i = 0; i < count; ++i) {
+    
+    if (subId[i] < 0) continue; 
+
+    int iSub = subId[i];
+    varFcn->conservativeToPrimitive(U(iSub)[locNodeId[i]], (*V)(iSub)[locNodeId[i]], fluidId(iSub)[locNodeId[i]]);
+    
+    if (Phi)
+	results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],&((*Phi)(iSub)));
+      else
+	results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],(SVec<double,1>*)0);
+  }
+
+  com->globalSum(count,results);
+
+}
 //---------------------------------------------------------------------------------
 /* Merged with above function
 template<int dim>
@@ -1358,6 +1389,45 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     for (iSub=0; iSub<numLocSub; ++iSub)
       subDomain[iSub]->computeDisplacement(X(iSub), Q(iSub));
   }
+                                                                                           
+}
+
+//------------------------------------------------------------------------------
+                                                                                                                                                                                             
+template<int dim>
+void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
+                                              DistSVec<double,3> &X,
+                                              DistSVec<double,dim> &U,
+					      int* subId,int* locNodeId,
+					      int count, double* result,
+                                              DistVec<int> &fluidId)
+{
+                                                                                                                                                                                             
+  int iSub;
+           
+  memset(result,0,sizeof(double)*count*3);
+  if (type == PostFcn::VELOCITY) {
+    for (int i = 0; i < count; ++i) {
+      if (subId[i] < 0) continue;
+
+      double (*u)[dim] = U.subData(subId[i]);
+      int (*fId) = fluidId.subData(subId[i]);
+      
+      double v[dim];
+      varFcn->conservativeToPrimitive(u[ locNodeId[i] ], v, fId[ locNodeId[i] ]);
+      Vec3D vel = varFcn->getVelocity(v, fId[ locNodeId[i] ]);
+      result[3*i] = vel[0];
+      result[3*i+1] = vel[1];
+      result[3*i+2] = vel[2];
+    }
+  }
+  else if (type == PostFcn::DISPLACEMENT) {
+    for (int i = 0; i < count; ++i) {
+      if (subId[i] < 0) continue;
+      subDomain[iSub]->computeDisplacement(X(iSub), &result[3*i], locNodeId[i]);
+    }
+  }
+  com->globalSum(count*3,result);  
                                                                                              
 }
 

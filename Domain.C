@@ -3997,3 +3997,22 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
   }
 
 }
+
+template<int dim, class Obj>
+void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+			       int npt) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->integrateFunction(obj, X(iSub), V(iSub), F, npt);
+    subDomain[iSub]->sndData(*volPat, V(iSub) );
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    //subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
+    subDomain[iSub]->addRcvData(*volPat, V(iSub));
+  }
+}

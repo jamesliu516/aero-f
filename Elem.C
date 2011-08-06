@@ -241,3 +241,9 @@ void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 // End of Level Set Reinitialization functions
 //-------------------------------------------------------------------------------
 
+template<int dim, class Obj>
+void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) {
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->integrateFunction(obj, X,V,F,npt);
+}

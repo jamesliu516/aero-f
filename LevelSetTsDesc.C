@@ -222,6 +222,7 @@ void LevelSetTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, int i
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, fluidSelector.fluidId);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
 
   this->output->updatePrtout(t);

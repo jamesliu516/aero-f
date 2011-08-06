@@ -912,6 +912,10 @@ public:
 
   template<int dim>
     void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				   int npt);
  };
 
 //------------------------------------------------------------------------------

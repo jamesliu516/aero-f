@@ -92,6 +92,36 @@ struct InputData {
 
 //------------------------------------------------------------------------------
 
+struct Probes {
+
+  const static int MAXNODES = 50;
+  struct Node { 
+    Node() { id = -1; location[0] = location[1] = location[2] = -1.0e20; subId = localNodeId = -1; }
+    int id;
+    int subId;
+    int localNodeId;
+    double location[3];
+    
+    void setup(const char *, ClassAssigner * = 0);
+  };
+
+  Node myNodes[MAXNODES];
+
+  const char *prefix;
+  const char *density;
+  const char *pressure;
+  const char *temperature;
+  const char *velocity;
+  const char *displacement;
+
+  Probes();
+  ~Probes() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
 struct TransientData {
 
   const char *prefix;
@@ -178,6 +208,8 @@ struct TransientData {
   double length;
   double surface;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+
+  Probes probes;
 
   TransientData();
   ~TransientData() {}

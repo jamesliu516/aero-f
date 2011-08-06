@@ -210,9 +210,9 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
   
-  setupUOneDimensionalSolution(iod,X);
-
   setupUMultiFluidInitialConditions(iod,X);
+  
+  setupUOneDimensionalSolution(iod,X);
 
   if(point_based_id && iod.eqs.numPhase>=2) 
     setupUFluidIdInitialConditions(iod, *point_based_id);
@@ -361,7 +361,7 @@ void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<doub
 {
   OneDimensional::read1DSolution(iod, *Un, 
 				 (DistSVec<double,1>*)NULL,NULL,
-				 varFcn, X,
+				 varFcn, X,*domain,
 				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
