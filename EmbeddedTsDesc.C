@@ -574,7 +574,7 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn());
+				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }

@@ -37,6 +37,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   com = domain->getCommunicator();
 
   int sp = strlen(iod.output.transient.prefix) + 1;
+  int spn = strlen(iod.output.transient.probes.prefix) + 1;
 
   if (iod.output.transient.solutions[0] != 0) {
     solutions = new char[sp + strlen(iod.output.transient.solutions)];
@@ -48,6 +49,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   for (i=0; i<PostFcn::SSIZE; ++i) {
     sscale[i] = 1.0;
     scalars[i] = 0;
+    nodal_scalars[i] = 0;
   }
   for (i=0; i<PostFcn::AVSSIZE; ++i) {
     avsscale[i] = 1.0;
@@ -56,6 +58,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   for (i=0; i<PostFcn::VSIZE; ++i) {
     vscale[i] = 1.0;
     vectors[i] = 0;
+    nodal_vectors[i] = 0;
   }
   for (i=0; i<PostFcn::AVVSIZE; ++i) {
     avvscale[i] = 1.0;
@@ -583,6 +586,74 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   else if (iod.problem.alltype != ProblemData::_STEADY_SENSITIVITY_ANALYSIS_) {
     switchOpt = false;
   }
+
+  // Initialize nodal output structures
+  Probes& myProbes = iod.output.transient.probes;
+  nodal_output.results = new double[Probes::MAXNODES*3];
+  nodal_output.subId = new int[Probes::MAXNODES];
+  nodal_output.locNodeId = new int[Probes::MAXNODES];
+					      
+  for (i = 0; i < Probes::MAXNODES; ++i) {
+
+    if (myProbes.myNodes[i].id >= 0) {
+
+      int flag = -1;
+      int locid = -1;
+      int lis = -1;
+#pragma omp parallel for
+      for (int iSub = 0; iSub < dom->getNumLocSub(); ++iSub) {
+	locid = dom->getSubDomain()[iSub]->getLocalNodeNum( myProbes.myNodes[i].id );
+	fprintf(stdout,"locid = %i\n",locid);
+	if (locid >= 0) {
+	  lis = iSub;
+	  flag = com->cpuNum();
+	  break;
+	}
+      }
+
+      com->globalMax(1,&flag);
+
+      if ( flag == com->cpuNum() ) {
+	nodal_output.locNodeId[i] = locid;
+	nodal_output.subId[i] = lis;
+      } else {
+	nodal_output.locNodeId[i] = -1;
+	nodal_output.subId[i] = -1;
+      }
+    } else
+      break;
+  }
+
+  com->fprintf(stdout,"Number of probing nodes is %d\n",i);
+
+  nodal_output.numNodes = i;
+
+  if (iod.output.transient.probes.density[0] != 0) {
+    nodal_scalars[PostFcn::DENSITY] = new char[spn + strlen(iod.output.transient.probes.density)];
+    sprintf(nodal_scalars[PostFcn::DENSITY], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.density);
+  }
+  if (iod.output.transient.probes.pressure[0] != 0) {
+    nodal_scalars[PostFcn::PRESSURE] = new char[spn + strlen(iod.output.transient.probes.pressure)];
+    sprintf(nodal_scalars[PostFcn::PRESSURE], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.pressure);
+  }
+  if (iod.output.transient.probes.temperature[0] != 0) {
+    nodal_scalars[PostFcn::TEMPERATURE] = new char[spn + strlen(iod.output.transient.probes.temperature)];
+    sprintf(nodal_scalars[PostFcn::TEMPERATURE], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.temperature);
+  }
+  if (iod.output.transient.probes.velocity[0] != 0) {
+    nodal_vectors[PostFcn::VELOCITY] = new char[spn + strlen(iod.output.transient.probes.velocity)];
+    sprintf(nodal_vectors[PostFcn::VELOCITY], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.velocity);
+  }
+  if (iod.output.transient.probes.displacement[0] != 0) {
+    nodal_vectors[PostFcn::DISPLACEMENT] = new char[spn + strlen(iod.output.transient.probes.displacement)];
+    sprintf(nodal_vectors[PostFcn::DISPLACEMENT], "%s%s", 
+	    iod.output.transient.probes.prefix, iod.output.transient.probes.displacement);
+  }
+
 }
 
 //------------------------------------------------------------------------------
@@ -2150,6 +2221,68 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 }
 
+template<int dim>
+template<int dimLS>
+void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+				      DistVec<double> &A, DistSVec<double,dim> &U, 
+				      DistTimeState<dim> *timeState,
+				      DistVec<int> &fluidId,DistSVec<double,dimLS>* Phi)
+{
+  //if (toWrite(it,lastIt,t)) {
+  if (nodal_output.numNodes == 0)
+    return;
+
+    double tag;
+    if (rmmh)
+      tag = rmmh->getTagValue(t);
+    else
+      tag = t * refVal->time;
+    
+    // if (solutions)
+    // domain->writeVectorToFile(solutions, step, tag, U);
+    
+    int i;
+    const char* mode = nodal_output.step ? "a" : "w";
+    for (i=0; i<PostFcn::SSIZE; ++i) {
+      if (nodal_scalars[i]) {
+	
+	postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
+				      timeState,fluidId,
+				      nodal_output.subId, nodal_output.locNodeId,
+				      nodal_output.numNodes,nodal_output.results,Phi);
+	if (com->cpuNum() == 0) {
+	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
+	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step, tag);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k)
+	    fprintf(scalar_file,"%e\n",nodal_output.results[k]*sscale[i]);
+	  fclose(scalar_file);
+	}
+      }
+    }
+    for (i=0; i<PostFcn::VSIZE; ++i) {
+      if (nodal_vectors[i]) {
+	
+	postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
+				      nodal_output.subId, nodal_output.locNodeId,
+				      nodal_output.numNodes,nodal_output.results,
+				      fluidId);
+
+	if (com->cpuNum() == 0) {
+	  FILE* vector_file = fopen(nodal_vectors[i],mode);
+	  fprintf(vector_file,"%d\n%e\n",nodal_output.step, tag);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k)
+	    fprintf(vector_file,"%e\n%e\n%e\n",
+		    nodal_output.results[k*3]*vscale[i],
+		    nodal_output.results[k*3+1]*vscale[i],
+		    nodal_output.results[k*3+2]*vscale[i]);
+	  fclose(vector_file);
+	}
+      }
+    }
+    // }
+    ++nodal_output.step;
+}
+
 //----------------------------------------------------------------------------------------
 
 template<int dim>
@@ -2159,6 +2292,15 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
                                              DistVec<int> &fluidId)
 {
   writeBinaryVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
+}
+
+template<int dim>
+void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+				      DistVec<double> &A, DistSVec<double,dim> &U, 
+				      DistTimeState<dim> *timeState,
+				      DistVec<int> &fluidId)
+{
+  writeProbesVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
 }
 
 //----------------------------------------------------------------------------------------

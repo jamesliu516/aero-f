@@ -253,6 +253,9 @@ void OneDimensional::setupFixes(IoData& ioData) {
     }
   }
 
+  loctag = new int[numPoints];
+  memset(loctag,0,sizeof(int)*numPoints);
+
   if (nspheres > 0 || nboxes > 0 || ncones > 0) {
     for (j=0; j<nspheres; ++j)
       printf( "*** Warning: set the gradients to zero in [(%g, %g, %g), %g]\n",
@@ -267,23 +270,21 @@ void OneDimensional::setupFixes(IoData& ioData) {
                   cones[j][0][0], cones[j][0][1], cones[j][0][2], cones[j][0][3],
                   cones[j][1][0], cones[j][1][1], cones[j][1][2], cones[j][1][3]);
 
-    loctag = new bool[numPoints];
-
     for (int i=0; i<numPoints; ++i) {
       double x0[3] = {X[i][0],0.0,0.0};
-      loctag[i] = false;
+      loctag[i] = 0;
       for (j=0; j<nspheres; ++j) {
 	double r = sqrt( (x0[0] - spheres[j][0])*(x0[0] - spheres[j][0]) +
 			 (x0[1] - spheres[j][1])*(x0[1] - spheres[j][1]) +
 			 (x0[2] - spheres[j][2])*(x0[2] - spheres[j][2]) );
 	if (r <= spheres[j][3])
-	  loctag[i] = true;
+	  loctag[i] = 1;
       }
       for (j=0; j<nboxes; ++j) {
 	if ((x0[0] >= boxes[j][0][0]) && (x0[0] <= boxes[j][1][0]) &&
 	    (x0[1] >= boxes[j][0][1]) && (x0[1] <= boxes[j][1][1]) &&
 	    (x0[2] >= boxes[j][0][2]) && (x0[2] <= boxes[j][1][2]))
-	    loctag[i] = true;
+	    loctag[i] = 1;
       }
       for (j=0; j<ncones; ++j)  {
 	Vec3D dr(cones[j][1][0]-cones[j][0][0], cones[j][1][1]-cones[j][0][1], cones[j][1][2]-cones[j][0][2]);
@@ -296,7 +297,7 @@ void OneDimensional::setupFixes(IoData& ioData) {
 	  xp = pr0 - (h*dr);
 	  double r = cones[j][0][3] + (cones[j][1][3]-cones[j][0][3]) * h / height;
 	  if (xp.norm() < r)
-	    loctag[i] = true;
+	    loctag[i] = 1;
           }
       }
     }
@@ -798,15 +799,19 @@ void OneDimensional::singleTimeIntegration(double dt){
 // for now, assume forward Euler
 
   double Vtemp[5];
+  
 
   fluidSelector.getFluidId(fluidId,Phi);
 
   riemannStatus = 0;
+  //std::cout << "U0 = " << U*U << std::endl;
 
   Vintegrator->integrate(this,&OneDimensional::EulerF,
 			 U,time,dt);
   //R = 0.0;
   //computeEulerFluxes();
+
+  //std::cout << "U1 = " << U*U << std::endl;
 
   Phin = Phi;
   Phiintegrator->integrate(this,&OneDimensional::PhiF,
@@ -862,11 +867,12 @@ void OneDimensional::singleTimeIntegration(double dt){
       varFcn->conservativeToPrimitiveVerification(i+1, U[i], Vtemp, fluidId[i]);
     }
   }
-
+  
   if (programmedBurn) {
 
     programmedBurn->setFluidIds(time, fluidId,U);
   }
+
 }   
 
 void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
@@ -877,6 +883,7 @@ void OneDimensional::EulerF(double t, SVec<double,5>& y,SVec<double,5>& k) {
     for(int idim=0; idim<dim; idim++)
       k[i][idim] = -R[i][idim] / ctrlVol[i][0];
   }
+  //std::cout << k*k << " " << y*y << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -972,6 +979,8 @@ void OneDimensional::computeEulerFluxes(SVec<double,5>& y){
         R[i][k] += flux[k];
     }
   }
+  
+  //std::cout << R*R << std::endl;
 
   // for debug
   //cout<<"flux[0] = "<<flux[0]<<" "<<flux[1]<<" "<<flux[2]<<" "<<flux[3]<<" "<<flux[4]<<endl;
@@ -1084,14 +1093,15 @@ void OneDimensional::resultsOutput(double time, int iteration){
       else
 	output.open(vectors[i], fstream::out | fstream::app);
 
-      output << time << endl;
+      output << time*refVal.time << endl;
       for (int j = 0; j < numPoints; ++j) {
 	switch ( (PostFcn::VectorType)i ) {
 	case PostFcn::VELOCITY:
 	  output << V[j][1]*vscale[i] << " " << 0.0 << " " << 0.0; break;
 	default:
 	  break;
-	}  
+	} 
+        output << endl; 
       }
       output << endl;
       output.close();
@@ -1142,7 +1152,7 @@ void OneDimensional::computeSlopes(SVec<double,neq>& VV, SVec<double,neq>& slope
     //		   X[i+1][0]+X[i-1][0]+X[i][0], 3};
   //double det = A[0]*A[3]-A[1]*A[2];
 
-    if (!loctag[i])
+    if (loctag[i])
       continue;
     
     if (crossInterface) {

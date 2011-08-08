@@ -1968,3 +1968,94 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
   return minimum;
 
 }
+
+template<int dim, class Obj>
+void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				int npt) {
+
+  double vol = computeVolume(X);
+  const double locs[5][5] = { {0.0, 0.0,0.0,0.0,0.0},
+			      {0.5773502691896257645091488, -0.5773502691896257645091488, 0.0, 0.0, 0.0},
+			      {0.7745966692414833770358531, 0.0, -0.7745966692414833770358531, 0.0, 0.0},
+			      {0.8611363115940525752239465,0.3399810435848562648026658,-0.3399810435848562648026658,-0.8611363115940525752239465,0.0},
+			      {0.9061798459386639927976269,0.5384693101056830910363144,0.0,-0.5384693101056830910363144,-0.9061798459386639927976269} };
+  
+  const double wgts[5][5] = { { 2.0, 0.0,0.0,0.0,0.0},
+			      {1.0,1.0,0.0,0.0,0.0},
+			      {0.5555555555555555555555556,0.8888888888888888888888889,0.5555555555555555555555556,0.0,0.0},
+			      {0.3478548451374538573730639,0.6521451548625461426269361,0.6521451548625461426269361,0.3478548451374538573730639,0.0},
+			      {0.2369268850561890875142640,0.4786286704993664680412915,0.5688888888888888888888889,0.4786286704993664680412915,0.2369268850561890875142640} };
+
+  // First loop through the nodes of the tet
+  Vec3D centroid;
+  for (int k = 0; k < 3; ++k)
+    centroid[k] = 0.25*(X[nodeNum(0)][k]+X[nodeNum(1)][k]+X[nodeNum(2)][k]+X[nodeNum(3)][k]);
+  Vec3D faceCnt[4];
+  Vec3D edgeCnt[6];
+  
+  for (int k = 0; k < 3; ++k) {
+    edgeCnt[0][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(1)][k]);
+    edgeCnt[1][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(2)][k]);
+    edgeCnt[2][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(3)][k]);
+    edgeCnt[3][k] = 0.5*(X[nodeNum(1)][k]+X[nodeNum(2)][k]);
+    edgeCnt[4][k] = 0.5*(X[nodeNum(1)][k]+X[nodeNum(3)][k]);
+    edgeCnt[5][k] = 0.5*(X[nodeNum(2)][k]+X[nodeNum(3)][k]);
+  }
+
+  for (int i = 0; i < 4; ++i) {
+    int oppi = 3 - i;
+    int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
+    oppn[0]=nodeNum(oppn[0]); oppn[1]=nodeNum(oppn[1]); oppn[2]=nodeNum(oppn[2]);
+    for (int k = 0; k < 3; ++k)
+      faceCnt[i][k] = 1.0/3.0*(X[ oppn[0] ][k] + X[ oppn[1] ][k]+X[ oppn[2] ][k]);
+  }
+
+  Vec3D hexNodes[8];
+  int map1[4] = {0,3,5,2};
+  int map2[4] = {3, 3, 3, 1};
+  int map3[4] = {1, 0, 3, 5};
+  int map4[4] = {2, 4, 5, 4};
+  int map5[4] = {2, 0, 1, 0};
+  int map6[4] = {1, 2, 0, 2};
+  double res[dim];
+  
+  for (int i = 0; i < 4; ++i) {
+
+    hexNodes[0] = X[ nodeNum(i) ];
+    hexNodes[1] = edgeCnt[ map1[i] ];
+    hexNodes[2] = faceCnt[ map2[i] ];
+    hexNodes[3] = edgeCnt[ map3[i] ];
+
+    
+    hexNodes[4] = edgeCnt[ map4[i] ];
+    hexNodes[5] = faceCnt[ map5[i] ];
+    hexNodes[6] = centroid;
+    hexNodes[7] = faceCnt[ map6[i] ];
+    
+    double eta[3];
+    Vec3D xyz;
+    for (int j = 0; j < npt; ++j) {
+      eta[0] = locs[npt-1][j]*0.5+0.5;
+      for (int k = 0; k < npt; ++k) {
+	eta[1] = locs[npt-1][k]*0.5+0.5;
+	for (int l = 0; l < npt; ++l) {
+	  eta[2] = locs[npt-1][l]*0.5+0.5;
+	  xyz = hexNodes[0]*(1.0-eta[0])*(1.0-eta[1])*(1.0-eta[2]) +  
+	    hexNodes[1]*eta[0]*(1.0-eta[1])*(1.0-eta[2]) +
+	    hexNodes[2]*eta[0]*eta[1]*(1.0-eta[2]) +
+	    hexNodes[3]*(1.0-eta[0])*eta[1]*(1.0-eta[2]) +
+
+	    hexNodes[4]*(1.0-eta[0])*(1.0-eta[1])*eta[2] +  
+	    hexNodes[5]*eta[0]*(1.0-eta[1])*eta[2] +
+	    hexNodes[6]*eta[0]*eta[1]*eta[2] +
+	    hexNodes[7]*(1.0-eta[0])*eta[1]*eta[2];
+	  
+	  (obj->*F)( nodeNum(i), xyz, res);
+	  for (int m = 0; m < dim; ++m) {
+	    V[ nodeNum(i) ][m] += 0.25*vol*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
+	  }
+	}
+      }
+    }
+  }
+}
