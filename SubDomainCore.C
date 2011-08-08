@@ -539,6 +539,18 @@ void SubDomain::getElementStatistics(int &numNodes, int &numEdges,
 
 }
 
+// Get the local node number in the subdomain of the global node <id>
+// Returns -1 if it does not exist.  Warning: This method is O(N)
+int SubDomain::getLocalNodeNum(int globNodeNum) const {
+
+  for (int i = 0; i < nodes.size(); ++i) {
+    if (locToGlobNodeMap[i] == globNodeNum)
+      return i;
+  }
+  
+  return -1;
+}
+
 //------------------------------------------------------------------------------
 
 int SubDomain::computeControlVolumes(int numInvElem, double lscale,
@@ -560,7 +572,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
 				     locToGlobElemMap, nodes, X);
     }
   }
-
+  
   return ierr;
 
 }
@@ -2546,6 +2558,16 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, SVec<double,3> &dX)
 {
 
   dX = X - nodes;
+
+}
+
+//------------------------------------------------------------------------------
+
+void SubDomain::computeDisplacement(SVec<double,3> &X, double* dX,int node)
+{
+
+  for (int k = 0; k < 3; ++k)
+    dX[k] = X[node][k] - nodes[node][k];
 
 }
 

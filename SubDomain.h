@@ -191,6 +191,9 @@ public:
 
   int* getElemNodeNum(int i) {return(elems[i].nodeNum()); }
 
+  // Get the local node number in the subdomain of the global node <id>
+  // Returns -1 if it does not exist.  Warning: This method is O(N)
+  int getLocalNodeNum(int globNodeNum) const;
 
   // geometry
 
@@ -244,6 +247,7 @@ public:
   void numDivideNormals(Vec<Vec3D>&, Vec<int>&);
   void getReferenceMeshPosition(SVec<double,3> &);
   void computeDisplacement(SVec<double,3> &, SVec<double,3> &);
+  void computeDisplacement(SVec<double,3> &, double* res,int id);
 
   void assimilateCells(int, int, int*, int**, bool *, int, int *, bool *);
   MacroCellSet** findAgglomerateMesh(int, int, bool *, double);
@@ -697,8 +701,13 @@ public:
   template<int dim,int dimLS>
   void computeNodeScalarQuantity(PostFcn::ScalarType, PostFcn *,
                                  SVec<double,dim> &, SVec<double,3> &,
-                                Vec<double> &,Vec<int> &,SVec<double,dimLS>*);
+				 Vec<double> &,Vec<int> &,SVec<double,dimLS>*);
 
+  template<int dim, int dimLS>
+    double computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
+				     SVec<double,dim> &V, SVec<double,3> &X,
+				     Vec<int> &fluidId,int i,SVec<double,dimLS>* phi = 0); 
+  
   template<int dim>
   void computeForceDerivs(VarFcn *, SVec<double,3> &, SVec<double,dim> &,
                           SVec<double,dim> &, Vec<double> &, SVec<double, 3> **);
@@ -1146,6 +1155,11 @@ public:
 
   template<int dim>
     void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				   int npt);
+
 };
 //------------------------------------------------------------------------------
 

@@ -391,7 +391,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   fluidSelector.update();
 
-  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
+  this->timeState->update(U, U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
 }
 
@@ -584,7 +584,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
     numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++)
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn()); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
+  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn(),fluidSelector.fluidId); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }

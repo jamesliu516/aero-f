@@ -257,6 +257,19 @@ Vec3D operator*(double c, const Vec3D &v)
 
 }
 
+inline 
+Vec3D operator*(const Vec3D &v,double c )
+{
+
+  Vec3D res;
+
+  res.v[0] = c*v.v[0];
+  res.v[1] = c*v.v[1];
+  res.v[2] = c*v.v[2];
+
+  return res;
+
+}
 //------------------------------------------------------------------------------
 
 #endif
