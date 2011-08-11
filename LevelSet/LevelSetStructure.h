@@ -78,6 +78,9 @@ class LevelSetStructure {
     virtual int fluidModel(double t, int n) const = 0;
     virtual bool edgeIntersectsStructure(double t, int ni, int nj) const = 0; //!< whether an edge between i and j intersects the structure
     virtual bool edgeIntersectsStructure(double t, int eij) const = 0; //!< whether an edge eij intersects the structure
+    virtual double distToInterface(double t, int n) const = 0; 
+    virtual bool isNearInterface(double t, int n) const = 0;
+    virtual bool withCracking() const = 0;
 
     /** creates an array of values which are positive inside the fluid and negative outside. */
     virtual void computePhi(Vec<double> &phi){

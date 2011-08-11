@@ -185,11 +185,12 @@ class IntersectorPhysBAM : public LevelSetStructure {
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
     bool isNearInterface(double t, int n) const {return closest[n].nearInterface();}
-    double distToInterface(double t, int n) const {return closest[n].dist;}
+    double distToInterface(double t, int n) const {return closest[n].nearInterface() ? closest[n].dist : -1;} 
     bool isActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
     bool isOccluded(double t, int n) const {return occluded_node[n];}
     bool isSwept(double t, int n) const {return swept_node[n];}
     int fluidModel(double t, int n) const {return status[n];}
+    bool withCracking() const {return distIntersector.cracking ? true : false;}
 
   private:
     void addToPackage(const int i,const int candidate);

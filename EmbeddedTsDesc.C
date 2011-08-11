@@ -2,6 +2,7 @@
 #include <DistExactRiemannSolver.h>
 #include <FSI/DynamicNodalTransfer.h>
 #include <FSI/CrackingSurface.h>
+#include <Domain.h>
 
 #ifdef DO_EMBEDDED
 #include <IntersectorFRG/IntersectorFRG.h>

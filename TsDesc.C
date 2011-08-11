@@ -1,4 +1,5 @@
 #include <TsDesc.h>
+#include <Domain.h>
 #include <cmath>
 #include <RefVal.h>
 #include <GeoSource.h>

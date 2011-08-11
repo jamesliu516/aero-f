@@ -868,6 +868,9 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi, int level);
   template<int dimLS>
+  void TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
+
+  template<int dimLS>
   void FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, int level);
 
   template<int dim>
@@ -1145,7 +1148,10 @@ public:
 
 
   template<int dim>
-    void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+  void blur(SVec<double,dim> &U, SVec<double,dim> &U0,Vec<double>& weight);
+
+  template<int dimLS>
+  void updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, bool *masterFlag);
 };
 //------------------------------------------------------------------------------
 

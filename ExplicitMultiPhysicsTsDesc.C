@@ -62,25 +62,38 @@ template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLSystemTwoBlocks(DistSVec<double,dim> &U)
 {
   if(this->mmh && !this->inSubCycling) {
+    this->com->fprintf(stderr,"I am here 1!\n");
     // get structural time-step and recompute FS intersections.
     recomputeIntersections();
+    this->com->fprintf(stderr,"I am here 2!\n");
     // update fluidId.
     updateFluidIdFS(U);
+    this->com->fprintf(stderr,"I am here 3!\n");
     // update the phase-change (U & Phi) caused by the motion of FS interface
     updatePhaseChangeFS(U);
+    this->com->fprintf(stderr,"I am here 4!\n");
   }
   // populate ghost nodes (only for Navier-Stokes.)
   populateGhostPointsForNavierStokes(U);
+  this->com->fprintf(stderr,"I am here 5!\n");
   // evolve the fluid equation using FE, RK2, or RK4
   solveNLNavierStokes(U);
+  this->com->fprintf(stderr,"I am here 6!\n");
   // evolve the level-set equation using FE, RK2, or RK4.
   solveNLLevelSet(U);
+  this->com->fprintf(stderr,"I am here 7!\n");
   // update fluidId (fluidId0 = fluidId, fluidId = new).
   fluidId0 = *(this->fluidSelector.fluidId); // used in updatePhaseChangeFF
-  this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
-  //std::cout << "Hello" <<std::endl;
-  // update the phase-change (only U) caused by the motion of FF interface
+  this->com->fprintf(stderr,"I am here 8!\n");
+
+  if(this->withCracking && this->withMixedLS)
+    this->fluidSelector.updateFluidIdFF2(this->distLSS, this->Phi);
+  else
+    this->fluidSelector.updateFluidIdFF(this->distLSS, this->Phi);
+  this->com->fprintf(stderr,"I am here 9!\n");
+  // update the phase-change (only U) caused by the movement of FF interface
   updatePhaseChangeFF(U);
+  this->com->fprintf(stderr,"I am here 10!\n");
 }
 
 //------------------------------------------------------------------------------
@@ -124,9 +137,13 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updatePhaseChangeFS(DistSVec<double,
       break;
   }
   //update phase-change
-  this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights), 
-                                             this->distLSS, this->vfar, this->fluidSelector.fluidId);
-                                            // Vtemp should have been filled in with primitive state
+  if(this->withCracking && this->withMixedLS)
+    this->multiPhaseSpaceOp->updatePhaseChange2(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights), 
+                                                this->distLSS, this->vfar, this->fluidSelector.fluidId);
+  else
+    this->multiPhaseSpaceOp->updatePhaseChange(this->Vtemp, U, this->Weights, this->VWeights, &(this->Phi), &(this->PhiWeights), 
+                                               this->distLSS, this->vfar, this->fluidSelector.fluidId);
+                                               // Vtemp should have been filled in with primitive state
   this->timer->addEmbedPhaseChangeTime(tw);
   this->com->barrier();
   this->timer->removeIntersAndPhaseChange(tw);
@@ -138,8 +155,14 @@ template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::updateFluidIdFS(DistSVec<double,dim> &U)
 {
   this->LS->conservativeToPrimitive(this->Phi, this->PhiV, U);
-  this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
-  this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+  if(this->withCracking && this->withMixedLS) {
+    this->multiPhaseSpaceOp->extrapolatePhiV2(this->distLSS, this->PhiV);
+    //this->fluidSelector.updateFluidIdFS2(this->distLSS, this->PhiV);
+    this->domain->updateFluidIdFS2(*(this->distLSS), this->PhiV, *(this->fluidSelector.fluidId));
+  } else {
+    this->multiPhaseSpaceOp->extrapolatePhiV(this->distLSS, this->PhiV);
+    this->fluidSelector.updateFluidIdFS(this->distLSS, this->PhiV);
+  }
   this->PhiV = 0.0; //PhiV is no longer a distance function now. Only its sign (+/-)
                     //  is meaningful. We destroy it so people wouldn't use it
                     //  by mistake later on.
@@ -303,8 +326,12 @@ template<int dim, int dimLS>
 void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLLevelSetFE(DistSVec<double,dim> &U)
 {
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
-  Phi0 = this->Phi - p1;
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin, this->distLSS);
+  Phi0 = this->Phi;
+  this->Phi = this->Phi - p1;
+  if(this->withCracking && this->withMixedLS)
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0);
+  else
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0, this->distLSS);
 }
 
 //------------------------------------------------------------------------------
@@ -314,12 +341,18 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLLevelSetRK2(DistSVec<double,d
 {
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - p1;
-//  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin, this->distLSS);
+/* Kevin thinks that it's not necessary to get an updated fluidId0.
+  OLD
   this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
-
   computeRKUpdateLS(Phi0, fluidId0, p2, U);
+*/
+  computeRKUpdateLS(Phi0, *this->fluidSelector.fluidId, p2, U);
+  Phi0 = this->Phi;
   this->Phi = this->Phi - 1.0/2.0 * (p1+p2);
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin, this->distLSS);
+  if(this->withCracking && this->withMixedLS)
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0);
+  else
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0, this->distLSS);
 }
 
 //------------------------------------------------------------------------------
@@ -329,22 +362,23 @@ void ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNLLevelSetRK4(DistSVec<double,d
 {
   computeRKUpdateLS(this->Phi, *this->fluidSelector.fluidId, p1, U);
   Phi0 = this->Phi - 0.5 * p1;
-//  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin, this->distLSS);
-  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
+//  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
-  computeRKUpdateLS(Phi0, fluidId0, p2, U);
+  computeRKUpdateLS(Phi0, *this->fluidSelector.fluidId, p2, U);
   Phi0 = this->Phi - 0.5 * p2;
-//  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin, this->distLSS);
-  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
+//  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
-  computeRKUpdateLS(Phi0, fluidId0, p3, U);
+  computeRKUpdateLS(Phi0, *this->fluidSelector.fluidId, p3, U);
   Phi0 = this->Phi - p3;
-//  this->riemann->avoidNewPhaseCreation(this->Phi0, this->LS->Phin, this->distLSS);
-  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
+//  this->fluidSelector.getFluidId(fluidId0,Phi0,&(this->distLSS->getStatus()));
 
-  computeRKUpdateLS(Phi0, fluidId0, p4, U);
+  computeRKUpdateLS(Phi0, *this->fluidSelector.fluidId, p4, U);
+  Phi0 = this->Phi;
   this->Phi -= 1.0/6.0 * (p1 + 2.0 * (p2 + p3) + p4);
-  this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin, this->distLSS);
+  if(this->withCracking && this->withMixedLS)
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0);
+  else
+    this->riemann->avoidNewPhaseCreation(this->Phi, Phi0, this->distLSS);
 }
 
 //------------------------------------------------------------------------------
