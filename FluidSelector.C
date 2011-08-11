@@ -1,4 +1,5 @@
 #include "LevelSet/LevelSetStructure.h"
+//#include <Domain.h>
 #include <cassert>
 
 //------------------------------------------------------------------------------
@@ -182,6 +183,15 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
 //------------------------------------------------------------------------------
 
 template<int dim> /*this dim is actually dimLS*/
+void FluidSelector::updateFluidIdFS2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV)
+{
+  if(programmedBurn) {fprintf(stderr,"ERROR: function 'updateFluidIdFS2' does not support Programmed Burn at the moment!\n");exit(-1);}
+  //domain->updateFluidIdFS2(*distLSS, PhiV, *fluidId);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> /*this dim is actually dimLS*/
 void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi)
 {
   assert(dim<=numPhases-1);
@@ -215,6 +225,70 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	  }
 	}
       }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> /*this dim is actually dimLS*/
+void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi)
+{
+  
+  if(dim!=1) {
+    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'multiple level-set's and 'cracking' at the same time!\n");
+    exit(-1);
+  }
+  if(programmedBurn) {
+    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'programmed burn' and 'cracking' at the same time!\n");
+    exit(-1);
+  }
+
+  int numLocSub = Phi.numLocSub();
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*phi)[dim]     = Phi.subData(iSub);
+    int     *tag           = fluidId->subData(iSub);
+    LevelSetStructure &LSS = (*distLSS)(iSub);
+
+    for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
+      if(LSS.isOccluded(0.0,iNode)) {
+        phi[iNode][0] = 0.0;
+        tag[iNode] = LSS.numOfFluids();
+        continue;
+      }
+      tag[iNode] = (phi[iNode][0]>0.0) ? 1 : 0;
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> /*this dim is actually dimLS*/
+void FluidSelector::checkLSConsistency(DistSVec<double,dim> &Phi)
+{
+  if(dim!=1) {
+    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'multiple level-set's and 'cracking' at the same time!\n");
+    exit(-1);
+  }
+  int numLocSub = Phi.numLocSub();
+#pragma omp parallel for
+  for(int iSub=0; iSub<numLocSub; ++iSub) {
+    double (*phi)[dim] = Phi.subData(iSub);
+    int *tag           = fluidId->subData(iSub);
+    for(int i=0; i<Phi.subSize(iSub); i++) {
+      if(tag[i]==0) {
+        if(phi[i][0]>0.0) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+          exit(-1);}}
+      else if(tag[i]==numPhases) {
+        if(fabs(phi[i][0])>1.0e-5) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+          exit(-1);}}
+      else {
+        if(fabs(phi[i][0]<=0.0)) {
+          fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
+          exit(-1);}}
     }
   }
 }

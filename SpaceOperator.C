@@ -1937,7 +1937,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   }
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0) {
-    if(distLSS)
+    if(distLSS && !((*distLSS)(0).withCracking()))
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), Phi, linRecAtFSInterface);
     else
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, Phi);
@@ -2173,6 +2173,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV(DistLevelSetStructure *
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV)
+{
+  this->domain->extrapolatePhiV(distLSS,PhiV);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
 void MultiPhaseSpaceOperator<dim,dimLS>::computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U,
                            DistSVec<double,dim> &V, DistVec<double> &Weights, DistSVec<double,dim> &VWeights, DistSVec<double,dimLS> &Phi,
                            DistSVec<double,dimLS> &PhiWeights, DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId)
@@ -2249,26 +2257,118 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange(DistSVec<double,dim> 
 
 //-----------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange2(DistSVec<double,dim> &V,
+                             DistSVec<double,dim> &U,
+                             DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
+                             DistSVec<double,dimLS> *Phi, DistSVec<double,dimLS> *PhiWeights,
+                             DistLevelSetStructure *distLSS, double* vfar,
+                             DistVec<int> *fluidId)
+{
+  SubDomain **subD = this->domain->getSubDomain();
+  if(dimLS!=1) {fprintf(stderr,"ERROR: Currently dimLS must be 1 for multi-phase cracking! Now it's %d.\n",dimLS);exit(-1);}
 
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<double,dim> &subV(V(iSub));
+    Vec<double> &subWeights((*Weights)(iSub));
+    SVec<double,dim> &subVWeights((*VWeights)(iSub));
+    SVec<double,dimLS> &subPhi((*Phi)(iSub));
+    SVec<double,dimLS> &subPhiWeights((*PhiWeights)(iSub));
+    Vec<int> &subId((*fluidId)(iSub));
 
+    for(int i=0;i<subV.size();++i){
+      if(!LSS.isSwept(0.0,i))
+        continue;
+      if(subId[i]==LSS.numOfFluids()) { 
+        if(!LSS.isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
+        for(int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = vfar[iDim];
+        for(int iDim=0; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = 0.0; 
+        continue;
+      }
 
+      if(subWeights[i] <= 0.0){
+        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, 
+                       subD[iSub]->getGlobSubNum(), subId[i], subWeights[i]);
+        exit(-1);
+      } else {
+        for (int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
 
+        subPhi[i][0] = LSS.distToInterface(0.0,i); //this is the UNSIGNED distance
+        if(subPhi[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
+        if(subId[i]==0) subPhi[i][0] *= -1.0;
+      }
+    }
+  }
+  this->varFcn->primitiveToConservative(V, U, fluidId);
+}
 
+//-----------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS,
+                                           DistVec<int> &fluidId, DistVec<int> &Tag1, DistVec<int> &Tag2)
+{
+  /* -------------------------------------------------------------
+      Reset PhiV for the first layer of nodes near the interface
+      Rule #1. If it is occluded, set PhiV to 0.
+      Rule #2. If it is near the FS interface but not FF interface, set PhiV to its dist to wall.
+      Rule #3. If it is near both FS and FF interface, set PhiV to min(PhiV, d2wall).
+      Rule #4. Otherwise, do nothing.
+     -------------------------------------------------------------- */
 
+  if(dimLS!=1) {fprintf(stderr,"ERROR: Currently dimLS must be 1 for multi-phase cracking! Now it's %d.\n",dimLS);exit(-1);}
+  this->domain->TagInterfaceNodes(0,Tag1,Tag2,PhiV,distLSS);
 
+  SubDomain **subD = this->domain->getSubDomain();
+#pragma omp parallel for
+  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    Vec<int> &tag1(Tag1(iSub));
+    Vec<int> &tag2(Tag2(iSub));
+    Vec<int> &id(fluidId(iSub));
+    SVec<double,dimLS> &phiv(PhiV(iSub));
 
+    for(int i=0; i<tag1.size(); i++) {
+      // Rule #1.
+      if(LSS.isOccluded(0.0,i)) {
+        phiv[i][0] = 0.0;
+        if(id[i]!=LSS.numOfFluids()) {//just for debug
+          fprintf(stderr,"BUG: Node %d is occluded but its status is %d. numOfFluids = %d.\n", locToGlobNodeMap[i]+1, id[i], LSS.numOfFluids());
+          exit(-1);
+        }
+        continue;
+      }
+      // Rule #2.
+      if(tag1[i]>0 && tag2[i]==0) {
+        double dist = LSS.distToInterface(0.0,i);
+        if(dist<0) {//just for debug
+          fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
+          exit(-1);
+        }
+        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        continue;
+      }
+      // Rule #3.
+      if(tag1[i]>0 && tag2[i]>0) {
+        double dist = LSS.distToInterface(0.0,i);
+        if(dist<0) {//just for debug
+          fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
+          exit(-1);
+        }
+        dist = min(dist, fabs(phiv[i][0]));
+        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        continue;
+      }
+    }
+  }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
+//-----------------------------------------------------------------------------
 

@@ -4,13 +4,13 @@
 #include <TsDesc.h>
 
 #include <IoData.h>
-#include <Domain.h>
 #include <PostOperator.h>
 #include <GhostPoint.h>
 
 struct DistInfo;
 class DynamicNodalTransfer;
 class GeoSource;
+class Domain;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistExactRiemannSolver;
 

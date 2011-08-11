@@ -188,6 +188,9 @@ class IntersectorFRG : public LevelSetStructure {
     bool isSwept(double t, int n) const                          {return status[n] != status0[n];}
     bool edgeIntersectsStructure(double t, int ni, int nj) const {return status[ni]!=status[nj];}
     bool edgeIntersectsStructure(double t, int eij) const;
+    double distToInterface(double t, int n) const                {return -1;}
+    bool isNearInterface(double t, int n) const                  {return false;}
+    bool withCracking() const                                    {return false;}
 
 //    bool isActive(double t, int n, int phase = 0) const          {return status[n]==phase;}
 //    bool wasActive(double t, int n, int phase = 0) const         {return status0[n]==phase;}

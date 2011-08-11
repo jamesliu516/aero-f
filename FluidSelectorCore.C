@@ -33,7 +33,6 @@ FluidSelector::FluidSelector(const int nPhases, IoData &ioData, Domain *dom) : i
   }
 
   programmedBurn = 0;
-
 }
 
 //------------------------------------------------------------------------------

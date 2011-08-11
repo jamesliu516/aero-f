@@ -576,8 +576,14 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
     int i = ptr[l][0];
     int j = ptr[l][1];
     bool intersect = LSS.edgeIntersectsStructure(0,i,j);
-    bool iActive = LSS.isActive(0.0,i);
-    bool jActive = LSS.isActive(0.0,j);
+    bool iActive, jActive;
+    if(LSS.withCracking()) { //assumption: only occluded nodes are inactive in the case of cracking simulations
+      iActive = !LSS.isOccluded(0.0,i);
+      jActive = !LSS.isOccluded(0.0,j);
+    } else {
+      iActive = LSS.isActive(0.0,i);
+      jActive = LSS.isActive(0.0,j);
+    } 
 
     if(!iActive && !jActive) continue; //this edge is inside a solid body!
 
@@ -648,10 +654,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       // for node i
       if(iActive) {
         LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
-        switch (Nriemann) { // normal should point to this node (i). TODO: better to compute a projection to determine the sign.
+        switch (Nriemann) { // normal should point to this node (i). 
           case 0: //structure normal
-            if(LSS.fluidModel(0.0,i)==farfieldFluid)  normalDir =      resij.gradPhi;
-            else                                     normalDir = -1.0*resij.gradPhi;
+            normalDir = (normal[l]*resij.gradPhi>=0.0) ? -1.0*resij.gradPhi : resij.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = -1.0/(normal[l].norm())*normal[l];
@@ -680,8 +685,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
         LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j,i);
         switch (Nriemann) {
           case 0: //structure normal
-            if(LSS.fluidModel(0.0,j)==farfieldFluid)  normalDir =      resji.gradPhi;
-            else                                     normalDir = -1.0*resji.gradPhi;
+            normalDir = (normal[l]*resji.gradPhi>=0.0) ? resji.gradPhi : -1.0*resji.gradPhi;
             break;
           case 1: //fluid normal
             normalDir = 1.0/(normal[l].norm())*normal[l];
@@ -1005,7 +1009,7 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim];
   double ddPij[dimLS], ddPji[dimLS], Pi[2*dimLS], Pj[2*dimLS];
-  double Uni, Unj;
+  double Uni, Unj, Uwi, Uwj;
   double Phia;
   double srho1, srho2, srhod;
   double unroe, rroe;
@@ -1016,9 +1020,13 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     if (!masterFlag[l]) continue;
     int i = ptr[l][0];
     int j = ptr[l][1];
-    int iCovered = LSS ? LSS->fluidModel(0.0,i) : 0;
-    int jCovered = LSS ? LSS->fluidModel(0.0,j) : 0;
-      //when i(j)Covered = 0, we have valid Phi (and U) on this node.
+    bool intersect = LSS ? LSS->edgeIntersectsStructure(0.0,l) : false;
+    int iCovered, jCovered;
+    if(LSS && !LSS->withCracking()) {
+      iCovered = LSS->fluidModel(0.0,i);
+      jCovered = LSS->fluidModel(0.0,j);
+    } else
+      iCovered = jCovered = 0; //when i(j)Covered = 0, we have valid Phi (and U) on this node.
 
     if(iCovered && jCovered) continue;
 
@@ -1033,7 +1041,12 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
     }
 
     if(!iCovered && !jCovered) { //the usual linear reconstruction
-      recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+      if(intersect) 
+        for(k=0; k<dim; k++) {
+          Vi[k] = V[i][k];
+          Vj[k] = V[j][k];
+        }
+      else recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
       recFcnLS->compute(Phi[i], ddPij, Phi[j], ddPji, Pi, Pj);
     } else { //const reconstruction
       for(k=0; k<dim; k++) {
@@ -1048,6 +1061,13 @@ void EdgeSet::computeFiniteVolumeTermLS(FluxFcn** fluxFcn, RecFcn* recFcn, RecFc
 
     Uni = Vi[1]*normal[l][0] + Vi[2]*normal[l][1] + Vi[3]*normal[l][2] - normalVel[l];
     Unj = Vj[1]*normal[l][0] + Vj[2]*normal[l][1] + Vj[3]*normal[l][2] - normalVel[l];
+/*    if(intersect) {
+      LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+      LevelSetResult resji = LSS.getLevelSetDataAtEdgeCenter(0.0, j, i);
+      Uwi = normal[l]*resij.normVel;
+      Uwj = normal[l]*resji.normVel; 
+    } else Uwi = Uwj = 0.0;
+*/
 
     // roe flux
     if(!iCovered && !jCovered)
@@ -2233,4 +2253,28 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
   }
 
 }
+
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
+{
+  int tag = 1;
+  int i,j;
+  for(int l=0; l<numEdges; l++) {
+    i = ptr[l][0];
+    j = ptr[l][1]; 
+
+    if(Phi[i][lsdim]*Phi[j][lsdim]<=0.0){
+      if(LSS->edgeIntersectsStructure(0.0, l))
+        Tag1[i] = tag;
+      else
+        Tag2[i] = tag;
+    } else { //just for debug. can be removed.
+      if(LSS->edgeIntersectsStructure(0.0,l))
+        fprintf(stderr,"BUG: (i,j) intersects bug phi[i]=%e, phi[j]=%e.\n", Phi[i][lsdim], Phi[j][lsdim]);
+    }
+  }
+}
+
 //------------------------------------------------------------------------------

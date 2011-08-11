@@ -412,10 +412,15 @@ void Face::computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normals,
 {
   Vec3D normal = getNormal(normals);
   double flux[dim];
+  bool cracking = LSS ? LSS->withCracking() : false;
 
   if(fluxFcn[code]){
     for (int l=0; l<numNodes(); ++l) {
-      if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;
+      if(cracking) {
+        if(LSS->isOccluded(0.0,nodeNum(l))) continue;}
+      else {
+        if(LSS && !LSS->isActive(0.0, nodeNum(l))) continue;}
+
       fluxFcn[code]->compute(0.0, 0.0, getNormal(normals, l), getNormalVel(normalVel, l), 
                              V[nodeNum(l)], Ub, flux, fluidId[nodeNum(l)]);
       for (int k=0; k<dim; ++k)

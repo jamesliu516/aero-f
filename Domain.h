@@ -327,6 +327,8 @@ public:
   void setupPhiVolumesInitialConditions(const int volid, const int fluidId, DistSVec<double,dimLS> &Phi);
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
+  template<int dimLS>
+  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag1, DistVec<int> &Tag2, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -910,7 +912,10 @@ public:
   void computePrdtPhiCtrlVolRatio(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistVec<double> &, DistGeoState &);
 
   template<int dim>
-    void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+  void blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0);
+
+  template<int dimLS>
+  void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
  };
 
 //------------------------------------------------------------------------------

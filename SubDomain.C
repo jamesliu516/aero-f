@@ -4551,7 +4551,7 @@ void SubDomain::computeWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec<double
 {
   const Connectivity &nToN = *getNodeToNode();
   for(int currentNode=0;currentNode<nodes.size();++currentNode) { 
-    if(LSS.isSwept(0.0,currentNode) && LSS.isActive(0.0,currentNode)){
+    if(LSS.isSwept(0.0,currentNode) && !LSS.isOccluded(0.0,currentNode)){
       int myId = fluidId[currentNode]; 
       for(int j=0;j<nToN.num(currentNode);++j){
         int neighborNode=nToN[currentNode][j];
@@ -4758,7 +4758,7 @@ void SubDomain::computeRiemannWeightsForEmbeddedStruct(SVec<double,dim> &V, SVec
       i = edgePtr[l][enode];
       j = edgePtr[l][(int)(!enode)];
       // for V and Phi
-      if(LSS.isSwept(0.0,i) && LSS.isActive(0.0,i)) { // phase change occurred && need an update
+      if(LSS.isSwept(0.0,i) && !LSS.isOccluded(0.0,i)) { // phase change occurred && need an update
         if(Wstar[l][0]>1.0e-8 && fluidId0[j]==fluidId[i]) { //use Wstar 
           if(Weights[i]<1.0e-6) { // first touch of node i
             Weights[i] = 1.0;
@@ -5174,7 +5174,11 @@ void SubDomain::avoidNewPhaseCreation(SVec<double,dimLS> &Phi, SVec<double,dimLS
 {
 
   for(int i=0; i<nodes.size(); i++){
-    int fModel = LSS ? LSS->fluidModel(0.0, i) : 0;  //if fModel>0 (isolated), Phi is not used at all
+    int fModel;//if fModel>0 (isolated), Phi is not used at all
+    if(LSS && !LSS->withCracking()) 
+      fModel = LSS->fluidModel(0.0, i); 
+    else
+      fModel = 0;
     bool swept = LSS ? LSS->isSwept(0.0, i) : 0; // if swept, Phin is not reliable!
     for(int j=0; j<dimLS; j++){
       if(Phi[i][j]*Phin[i][j]<0.0 && fModel==0 && !swept){
@@ -5221,6 +5225,16 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
 
 
 }
+//------------------------------------------------------------------------------
+
+template<int dimLS>
+void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
+{
+  Tag1 = 0;
+  Tag2 = 0;
+  edges.TagInterfaceNodes(lsdim, Tag1, Tag2, Phi, LSS);
+}
+
 //------------------------------------------------------------------------------
 template<int dimLS>
 void SubDomain::printPhi(SVec<double, 3> &X, SVec<double,dimLS> &Phi, int it)
@@ -5970,6 +5984,9 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
   }
 }
 
+
+//------------------------------------------------------------------------------
+
 template<int dim>
 void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weight)
 {
@@ -5990,3 +6007,63 @@ void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weig
     weight[currentNode] = (double)nToN.num(currentNode);
   }
 }
+
+//------------------------------------------------------------------------------
+
+template<int dimLS> 
+void SubDomain::updateFluidIdFS2(LevelSetStructure &LSS, SVec<double,dimLS> &PhiV, Vec<int> &fluidId, bool *masterFlag)
+{
+  // ------- Determine status for grid-points swept by FS interface -------
+  // Rule No.1: If this grid point is "occluded", set its status to "numPhases".
+  // Rule No.2: If its "visible && !occluded && !swept" neighbors have the same status, use this one. 
+  // Rule No.3: Otherwise, consider the sign of "PhiV". (PhiV should have been "blurred".)
+
+  const Connectivity &Node2Node = *getNodeToNode();
+  
+  for(int i=0; i<PhiV.size(); i++) {
+    bool swept = LSS.isSwept(0.0,i);
+    bool occluded = LSS.isOccluded(0.0,i);
+    if(!swept) // nothing to be done.
+      continue;
+    if(!masterFlag[i]) {//will get Id from another subdomain (TODO: May need something more sophisticated... (KW).)
+      fluidId[i] = 0;
+      continue;
+    }
+
+    // Rule No.1
+    if(occluded) {
+      fluidId[i] = LSS.numOfFluids();
+      continue;
+    }
+
+    // Rule No.2
+    int myId = -1;
+    bool consistent = false;
+    for(int iNei=0; iNei<Node2Node.num(i); iNei++) {
+      if(LSS.isOccluded(0.0,iNei) || LSS.isSwept(0.0,iNei) || LSS.edgeIntersectsStructure(0.0,i,iNei))
+        continue;
+      if(myId==-1) {
+        myId = fluidId[iNei];
+        consistent = true;
+      } else if(myId!=fluidId[iNei]) {
+        consistent = false;
+        break;
+      }
+    }
+    if(consistent) {
+      fluidId[i] = myId;
+      continue;
+    }
+
+    // Rule No.3
+    bool done = false;
+    for(int k=0; k<dimLS; k++)
+      if(PhiV[i][k]>0.0) {
+        fluidId[i] = k+1;
+        done = true;
+      }
+    if(!done)
+      fluidId[i] = 0;
+  }
+}
+
