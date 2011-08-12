@@ -70,10 +70,12 @@ public:
       return (code == BC_ADIABATIC_WALL_MOVING || 
 	      code == BC_ADIABATIC_WALL_FIXED) ? true : false; 
   }
+
   virtual bool doesFaceNeedGradientP1Function() {
     if (wallFcn) return false;
     else return true;
   }
+
   virtual bool doesSourceTermExist() { return false; }
 
 // Included (MB)
@@ -111,7 +113,7 @@ public:
              K[3*i+j] += Rt_diag[3*i+k]*R[3*k+j];
 
   }
-
+  // for porous modelling
   void computeGradPermittivityTensor(double alpha[3], double ucg[3], double R[9] ,double *B)
   {
 
@@ -135,10 +137,182 @@ public:
       for (int j=0; j<3; ++j)
          for (int k=0; k<3; ++k)
              B[3*i+j] += Rt_diag[3*i+k]*R[3*k+j];
+    
+  }
+  
+  // for porous modelling
+  double computePorousTurbulentViscosity(
+      map<int,PorousMedia *>::iterator it, double up[3], double length)
+  {
+    double cmu = 0.09;
+    double coeff = 1.2247*pow(cmu,0.25);
+    double Idr = it->second->idr;                    // average turbulence intensity
+    double Ldr = it->second->ldr/length;             // 0.1*characteristic passage dimension
+    double vel = sqrt(up[0]*up[0] + up[1]*up[1] + up[2]*up[2]);
+
+    return coeff*Idr*Ldr*vel;
+  }
+
+  // for porous modelling
+  double computeSecondPorousTurbulentViscosity(double lambdal, double mul, double mut)
+  {
+    //simple model that remains true when the Stokes' hypothesis is assumed
+    return -2.0*mut/3.0;
+  }
+
+  // for porous modelling
+  bool computeVolumeTermPorousCore(double tetVol,
+      map<int,PorousMedia *>::iterator it,
+      double length, double density, double velocity,
+      double up[3], double *V[], double *PR){
+
+    double RR[9], K[9];
+    double alpha[3], beta[3];
+    double volten = tetVol *(1.0/10.0);
+
+    // non-dimensionalization //
+
+    alpha[0] = it->second->alphax*length/density;
+    alpha[1] = it->second->alphay*length/density;
+    alpha[2] = it->second->alphaz*length/density;
+
+    beta[0]  = it->second->betax*length/(density*velocity);
+    beta[1]  = it->second->betay*length/(density*velocity);
+    beta[2]  = it->second->betaz*length/(density*velocity);
+
+    // transformation matrix //
+
+    RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
+    RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
+    RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
+
+    // permittivity matrix  //
+
+    computePermittivityTensor(alpha, beta, up, RR, K);
+
+    double SS[4][3];
+
+    SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
+    SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
+    SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
+
+    SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
+    SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
+    SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
+
+    SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
+    SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
+    SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
+
+    SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
+    SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
+    SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
+
+    // FE flux for the porous sink term //
+
+    for (int j=0; j<4; ++j) {
+      for (int k=0; k<3; ++k)
+        PR[3*j+k] += (K[3*k+0] * SS[j][0] + K[3*k+1] * SS[j][1] + K[3*k+2] * SS[j][2]);
+    }
+
+    return true;
+  }
+
+  // for porous modelling
+  template<int dim>
+  bool computeJacobianVolumeTermPorousCore(double tetVol,
+      map<int,PorousMedia *>::iterator it,
+      double length, double density, double velocity,
+      double up[3], double *V[], double (*dPdU)[4][dim][dim]){
+
+    double RR[9], K[9], B[9];
+    double alpha[3], beta[3];
+
+    double volten = tetVol *(1.0/10.0);
+
+    // non-dimensionalization correction
+
+    alpha[0] = it->second->alphax*length/density;
+    alpha[1] = it->second->alphay*length/density;
+    alpha[2] = it->second->alphaz*length/density;
+
+    beta[0]  = it->second->betax*length/(density*velocity);
+    beta[1]  = it->second->betay*length/(density*velocity);
+    beta[2]  = it->second->betaz*length/(density*velocity);
+
+    // transformation matrix
+    RR[0] = it->second->iprimex; RR[1] = it->second->iprimey; RR[2] = it->second->iprimez;
+    RR[3] = it->second->jprimex; RR[4] = it->second->jprimey; RR[5] = it->second->jprimez;
+    RR[6] = it->second->kprimex; RR[7] = it->second->kprimey; RR[8] = it->second->kprimez;
+
+    // permittivity matrix
+    computePermittivityTensor(alpha, beta, up, RR, K);
+
+    // gradient of permittivity matrix
+    computeGradPermittivityTensor(alpha, up, RR, B);
+
+    double SS[4][3];
+
+    SS[0][0] = volten * (V[0][1] + 0.5 *(V[1][1] + V[2][1] + V[3][1]));
+    SS[0][1] = volten * (V[0][2] + 0.5 *(V[1][2] + V[2][2] + V[3][2]));
+    SS[0][2] = volten * (V[0][3] + 0.5 *(V[1][3] + V[2][3] + V[3][3]));
+
+    SS[1][0] = volten * (V[1][1] + 0.5 *(V[0][1] + V[2][1] + V[3][1]));
+    SS[1][1] = volten * (V[1][2] + 0.5 *(V[0][2] + V[2][2] + V[3][2]));
+    SS[1][2] = volten * (V[1][3] + 0.5 *(V[0][3] + V[2][3] + V[3][3]));
+
+    SS[2][0] = volten * (V[2][1] + 0.5 *(V[1][1] + V[0][1] + V[3][1]));
+    SS[2][1] = volten * (V[2][2] + 0.5 *(V[1][2] + V[0][2] + V[3][2]));
+    SS[2][2] = volten * (V[2][3] + 0.5 *(V[1][3] + V[0][3] + V[3][3]));
+
+    SS[3][0] = volten * (V[3][1] + 0.5 *(V[1][1] + V[2][1] + V[0][1]));
+    SS[3][1] = volten * (V[3][2] + 0.5 *(V[1][2] + V[2][2] + V[0][2]));
+    SS[3][2] = volten * (V[3][3] + 0.5 *(V[1][3] + V[2][3] + V[0][3]));
+
+    for (int k=0; k<4; ++k) {
+      double BB[3];
+      BB[0]  = B[0]*SS[k][0] +  B[1]*SS[k][1] +  B[2]*SS[k][2];
+      BB[1]  = B[3]*SS[k][0] +  B[4]*SS[k][1] +  B[5]*SS[k][2];
+      BB[2]  = B[6]*SS[k][0] +  B[7]*SS[k][1] +  B[8]*SS[k][2];
+
+      double BV[9];
+      BV[0] = up[0]*BB[0]; BV[1] = up[1]*BB[0]; BV[2] = up[2]*BB[0];
+      BV[3] = up[0]*BB[1]; BV[4] = up[1]*BB[1]; BV[5] = up[2]*BB[1];
+      BV[6] = up[0]*BB[2]; BV[7] = up[1]*BB[2]; BV[8] = up[2]*BB[2];
+
+      for (int j=0; j<4; ++j) {
+        double v[4] = {V[j][0], V[j][1], V[j][2], V[j][3]};
+
+        double KU[25];
+        multiplyBydVdU(v, K, KU, volten);
+
+        double BU[25];
+        multiplyBydVdU(v, BV, BU, 1.0);
+
+        double cKU = (k==j) ? 1.0 : 0.5;
+
+        for (int l=0; l<5; l++) {
+          dPdU[k][j][0][l] = 0.0;
+          dPdU[k][j][1][l] = cKU*KU[ 5+l] + BU[ 5+l];
+          dPdU[k][j][2][l] = cKU*KU[10+l] + BU[10+l];
+          dPdU[k][j][3][l] = cKU*KU[15+l] + BU[15+l];
+          dPdU[k][j][4][l] = 0.0;
+        }
+
+        if(dim == 6 || dim == 7){
+          for (int l=0; l<6; l++) {
+            dPdU[k][j][5][l] = 0.0;
+            dPdU[k][j][l][5] = 0.0;
+          }
+        }
+
+      }
+    }
+    return true;
 
   }
 
-
+  // for porous modelling
   void multiplyBydVdU(double V[4], double mat[9], double* res, double scaling) 
   {
 

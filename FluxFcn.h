@@ -167,7 +167,7 @@ FluxFcnBase *FluxFcn::createFluxFcn(int rshift, int ffType, FluidModelData &fmod
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||
@@ -513,7 +513,7 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg1(int rshift, int ffType, FluidModelData &
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
 // Euler or Navier-Stokes for Stiffened Gas 
     VarFcnSGEuler *vfsgeuler = new VarFcnSGEuler(fmodel);
 
@@ -584,7 +584,7 @@ FluxFcnBase *FluxFcn::createFluxFcnSeg2(int rshift, int ffType, FluidModelData &
   FluxFcnBase *localff;
   double gamma = iod.schemes.ns.gamma;
 
-  if(fmodel.fluid == FluidModelData::GAS){
+  if(fmodel.fluid == FluidModelData::PERFECT_GAS || fmodel.fluid == FluidModelData::STIFFENED_GAS){
     if (iod.eqs.type == EquationsData::NAVIER_STOKES &&
         iod.eqs.tc.type == TurbulenceClosureData::EDDY_VISCOSITY) {
       if (iod.eqs.tc.tm.type == TurbulenceModelData::ONE_EQUATION_SPALART_ALLMARAS ||

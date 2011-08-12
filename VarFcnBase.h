@@ -162,6 +162,10 @@ public:
     return (V[1]*dV[1]+V[2]*dV[2]+V[3]*dV[3])/sqrt(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
   }
 
+  virtual double specificHeatCstPressure() const{ 
+    fprintf(stderr, "*** Error: specificHeatCstPressure not defined\n");
+    exit(1);
+  }
   virtual double computePressureCoefficient(double *V, double pinfty, 
                                             double mach, bool dimFlag) const{ 
     fprintf(stderr, "*** Error: computePressureCoefficient not defined\n");
