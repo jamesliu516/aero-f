@@ -22,6 +22,11 @@
 //   e  : internal energy per unit mass.
 //   Pc : pressure constant.
 //
+//   Note that the complete EOS is given by the above and h = cp * T
+//   where cp is constant. For a perfect gas, this leads to epsilon = cv * T
+//   but for a stiffened gas, epsilon = cv * T does not hold. 
+//   For a stiffened gas, choosing epsilon = cv * T would lead to a non-constant cp...
+//
 //--------------------------------------------------------------------------
 class VarFcnSGEuler : public VarFcnBase {
 
@@ -60,7 +65,7 @@ public:
       fprintf(stderr, "ERROR*** computeTemp\n");
       exit(1);
     }
-    return invgam1 * (V[4]+gam*Pstiff) / V[0];
+    return invgam1 * (V[4]+Pstiff) / V[0];
   }
   double computeRhoEnergy(double *V) const {
     return invgam1 * (V[4]+gam*Pstiff) + 0.5 * V[0] * (V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
@@ -86,15 +91,16 @@ public:
     if (dimFlag)
       return 2.0 * (V[4] - pinfty);
     else
-      return 2.0 * (V[4] - 1.0/(gam*mach*mach));
+      return 2.0 * (V[4] - 1.0/(gam*mach*mach)); // a priori, valid only for Perfect Gas
   }
   double computeTotalPressure(double machr, double* V) const {
     double mach = computeMachNumber(V);
-    double machr2 = machr*machr;
-    double popr = V[4]*gam*machr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
-    return V[4]*pow(opmach, gam*invgam1);
+    return (V[4]+Pstiff)*pow(opmach, gam*invgam1) - Pstiff;
   }
+  // specific heat at constant pressure is gamma for Perfect Gas
+  //                                             and Stiffened Gas with h = cp * T
+  double specificHeatCstPressure() const { return gam; }
   double computeDerivativeOfTemperature(double *V, double *dV) const {
     // Correction when Pstiff is non-zero.
     return ( invgam1 * dV[4] - computeTemperature(V) * dV[0] ) /V[0];
@@ -116,13 +122,9 @@ public:
   double computeDerivativeOfTotalPressure(double machr, double dmachr, double* V, double* dV, double dMach) const {
     double mach = computeMachNumber(V);
     double dmach = computeDerivativeOfMachNumber(V, dV, dMach);
-    double machr2 = machr*machr;
-    double dmachr2 = 2.0*machr*dmachr;
-    double popr = V[4]*gam*machr2;
-    double dpopr = dV[4]*gam*machr2 + V[4]*gam*dmachr2;
     double opmach = 1.0 + 0.5*gam1*mach*mach;
     double dopmach = gam1*mach*dmach;
-    return dV[4]*pow(opmach, gam*invgam1) + V[4]*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
+    return dV[4]*pow(opmach, gam*invgam1) + (V[4]+Pstiff)*gam*invgam1*pow(opmach, (gam*invgam1-1))*dopmach;
   }
   void rstVar(IoData &iod) {
     dPstiff = iod.eqs.fluidModel.gasModel.pressureConstant/iod.bc.inlet.pressure*(-2.0 / (gam * iod.bc.inlet.mach * iod.bc.inlet.mach * iod.bc.inlet.mach));
@@ -143,7 +145,7 @@ public:
 inline
 VarFcnSGEuler::VarFcnSGEuler(FluidModelData &data) : VarFcnBase(data) {
 
-  if(data.fluid != FluidModelData::GAS){
+  if(data.fluid != FluidModelData::PERFECT_GAS && data.fluid != FluidModelData::STIFFENED_GAS){
     fprintf(stderr, "*** Error: FluidModelData is not of type GAS\n");
     exit(1);
   }

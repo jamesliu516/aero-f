@@ -1,21 +1,19 @@
 #ifndef _THERMAL_COND_FCN_H_
 #define _THERMAL_COND_FCN_H_
 
-#include <IoData.h>
-#include <ViscoFcn.h>
+#include "IoData.h"
+#include "ViscoFcn.h"
+#include "VarFcn.h"
 
-//------------------------------------------------------------------------------
-//CHANGES_FOR_WATER
-//	The thermal condition function is not necessarily the same for gas
-//	 and liquid, thus we have added a new one.
-//------------------------------------------------------------------------------
 
+
+// Pure virtual base class
 class ThermalCondFcn {
 
 public:
 
   ThermalCondFcn() {}
-  ~ThermalCondFcn() {}
+  virtual ~ThermalCondFcn() {}
 
   virtual double compute(double) = 0;
 
@@ -24,57 +22,77 @@ public:
   virtual void rstVar(IoData&) = 0;
 
 };
-
 //------------------------------------------------------------------------------
 
-class ConstantPrandtlThermalCondFcn : public ThermalCondFcn {
+class ConstantThermalCondFcn : public ThermalCondFcn {
 
-  double alpha;
-
-  ViscoFcn *viscoFcn;
+  // non-dimensional value of thermal conductivity coefficient
+  // (non-dimensionalized by reference viscosity x reference Cv, already done in IoDataCore.C)
+  double thermal_conductivity_coefficient;
 
 public:
 
-  ConstantPrandtlThermalCondFcn(IoData &iod, ViscoFcn *visf) 
+  ConstantThermalCondFcn(IoData &iod){
+    thermal_conductivity_coefficient = iod.eqs.thermalCondModel.conductivity;
+  }
+  ~ConstantThermalCondFcn() {}
+
+  double compute(double Tadim) { return thermal_conductivity_coefficient; }
+  double computeDerivative(double Tadim, double dTadim, double dMach) { return 0.0; }
+  void rstVar(IoData &iod) { thermal_conductivity_coefficient = iod.eqs.thermalCondModel.conductivity; }
+
+};
+
+//------------------------------------------------------------------------------
+// assumption: constant Prandtl number (as well as constant cp)
+class ConstantPrandtlThermalCondFcn : public ThermalCondFcn {
+
+  double ooPrandtl;
+  double ooTurbPrandtl;
+
+  ViscoFcn *viscoFcn;
+  VarFcn *varFcn;
+
+public:
+
+  ConstantPrandtlThermalCondFcn(IoData &iod, ViscoFcn *visf, VarFcn *vfn) :
+    varFcn(vfn)
   {
     viscoFcn = visf;
-    alpha = iod.eqs.fluidModel.gasModel.specificHeatRatio / iod.eqs.thermalCondModel.prandtl;
-  }
-  ~ConstantPrandtlThermalCondFcn() {}
 
-  double compute(double Tadim) 
+    ooPrandtl = 1.0 / iod.eqs.thermalCondModel.prandtl;
+    ooTurbPrandtl = 1.0 / iod.eqs.tc.prandtlTurbulent;
+
+  }
+  ~ConstantPrandtlThermalCondFcn() { viscoFcn = 0; varFcn = 0;}
+
+  double compute(double Tadim)
+  {
+    return ooPrandtl * varFcn->specificHeatCstPressure() * viscoFcn->compute_mu(Tadim);
+  }
+
+  double turbulentConductivity(double mut)
   { 
-    return alpha * viscoFcn->compute_mu(Tadim);
+    return varFcn->specificHeatCstPressure() * mut * ooTurbPrandtl;
   }
 
 // Included (MB)
   double computeDerivative(double Tadim, double dTadim, double dMach)
   {
-    return alpha * viscoFcn->compute_muDerivative(Tadim, dTadim, dMach);
+    return ooPrandtl * varFcn->specificHeatCstPressure() * viscoFcn->compute_muDerivative(Tadim, dTadim, dMach);
+  }
+
+  double turbulentConductivityDerivative(double dmut)
+  {
+    return varFcn->specificHeatCstPressure() * dmut * ooTurbPrandtl;
   }
   void rstVar(IoData &iod)
   {
     viscoFcn->rstVar(iod);
+    varFcn->rstVar(iod);
   }
 
 };
-
-//------------------------------------------------------------------------------
-
-/*class WaterThermalCondFcn : public ThermalCondFcn {
- 
-  double ...
-
-public:
-
-  WaterThermalCondFcn(IoData &iod, ViscoFcn *visf){
-  }
-  ~WaterThermalCondFcn() {}
-
-  double compute(double Tadim) {}
-
-};
-*/
 
 //---------------------------------------------------------------------------------
 

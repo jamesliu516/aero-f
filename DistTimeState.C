@@ -253,7 +253,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
                                              FluidModelData &fm, double UU[dim])
 {
 
-  if(fm.fluid == FluidModelData::GAS){
+  if(fm.fluid == FluidModelData::PERFECT_GAS || fm.fluid == FluidModelData::STIFFENED_GAS){
     double gam = fm.gasModel.specificHeatRatio;
     double ps = fm.gasModel.pressureConstant;
 
@@ -305,7 +305,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     double pref  = fm.liquidModel.Pref;
     double alpha = fm.liquidModel.alpha;
     double beta  = fm.liquidModel.beta;
-    double cv    = fm.liquidModel.Cv;
+    double cv    = fm.liquidModel.specificHeat;
 
     double rho = ic.density;
     double temperature = ic.temperature;
