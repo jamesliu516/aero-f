@@ -648,7 +648,8 @@ template<int dim, class Scalar, int neq>
 void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 					  Vec<double> &ctrlVol, Vec<double> &d2wall, 
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim> *> *ghostPoints, LevelSetStructure *LSS)
+                                          Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
+	//				  VarFcn* vf)
 {
   // In the case of an embedded simulation, check if the tetrahedra is actually active
   bool isTetInactive=true,isAtTheInterface=true;
@@ -677,8 +678,18 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
    GhostPoint<dim> *gp;
    for(int i=0;i<4;++i)
    {
-    gp = ghostPoints->operator[](nodeNum(i)); 
-    if(gp) v[i] = gp->getPrimitiveState();
+     gp = ghostPoints->operator[](nodeNum(i)); 
+     /*if (gpJacobians && isAtTheInterface) {
+       double* & ptr = (*gpJacobians)[ nodeNum(i) ];
+       if (!ptr) {
+         ptr = new double[neq*neq*2];
+         vf->computedVdU(v[i], ptr);
+         if (gp)
+           vf->computedUdV(gp->getPrimitiveState(), ptr+neq*neq);
+       }
+    }  */    
+    if(gp) 
+      v[i] = gp->getPrimitiveState();
    }
   }
 
@@ -739,37 +750,65 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
       i = edgeEnd(l,1);
       j = edgeEnd(l,0);
     }
+    
+    bool iactive = true,jactive=true;
+    if (LSS) {
+      iactive = LSS->isActive(0,nodeNum(i));
+      jactive = LSS->isActive(0,nodeNum(j));
+    }
 
-    if (LSS->isActive(0,nodeNum(i)) && LSS->isActive(0,nodeNum(j))) {
-      Scalar *Aij = A.getElem_ij(edgeNum(l));
-      Scalar *Aji = A.getElem_ji(edgeNum(l));
+    if (iactive || jactive) {
+      Scalar *Aij = 0;
+      Scalar *Aji = 0;
+      if (iactive && jactive) {
+        Aij = A.getElem_ij(edgeNum(l));
+        Aji = A.getElem_ji(edgeNum(l));
+      } else if (iactive) {
+        Aij = A.getRealNodeElem_ij(i,j);
+        //Aji = A.getGhostNodeElem_ij(i,j);
+      } else { // if (LSS->isActive(0,nodeNum(j))) {
+        //Aij = A.getGhostNodeElem_ij(i,j);
+        Aji = A.getRealNodeElem_ij(j,i);
+      }
 
       if (Aij && Aji) {
 	double cij = 1.0 / ctrlVol[ nodeNum(i) ];
 	double cji = 1.0 / ctrlVol[ nodeNum(j) ];
 	int m;
-	
-	for (m=0; m<neq*neq; ++m) {
-	  Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
-			   dRdU[j][2][m] * dp1dxj[i][2]);
-	  Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
-			   dRdU[i][2][m] * dp1dxj[j][2]);
-	}
+
+        if (iactive) {	
+	  for (m=0; m<neq*neq; ++m) {
+	    Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
+	  		     dRdU[j][2][m] * dp1dxj[i][2]);
+          }
+        } 
+        if (jactive) {
+	  for (m=0; m<neq*neq; ++m) {
+	    Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
+	  		     dRdU[i][2][m] * dp1dxj[j][2]);
+	  }
+        }
 	
 	if (sourceTermExists) {
 	  double cij4 = cij * vol4;
 	  double cji4 = cji * vol4;
-	  for (m=0; m<neq*neq; ++m) {
-	    Aij[m] -= cij4 * dSdU[j][m];
-	    Aji[m] -= cji4 * dSdU[i][m];
-	  }
+          if (iactive)
+	    for (m=0; m<neq*neq; ++m)
+	      Aij[m] -= cij4 * dSdU[j][m];
+
+          if (jactive)
+	    for (m=0; m<neq*neq; ++m) 
+	      Aji[m] -= cji4 * dSdU[i][m];
+	 
 	}
 	
 	if (porousTermExists) {
-	  for (m=1;m<neq*neq;++m) {
-	    Aij[m] += cij * dPdU[i][j][m];
-	    Aji[m] += cji * dPdU[j][i][m];
-	  }
+          if (iactive)
+	    for (m=1;m<neq*neq;++m)
+	      Aij[m] += cij * dPdU[i][j][m];
+          if (jactive)
+	    for (m=1;m<neq*neq;++m) 
+	      Aji[m] += cji * dPdU[j][i][m];
 	}
       }
     }

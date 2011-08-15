@@ -590,6 +590,37 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
 
 }
 
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
+{
+
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
+					       p.real()(iSub), prod.real()(iSub), 
+                                               p.ghost()(iSub), prod.ghost()(iSub) );
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.real().subData(iSub));
+  }
+
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.real().subData(iSub));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.ghost().subData(iSub));
+  }
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.ghost().subData(iSub));
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)
