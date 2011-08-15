@@ -115,6 +115,18 @@ private:
 
   char *heatfluxes;
   FILE **fpHeatFluxes;
+
+  struct {
+
+    double* results;
+    int numNodes;
+    int* subId;
+    int* locNodeId;
+    int step;
+  } nodal_output;
+
+  char *nodal_scalars[PostFcn::SSIZE];
+  char *nodal_vectors[PostFcn::VSIZE];
   
   
 private:
@@ -158,14 +170,28 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+  void writeProbesToDisk(bool, int, double, DistSVec<double,3> &, 
+			 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+  
   template<int dimLS>
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
                                 DistVec<int> &,DistSVec<double,dimLS>* = NULL);
   
+  template<int dimLS>
+    void writeProbesToDisk(bool, int, double, DistSVec<double,3> &,
+			   DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+			   DistVec<int> &,DistSVec<double,dimLS>* = NULL);
+  
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
                                 DistVec<int> &);
+
+  void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+			 DistVec<double> &A, DistSVec<double,dim> &U, 
+			 DistTimeState<dim> *timeState,
+			 DistVec<int> &fluidId);
+  
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

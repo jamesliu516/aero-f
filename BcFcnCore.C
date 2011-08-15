@@ -550,6 +550,31 @@ void BcFcnSAturb::applyToOffDiagonalTerm(int type, bcomp *A)
 
 //------------------------------------------------------------------------------
 
+BcFcnKE::BcFcnKE(IoData& iod)
+{
+
+  if (iod.bc.wall.integration == BcsWallData::WALL_FUNCTION)
+    wallFcn = true;
+  else
+    wallFcn = false;
+
+}
+
+//------------------------------------------------------------------------------
+
+void BcFcnKE::applyToSolutionVector(int type, double *Vwall, double *U)
+{
+  if (!wallFcn)
+    BcFcnNS::template_applyToSolutionVectorTerm(type, Vwall, U);
+
+  if (type == BC_ISOTHERMAL_WALL_MOVING || type == BC_ISOTHERMAL_WALL_FIXED ||
+      type == BC_ADIABATIC_WALL_MOVING || type == BC_ADIABATIC_WALL_FIXED)
+    U[5] = U[0] * Vwall[5];
+
+}
+//------------------------------------------------------------------------------
+
+
 void BcFcnKE::applyToResidualTerm(int type, double *Vwall, double *U, double *F)
 {
 

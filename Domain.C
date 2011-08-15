@@ -3397,6 +3397,17 @@ void Domain::populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints, DistSVe
       subDomain[iSub]->reduceGhostPoints((*ghostPoints)(iSub));
     }
 }
+
+template<int dim,int neq>
+void Domain::populateGhostJacobian(DistVec<GhostPoint<dim>*> &ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure &LSS,DistVec<int> &tag, DistMat<double,neq>& A) {
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) 
+    subDomain[iSub]->populateGhostJacobian(ghostPoints(iSub), U(iSub), varFcn, LSS(iSub), tag(iSub), A(iSub));
+ 
+}
+
 //------------------------------------------------------------------------------
 
 template<int dim>
@@ -3570,7 +3581,8 @@ template<int dim>
 void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoState& geoState,
                                      DistSVec<double,3> &X, double (*Fs)[3], int sizeFs,
                                      DistLevelSetStructure *distLSS,
-                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
+                                     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty,
+				     VarFcn* vf, DistVec<int>* fid)
 {
   //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
@@ -3582,8 +3594,8 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++)
     for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
-      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
+      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[i]:0);
+      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[i]:0);
     }
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
@@ -3653,8 +3665,9 @@ void Domain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy, D
 
 template<int dim>
 void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
-                                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                                         DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty)
+					  double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
+					  DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, double pInfty,
+					  VarFcn* vf, DistVec<int>* fid)
 {
   //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
@@ -3664,11 +3677,22 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
-    for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = Wstarij(iSub)[i][4];
-      pstarji(iSub)[i] = Wstarji(iSub)[i][4];
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    int (*ptr )[2] = subDomain[iSub]->getEdges().getPtr();
+    if (fid) {
+      for (int i=0; i<Wstarij(iSub).size(); i++) {
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],(*fid)(iSub)[ptr[i][0]]);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],(*fid)(iSub)[ptr[i][1]]);//Wstarji(iSub)[i][4];
+      }
+    } else {
+      for (int i=0; i<Wstarij(iSub).size(); i++) {
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],ptr[i][0]);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],ptr[i][1]);//Wstarji(iSub)[i][4];
+      }
+
     }
+  }
+
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
@@ -4025,4 +4049,23 @@ void Domain::blur(DistSVec<double,dim> &U, DistSVec<double,dim> &U0)
 
   }
 
+}
+
+template<int dim, class Obj>
+void Domain::integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+			       int npt) {
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub){
+    subDomain[iSub]->integrateFunction(obj, X(iSub), V(iSub), F, npt);
+    subDomain[iSub]->sndData(*volPat, V(iSub) );
+  }
+
+  volPat->exchange();
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+    //subDomain[iSub]->minRcvData(*phiVecPat, Psi.subData(iSub));
+    subDomain[iSub]->addRcvData(*volPat, V(iSub));
+  }
 }

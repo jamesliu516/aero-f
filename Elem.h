@@ -97,6 +97,10 @@ public:
   virtual void *forClassTet(ElemTet *, int size, char *memorySpace) = 0;
 };
 
+class GenElemHelper_dim_obj {
+public:
+  virtual void *forClassTet(ElemTet *, int size, char *memorySpace) = 0;
+};
 
 //-------------- GENERAL WRAPPERS ----------------------------------------------
 template<int dim>
@@ -187,6 +191,13 @@ public:
 				       SVec<double,3> &, Vec<double> &, Vec<double> &, 
 				       double *, SVec<double,dim> &, GenMat<Scalar,neq> &) = 0;
 
+};
+
+template<int dim, class Obj>
+class GenElemWrapper_dim_obj {
+public:
+  virtual void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) = 0; 
+  
 };
 
 
@@ -317,6 +328,19 @@ public:
   
 };
 
+template<class Target,int dim, class Obj>
+class  ElemWrapper_dim_obj : public 
+GenElemWrapper_dim_obj<dim,Obj> {
+  
+  Target *t;
+  
+public:
+  ElemWrapper_dim_obj(Target *tt) : t(tt) { };
+  
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) {
+      t->integrateFunction(obj,X,V,F,npt);
+  }
+};
 
 //-------------- REAL HELPERS --------------------------------------------------
 template<int dim>
@@ -344,7 +368,20 @@ public:
     }
     return new (memorySpace) ElemWrapper_Scalar_dim_neq<ElemTet, Scalar, dim, neq>(tet);
   }
-  
+
+};
+
+  template<int dim, class Obj>
+class ElemHelper_dim_obj : public GenElemHelper_dim_obj {
+public:
+
+  void *forClassTet(ElemTet *tet, int size, char *memorySpace) {
+    if(size < sizeof(ElemWrapper_dim_obj<ElemTet, dim, Obj>) ) {
+      fprintf(stderr, "Error: programming error in ElemHelper");
+      exit(1);
+    }
+    return new (memorySpace) ElemWrapper_dim_obj<ElemTet, dim, Obj>(tet);
+  }
 };
 
 
@@ -362,6 +399,8 @@ protected:
 			       int size, char *memorySpace) = 0;
   virtual void *getWrapper_Scalar_dim_neq(GenElemHelper_Scalar_dim_neq *, 
 					  int size, char *memorySpace) = 0;  
+  virtual void *getWrapper_dim_obj(GenElemHelper_dim_obj *, 
+				   int size, char *memorySpace) = 0;
   int volume_id;
 
 public:
@@ -644,6 +683,14 @@ public:
     wrapper->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
   }
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) { 
+    ElemHelper_dim_obj<dim,Obj> h;
+    char xx[64];
+    GenElemWrapper_dim_obj<dim,Obj> *wrapper=
+      (GenElemWrapper_dim_obj<dim,Obj> *)getWrapper_dim_obj(&h, 64, xx);
+    wrapper->integrateFunction(obj,X,V,F,npt);
+  }
 };
 
 //--------------- DUMMY ELEM CLASS ---------------------------------------------
@@ -774,6 +821,10 @@ public:
     fprintf(stderr, "Error: undefined function (computeDistanceLevelNodes) for this elem type\n"); exit(1);
   }
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) {
+    fprintf(stderr, "Error: undefined function (integrateFunction) for this elem type\n"); exit(1);
+  }
 
 };
 
@@ -864,6 +915,8 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);
 };
 
 #ifdef TEMPLATE_FIX

@@ -42,6 +42,7 @@ using std::max;
 #include "FluidSelector.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
+#include <DenseMatrixOps.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -1104,6 +1105,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
       Aii[k] *= voli;
   }
 }
+
 //-------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int dimLS>
@@ -2461,6 +2463,71 @@ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
 
 }
 
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
+				    SVec<double,dim> &p, SVec<double,dim> &prod,
+                                    SVec<double,dim> &ghostP, SVec<double,dim>& ghostProd)
+{
+
+  int i, j, l;
+
+  int numNodes = nodes.size();
+  int numEdges = edges.size();
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  Scalar (*a)[dim*dim] = A.data();
+
+  prod = 0.0;
+
+#pragma ivdep
+  for (i=0; i<numNodes; ++i)
+    if (nodeFlag[i])
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+
+#pragma ivdep
+  for (l=0; l<numEdges; ++l) {
+
+    if (edgeFlag[l]) {
+
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+
+    }
+
+  }
+
+  typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_realNodes();
+  if (myItr) {
+    do { 
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+  
+  myItr = A.begin_ghostNodes();
+  if (myItr) {
+    do { 
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+
+  myItr = A.begin_ghostGhostNodes();
+  if (myItr) {
+    do { 
+     DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
@@ -3902,6 +3969,19 @@ inline void SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostF
   }
 }
 
+template<int dim, int dimLS>
+inline double SubDomain::computeNodeScalarQuantity(PostFcn::ScalarType type, PostFcn *postFcn,
+						   SVec<double,dim> &V, SVec<double,3> &X,
+						   Vec<int> &fluidId,int i,SVec<double,dimLS>* phi) 
+{
+  
+  if (phi) {
+    return postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],(*phi)[i]);
+  } else { 
+    return postFcn->computeNodeScalarQuantity(type, V[i], X[i], fluidId[i],NULL);
+  }
+}
+
 //------------------------------------------------------------------------------
 
 template<class S1, class S2>
@@ -4672,6 +4752,72 @@ void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints)
 	  ghostPoints[i]->reduce();
 	}
     } 
+}
+
+template<int dim,int neq>
+void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,
+                                      GenMat<double,neq>& A)
+{
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  double B[neq*neq],tmp[neq*neq];
+  double dUdV[neq*neq],dVdU[neq*neq];
+  memset(B,0,sizeof(double)*neq*neq);
+  B[0] = B[5*neq-1] = 1.0;
+  for (k = 1; k < 4; ++k) {
+    B[k*neq+k] = -1.0;
+  }
+  for (int l=0; l<edges.size(); l++)
+    {
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+      if(LSS.edgeIntersectsStructure(0.0,i,j))
+	{ //at interface
+	  int tagI = tag[i];
+	  int tagJ = tag[j];
+	  bool iIsActive = LSS.isActive(0.0,i);
+	  bool jIsActive = LSS.isActive(0.0,j);
+	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+	  
+	  if(iIsActive) 
+	    {
+              double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
+	      Vec<double> Vi(dim);
+	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+              varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+              varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      //if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
+	    }
+	  if(jIsActive)
+	    {
+              double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
+	      Vec<double> Vj(dim);
+	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+              varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+              varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      //if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);}
+	    }
+	}
+    }
+
+  for (int l = 0; l < ghostPoints.size(); ++l) {
+    if (ghostPoints[l]) {
+      double (*Aii)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostGhostElem_ij(i,i));
+      memset(*Aii,0,sizeof(double)*neq*neq);
+      for (k = 0; k < neq; ++k)
+        (*Aii)[k*neq+k] = ghostPoints[l]->lastCount();
+    }
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -5945,16 +6091,16 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
       lsRes = LSS.getLevelSetDataAtEdgeCenter(0.0,j,i);
       if(ghostPoints) // Viscous Simulation
 	{
-	  gradP[0] = gradX[i][4];
-	  gradP[1] = gradY[i][4];
-	  gradP[2] = gradZ[i][4];
+	  gradP[0] = gradX[j][4];
+	  gradP[1] = gradY[j][4];
+	  gradP[2] = gradZ[j][4];
 	  // Minus, cause the normal points toward j
-	  flocal   -= (v[0][4] + 0.5*(gradP*vectorIJ))*normal[l];
+	  flocal   -= (v[0][4] - 0.5*(gradP*vectorIJ))*normal[l];
 	  // Compute Velocity Gradient
 	  // ***************** Method 1 **********************
-	  dudxj[0][0] = gradX[i][1]; dudxj[0][1] = gradY[i][1]; dudxj[0][2] = gradZ[i][1];
-	  dudxj[1][0] = gradX[i][2]; dudxj[1][1] = gradY[i][2]; dudxj[1][2] = gradZ[i][2];
-	  dudxj[2][0] = gradX[i][3]; dudxj[2][1] = gradY[i][3]; dudxj[2][2] = gradZ[i][3];
+	  dudxj[0][0] = gradX[j][1]; dudxj[0][1] = gradY[j][1]; dudxj[0][2] = gradZ[j][1];
+	  dudxj[1][0] = gradX[j][2]; dudxj[1][1] = gradY[j][2]; dudxj[1][2] = gradZ[j][2];
+	  dudxj[2][0] = gradX[j][3]; dudxj[2][1] = gradY[j][3]; dudxj[2][2] = gradZ[j][3];
 	  // ***************** Method 2 **********************
 	  /*
 	  double norm = vectorIJ.norm();
@@ -5966,7 +6112,7 @@ void SubDomain::computeCVBasedForceLoadViscous(int forceApp, int orderOfAccuracy
 	  dudxj[2][0] = deltaU*vectorIJ[0];dudxj[2][1] = deltaU*vectorIJ[1];dudxj[2][2] = deltaU*vectorIJ[2];
 	  */
 	  // Minus, cause the normal points toward j
-	  flocal  -= postFcn->computeViscousForceCVBoundary(normal[l],v[0],dudxj);
+	  flocal  -= postFcn->computeViscousForceCVBoundary(normal[l],v[1],dudxj);
 	}
       else
 	{
@@ -5997,3 +6143,11 @@ void SubDomain::blur(SVec<double,dim> &U,SVec<double,dim> &U0, Vec<double>& weig
     weight[currentNode] = (double)nToN.num(currentNode);
   }
 }
+
+template<int dim, class Obj>
+void SubDomain::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				  int npt) 
+{
+  elems.integrateFunction(obj,X,V,F,npt);
+}
+
