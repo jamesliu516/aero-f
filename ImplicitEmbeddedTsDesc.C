@@ -154,22 +154,26 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
   //if(this->mmh && !this->inSubCycling) {  //subcycling is allowed from now on
   if(this->mmh) {
     int failSafe=0;
-    /*if(TsDesc<dim>::failSafeFlag == false){
+    if(TsDesc<dim>::failSafeFlag == false){
       *this->WstarijCopy = *this->Wstarij;
       *this->WstarjiCopy = *this->Wstarji;
-      *this->Wstarij_nm1Copy = *this->Wstarij_nm1;
-      *this->Wstarji_nm1Copy = *this->Wstarji_nm1;
+      if(this->timeState->useNm1()) {
+        *this->Wstarij_nm1Copy = *this->Wstarij_nm1;
+        *this->Wstarji_nm1Copy = *this->Wstarji_nm1;
+      }
       *this->nodeTagCopy = this->distLSS->getStatus();
       *EmbeddedTsDesc<dim>::UCopy = U;
     }
     else{
       *this->Wstarij = *this->WstarijCopy;
       *this->Wstarji = *this->WstarjiCopy;
-      *this->Wstarij_nm1 = *this->Wstarij_nm1Copy;
-      *this->Wstarji_nm1 = *this->Wstarji_nm1Copy;
+      if(this->timeState->useNm1()) {
+        *this->Wstarij_nm1 = *this->Wstarij_nm1Copy;
+        *this->Wstarji_nm1 = *this->Wstarji_nm1Copy;
+      }
       this->distLSS->setStatus(*this->nodeTagCopy);
       this->nodeTag = *this->nodeTagCopy;
-    }*/
+    }
 
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);

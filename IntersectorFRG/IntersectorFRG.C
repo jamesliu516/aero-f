@@ -35,12 +35,19 @@ public:
   MyTriangle() {}
   MyTriangle(int i, Vec<Vec3D> &coord, int *nd) {
     id = i;
+//    const double expansion_factor = 2.0;
 
     for(int j = 0; j <3; ++j) {
       x[j] = std::min(std::min(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j]);
       w[j] = std::max(std::max(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j])-x[j];
     }
-
+/*
+    double extra = 0.5*expansion_factor*std::max(w[0], std::max(w[1],w[2]));
+    for(int j=0; j<3; j++) {
+      x[j] -= extra;
+      w[j] += extra;
+    }
+*/
   }
   double val(int i) const { return x[i]; }
   double width(int i) const { return w[i]; }
@@ -54,7 +61,11 @@ class ClosestTriangle {
   int (*triNodes)[3];
   Vec3D *structX;
   Vec3D *structNorm;
-public:
+  set<int> *node2node;
+  set<int> *node2elem;
+
+public: //for debug only
+//protected:
   bool isFirst;
   int bestTrId;
   int n1, n2; //!< if both ns are non negative, the best point is on an edge
@@ -71,23 +82,26 @@ public:
   int nPairs;
   int periTri[maxNPairs];
 
-  /** Check an edge
-   * returns true if this edge is the new closest one.
-   */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
   void checkVertex(int vn, int trId, double trDist);
   int registerNodes(int ip1, int trId, int& repeated1, int& repeated2);
-  double project(Vec3D x0, int tria, double& xi1, double& xi2);
-  double edgeProject(int n1, int n2, double &alpha);
+  double project(Vec3D x0, int tria, double& xi1, double& xi2) const;
+  double edgeProject(Vec3D x0, int n1, int n2, double &alpha) const;
   double getSignedVertexDistance() const;
+  double findSignedVertexDistance();
+  int findTesterStatus(Vec3D) const;
+  void checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2,
+                          double &mindist, int &myMode, int &bestTriangle, const double eps) const;
+
 public:
-  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN);
+  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN, set<int> *n2n, set<int> *n2e);
   void start(Vec3D x);
   void checkTriangle(int trId);
-  double signedDistance() const {
+  double signedDistance() {
     if(n1 < 0 || n2 >= 0) return minDist;
     else
-      return getSignedVertexDistance();
+      return findSignedVertexDistance();
+      //return getSignedVertexDistance();
   }
 
   int bestTriangle() const { return bestTrId; }
@@ -97,10 +111,12 @@ public:
 
 //----------------------------------------------------------------------------
 
-ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN) {
+ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN, set<int> *n2n, set<int> *n2e) {
   triNodes = nd;
   structX = sX;
   structNorm = sN;
+  node2node = n2n;
+  node2elem = n2e;
 }
 
 //----------------------------------------------------------------------------
@@ -119,19 +135,19 @@ ClosestTriangle::start(Vec3D xp) {
   dist2othernode = 1.0e10;
 }
 //----------------------------------------------------------------------------
-double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
+double ClosestTriangle::edgeProject(Vec3D x0, int n1, int n2, double &alpha) const
 {
   Vec3D xA =   structX[n1];
   Vec3D xB =   structX[n2];
   Vec3D AB= xB-xA;
-  Vec3D AX = x-xA;
+  Vec3D AX = x0-xA;
   alpha = AB*AX/(AB*AB);
   Vec3D P = xA + alpha*AB;
-  return (P-x).norm();
+  return (P-x0).norm();
 }
 //----------------------------------------------------------------------------
 
-double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
+double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2) const
 {
   int iA = triNodes[tria][0];
   int iB = triNodes[tria][1];
@@ -367,7 +383,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
   } else {
     double dist, alpha;
     double sign = trDist >= 0 ? 1 : -1;
-    dist = sign*edgeProject(p1, p2, alpha);
+    dist = sign*edgeProject(x, p1, p2, alpha);
 
     int cn1 = (alpha > 1) ? p2 : p1;
     int cn2 = p2;
@@ -402,6 +418,160 @@ double ClosestTriangle::getSignedVertexDistance() const {
     return isPositive ? minDist : -minDist;
   return minDist;
 */
+}
+
+//----------------------------------------------------------------------------
+
+double ClosestTriangle::findSignedVertexDistance()
+{
+  set<int> &vertices = node2node[n1]; //vertices in the direct neighborhood of n1
+  Vec3D    &xp       = structX[n1];   //coordinate of n1
+
+  //step 1: find a test direction.
+  Vec3D dir(0,0,0); //the test direction (normalized).
+  double rr = 0.0; //distance in the test direction.
+
+  double ry = 0.0;
+  Vec3D npx = x - xp;
+  npx = 1.0/npx.norm()*npx; 
+  for(set<int>::iterator it=vertices.begin(); it!=vertices.end(); it++) {
+    Vec3D xr = structX[*it]; 
+
+    double d_xp_xr = (xp-xr).norm();
+    if(d_xp_xr>=ry)
+      ry = d_xp_xr;
+
+    if(npx*(xp-xr)<1.0e-14) continue;
+    double t = npx*(x-xr)/(npx*(xp-xr)); 
+    Vec3D xt = xr + t*(xp-xr);
+    double d_x_xt = (xt - x).norm();
+    if(d_x_xt>=rr) {
+      dir = xt - x;
+      rr  = d_x_xt;
+    }
+  }
+  if(rr<1.0e-14) {fprintf(stderr,"ERROR: (in IntersectorFRG) distance = %e.\n",rr);exit(-1);}
+  dir *= 1.0/rr; //normalize dir
+  rr = std::min(1.5*rr, std::max((x-xp).norm(), ry)); 
+  rr *= 0.05;
+
+  int nTrial = 50;
+  for(int iTrial=0; iTrial<nTrial; iTrial++) {
+    Vec3D x_trial;
+    if(iTrial%2==1)
+      x_trial = x - (double(iTrial+1.0)*rr)*dir;
+    else
+      x_trial = x + (double(iTrial+1.0)*rr)*dir;
+
+    int sign = findTesterStatus(x_trial); 
+    if(sign!=0) {
+      minDist = (double)sign*std::abs(minDist);
+//      fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). sign = %d, minDist = %e\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], sign, minDist);
+      return minDist;
+    }// else 
+ //     fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). I = %d, sign = %d\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], iTrial, sign);
+  }
+  
+  fprintf(stderr,"ERROR: (in IntersectorFRG) failed in determining node status! nTrial = %d.\n", nTrial);
+  exit(-1);
+
+  return 0.0;
+}
+
+//----------------------------------------------------------------------------
+
+int ClosestTriangle::findTesterStatus(Vec3D xt) const
+{
+//  Vec3D xdebug(-4.348610e+00, -5.030928e+00, -6.636450e-02);
+//  bool debug = (xt-xdebug).norm()<1.0e-5 ? true : false;
+
+  set<int> &vertices = node2node[n1]; //vertices in the direct neighborhood of n1
+  set<int> &elements = node2elem[n1]; //elements in the direct neighborhood of n1
+  double mindist = 1.0e14;
+  const double eps = 1.0e-14;
+  int nn1,nn2;
+  int myMode = -1;
+  int bestTriangle = -1;
+  nn1 = nn2 = -1;
+
+  for(set<int>::iterator it=elements.begin(); it!=elements.end(); it++) {
+    double xi[3];
+    double dist = project(xt, *it, xi[0], xi[1]); 
+    xi[2] = 1.0 - xi[0] - xi[1]; // project onto the plane determined by this triangle
+
+    if((n1==triNodes[*it][0] || xi[0] >= -eps) && 
+       (n1==triNodes[*it][1] || xi[1] >= -eps) &&
+       (n1==triNodes[*it][2] || xi[2] >= -eps)) { 
+      if(std::abs(mindist) >= std::abs(dist)) {
+        mindist = dist;
+        myMode = 0;
+        nn1 = nn2 = -1;
+        bestTriangle = *it; 
+      }
+    }
+    else { 
+      if(!(n1==triNodes[*it][0] || xi[0] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][1], triNodes[*it][2], triNodes[*it][0], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+      if(!(n1==triNodes[*it][1] || xi[1] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][2], triNodes[*it][0], triNodes[*it][1], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+      if(!(n1==triNodes[*it][2] || xi[2] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][0], triNodes[*it][1], triNodes[*it][2], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+    }
+//    if(debug)
+//      fprintf(stderr,"NOTE (debug): node = %d, trId = %d. | mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
+//              n1+1, *it+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
+  }  
+//  if(debug)
+//    fprintf(stderr,"NOTE (final): node = %d, mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
+//            n1+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
+
+
+  int sign;
+  if(myMode<0) {
+//    fprintf(stderr,"WARNING: (in IntersectorFRG) Mode = %d!\n", myMode);
+//    fprintf(stderr,"-- x = (%e %e %e), tester = (%e, %e, %e).\n", x[0], x[1], x[2], xt[0], xt[1], xt[2]);
+    sign = 0;
+  } else
+    sign = mindist>=0.0 ? 1 : -1;
+
+  return sign;
+}
+
+//----------------------------------------------------------------------------
+
+void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2, 
+                                         double &mindist, int &myMode, int &bestTriangle, const double eps) const
+{
+  int p1, p2;
+  if(ip1 < ip2) {
+    p1 = ip1;  p2 = ip2;
+  } else {
+    p1 = ip2;  p2 = ip1;
+  }
+
+  if(nn1 == p1 && nn2 == p2) { //this edge has been traversed.
+    if(trDist*mindist >= 0)
+      return;
+    double xi1,xi2;
+    double d2 = project(structX[p3], bestTriangle, xi1, xi2);
+    if(d2*mindist>0)
+      mindist = -mindist;
+    return; 
+  } else {
+    double dist, alpha;
+    double sign = trDist >= 0 ? 1 : -1;
+    dist = sign*edgeProject(xt, p1, p2, alpha);
+    if((alpha<-eps && p1==n1) || (alpha>1.0+eps && p2==n1))
+      return;
+    
+    if(std::abs(dist) < std::abs(mindist)) {
+      bestTriangle = trId;
+      nn1 = p1;
+      nn2 = p2;
+      myMode = 1;
+      mindist = dist;
+    }
+  } 
 }
 
 //----------------------------------------------------------------------------
@@ -451,6 +621,15 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
     init(struct_mesh, struct_restart_pos, XScale);
   }
 
+  if(numStElems<=0||numStNodes<=0) {
+    fprintf(stderr,"ERROR: Found %d nodes and %d elements in the embedded surface!\n", numStNodes, numStElems);
+    exit(-1);
+  }
+
+  node2node = new set<int>[numStNodes];
+  node2elem = new set<int>[numStNodes];
+  buildConnectivity();
+
   delete[] struct_mesh;
   delete[] struct_restart_pos;
 }
@@ -460,6 +639,8 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 DistIntersectorFRG::~DistIntersectorFRG() 
 {
   delete [] stElem;
+  delete [] node2node;
+  delete [] node2elem;
   if(Xs)          delete[] Xs;
   if(Xs0)         delete[] Xs0;
   if(Xs_n)        delete[] Xs_n;
@@ -846,8 +1027,18 @@ bool DistIntersectorFRG::checkTriangulatedSurface()
 
 //----------------------------------------------------------------------------
 
-void
-DistIntersectorFRG::buildSolidNormals() {
+void DistIntersectorFRG::buildConnectivity() {
+  for(int i=0; i<numStElems; i++) 
+    for(int j=0; j<3; j++) {// assume triangle elements
+      node2node[stElem[i][j]].insert(stElem[i][(j+1)%3]);
+      node2node[stElem[i][j]].insert(stElem[i][(j+2)%3]);
+      node2elem[stElem[i][j]].insert(i);
+    }
+}
+
+//----------------------------------------------------------------------------
+
+void DistIntersectorFRG::buildSolidNormals() {
   if(!triNorms) triNorms = new Vec3D[numStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
@@ -1849,17 +2040,25 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
   scope.clear();
 
   // find candidates
-  ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms);
+  ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms, distIntersector.node2node, distIntersector.node2elem);
   int nMaxCand = 500;
   MyTriangle *candidates = new MyTriangle[nMaxCand];
   for(int i = 0; i < X.size(); ++i) {
-    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+/*    double bMin[3], bMax[3], expansion_factor = 1.0; //bounding boxes
+    double extra = std::max(std::max(boxMax[i][0]-boxMin[i][0], boxMax[i][1]-boxMin[i][1]), boxMax[i][2]-boxMin[i][2]);
+    extra *= (0.5*expansion_factor);
+    for(int k=0; k<3; k++) {
+      bMin[k] = boxMin[i][k] - extra;
+      bMax[k] = boxMax[i][k] + extra;
+    } 
+*/    
+    int nFound = structureTree.findCandidatesInBox(/*bMin*/boxMin[i], /*bMax*/boxMax[i], candidates, nMaxCand);
     if(nFound > nMaxCand) {
 //      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
       nMaxCand = nFound;
       delete [] candidates;
       candidates = new MyTriangle[nMaxCand];
-      structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+      structureTree.findCandidatesInBox(/*bMin*/boxMin[i], /*bMax*/boxMax[i], candidates, nMaxCand);
     }
     closestTriangle.start(X[i]);
     for(int j = 0; j < nFound; ++j) {
@@ -1867,7 +2066,14 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
       scope.insert(myId);
       addToPackage(i, myId);    
       closestTriangle.checkTriangle(myId);
-    }
+/*      //debug
+      Vec3D Xi(X[i][0], X[i][1], X[i][2]);
+      Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
+      if((Xi-Tester).norm()<1e-5)
+        fprintf(stderr,"debug: fluid node = %d, TrId %d, n1/n2 = %d/%d, mode = %d, minDist = %e.\n", locToGlobNodeMap[i]+1, myId+1, 
+                closestTriangle.n1+1, closestTriangle.n2+1, closestTriangle.mode, closestTriangle.minDist);
+      //end of debug
+*/    }
     
     if(nFound <= 0) {
       tId[i] = -1;
@@ -1878,6 +2084,14 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
       if(tId[i] < 0)
         std::cout << "Horror!!!" << std::endl;
       dist[i] = closestTriangle.signedDistance();
+ /*     //debug
+      Vec3D Xi(X[i][0], X[i][1], X[i][2]);
+      Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
+      if((Xi-Tester).norm()<1e-5)
+        fprintf(stderr,"debug(final): fluid node = %d, n1/n2 = %d/%d, mode = %d.\n", locToGlobNodeMap[i]+1, closestTriangle.n1+1, closestTriangle.n2+1,
+                closestTriangle.mode);
+      //end of debug
+*/
     }
   }
 
