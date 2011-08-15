@@ -42,6 +42,7 @@ using std::max;
 #include "FluidSelector.h"
 //#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
+#include <DenseMatrixOps.h>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -1104,6 +1105,7 @@ void SubDomain::computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann
       Aii[k] *= voli;
   }
 }
+
 //-------------------------------------------------------------------------------
 
 template<int dim, class Scalar, int dimLS>
@@ -2461,6 +2463,71 @@ void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
 
 }
 
+//------------------------------------------------------------------------------
+
+template<class Scalar, int dim>
+void SubDomain::computeMatVecProdH1(bool *nodeFlag, GenMat<Scalar,dim> &A,
+				    SVec<double,dim> &p, SVec<double,dim> &prod,
+                                    SVec<double,dim> &ghostP, SVec<double,dim>& ghostProd)
+{
+
+  int i, j, l;
+
+  int numNodes = nodes.size();
+  int numEdges = edges.size();
+
+  bool *edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  Scalar (*a)[dim*dim] = A.data();
+
+  prod = 0.0;
+
+#pragma ivdep
+  for (i=0; i<numNodes; ++i)
+    if (nodeFlag[i])
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, i, p.v, i, prod.v, i);
+
+#pragma ivdep
+  for (l=0; l<numEdges; ++l) {
+
+    if (edgeFlag[l]) {
+
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l, p.v, j, prod.v, i);
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(a, numNodes + 2*l + 1, p.v, i, prod.v, j);
+
+    }
+
+  }
+
+  typename GenMat<Scalar,dim>::AuxilliaryIterator* myItr = A.begin_realNodes();
+  if (myItr) {
+    do { 
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , prod.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+  
+  myItr = A.begin_ghostNodes();
+  if (myItr) {
+    do { 
+      DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, p.v, myItr->col , ghostProd.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+
+  myItr = A.begin_ghostGhostNodes();
+  if (myItr) {
+    do { 
+     DenseMatrixOp<Scalar,dim,dim*dim>::applyAndAddToVector(reinterpret_cast<Scalar(*)[dim*dim]>(myItr->pData), 0, ghostP.v, myItr->col , ghostProd.v, myItr->row);
+    } while (A.next(myItr));
+    A.free(myItr);
+  }
+
+}
 //------------------------------------------------------------------------------
 
 template<class Scalar1, class Scalar2, int dim>
@@ -4685,6 +4752,72 @@ void SubDomain::reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints)
 	  ghostPoints[i]->reduce();
 	}
     } 
+}
+
+template<int dim,int neq>
+void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,
+                                      GenMat<double,neq>& A)
+{
+
+  int i, j, k;
+
+  bool* edgeFlag = edges.getMasterFlag();
+  int (*edgePtr)[2] = edges.getPtr();
+
+  double B[neq*neq],tmp[neq*neq];
+  double dUdV[neq*neq],dVdU[neq*neq];
+  memset(B,0,sizeof(double)*neq*neq);
+  B[0] = B[5*neq-1] = 1.0;
+  for (k = 1; k < 4; ++k) {
+    B[k*neq+k] = -1.0;
+  }
+  for (int l=0; l<edges.size(); l++)
+    {
+      i = edgePtr[l][0];
+      j = edgePtr[l][1];
+      if(LSS.edgeIntersectsStructure(0.0,i,j))
+	{ //at interface
+	  int tagI = tag[i];
+	  int tagJ = tag[j];
+	  bool iIsActive = LSS.isActive(0.0,i);
+	  bool jIsActive = LSS.isActive(0.0,j);
+	  LevelSetResult resij = LSS.getLevelSetDataAtEdgeCenter(0.0, i, j);
+	  
+	  if(iIsActive) 
+	    {
+              double (*Aij)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(i,j));
+	      Vec<double> Vi(dim);
+	      varFcn->conservativeToPrimitive(U[i],Vi.v,tagI);
+              varFcn->getVarFcnBase()->computedVdU(Vi.v,dVdU);
+              varFcn->getVarFcnBase()->computedUdV(ghostPoints[j]->getPrimitiveState(), dUdV);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aij, 0);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      //if(edgeFlag[l]) {ghostPoints[j]->addNeighbour(Vi,1.0,resij.normVel,tagI);}
+	    }
+	  if(jIsActive)
+	    {
+              double (*Aji)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostNodeElem_ij(j,i));
+	      Vec<double> Vj(dim);
+	      varFcn->conservativeToPrimitive(U[j],Vj.v,tagJ);
+              varFcn->getVarFcnBase()->computedVdU(Vj.v,dVdU);
+              varFcn->getVarFcnBase()->computedUdV(ghostPoints[i]->getPrimitiveState(), dUdV);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&dUdV, 0, &B, 0, &tmp, 0);
+              DenseMatrixOp<double,neq,neq*neq>::applyToDenseMatrix(&tmp, 0, &dVdU, 0, Aji, 0);
+	      // If the edge is not a master edge, do nothing. Some other CPU is gonna do the job
+	      //if(edgeFlag[l]) {ghostPoints[i]->addNeighbour(Vj,1.0,resij.normVel,tagJ);}
+	    }
+	}
+    }
+
+  for (int l = 0; l < ghostPoints.size(); ++l) {
+    if (ghostPoints[l]) {
+      double (*Aii)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostGhostElem_ij(i,i));
+      memset(*Aii,0,sizeof(double)*neq*neq);
+      for (k = 0; k < neq; ++k)
+        (*Aii)[k*neq+k] = ghostPoints[l]->lastCount();
+    }
+  }
 }
 
 //--------------------------------------------------------------------------

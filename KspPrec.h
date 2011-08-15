@@ -6,6 +6,7 @@
 #include <DistMatrix.h>
 #include <DiagMatrix.h>
 #include <SparseMatrix.h>
+#include <DistEmbeddedVector.h>
 
 #include <complex>
 typedef std::complex<double> bcomp;
@@ -32,6 +33,10 @@ public:
   virtual void apply(DistVec<Scalar2> &, DistVec<Scalar2> &)  { std::cout << "  ERROR: Using default apply function in KspPrec" << endl; }
   virtual void applyT(DistSVec<Scalar2,dim> &, DistSVec<Scalar2,dim> &)  { std::cout << "  ERROR: Using default applyT function in KspPrec" << endl; }
 
+  void apply(DistEmbeddedVec<Scalar2,dim>& x, DistEmbeddedVec<Scalar2,dim>& Px) { 
+    apply(x.real(), Px.real());
+    Px.ghost() = x.ghost();
+  }
 };
 
 //------------------------------------------------------------------------------

@@ -603,6 +603,10 @@ public:
   void computeMatVecProdH1(bool *, GenMat<Scalar,dim> &, SVec<double,dim> &,
 			   SVec<double,dim> &);
 
+  template<class Scalar, int dim>
+  void computeMatVecProdH1(bool *, GenMat<Scalar,dim> &, SVec<double,dim> &,
+			   SVec<double,dim> &,SVec<double,dim>&, SVec<double,dim>&);
+  
   template<class Scalar1, class Scalar2, int dim>
   void computeMatVecProdH2(RecFcn *, SVec<double,3> &, Vec<double> &,
 			   GenMat<Scalar1,dim> &, SVec<double,dim> &, SVec<double,dim> &,
@@ -892,6 +896,10 @@ public:
 
   template<int dim>
     void populateGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag);
+  
+  template<int dim,int neq>
+    void populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<double,dim> &U,VarFcn *varFcn,LevelSetStructure &LSS,Vec<int> &tag,GenMat<double,neq>& A);
+
 
   template<int dim>
     void reduceGhostPoints(Vec<GhostPoint<dim>*> &ghostPoints);
