@@ -28,12 +28,12 @@ public:
   // Auxilliary terms (for ghost points)
  
   // Return the edge data corresponding to real node i and ghost node j
-  virtual Scalar* getRealNodeElem_ij(int i,int j) { return NULL; }
+  virtual Scalar* getRealNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
 
   // Return the edge data correponding to ghost node i and real node j
-  virtual Scalar* getGhostNodeElem_ij(int i,int j) { return NULL; }
+  virtual Scalar* getGhostNodeElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
    
-  virtual Scalar* getGhostGhostElem_ij(int i,int j) { return NULL; }
+  virtual Scalar* getGhostGhostElem_ij(int i,int j) { fprintf(stderr,"No implementation\n"); exit(-1); return NULL; }
  
   struct AuxilliaryIterator {
     int row,col;
@@ -48,6 +48,7 @@ public:
   virtual bool next(AuxilliaryIterator*) { return false; }
   virtual void free(AuxilliaryIterator*) { }
 
+  virtual void clearGhost() { }
 
 };
 

@@ -64,6 +64,9 @@ public:
   };
 
   typename GenMat<Scalar,dim>::AuxilliaryIterator* begin_realNodes() {
+    if (realAuxilliaryRows.size() == 0)
+      return NULL;
+
     MvpAuxilliaryIterator* mvpItr = new MvpAuxilliaryIterator;
     mvpItr->itr = realAuxilliaryRows.begin();
     mvpItr->map_ptr = &realAuxilliaryRows;
@@ -72,6 +75,9 @@ public:
   }
 
   typename GenMat<Scalar,dim>::AuxilliaryIterator* begin_ghostNodes() {
+    if (ghostAuxilliaryRows.size() == 0)
+      return NULL;
+
     MvpAuxilliaryIterator* mvpItr = new MvpAuxilliaryIterator;
     mvpItr->itr = ghostAuxilliaryRows.begin();
     mvpItr->map_ptr = &ghostAuxilliaryRows;
@@ -80,6 +86,9 @@ public:
   }
   
   typename GenMat<Scalar,dim>::AuxilliaryIterator* begin_ghostGhostNodes() {
+    if (ghostGhostAuxilliaryRows.size() == 0)
+      return NULL;
+
     MvpAuxilliaryIterator* mvpItr = new MvpAuxilliaryIterator;
     mvpItr->itr = ghostGhostAuxilliaryRows.begin();
     mvpItr->map_ptr = &ghostGhostAuxilliaryRows;
@@ -102,13 +111,23 @@ public:
     delete genItr;
   }
   
+  void clearGhost() { 
+    
+    clearAuxilliary(realAuxilliaryRows);
+    clearAuxilliary(ghostAuxilliaryRows);
+    clearAuxilliary(ghostGhostAuxilliaryRows);
+  }
+
  protected:
 
   Scalar* getAuxilliaryRow(AuxilliaryRows& A, int i, int j) {
     std::pair<int,int> ij(i,j);
     typename AuxilliaryRows::iterator itr = A.find( ij );
-    if (itr != A.end())
-      return (A[ij] = new Scalar[dim*dim]);
+    if (itr == A.end()) {
+      Scalar* s = new Scalar[dim*dim];
+      A[ij] = s;
+      return s;
+    }
     else
       return itr->second;
   }
@@ -118,6 +137,16 @@ public:
     mvpItr->row = mvpItr->itr->first.first;
     mvpItr->col = mvpItr->itr->first.second;
     mvpItr->pData = mvpItr->itr->second;
+  }
+
+  void clearAuxilliary(AuxilliaryRows& A) {
+    
+    typename AuxilliaryRows::iterator itr = A.begin();
+    for (; itr != A.end(); ++itr) {
+      delete [] itr->second;
+    }
+    
+    A.clear();
   }
 };
 

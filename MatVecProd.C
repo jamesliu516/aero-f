@@ -621,6 +621,15 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmb
     this->subDomain[iSub]->addRcvData(*this->vecPat, prod.ghost().subData(iSub));
 }
 
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::clearGhost()
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub]->clearGhost();
+  }
+}
+
 //------------------------------------------------------------------------------
 
 // Included (MB)

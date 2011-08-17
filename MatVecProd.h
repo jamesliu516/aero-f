@@ -204,6 +204,8 @@ public:
  endl; }
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+ 
+  void clearGhost();
 };
 
 //------------------------------------------------------------------------------

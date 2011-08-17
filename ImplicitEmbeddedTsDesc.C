@@ -307,6 +307,10 @@ int ImplicitEmbeddedTsDesc<dim>::commonPart(DistSVec<double,dim> &U)
       this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
       embeddedU.real() = U;
       embeddedU.setGhost(*this->ghostPoints,this->varFcn); 
+      MatVecProdH1<dim,double,dim> *mvph1 = dynamic_cast<MatVecProdH1<dim,double,dim> *>(mvp);
+      if (mvph1)  {
+        mvph1->clearGhost(); 
+      }
     }
   return 0;
 }

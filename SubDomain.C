@@ -4812,12 +4812,13 @@ void SubDomain::populateGhostJacobian(Vec<GhostPoint<dim>*> &ghostPoints,SVec<do
 
   for (int l = 0; l < ghostPoints.size(); ++l) {
     if (ghostPoints[l]) {
-      double (*Aii)[neq*neq] = reinterpret_cast< double (*)[neq*neq]>(A.getGhostGhostElem_ij(i,i));
-      memset(*Aii,0,sizeof(double)*neq*neq);
+      double *Aii = A.getGhostGhostElem_ij(i,i);
+      memset(Aii,0,sizeof(double)*neq*neq);
       for (k = 0; k < neq; ++k)
-        (*Aii)[k*neq+k] = ghostPoints[l]->lastCount();
+        Aii[k*neq+k] = ghostPoints[l]->lastCount();
     }
   }
+
 }
 
 //--------------------------------------------------------------------------
