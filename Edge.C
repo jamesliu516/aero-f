@@ -616,9 +616,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
       }
     }    
     
-    // int myrank;
-    //MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-
     programmedBurn = fluidSelector.getProgrammedBurn();
 
     if (programmedBurn) {
@@ -758,8 +755,6 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
 
     else {
       if(!masterFlag[l]) continue;
-      //if (myrank == 46 && fluidId[i] == 3)
-      //	std::cout << "samefluid" << std::endl;
       fluxFcn[BC_INTERNAL]->compute(length, 0.0, normal[l], normalVel[l], Vi, Vj, flux, fluidId[i]);
       for (int k=0; k<dim; ++k) {
         fluxes[i][k] += flux[k];
@@ -2255,7 +2250,7 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Ph
 }
 
 //------------------------------------------------------------------------------
-
+/*
 template<int dimLS>
 void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<double,dimLS> &Phi, LevelSetStructure *LSS)
 {
@@ -2276,5 +2271,5 @@ void EdgeSet::TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<
     }
   }
 }
-
+*/
 //------------------------------------------------------------------------------

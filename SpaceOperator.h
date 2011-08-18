@@ -409,7 +409,7 @@ public:
                           DistSVec<double,dimLS> *PhiWeights,
                           DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
   void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
-                                 DistVec<int> &Tag1, DistVec<int> &Tag2);
+                                 DistSVec<bool,2> &Tag);
 };
 //------------------------------------------------------------------------------
 

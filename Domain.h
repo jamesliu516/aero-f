@@ -115,6 +115,8 @@ class Domain {
   CommPattern<double> *vec3DPat;
   CommPattern<double> *volPat;
   CommPattern<int> *levelPat;
+  CommPattern<bool> *bool2Pat;
+  CommPattern<bool> *bool3Pat;
 
   CommPattern<double> *weightPat;
   CommPattern<double> *edgePat;
@@ -328,7 +330,7 @@ public:
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dimLS> &Phi, int level);
   template<int dimLS>
-  void TagInterfaceNodes(int lsdim, DistVec<int> &Tag1, DistVec<int> &Tag2, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
+  void TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi, DistLevelSetStructure *distLSS);
   //template<int dimLS>
   //void FinishReinitialization(DistVec<int> &Tag, DistSVec<double,dimLS> &Psi, int level);
 
@@ -916,6 +918,9 @@ public:
 
   template<int dimLS>
   void updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId);
+
+  template<int dim, int dimLS>
+  void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);
  };
 
 //------------------------------------------------------------------------------

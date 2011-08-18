@@ -50,6 +50,8 @@ Domain::Domain()
   vec3DPat = 0;
   volPat = 0;
   levelPat = 0;
+  bool2Pat = 0;
+  bool3Pat = 0;
   weightPat = 0;
   edgePat = 0;
   scalarEdgePat = 0;
@@ -132,6 +134,8 @@ Domain::~Domain()
   if (vec3DPat) delete vec3DPat;
   if (volPat) delete volPat;
   if (levelPat) delete levelPat;
+  if (bool2Pat) delete bool2Pat;
+  if (bool3Pat) delete bool3Pat;
   if (weightPat) delete weightPat;
   if (edgePat) delete edgePat;
   if (scalarEdgePat) delete scalarEdgePat;
@@ -239,6 +243,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
   subTopo = new SubDTopo(com->cpuNum(), geoSource.getSubToSub(), geoSource.getCpuToSub());
   volPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   levelPat = new CommPattern<int>(subTopo, com, CommPattern<int>::CopyOnSend); // New Comm Pattern
+  bool2Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
+  bool3Pat = new CommPattern<bool>(subTopo, com, CommPattern<bool>::CopyOnSend); // New Comm Pattern
   vec3DPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   weightPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
   momPat = new CommPattern<double>(subTopo, com, CommPattern<double>::CopyOnSend);
@@ -276,6 +282,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
     subDomain[iSub]->setChannelNums(*subTopo);
     subDomain[iSub]->setComLenNodes(1, *volPat);
     subDomain[iSub]->setComLenNodes(1, *levelPat); // New Comm Pattern
+    subDomain[iSub]->setComLenNodes(2, *bool2Pat); // New Comm Pattern
+    subDomain[iSub]->setComLenNodes(3, *bool3Pat); // New Comm Pattern
     subDomain[iSub]->setComLenNodes(2, *csPat);
     subDomain[iSub]->setComLenNodes(2, *fsPat);
     subDomain[iSub]->setComLenNodes(3, *vec3DPat);
@@ -293,6 +301,8 @@ void Domain::getGeometry(GeoSource &geoSource, IoData &ioData)
 
   volPat->finalize();
   levelPat->finalize();
+  bool2Pat->finalize();
+  bool3Pat->finalize();
   csPat->finalize();
   engPat->finalize();
   fsPat->finalize();

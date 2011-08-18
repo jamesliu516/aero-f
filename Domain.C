@@ -3842,12 +3842,19 @@ void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag, DistSVec<double,dim
 //------------------------------------------------------------------------------
 
 template<int dimLS>
-void Domain::TagInterfaceNodes(int lsdim, DistVec<int> &Tag1, DistVec<int> &Tag2, DistSVec<double,dimLS> &Phi,
+void Domain::TagInterfaceNodes(int lsdim, DistSVec<bool,2> &Tag, DistSVec<double,dimLS> &Phi,
                                DistLevelSetStructure *distLSS)
 {
+  int iSub;
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag1(iSub), Tag2(iSub), Phi(iSub), &((*distLSS)(iSub)));
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->TagInterfaceNodes(lsdim, Tag(iSub), Phi(iSub), &((*distLSS)(iSub)));
+    subDomain[iSub]->sndData(*bool2Pat, reinterpret_cast<bool (*)[2]>(Tag.subData(iSub)));
+  }
+  bool2Pat->exchange();
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->maxRcvData(*bool2Pat, reinterpret_cast<bool (*)[2]>(Tag.subData(iSub)));
 }
 
 //------------------------------------------------------------------------------
@@ -4042,7 +4049,31 @@ template<int dimLS>
 void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId)
 {
   if(dimLS!=1) {fprintf(stderr,"ERROR: For Multi-Phase Cracking, dimLS must be 1. (Here it is %d).\n", dimLS);exit(-1);}
+  DistSVec<bool,3> poll(getNodeDistInfo());
 
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub) {
+    subDomain[iSub]->solicitFluidIdFS(distLSS(iSub), fluidId(iSub), poll(iSub));
+    subDomain[iSub]->sndData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+  }
+
+  bool3Pat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
+    subDomain[iSub]->maxRcvData(*bool3Pat, reinterpret_cast<bool (*)[3]>(poll.subData(iSub)));
+    subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), poll(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
+//    subDomain[iSub]->sndData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+  }
+
+//  levelPat->exchange();
+
+//#pragma omp parallel for
+//  for (iSub = 0; iSub < numLocSub; ++iSub)
+//    subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+
+/*
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; ++iSub) {
     subDomain[iSub]->updateFluidIdFS2(distLSS(iSub), PhiV(iSub), fluidId(iSub), (PhiV.info()).getMasterFlag(iSub));
@@ -4054,6 +4085,19 @@ void Domain::updateFluidIdFS2(DistLevelSetStructure &distLSS, DistSVec<double,di
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subDomain[iSub]->maxRcvData(*levelPat, reinterpret_cast<int (*)[1]>(fluidId.subData(iSub)));
+*/
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void Domain::debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, 
+                               DistVec<int> &fluidId, DistSVec<double,dim> &U)
+{
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<numLocSub; ++iSub)
+    subDomain[iSub]->debugMultiPhysics(distLSS(iSub), PhiV(iSub), fluidId(iSub), U(iSub)); 
 }
 
 //------------------------------------------------------------------------------

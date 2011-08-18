@@ -26,7 +26,7 @@ template<int dim, int dimLS>
 MultiPhysicsTsDesc<dim,dimLS>::
 MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
-  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), Tag1(this->getVecInfo()), Tag2(this->getVecInfo()),
+  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), InterfaceTag(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo()), programmedBurn(NULL)
 {
@@ -380,7 +380,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
     if(withCracking && withMixedLS) {
-      this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, Tag1, Tag2);
+      this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
       LS->reinitializeLevelSet(*this->X, PhiV, false);
     } else
       LS->reinitializeLevelSet(*this->X, PhiV);
