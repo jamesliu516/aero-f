@@ -41,7 +41,7 @@ public:
   VarFcnBase(FluidModelData &data) {
     rhomin = data.rhomin;
     pmin = data.pmin;
-    verif_clipping = true;
+    verif_clipping = false; //true;
   }
   virtual ~VarFcnBase() {}
 

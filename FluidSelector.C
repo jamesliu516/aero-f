@@ -31,8 +31,9 @@ template<int dim>
 void FluidSelector::getFluidId(DistSVec<double,dim> &Phi){
   assert(dim<=numPhases-1);
   int numLocSub = Phi.numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim] = Phi.subData(iSub);
     int     *tag       = fluidId->subData(iSub);
     int burnTag;
@@ -101,9 +102,10 @@ void FluidSelector::getFluidId(DistVec<int> &Tag, DistSVec<double,dim> &Phi, Dis
   //std::cout << "Dim = " << dim << std::endl;
   int numLocSub = Phi.numLocSub();
   int oldtag;
+  int iSub;
   //std::cout << programmedBurn << std::endl;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim] = Phi.subData(iSub);
     int     *tag       = Tag.subData(iSub);
     int     *fsid      = fsId ? fsId->subData(iSub) : 0;
@@ -143,8 +145,9 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
   DistVec<int> &fsId(distLSS->getStatus());
 
   int burnTag;
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<PhiV.numLocSub(); ++iSub) {
+  for (iSub=0; iSub<PhiV.numLocSub(); ++iSub) {
     Vec<int> &subfsId(fsId(iSub));
     Vec<int> &subId((*fluidId)(iSub));
     SVec<double,dim> &subPhiV(PhiV(iSub));
@@ -198,8 +201,9 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
   int numLocSub = Phi.numLocSub();
   int burnTag;
   DistVec<int> &fsId(distLSS->getStatus());
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim] = Phi.subData(iSub);
     int     *tag       = fluidId->subData(iSub);
     int     *fsid      = fsId.subData(iSub);
@@ -245,8 +249,9 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
   }
 
   int numLocSub = Phi.numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim]     = Phi.subData(iSub);
     int     *tag           = fluidId->subData(iSub);
     LevelSetStructure &LSS = (*distLSS)(iSub);
@@ -272,8 +277,9 @@ void FluidSelector::checkLSConsistency(DistSVec<double,dim> &Phi)
     exit(-1);
   }
   int numLocSub = Phi.numLocSub();
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<numLocSub; ++iSub) {
+  for(iSub=0; iSub<numLocSub; ++iSub) {
     double (*phi)[dim] = Phi.subData(iSub);
     int *tag           = fluidId->subData(iSub);
     for(int i=0; i<Phi.subSize(iSub); i++) {
@@ -282,7 +288,7 @@ void FluidSelector::checkLSConsistency(DistSVec<double,dim> &Phi)
           fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
           exit(-1);}}
       else if(tag[i]==numPhases) {
-        if(fabs(phi[i][0])>1.0e-5) {
+        if(fabs(phi[i][0])>1.0e-10) {
           fprintf(stderr,"BUG: Inconsistency between fluidId (%d) and phi (%e). numPhases = %d.\n", tag[i], phi[i][0], numPhases);
           exit(-1);}}
       else {

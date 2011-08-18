@@ -1133,7 +1133,7 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
 
 LevelSetResult
 IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
-  int edgeNum = edges.find(ni, nj);
+  int edgeNum = edges.findOnly(ni, nj);
   if (!edgeIntersectsStructure(0.0,edgeNum)) {
     fprintf(stderr,"%02d There is no intersection between node %d(status:%d,occluded=%d) and %d(status:%d,occluded=%d) along edge %d! Abort...\n",
                    globIndex,locToGlobNodeMap[ni]+1, status[ni],occluded_node[ni], locToGlobNodeMap[nj]+1, status[nj],occluded_node[nj],edgeNum);
@@ -1178,7 +1178,7 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 //----------------------------------------------------------------------------
 
 bool IntersectorPhysBAM::edgeIntersectsStructure(double t, int ni, int nj) const {
-  return edgeIntersections[edges.find(ni,nj)];
+  return edgeIntersections[edges.findOnly(ni,nj)];
 }
 
 //----------------------------------------------------------------------------

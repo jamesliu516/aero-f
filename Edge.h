@@ -73,6 +73,7 @@ public:
   ~EdgeSet();
 
   int find(int, int);
+  int findOnly(int, int);
 
   void createPointers(Vec<int> &);
 
@@ -180,8 +181,6 @@ public:
 
   template<int dimLS>
   void TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &Phi);
-  template<int dimLS>
-  void TagInterfaceNodes(int lsdim, Vec<int> &Tag1, Vec<int> &Tag2, SVec<double,dimLS> &Phi, LevelSetStructure *LSS);
 
   void setMasterFlag(bool *flag) { masterFlag = flag; }
   bool *getMasterFlag() const { return masterFlag; }

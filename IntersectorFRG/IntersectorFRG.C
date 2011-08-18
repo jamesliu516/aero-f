@@ -2314,7 +2314,7 @@ void IntersectorFRG::addToPackage(int iNode, int trID)
 
 LevelSetResult
 IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
-  int edgeNum = edges.find(ni, nj);
+  int edgeNum = edges.findOnly(ni, nj);
   if (!edgeIntersectsStructure(0.0,ni,nj)) {
     fprintf(stderr,"There is no intersection between node %d(status:%d) and %d(status:%d)! Abort...\n",
                    locToGlobNodeMap[ni]+1, status[ni], locToGlobNodeMap[nj]+1, status[nj]);
@@ -2377,6 +2377,14 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 bool IntersectorFRG::edgeIntersectsStructure(double t, int eij) const       
 {
   return status[edges.getPtr()[eij][0]] != status[edges.getPtr()[eij][1]];
+}
+
+//----------------------------------------------------------------------------
+
+bool IntersectorFRG::edgeIntersectsStructure(double t, int ni, int nj) const
+{
+  edges.findOnly(ni,nj);  //if (ni,nj) is not found, an error will be reported. 
+  return status[ni]!=status[nj];
 }
 
 //----------------------------------------------------------------------------

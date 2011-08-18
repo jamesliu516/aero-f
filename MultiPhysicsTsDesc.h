@@ -92,8 +92,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dimLS> PhiWeights;    //<! stores Phi*Weights for each ndoe. Used in updating phase change
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
-  DistVec<int> Tag1;
-  DistVec<int> Tag2;
+  DistSVec<bool,2> InterfaceTag;
 
   //------------------------------------------------------------------------
   // buckling cylinder parameters
