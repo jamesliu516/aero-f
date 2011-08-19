@@ -121,6 +121,11 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
     //com->fprintf(stdout, "minDist[%d] = %e and maxDist[%d] = %e ==> %d\n", idim, minDist[idim], idim, maxDist[idim], trueLevelSet[idim]);
   }
 
+  if(closest && fsId) {//cracking...
+    if(dimLS!=1){fprintf(stderr,"ERROR: Multi-Phase FSI w/ Cracking supports only one level-set! dimLS = %d.\n", dimLS);exit(-1);}
+    trueLevelSet[0] = true;
+  }
+
   // for reinitialization testing
   Phi0 = Phi;
 
@@ -491,7 +496,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistSVec<double,3> &X, DistSVec<dou
     double eps = conv_eps;
     int it=0;
     for (level=2; level<bandlevel; level++){
-   //   com->fprintf(stdout, "*** level = %d\n", level);
+      com->fprintf(stdout, "*** level = %d\n", level);
       res = 1.0;
       resn = 1.0; resnm1 = 1.0;
       it = 0;
