@@ -5220,6 +5220,7 @@ void SubDomain::TagInterfaceNodes(int lsdim, Vec<int> &Tag, SVec<double,dimLS> &
         nNeighs = NodeToNode->num(i);
         for(k=0;k<nNeighs;k++){
           nei = (*NodeToNode)[i][k];
+          if(nei==i) continue;
           if(Tag[nei]==0) Tag[nei] = level+1;
         }
 
@@ -5356,9 +5357,14 @@ void SubDomain::FinishReinitialization(Vec<int> &Tag, SVec<double,dimLS> &Psi, i
 template<int dimLS>
 void SubDomain::copyCloseNodes(int lsdim, int level, Vec<int> &Tag,SVec<double,dimLS> &Phi,SVec<double,1> &Psi)
 {
-  for(int i=0; i<nodes.size(); i++)
+  for(int i=0; i<nodes.size(); i++) {
     if(Tag[i]==level)
       Psi[i][0] = fabs(Phi[i][lsdim]);
+    //DEBUG
+//    if(locToGlobNodeMap[i]+1==115697)
+//      fprintf(stderr,"Sub %d, level = %d, Tag[%d] = %d. Phi = %e, Psi = %e.\n", globSubNum, level, locToGlobNodeMap[i]+1,
+//              Tag[i], Phi[i][0], Psi[i][0]);
+  }
 
 }
 //------------------------------------------------------------------------------
