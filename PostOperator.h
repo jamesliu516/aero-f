@@ -126,7 +126,8 @@ public:
 			     DistSVec<double,dim> &, DistVec<double> &,
 			     DistTimeState<dim> *,
 			     DistVec<int> &,int* subId,int* locNodeId,
-			     int count, double* result,
+			     int* last,int count, double* result,
+                             std::vector<Vec3D>& locations,
 			     DistSVec<double,dimLS>* = NULL);
 
    void computeCP(DistSVec<double,3>& X, DistSVec<double,dim>& U, Vec3D &cp);
@@ -141,9 +142,10 @@ public:
 
   void computeVectorQuantity(PostFcn::VectorType, DistSVec<double,3> &,
                              DistSVec<double,dim> &,
-			     int* subId,int* locNodeId,
-			     int count, double* result,
-			     DistVec<int> &);
+			     int* subId,int* locNodeId,int* last,
+			     int count, double* results, 
+                             std::vector<Vec3D>& locations,
+                             DistVec<int> &);
 
   void computeForceDerivs(DistSVec<double,3> &, DistSVec<double,dim> &,
                           DistSVec<double,dim> &,Vec<double> &,VecSet< DistSVec<double, 3> > &);

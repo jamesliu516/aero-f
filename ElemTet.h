@@ -185,10 +185,15 @@ public:
   template<int dim, class Obj>
     void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
 
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]);
 
 private:
 
   //--------------functions in ElemTetCore.C
+
+  void computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, double bary[3]);
 
 //Level Set Reinitialization
   double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);

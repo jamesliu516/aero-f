@@ -2098,3 +2098,25 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
     }
   }
 }
+
+
+// X is the deformed nodal location vector
+template<int dim> 
+int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+
+  double bary[4];
+  computeBarycentricCoordinates(X, loc, bary);
+
+  if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 ||
+      bary[0]+bary[1]+bary[2] > 1.0)
+    return 0;
+
+  bary[3] = 1.0-bary[0]-bary[1]-bary[2];
+
+  for (int i = 0; i < dim; ++i) {
+    sol[i] = 0.0;
+    for (int j = 0; j < 4; ++j)
+      sol[i] += U[ nodeNum(j) ][i]*bary[j];
+  }
+  return 1;
+}

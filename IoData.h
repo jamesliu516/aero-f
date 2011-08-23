@@ -96,12 +96,13 @@ struct Probes {
 
   const static int MAXNODES = 50;
   struct Node { 
-    Node() { id = -1; location[0] = location[1] = location[2] = -1.0e20; subId = localNodeId = -1; }
+    Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
+             isLocationBased = false; }
     int id;
     int subId;
     int localNodeId;
-    double location[3];
-    
+    double locationX,locationY,locationZ;
+    bool isLocationBased;  
     void setup(const char *, ClassAssigner * = 0);
   };
 
@@ -202,6 +203,9 @@ struct TransientData {
   const char *heatfluxes;
 
   const char *sparseGrid;
+
+  // For 1D solver
+  const char* bubbleRadius;
 
   int frequency;
   double x0, y0, z0;

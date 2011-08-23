@@ -1142,27 +1142,55 @@ void PostOperator<dim>::computeScalarQuantity(PostFcn::ScalarType type,
 					      DistVec<double>& A,
 					      DistTimeState<dim> *timeState,
 					      DistVec<int>& fluidId,int* subId,int* locNodeId,
-					      int count,
+                                              int* last, int count,
 					      double* results,
+                                              std::vector<Vec3D>& locations,
 					      DistSVec<double,dimLS> *Phi)
 {
   memset(results,0,count*sizeof(double));
+  int* status = new int[count];
+  int stat,nid,fid;
+  double locV[dim],locU[dim],phi[dimLS];
+  memset(status,0,sizeof(int)*count);
   for (int i = 0; i < count; ++i) {
     
-    if (subId[i] < 0) continue; 
 
-    int iSub = subId[i];
-    varFcn->conservativeToPrimitive(U(iSub)[locNodeId[i]], (*V)(iSub)[locNodeId[i]], fluidId(iSub)[locNodeId[i]]);
+    if (locations[i][0] < -1.0e19) {
+      if (subId[i] < 0) continue; 
+      int iSub = subId[i];
+      varFcn->conservativeToPrimitive(U(iSub)[locNodeId[i]], (*V)(iSub)[locNodeId[i]], fluidId(iSub)[locNodeId[i]]);
     
-    if (Phi)
-	results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],&((*Phi)(iSub)));
+      if (Phi)
+        results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],&((*Phi)(iSub)));
       else
-	results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],(SVec<double,1>*)0);
+        results[i] += subDomain[ iSub ]->computeNodeScalarQuantity(type, postFcn, (*V)(iSub), X(iSub), fluidId(iSub),locNodeId[i],(SVec<double,1>*)0);
+      status[i] = 1;
+    } else {
+#pragma omp parallel for reduction(+: status[i])
+      for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
+        subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                             &locU, &stat,&last[i],&nid);
+        if (Phi)
+          subDomain[iSub]->interpolateSolution(X(iSub), (*Phi)(iSub), std::vector<Vec3D>(1,locations[i]),
+                                               &phi, &stat,&last[i],&nid); 
+	if (stat) {
+	  fid = fluidId(iSub)[nid];
+	  varFcn->conservativeToPrimitive(locU, locV, fid);
+	  status[i] += stat;
+	  results[i] += postFcn->computeNodeScalarQuantity(type, locV,locations[i] ,fid,phi);
+	}
+      }
+    }
   }
 
   com->globalSum(count,results);
-
+  com->globalSum(count,status);
+  for (int i = 0; i < count; ++i) {
+    results[i] /= (double)status[i];
+  }
+  delete [] status;
 }
+
 //---------------------------------------------------------------------------------
 /* Merged with above function
 template<int dim>
@@ -1398,29 +1426,48 @@ template<int dim>
 void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
                                               DistSVec<double,3> &X,
                                               DistSVec<double,dim> &U,
-					      int* subId,int* locNodeId,
+					      int* subId,int* locNodeId,int* last,
 					      int count, double* result,
+                                              std::vector<Vec3D>& locations,
                                               DistVec<int> &fluidId)
 {
                                                                                                                                                                                              
   int iSub;
            
   memset(result,0,sizeof(double)*count*3);
+  int* status = new int[count];
+  int stat;
+  memset(status,0,sizeof(int)*count);
+  double locU[dim],locV[dim];
   if (type == PostFcn::VELOCITY) {
     for (int i = 0; i < count; ++i) {
-      if (subId[i] < 0) continue;
+      if (locations[i][0] < -1.0e19) {
+        if (subId[i] < 0) continue;
 
-      double (*u)[dim] = U.subData(subId[i]);
-      int (*fId) = fluidId.subData(subId[i]);
+        double (*u)[dim] = U.subData(subId[i]);
+        int (*fId) = fluidId.subData(subId[i]);
       
-      double v[dim];
-      varFcn->conservativeToPrimitive(u[ locNodeId[i] ], v, fId[ locNodeId[i] ]);
-      Vec3D vel = varFcn->getVelocity(v, fId[ locNodeId[i] ]);
-      result[3*i] = vel[0];
-      result[3*i+1] = vel[1];
-      result[3*i+2] = vel[2];
+        double v[dim];
+        varFcn->conservativeToPrimitive(u[ locNodeId[i] ], v, fId[ locNodeId[i] ]);
+        Vec3D vel = varFcn->getVelocity(v, fId[ locNodeId[i] ]);
+        result[3*i] = vel[0];
+        result[3*i+1] = vel[1];
+        result[3*i+2] = vel[2];
+        status[i] = 1;
+      } else {
+        int fid,nid;
+#pragma omp parallel for reduction(+: status[i])
+        for (int iSub = 0; iSub < X.info().numLocSub; ++iSub) {
+          subDomain[iSub]->interpolateSolution(X(iSub), U(iSub), std::vector<Vec3D>(1,locations[i]),
+                                               &locU, &stat,&last[i],&nid);
+          fid = fluidId(iSub)[nid];
+          varFcn->conservativeToPrimitive(locU,locV, fid);
+          Vec3D vel = varFcn->getVelocity(locV, fid);
+          status[i] += stat;
+        }       
+      }
     }
-  }
+  } 
   else if (type == PostFcn::DISPLACEMENT) {
     for (int i = 0; i < count; ++i) {
       if (subId[i] < 0) continue;
@@ -1428,6 +1475,11 @@ void PostOperator<dim>::computeVectorQuantity(PostFcn::VectorType type,
     }
   }
   com->globalSum(count*3,result);  
+  com->globalSum(count,status);
+  for (int i = 0; i < count*3; ++i) {
+    result[i] /= (double)status[i/3];
+  }
+  delete [] status;
                                                                                              
 }
 
