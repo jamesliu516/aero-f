@@ -122,7 +122,9 @@ private:
     int numNodes;
     int* subId;
     int* locNodeId;
+    int* last;
     int step;
+    std::vector<Vec3D> locations;
   } nodal_output;
 
   char *nodal_scalars[PostFcn::SSIZE];

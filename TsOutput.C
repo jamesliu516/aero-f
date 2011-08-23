@@ -592,9 +592,15 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
   nodal_output.results = new double[Probes::MAXNODES*3];
   nodal_output.subId = new int[Probes::MAXNODES];
   nodal_output.locNodeId = new int[Probes::MAXNODES];
+  nodal_output.last = new int[Probes::MAXNODES];
+  nodal_output.locations.resize(Probes::MAXNODES);
 					      
   for (i = 0; i < Probes::MAXNODES; ++i) {
-
+    nodal_output.locations[i] = Vec3D(myProbes.myNodes[i].locationX,
+                                      myProbes.myNodes[i].locationY,
+                                      myProbes.myNodes[i].locationZ);
+     
+    nodal_output.last[i] = 0;
     if (myProbes.myNodes[i].id >= 0) {
 
       int flag = -1;
@@ -620,7 +626,7 @@ TsOutput<dim>::TsOutput(IoData &iod, RefVal *rv, Domain *dom, PostOperator<dim> 
 	nodal_output.locNodeId[i] = -1;
 	nodal_output.subId[i] = -1;
       }
-    } else
+    } else if (myProbes.myNodes[i].locationX < -1.0e10)
       break;
   }
 
@@ -2249,7 +2255,9 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 	postOp->computeScalarQuantity(static_cast<PostFcn::ScalarType>(i), X, U, A,
 				      timeState,fluidId,
 				      nodal_output.subId, nodal_output.locNodeId,
-				      nodal_output.numNodes,nodal_output.results,Phi);
+				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
+                                      nodal_output.locations,
+                                      Phi);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
 	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step, tag);
@@ -2264,7 +2272,8 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 	
 	postOp->computeVectorQuantity(static_cast<PostFcn::VectorType>(i), X, U,
 				      nodal_output.subId, nodal_output.locNodeId,
-				      nodal_output.numNodes,nodal_output.results,
+				      nodal_output.last,nodal_output.numNodes,nodal_output.results,
+                                      nodal_output.locations,
 				      fluidId);
 
 	if (com->cpuNum() == 0) {

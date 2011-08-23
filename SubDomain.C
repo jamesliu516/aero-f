@@ -6152,3 +6152,26 @@ void SubDomain::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V
   elems.integrateFunction(obj,X,V,F,npt);
 }
 
+template<int dim> 
+void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
+                                    const std::vector<Vec3D>& locs, double (*sol)[dim],
+                                    int* status,int* last,int* nid) {
+
+  elems.interpolateSolution(X,U,locs,sol,status,last);
+  for (int i = 0; i < locs.size(); ++i) {
+    int eid = last[i],nn;
+    Elem& E = elems[eid];
+    double mindist = numeric_limits<double>::max(),dst;
+    for (int j = 0; j < E.numNodes(); ++j) {
+      nn = E.nodeNum(j);
+      dst = sqrt((X[nn][0]-locs[i][0])*(X[nn][0]-locs[i][0])+
+                 (X[nn][1]-locs[i][1])*(X[nn][1]-locs[i][1])+
+                 (X[nn][2]-locs[i][2])*(X[nn][2]-locs[i][2]));
+      if (dst < mindist) {
+        mindist = dst;
+        nid[i] = nn;
+      }
+    }
+  }
+}
+  

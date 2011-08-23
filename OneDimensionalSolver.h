@@ -111,6 +111,8 @@ class OneDimensional {
 
   RecFcn* recFcn, *recFcnLS;
 
+  char* bubbleRadiusFile;
+
   RecFcn* createRecFcn(IoData &ioData);
   RecFcn* createRecFcnLS(IoData &ioData);
 
@@ -187,6 +189,8 @@ class OneDimensional {
 	  
 	  boundaryStateL[0] = v_1D[(i-1)*5];
 	  boundaryStateR[0] = v_1D[i*5];
+	  boundaryStateL[1] = v_1D[(i-1)*5+1];
+	  boundaryStateR[1] = v_1D[i*5+1];
 
 	  if (fluidSelector) {
 	    fid_new = fids[i-1];
@@ -234,6 +238,7 @@ class OneDimensional {
       int lsdim;
       int i = node;
       int fid_new=0;
+      double bub_x0[3] = { bubble_x0, bubble_y0, bubble_z0 };
       double xrad = sqrt(((*X)[i][0]-bubble_x0)*((*X)[i][0]-bubble_x0)+((*X)[i][1]-bubble_y0)*((*X)[i][1]-bubble_y0)+((*X)[i][2]-bubble_z0)*((*X)[i][2]-bubble_z0));	  
       int a = findNode(loc,localRadius);
       if (a >= 0) {
@@ -256,9 +261,9 @@ class OneDimensional {
 
 	if ( (localRadius > rad && xrad > rad) || (localRadius <= rad && xrad <= rad)) {
 	  ff[0] = v_1D[a*5]*(1.0-alpha)+v_1D[(a+1)*5]*(alpha);
-	  ff[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*((*X)[i][0]-bubble_x0)/max(localRadius,1.0e-8);
-	  ff[2] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*((*X)[i][1]-bubble_y0)/max(localRadius,1.0e-8);
-	  ff[3] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*((*X)[i][2]-bubble_z0)/max(localRadius,1.0e-8);
+	  ff[1] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[0]-bubble_x0)/max(localRadius,1.0e-8);
+	  ff[2] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[1]-bubble_y0)/max(localRadius,1.0e-8);
+	  ff[3] = (v_1D[a*5+1]*(1.0-alpha)+v_1D[(a+1)*5+1]*(alpha))*(loc[2]-bubble_z0)/max(localRadius,1.0e-8);
 	  if (varFcn->getType(fid_new) == VarFcnBase::TAIT)
 	    ff[4] = v_1D[a*5+4]*(1.0-alpha)+v_1D[(a+1)*5+4]*(alpha);
 	  else
@@ -266,8 +271,15 @@ class OneDimensional {
 	  varFcn->primitiveToConservative(ff,f,fid_new);
 	} else if (xrad <= rad) {
 	  varFcn->primitiveToConservative(boundaryStateL,f,fid_new);
+	  for (int j = 1; j <= 3; ++j) {
+	    f[j] = boundaryStateL[0]*boundaryStateL[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
+	  }
+	    
 	} else {
-	  varFcn->primitiveToConservative(boundaryStateR,f,fid_new);	  
+	  varFcn->primitiveToConservative(boundaryStateR,f,fid_new);
+	  for (int j = 1; j <= 3; ++j) {
+	    f[j] = boundaryStateR[0]*boundaryStateR[1]*(loc[j-1]-bub_x0[j-1])/max(localRadius,1.0e-8);
+	  }	  
 	}	  
       }
       else {
@@ -369,8 +381,6 @@ class OneDimensional {
 	  localRadius = sqrt((X[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
 	  for (int k = 0; k < dim; ++k)
             ut.subData(iSub)[i][k] = 0.0;
-	  //if (localRadius < max_distance)
-	  //  memset(u[i],0,sizeof(double)*5);
 	}
 
 	Veval veval(varFcn,itr->second,fluidSelector,x_1D,v_1D,fids,&x,numPoints,bubble_x0,bubble_y0,bubble_z0);
@@ -413,10 +423,18 @@ class OneDimensional {
 	for (int iSub=0; iSub<Up.numLocSub(); ++iSub) {
 	  SVec<double,dimp> &u(Up(iSub));
 	  SVec<double,dimp> &utl(ut(iSub));
+	  SVec<double, 3> &x(X(iSub));
 	  for(int i=0; i<u.size(); i++) {
             assert(A(iSub)[i] > 0 && utl[i][0] > 0);
-	    for (int k = 0; k <dimp; ++k)
-	      u[i][k] += utl[i][k] / A(iSub)[i];
+	    for(int i=0; i<u.size(); i++) {
+
+	      localRadius = sqrt((X[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
+	 
+	      if (localRadius < max_distance) {
+		for (int k = 0; k <dimp; ++k)
+		  u[i][k] = utl[i][k] / A(iSub)[i];
+	      }
+	    }
 	  }
 	}
       }

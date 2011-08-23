@@ -170,16 +170,19 @@ void OutputData::setup(const char *name, ClassAssigner *father)
 
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
-
+  transient.probes.setup("Probes", ca);
 }
 
 //------------------------------------------------------------------------------
 
 void Probes::Node::setup(const char *name, ClassAssigner *father) {
 
-  ClassAssigner *ca = new ClassAssigner(name, 1, father);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
 
   new ClassInt<Probes::Node>(ca, "ID", this, &Probes::Node::id);
+  new ClassDouble<Probes::Node>(ca, "LocationX",this,&Probes::Node::locationX);
+  new ClassDouble<Probes::Node>(ca, "LocationY",this,&Probes::Node::locationY);
+  new ClassDouble<Probes::Node>(ca, "LocationZ",this,&Probes::Node::locationZ);
 }
 
 Probes::Probes() {
@@ -294,6 +297,8 @@ TransientData::TransientData()
   heatfluxes = "";
   sparseGrid = "SparseGrid";
 
+  bubbleRadius = "";
+
   frequency = 0;
   frequency_dt = -1.0;
   length = 1.0;
@@ -403,8 +408,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
   new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
 
+  new ClassStr<TransientData>(ca, "BubbleRadius", this, &TransientData::bubbleRadius);
 
-  probes.setup("Probes", ca);
 }
 
 
@@ -3262,7 +3267,7 @@ void EmbeddedFramework::setup(const char *name) {
 OneDimensionalInfo::OneDimensionalInfo(){
 
   coordType  = SPHERICAL;//CARTESIAN;
-  volumeType = REAL_VOLUME;
+  volumeType = CONSTANT_VOLUME;//REAL_VOLUME;
 
   maxDistance = 0.0;
   numPoints = 101;
@@ -3896,6 +3901,7 @@ int IoData::checkInputValues()
     bc.inlet.pressure = bc.outlet.pressure;
     bc.inlet.density = bc.outlet.density;
     bc.inlet.alpha = bc.inlet.beta = 0.0;
+    bc.inlet.temperature = bc.outlet.temperature;
     setupOneDimensional();
   }
     

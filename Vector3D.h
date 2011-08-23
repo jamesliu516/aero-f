@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cmath>
+#include <algorithm>
 
 //------------------------------------------------------------------------------
 
@@ -14,6 +15,7 @@ struct Vec3D {
   Vec3D(double x[3]) { v[0] = x[0]; v[1] = x[1]; v[2] = x[2]; }
   Vec3D(double x, double y, double z) { v[0] = x; v[1] = y; v[2] = z; }
   Vec3D(const Vec3D &v2) { v[0] = v2.v[0]; v[1] = v2.v[1]; v[2] = v2.v[2]; }
+  Vec3D(double x) { v[0] = v[1] = v[2] = x; }
   ~Vec3D() {}
 
   Vec3D &operator=(const double);
@@ -270,6 +272,26 @@ Vec3D operator*(const Vec3D &v,double c )
   return res;
 
 }
+
+//inline double min(double x,double y) { return (x<y?x:y); }
+//inline double max(double x,double y) { return (x>y?x:y); }
+
+inline
+Vec3D min( const Vec3D& a, const Vec3D& b) {
+
+  return Vec3D( std::min(a[0],b[0]),
+                std::min(a[1],b[1]),
+                std::min(a[2],b[2]));
+}
+
+inline
+Vec3D max( const Vec3D& a, const Vec3D& b) {
+
+  return Vec3D( std::max(a[0],b[0]),
+                std::max(a[1],b[1]),
+                std::max(a[2],b[2]));
+}
+
 //------------------------------------------------------------------------------
 
 #endif

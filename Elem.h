@@ -6,10 +6,14 @@
 #include <BlockAlloc.h>
 #include <GhostPoint.h>
 
+#include <PhysBAM_Geometry/Spatial_Acceleration/BOX_HIERARCHY.h>
+
 #ifdef OLD_STL
 #include <map.h>
+#include <vector.h>
 #else
 #include <map>
+#include <vector>
 using std::map;
 #endif
 
@@ -175,6 +179,10 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
 
+  // X is the deformed nodal location vector
+  virtual
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) = 0;
+
 };
 
 template<class Scalar, int dim, int neq>
@@ -298,6 +306,11 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi){
     t->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
+  }
+
+  // X is the deformed nodal location vector
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+    return t->interpolateSolution(X,U,loc,sol);
   }
 
 };
@@ -646,7 +659,18 @@ public:
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
   }
+  
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
 
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    return wrapper->interpolateSolution(X,U,loc,sol);
+  }
+  
 // Level Set Reinitialization
 
   template<int dimLS>
@@ -796,6 +820,14 @@ public:
 				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
     fprintf(stderr, "Error: undefined function (computeDerivativeOfFaceGalerkinTerm) for this elem type\n"); exit(1);
   }
+  
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+
+    fprintf(stderr, "Error: undefined function (interpolateSolution0 for this elem type\n"); exit(1);
+    return -1;
+  }
 
 // Level Set Reinitialization
 
@@ -836,7 +868,7 @@ class ElemSet {
 
   Elem **elems;
   BlockAlloc memElems;
-  
+
 public:
 
   ElemSet(int);
@@ -916,7 +948,12 @@ public:
 
 
   template<int dim, class Obj>
-    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);
+  void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);
+
+  // X is the deformed nodal location vector
+  template<int dim> 
+  void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const std::vector<Vec3D>& locs,
+                           double (*sol)[dim], int* status,int* last);
 };
 
 #ifdef TEMPLATE_FIX
