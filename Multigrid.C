@@ -187,6 +187,8 @@ static void loadTopMesh(const char* fn,SVec<double,3>& nodes) {
     nodes[i][1] = Y[i];
     nodes[i][2] = Z[i];
   }
+
+
 }
 
 static void loadDecomposition(const char* fn, int** &dec,

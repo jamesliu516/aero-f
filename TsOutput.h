@@ -172,6 +172,8 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+  void cleanProbesFile();
+  
   void writeProbesToDisk(bool, int, double, DistSVec<double,3> &, 
 			 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
   
