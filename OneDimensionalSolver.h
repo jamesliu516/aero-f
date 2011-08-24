@@ -389,7 +389,7 @@ class OneDimensional {
 	double localAlpha, velocity_r;
 	double localV[5];
 	if (mode == ModeU) {
-	  dom.getSubDomain()[iSub]->integrateFunction(&veval, x, ut(iSub), &Veval::Eval, 2);
+	  dom.getSubDomain()[iSub]->integrateFunction(&veval, x, ut(iSub), &Veval::Eval, 4);
 	  dom.getSubDomain()[iSub]->sndData(*dom.getVecPat(), ut.subData(iSub) );
 	} else {
 	  int lsdim=0;

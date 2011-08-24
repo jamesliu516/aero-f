@@ -13,8 +13,13 @@ MatchNodeSet::MatchNodeSet(int value)
   // index[][1] -> global match number
   // index[][2] -> position in the MPI buffer
 
-  index = new int[value][3];
-  gap = new double[value][3];
+  if (value > 0) {
+    index = new int[value][3];
+    gap = new double[value][3];
+  } else {
+    index = 0;
+    gap = 0;
+  }
   totalSize = numNodes;
 
 }

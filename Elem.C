@@ -11,6 +11,7 @@
 #include <GenMatrix.h>
 #include <cmath>
 #include <GeoState.h>
+#include <limits>
 #include "LevelSet/LevelSetStructure.h"
 
 
@@ -271,8 +272,8 @@ void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
     
     Elem& E = *elems[i];
     nn = E.numNodes(); 
-    bbox[0] = Vec3D( numeric_limits<double>::max() ); 
-    bbox[1] = Vec3D( -numeric_limits<double>::max() );
+    bbox[0] = Vec3D( std::numeric_limits<double>::max() ); 
+    bbox[1] = Vec3D( -std::numeric_limits<double>::max() );
     for (int j = 0; j < nn; ++j) {
       const Vec3D& x = X[ E[j] ];
       bbox[0] = min( bbox[0], x );

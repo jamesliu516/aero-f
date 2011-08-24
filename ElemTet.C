@@ -2050,12 +2050,12 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
   }
 
   Vec3D hexNodes[8];
-  int map1[4] = {0,3,5,2};
+  int map1[4] = {0,3,1,2};
   int map2[4] = {3, 3, 3, 1};
   int map3[4] = {1, 0, 3, 5};
   int map4[4] = {2, 4, 5, 4};
-  int map5[4] = {2, 0, 1, 0};
-  int map6[4] = {1, 2, 0, 2};
+  int map5[4] = {2, 0, 1, 2};
+  int map6[4] = {1, 2, 0, 0};
   double res[dim];
   
   for (int i = 0; i < 4; ++i) {
@@ -2072,7 +2072,9 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
     hexNodes[7] = faceCnt[ map6[i] ];
     
     double eta[3];
+    double det;
     Vec3D xyz;
+    Vec3D jac[3];
     for (int j = 0; j < npt; ++j) {
       eta[0] = locs[npt-1][j]*0.5+0.5;
       for (int k = 0; k < npt; ++k) {
@@ -2088,10 +2090,44 @@ void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, 
 	    hexNodes[5]*eta[0]*(1.0-eta[1])*eta[2] +
 	    hexNodes[6]*eta[0]*eta[1]*eta[2] +
 	    hexNodes[7]*(1.0-eta[0])*eta[1]*eta[2];
+
+	  jac[0] = -hexNodes[0]*(1.0-eta[1])*(1.0-eta[2]) +  
+	    hexNodes[1]*(1.0-eta[1])*(1.0-eta[2]) +
+	    hexNodes[2]*eta[1]*(1.0-eta[2]) 
+	    -hexNodes[3]*eta[1]*(1.0-eta[2])
+
+	    -hexNodes[4]*(1.0-eta[1])*eta[2] +  
+	    hexNodes[5]*(1.0-eta[1])*eta[2] +
+	    hexNodes[6]*eta[1]*eta[2]
+	    -hexNodes[7]*eta[1]*eta[2];
+
+	  jac[1] = -hexNodes[0]*(1.0-eta[0])*(1.0-eta[2]) 
+	    -hexNodes[1]*eta[0]*(1.0-eta[2]) +
+	    hexNodes[2]*eta[0]*(1.0-eta[2]) +
+	    hexNodes[3]*(1.0-eta[0])*(1.0-eta[2]) 
+
+	    -hexNodes[4]*(1.0-eta[0])*eta[2] 
+	    -hexNodes[5]*eta[0]*eta[2] +
+	    hexNodes[6]*eta[0]*eta[2] +
+	    hexNodes[7]*(1.0-eta[0])*eta[2];
+
+	  jac[2] = -hexNodes[0]*(1.0-eta[0])*(1.0-eta[1])   
+	    -hexNodes[1]*eta[0]*(1.0-eta[1])
+	    -hexNodes[2]*eta[0]*eta[1]
+	    -hexNodes[3]*(1.0-eta[0])*eta[1]+
+
+	    hexNodes[4]*(1.0-eta[0])*(1.0-eta[1]) +  
+	    hexNodes[5]*eta[0]*(1.0-eta[1]) +
+	    hexNodes[6]*eta[0]*eta[1]+
+	    hexNodes[7]*(1.0-eta[0])*eta[1];
+
+	  det = jac[0][0]*(jac[1][1]*jac[2][2]-jac[1][2]*jac[2][1]) - 
+	    jac[1][0]*(jac[0][1]*jac[2][2]-jac[0][2]*jac[2][1]) + 
+	    jac[2][0]*(jac[0][1]*jac[1][2]-jac[0][2]*jac[1][1]);
 	  
 	  (obj->*F)( nodeNum(i), xyz, res);
 	  for (int m = 0; m < dim; ++m) {
-	    V[ nodeNum(i) ][m] += 0.25*vol*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
+	    V[ nodeNum(i) ][m] += det*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
 	  }
 	}
       }
