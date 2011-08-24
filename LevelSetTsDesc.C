@@ -186,6 +186,7 @@ void LevelSetTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *lastIt,
 
   this->output->setMeshMotionHandler(ioData, this->mmh);
   this->output->openAsciiFiles();
+  this->output->cleanProbesFile();
 
   this->timer->setSetupTime();
 

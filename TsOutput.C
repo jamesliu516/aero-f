@@ -2227,6 +2227,87 @@ void TsOutput<dim>::writeBinaryVectorsToDisk(bool lastIt, int it, double t, Dist
 
 }
 
+static void copyFile(const char* fname) {
+
+  FILE* f = fopen(fname,"rb");
+  fseek (f , 0 , SEEK_END);
+  int lSize = ftell (f);
+  rewind (f);
+  char* buffer = new char[lSize];
+  fread (buffer,1,lSize,f);
+  fclose(f);
+  
+  char nn[256];
+  sprintf(nn,"%s.back",fname);
+  f = fopen(nn,"wb");
+  fwrite(buffer,1,lSize,f);
+  fclose(f);
+
+  delete [] buffer;
+}
+
+template<int dim>
+void TsOutput<dim>::cleanProbesFile() {
+
+  char nn[256];
+  int iter,i;
+  double time,res;
+  if (it0 == 0) 
+    return;
+
+  for (i=0; i<PostFcn::SSIZE; ++i) {
+    if (nodal_scalars[i]) {
+      if (com->cpuNum() == 0) {
+        copyFile(nodal_scalars[i]);
+        sprintf(nn,"%s.back",nodal_scalars[i]);
+        FILE* scalar_file = fopen(nodal_scalars[i],"w");
+        FILE* scalar_file_old = fopen(nn,"r");
+        while (!feof(scalar_file_old)) {
+          fscanf(scalar_file_old,"%d",&iter);
+          fscanf(scalar_file_old,"%lf",&time);
+          if (iter > it0)
+            break;          
+          fprintf(scalar_file,"%d\n%e\n",iter,time);
+	  for (int k =0 ; k < nodal_output.numNodes; ++k) {
+	    fscanf(scalar_file_old,"%lf",&res);
+            fprintf(scalar_file,"%e\n",res);
+          }
+	}
+        fclose(scalar_file);
+        fclose(scalar_file_old);
+      }
+    }
+  }
+  
+  for (i=0; i<PostFcn::VSIZE; ++i) {
+    if (nodal_vectors[i]) {
+	
+      if (com->cpuNum() == 0) {
+        copyFile(nodal_scalars[i]);
+        sprintf(nn,"%s.back",nodal_scalars[i]);
+        FILE* scalar_file = fopen(nodal_scalars[i],"w");
+        FILE* scalar_file_old = fopen(nn,"r");
+        while (1) {
+          fscanf(scalar_file_old,"%d",&iter);
+          fscanf(scalar_file_old,"%lf",&time);
+          if (iter > it0)
+            break;          
+          fprintf(scalar_file,"%d\n%e\n",iter,time);
+          for (int k =0 ; k < nodal_output.numNodes; ++k) {
+            for (int l = 0; l < 3; ++l) {
+	      fscanf(scalar_file_old,"%lf",&res);
+              fprintf(scalar_file,"%e ",res);
+            }
+	    fprintf(scalar_file,"\n");
+          }
+	}
+        fclose(scalar_file);
+        fclose(scalar_file_old);
+      }
+    }
+  }
+}
+
 template<int dim>
 template<int dimLS>
 void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
@@ -2249,6 +2330,9 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
     
     int i;
     const char* mode = nodal_output.step ? "a" : "w";
+    if (it0 > 0)
+      mode = "a";
+
     for (i=0; i<PostFcn::SSIZE; ++i) {
       if (nodal_scalars[i]) {
 	
@@ -2260,7 +2344,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
                                       Phi);
 	if (com->cpuNum() == 0) {
 	  FILE* scalar_file = fopen(nodal_scalars[i],mode);
-	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step, tag);
+	  fprintf(scalar_file,"%d\n%e\n",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
 	    fprintf(scalar_file,"%e\n",nodal_output.results[k]*sscale[i]);
 	  fclose(scalar_file);
@@ -2278,7 +2362,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 
 	if (com->cpuNum() == 0) {
 	  FILE* vector_file = fopen(nodal_vectors[i],mode);
-	  fprintf(vector_file,"%d\n%e\n",nodal_output.step, tag);
+	  fprintf(vector_file,"%d\n%e\n",nodal_output.step+it0, tag);
 	  for (int k =0 ; k < nodal_output.numNodes; ++k)
 	    fprintf(vector_file,"%e\n%e\n%e\n",
 		    nodal_output.results[k*3]*vscale[i],
@@ -2309,7 +2393,7 @@ void TsOutput<dim>::writeProbesToDisk(bool lastIt, int it, double t, DistSVec<do
 				      DistTimeState<dim> *timeState,
 				      DistVec<int> &fluidId)
 {
-  writeProbesVectorsToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
+  writeProbesToDisk(lastIt,it,t,X,A,U,timeState,fluidId, (DistSVec<double,1>*)0);
 }
 
 //----------------------------------------------------------------------------------------
