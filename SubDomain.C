@@ -43,6 +43,7 @@ using std::max;
 //#include "LevelSet/LevelSetStructure.h"
 #include <GhostPoint.h>
 #include <DenseMatrixOps.h>
+#include <limits>
 
 extern "C" {
   void F77NAME(mvp5d)(const int &, const int &, int *, int *, int (*)[2],
@@ -6161,7 +6162,7 @@ void SubDomain::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U,
   for (int i = 0; i < locs.size(); ++i) {
     int eid = last[i],nn;
     Elem& E = elems[eid];
-    double mindist = numeric_limits<double>::max(),dst;
+    double mindist = std::numeric_limits<double>::max(),dst;
     for (int j = 0; j < E.numNodes(); ++j) {
       nn = E.nodeNum(j);
       dst = sqrt((X[nn][0]-locs[i][0])*(X[nn][0]-locs[i][0])+
