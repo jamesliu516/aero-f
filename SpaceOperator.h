@@ -3,6 +3,7 @@
 
 #include <IoData.h>
 #include <GhostPoint.h>
+#include <RestrictionMapping.h>
 #include <complex>
 typedef std::complex<double> bcomp;
 
@@ -133,11 +134,14 @@ public:
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
 		       DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistTimeState<dim> *, bool=true);
+	void computeResidualRestrict(DistSVec<double,3> &, DistVec<double> &,
+			DistSVec<double,dim> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+			RestrictionMapping<dim> &, bool=true);
 // Included (MB)
   void computeResidual(DistExactRiemannSolver<dim> *,
-                       DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistTimeState<dim> *, bool=true);
+											 DistSVec<double,3> &, DistVec<double> &,
+											 DistSVec<double,dim> &, DistSVec<double,dim> &,
+											 DistTimeState<dim> *, bool=true);
 
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,

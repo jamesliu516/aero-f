@@ -49,6 +49,7 @@ private:
   double surface;
   static int counter;
   Vec3D x0;
+  int *output_newton_step;	// points to domain's
 
   double sscale[PostFcn::SSIZE];
   double vscale[PostFcn::SSIZE];
@@ -77,6 +78,13 @@ private:
   Vec3D *TavL;
   VecSet< DistSVec<double,3> > *mX;
 
+	// Gappy POD
+  char *newtonresiduals;
+	char *reducedjacxdurom;
+	char *reducedjac;
+	char *staterom;
+	char *error;
+
   double tprevf, tprevl, tinit;
   double tener,tenerold;
 
@@ -92,6 +100,8 @@ private:
   FILE *fpMatVolumes;
   FILE *fpConservationErr;
   FILE *fpGnForces;
+  FILE *fpStateRom;
+  FILE *fpError;
 
 
   DistVec<double>    *Qs;
@@ -165,10 +175,14 @@ public:
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
   void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
+  void writeStateRomToDisk(int, double, int, const Vec<double> &);
+  void writeErrorToDisk(const int, const double, const int, const double *);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
                                double **expected, double **computed);
   void writeDisplacementVectorToDisk(int step, double tag, DistSVec<double,3> &X,
                                      DistSVec<double,dim> &U);
+	void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *,
+			DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

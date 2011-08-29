@@ -74,9 +74,24 @@ struct InputData {
   const char *levelsets;
   const char *rstdata;
   const char *podFile;
-  const char *podFile2;
+  const char *snapFile;
+  const char *snapRefSolutionFile;
+  const char *staterom;
   const char *strModesFile;
   const char *embeddedSurface;
+  const char *oneDimensionalSolution;
+
+  const char *stateVecFile;//CBM
+
+	// Gappy POD
+
+  const char *sampleNodes;
+  const char *podFileResJac;
+  const char *podFileResJacHat;
+  const char *aMatrix;
+  const char *bMatrix;
+  const char *mesh;
+  const char *reducedfullnodemap;
 
 // Included (MB)
   const char *shapederivatives;
@@ -183,6 +198,25 @@ struct TransientData {
   const char *philevel;
   const char *controlvolume;
   const char* fluidid;
+
+
+// Gappy POD 
+  const char *newtonresiduals;
+  const char *reducedjacxdurom;
+  const char *reducedjac;
+  const char *stateRom;
+  const char *mesh;
+  const char *reducedfullnodemap;
+  const char *sampleNodes;
+  const char *sampleNodesFull;
+  const char *onlineMatrix;
+  const char *onlineMatrixFull;
+  const char *podStateRed;
+  const char *wallDistanceRed;
+  const char *staterom;
+  const char *error;
+  const char *dUnormAccum;
+
 // Included (MB)
   const char *velocitynorm;
   const char *dSolutions;
@@ -270,6 +304,7 @@ struct RestartParametersData {
   double dt_nm2;
   double residual;
   double energy;
+  int output_newton_step;
 
   RestartParametersData();
   ~RestartParametersData() {}
@@ -294,7 +329,10 @@ struct ProblemData {
 		_UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
 		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
 		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-		_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ } alltype;
+			_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_ROM_ = 24, _GAPPY_POD_CONSTRUCTION_ =
+				25, _SURFACE_MESH_CONSTRUCTION_ = 26, _REDUCED_MESH_SHAPE_CHANGE_ =
+				27, _GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ = 28,
+			_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ = 29 } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -1270,6 +1308,7 @@ struct NewtonData {
   enum FailSafe {NO = 0, YES = 1, ALWAYS = 2} failsafe;
   int maxIts;
   double eps;
+	int JacSkip;
   double epsAbsRes, epsAbsInc;
 
   GenericKrylov ksp;
@@ -1659,6 +1698,41 @@ struct PadeData {
 
 //------------------------------------------------------------------------------
 
+struct ROB {
+
+  double tolerance;
+  int numROB;
+  int numROBJac;
+  int numROBRes;
+  double sampleNodeFactor;
+  int nSampleNodes;
+  int nPodGreedy;
+  enum ROMSolver {PG = 0, BROYDENPG = 1, GAPPYPG = 2, GALERKIN = 3, POSTPROCESS = 4, PROJERROR = 5} romsolver;
+	int liftFaces;
+	int layers;
+  int normalizeSnapshots;
+  int timestepWeights;
+  int skipFreq;
+  int incrementalSnapshots;
+  int maxVecStorage;
+  int energyOnly;
+  int podMethod;
+  int pseudoInverseNodes;
+  int subtractIC;
+  int basisType;
+  int notRestricted;
+  int errorBasis;
+  int computeAMat;
+
+  ROB();
+  ~ROB() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+
+};
+
+//------------------------------------------------------------------------------
+
 struct LinearizedData {
 
   enum PadeReconstruction {TRUE = 1, FALSE = 0} padeReconst;
@@ -1782,6 +1856,7 @@ struct EmbeddedFramework {
 };
 
 //------------------------------------------------------------------------------
+
 struct OneDimensionalInfo {
   enum CoordinateType {CARTESIAN = 0, CYLINDRICAL = 1, SPHERICAL = 2} coordType;
   enum VolumeType { CONSTANT_VOLUME = 0, REAL_VOLUME = 1} volumeType;
@@ -1861,6 +1936,7 @@ public:
   RigidMeshMotionData rmesh;
   AeroelasticData aero;
   ForcedData forced;
+	ROB Rob;
   LinearizedData linearizedData;
   Surfaces surfaces;
   Velocity rotations;
@@ -1907,7 +1983,6 @@ public:
   void printDebug();
 
   void setupOneDimensional();
-
 };
 
 //------------------------------------------------------------------------------

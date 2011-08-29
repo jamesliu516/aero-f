@@ -105,6 +105,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
         //each volume (volIt->first) is setup using
   }
 
+	int *output_newton_step = domain->getOutputNewtonStep();
+	*output_newton_step = data->getOutputNewtonStep();
+
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
   
@@ -724,6 +727,23 @@ void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState,
 }
                                                                                                                       
 //------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::add_dAW_dtRestrict(int it, DistGeoState &geoState, 
+					    DistVec<double> &ctrlVol,
+					    DistSVec<double,dim> &Q, 
+					    DistSVec<double,dim> &R, const std::vector<std::vector<int> > &sampledLocNodes)
+{
+
+  if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
+
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->add_dAW_dtRestrict(Q.getMasterFlag(iSub), geoState(iSub), 
+				   ctrlVol(iSub), Q(iSub), R(iSub), sampledLocNodes[iSub]);
+
+}
+//------------------------------------------------------------------------------
 template<int dim>
 template<int dimLS>
 void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
@@ -1317,9 +1337,11 @@ void DistTimeState<dim>::get_dW_dt(bool doInitialTasks,
 //------------------------------------------------------------------------------
 
 // Included (MB)
-template<int dim>
-DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState, DistSVec<double,3> &X, DistSVec<double,3> &dX,
-                                                          DistVec<double> &ctrlVol, DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim> &dV, double dMach)
+template<int dim> DistVec<double>*
+DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &geoState,
+		DistSVec<double,3> &X, DistSVec<double,3> &dX, DistVec<double> &ctrlVol,
+		DistVec<double> &dCtrlVol, DistSVec<double,dim> &V, DistSVec<double,dim>
+		&dV, double dMach)
 {
 
 //Remark: Error mesage for pointers
@@ -1344,3 +1366,8 @@ DistVec<double>* DistTimeState<dim>::getDerivativeOfInvReynolds(DistGeoState &ge
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim> 
+int DistTimeState<dim>::getOutputNewtonStep() const {
+	return *(domain->getOutputNewtonStep()); 
+}

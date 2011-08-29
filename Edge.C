@@ -265,8 +265,80 @@ int EdgeSet::computeFiniteVolumeTerm(int* locToGlobNodeMap, Vec<double> &irey, F
   double edgeirey, length;
 
   int ierr = 0;
+	int l;
 
-  for (int l=0; l<numEdges; ++l) {
+  for (int iEdge=0; iEdge<numSampledEdges; ++iEdge) {
+		l = sampleMesh ? edgesConnectedToSampleNode[iEdge]: iEdge;
+
+    if (!masterFlag[l]) continue;
+
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+
+    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+    length = sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+    if (egrad)
+      egrad->compute(l, i, j, elems, X, V, dVdx, dVdy, dVdz, ddVij, ddVji);
+    else {
+      for (int k=0; k<dim; ++k) {
+        ddVij[k] = dx[0]*dVdx[i][k] + dx[1]*dVdy[i][k] + dx[2]*dVdz[i][k];
+        ddVji[k] = dx[0]*dVdx[j][k] + dx[1]*dVdy[j][k] + dx[2]*dVdz[j][k];
+      }
+    }
+
+    recFcn->compute(V[i], ddVij, V[j], ddVji, Vi, Vj);
+    edgeirey = 0.5*(irey[i]+irey[j]);
+
+    if (!rshift)
+    // check for negative pressure or density //
+      ierr += checkReconstructedValues(i, j, Vi, Vj, varFcn, locToGlobNodeMap,
+                                       failsafe, tag);
+
+    if (ierr) continue;
+
+    for (int k=0; k<dim; ++k) {
+      Vi[k+dim] = V[i][k];
+      Vj[k+dim] = V[j][k];
+    }
+
+    fluxFcn[BC_INTERNAL]->compute(length, edgeirey, normal[l], normalVel[l], Vi, Vj, flux);
+
+    for (int k=0; k<dim; ++k) {
+      fluxes[i][k] += flux[k];
+      fluxes[j][k] -= flux[k];
+    }
+
+  }
+
+  return(ierr);
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+int EdgeSet::computeFiniteVolumeTermRestrict(int* locToGlobNodeMap, Vec<double>
+		&irey, FluxFcn** fluxFcn, RecFcn* recFcn, ElemSet& elems, GeoState&
+		geoState, SVec<double,3>& X, SVec<double,dim>& V, NodalGrad<dim>& ngrad,
+		EdgeGrad<dim>* egrad, SVec<double,dim>& fluxes, SVec<int,2>& tag, int
+		failsafe, int rshift) 
+{
+  Vec<Vec3D>& normal = geoState.getEdgeNormal();
+  Vec<double>& normalVel = geoState.getEdgeNormalVel();
+
+  SVec<double,dim>& dVdx = ngrad.getX();
+  SVec<double,dim>& dVdy = ngrad.getY();
+  SVec<double,dim>& dVdz = ngrad.getZ();
+  VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
+  double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
+  double edgeirey, length;
+
+  int ierr = 0;
+
+	int l;
+  for (int iSampledEdge=0; iSampledEdge<edgesConnectedToSampleNode.size(); ++iSampledEdge) {	//TODO: only some edges
+		l = edgesConnectedToSampleNode[iSampledEdge];
 
     if (!masterFlag[l]) continue;
 

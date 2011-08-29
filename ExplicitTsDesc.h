@@ -32,7 +32,7 @@ public:
   ExplicitTsDesc(IoData&, GeoSource&, Domain*);
   ~ExplicitTsDesc();
 
-  virtual int solveNonLinearSystem(DistSVec<double,dim>&);
+  virtual int solveNonLinearSystem(DistSVec<double,dim>&, int);
 
 private:
 

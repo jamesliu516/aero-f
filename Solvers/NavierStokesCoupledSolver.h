@@ -7,6 +7,14 @@
 #include <TsSolver.h>
 #include <ExplicitTsDesc.h>
 #include <ImplicitCoupledTsDesc.h>
+#include <ImplicitPGTsDesc.h>
+#include <ImplicitGalerkinTsDesc.h>
+#include <ImplicitBroydenTsDesc.h>
+#include <ImplicitGappyTsDesc.h>
+#include <ImplicitCollLSTsDesc.h>
+#include <ImplicitCollGalTsDesc.h>
+#include <ImplicitRomPostproTsDesc.h>
+#include <ImplicitProjErrorTsDesc.h>
 // Included (MB)
 #include <FluidSensitivityAnalysisHandler.h>
 
@@ -24,6 +32,46 @@ void startNavierStokesCoupledSolver(IoData &ioData, GeoSource &geoSource, Domain
       TsSolver<FluidSensitivityAnalysisHandler<dim> > tsSolver(&fsah);
       tsSolver.fsaSolve(ioData);
     }
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 0) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+				ImplicitPGTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitPGTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 1) {
+				ImplicitBroydenTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitBroydenTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 2) { 
+				ImplicitGappyTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitGappyTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 3) { //&& ioData.ts.type == TsData::IMPLICIT) { //CBM-check
+				ImplicitGalerkinTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitGalerkinTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 4) {
+				ImplicitRomPostproTsDesc <dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitRomPostproTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 5) {
+				ImplicitProjErrorTsDesc <dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitProjErrorTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 6) { 
+				ImplicitCollLSTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitCollLSTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
+    else if (ioData.problem.alltype == ProblemData::_UNSTEADY_ROM_ && ioData.Rob.romsolver == 7) { 
+				ImplicitCollGalTsDesc<dim> tsDesc(ioData, geoSource, &domain);
+				TsSolver<ImplicitCollGalTsDesc<dim> > tsSolver(&tsDesc);
+				tsSolver.solve(ioData);
+		}
     else if (ioData.ts.type == TsData::IMPLICIT) {
       ImplicitCoupledTsDesc<dim> tsDesc(ioData, geoSource, &domain);
       TsSolver<ImplicitCoupledTsDesc<dim> > tsSolver(&tsDesc);

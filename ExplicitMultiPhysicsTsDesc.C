@@ -50,7 +50,7 @@ ExplicitMultiPhysicsTsDesc<dim,dimLS>::~ExplicitMultiPhysicsTsDesc()
 //------------------------------------------------------------------------------
 
 template<int dim, int dimLS>
-int ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U)
+int ExplicitMultiPhysicsTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim> &U, int)
 {
   solveNLSystemTwoBlocks(U);
   return 1;

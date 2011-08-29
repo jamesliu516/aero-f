@@ -5,6 +5,7 @@
 #include <map.h>
 #else
 #include <map>
+#include <vector>
 using std::map;
 #endif
 
@@ -59,6 +60,8 @@ class EdgeSet {
   MapPair *mp;
 
   int numEdges;
+	bool sampleMesh;
+	int numSampledEdges, numTwoLayerEdges;
 
   int (*ptr)[2];
   bool *masterFlag;
@@ -86,6 +89,10 @@ public:
 
   template<int dim>
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
+                              SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
+			      SVec<double,dim>&, SVec<int,2>&, int, int);
+  template<int dim>
+  int computeFiniteVolumeTermRestrict(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
                               SVec<double,3>&, SVec<double,dim>&, NodalGrad<dim>&, EdgeGrad<dim>*,
 			      SVec<double,dim>&, SVec<int,2>&, int, int);
 
@@ -214,6 +221,13 @@ public:
 
   void attachProgrammedBurn(ProgrammedBurn*);
 
+	void computeConnectedEdges(const std::vector<int> &);
+	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
+	std::vector<int> edgesTwoLayersSampleNode;	// for Gappy ROM
+	const int getNumSampledEdges() {return numSampledEdges;}
+	const int getNumTwoLayersEdges() {return numTwoLayerEdges;}
+	void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
+			const int *locToGlobNodeMap) ;
 };
 
 //------------------------------------------------------------------------------

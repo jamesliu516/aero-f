@@ -22,6 +22,7 @@ EdgeSet::EdgeSet()
   ptr       = 0;
   masterFlag= 0;
   mp        = new MapPair;
+	sampleMesh = false;
 
   programmedBurn = 0;
 
@@ -53,6 +54,7 @@ int EdgeSet::find(int first, int second)
 
   if (v == mp->end()) { 
     (*mp)[ Pair(first, second) ] = numEdges;
+		//++numSampledEdges;
     return numEdges++;
   }
 
@@ -253,4 +255,49 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
 void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
 
   programmedBurn = p;
+}
+
+//------------------------------------------------------------------------------
+
+void EdgeSet::computeConnectedEdges(const std::vector<int> &locSampleNodes) 
+{
+
+	sampleMesh = true;
+
+  for(int l=0; l<numEdges; l++){
+		//compute which nodes are attached
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+		// check if either node is a sample node
+		for (int iSampleNode = 0; iSampleNode < locSampleNodes.size(); ++iSampleNode) {
+			if (i == locSampleNodes[iSampleNode] || j == locSampleNodes[iSampleNode]) {
+				edgesConnectedToSampleNode.push_back(l);
+				break;
+			}
+		}
+	}
+	numSampledEdges = edgesConnectedToSampleNode.size();
+}
+
+//------------------------------------------------------------------------------
+
+void EdgeSet::computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes, const int *locToGlobNodeMap) 
+{
+
+	sampleMesh = true;
+
+  for(int l=0; l<numEdges; l++){
+		//compute which nodes are attached
+    int i = ptr[l][0];
+    int j = ptr[l][1];
+		// check if either node is a sample node
+		for (int iSampleNode = 0; iSampleNode < globalNeighborNodes.size(); ++iSampleNode) {
+			if (locToGlobNodeMap[i] == globalNeighborNodes[iSampleNode]  ||
+				 	locToGlobNodeMap[j] == globalNeighborNodes[iSampleNode] ) {
+				edgesTwoLayersSampleNode.push_back(l);
+				break;
+			}
+		}
+	}
+	numTwoLayerEdges = edgesTwoLayersSampleNode.size();
 }

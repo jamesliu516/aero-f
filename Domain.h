@@ -152,12 +152,18 @@ class Domain {
 // Included (MB)
   CommPattern<double> *weightDerivativePat;
 
+	int numGlobNode;
+	void computeNumGlobNode();
+
+	int output_newton_step;	// for writing newton residual snapshots
+
 public:
 
   Domain();
   ~Domain();
 
   int getNumLocSub() const { return numLocSub; }
+  int getNumGlobNode(); // compute if needed
   SubDomain **getSubDomain() const { return subDomain; }
   SubDTopo *getSubTopo() const { return subTopo; }
   int **getNodeType() const { return nodeType; }
@@ -167,6 +173,7 @@ public:
     int** empty = 0;
     return empty;
   }
+  int *getOutputNewtonStep() { return &output_newton_step; }	// allow functions to change it
   BCApplier* getMeshMotionBCs() const { return meshMotionBCs; } //HB
   CommPattern<double> *getVecPat() const { return vecPat; }
   CommPattern<bcomp> *getCompVecPat() const { return compVecPat; }
@@ -710,6 +717,27 @@ public:
 
   template<class Scalar, int dim>
   bool readVectorFromFile(const char *, int, double *, DistSVec<Scalar,dim> &, Scalar* = 0);
+
+	template<int dim>
+	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
+
+	void computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes);
+	void computeConnectedNodes(const std::vector<std::vector<int> > &,
+			std::vector<int> &);
+
+	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
+
+	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length);
+
+  template<int dim>
+  void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
+
+  void readInterpNode(const char *, int &, int *&, int *&); // for Gappy Pod
+
+  void readInterpMatrix(const char *, int &, FullM &); // for Gappy Pod
+
+	void readSampleNodes(std::vector<int> &, int &,
+			const char *);
 
   template<class Scalar, int dim>
   void writeVectorToFile(const char *, int, double, DistSVec<Scalar,dim> &, Scalar* = 0);
