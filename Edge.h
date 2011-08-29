@@ -17,8 +17,11 @@ using std::pair;
 #endif
 
 // Included (MB)
-#include <stdio.h>
+#include <cstdio>
 
+#include <ProgrammedBurn.h>
+
+class FluidSelector;
 class VarFcn;
 class RecFcn;
 class FluxFcn;
@@ -27,7 +30,6 @@ class GeoState;
 class FemEquationTerm;
 class TimeLowMachPrec;
 class LevelSetStructure;
-class FluidSelector;
 
 
 struct Vec3D;
@@ -66,6 +68,8 @@ class EdgeSet {
 
   double* edgeLength;
 
+  ProgrammedBurn* programmedBurn;
+
 public:
 
   EdgeSet();
@@ -81,7 +85,7 @@ public:
                        Vec<double> &, TimeLowMachPrec &);
   template<int dim>
   void computeTimeStep(VarFcn *, GeoState &, SVec<double,dim> &, Vec<double> &,
-                       TimeLowMachPrec &, Vec<int> &, int);
+                       TimeLowMachPrec &, Vec<int> &, int,Vec<double>*);
 
   template<int dim>
   int computeFiniteVolumeTerm(int*, Vec<double> &, FluxFcn**, RecFcn*, ElemSet&, GeoState&,
@@ -99,18 +103,19 @@ public:
                               NodalGrad<dim>&, EdgeGrad<dim>*,
                               NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
-                              SVec<double,dim>* interfaceFlux,
                               SVec<int,2>&, int, int);
 
-  /** compute flux for Riemann based FSI*/
-  template<int dim>
+  template<int dim, int dimLS>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
-                              SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&, LevelSetStructure &,
-                              bool, int, SVec<double,3>*, NodalGrad<dim>&, EdgeGrad<dim>*,
+                              SVec<double,dim>&, SVec<double,dim>&, SVec<double,dim>&,
+                              LevelSetStructure&, bool, Vec<int> &, int, SVec<double,3>*, FluidSelector &,
+                              NodalGrad<dim>&, EdgeGrad<dim>*,
+                              NodalGrad<dimLS>&,
                               SVec<double,dim>&, int,
                               SVec<int,2>&, int, int);
 
+  /** compute flux for Riemann based FSI*/
   template<int dim>
   int computeFiniteVolumeTerm(ExactRiemannSolver<dim>&, int*,
                               FluxFcn**, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
@@ -122,7 +127,7 @@ public:
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn**, RecFcn*, RecFcn*, ElemSet&, GeoState&, SVec<double,3>&,
                                SVec<double,dim>&, NodalGrad<dim>&, NodalGrad<dimLS>&, EdgeGrad<dim>*,
-                               SVec<double,dimLS>&, SVec<double,dimLS>&);
+                               SVec<double,dimLS>&, SVec<double,dimLS>&, LevelSetStructure* =0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, GeoState &,
@@ -147,6 +152,22 @@ public:
                                SVec<double,3> &, Vec<double> &,
                                SVec<double,dim> &, GenMat<Scalar,neq> &,
                                FluidSelector &, Vec<int> &, int * );
+  
+  template<class Scalar,int dim,int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>&,
+                              FluxFcn**, GeoState&, SVec<double,3>&,
+                              SVec<double,dim>&, Vec<double>&, LevelSetStructure &,
+                              Vec<int>&, int, SVec<double,3>*,
+                              GenMat<Scalar,neq>&,Vec<double>& irey);
+
+  template<class Scalar,int dim, int dimLS,int neq>
+  void computeJacobianFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann,int*,
+                                     FluxFcn** fluxFcn, 
+                                     GeoState& geoState, SVec<double,3>& X,
+                                     SVec<double,dim>& V, 
+                                     LevelSetStructure& LSS, Vec<int> &fluidId,
+                                     int Nriemann, SVec<double,3>* Nsbar, FluidSelector &fluidSelector,
+                                     NodalGrad<dimLS>& ngradLS,Vec<double>&,GenMat<Scalar,neq>& A);
 
   template<class Scalar, int dim, int dimLS>
     void computeJacobianFiniteVolumeTermLS(RecFcn* recFcn, RecFcn* recFcnLS,
@@ -155,7 +176,7 @@ public:
 					   NodalGrad<dimLS> &ngradLS,
 					   EdgeGrad<dim>* egrad,
 					   Vec<double> &ctrlVol, SVec<double,dimLS>& Phi,
-					   GenMat<Scalar,dimLS> &A);
+					   GenMat<Scalar,dimLS> &A,LevelSetStructure* LSS);
 /*  template<int dim>
   void RiemannJacobianGasTait(int i, int j,
                               SVec<double,dim> &V, double Phii, double Phij,
@@ -197,6 +218,8 @@ public:
                                        const double, const double, const double);
 
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
+
+  void attachProgrammedBurn(ProgrammedBurn*);
 
 	void computeConnectedEdges(const std::vector<int> &);
 	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM

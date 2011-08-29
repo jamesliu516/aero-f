@@ -24,6 +24,11 @@ class ExactRiemannSolver{
   SVec<double,dim-2>  &interfacialWi;
   SVec<double,dim-2>  &interfacialWj;
 
+  int getRiemannSolverId(int i,int j) const;
+
+  int levelSetMap[10][10];
+  double levelSetSign[10][10];
+
   public:
 
   ExactRiemannSolver(IoData &, SVec<double,dim> &, Vec<double> &, 
@@ -53,6 +58,8 @@ class ExactRiemannSolver{
   // for structure-fluid "half-Riemann" problem
   void computeFSIRiemannSolution(double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej, int Id = 0);
+  void computeFSIRiemannJacobian(double *Vi, double *Vstar, double *nphi, 
+                                 VarFcn *vf, double *Wstar, int nodej, double* dWdW,int Id = 0);
   void computeFSIRiemannSolution(int tag, double *Vi, double *Vstar, double *nphi, 
                                  VarFcn *vf, double *Wstar, int nodej); //TODO:not needed!
 

@@ -7,9 +7,9 @@
 #include <Vector.h>
 #include <BinFileHandler.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <defalloc.h>

@@ -17,7 +17,7 @@
 #ifndef ARGNSYM_H
 #define ARGNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "blas1c.h"
 #include "lapackc.h"

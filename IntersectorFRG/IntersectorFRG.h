@@ -56,8 +56,10 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> *solidXn;  //pointer to Xs_n
     Vec<Vec3D> *solidX0;  //pointer to Xs0
 
-    int (*stElem)[3]; //structure elements (topology)
-
+    int (*stElem)[3];     //structural elements (element to node connectivity)
+    set<int> *node2node;  //structural node to node connectivity
+    set<int> *node2elem;  //structural node to element (triangle) connectivity
+    
     Vec3D *Xsdot; //velocity
 
     DistVec<int> *status;   //node status
@@ -79,28 +81,29 @@ class DistIntersectorFRG : public DistLevelSetStructure {
 
     DistVec<bool> *poly; //true if a node lies in n>2 subdomains (not used!)
     void findPoly(); //not used!
+    void buildConnectivity();
     void buildSolidNormals();
     void expandScope();
     void findInAndOut();
-    void finishStatusByPoints(IoData &iod);
+    void finishStatusByPoints(IoData &iod, DistVec<int> *point_based_id = 0);
     void finalizeStatus(); //contains a local communication
     void updateStructCoords(double, double);
 
   public: //TODO: a lot of them can be moved to "protected".
-    DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes = 0, double (*xyz)[3] = 0, int nElems = 0, int (*abc)[3] = 0);
+    DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes = 0, double *xyz = 0, int nElems = 0, int (*abc)[3] = 0);
     ~DistIntersectorFRG();
 
-    void init(char *meshfile, char *restartfile);
-    void init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface);
+    void init(char *meshfile, char *restartfile, double XScale);
+    void init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface);
 
     EdgePair makeEdgePair(int,int,int);
     bool checkTriangulatedSurface();
     void initializePhysBAM();
 
-    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod);
-    void updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes);
+    void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
+    void updateStructure(double* xs, double *Vs, int nNodes, int(*abc)[3]=0);
     void updatePhysBAMInterface();
-    void recompute(double dtf, double dtfLeft, double dts);
+    int recompute(double dtf, double dtfLeft, double dts);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -112,6 +115,8 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
+    void setStatus(DistVec<int> nodeTag) { *status = nodeTag; } //for reset after failSafe
+
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
 };
@@ -153,7 +158,7 @@ class IntersectorFRG : public LevelSetStructure {
     void getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxMin, SVec<double,3> &boxMax, Vec<int> &tId, Vec<double> &dist, bool useScope);
     void computeFirstLayerNodeStatus(Vec<int> tId, Vec<double> dist);
     bool finishStatusByHistory(SubDomain& sub);
-    void findIntersections(SVec<double,3>&X, bool useScope);
+    int findIntersections(SVec<double,3>&X, bool useScope);
 
     int buildScopeTopology(int (*sElem)[3], int nsElems);
     void projection(Vec3D, int, double&, double&, double&);

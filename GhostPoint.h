@@ -5,7 +5,7 @@
 #include <Vector.h>
 #include <Vector3D.h>
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 
 using std::cout;
 using std::endl;
@@ -14,13 +14,14 @@ template<class Scalar> class Vec;
 
 template<int dim>
 class GhostPoint {
+ public:
+  int ng_last;
   Vec<double> Vg; // Sum of the primitive States at the ghost-point. 
   int ng; // Number of neighbours in the fluid. State at GP is then equal to Vg/ng.
   // After all GP have been populated, Vg /= ng and ng=1.
   int ghostTag; // We store here the tag of the surrounding nodes. All the tags of the neighbours 
   // should be the same. In the case of a complex multiphase flow simulation with Fluid/Structure 
   // Interaction, this might be no longer true. To be done...
- public:
   ~GhostPoint() {};
  GhostPoint() :
   Vg(dim)
@@ -29,22 +30,50 @@ class GhostPoint {
     Vg = 0.0;
     ghostTag = -2; // Inactive nodes tag
   }
+  GhostPoint<dim> & operator=(const GhostPoint<dim> &GP)
+    {
+      Vg = GP.Vg;
+      ng = GP.ng;
+      ng_last = ng;
+      ghostTag = GP.ghostTag;
+      return *this;
+    }
+  GhostPoint<dim> & operator+=(const GhostPoint<dim> &GP)
+    {
+      if(ghostTag<0) ghostTag = GP.ghostTag;
+      else if(ghostTag != GP.ghostTag) 
+	{
+	  fprintf(stderr,"The two ghost States refer to different Fluids\n");
+	  fprintf(stderr,"ghostTag: %i, GP.ghostTag: %i",ghostTag,GP.ghostTag);
+	  exit(-1);
+	}
+      Vg += GP.Vg;
+      ng += GP.ng;
+      ng_last = ng;
+      return *this;
+    }
   void addNeighbour(Vec<double> &Vi,double distanceRate, Vec3D interfaceVelocity, int tag)
   {
     // Ui is the state at the neighbour. 
     // distanceRate is the rate of the distances from the GP and the neighbour to the interface = dg/di\
     
     ng++;
+    ng_last = ng;
 
     // We want the velocity to be zero at the interface and we obtain the 
     // state at the GP by linear interpolation.
     Vg[0]   += Vi[0];
     for(int i=1;i<4;++i) Vg[i] += interfaceVelocity[i-1] - distanceRate*(Vi[i]-interfaceVelocity[i-1]);
     Vg[4]   += Vi[4];
-    if(dim == 6) // Turbulent Viscosity
+    if(dim == 6) // One Equation Turbulent Model
       {
 	//	Vg[5] -= distanceRate*Vi[5];
 	Vg[5] = 0.0;
+      }
+    else if(dim == 7) // Two Equations Turbulent Model
+      {
+	Vg[5] = 0.0;
+	Vg[6] = 0.0;
       }
 
     // Tag check
@@ -69,6 +98,8 @@ class GhostPoint {
     Vg /= (double) ng;
     ng = 1;
   }
+  
+  int lastCount() { return ng_last; }
 };
 
 #endif

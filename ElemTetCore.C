@@ -7,11 +7,12 @@
 #include <BinFileHandler.h>
 #include <AutoDiff/Taylor.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
 #include <iostream>
 #include <LinkF77.h>
+#include <DenseMatrixOps.h>
 const double ElemTet::third = 1.0/3.0;
 const double ElemTet::fourth = 1.0/4.0;
 const double ElemTet::sixth = 1.0/6.0;
@@ -1959,3 +1960,14 @@ double ElemTet::computeGradientP1Function(SVec<double,3> &X, double dp1dxj[4][3]
 */
 //------------------------------------------------------------------------------
 
+void ElemTet::computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, double bary[3]) {
+
+  double A[9] = {X[nodeNum(0)][0]-X[nodeNum(3)][0],X[nodeNum(1)][0]-X[nodeNum(3)][0],X[nodeNum(2)][0]-X[nodeNum(3)][0],
+                 X[nodeNum(0)][1]-X[nodeNum(3)][1],X[nodeNum(1)][1]-X[nodeNum(3)][1],X[nodeNum(2)][1]-X[nodeNum(3)][1],
+                 X[nodeNum(0)][2]-X[nodeNum(3)][2],X[nodeNum(1)][2]-X[nodeNum(3)][2],X[nodeNum(2)][2]-X[nodeNum(3)][2]};
+   
+  for (int i = 0; i < 3; ++i)
+    bary[i] = loc[i]-X[nodeNum(3)][i];
+
+  DenseMatrixOp<double,3,3>::lu(A,bary,3);
+}

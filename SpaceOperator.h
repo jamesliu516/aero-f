@@ -119,6 +119,7 @@ public:
   //RecFcn *createRecFcnLS(IoData &);
   FemEquationTerm *createFemEquationTerm(IoData &);
   VolumicForceTerm *createVolumicForceTerm(IoData &);
+  VarFcn* getVarFcn() { return varFcn; }
   void setBcFcn(BcFcn *);
   void setFluxFcn(FluxFcn **);
   void setRecFcn(RecFcn *);
@@ -127,6 +128,7 @@ public:
   void resetTag();
 
   FemEquationTerm *getFemEquationTerm() { return fet;}
+  void conservativeToPrimitive(DistSVec<double,dim> &U) {varFcn->conservativeToPrimitive(U, *V);}
 
 // Included (MB)
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
@@ -140,30 +142,13 @@ public:
 											 DistSVec<double,3> &, DistVec<double> &,
 											 DistSVec<double,dim> &, DistSVec<double,dim> &,
 											 DistTimeState<dim> *, bool=true);
-  //template<int dimLS>
-  //void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-  //                     DistSVec<double,dim> &, DistSVec<double,dimLS> &,
-  //                     DistVec<int> &, DistSVec<double,dim> &,
-  //                     DistExactRiemannSolver<dim> *, int it,
-  //                     DistSVec<double,dim> * = 0,
-  //                     DistSVec<double,dim> * = 0);
-// Kevin's FSI with FS Riemann solver
-  void computeResidual(DistSVec<double,3> &, DistVec<double> &,
-                       DistSVec<double,dim> &, DistSVec<double,dim> &,
-                       DistSVec<double,dim> &, DistLevelSetStructure *,
-                       bool, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
-		       DistVec<GhostPoint<dim>*> *ghostPoints=0);
-// Kevin's FSI with FS Riemann solver (for thin shell problems) 
+
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dim> &,
                        DistSVec<double,dim> &, DistLevelSetStructure *,
                        bool, DistVec<int> &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0);
-
-  //template<int dimLS>
-  //void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
-  //                     DistSVec<double,dimLS> &, DistVec<int> &, DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+                       DistExactRiemannSolver<dim> *, int, DistSVec<double,3> *, int it = 0,
+                       DistVec<GhostPoint<dim>*> *ghostPoints = 0);
 
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
@@ -176,7 +161,7 @@ public:
                            DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
                            DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                            DistLevelSetStructure *distLSS, DistVec<int> *fluidId =  0);
-  void updatePhaseChange(DistSVec<double,dim> &V,
+  int updatePhaseChange(DistSVec<double,dim> &V,
                          DistSVec<double,dim> &U,
                          DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId = 0);
@@ -203,15 +188,26 @@ public:
 		       DistSVec<double,dim> &, DistMat<Scalar,neq> &,
 		       DistTimeState<dim> *);
 
+  template <class Scalar,int neq>
+  void computeJacobian(DistSVec<double,3> &X, DistVec<double> &ctrlVol,
+                       DistSVec<double,dim> &U,
+                       DistLevelSetStructure *distLSS,
+                       DistVec<int> &fluidId, 
+                       DistExactRiemannSolver<dim> *riemann, 
+                       int Nriemann, DistSVec<double,3> *Nsbar,
+                       DistVec<GhostPoint<dim>*> *ghostPoints,
+                       DistMat<Scalar,neq>& A,
+                       DistTimeState<dim>*);
+  
   void getExtrapolationValue(DistSVec<double,dim>&, DistSVec<double,dim>&, DistSVec<double,3>&);
   void applyExtrapolationToSolutionVector(DistSVec<double,dim>&, DistSVec<double,dim>&);
 
   template<class Scalar, int neq>
   void computeViscousJacobian(DistSVec<double,3> &, DistVec<double> &, DistMat<Scalar,neq> &);
 
-  void applyBCsToSolutionVector(DistSVec<double,dim> &);
+  void applyBCsToSolutionVector(DistSVec<double,dim> &,DistLevelSetStructure *distLSS=0);
 
-  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &);
+  void applyBCsToResidual(DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
 
   template<class Scalar, int neq>
   void applyBCsToJacobian(DistSVec<double,dim> &, DistMat<Scalar,neq> &);
@@ -308,6 +304,8 @@ public:
   //  DistSVec<double,dim> &, bool=true
   //);
 
+  template<class Scalar>
+  void applyBCsToH2Jacobian(DistSVec<double,dim> &, DistMat<Scalar,dim> &);
 
   // Included (MB)
   /// \note This routine is called from FluidSensitivityAnalysis.
@@ -334,9 +332,10 @@ public:
   //);
 
 
-  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X,
+  void computeForceLoad(int forceApp, int orderOfAccuracy, DistSVec<double,3> &X, DistVec<double> &ctrlVol, 
                         double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS,
-                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji);
+                        DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+			DistVec<GhostPoint<dim>*> *ghostPoints = 0, PostFcn *postFcn = 0,DistVec<int>* fid = 0);
 };
 
 //------------------------------------------------------------------------------
@@ -361,26 +360,53 @@ public:
   MultiPhaseSpaceOperator(const MultiPhaseSpaceOperator<dim,dimLS> &, bool);
   ~MultiPhaseSpaceOperator();
 
-
   void computeResidual(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistSVec<double,dimLS> &,
                        FluidSelector &, DistSVec<double,dim> &,
-                       DistExactRiemannSolver<dim> *, int it,
-                       DistSVec<double,dim> * = 0,
-                       DistSVec<double,dim> * = 0);
+                       DistExactRiemannSolver<dim> *, int it);
+  void computeResidual(DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &, DistSVec<double,dim> &, 
+                       DistSVec<double,dim> &, DistLevelSetStructure *, bool, DistExactRiemannSolver<dim> *, 
+                       int, DistSVec<double,3> *, DistSVec<double,dimLS> &, FluidSelector &, 
+                       DistSVec<double,dim> &, int, DistVec<GhostPoint<dim>*> *);
 
   void computeResidualLS(DistSVec<double,3> &, DistVec<double> &,
                          DistSVec<double,dimLS> &, DistVec<int> &, 
-                         DistSVec<double,dim> &,DistSVec<double,dimLS> &);
+                         DistSVec<double,dim> &,DistSVec<double,dimLS> &, DistLevelSetStructure* =0, bool = true);
 
   template<class Scalar, int neq>
   void computeJacobian(DistSVec<double,3> &, DistVec<double> &,
                        DistSVec<double,dim> &, DistMat<Scalar,neq> &,
-                       FluidSelector &, DistExactRiemannSolver<dim> *);
+                       FluidSelector &, DistExactRiemannSolver<dim> *,DistTimeState<dim>*);
+
+  template<class Scalar, int neq>
+  void computeJacobian(DistExactRiemannSolver<dim>* riemann,
+                       DistSVec<double,3>& X, DistSVec<double,dim>& U,DistVec<double>& ctrlVol,
+                       DistLevelSetStructure *distLSS,
+                       int Nriemann, DistSVec<double,3>* Nsbar,
+                       FluidSelector &fluidSelector,
+                       DistMat<Scalar,neq>& A,DistTimeState<dim>* timeState);
 
   template<class Scalar>
   void computeJacobianLS(DistSVec<double,3> &X,DistSVec<double,dim> &V, DistVec<double> &ctrlVol,
-			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId);
+			 DistSVec<double,dimLS> &Phi,DistMat<Scalar,dimLS> &A,DistVec<int> &fluidId,DistLevelSetStructure* distLSS);
+
+  // for phase-change update
+  void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
+  void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                                       DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                                       DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
+                                       DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, 
+                                       DistVec<int> *fluidId);
+  void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
+                           DistSVec<double,dim> &U, DistSVec<double,dim> &V,
+                           DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
+                           DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
+                           DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights,
+                           DistLevelSetStructure *distLSS, DistVec<int> *fluidId0, DistVec<int> *fluidId);
+  void updatePhaseChange(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
+                         DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
+                         DistSVec<double,dimLS> *PhiWeights,
+                         DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
 
 };
 //------------------------------------------------------------------------------

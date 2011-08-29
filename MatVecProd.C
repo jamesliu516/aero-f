@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 
 #include <MatVecProd.h>
 #include <IoData.h>
@@ -82,7 +82,7 @@ void MatVecProdFD<dim, neq>::evaluate(int it, DistSVec<double,3> &x, DistVec<dou
   ctrlVol = &cv;
   Qeps = q;
 
-  if (recFcnCon) {
+  if (recFcnCon && !this->isFSI) {
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
 
     if (timeState)
@@ -197,7 +197,12 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
 
   Qepstmp.pad(Qeps);
 
-  spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  if (!this->isFSI)
+    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+  else
+    spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                             this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -217,8 +222,13 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     
     Qepstmp.pad(Qeps);
 
-    spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
-
+    if (!this->isFSI)
+      spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
+    else
+      spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
+                               this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+ 
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
 
@@ -608,7 +618,12 @@ void MatVecProdH1<dim,Scalar,neq>::evaluate(int it, DistSVec<double,3> &X, DistV
 					    DistSVec<double,dim> &Q, DistSVec<double,dim> &F)
 {
 
-  spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
+  if (!this->isFSI)
+    spaceOp->computeJacobian(X, ctrlVol, Q, *this, timeState);
+  else
+    spaceOp->computeJacobian(X,ctrlVol, Q, this->fsi.LSS, *(this->fsi.fluidId), 
+                             this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar,
+                             this->fsi.ghostPoints, *this,timeState);
 
   if (timeState)
     timeState->addToJacobian(ctrlVol, *this, Q);
@@ -651,6 +666,46 @@ void MatVecProdH1<dim,Scalar,neq>::apply(DistSVec<double,neq> &p, DistSVec<doubl
   for (iSub = 0; iSub < this->numLocSub; ++iSub)
     this->subDomain[iSub]->addRcvData(*this->vecPat, prod.subData(iSub));
 
+}
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::apply(DistEmbeddedVec<double,neq> &p, DistEmbeddedVec<double,neq> &prod)
+{
+
+  int iSub;
+  
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->computeMatVecProdH1(p.real().getMasterFlag(iSub), *A[iSub],
+					       p.real()(iSub), prod.real()(iSub), 
+                                               p.ghost()(iSub), prod.ghost()(iSub) );
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.real().subData(iSub));
+  }
+
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.real().subData(iSub));
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub) {
+    this->subDomain[iSub]->sndData(*this->vecPat, prod.ghost().subData(iSub));
+  }
+  this->vecPat->exchange();
+
+#pragma omp parallel for
+  for (iSub = 0; iSub < this->numLocSub; ++iSub)
+    this->subDomain[iSub]->addRcvData(*this->vecPat, prod.ghost().subData(iSub));
+}
+
+template<int dim, class Scalar, int neq>
+void MatVecProdH1<dim,Scalar,neq>::clearGhost()
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < this->numLocSub; ++iSub) {
+    A[iSub]->clearGhost();
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -1298,15 +1353,15 @@ void MatVecProdFDMultiPhase<dim, dimLS>::evaluate(int it,
   Qeps = q;
   Phi = &phi;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
+/*  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
 
   if (this->timeState)
     this->timeState->add_dAW_dt(it, *geoState, *ctrlVol, Qeps, Feps);
 
   this->spaceOp->applyBCsToResidual(Qeps, Feps);
-
+*/
   Q = Qeps;
-  F = Feps;
+  F = f;//Feps;
   
 }
 
@@ -1322,7 +1377,14 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 // Included (MB)
   Qeps = Q + eps * p;
 
-  this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, 1);
+  //com->fprintf(stderr,"Computed eps = %e; p.p = %e; Q.Q = %e\n",eps,p*p, Q*Q);  
+  if (!this->isFSI)
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, Feps, this->riemann, -1);
+  else
+    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
+                                   this->fsi.LSS, this->fsi.linRecAtInterface,
+                                   this->riemann, this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   *this->fluidSelector, Feps, 0, this->fsi.ghostPoints);    
 
   if (this->timeState)
     this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -1338,7 +1400,13 @@ void MatVecProdFDMultiPhase<dim, dimLS>::apply(DistSVec<double,dim> &p,
 
     Qeps = Q - eps * p;
     
-    this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, 1);
+    if (!this->isFSI)
+      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *Phi, *this->fluidSelector, F, this->riemann, -1);
+    else
+      this->spaceOp->computeResidual(*X, *ctrlVol, Qeps, *this->fsi.Wtemp, *this->fsi.Wtemp,
+                                   this->fsi.LSS, this->fsi.linRecAtInterface,
+                                   this->riemann,this->fsi.Nriemann, this->fsi.Nsbar, *Phi, 
+                                   *this->fluidSelector, F, 0, this->fsi.ghostPoints);    
 
     if (this->timeState)
       this->timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, F);
@@ -1360,9 +1428,11 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
   int iSub, size = 0;
   double eps0 = 1.e-6;
 
-  const DistInfo &distInfo = U.info();
+/*  const DistInfo &distInfo = U.info();
 
-  double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
+  //double *alleps = reinterpret_cast<double *>(alloca(sizeof(double) * distInfo.numGlobSub));
+ 
+  double* alleps = new double[distInfo.numGlobSub];
 
   for (iSub=0; iSub<distInfo.numGlobSub; ++iSub) alleps[iSub] = 0.0;
 
@@ -1400,8 +1470,23 @@ double MatVecProdFDMultiPhase<dim, dimLS>::computeEpsilon(DistSVec<double,dim> &
 
   if (norm > 1.e-14) eps /= double(size) * norm;
   else eps = eps0;
- 
-  return eps;
+
+  delete [] alleps;
+ */
+
+  DistSVec<double,dim> Up(U);
+  Up *= eps0;
+
+  double totsum = Up.norm(); 
+  
+  double norm = sqrt(p*p);
+
+  if (norm > 1.0e-14)
+    totsum /= (double)(Up.size()*dim)*norm;
+  else
+    totsum = eps0;
+
+  return totsum;
 
 }
 
@@ -1488,8 +1573,11 @@ void MatVecProdH1MultiPhase<dim,dimLS>::evaluate(int it, DistSVec<double,3> &X, 
                                             DistSVec<double,dim> &Q, DistSVec<double,dimLS> &Phi,
                                             DistSVec<double,dim> &F)
 {
-
-  this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann);
+  if (!this->isFSI)
+    this->spaceOp->computeJacobian(X, ctrlVol, Q, *this, *this->fluidSelector, this->riemann,this->timeState);
+  else
+    this->spaceOp->computeJacobian(this->riemann, X, Q,ctrlVol,this->fsi.LSS,
+                                   this->fsi.Nriemann, this->fsi.Nsbar,*this->fluidSelector,*this,this->timeState);
 
   if (this->timeState)
     this->timeState->addToJacobian(ctrlVol, *this, Q);
@@ -1595,7 +1683,7 @@ template<int dim, int dimLS>
 void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<double> &cv,
 				       DistSVec<double,dimLS> &q, DistSVec<double,dim> &u,
 				       DistSVec<double,dim> &v, DistSVec<double,dimLS> &f, 
-				       DistVec<int> &fluidId)
+				       DistVec<int> &fluidId,bool requireSpecialBDF,DistLevelSetStructure* distLSS)
 {
 
   X       = &x;
@@ -1606,10 +1694,10 @@ void MatVecProdLS<dim,dimLS>::evaluate(int it, DistSVec<double,3> &x, DistVec<do
   V = &v;
   FluidId = &fluidId;
 
-  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId);
+  spaceOp->computeJacobianLS(x,v,*ctrlVol, *Q,*this, fluidId,distLSS);
 
   if (timeState)
-    timeState->addToJacobian(cv, *this, u);
+    timeState->addToJacobianLS(cv, *this, u,requireSpecialBDF);
 
 }
 

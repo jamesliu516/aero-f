@@ -18,7 +18,7 @@
 #ifndef ARBSNSYM_H
 #define ARBSNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arsnsym.h"
 #include "arbnsmat.h"

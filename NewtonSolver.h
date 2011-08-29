@@ -1,8 +1,8 @@
 #ifndef _NEWTON_SOLVER_H_
 #define _NEWTON_SOLVER_H_
 
-#include <stdlib.h>
-#include <math.h>
+#include <cstdlib>
+#include <cmath>
 
 /*@ARTICLE{brown-saad-90,
   author = "Brown, P. N. and Saad, Y.",
@@ -79,16 +79,22 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 
   double res0, res2=0.0;
   int it;
+//  int BuggyNode = 340680;
+
   for (it=0; it<maxIts; ++it) {
+
+//    probDesc->printNodalDebug(BuggyNode,11,&Q);
 
     // compute the nonlinear function value
     probDesc->computeFunction(it, Q, F);
+//    probDesc->printNodalDebug(BuggyNode,1000,&F);
     res2 = probDesc->recomputeResidual(F, Finlet);
     res = F*F-res2;
     if(res<0.0){
-      probDesc->printf(1, "*** negative residual\n");
+      probDesc->printf(1, "ERROR: negative residual captured in Newton Solver!\n");
       exit(1);
     }
+//    probDesc->printNodalDebug(BuggyNode,12,&Q);
 
     // UH (08/10) After the test, it is safe to take the square root.
     //res = sqrt(F*F-res2);
@@ -99,10 +105,12 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
       res0 = res;
     }
 
+    //probDesc->printf(1,"Newton residual = %e,target = %e\n",res,target);
     if (res == 0.0 || res <= target) break;
     if (it > 0 && res <= epsAbsRes && dQ.norm() <= epsAbsInc) break; // PJSA alternative stopping criterion
 
     rhs = -1.0 * F;
+//    probDesc->printNodalDebug(BuggyNode,13,&Q);
 
 		// arguments: lastIt, time step, total time, vector
 		// for now, do not output on last time step (lastIt = false)
@@ -113,13 +121,17 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
     // apply preconditioner if available
     probDesc->setOperators(Q);
 
+//    probDesc->printNodalDebug(BuggyNode,14,&Q);
     probDesc->solveLinearSystem(it, rhs, dQ);
 
+//    probDesc->printNodalDebug(BuggyNode,995,&dQ);
 // Included (MB)
     probDesc->fixSolution(Q, dQ);
+//    probDesc->printNodalDebug(BuggyNode,996,&dQ);
 
     rhs = Q;
     Q += dQ;
+//    probDesc->printNodalDebug(BuggyNode,17,&Q);
 
     // verify that the solution is physical
     if (probDesc->checkSolution(Q)) {
@@ -130,8 +142,8 @@ NewtonSolver<ProblemDescriptor>::solve(typename ProblemDescriptor::SolVecType &Q
 	++fsIt;
       }
       else{
-	probDesc->printf(1, "***Exiting\n");
-	exit(1);
+	probDesc->printf(1, "Newton solver failed\n");
+	return -3;
       }
     }
 
@@ -167,7 +179,7 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::PhiVecType 
     // compute the nonlinear function value for the Level Set Equation
     probDesc->computeFunctionLS(it, U, PhiF);
     res = sqrt(PhiF*PhiF);
-
+    //probDesc->printf(1,"Newton residual = %e,target = %e\n",res,target);
     if (it == 0){
       target = eps*res;
       res1  = res;
@@ -179,6 +191,9 @@ NewtonSolver<ProblemDescriptor>::solveLS(typename ProblemDescriptor::PhiVecType 
 
     // compute the Jacobian for the Level Set Equation 
     probDesc->computeJacobianLS(it, U, PhiF);
+ 
+    // Apply preconditioner
+    probDesc->setOperatorsLS(Phi);
  
     // Solve the linearized system of equations
     probDesc->solveLinearSystemLS(it, rhsPhi, dPhi);

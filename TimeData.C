@@ -1,7 +1,7 @@
 #include <TimeData.h>
 #include <DistVector.h>
 
-#include <math.h>
+#include <cmath>
 
 //------------------------------------------------------------------------------
 
@@ -30,6 +30,8 @@ TimeData::TimeData(IoData &ioData)
   dt_nm1 = ioData.restart.dt_nm1;
   dt_nm2 = ioData.restart.dt_nm2;
   output_newton_step = ioData.restart.output_newton_step;
+
+  errorTol = ioData.ts.errorTol;
 
   exist_nm1 = false;
   exist_nm2 = false;

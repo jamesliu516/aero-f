@@ -27,19 +27,9 @@ public:
                    PSENSOR = 14, MUT_OVER_MU = 15, PHILEVEL = 16, DIFFPRESSURE = 17, 
                    SPEED = 18, HYDROSTATICPRESSURE = 19, HYDRODYNAMICPRESSURE = 20, 
                    WTMACH = 21, WTSPEED = 22, VELOCITY_NORM = 23, TEMPERATURE_NORMAL_DERIVATIVE = 24, 
-                   SURFACE_HEAT_FLUX = 25, PRESSURECOEFFICIENT = 26, PHILEVEL_STRUCTURE = 27,
-                   CONTROL_VOLUME = 28,
+                   SURFACE_HEAT_FLUX = 25, PRESSURECOEFFICIENT = 26, CONTROL_VOLUME = 27, FLUIDID = 28,
                    SSIZE = 29};
 
-
-// Original
-/*
-  enum ScalarType {DENSITY = 0, MACH = 1, PRESSURE = 2, TEMPERATURE = 3, TOTPRESSURE = 4,
-		   VORTICITY = 5, NUT_TURB = 6, K_TURB = 7, EPS_TURB = 8, EDDY_VISCOSITY = 9, 
-		   DELTA_PLUS = 10, PSENSOR = 11, CSDLES = 12, CSDVMS = 13, MUT_OVER_MU = 14,
-                   PHILEVEL = 15, DIFFPRESSURE = 16, SPEED = 17, HYDROSTATICPRESSURE = 18,
-                   HYDRODYNAMICPRESSURE = 19, WTMACH = 20, WTSPEED = 21, SSIZE = 22};
-*/
   enum VectorType {VELOCITY = 0, DISPLACEMENT = 1, FLIGHTDISPLACEMENT = 2, LOCALFLIGHTDISPLACEMENT = 3, VSIZE = 4};
   enum ScalarAvgType {DENSITYAVG = 0, MACHAVG = 1, PRESSUREAVG = 2, TEMPERATUREAVG = 3,
                       TOTPRESSUREAVG = 4, VORTICITYAVG = 5, CSDLESAVG = 6, CSDVMSAVG = 7, 
@@ -61,13 +51,20 @@ public:
   PostFcn(VarFcn *);
   virtual ~PostFcn() {}
 
-  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 					   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
+		double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0) = 0;
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0) = 0;
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+  {
+    fprintf(stderr,"Calling a PostFcn Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3], 
-	double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0) = 0;
+	double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0) = 0;
 
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]) = 0;
@@ -120,11 +117,18 @@ public:
   PostFcnEuler(IoData &, VarFcn *);
   virtual ~PostFcnEuler() {}
 
-  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  virtual double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3])
+  {
+    fprintf(stderr,"Calling a PostFcnEuler Function for Viscous Forces. Doesn't make sense!\n");
+    exit(-1);
+  }
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   virtual double computeHeatPower(double [4][3], Vec3D&, double [3],
 				  double*, double* [3], double* [4]);
   virtual double computeHeatFluxRelatedValues(double [4][3], Vec3D& , double [3],
@@ -169,9 +173,12 @@ public:
   double computeFaceScalarQuantity(ScalarType, double [4][3], Vec3D&, double [3], 
 				   double*, double* [3], double* [4]);
   virtual void computeForce(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
+  virtual void computeForceEmbedded(int,double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
+				    double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
+  virtual Vec3D computeViscousForceCVBoundary(Vec3D& n,  double* Vi, double dudxj[3][3]);
   virtual void computeForceTransmitted(double [4][3], double *[3], Vec3D &, double [3], double *, double *[3],
-                double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0);
+				       double *[4], double *, Vec3D &, Vec3D &, Vec3D &, Vec3D &, double[3][3], int = 0, int fid = 0);
   double computeHeatPower(double [4][3], Vec3D&, double [3],
 			  double*, double* [3], double* [4]);
   virtual double computeHeatFluxRelatedValues(double [4][3], Vec3D& , double [3],
@@ -203,7 +210,7 @@ public:
   PostFcnSA(IoData &, VarFcn *);
   virtual ~PostFcnSA();
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);
@@ -220,7 +227,7 @@ public:
   PostFcnDES(IoData &, VarFcn *);
   virtual ~PostFcnDES() {}
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);
@@ -237,7 +244,7 @@ public:
   PostFcnKE(IoData &, VarFcn *);
   virtual ~PostFcnKE() {}
 
-  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0);
+  double computeNodeScalarQuantity(ScalarType, double *, double *, int = 0,double* = NULL);
   
 // Included (MB)
   void rstVar(IoData &, Communicator*);

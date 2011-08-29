@@ -23,7 +23,7 @@
 template<int dim, int dimLS>
 ImplicitLevelSetTsDesc<dim,dimLS>::
 ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
-  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom)
+  LevelSetTsDesc<dim,dimLS>(ioData, geoSource, dom),U0(this->getVecInfo()),Fold(this->getVecInfo())
 {
   tag = 0;
   ImplicitData &implicitData = ioData.ts.implicit;
@@ -68,7 +68,6 @@ ImplicitLevelSetTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   pc->exportMemory(&mp);
   
   this->mmh = this->createMeshMotionHandler(ioData, geoSource, &mp);
-
 }
 
 //------------------------------------------------------------------------------
@@ -152,19 +151,18 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveNonLinearSystem(DistSVec<double,dim>
   int its;
 
   double t0 = this->timer->getTime();
-  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,U);
+
   its = this->ns->solve(U);
   this->timer->addFluidSolutionTime(t0);
+  this->Utilde = U;
   if(!(this->interfaceType==MultiFluidData::FSF)){
     this->varFcn->conservativeToPrimitive(U,this->V0,this->fluidSelector.fluidId);
     this->riemann->storePreviousPrimitive(this->V0, *this->fluidSelector.fluidId, *this->X);
-
+    
     double t1 = this->timer->getTime();
     int itsLS = this->ns->solveLS(this->Phi, U);
     this->riemann->storeOldV(U);
     this->riemann->avoidNewPhaseCreation(this->Phi, this->LS->Phin);
-    //avoidNewPhaseCreation(this->Phi);
-    ///std::cout << "Phi prod = " << this->Phi * this->Phi << std::endl;
     (this->fluidSelector).getFluidId(this->Phi);
     this->timer->addLevelSetSolutionTime(t1);
 
@@ -188,6 +186,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunction(int it, DistSVec<double,
 {
   // phi is obtained once and for all for this iteration
   // no need to recompute it before computation of jacobian.
+  this->LS->conservativeToPrimitive(this->Phi,this->PhiV,Q);
   this->multiPhaseSpaceOp->computeResidual(*this->X, *this->A, Q, this->PhiV, 
 					   this->fluidSelector, F, this->riemann, 1);
   this->timeState->add_dAW_dt(it, *this->geoState, *this->A, Q, F);
@@ -208,7 +207,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::recomputeFunction(DistSVec<double,dim> &
 template<int dim, int dimLS>
 int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
 {
-  fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
+  //fprintf(stdout, "CheckFailSafe for ImplicitLevelSetTsDesc to be rewritten\n");
 
   if (!this->failSafeNewton) return 0;
 
@@ -218,7 +217,7 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::checkFailSafe(DistSVec<double,dim>& U)
   this->domain->checkFailSafe(this->varFcn, U, *this->tag, this->fluidSelector.fluidId);
   this->multiPhaseSpaceOp->fix(*this->tag);
 
-  return 1;
+  return this->failSafeNewton;
 
 }
 
@@ -252,7 +251,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::setOperators(DistSVec<double,dim> &Q)
     
     if (mvpfd) {
 
-      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector, this->riemann);
+      this->multiPhaseSpaceOp->computeJacobian(*this->X, *this->A, Q, *_pc, this->fluidSelector, this->riemann,this->timeState);
       this->timeState->addToJacobian(*this->A, *_pc, Q);
       this->multiPhaseSpaceOp->applyBCsToJacobian(Q, *_pc);
     }
@@ -310,7 +309,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeFunctionLS(int it,
 
   this->timeState->add_dAW_dtLS(it, *this->geoState, *this->A, this->Phi,
 			        this->LS->Phin, this->LS->Phinm1, 
-      				this->LS->Phinm2, PhiF);
+      				this->LS->Phinm2, PhiF,this->requireSpecialBDF);
 
 }
 
@@ -321,7 +320,7 @@ void ImplicitLevelSetTsDesc<dim,dimLS>::computeJacobianLS(int it,
                                                     DistSVec<double,dimLS> &PhiF)
 {
   mvpLS->evaluate(it, *this->X, *this->A, this->Phi,
-		  U,this->V0, PhiF, *this->fluidSelector.fluidId);
+		  U,this->V0, PhiF, *this->fluidSelector.fluidId,this->requireSpecialBDF);
 }
 
 //------------------------------------------------------------------------------
@@ -365,7 +364,9 @@ int ImplicitLevelSetTsDesc<dim,dimLS>::solveLinearSystemLS(int it, DistSVec<doub
 
   kspLS->setup(it, this->maxItsNewton, b);
 
-  int lits = kspLS->solveLS(b, dQ);
+  int lits = kspLS->solve(b, dQ);
+
+  //mvpLS->apply(dQ, fnew);
   
   this->timer->addLSKspTime(t0);
 

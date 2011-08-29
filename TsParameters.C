@@ -2,7 +2,7 @@
 #include <TsParameters.h>
 #include <IoData.h>
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -11,7 +11,7 @@
 using std::min;
 using std::max;
 #endif
-#include <string.h>
+#include <cstring>
 
 //------------------------------------------------------------------------------
 
@@ -23,6 +23,7 @@ TsParameters::TsParameters(IoData &ioData)
   cflCoef1 = ioData.ts.cflCoef1;
   cflCoef2 = ioData.ts.cflCoef2;
   cflMax = ioData.ts.cflMax;
+  cflMin = ioData.ts.cflMin;
   ser = ioData.ts.ser;
 
   maxIts = ioData.ts.maxIts;

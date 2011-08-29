@@ -5,6 +5,7 @@
 #include <DistVector.h>
 #include <DistMacroCell.h>
 #include <LowMachPrec.h>
+#include <LevelSet/LevelSetStructure.h>
 
 struct FluidModelData;
 struct InitialConditions;
@@ -13,6 +14,7 @@ class VarFcn;
 class Domain;
 class DistGeoState;
 class FemEquationTerm;
+class DistLevelSetStructure;
 
 template<int dim> class TimeState;
 template<class Scalar, int dim> class DistMat;
@@ -63,6 +65,8 @@ private:
   DistSVec<double,dim> *Unm1Bar;
   DistSVec<double,dim> *Unm2Bar;
   DistSVec<double,dim> *Rn;
+  double errorEstiNorm;                 //norm of estimated error
+  double dtMin;
 
   Domain *domain;
 
@@ -72,6 +76,9 @@ private:
   DistVec<double> *dIrey;
   DistVec<double> *dIdti;
   DistVec<double> *dIdtv;
+
+  bool isGFMPAR;
+  int fvmers_3pbdf ;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
@@ -88,38 +95,54 @@ public:
   void setGlobalTimeStep (double t) { *dt = t; }
 
   void setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &Ufar,
-             DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); //fluidId needed only for multi-phase flow (not true)
+             DistSVec<double,dim> &U, IoData &iod, DistVec<int> *fluidId = 0); 
   void setupUVolumesInitialConditions(IoData &iod);
   void setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X);
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
-  void update(DistSVec<double,dim> &);
-  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
-              DistExactRiemannSolver<dim> *riemann);
+  void update(DistSVec<double,dim> &,bool increasingPressure = false);
+  void update(DistSVec<double,dim> &Q,  DistSVec<double,dim> &Qtilde,DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
+              DistExactRiemannSolver<dim> *riemann,class DistLevelSetStructure* = 0, bool increasingPressure = false);
 
   void writeToDisk(char *);
 
   double computeTimeStep(double, double*, int*, DistGeoState &, 
 			 DistSVec<double,3> &, DistVec<double> &, DistSVec<double,dim> &);
   double computeTimeStep(double, double*, int*, DistGeoState &,
-                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &);
+                         DistVec<double> &, DistSVec<double,dim> &, DistVec<int> &, DistVec<double>* = NULL);
+
+  //computes time step size when time step failed
+  double computeTimeStepFailSafe(double* , int*);
+
+  //computes time step with error estimation
+  //see: "Adaptive Time Stepping for Non-Linear Hyperbolic Problems"
+  double computeTimeStep(int, double* , int*);
+
+  //calculates the norm of the error estimator
+  void calculateErrorEstiNorm(DistSVec<double,dim> &, DistSVec<double,dim> &);
+
+  //minimum time step size is set for error estimation
+  void setDtMin(double dt){dtMin = dt;}
 
   void computeCoefficients(double);
 
   void add_dAW_dt(int, DistGeoState &, DistVec<double> &, 
-			  DistSVec<double,dim> &, DistSVec<double,dim> &);
+		  DistSVec<double,dim> &, DistSVec<double,dim> &, DistLevelSetStructure *distLSS=0);
   void add_dAW_dtRestrict(int, DistGeoState &, DistVec<double> &, 
 			  DistSVec<double,dim> &, DistSVec<double,dim> &, const std::vector<std::vector<int> > &);
   template<int dimLS>
   void add_dAW_dtLS(int, DistGeoState &, DistVec<double> &, 
 			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, DistSVec<double,dimLS> &, 
-			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
+			 DistSVec<double,dimLS> &, DistSVec<double,dimLS> &,bool requireSpecialBDF = false);
 
   template<class Scalar, int neq>
   void addToJacobian(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
 
   template<class Scalar, int neq>
   void addToJacobianNoPrec(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
+
+  template<class Scalar, int neq>
+  void addToJacobianLS(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &,bool);
 
   template<class Scalar, int neq>
   void addToJacobianGasPrec(DistVec<double> &, DistMat<Scalar,neq> &, DistSVec<double,dim> &);
@@ -162,6 +185,10 @@ public:
 
   TimeData &getData() { return *data; }
   DistSVec<double,dim> &getUn() const { return *Un; }
+  DistSVec<double,dim> &getUnm1() const { return *Unm1; }
+
+  inline bool existsNm1() const { return data->exist_nm1; }
+  inline bool useNm1() const { return data->use_nm1; }
 
   double getTime()  { return data->dt_n; }
 

@@ -2,7 +2,7 @@
 #define _IO_DATA_H_
 
 #include <RefVal.h>
-#include <stdio.h>
+#include <cstdio>
 #include <map>
 #include "parser/ParseTree.h"
 #include "parser/Dictionary.h"
@@ -14,6 +14,50 @@ class ClassAssigner;
 class Communicator;
 
 //------------------------------------------------------------------------------
+
+template<class DataType>
+class ObjectMap {
+
+public:
+
+  map<int, DataType *> dataMap;
+  void setup(const char *name, ClassAssigner *);
+  ~ObjectMap()
+    {
+      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
+	{
+	  delete it->second;
+	}
+    }
+};
+
+//------------------------------------------------------------------------------
+struct FluidRemapData {
+
+  FluidRemapData();
+  ~FluidRemapData() {}
+  
+  int oldID,newID;
+
+  void setup(const char *, ClassAssigner * = 0);
+
+  Assigner *getAssigner();
+};
+
+struct OneDimensionalInputData {
+
+  OneDimensionalInputData();
+  ~OneDimensionalInputData() {}
+  const char* file;
+  double x0,y0,z0;
+
+  ObjectMap<FluidRemapData> fluidRemap;
+
+  Assigner *getAssigner();
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+  
 
 struct InputData {
 
@@ -52,11 +96,44 @@ struct InputData {
 // Included (MB)
   const char *shapederivatives;
 
+  ObjectMap< OneDimensionalInputData > oneDimensionalInput;
+
   InputData();
   ~InputData() {}
 
   void setup(const char *, ClassAssigner * = 0);
 
+};
+
+//------------------------------------------------------------------------------
+
+struct Probes {
+
+  const static int MAXNODES = 50;
+  struct Node { 
+    Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
+             isLocationBased = false; }
+    int id;
+    int subId;
+    int localNodeId;
+    double locationX,locationY,locationZ;
+    bool isLocationBased;  
+    void setup(const char *, ClassAssigner * = 0);
+  };
+
+  Node myNodes[MAXNODES];
+
+  const char *prefix;
+  const char *density;
+  const char *pressure;
+  const char *temperature;
+  const char *velocity;
+  const char *displacement;
+
+  Probes();
+  ~Probes() {}
+
+  void setup(const char *, ClassAssigner * = 0);
 };
 
 //------------------------------------------------------------------------------
@@ -114,12 +191,13 @@ struct TransientData {
   const char *hydrostaticlift;
   const char *hydrodynamiclift;
   const char *residuals;
+  const char *materialVolumes;
   const char *conservation;
   const char *podFile;
   const char *romFile;
   const char *philevel;
   const char *controlvolume;
-  const char *philevel_structure;
+  const char* fluidid;
 
 
 // Gappy POD 
@@ -160,12 +238,16 @@ struct TransientData {
 
   const char *sparseGrid;
 
-  const char *oneDimensionalRes;
+  // For 1D solver
+  const char* bubbleRadius;
 
   int frequency;
   double x0, y0, z0;
   double length;
   double surface;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+
+  Probes probes;
 
   TransientData();
   ~TransientData() {}
@@ -188,6 +270,7 @@ struct RestartData {
   const char *data;
 
   int frequency;
+  double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
 
   RestartData();
   ~RestartData() {}
@@ -243,13 +326,13 @@ struct ProblemData {
 		_STEADY_THERMO_ = 6, _UNSTEADY_THERMO_ = 7, _STEADY_AEROTHERMOELASTIC_ = 8,
 		_UNSTEADY_AEROTHERMOELASTIC_ = 9, _FORCED_ = 10, _ACC_FORCED_ = 11,
 		_ROLL_ = 12, _RBM_ = 13, _UNSTEADY_LINEARIZED_AEROELASTIC_ = 14,
-		  _UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
-		  _ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
-		  _INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
-			_SPARSEGRIDGEN_ = 22, _UNSTEADY_ROM_ = 23, _GAPPY_POD_CONSTRUCTION_ =
-				24, _SURFACE_MESH_CONSTRUCTION_ = 25, _REDUCED_MESH_SHAPE_CHANGE_ =
-				26, _GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ = 27,
-			_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ = 28} alltype;
+		_UNSTEADY_LINEARIZED_ = 15, _POD_CONSTRUCTION_ = 16,
+		_ROM_AEROELASTIC_ = 17, _ROM_ = 18, _FORCED_LINEARIZED_ = 19,
+		_INTERPOLATION_ = 20, _STEADY_SENSITIVITY_ANALYSIS_ = 21,
+			_SPARSEGRIDGEN_ = 22, _ONE_DIMENSIONAL_ = 23, _UNSTEADY_ROM_ = 24, _GAPPY_POD_CONSTRUCTION_ =
+				25, _SURFACE_MESH_CONSTRUCTION_ = 26, _REDUCED_MESH_SHAPE_CHANGE_ =
+				27, _GAPPY_POD_CONSTRUCTION_NO_PSEUDO_ = 28,
+			_GAPPY_POD_CONSTRUCTION_ONLY_PSEUDO_ = 29 } alltype;
   enum Mode {NON_DIMENSIONAL = 0, DIMENSIONAL = 1} mode;
   enum Test {REGULAR = 0} test;
   enum Prec {NON_PRECONDITIONED = 0, PRECONDITIONED = 1} prec;
@@ -313,7 +396,7 @@ struct BcsFreeStreamData {
   enum Type {EXTERNAL = 0, INTERNAL = 1} type;
 
   double mach;
-	double velocity;
+  double velocity;
   double density;
   double pressure;
   double temperature;
@@ -446,6 +529,7 @@ struct LiquidModelData {
 struct FluidModelData {
 
   enum Fluid { GAS = 0, LIQUID = 1, JWL = 2, UNDEFINED = 3} fluid;
+  double rhomin;
   double pmin;
 
   GasModelData gasModel;
@@ -538,24 +622,6 @@ struct VolumeData  {
   VolumeData();
   Assigner *getAssigner();
 
-};
-
-//------------------------------------------------------------------------------
-
-template<class DataType>
-class ObjectMap {
-
-public:
-
-  map<int, DataType *> dataMap;
-  void setup(const char *name, ClassAssigner *);
-  ~ObjectMap()
-    {
-      for(typename map<int, DataType *>::iterator it=dataMap.begin();it!=dataMap.end();++it)
-	{
-	  delete it->second;
-	}
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -795,18 +861,58 @@ struct TurbulenceClosureData {
 
 //------------------------------------------------------------------------------
 
+struct ProgrammedBurnData {
+
+  int unburnedEOS,burnedEOS;
+  double ignitionX0,ignitionY0,ignitionZ0;
+  double e0;
+  double cjDetonationVelocity;
+  double cjPressure;
+  double cjDensity;
+  double cjEnergy;
+  double ignitionTime;
+  double factorB;
+  double factorS;
+  int ignited;
+  int limitPeak;
+  
+  ProgrammedBurnData();
+  ~ProgrammedBurnData();
+
+  void setup(const char*, ClassAssigner* = 0);
+
+};
+
 struct SphereData {
 
   double cen_x, cen_y, cen_z, radius;
   int fluidModelID;
   InitialConditions initialConditions;
 
+  ProgrammedBurnData programmedBurn;
+
   SphereData();
   ~SphereData() {}
   Assigner *getAssigner();
 
 };
+//------------------------------------------------------------------------------
+struct PrismData {
 
+  double cen_x, cen_y, cen_z, w_x,w_y,w_z;
+  double X0,Y0,Z0,X1,Y1,Z1;
+  int fluidModelID;
+  InitialConditions initialConditions;
+
+  ProgrammedBurnData programmedBurn;
+
+  bool inside(double x,double y,double z) const;
+
+  PrismData();
+  ~PrismData() {}
+  Assigner *getAssigner();
+
+};
 //------------------------------------------------------------------------------
 
 struct PlaneData {
@@ -840,6 +946,7 @@ struct PointData {
 struct MultiInitialConditionsData {
 
   ObjectMap<SphereData> sphereMap;
+  ObjectMap<PrismData>  prismMap;
   ObjectMap<PlaneData>  planeMap;
   ObjectMap<PointData>  pointMap;
 
@@ -896,18 +1003,16 @@ struct MultiFluidData {
   int frequency;
   double eps;
   int outputdiff;
+  double jwlRelaxationFactor;
   enum Problem {BUBBLE = 0, SHOCKTUBE = 1} problem;
   enum TypePhaseChange {ASIS = 0, RIEMANN_SOLUTION = 1, EXTRAPOLATION = 2} typePhaseChange;
   enum CopyCloseNodes {FALSE = 0, TRUE = 1} copy;
   enum LSInit {VOLUMES = 1, OLD = 0, GEOMETRIC = 2} lsInit;
   enum InterfaceType {FSF = 0, FF = 1, FSFandFF = 2} interfaceType;
 
-  double Prate, Pinit;
-
   MultiInitialConditionsData multiInitialConditions;
 
   SparseGridData sparseGrid;
-
 
   MultiFluidData();
   ~MultiFluidData() {}
@@ -974,7 +1079,9 @@ struct SchemeData {
   double xic;
   double eps;
 
-  SchemeData();
+  int allowsFlux;
+
+  SchemeData(int allowsFlux = 1);
   ~SchemeData() {}
 
   void setup(const char *, ClassAssigner * = 0);
@@ -1222,6 +1329,7 @@ struct ImplicitData {
   enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
+  enum FVMERS3PBDFSchme { BDF_SCHEME1 = 1, BDF_SCHEME2 = 0 } fvmers_3pbdf;
   NewtonData<KspFluidData> newton;
 
   /// UH (09/10)
@@ -1244,6 +1352,7 @@ struct TsData {
   enum Type {EXPLICIT = 0, IMPLICIT = 1} type;
   enum TypeTimeStep {AUTO = 0, LOCAL = 1, GLOBAL = 2} typeTimeStep;
   enum Clipping {NONE = 0, ABS_VALUE = 1, FREESTREAM = 2} typeClipping;
+  enum TimeStepCalculation {CFL = 0, ERRORESTIMATION = 1} timeStepCalculation;
 
   enum Prec {NO_PREC = 0, PREC = 1} prec;
   double viscousCst;
@@ -1259,7 +1368,9 @@ struct TsData {
   double cflCoef1;
   double cflCoef2;
   double cflMax;
+  double cflMin;
   double ser;
+  double errorTol;
 
   const char *output;
 
@@ -1729,13 +1840,14 @@ struct EmbeddedFramework {
   enum ForceAlgorithm {RECONSTRUCTED_SURFACE = 0, CONTROL_VOLUME_BOUNDARY = 1} forceAlg;
 
   MultiInitialConditionsData embedIC;
-
+  
+  int nLevelset; //number of level-sets. Currently only consider bubbles.
+  
   //Debug variables
   enum Coupling {TWOWAY = 0, ONEWAY = 1} coupling;
   enum Dim2Treatment {NO = 0, YES = 1} dim2Treatment;
   enum Reconstruction {CONSTANT = 0, LINEAR = 1} reconstruct;
   enum RiemannNormal {STRUCTURE = 0, FLUID = 1, AVERAGED_STRUCTURE = 2, AUTO = 3} riemannNormal;
-  enum StructVelocity {COMPUTED_BY_STRUCTURE = 0, FINITE_DIFFERENCE = 1} structVelocity;
   
   EmbeddedFramework();
   ~EmbeddedFramework() {}
@@ -1744,22 +1856,54 @@ struct EmbeddedFramework {
 };
 
 //------------------------------------------------------------------------------
+
 struct OneDimensionalInfo {
   enum CoordinateType {CARTESIAN = 0, CYLINDRICAL = 1, SPHERICAL = 2} coordType;
   enum VolumeType { CONSTANT_VOLUME = 0, REAL_VOLUME = 1} volumeType;
   double maxDistance; //mesh goes from 0 to maxDistance
   
   int numPoints; //mesh has numPoints elements
+  int fluidId2;
 
   double interfacePosition;
 
-  double density1, velocity1, pressure1;
-  double density2, velocity2, pressure2;
+  double density1, velocity1, pressure1,temperature1;
+  double density2, velocity2, pressure2,temperature2;
+
+  ProgrammedBurnData programmedBurn;
 
   OneDimensionalInfo();
   ~OneDimensionalInfo() {}
 
   void setup(const char *);
+};
+//------------------------------------------------------------------------------
+
+struct ImplosionSetup {
+  double Prate, Pinit;
+  ImplosionSetup();
+  ~ImplosionSetup() {}
+  void setup(const char *);
+};
+
+struct MultigridInfo {
+ 
+  MultigridInfo();
+  ~MultigridInfo() {}
+  void setup(const char *);
+
+  const char* fineMesh;
+  const char* coarseMesh;
+
+  const char* fineDec;
+  const char* coarseDec;
+
+  const char* packageFile;
+  const char* collectionFile;
+
+  double radius0;
+  double radiusf;
+  int threshold;
 };
 //------------------------------------------------------------------------------
 
@@ -1799,6 +1943,9 @@ public:
   Volumes volumes;
   EmbeddedFramework embed;
   OneDimensionalInfo oneDimensionalInfo;
+  ImplosionSetup implosion;
+
+  MultigridInfo multigrid;
 
 public:
 
@@ -1812,9 +1959,13 @@ public:
   int checkFileNames();
   int checkInputValues();
   int checkInputValuesAllEquationsOfState();
+  int checkInputValuesProgrammedBurn();
+  int checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
+			       InitialConditions& IC);
   int checkInputValuesAllInitialConditions();
   void nonDimensionalizeAllEquationsOfState();
   void nonDimensionalizeAllInitialConditions();
+  void nonDimensionalizeForcedMotion();
   void nonDimensionalizeOneDimensionalProblem();
   int checkInputValuesNonDimensional();
   int checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap);
@@ -1828,7 +1979,10 @@ public:
   void nonDimensionalizeInitialConditions(InitialConditions &initialConditions);
   void nonDimensionalizeFluidModel(FluidModelData &fluidModel);
   int checkInputValuesSparseGrid(SparseGridData &sparseGrid);
+  int checkInputValuesEmbeddedFramework();
   void printDebug();
+
+  void setupOneDimensional();
 };
 
 //------------------------------------------------------------------------------

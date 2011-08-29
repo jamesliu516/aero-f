@@ -28,15 +28,19 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   double timeStep;
 
+  bool withCracking;
+
   double (*Fs)[3]; //force distribution on the structure surfac3
   bool FsComputed; //whether Fs has been computed for this (fluid-)time step.
   int numStructNodes;
-  int numStructElems;
+  int totStructNodes;
   bool linRecAtInterface;
   int simType;        // 0: steady-state    1: unsteady
   int riemannNormal;  // 0: struct normal;  1: fluid normal (w.r.t. control volume face)
                       // 2: averaged structure normal;
 
+  bool increasingPressure;
+ 
   // ----------- time steps -----------------------------------------------------------
   double dtf;     //<! fluid time-step
   double dtfLeft; //<! time until next structure time-step is reached.
@@ -45,10 +49,12 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool inSubCycling;  //<! is it in subcyling (i.e. itSc>1)
   // ----------------------------------------------------------------------------------
 
+  bool existsWstarnm1;
+
   // ----------- components for Fluid-Structure interface. -----------------------------
   DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
-  DistSVec<double,dim> *Wstarij;  //<! stores the FS Riemann solution (i->j) along edges
-  DistSVec<double,dim> *Wstarji;  //<! stores the FS Riemann solution (j->i) along edges
+  DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
   DistSVec<double,dim> Vtemp;     //<! the primitive variables.
   DistSVec<double,dim> *VWeights; //<! stores U*Weights for each node. Used in updating phase change.
   DistVec<double> *Weights;       //<! weights for each node. Used in updating phase change.
@@ -56,6 +62,15 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,3> *Nsbar;      //<! cell-averaged structure normal (optional)
   // ------------------------------------------------------------------------------------
 
+  // Copies for fail safe ----- -----------------------------
+  DistSVec<double,dim> *WstarijCopy,*Wstarij_nm1Copy;  //<! stores the FS Riemann solution (i->j) along edges
+  DistSVec<double,dim> *WstarjiCopy,*Wstarji_nm1Copy;  //<! stores the FS Riemann solution (j->i) along edges
+  DistVec<int> *nodeTagCopy; // = 1 for fluid #1; = -1 for fluid #2.
+  DistVec<int> *nodeTag0Copy; // node tag for the previous time-step.
+  DistSVec<double,dim> *UCopy;     //<! the primitive variables.
+  // ------------------------------------------------------------------------------------
+
+  DistSVec<double,dim> Wtemp;
   DynamicNodalTransfer *dynNodalTransfer;
 
   //buckling cylinder parameters
@@ -120,13 +135,8 @@ class EmbeddedTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
 
+  void fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU);
 };
-
-
-
-
-
-
 
 
 #ifdef TEMPLATE_FIX

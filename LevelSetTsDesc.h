@@ -3,6 +3,8 @@
 
 #include <TsDesc.h>
 
+#include <ProgrammedBurn.h>
+
 class IoData;
 class GeoSource;
 class Domain;
@@ -26,15 +28,9 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dimLS> Phi;           //conservative variables
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
+  DistSVec<double,dim> Utilde;
 
-  // multiphase conservation check
-  DistSVec<double,dim> boundaryFlux;
-  DistSVec<double,dim> interfaceFlux;
-  DistSVec<double,dim> computedQty;
-  DistSVec<double,dim> *tmpDistSVec;
-  DistSVec<double,dim> *tmpDistSVec2;
-  double **expected;//[dimLS+2][dim]; // dimLS+1 different fluids and the total
-  double **computed;//[dimLS+2][dim];
+  DistVec<double> umax;
 
   // frequency for reinitialization of level set
   int frequencyLS;
@@ -48,6 +44,8 @@ class LevelSetTsDesc : public TsDesc<dim> {
   double tmax;
   double Prate;
   double Pinit;
+
+  bool requireSpecialBDF;
 
  public:
   LevelSetTsDesc(IoData &, GeoSource &, Domain *);
@@ -67,14 +65,21 @@ class LevelSetTsDesc : public TsDesc<dim> {
   void resetOutputToStructure(DistSVec<double,dim> &);
   void updateOutputToStructure(double, double, DistSVec<double,dim> &);
 
-  void conservationErrors(DistSVec<double,dim> &U, int it);
-
-
   bool IncreasePressure(double dt, double t, DistSVec<double,dim> &U);
+  
+  void fixSolution(DistSVec<double,dim>& U, DistSVec<double,dim>& dU);
+
   virtual int solveNonLinearSystem(DistSVec<double,dim> &, int)=0;
+  
+  void setCurrentTime(double t,DistSVec<double,dim>& U);
 
  protected:
   void avoidNewPhaseCreation(DistSVec<double,dimLS> &localPhi);
+
+  double currentTime,progBurnIgnitionTime;
+  bool progBurnIgnited;
+
+  ProgrammedBurn* programmedBurn;
 
 };
 

@@ -97,6 +97,7 @@ VarFcnTait::VarFcnTait(FluidModelData &data) : VarFcnBase(data) {
   type = TAIT;
  
   Cv_    = 1.0;
+  Cv_    = data.liquidModel.Cv;
   invCv_ = 1.0/Cv_;
   a_     = data.liquidModel.alpha;
   b_     = data.liquidModel.beta;
@@ -138,15 +139,10 @@ int VarFcnTait::verification(int glob, double *U, double *V)
     if(verif_clipping)
       fprintf(stdout, "clip pressure[%d] in tait from %e to %e\n", glob, locPressure, pmin);
     V[0] = pow((pmin-p_)/a_, 1.0/b_);
-    U[0] = V[0];
-    U[1] = V[0]*V[1];
-    U[2] = V[0]*V[2];
-    U[3] = V[0]*V[3];
-    U[4] = V[0]*V[4]*Cv_+0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3]);
+    primitiveToConservative(V,U);
     return 1;
   }
   return 0;
-
 }
 //------------------------------------------------------------------------------
 inline

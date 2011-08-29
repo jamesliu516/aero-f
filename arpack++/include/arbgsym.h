@@ -18,7 +18,7 @@
 #ifndef ARBGSYM_H
 #define ARBGSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arbsmat.h"
 #include "arbspen.h"

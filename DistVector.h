@@ -5,7 +5,7 @@
 #include <Vector.h>
 #include <DistInfo.h>
 #include <complex>
-#include <math.h>
+#include <cmath>
 
 typedef std::complex<double> bcomp;
 //------------------------------------------------------------------------------
@@ -132,7 +132,7 @@ DistVec<Scalar>::DistVec(const DistVec<Scalar> &v2) :
      int locLen = distInfo.subLenReg[iSub];
 
      for (int i = 0; i < locLen; ++i) 
-       this->v[locOffset+i] = v2[locOffset+i];
+       this->v[locOffset+i] = v2.v[locOffset+i];
   }
   createSubVec();
 }

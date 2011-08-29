@@ -24,6 +24,8 @@ EdgeSet::EdgeSet()
   mp        = new MapPair;
 	sampleMesh = false;
 
+  programmedBurn = 0;
+
 #ifdef EDGE_LENGTH  //HB
   edgeLength= 0;
 #endif
@@ -246,6 +248,13 @@ void EdgeSet::computeCellAveragedStructNormal(SVec<double,3> &Nsbar, Vec<double>
       Nsbar[j][k] += resji.gradPhi[k];
     weights[j] += 1.0;
   }
+}
+
+//------------------------------------------------------------------------------
+
+void EdgeSet::attachProgrammedBurn(ProgrammedBurn* p) {
+
+  programmedBurn = p;
 }
 
 //------------------------------------------------------------------------------

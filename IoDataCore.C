@@ -3,20 +3,73 @@
 #include <Communicator.h>
 #include <parser/Assigner.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <iostream>
-#include <string.h>
-#include <math.h>
+#include <cstring>
+#include <cmath>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <set>
+#include <ProgrammedBurn.h>
+using std::set;
 
 #ifdef COUGAR
 extern int optind;
 extern "C" int getopt(int, char **, char *);
 #endif
 
+RootClassAssigner *nullAssigner = new RootClassAssigner;
+
 //------------------------------------------------------------------------------
+FluidRemapData::FluidRemapData() {
+
+  oldID = newID = -1;
+}
+
+void FluidRemapData::setup(const char * name, ClassAssigner * father) {
+  
+  ClassAssigner *ca = new ClassAssigner(name, 2, father);
+  //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
+  new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
+}
+
+Assigner* FluidRemapData::getAssigner() {
+  
+  ClassAssigner *ca = new ClassAssigner("normal", 2, nullAssigner);
+  //new ClassInt<FluidRemapData>(ca, "OldID", this, &FluidRemapData::oldID);
+  new ClassInt<FluidRemapData>(ca, "FluidIDReceptor", this, &FluidRemapData::newID);
+  return ca;
+}
+
+OneDimensionalInputData::OneDimensionalInputData() {
+
+  file = "";
+  x0 = y0 = z0 = 0.0;
+}
+
+void OneDimensionalInputData::setup(const char * name, ClassAssigner * father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  new ClassStr<OneDimensionalInputData>(ca, "File", this, &OneDimensionalInputData::file);
+  new ClassDouble<OneDimensionalInputData>(ca, "X0", this, &OneDimensionalInputData::x0);
+  new ClassDouble<OneDimensionalInputData>(ca, "Y0", this, &OneDimensionalInputData::y0);
+  new ClassDouble<OneDimensionalInputData>(ca, "Z0", this, &OneDimensionalInputData::z0);
+  
+  fluidRemap.setup("FluidIDMap",ca);
+}
+
+Assigner* OneDimensionalInputData::getAssigner() {
+
+  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  new ClassStr<OneDimensionalInputData>(ca, "File", this, &OneDimensionalInputData::file);
+  new ClassDouble<OneDimensionalInputData>(ca, "X0", this, &OneDimensionalInputData::x0);
+  new ClassDouble<OneDimensionalInputData>(ca, "Y0", this, &OneDimensionalInputData::y0);
+  new ClassDouble<OneDimensionalInputData>(ca, "Z0", this, &OneDimensionalInputData::z0);
+  
+  fluidRemap.setup("FluidIDMap",ca);
+  return ca;
+}
 
 InputData::InputData()
 {
@@ -59,7 +112,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 23, father);
+  ClassAssigner *ca = new ClassAssigner(name, 26, father);
 
   new ClassStr<InputData>(ca, "Prefix", this, &InputData::prefix);
   new ClassStr<InputData>(ca, "Connectivity", this, &InputData::connectivity);
@@ -90,7 +143,7 @@ void InputData::setup(const char *name, ClassAssigner *father)
 
   new ClassStr<InputData>(ca, "EmbeddedSurface", this, &InputData::embeddedSurface);
 
-  new ClassStr<InputData>(ca, "OneDimensionalSolution", this, &InputData::oneDimensionalSolution);
+  oneDimensionalInput.setup("1DRestartData",ca);
 
 }
 
@@ -135,10 +188,51 @@ void OutputData::setup(const char *name, ClassAssigner *father)
 
   transient.setup("Postpro", ca);
   restart.setup("Restart", ca);
-
+  transient.probes.setup("Probes", ca);
 }
 
 //------------------------------------------------------------------------------
+
+void Probes::Node::setup(const char *name, ClassAssigner *father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+
+  new ClassInt<Probes::Node>(ca, "ID", this, &Probes::Node::id);
+  new ClassDouble<Probes::Node>(ca, "LocationX",this,&Probes::Node::locationX);
+  new ClassDouble<Probes::Node>(ca, "LocationY",this,&Probes::Node::locationY);
+  new ClassDouble<Probes::Node>(ca, "LocationZ",this,&Probes::Node::locationZ);
+}
+
+Probes::Probes() {
+
+  prefix = "";
+  density = "";
+  pressure = "";
+  temperature = "";
+  velocity = "";
+  displacement = "";
+}
+
+void Probes::setup(const char *name, ClassAssigner *father)
+{
+
+  ClassAssigner *ca = new ClassAssigner(name, 56, father);
+
+  new ClassStr<Probes>(ca, "Prefix", this, &Probes::prefix);
+  new ClassStr<Probes>(ca, "Density", this, &Probes::density);
+  new ClassStr<Probes>(ca, "Pressure", this, &Probes::pressure);
+  new ClassStr<Probes>(ca, "Temperature", this, &Probes::temperature);
+  new ClassStr<Probes>(ca, "Velocity", this, &Probes::velocity);
+  new ClassStr<Probes>(ca, "Displacement", this, &Probes::displacement);
+
+  char nodename[12];
+  for (int i = 0; i < MAXNODES; ++i) {
+    sprintf(nodename,"Node%d",i+1);
+    
+    myNodes[i].setup(nodename, ca);
+  }
+
+}
 
 TransientData::TransientData()
 {
@@ -194,13 +288,13 @@ TransientData::TransientData()
   hydrostaticlift = "";
   hydrodynamiclift = "";
   residuals = "";
+  materialVolumes = "";
   conservation = "";
   podFile = "";
   romFile = "";
   philevel = "";
   controlvolume = "";
-  philevel_structure = "";
-
+  fluidid="";
 // Gappy POD
 
   mesh = "";
@@ -237,9 +331,11 @@ TransientData::TransientData()
   surfaceheatflux = "";
   heatfluxes = "";
   sparseGrid = "SparseGrid";
-  oneDimensionalRes = "res1D";
+
+  bubbleRadius = "";
 
   frequency = 0;
+  frequency_dt = -1.0;
   length = 1.0;
   surface = 1.0;
   x0 = 0.0;
@@ -254,7 +350,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
 {
 
 // Modified (MB)
-  ClassAssigner *ca = new ClassAssigner(name, 82, father); 
+  ClassAssigner *ca = new ClassAssigner(name, 83, father); 
 
   new ClassStr<TransientData>(ca, "Prefix", this, &TransientData::prefix);
   new ClassStr<TransientData>(ca, "StateVector", this, &TransientData::solutions);
@@ -311,7 +407,9 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HydroDynamicLiftandDrag", this, &TransientData::hydrodynamiclift);
   new ClassStr<TransientData>(ca, "TavLiftandDrag", this, &TransientData::tavlift);
   new ClassStr<TransientData>(ca, "Residual", this, &TransientData::residuals);
+  new ClassStr<TransientData>(ca, "MaterialVolumes", this, &TransientData::materialVolumes);
   new ClassInt<TransientData>(ca, "Frequency", this, &TransientData::frequency);
+  new ClassDouble<TransientData>(ca, "TimeInterval", this, &TransientData::frequency_dt);
   new ClassDouble<TransientData>(ca, "Length", this, &TransientData::length);
   new ClassDouble<TransientData>(ca, "Surface", this, &TransientData::surface);
   new ClassDouble<TransientData>(ca, "XM", this, &TransientData::x0);
@@ -322,8 +420,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "ROM", this, &TransientData::romFile);
   new ClassStr<TransientData>(ca, "Philevel", this, &TransientData::philevel);
   new ClassStr<TransientData>(ca, "ConservationErrors", this, &TransientData::conservation);
+  new ClassStr<TransientData>(ca, "FluidID", this, &TransientData::fluidid);
   new ClassStr<TransientData>(ca, "ControlVolume", this, &TransientData::controlvolume);
-  new ClassStr<TransientData>(ca, "PhaseId", this, &TransientData::philevel_structure);
 
 	// Gappy POD offline
   new ClassStr<TransientData>(ca, "ReducedMesh", this, &TransientData::mesh);
@@ -343,7 +441,7 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "NetStateReducedCoordinates", this, &TransientData::dUnormAccum);
 // Included (MB)
   new ClassStr<TransientData>(ca, "VelocityNorm", this, &TransientData::velocitynorm);
-  new ClassStr<TransientData>(ca, "SolutionSensitivity", this, &TransientData::dSolutions);
+  new ClassStr<TransientData>(ca, "StateVectorSensitivity", this, &TransientData::dSolutions); //KW(Aug.17,2010): used to be SolutionSensitivity
   new ClassStr<TransientData>(ca, "DensitySensitivity", this, &TransientData::dDensity);
   new ClassStr<TransientData>(ca, "MachSensitivity", this, &TransientData::dMach);
   new ClassStr<TransientData>(ca, "PressureSensitivity", this, &TransientData::dPressure);
@@ -361,7 +459,8 @@ void TransientData::setup(const char *name, ClassAssigner *father)
   new ClassStr<TransientData>(ca, "HeatFluxPerUnitSurface", this, &TransientData::surfaceheatflux); 
   new ClassStr<TransientData>(ca, "HeatFlux", this, &TransientData::heatfluxes);
   new ClassStr<TransientData>(ca, "SparseGrid", this, &TransientData::sparseGrid);
-  new ClassStr<TransientData>(ca, "OneDimResults", this, &TransientData::oneDimensionalRes);
+
+  new ClassStr<TransientData>(ca, "BubbleRadius", this, &TransientData::bubbleRadius);
 
 }
 
@@ -380,6 +479,7 @@ RestartData::RestartData()
 
 
   frequency = 0;
+  frequency_dt = -1.0;
 
 }
 
@@ -388,7 +488,7 @@ RestartData::RestartData()
 void RestartData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 8, father);
+  ClassAssigner *ca = new ClassAssigner(name, 9, father);
 
   new ClassToken<RestartData>(ca, "Type", this,
 			      reinterpret_cast<int RestartData::*>(&RestartData::type), 2,
@@ -400,6 +500,7 @@ void RestartData::setup(const char *name, ClassAssigner *father)
   new ClassStr<RestartData>(ca, "LevelSet", this, &RestartData::levelsets);
   new ClassStr<RestartData>(ca, "RestartData", this, &RestartData::data);
   new ClassInt<RestartData>(ca, "Frequency", this, &RestartData::frequency);
+  new ClassDouble<RestartData>(ca, "TimeInterval", this, &RestartData::frequency_dt);
 
 }
 
@@ -480,9 +581,9 @@ void ProblemData::setup(const char *name, ClassAssigner *father)
 		 "UnsteadyLinearized", 15, "PODConstruction", 16, "ROMAeroelastic", 17,
 		 "ROM", 18, "ForcedLinearized", 19, "PODInterpolation", 20,
 		 "SteadySensitivityAnalysis", 21, "SparseGridGeneration", 22,
-		 "UnsteadyROM", 23, "GappyPODConstruction", 24 ,
-		 "SurfaceMeshConstruction",25, "ReducedMeshShapeChange", 26,
-		 "GappyPODNoPseudo", 27, "GappyPODOnlyPseudo", 28);
+		 "1DProgrammedBurn", 23, "UnsteadyROM", 24, "GappyPODConstruction", 25 ,
+		 "SurfaceMeshConstruction",26, "ReducedMeshShapeChange", 27,
+		 "GappyPODNoPseudo", 28, "GappyPODOnlyPseudo", 29);
 
   new ClassToken<ProblemData>
     (ca, "Mode", this,
@@ -781,21 +882,22 @@ FluidModelData::FluidModelData()
 {
 
   fluid = GAS;
-  pmin = -1.e6;
+  rhomin = -1.e9;
+  pmin = -1.e9;
 
 }
 
 //------------------------------------------------------------------------------
 
-RootClassAssigner *nullAssigner = new RootClassAssigner;
 Assigner *FluidModelData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -811,11 +913,12 @@ Assigner *FluidModelData::getAssigner()
 void FluidModelData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 5, father);
+  ClassAssigner *ca = new ClassAssigner(name, 6, father);
 
   new ClassToken<FluidModelData>(ca, "Fluid", this,
                                  reinterpret_cast<int FluidModelData::*>(&FluidModelData::fluid), 4,
                                  "PerfectGas", 0, "Liquid", 1, "StiffenedGas", 0, "JWL", 2);
+  new ClassDouble<FluidModelData>(ca, "DensityCutOff", this, &FluidModelData::rhomin);
   new ClassDouble<FluidModelData>(ca, "PressureCutOff", this, &FluidModelData::pmin);
 
   gasModel.setup("GasModel", ca);
@@ -830,6 +933,7 @@ void FluidModelData::setup(const char *name, ClassAssigner *father)
 FluidModelData & FluidModelData::operator=(const FluidModelData &fm){
 
   this->fluid = fm.fluid;
+  this->rhomin  = fm.rhomin;
   this->pmin  = fm.pmin;
 
   this->gasModel.type              = fm.gasModel.type;
@@ -1364,8 +1468,8 @@ void EquationsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<EquationsData>(ca, "GravityY", this, &EquationsData::gravity_y);
   new ClassDouble<EquationsData>(ca, "GravityZ", this, &EquationsData::gravity_z);
 
-  fluidModelMap.setup("FluidModelData", 0);
-  fluidModel.setup("FluidModel", ca);
+  fluidModelMap.setup("FluidModel", 0);
+  //fluidModelMap.setup("FluidModel", ca); //which one to take? ca or 0?
   viscosityModel.setup("ViscosityModel", ca);
   thermalCondModel.setup("ThermalConductivityModel", ca);
   tc.setup("TurbulenceClosure", ca);
@@ -1391,18 +1495,71 @@ SphereData::SphereData()
 Assigner *SphereData::getAssigner()
 {
 
-  ClassAssigner *ca = new ClassAssigner("normal", 6, nullAssigner);
+  ClassAssigner *ca = new ClassAssigner("normal", 7, nullAssigner);
 
-  new ClassInt<SphereData> (ca, "FluidModelID", this, &SphereData::fluidModelID);
+  new ClassInt<SphereData> (ca, "FluidID", this, &SphereData::fluidModelID);
 
   new ClassDouble<SphereData> (ca, "Center_x", this, &SphereData::cen_x);
   new ClassDouble<SphereData> (ca, "Center_y", this, &SphereData::cen_y);
   new ClassDouble<SphereData> (ca, "Center_z", this, &SphereData::cen_z);
   new ClassDouble<SphereData> (ca, "Radius", this, &SphereData::radius);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
+
+  programmedBurn.setup("ProgrammedBurn", ca);
 
   return ca;
+}
+
+//------------------------------------------------------------------------------
+
+PrismData::PrismData()
+{
+
+  fluidModelID = -1;
+
+  cen_x  = 0.0;
+  cen_y  = 0.0;
+  cen_z  = 0.0;
+  w_x = w_y = w_z = -1.0;
+
+}
+
+//------------------------------------------------------------------------------
+
+Assigner *PrismData::getAssigner()
+{
+
+  ClassAssigner *ca = new ClassAssigner("normal", 9, nullAssigner);
+
+  new ClassInt<PrismData> (ca, "FluidID", this, &PrismData::fluidModelID);
+
+  //new ClassDouble<PrismData> (ca, "Center_x", this, &PrismData::cen_x);
+  //new ClassDouble<PrismData> (ca, "Center_y", this, &PrismData::cen_y);
+  //new ClassDouble<PrismData> (ca, "Center_z", this, &PrismData::cen_z);
+  //new ClassDouble<PrismData> (ca, "Width_x", this, &PrismData::w_x);
+  //new ClassDouble<PrismData> (ca, "Width_y", this, &PrismData::w_y);
+  //new ClassDouble<PrismData> (ca, "Width_z", this, &PrismData::w_z);
+
+  new ClassDouble<PrismData> (ca, "X0", this, &PrismData::X0);
+  new ClassDouble<PrismData> (ca, "Y0", this, &PrismData::Y0);
+  new ClassDouble<PrismData> (ca, "Z0", this, &PrismData::Z0);
+  new ClassDouble<PrismData> (ca, "X1", this, &PrismData::X1);
+  new ClassDouble<PrismData> (ca, "Y1", this, &PrismData::Y1);
+  new ClassDouble<PrismData> (ca, "Z1", this, &PrismData::Z1);
+
+  initialConditions.setup("InitialState", ca);
+
+  programmedBurn.setup("ProgrammedBurn", ca);
+
+  return ca;
+}
+
+bool PrismData::inside(double x,double y, double z) const {
+
+  return (x <= cen_x+w_x*0.5 && x >=cen_x-w_x*0.5 &&
+	  y <= cen_y+w_y*0.5 && y >=cen_y-w_y*0.5 &&
+	  z <= cen_z+w_z*0.5 && z >=cen_z-w_z*0.5);
 }
 
 //------------------------------------------------------------------------------
@@ -1427,16 +1584,16 @@ Assigner *PlaneData::getAssigner()
 
   ClassAssigner *ca = new ClassAssigner("normal", 8, nullAssigner);
 
-  new ClassInt<PlaneData> (ca, "FluidModelID", this, &PlaneData::fluidModelID);
+  new ClassInt<PlaneData> (ca, "FluidID", this, &PlaneData::fluidModelID);
 
-  new ClassDouble<PlaneData> (ca, "Center_x", this, &PlaneData::cen_x);
-  new ClassDouble<PlaneData> (ca, "Center_y", this, &PlaneData::cen_y);
-  new ClassDouble<PlaneData> (ca, "Center_z", this, &PlaneData::cen_z);
+  new ClassDouble<PlaneData> (ca, "Point_x", this, &PlaneData::cen_x);
+  new ClassDouble<PlaneData> (ca, "Point_y", this, &PlaneData::cen_y);
+  new ClassDouble<PlaneData> (ca, "Point_z", this, &PlaneData::cen_z);
   new ClassDouble<PlaneData> (ca, "Normal_x", this, &PlaneData::nx);
   new ClassDouble<PlaneData> (ca, "Normal_y", this, &PlaneData::ny);
   new ClassDouble<PlaneData> (ca, "Normal_z", this, &PlaneData::nz);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -1460,7 +1617,7 @@ Assigner *PointData::getAssigner()
   ClassAssigner *ca = new ClassAssigner("normal", 5, nullAssigner);
 
   new ClassInt<PointData>
-    (ca, "FluidModelID", this, &PointData::fluidModelID);
+    (ca, "FluidID", this, &PointData::fluidModelID);
   new ClassDouble<PointData>
     (ca, "X", this, &PointData::x);
   new ClassDouble<PointData>
@@ -1468,7 +1625,7 @@ Assigner *PointData::getAssigner()
   new ClassDouble<PointData>
     (ca, "Z", this, &PointData::z);
 
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -1478,11 +1635,11 @@ Assigner *PointData::getAssigner()
 void MultiInitialConditionsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 3, father);
-
-  sphereMap.setup("Sphere", 0);
-  planeMap.setup("Plane", 0);
-  pointMap.setup("Point", 0);
+  ClassAssigner *ca = new ClassAssigner(name, 4, father);
+  sphereMap.setup("Sphere", ca);
+  prismMap.setup("Box", ca);
+  planeMap.setup("Plane", ca);
+  pointMap.setup("Point", ca);
 
 }
 
@@ -1500,7 +1657,7 @@ SparseGridData::SparseGridData()
   relAccuracy = 1.e-3;
   absAccuracy = 1.e-1;
 
-  dimAdaptDegree = 0.0;
+  dimAdaptDegree = 0.75;
 
   range1min = 0.0; range1max = 1.0; mapBaseValue1 = 0.0; numDomainDim1 = 1;
   range2min = 0.0; range2max = 1.0; mapBaseValue2 = 0.0; numDomainDim2 = 1;
@@ -1513,7 +1670,7 @@ SparseGridData::SparseGridData()
   mapBaseValue = 0;
   numDomainDim = 0;
 
-  numOutputs = 1;
+  numOutputs = 2;
   numInputs  = 2;
 
 }
@@ -1540,49 +1697,49 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<SparseGridData>
     (ca, "AbsoluteAccuracy", this, &SparseGridData::absAccuracy);
   new ClassDouble<SparseGridData>
-    (ca, "Output1Minimum", this, &SparseGridData::range1min);
+    (ca, "Input1Minimum", this, &SparseGridData::range1min);
   new ClassDouble<SparseGridData>
-    (ca, "Output1Maximum", this, &SparseGridData::range1max);
+    (ca, "Input1Maximum", this, &SparseGridData::range1max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase1", this, &SparseGridData::mapBaseValue1);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains1", this, &SparseGridData::numDomainDim1);
   new ClassDouble<SparseGridData>
-    (ca, "Output2Minimum", this, &SparseGridData::range2min);
+    (ca, "Input2Minimum", this, &SparseGridData::range2min);
   new ClassDouble<SparseGridData>
-    (ca, "Output2Maximum", this, &SparseGridData::range2max);
+    (ca, "Input2Maximum", this, &SparseGridData::range2max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase2", this, &SparseGridData::mapBaseValue2);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains2", this, &SparseGridData::numDomainDim2);
   new ClassDouble<SparseGridData>
-    (ca, "Output3Minimum", this, &SparseGridData::range3min);
+    (ca, "Input3Minimum", this, &SparseGridData::range3min);
   new ClassDouble<SparseGridData>
-    (ca, "Output3Maximum", this, &SparseGridData::range3max);
+    (ca, "Input3Maximum", this, &SparseGridData::range3max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase3", this, &SparseGridData::mapBaseValue3);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains3", this, &SparseGridData::numDomainDim3);
   new ClassDouble<SparseGridData>
-    (ca, "Output4Minimum", this, &SparseGridData::range4min);
+    (ca, "Input4Minimum", this, &SparseGridData::range4min);
   new ClassDouble<SparseGridData>
-    (ca, "Output4Maximum", this, &SparseGridData::range4max);
+    (ca, "Input4Maximum", this, &SparseGridData::range4max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase4", this, &SparseGridData::mapBaseValue4);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains4", this, &SparseGridData::numDomainDim4);
   new ClassDouble<SparseGridData>
-    (ca, "Output5Minimum", this, &SparseGridData::range5min);
+    (ca, "Input5Minimum", this, &SparseGridData::range5min);
   new ClassDouble<SparseGridData>
-    (ca, "Output5Maximum", this, &SparseGridData::range5max);
+    (ca, "Input5Maximum", this, &SparseGridData::range5max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase5", this, &SparseGridData::mapBaseValue5);
   new ClassInt<SparseGridData>
     (ca, "NumberOfDomains5", this, &SparseGridData::numDomainDim5);
   new ClassDouble<SparseGridData>
-    (ca, "Output6Minimum", this, &SparseGridData::range6min);
+    (ca, "Input6Minimum", this, &SparseGridData::range6min);
   new ClassDouble<SparseGridData>
-    (ca, "Output6Maximum", this, &SparseGridData::range6max);
+    (ca, "Input6Maximum", this, &SparseGridData::range6max);
   new ClassDouble<SparseGridData>
     (ca, "LogarithmMappingBase6", this, &SparseGridData::mapBaseValue6);
   new ClassInt<SparseGridData>
@@ -1592,9 +1749,76 @@ void SparseGridData::setup(const char *name, ClassAssigner *father)
   new ClassInt<SparseGridData>
     (ca, "NumberOfInputs",  this, &SparseGridData::numInputs);
   new ClassDouble<SparseGridData>
-    (ca, "DimAdaptDegree", this, &SparseGridData::dimAdaptDegree);
+    (ca, "DegreeDimAdapt", this, &SparseGridData::dimAdaptDegree);
 
 }
+
+//struct ProgrammedBurnData {
+
+//  int unburnedEOS,burnedEOS;
+//  double ignitionX0,ignitionY0,ignitionZ0;
+//  double cjEnergy;
+//  double cjDetonationVelocity;
+  
+ProgrammedBurnData::ProgrammedBurnData() {
+
+  unburnedEOS = burnedEOS = -1;
+  ignitionX0 = ignitionY0 = ignitionZ0 = 0.0;
+  e0 = 0.0;
+  cjDetonationVelocity = -1.0;
+  cjPressure = 0.0;
+  cjDensity = 0.0;
+  cjEnergy = 0.0;
+  ignitionTime = 0.0;
+  ignited = 0;
+  factorB = 1.0;
+  factorS = 1.0;
+  limitPeak = 0;
+}
+
+ProgrammedBurnData::~ProgrammedBurnData() { 
+
+}
+
+void ProgrammedBurnData::setup(const char* name, ClassAssigner* father) {
+
+  ClassAssigner *ca = new ClassAssigner(name, 15, father);
+
+  new ClassInt<ProgrammedBurnData>
+    (ca, "UnburnedEOS", this, &ProgrammedBurnData::unburnedEOS);
+  new ClassInt<ProgrammedBurnData>
+    (ca, "BurnedEOS", this, &ProgrammedBurnData::burnedEOS);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionX0", this, &ProgrammedBurnData::ignitionX0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionY0", this, &ProgrammedBurnData::ignitionY0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionZ0", this, &ProgrammedBurnData::ignitionZ0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "IgnitionTime", this, &ProgrammedBurnData::ignitionTime);
+  new ClassToken<ProgrammedBurnData>
+    (ca, "Ignite", this, &ProgrammedBurnData::ignited, 2, "False", 1, "True", 0);
+
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "E0", this, &ProgrammedBurnData::e0);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetDetonationVelocity", this, &ProgrammedBurnData::cjDetonationVelocity);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetDensity", this, &ProgrammedBurnData::cjDensity);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetPressure", this, &ProgrammedBurnData::cjPressure);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "ChapmanJouguetEnergy", this, &ProgrammedBurnData::cjEnergy);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "FactorB", this, &ProgrammedBurnData::factorB);
+  new ClassDouble<ProgrammedBurnData>
+    (ca, "FactorS", this, &ProgrammedBurnData::factorS);
+  
+  new ClassToken<ProgrammedBurnData>(ca, "LimitPeak", this,
+             reinterpret_cast<int ProgrammedBurnData::*>(&ProgrammedBurnData::limitPeak), 2,
+             "False", 0, "True", 1);
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -1607,7 +1831,7 @@ MultiFluidData::MultiFluidData()
   riemannComputation = RK2;
   localtime  = GLOBAL; //hidden
   typeTracking = LINEAR; //hidden
-  bandlevel = 3;
+  bandlevel = 5;
   subIt = 10; //hidden
   cfl = 0.7; //hidden
   frequency = 0;
@@ -1617,10 +1841,7 @@ MultiFluidData::MultiFluidData()
 
   lsInit = VOLUMES; //hidden
   interfaceType = FSF; //hidden
-
-  // for buckling of cylinder
-  Prate = -1.0;
-  Pinit = -1.0;
+  jwlRelaxationFactor = 1.0;
 
 }
 
@@ -1629,12 +1850,11 @@ MultiFluidData::MultiFluidData()
 void MultiFluidData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 20, father);
 
   new ClassToken<MultiFluidData>(ca, "Method", this,
-             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 4,
-             "None", 0, "GhostFluidForThePoor", 1, "GhostFluidWithRiemann", 2,
-             "RealFluidMethod", 3);
+             reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::method), 3,
+             "None", 0, "GhostFluidForThePoor", 1, "FiniteVolumeWithExactTwoPhaseRiemann", 2);
   new ClassToken<MultiFluidData>(ca, "Problem", this,
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::problem), 2,
              "Bubble", 0, "ShockTube", 1);
@@ -1673,16 +1893,17 @@ void MultiFluidData::setup(const char *name, ClassAssigner *father)
              reinterpret_cast<int MultiFluidData::*>(&MultiFluidData::interfaceType),3,
              "FluidStructureFluid", 0, "FluidFluid", 1, "BOTH", 2);
 
+  new ClassDouble<MultiFluidData>(ca, "JwlRelaxationFactor", this,
+				  &MultiFluidData::jwlRelaxationFactor);
+
   multiInitialConditions.setup("InitialConditions", ca);
   sparseGrid.setup("SparseGrid",ca);
 
-  new ClassDouble<MultiFluidData>(ca, "Prate", this, &MultiFluidData::Prate);
-  new ClassDouble<MultiFluidData>(ca, "Pinit", this, &MultiFluidData::Pinit);
 }
 
 //------------------------------------------------------------------------------
 
-SchemeData::SchemeData()
+SchemeData::SchemeData(int af) : allowsFlux(af)
 {
 
   advectiveOperator = FINITE_VOLUME;
@@ -1705,17 +1926,23 @@ SchemeData::SchemeData()
 void SchemeData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 11, father);
+  ClassAssigner* ca;
+  if (allowsFlux)
+    ca = new ClassAssigner(name, 11, father);
+  else
+    ca = new ClassAssigner(name, 10, father);
 
   new ClassToken<SchemeData>
     (ca, "AdvectiveOperator", this,
      reinterpret_cast<int SchemeData::*>(&SchemeData::advectiveOperator), 2,
      "FiniteVolume", 0, "Galerkin", 1);
 
-  new ClassToken<SchemeData>
-    (ca, "Flux", this,
-     reinterpret_cast<int SchemeData::*>(&SchemeData::flux), 4,
-     "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
+  if (allowsFlux) {
+    new ClassToken<SchemeData>
+      (ca, "Flux", this,
+       reinterpret_cast<int SchemeData::*>(&SchemeData::flux), 4,
+       "Roe", 0, "VanLeer", 1, "HLLE", 2, "HLLC", 3);
+  }
 
   new ClassToken<SchemeData>
     (ca, "Reconstruction", this,
@@ -1917,7 +2144,7 @@ void BoundarySchemeData::setup(const char *name, ClassAssigner *father)
 
 //------------------------------------------------------------------------------
 
-SchemesData::SchemesData()
+SchemesData::SchemesData() : ls(0), tm(0)
 {
 
 }
@@ -2071,6 +2298,7 @@ ImplicitData::ImplicitData()
   tmcoupling = WEAK;
   mvp = H1;
   fdOrder = FIRST_ORDER;
+  fvmers_3pbdf = BDF_SCHEME2;
   //normals = AUTO;
   //velocities = AUTO_VEL;
  
@@ -2114,6 +2342,10 @@ void ImplicitData::setup(const char *name, ClassAssigner *father)
       "FirstOrder", FIRST_ORDER, "SecondOrder", SECOND_ORDER);
 
 
+  new ClassToken<ImplicitData>
+    (ca, "FVMERSBDFScheme", this,
+      reinterpret_cast<int ImplicitData::*>(&ImplicitData::fvmers_3pbdf), 2,
+      "Scheme1", BDF_SCHEME1, "Scheme2", BDF_SCHEME2);
 
   /*new ClassToken<ImplicitData>
     (ca, "Normals", this,
@@ -2140,6 +2372,7 @@ TsData::TsData()
   type = IMPLICIT;
   typeTimeStep = AUTO;
   typeClipping = FREESTREAM;
+  timeStepCalculation = CFL;
 
   prec = NO_PREC;
   viscousCst = 0.0;
@@ -2155,7 +2388,9 @@ TsData::TsData()
   cflCoef1 = 0.0;
   cflCoef2 = 0.0;
   cflMax = 1000.0;
+  cflMin = 1.0;
   ser = 0.7;
+  errorTol = 1.e-10;
 
   output = "";
 
@@ -2166,7 +2401,7 @@ TsData::TsData()
 void TsData::setup(const char *name, ClassAssigner *father)
 {
 
-  ClassAssigner *ca = new ClassAssigner(name, 19, father);
+  ClassAssigner *ca = new ClassAssigner(name, 22, father);
 
   new ClassToken<TsData>(ca, "Type", this,
 			 reinterpret_cast<int TsData::*>(&TsData::type), 2,
@@ -2177,6 +2412,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassToken<TsData>(ca, "Clipping", this,
 			 reinterpret_cast<int TsData::*>(&TsData::typeClipping), 3,
 			 "None", 0, "AbsoluteValue", 1, "Freestream", 2);
+  new ClassToken<TsData>(ca, "TimeStepCalculation", this,
+			 reinterpret_cast<int TsData::*>(&TsData::timeStepCalculation), 2,
+			 "Cfl", 0, "ErrorEstimation", 1);
   new ClassToken<TsData>(ca, "Prec", this,
                          reinterpret_cast<int TsData::*>(&TsData::prec), 2,
                          "NonPreconditioned", 0, "LowMach", 1);
@@ -2192,7 +2430,9 @@ void TsData::setup(const char *name, ClassAssigner *father)
   new ClassDouble<TsData>(ca, "Cfl1", this, &TsData::cflCoef1);
   new ClassDouble<TsData>(ca, "Cfl2", this, &TsData::cflCoef2);
   new ClassDouble<TsData>(ca, "CflMax", this, &TsData::cflMax);
+  new ClassDouble<TsData>(ca, "CflMin", this, &TsData::cflMin);
   new ClassDouble<TsData>(ca, "Ser", this, &TsData::ser);
+  new ClassDouble<TsData>(ca, "ErrorTol", this, &TsData::errorTol);
   new ClassStr<TsData>(ca, "Output", this, &TsData::output);
 
   expl.setup("Explicit", ca);
@@ -2274,7 +2514,7 @@ void SensitivityAnalysis::setup(const char *name, ClassAssigner *father)
 
   new ClassToken<SensitivityAnalysis>(ca, "Method", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::method), 2, "Direct", 0, "Adjoint", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityComputation", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::scFlag), 3, "Analytical", 0, "SemiAnalytical", 1, "FiniteDifference", 2);
-  new ClassDouble<SensitivityAnalysis>(ca, "FiniteDifferenceEps", this, &SensitivityAnalysis::eps);
+  new ClassDouble<SensitivityAnalysis>(ca, "EpsFD", this, &SensitivityAnalysis::eps);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMesh", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMesh), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityMach", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensMach), 2, "Off", 0, "On", 1);
   new ClassToken<SensitivityAnalysis>(ca, "SensitivityAlpha", this, reinterpret_cast<int SensitivityAnalysis::*>(&SensitivityAnalysis::sensAlpha), 2, "Off", 0, "On", 1);
@@ -2996,10 +3236,10 @@ Assigner *VolumeData::getAssigner()  {
 
   new ClassToken<VolumeData> (ca, "Type", this, reinterpret_cast<int VolumeData::*>(&VolumeData::type), 2,
                               "Fluid", 0, "Porous", 1);
-  new ClassInt<VolumeData> (ca, "FluidModelID", this, &VolumeData::fluidModelID);
+  new ClassInt<VolumeData> (ca, "FluidID", this, &VolumeData::fluidModelID);
 
   porousMedia.setup("PorousMedium", ca);
-  initialConditions.setup("InitialConditions", ca);
+  initialConditions.setup("InitialState", ca);
 
   return ca;
 }
@@ -3108,12 +3348,13 @@ EmbeddedFramework::EmbeddedFramework() {
   eosChange = NODAL_STATE;
   forceAlg = RECONSTRUCTED_SURFACE;
 
+  nLevelset = 0;
+
   //debug variables
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
   riemannNormal = AUTO;
-  structVelocity = COMPUTED_BY_STRUCTURE;
 
 }
 
@@ -3129,8 +3370,8 @@ void EmbeddedFramework::setup(const char *name) {
                                       "ElementBased", 0, "NodeBased", 1);
   new ClassToken<EmbeddedFramework> (ca, "EOSChange", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::eosChange), 2,
                                       "NodalState", 0, "RiemannSolution", 1);
-  new ClassToken<EmbeddedFramework> (ca, "Force", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
-                                      "Reconstructed", 0, "ControlVolumeBoundary", 1);
+  new ClassToken<EmbeddedFramework> (ca, "SurrogateSurface", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::forceAlg), 2,
+                                      "Reconstructed", 0, "ControlVolumeFace", 1);
   embedIC.setup("InitialConditions", ca); 
 
 
@@ -3143,15 +3384,13 @@ void EmbeddedFramework::setup(const char *name) {
                                       "Constant", 0, "Linear", 1);
   new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
-  new ClassToken<EmbeddedFramework> (ca, "StructureVelocity", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::structVelocity), 2,
-                                      "ComputedByStructure", 0, "FiniteDifference", 1);
 }
 
 //------------------------------------------------------------------------------
 OneDimensionalInfo::OneDimensionalInfo(){
 
-  coordType  = CARTESIAN;
-  volumeType = REAL_VOLUME;
+  coordType  = SPHERICAL;//CARTESIAN;
+  volumeType = CONSTANT_VOLUME;//REAL_VOLUME;
 
   maxDistance = 0.0;
   numPoints = 101;
@@ -3159,28 +3398,78 @@ OneDimensionalInfo::OneDimensionalInfo(){
 
   density1 = 1.0; velocity1 = 0.0; pressure1 = 1.0;
   density2 = 1.0; velocity2 = 0.0; pressure2 = 1.0;
+  temperature1 = 1.0; temperature2 = 1.0;
 
 }
 //------------------------------------------------------------------------------
 void OneDimensionalInfo::setup(const char *name){
 
-  ClassAssigner *ca = new ClassAssigner(name, 11, 0);
+  ClassAssigner *ca = new ClassAssigner(name, 12, 0);
 
   new ClassToken<OneDimensionalInfo>(ca, "Coordinates", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::coordType), 3, "Cartesian", 0, "Cylindrical", 1, "Spherical", 2);
   new ClassToken<OneDimensionalInfo>(ca, "Volumes", this, reinterpret_cast<int OneDimensionalInfo::*>(&OneDimensionalInfo::volumeType), 2, "Constant", 0, "Real", 1);
-  new ClassDouble<OneDimensionalInfo>(ca, "MaxDistance", this, &OneDimensionalInfo::maxDistance);
+  new ClassDouble<OneDimensionalInfo>(ca, "Radius", this, &OneDimensionalInfo::maxDistance);
   new ClassInt<OneDimensionalInfo>(ca, "NumberOfPoints", this, &OneDimensionalInfo::numPoints);
   new ClassDouble<OneDimensionalInfo>(ca, "InterfacePosition", this, &OneDimensionalInfo::interfacePosition);
 
   new ClassDouble<OneDimensionalInfo>(ca, "Density1", this, &OneDimensionalInfo::density1);
   new ClassDouble<OneDimensionalInfo>(ca, "Velocity1", this, &OneDimensionalInfo::velocity1);
   new ClassDouble<OneDimensionalInfo>(ca, "Pressure1", this, &OneDimensionalInfo::pressure1);
-  new ClassDouble<OneDimensionalInfo>(ca, "Density2", this, &OneDimensionalInfo::density2);
-  new ClassDouble<OneDimensionalInfo>(ca, "Velocity2", this, &OneDimensionalInfo::velocity2);
-  new ClassDouble<OneDimensionalInfo>(ca, "Pressure2", this, &OneDimensionalInfo::pressure2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Density0", this, &OneDimensionalInfo::density2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Velocity0", this, &OneDimensionalInfo::velocity2);
+  new ClassDouble<OneDimensionalInfo>(ca, "Pressure0", this, &OneDimensionalInfo::pressure2);
 
+  programmedBurn.setup("ProgrammedBurn",ca);
+  
 }
 
+//-----------------------------------------------------------------------------
+
+ImplosionSetup::ImplosionSetup() {
+  // for buckling of cylinder
+  Prate = -1.0;
+  Pinit = -1.0;
+}
+
+//-----------------------------------------------------------------------------
+
+void ImplosionSetup::setup(const char *name) {
+  ClassAssigner *ca = new ClassAssigner(name, 2, 0);
+  new ClassDouble<ImplosionSetup>(ca, "RampupRate", this, &ImplosionSetup::Prate);
+  new ClassDouble<ImplosionSetup>(ca, "InitialPressure", this, &ImplosionSetup::Pinit);
+}
+
+MultigridInfo::MultigridInfo() {
+
+  fineMesh = "";
+  coarseMesh = "";
+  fineDec = "";
+  coarseDec = "";
+  packageFile = "";
+  collectionFile = "";
+
+  radius0 = 1.0;
+  radiusf = 2.0;
+  threshold = 10;
+}
+
+void MultigridInfo::setup(const char * name) {
+  
+  ClassAssigner *ca = new ClassAssigner(name, 9, 0);
+  new ClassDouble<MultigridInfo>(ca, "Radius0", this, &MultigridInfo::radius0);
+  new ClassDouble<MultigridInfo>(ca, "RadiusF", this, &MultigridInfo::radiusf);
+  new ClassInt<MultigridInfo>(ca, "Threshold", this, &MultigridInfo::threshold);
+
+  new ClassStr<MultigridInfo>(ca, "FineMesh", this, &MultigridInfo::fineMesh);
+  new ClassStr<MultigridInfo>(ca, "CoarseMesh", this, &MultigridInfo::coarseMesh);
+
+  new ClassStr<MultigridInfo>(ca, "FineDec", this, &MultigridInfo::fineDec);
+  new ClassStr<MultigridInfo>(ca, "CoarseDec", this, &MultigridInfo::coarseDec);
+  
+  new ClassStr<MultigridInfo>(ca, "PackageFile", this, &MultigridInfo::packageFile);
+  new ClassStr<MultigridInfo>(ca, "CollectionFile", this, &MultigridInfo::collectionFile);
+
+}
 
 //-----------------------------------------------------------------------------
 
@@ -3232,7 +3521,7 @@ void IoData::setupCmdFileVariables()
   ref.setup("ReferenceState");
   bc.setup("BoundaryConditions");
   eqs.setup("Equations");
-  mf.setup("MultiFluid");
+  mf.setup("MultiPhase");
   schemes.setup("Space");
   ts.setup("Time");
   dgcl.setup("DGCL");
@@ -3250,7 +3539,8 @@ void IoData::setupCmdFileVariables()
   rotations.setup("Velocity");
   volumes.setup("Volumes");
   embed.setup("EmbeddedFramework");
-  oneDimensionalInfo.setup("OneDimensionalInfo");
+  oneDimensionalInfo.setup("1DGrid");
+  implosion.setup("ImplosionSetup");
 }
 
 //------------------------------------------------------------------------------
@@ -3495,13 +3785,39 @@ void IoData::resetInputValues()
   {
     if (ts.implicit.mvp == ImplicitData::H2)
     {
-      com->fprintf(stderr, " *** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
-      com->fprintf(stderr, "              Second Order Finite Difference will be used.\n");
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product not supported with Low-Mach Preconditioning.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
       ts.implicit.mvp = ImplicitData::FD;
       ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
     }
   } // END of if ((problem.prec == ProblemData::PRECONDITIONED) || ...
 
+  if (schemes.ns.flux != SchemeData::ROE)
+  {
+    if (ts.implicit.mvp == ImplicitData::H2)
+    {
+      com->fprintf(stderr, "*** Warning: Exact Matrix-Vector Product only supported with Roe flux.\n");
+      com->fprintf(stderr, "             Second Order Finite Difference will be used.\n");
+      ts.implicit.mvp = ImplicitData::FD;
+      ts.implicit.fdOrder = ImplicitData::SECOND_ORDER;
+    }
+    if ((eqs.fluidModel.fluid != FluidModelData::GAS))
+    {
+      com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
+      schemes.ns.flux = SchemeData::ROE;
+    }
+    if(!eqs.fluidModelMap.dataMap.empty())
+    {
+      map<int, FluidModelData *>::iterator it;
+      for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end(); it++){
+	if ((it->second->fluid != FluidModelData::GAS))
+	{
+	  com->fprintf(stderr, "*** Warning: Roe flux has to be used for Tait or JWL simulations.\n");
+	  schemes.ns.flux = SchemeData::ROE;
+	}    
+      }
+    }
+  } // END of if (schemes.ns.flux != SchemeData::ROE)
 
   if (ts.implicit.mvp == ImplicitData::H2)
   {
@@ -3625,7 +3941,8 @@ int IoData::checkFileNames()
   int error = 0;
 
   // no input files for Sparse Grid generation, hence no check
-  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_)
+  // or if we are doing a one dimensional problem!
+  if(problem.alltype == ProblemData::_SPARSEGRIDGEN_ || problem.alltype == ProblemData::_ONE_DIMENSIONAL_)
     return 0;
   
   // flow solver requires input files, hence check
@@ -3694,7 +4011,7 @@ int IoData::checkInputValues()
 {
 
   int error = 0;
-    
+
   // input values for flow solver
   error += checkInputValuesAllEquationsOfState();
 
@@ -3705,17 +4022,42 @@ int IoData::checkInputValues()
     return checkInputValuesSparseGrid(mf.sparseGrid);
   }
 
+  // Check the input values for programmed burn first,
+  // because if we are doing programmed burn we can set some
+  // initial conditions that do not need to be specified in the
+  // input file
+  checkInputValuesProgrammedBurn();
+  if (problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
+
+    bc.inlet.pressure = bc.outlet.pressure;
+    bc.inlet.density = bc.outlet.density;
+    bc.inlet.alpha = bc.inlet.beta = 0.0;
+    bc.inlet.temperature = bc.outlet.temperature;
+    setupOneDimensional();
+  }
+    
+
   error += checkInputValuesAllInitialConditions();
+
   error += checkInputValuesEssentialBC();
+  
+  // check input values for the Embedded Framework.
+  if(problem.framework == ProblemData::EMBEDDED) 
+    error += checkInputValuesEmbeddedFramework();
 
   error += checkInputValuesNonDimensional();
   error += checkInputValuesDimensional(surfaces.surfaceMap.dataMap);
 
   checkInputValuesTurbulence();
   checkInputValuesDefaultOutlet();
-  nonDimensionalizeAllEquationsOfState();
+  nonDimensionalizeAllEquationsOfState(); 
+  nonDimensionalizeForcedMotion();
+
+  if(problem.alltype == ProblemData::_ONE_DIMENSIONAL_) {
+    nonDimensionalizeOneDimensionalProblem();
+    return 0;
+  }
   nonDimensionalizeAllInitialConditions();
-  nonDimensionalizeOneDimensionalProblem();
 
   bc.inlet.alpha *= acos(-1.0) / 180.0;
   bc.inlet.beta *= acos(-1.0) / 180.0;
@@ -3765,7 +4107,7 @@ int IoData::checkInputValuesAllEquationsOfState(){
       com->fprintf(stderr, "*** Error: FluidModel[0] must be specified for a multiphase flow simulation\n");
     }
   }
-  // if no map, then take the old style FluidModel
+  // if no map, then take the default FluidModel (cannot be user-specified!)
   if(eqs.numPhase == 0){
     error += checkInputValuesEquationOfState(eqs.fluidModel, -1);
     eqs.numPhase = 1;
@@ -3773,7 +4115,9 @@ int IoData::checkInputValuesAllEquationsOfState(){
 
   // check if fluid-fluid interfaces are expected
   if(eqs.numPhase > 1 && 
-     (!mf.multiInitialConditions.sphereMap.dataMap.empty() || !mf.multiInitialConditions.planeMap.dataMap.empty()))
+     (!mf.multiInitialConditions.sphereMap.dataMap.empty() || 
+      !mf.multiInitialConditions.planeMap.dataMap.empty()  ||
+      !mf.multiInitialConditions.prismMap.dataMap.empty() ))
     mf.interfaceType = MultiFluidData::FF;
   else
     mf.interfaceType = MultiFluidData::FSF;
@@ -3803,9 +4147,34 @@ int IoData::checkInputValuesAllInitialConditions(){
          it!=mf.multiInitialConditions.sphereMap.dataMap.end();
          it++){
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+      
       if(it->second->radius <= 0.0){
         error++;
         com->fprintf(stderr, "*** Error: a positive radius must be specified for the sphere[%d] initial conditions\n", it->first);
+      }
+    }
+  }
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+
+      it->second->w_x = it->second->X1-it->second->X0;
+      it->second->w_y = it->second->Y1-it->second->Y0;
+      it->second->w_z = it->second->Z1-it->second->Z0;
+
+      it->second->cen_x = (it->second->X1+it->second->X0)*0.5;
+      it->second->cen_y = (it->second->Y1+it->second->Y0)*0.5;
+      it->second->cen_z = (it->second->Z1+it->second->Z0)*0.5;
+
+      
+      if(it->second->w_x <= 0.0 || 
+	 it->second->w_y <= 0.0 || 
+	 it->second->w_z <= 0.0 ){
+        error++;
+        com->fprintf(stderr, "*** Error: a size must be specified for box[%d] initial conditions\n", it->first);
       }
     }
   }
@@ -3822,14 +4191,48 @@ int IoData::checkInputValuesAllInitialConditions(){
       }
     }
   }
+
   // check input values of initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator it;
     for (it=embed.embedIC.pointMap.dataMap.begin();
          it!=embed.embedIC.pointMap.dataMap.end();
-         it++)
+         it++) {
+//      if(it->second->fluidModelID==0)
+        //com->fprintf(stderr,"*** WARNING: FluidID on a user-specified point (for initial condition setup) \n");
       error += checkInputValuesInitialConditions(it->second->initialConditions, it->second->fluidModelID);
+    }
   }
+
+  embed.nLevelset = 0;
+
+  // count number levelsets (consider only bubbles!) for the Embedded Framework.
+  set<int> usedModels; 
+  for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
+       it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+       it++)
+    usedModels.insert(it->second->fluidModelID);
+
+  for (map<int, PrismData *>::iterator it=mf.multiInitialConditions.prismMap.dataMap.begin();
+       it!=mf.multiInitialConditions.prismMap.dataMap.end();
+       it++)
+    usedModels.insert(it->second->fluidModelID);
+
+  int nModels = usedModels.size();
+  if (nModels > 0) {
+    int minModel = *(usedModels.begin());
+    int maxModel = *(--(set<int>::iterator)(usedModels.end()));
+    if(minModel!=1 || nModels != maxModel - minModel + 1) {
+      com->fprintf(stderr,"*** Error: FluidID(s) specified under 'volume(s)' cannot be accepted!\n");
+      com->fprintf(stderr,"***        Currently, when fluid-fluid interfaces are present in an embedded FSI simulation, the \n");
+      com->fprintf(stderr,"***        FluidID(s) (integer) specified under MultiPhase for spheres or planes must be consecutive \n");
+      com->fprintf(stderr,"***        starting at 1!\n");
+      com->fprintf(stderr,"*** Re-order the fluid models to satisfy this constraint, then re-run this simulation!\n");
+      error++;
+    } else 
+      embed.nLevelset = nModels;
+  }
+
   return error;
 
 }
@@ -3839,6 +4242,10 @@ int IoData::checkInputValuesAllInitialConditions(){
 void IoData::nonDimensionalizeAllEquationsOfState(){
 
   if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //non-dimensionalize the time interval for output
+  output.transient.frequency_dt /= ref.rv.time;
+  output.restart.frequency_dt /= ref.rv.time;
 
   if(!eqs.fluidModelMap.dataMap.empty()){
     map<int, FluidModelData *>::iterator it;
@@ -3874,8 +4281,47 @@ void IoData::nonDimensionalizeAllInitialConditions(){
       it->second->cen_y  /= ref.rv.length;
       it->second->cen_z  /= ref.rv.length;
       it->second->radius /= ref.rv.length;
+
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
     }
   }
+
+  // non-dimensionalize initial conditions for multiFluidData
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      nonDimensionalizeInitialConditions(it->second->initialConditions);
+      it->second->cen_x  /= ref.rv.length;
+      it->second->cen_y  /= ref.rv.length;
+      it->second->cen_z  /= ref.rv.length;
+      it->second->w_x /= ref.rv.length;
+      it->second->w_y /= ref.rv.length;
+      it->second->w_z /= ref.rv.length;
+
+      // Nondimensionalize  programmed burn
+      it->second->programmedBurn.ignitionX0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionY0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionZ0 /= ref.rv.length;
+      it->second->programmedBurn.ignitionTime /= ref.rv.time;
+      it->second->programmedBurn.e0 /= ref.rv.energy;
+      it->second->programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+      it->second->programmedBurn.cjPressure /= ref.rv.pressure;
+      it->second->programmedBurn.cjDensity /= ref.rv.density;
+      it->second->programmedBurn.cjEnergy /= ref.rv.energy;
+    }
+  }
+
   if(!mf.multiInitialConditions.planeMap.dataMap.empty()){
     map<int, PlaneData *>::iterator it;
     for (it=mf.multiInitialConditions.planeMap.dataMap.begin(); 
@@ -3888,8 +4334,8 @@ void IoData::nonDimensionalizeAllInitialConditions(){
     }
   }
 
-  mf.Pinit /= ref.rv.pressure;
-  mf.Prate /= ref.rv.pressure/ref.rv.time;
+  implosion.Pinit /= ref.rv.pressure;
+  implosion.Prate /= ref.rv.pressure/ref.rv.time;
 
   // non-dimensionalize initial conditions for EmbeddedStructure
   if(!embed.embedIC.pointMap.dataMap.empty()){
@@ -3907,30 +4353,102 @@ void IoData::nonDimensionalizeAllInitialConditions(){
 
 //------------------------------------------------------------------------------
 
-void IoData:: nonDimensionalizeOneDimensionalProblem(){
+void IoData::setupOneDimensional() {
 
-  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    if (mf.multiInitialConditions.sphereMap.dataMap.size() > 1) {
+      fprintf(stderr,"*** Error: more than one sphere specified for a one dimensional problem!\n");
+      exit(1);
+    }
+      
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+      if (it->second->cen_x != 0.0 ||
+	  it->second->cen_x != 0.0 ||
+	  it->second->cen_x != 0.0) {
+	fprintf(stderr,"*** Error: non zero center specified for 1d spherical problem!\n");
+	exit(1);
+      }
 
-  oneDimensionalInfo.interfacePosition /= ref.rv.length;
-  oneDimensionalInfo.maxDistance       /= ref.rv.length;
+      oneDimensionalInfo.interfacePosition = it->second->radius;
+      memcpy(&oneDimensionalInfo.programmedBurn, &it->second->programmedBurn, sizeof(it->second->programmedBurn));
+      
+      oneDimensionalInfo.fluidId2 = it->second->fluidModelID;
+      oneDimensionalInfo.density1 = it->second->initialConditions.density;
+      oneDimensionalInfo.velocity1 = it->second->initialConditions.velocity;
+      oneDimensionalInfo.temperature1 = it->second->initialConditions.temperature;
+      oneDimensionalInfo.pressure1 = it->second->initialConditions.pressure;
 
-  oneDimensionalInfo.density1  /= ref.rv.density;
-  oneDimensionalInfo.velocity1 /= ref.rv.velocity;
-  oneDimensionalInfo.pressure1 /= ref.rv.pressure;
-  oneDimensionalInfo.density2  /= ref.rv.density;
-  oneDimensionalInfo.velocity2 /= ref.rv.velocity;
-  oneDimensionalInfo.pressure2 /= ref.rv.pressure;
+      oneDimensionalInfo.density2 = bc.outlet.density;
+      oneDimensionalInfo.velocity2 = 0.0;//bc.outlet.velocity;
+      oneDimensionalInfo.temperature2 = bc.outlet.temperature;
+      oneDimensionalInfo.pressure2 = bc.outlet.pressure;
+   
+      
+    }
+  }
 }
 
 //------------------------------------------------------------------------------
 
+void IoData:: nonDimensionalizeOneDimensionalProblem(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  oneDimensionalInfo.maxDistance /= ref.rv.length;
+  oneDimensionalInfo.interfacePosition /= ref.rv.length;
+
+  oneDimensionalInfo.density1  /= ref.rv.density;
+  oneDimensionalInfo.velocity1 /= ref.rv.velocity;
+  oneDimensionalInfo.pressure1 /= ref.rv.pressure;
+  oneDimensionalInfo.temperature1  /= ref.rv.temperature;
+  oneDimensionalInfo.density2  /= ref.rv.density;
+  oneDimensionalInfo.velocity2 /= ref.rv.velocity;
+  oneDimensionalInfo.pressure2 /= ref.rv.pressure;
+  oneDimensionalInfo.temperature2 /= ref.rv.temperature;
+
+
+  oneDimensionalInfo.programmedBurn.ignitionX0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionY0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionZ0 /= ref.rv.length;
+  oneDimensionalInfo.programmedBurn.ignitionTime /= ref.rv.time;
+  oneDimensionalInfo.programmedBurn.e0 /= ref.rv.energy;
+  oneDimensionalInfo.programmedBurn.cjDetonationVelocity /= ref.rv.velocity;
+  oneDimensionalInfo.programmedBurn.cjPressure /= ref.rv.pressure;
+  oneDimensionalInfo.programmedBurn.cjDensity /= ref.rv.density;
+  oneDimensionalInfo.programmedBurn.cjEnergy /= ref.rv.energy;
+}
+
+//------------------------------------------------------------------------------
+
+void IoData:: nonDimensionalizeForcedMotion(){
+
+  if (problem.mode == ProblemData::NON_DIMENSIONAL) return;
+
+  //heaving
+  forced.hv.ax /= ref.rv.length;
+  forced.hv.ay /= ref.rv.length;
+  forced.hv.az /= ref.rv.length;
+
+  //pitching
+  forced.pt.x1 /= ref.rv.length;
+  forced.pt.y1 /= ref.rv.length;
+  forced.pt.z1 /= ref.rv.length;
+  forced.pt.x2 /= ref.rv.length;
+  forced.pt.y2 /= ref.rv.length;
+  forced.pt.z2 /= ref.rv.length;
+}
+
+//------------------------------------------------------------------------------
 int IoData::checkInputValuesNonDimensional()
 {
   int error = 0;
   if (problem.mode == ProblemData::NON_DIMENSIONAL) {
 
     // no multiphase flow in non-dimensional
-    if(eqs.numPhase > 1){ 
+    if(eqs.numPhase > 1 && problem.framework != ProblemData::EMBEDDED){ 
       com->fprintf(stderr, "*** Error: multiphase flow are possible only in Dimensional Mode \n");
       ++error;
       return error;
@@ -4341,6 +4859,7 @@ int IoData::checkInputValuesDimensional(map<int,SurfaceData*>& surfaceMap)
     schemes.fixes.cones[j]->z1 /= ref.rv.tlength;
     schemes.fixes.cones[j]->r1 /= ref.rv.tlength;
   }
+  
   return error;
 }
 //------------------------------------------------------------------------------------
@@ -4641,6 +5160,7 @@ void IoData::nonDimensionalizeInitialConditions(InitialConditions &initialCondit
 
 void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
 
+  fluidModel.rhomin /= ref.rv.density;
   fluidModel.pmin /= ref.rv.pressure;
 
   if(fluidModel.fluid == FluidModelData::GAS)
@@ -4658,6 +5178,8 @@ void IoData::nonDimensionalizeFluidModel(FluidModelData &fluidModel){
     double bwater = fluidModel.liquidModel.k2water;
 
     fluidModel.liquidModel.Cv          /= 1.0;
+    fluidModel.liquidModel.Cv          /= (ref.rv.length*ref.rv.length/(ref.rv.time*ref.rv.time*ref.rv.temperature) );
+
     fluidModel.liquidModel.k1water     /= ref.rv.pressure;
     fluidModel.liquidModel.RHOrefwater /= ref.rv.density;
     fluidModel.liquidModel.Prefwater   /= ref.rv.pressure;
@@ -4747,6 +5269,135 @@ int IoData::checkInputValuesSparseGrid(SparseGridData &sparseGrid){
 
 }
 
+ int IoData::checkProgrammedBurnLocal(ProgrammedBurnData& programmedBurn,
+				      InitialConditions& IC) {
+
+  int error = 0;
+  if (programmedBurn.unburnedEOS < 0)
+    return 0;
+  
+  if (eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS) == eqs.fluidModelMap.dataMap.end()) {
+    com->fprintf(stderr, "*** Error: Cannot find burned EOS %d in fluid models\n",programmedBurn.burnedEOS);
+    ++error;
+  }
+  
+  if (programmedBurn.e0 <= 0.0) {
+    com->fprintf(stderr, "*** Error: Champan-Jouguet Energy must be greater than zero");
+    ++error;
+  }
+  
+  // Check the detonation velocity/detonation pressure
+  if (programmedBurn.cjDetonationVelocity <= 0.0 ||
+      programmedBurn.cjPressure <= 0.0 ||
+      programmedBurn.cjDensity <= 0.0 ||
+      programmedBurn.cjEnergy <= 0.0) {
+    
+    com->fprintf(stderr, "*** At least one of the Chapman-Jouguet parameters is invalid\nRecalcuating...\n");
+    const FluidModelData& burnedData = *eqs.fluidModelMap.dataMap.find(programmedBurn.burnedEOS)->second;
+    if (burnedData.fluid == FluidModelData::JWL) {
+      ProgrammedBurn::computeChapmanJouguetStateJWL(burnedData.jwlModel.A1, burnedData.jwlModel.A2,
+						    burnedData.jwlModel.R1*burnedData.jwlModel.rhoref,
+						    burnedData.jwlModel.R2*burnedData.jwlModel.rhoref,
+						    burnedData.jwlModel.omega,IC.pressure,
+						    IC.density,
+						    programmedBurn.e0,
+						    programmedBurn.cjDensity, programmedBurn.cjPressure,
+						    programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+      
+      com->fprintf(stderr,"Computed CJ state for JWL gas %d as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity, programmedBurn.cjEnergy,
+		   programmedBurn.cjDetonationVelocity);
+      
+    } else if (burnedData.fluid == FluidModelData::GAS) {
+      if (burnedData.gasModel.pressureConstant != 0.0) {
+	com->fprintf(stderr,"*** Warning: Correct CJ state only computed with perfect gas.  You have specified a stiffened gas for the burned state\n");
+      }
+      
+      ProgrammedBurn::computeChapmanJouguetStatePG(burnedData.gasModel.specificHeatRatio,IC.pressure,
+						   IC.density,
+						   programmedBurn.e0,
+						   programmedBurn.cjDensity, programmedBurn.cjPressure,
+						   programmedBurn.cjEnergy,programmedBurn.cjDetonationVelocity);
+      
+      com->fprintf(stderr,"Computed CJ state for PG gas %e as: p_cj = %e rho_cj = %e e_cj = %e; Detonation Velocity = %e\n",
+		   programmedBurn.burnedEOS, programmedBurn.cjPressure, programmedBurn.cjDensity,programmedBurn.cjEnergy,
+		   programmedBurn.cjDetonationVelocity);
+      
+    }	
+    
+  }
+  
+  if (eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS) == eqs.fluidModelMap.dataMap.end()) {
+    com->fprintf(stderr, "*** Error: Cannot find unburned EOS %d in fluid models\n",programmedBurn.unburnedEOS);
+    ++error;
+  } else {
+    
+    LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
+    double B = (programmedBurn.cjPressure - liq.Prefwater) / ( pow(programmedBurn.cjDensity/liq.RHOrefwater, liq.k2water) - 1.0);
+    B *= programmedBurn.factorB;
+    //std::cout << "Old k1 = " << liq.k1water  << std::endl;
+    liq.k1water = liq.k2water*(B - liq.Prefwater);       
+    //std::cout << "New k1 = " << liq.k1water  << std::endl;
+    
+  }
+
+  programmedBurn.cjDetonationVelocity *= programmedBurn.factorS;
+  
+  LiquidModelData& liq = eqs.fluidModelMap.dataMap.find(programmedBurn.unburnedEOS)->second->liquidModel;
+  // Set the initial energy of the Tait EOS appropriately
+  IC.temperature = programmedBurn.e0 / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
+  //IC.temperature = programmedBurn.cjEnergy / liq.Cv;//programmedBurn.cjEnergy / liq.Cv;
+  //std::cout << "T = " << IC.temperature << std::endl;
+  return error;
+}
+
+//------------------------------------------------------------------------------
+int IoData::checkInputValuesProgrammedBurn() {
+  int error = 0;
+  
+  if(!mf.multiInitialConditions.sphereMap.dataMap.empty()){
+    map<int, SphereData *>::iterator it;
+    for (it=mf.multiInitialConditions.sphereMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.sphereMap.dataMap.end();
+         it++){
+
+      ProgrammedBurnData& programmedBurn = it->second->programmedBurn;
+      InitialConditions& IC = it->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn,
+					IC);
+    }
+  }
+
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator itp;
+    for (itp=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         itp!=mf.multiInitialConditions.prismMap.dataMap.end();
+         itp++){
+
+      ProgrammedBurnData& programmedBurn = itp->second->programmedBurn;
+      InitialConditions& IC = itp->second->initialConditions;
+      error += checkProgrammedBurnLocal(programmedBurn,
+					IC);
+    }
+  }
+
+  
+
+  return error;
+}
+//------------------------------------------------------------------------------
+
+int IoData::checkInputValuesEmbeddedFramework() {
+  int error = 0;
+
+  if(!mf.multiInitialConditions.planeMap.dataMap.empty() ||
+     !volumes.volumeMap.dataMap.empty()) {
+    com->fprintf(stderr,"ERROR: Currently specifying initial conditions using 'planes' or 'volumes' are not supported by the Embedded Framework!\n");
+    error ++;
+  }
+  return error;
+}
+
 //------------------------------------------------------------------------------
 
 void IoData::printDebug(){
@@ -4759,6 +5410,7 @@ void IoData::printDebug(){
     for (it=eqs.fluidModelMap.dataMap.begin(); it!=eqs.fluidModelMap.dataMap.end();it++){
       com->fprintf(stderr, "FluidModelData::tag          = %d\n", it->first);
       com->fprintf(stderr, "FluidModelData::fluid        = %d\n", it->second->fluid);
+      com->fprintf(stderr, "FluidModelData::rhomin         = %e\n", it->second->rhomin);
       com->fprintf(stderr, "FluidModelData::pmin         = %e\n", it->second->pmin);
       if(it->second->fluid == FluidModelData::GAS){
         com->fprintf(stderr, "GasModelData::type              = %d\n", it->second->gasModel.type);
@@ -4830,6 +5482,29 @@ void IoData::printDebug(){
       com->fprintf(stderr, "SphereData::y0           = %e\n", it->second->cen_y);
       com->fprintf(stderr, "SphereData::z0           = %e\n", it->second->cen_z);
       com->fprintf(stderr, "SphereData::R0           = %e\n", it->second->radius);
+      com->fprintf(stderr, "\n");
+    }
+  }  
+  if(!mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator it;
+    for (it=mf.multiInitialConditions.prismMap.dataMap.begin(); 
+         it!=mf.multiInitialConditions.prismMap.dataMap.end();
+         it++){
+      com->fprintf(stderr, "PrismData::tag          = %d\n", it->first);
+      com->fprintf(stderr, "PrismData::fluidModelID = %d\n", it->second->fluidModelID);
+      com->fprintf(stderr, "PrismData::density      = %e\n", it->second->initialConditions.density);
+      com->fprintf(stderr, "PrismData::pressure     = %e\n", it->second->initialConditions.pressure);
+      com->fprintf(stderr, "PrismData::temperature  = %e\n", it->second->initialConditions.temperature);
+      com->fprintf(stderr, "PrismData::mach         = %e\n", it->second->initialConditions.mach);
+      com->fprintf(stderr, "PrismData::velocity     = %e\n", it->second->initialConditions.velocity);
+      com->fprintf(stderr, "PrismData::alpha        = %e\n", it->second->initialConditions.alpha);
+      com->fprintf(stderr, "PrismData::beta         = %e\n", it->second->initialConditions.beta);
+      com->fprintf(stderr, "PrismData::x0           = %e\n", it->second->cen_x);
+      com->fprintf(stderr, "PrismData::y0           = %e\n", it->second->cen_y);
+      com->fprintf(stderr, "PrismData::z0           = %e\n", it->second->cen_z);
+      com->fprintf(stderr, "PrismData::wx           = %e\n", it->second->w_x);
+      com->fprintf(stderr, "PrismData::wy           = %e\n", it->second->w_y);
+      com->fprintf(stderr, "PrismData::wz           = %e\n", it->second->w_z);
       com->fprintf(stderr, "\n");
     }
   }

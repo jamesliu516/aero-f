@@ -4,11 +4,17 @@
 #include "DistVector.h"
 #include "Vector.h"
 #include "IoData.h"
-
-#include <assert.h>
+#include "ProgrammedBurn.h"
+//#include "Domain.h"
+//#include "LevelSet/LevelSetStructure.h"
+#include <map>
+//#include <cassert>
 //#define NDEBUG // if commented, assert statements are evaluated
+using std::map;
+using std::pair;
 
 class Domain;
+class DistLevelSetStructure;
 
 //--------------------------------------------------------------------------
 //
@@ -24,7 +30,13 @@ class Domain;
 
 class FluidSelector {
 
+  IoData* iodp;
   int numPhases;
+  Domain *domain;
+  map<int,pair<int,int> > ls2phases; //maps each levelset to the pair of fluid Ids for phi<0 and >0.
+                                     //used only for multi-phase fluid-structure interactions right now.
+
+  ProgrammedBurn* programmedBurn;
 
 public:
   DistVec<int> *fluidId;
@@ -32,151 +44,67 @@ public:
   DistVec<int> *fluidIdnm1;
   DistVec<int> *fluidIdnm2;
 
+protected:
+  void setupFluidIdVolumesInitialConditions(IoData &ioData);
+  void setupFluidIdOneDimensionalSolution(IoData &ioData, DistSVec<double,3> &X);
+  void setupFluidIdMultiFluidInitialConditions(IoData &ioData, DistSVec<double,3> &X);
+
 public:
 
   FluidSelector(const int nPhases, IoData &ioData, Domain *domain = 0);
   ~FluidSelector();
 
-  template<int dim>
-  void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2){
-    getFluidId(Phin);
-    *fluidIdn = *fluidId;
-    if(fluidIdnm1) getFluidId(*fluidIdnm1, Phinm1);
-    if(fluidIdnm2) getFluidId(*fluidIdnm2, Phinm2);
-  }
+  void attachProgrammedBurn(ProgrammedBurn* p) { programmedBurn = p; }
+
+  ProgrammedBurn* getProgrammedBurn() const { return programmedBurn; }
+
+//------------------------------------------------------------------------------
+
+  void initializeFluidIds(DistVec<int> &fsId, DistSVec<double,3> &X, IoData &ioData);
+  void getFluidId(DistVec<double> &Phi);
+  void getFluidId(int &tag, double phi){ tag = (phi<0.0) ? 0 : 1; }
+  void getFluidId(int &tag, double *phi);
+  void getFluidId(Vec<int> &tag, Vec<double> &phi);
+  void getFluidId(DistVec<int> &Tag, DistVec<double> &Phi);
+  int getLevelSetDim(int fluidId1, int fluidId2, int node1 = 0, int node2 = 0);
+  void printFluidId();
   void update(){
     if(fluidIdnm2) *fluidIdnm2 = *fluidIdnm1;
     if(fluidIdnm1) *fluidIdnm1 = *fluidIdn;
     *fluidIdn = *fluidId;
   }
 
-  void getFluidId(DistVec<double> &Phi){
-    int numLocSub = Phi.numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      double *phi = Phi.subData(iSub);
-      int    *tag = fluidId->subData(iSub);
-      for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-        tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
-    }
-  }
+//------------------------------------------------------------------------------
 
   template<int dim>
-  void getFluidId(DistSVec<double,dim> &Phi){
-    assert(dim==numPhases-1);
-    int numLocSub = Phi.numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      double (*phi)[dim] = Phi.subData(iSub);
-      int     *tag       = fluidId->subData(iSub);
-      for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
-        tag[iNode] = 0;
-        for(int i=0; i<dim; i++)
-          if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
-      }
-    }
-  }
-
-
-
-// ---- obtaining fluidId from levelset phi ---- //
-// ---- and vice-versa                      ---- //
-
-  /* Node-Level Operators */
-  void getFluidId(int &tag, double phi){ tag = (phi<0.0) ? 0 : 1; }
-
-  void getFluidId(int &tag, double *phi){
-    tag = 0;
-    for(int i=0; i<numPhases-1; i++)
-      if(phi[i]>0.0) {tag = i+1; return; }
-  }
+  void initializeFluidIds(DistSVec<double,dim> &Phin, DistSVec<double,dim> &Phinm1, DistSVec<double,dim> &Phinm2);
 
   template<int dim>
-  void getFluidId(int &tag, double *phi){
-    assert(dim==numPhases-1);
-    tag = 0;
-    for(int i=0; i<dim; i++)
-      if(phi[i]>0.0) {tag = i+1; return; }
-  }
+  void reinitializeFluidIds(DistVec<int> &fsId, DistSVec<double,dim> &Phin);
 
-  int getLevelSetDim(int fluidId1, int fluidId2, int node1 = 0, int node2 = 0){
-    if(fluidId1 == fluidId2){
-      fprintf(stdout, "*** Error: getLevelSetDim should not be called when there is no interface.\n");
-      exit(1);
-    }
-    if(fluidId1 < 0 || fluidId2 < 0){
-      fprintf(stdout, "*** Error: arguments of getLevelSetDim (%d %d)should be positive\n", fluidId1, fluidId2);
-      exit(1);
-    }
-    if(fluidId1 * fluidId2 != 0){
-      fprintf(stdout, "*** Error: it is assumed that all interfaces are between any fluid and fluid 0\n");
-      fprintf(stdout, "***      : here fluidIds are %d and %d for nodes %d and %d\n", fluidId1, fluidId2, node1, node2);
-      exit(1);
-    }
-    int fId = fluidId1 + fluidId2;
-    return fId-1;
-    
-  }
+  template<int dim> /*this dim is actually dimLS*/
+  void updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<double,dim> &PhiV);
 
-
-  /* Non-Distributed Operators */
-  void getFluidId(Vec<int> &tag, Vec<double> &phi){
-    for(int iNode=0; iNode<phi.size(); iNode++)
-      tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
-  }
+  template<int dim> /*this dim is actually dimLS*/
+  void updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi);
 
   template<int dim>
-  void getFluidId(Vec<int> &tag, SVec<double,dim> &phi){
-    assert(dim==numPhases-1);
-    for(int iNode=0; iNode<phi.size(); iNode++){
-      tag[iNode] = 0;
-      for(int i=0; i<dim; i++)
-        if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
-    }
-  }
-    
-
-  /* Distributed Operators */
-  void getFluidId(DistVec<int> &Tag, DistVec<double> &Phi){
-    int numLocSub = Phi.numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      double *phi = Phi.subData(iSub);
-      int    *tag = Tag.subData(iSub);
-      for(int iNode=0; iNode<Phi.subSize(iSub); iNode++)
-        tag[iNode] = (phi[iNode]<0.0) ? 0 : 1; 
-    }
-  }
+  void getFluidId(DistVec<int> &Tag, DistSVec<double,dim> &Phi, DistVec<int>* fsId=0);
 
   template<int dim>
-  void getFluidId(DistVec<int> &Tag, DistSVec<double,dim> &Phi){
-    assert(dim==numPhases-1);
-    int numLocSub = Phi.numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      double (*phi)[dim] = Phi.subData(iSub);
-      int     *tag       = Tag.subData(iSub);
-      for(int iNode=0; iNode<Phi.subSize(iSub); iNode++){
-        tag[iNode] = 0;
-        for(int i=0; i<dim; i++)
-          if(phi[iNode][i]>0.0) { tag[iNode] = i+1; break; }
-      }
-    }
-  }
+  void getFluidId(Vec<int> &tag, SVec<double,dim> &phi);
 
-// Debug
-  void printFluidId(){
-    int numLocSub = fluidId->numLocSub();
-#pragma omp parallel for
-    for(int iSub=0; iSub<numLocSub; ++iSub) {
-      int    *tag = fluidId->subData(iSub);
-      for (int i=0; i<fluidId->subSize(iSub); i++)
-        fprintf(stdout, "fluidId[%d] = %d\n", i, tag[i]);
-    }
-  }
+  template<int dim>
+  void getFluidId(DistSVec<double,dim> &Phi);
 
+  template<int dim>
+  void getFluidId(int &tag, double *phi);
 };
 
 //------------------------------------------------------------------------------
+
+#ifdef TEMPLATE_FIX
+#include <FluidSelector.C>
+#endif
 
 #endif

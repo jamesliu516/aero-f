@@ -1,9 +1,9 @@
 #ifndef _COMMUNICATOR_H_
 #define _COMMUNICATOR_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstdarg>
 
 #ifdef USE_MPI
 #include <mpi.h>
@@ -129,6 +129,7 @@ namespace Communication {
     Scalar *data;
 #endif
     Communicator &com;
+    int length;
   public:
     static const int Add=0, Min=1, Max=2;
     Window(Communicator &c, int size, Scalar *s);
@@ -138,6 +139,7 @@ namespace Communication {
     void put(Scalar *s, int locOff, int size, int prNum, int remOff);
     void accumulate(Scalar *s, int locOff, int size, int prNum, int remOff, int op);
     void fence(bool startOrEnd);
+    int size() {return length;}
   };
 
 }
@@ -210,7 +212,6 @@ public:
   int sourceIsLocal(int channel) { return glSubToCPU[allPairs[channel].from] == cpuNum; }
   bool isSubLocal(int sub) { return glSubToCPU[sub] == cpuNum; }
   int locSubNum(int sub) { return glSubToLocal[sub]; }
-
 };
 
 //------------------------------------------------------------------------------

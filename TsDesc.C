@@ -1,5 +1,5 @@
 #include <TsDesc.h>
-#include <math.h>
+#include <cmath>
 #include <RefVal.h>
 #include <GeoSource.h>
 #include <DistBcData.h>
@@ -20,7 +20,7 @@ extern int interruptCode;
 //------------------------------------------------------------------------------
 
 template<int dim>
-TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom)
+TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom),fluidIdDummy(dom->getNodeDistInfo())
 {
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
@@ -30,6 +30,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   *X = 0.0;
   *A = 0.0;
   *Xs = 0.0;
+
+  fluidIdDummy = 0;
  
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
@@ -42,6 +44,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   clippingType = ioData.ts.typeClipping;
   wallType = ioData.bc.wall.integration;
   wallRecType = ioData.bc.wall.reconstruction;
+  timeStepCalculation = ioData.ts.timeStepCalculation;
 
   refVal = new RefVal(ioData.ref.rv);
 
@@ -51,7 +54,12 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   geoState = new DistGeoState(ioData, domain);
   // restart the geoState (positions of the mesh) At return X contains the last
   // position of the mesh.
-  geoState->setup1(input->positions, X, A);
+  if(ioData.problem.framework==ProblemData::BODYFITTED) 
+    geoState->setup1(input->positions, X, A);
+  else {
+    char temp[1]; temp[0] = '\0';
+    geoState->setup1(temp, X, A);
+  }
 
   bcData = createBcData(ioData);
 
@@ -70,6 +78,7 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   riemann1 = new DistExactRiemannSolver<dim>(ioData, domain, varFcn);
 // Included (MB)
   forceNorm = 0.0;
+  failSafeFlag = false;
   if (ioData.sa.avgsIt) {
     forceNorms = new double[ioData.sa.avgsIt];
   }
@@ -292,7 +301,20 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 //  fprintf(stderr,"data->residual = %lf, restart->residual = %lf.\n",data->residual, restart->residual);
   data->computeCflNumber(it - 1, data->residual / restart->residual);
   int numSubCycles = 1;
-  double dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+
+  double dt = 0.0;
+  if(failSafeFlag == false){
+    if(timeStepCalculation == TsData::CFL || it==1)
+      dt = timeState->computeTimeStep(data->cfl, dtLeft, &numSubCycles, *geoState, *X, *A, U);
+    else  //time step size with error estimation
+      dt = timeState->computeTimeStep(it, dtLeft, &numSubCycles);
+  }
+  else //if time step is repeated
+    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+
+  if(timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+    this->timeState->setDtMin(dt * data->getCflMinOverCfl0());
+
   if (problemType[ProblemData::UNSTEADY])
     com->printf(5, "Global dt: %g (remaining subcycles = %d)\n", dt*refVal->time, numSubCycles);
   timer->addFluidSolutionTime(t0);
@@ -306,11 +328,10 @@ double TsDesc<dim>::computeTimeStep(int it, double *dtLeft, DistSVec<double,dim>
 template<int dim>
 double TsDesc<dim>::computePositionVector(bool *lastIt, int it, double t)
 {
-
   double dt = 0.0;
   if (mmh) {
     double t0 = timer->getTime();
-    dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs);
+    dt = mmh->updateStep1(lastIt, it, t, bcData->getVelocityVector(), *Xs, &data->maxTime);
     timer->addMeshSolutionTime(t0);
   }
 
@@ -363,7 +384,7 @@ void TsDesc<dim>::computeMeshMetrics(int it)
     timer->addFluidSolutionTime(t0);
   }
 
-  if ((mmh && _mmh) || hth)
+  if ((mmh && !_mmh) || hth) 
     bcData->update(*X);
 
 }
@@ -413,13 +434,9 @@ bool TsDesc<dim>::checkForLastIteration(IoData &ioData, int it, double t, double
   if (!problemType[ProblemData::AERO] && !problemType[ProblemData::THERMO] && it >= data->maxIts) return true;
 
   if (problemType[ProblemData::UNSTEADY] )
-    {
-      if(t >= data->maxTime 
-       - 0.01 * dt)
-	{
-	  return true;
-	}
-    }
+    if(t >= data->maxTime - 0.01 * dt)
+      return true;
+
   return false;
 
 }
@@ -471,6 +488,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
   timer->setSetupTime();
+  output->cleanProbesFile();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
@@ -485,6 +503,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
     output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
     output->writeResidualsToDisk(it, 0.0, 1.0, data->cfl);
+    output->writeMaterialVolumesToDisk(it, 0.0, *A);
     output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
     output->writeHeatFluxesToDisk(*lastIt, it, 0, 0, t, 0.0, restart->energy, *X, U);
@@ -512,12 +531,15 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
   output->writeResidualsToDisk(it, cpu, res, data->cfl);
 	writeStateRomToDisk(it, cpu);
+  output->writeMaterialVolumesToDisk(it, t, *A);
 	writeErrorToDisk(it, cpu);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
-  restart->template writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
+  output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
+  restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 
+  this->output->updatePrtout(t);
   if (*lastIt) {
     timer->setRunTime();
     if (com->getMaxVerbose() >= 2)
@@ -832,6 +854,28 @@ void TsDesc<dim>::updateGhostFluid(DistSVec<double,dim> &U, Vec3D& totalForce, d
   if (eulerFSI)
     eulerFSI->updateGhostFluid(X, U, totalForce, dt);
 */
+}
+
+//-----------------------------------------------------------------------------
+
+template<int dim>
+void TsDesc<dim>::printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id, DistVec<int> *Id0)
+{ //Kevin:For debug only!
+  int nSub = domain->getNumLocSub();
+  SubDomain **sub = domain->getSubDomain();
+  for(int iSub=0; iSub<nSub; iSub++) {
+    int* locToGlob = sub[iSub]->getNodeMap();
+    for(int i=0; i<(*U)(iSub).size(); i++)
+      if(locToGlob[i]+1==globNodeId) { 
+        fprintf(stderr,"*** %d Node %d: U = %e %e %e %e %e ", identifier, globNodeId, 
+                (*U)(iSub)[i][0], (*U)(iSub)[i][1], (*U)(iSub)[i][2], (*U)(iSub)[i][3], (*U)(iSub)[i][4]);
+        if(Id)
+          fprintf(stderr,", Id = %d ", (*Id)(iSub)[i]);
+        if(Id0)
+          fprintf(stderr,", Id0 = %d ", (*Id0)(iSub)[i]);
+        fprintf(stderr,"\n");
+      }
+  }
 }
 
 //----------------------------------------------------------------------------

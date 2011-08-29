@@ -1,8 +1,8 @@
 #include <MacroCell.h>
 #include <DynamicVMSTerm.h>
 
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 
 //------------------------------------------------------------------------
 

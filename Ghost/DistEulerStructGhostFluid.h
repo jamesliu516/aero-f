@@ -1,7 +1,7 @@
 #ifndef _DIST_EULER_STRUCT_GHOST_FLUID_H_
 #define _DIST_EULER_STRUCT_GHOST_FLUID_H_
 
-#include <string.h>
+#include <cstring>
 #include "Ghost/EulerStructGhostFluid.h"
 #include <DistVector.h>
 #include <VarFcn.h>

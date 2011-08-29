@@ -46,12 +46,13 @@ public:
   StructExc(IoData&, MatchNodeSet**, int, Communicator*strCom, Communicator *flCom, int nSub);
   ~StructExc();
   void updateMNS(MatchNodeSet **mns) {matchNodes = mns;}
+  void updateNumStrNodes(int nn);
 
   void negotiate();
   void negotiateStopping(bool*);
   double getInfo();
-  void getEmbeddedWetSurfaceInfo(int&, int&);
-  void getEmbeddedWetSurface(int, double*, int, int*);
+  void getEmbeddedWetSurfaceInfo(int&, bool&, int&, int&);
+  void getEmbeddedWetSurface(int, double*, int, int*, int=3);  //3 for triangle
 
   void getDisplacement(DistSVec<double,3> &, DistSVec<double,3> &, 
 		       DistSVec<double,3> &, DistSVec<double,3> &);
@@ -66,6 +67,11 @@ public:
   double getTimeStep() const { return dt; }
   double getMaxTime() const { return tmax; }
 
+  //for cracking
+  void getInitialCrackingSetup(int&, int&);
+  bool getNewCrackingStats(int &numConnUpdate, int &numLSUpdate, int &newNodes);
+  void getNewCracking(int numConnUpdate, int numLSUpdate, int* phantoms, double* phi, int* phiIndex, int *new2old, int newNodes);
+  void getInitialPhantomNodes(int newNodes, double(*xyz)[3], int nNodes);
 };
 
 //------------------------------------------------------------------------------

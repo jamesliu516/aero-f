@@ -1,8 +1,8 @@
 #ifndef _DENSE_MATRIX_OPS_H_
 #define _DENSE_MATRIX_OPS_H_
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <complex>
 
@@ -640,8 +640,9 @@ public:
     DENSEMATRIXTIMESVECTOR3(-=, a[k], b[i], c[j]); 
   }
 
-  static void applyTransAndSubToVector(Scalar (*a)[9], int k, Scalar (*b)[3], int i,
-                                       Scalar (*c)[3], int j) {
+  template<class Scalar2>
+  static void applyTransAndSubToVector(Scalar (*a)[9], int k, Scalar2 (*b)[3], int i,
+                                       Scalar2 (*c)[3], int j) {
     DENSEMATRIXTIMESVECTOR3(-=, a[k], b[i], c[j]);
   }
 

@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include "IntersectorFRG.h"
 #include "Vector3D.h"
@@ -35,12 +35,19 @@ public:
   MyTriangle() {}
   MyTriangle(int i, Vec<Vec3D> &coord, int *nd) {
     id = i;
+//    const double expansion_factor = 2.0;
 
     for(int j = 0; j <3; ++j) {
       x[j] = std::min(std::min(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j]);
       w[j] = std::max(std::max(coord[nd[0]][j], coord[nd[1]][j]), coord[nd[2]][j])-x[j];
     }
-
+/*
+    double extra = 0.5*expansion_factor*std::max(w[0], std::max(w[1],w[2]));
+    for(int j=0; j<3; j++) {
+      x[j] -= extra;
+      w[j] += extra;
+    }
+*/
   }
   double val(int i) const { return x[i]; }
   double width(int i) const { return w[i]; }
@@ -54,36 +61,47 @@ class ClosestTriangle {
   int (*triNodes)[3];
   Vec3D *structX;
   Vec3D *structNorm;
-public:
+  set<int> *node2node;
+  set<int> *node2elem;
+
+public: //for debug only
+//protected:
   bool isFirst;
   int bestTrId;
   int n1, n2; //!< if both ns are non negative, the best point is on an edge
   Vec3D n;
   double minDist; //!< Signed distance to the surface
   Vec3D x;
+  map<int,int> nd2tri; //needed for the vertex case (only if isConsistent = false)
+  map<int,int> nd2tester;
+  double dist2othernode;
 
   static const int maxNPairs = 100;
 
-  bool isConsistant, isPositive;
+  bool isConsistent, isPositive, hasBeenFixed;
   int nPairs;
   int periTri[maxNPairs];
 
-  /** Check an edge
-   * returns true if this edge is the new closest one.
-   */
   bool checkEdge(int trId, int p1, int p2, int p3, double trDist);
   void checkVertex(int vn, int trId, double trDist);
-  double project(Vec3D x0, int tria, double& xi1, double& xi2);
-  double edgeProject(int n1, int n2, double &alpha);
+  int registerNodes(int ip1, int trId, int& repeated1, int& repeated2);
+  double project(Vec3D x0, int tria, double& xi1, double& xi2) const;
+  double edgeProject(Vec3D x0, int n1, int n2, double &alpha) const;
   double getSignedVertexDistance() const;
+  double findSignedVertexDistance();
+  int findTesterStatus(Vec3D) const;
+  void checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2,
+                          double &mindist, int &myMode, int &bestTriangle, const double eps) const;
+
 public:
-  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN);
+  ClosestTriangle(int (*triNodes)[3], Vec3D *structX, Vec3D *sN, set<int> *n2n, set<int> *n2e);
   void start(Vec3D x);
   void checkTriangle(int trId);
-  double signedDistance() const {
+  double signedDistance() {
     if(n1 < 0 || n2 >= 0) return minDist;
     else
-      return getSignedVertexDistance();
+      return findSignedVertexDistance();
+      //return getSignedVertexDistance();
   }
 
   int bestTriangle() const { return bestTrId; }
@@ -93,10 +111,12 @@ public:
 
 //----------------------------------------------------------------------------
 
-ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN) {
+ClosestTriangle::ClosestTriangle(int (*nd)[3], Vec3D *sX, Vec3D *sN, set<int> *n2n, set<int> *n2e) {
   triNodes = nd;
   structX = sX;
   structNorm = sN;
+  node2node = n2n;
+  node2elem = n2e;
 }
 
 //----------------------------------------------------------------------------
@@ -109,21 +129,25 @@ ClosestTriangle::start(Vec3D xp) {
   n1 = n2 = -1;
   mode = -1;
   nPairs = 0;
+  minDist = 1.0e10;
+  nd2tri.clear();
+  nd2tester.clear();
+  dist2othernode = 1.0e10;
 }
 //----------------------------------------------------------------------------
-double ClosestTriangle::edgeProject(int n1, int n2, double &alpha)
+double ClosestTriangle::edgeProject(Vec3D x0, int n1, int n2, double &alpha) const
 {
   Vec3D xA =   structX[n1];
   Vec3D xB =   structX[n2];
   Vec3D AB= xB-xA;
-  Vec3D AX = x-xA;
+  Vec3D AX = x0-xA;
   alpha = AB*AX/(AB*AB);
   Vec3D P = xA + alpha*AB;
-  return (P-x).norm();
+  return (P-x0).norm();
 }
 //----------------------------------------------------------------------------
 
-double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2)
+double ClosestTriangle::project(Vec3D x0, int tria, double& xi1, double& xi2) const
 {
   int iA = triNodes[tria][0];
   int iB = triNodes[tria][1];
@@ -159,6 +183,7 @@ ClosestTriangle::checkTriangle(int trId) {
   dist = project(x, trId, xi1, xi2);
   double xi3 = 1-xi1-xi2;
   const double eps = 0;
+
   if(xi1 >= -eps && xi2 >= -eps && xi3 >= -eps) {
     if(isFirst || std::abs(minDist) > std::abs(dist)) {
       isFirst = false;
@@ -180,16 +205,63 @@ ClosestTriangle::checkTriangle(int trId) {
 //----------------------------------------------------------------------------
 
 void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
+
   // If this node is already our best solution
   if(n1 == ip1 && n2 < 0) {
     if(nPairs == maxNPairs) {
-      std::cerr << "Too many peripheral triangles to a node!" << std::endl;
+      std::cerr << "WARNING: On the embedded structure surface, detected too many (>" << maxNPairs << ") peripheral triangles to a node!" << std::endl;
       throw "Too many peripheral triangles";
     }
     periTri[nPairs++] = trId;
+    int repeated1, repeated2;
+    int repeated_nodes = registerNodes(ip1,trId, repeated1, repeated2);
     bool thisSign = (trDist >= 0);
-    if(thisSign != isPositive)
-      isConsistant = false;
+
+    if((thisSign != isPositive || !isConsistent)/* && !hasBeenFixed*/) { // need to figure out the correct sign...
+      isConsistent = false;
+      if(repeated1 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
+        //Step 1. Determine if it is a "hill" or a "dent". 
+        int repeated = repeated1;
+        double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
+        if(dist2node<dist2othernode) {
+          dist2othernode = dist2node;
+          double xi1_temp, xi2_temp;
+          double dist2 = project(structX[nd2tester[triNodes[trId][repeated]]], trId, xi1_temp, xi2_temp);
+          int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
+          //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
+          Vec3D ip1_x = x - structX[ip1];
+          double alpha = ip1_x*structNorm[trId];
+          double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
+          if(type==1) 
+            isPositive = (alpha>=0&&beta>=0) ? true : false;
+          else
+            isPositive = (alpha<0&&beta<0) ? false : true;
+         
+//          hasBeenFixed = true; //the sign is determined.
+        }
+      }
+      if(repeated2 != -1) {// this triangle and another traversed triangle share an edge that has this damn node.
+        //Step 1. Determine if it is a "hill" or a "dent". 
+        int repeated = repeated2;
+        double dist2node = (structX[triNodes[trId][repeated]]-x).norm();
+        if(dist2node<dist2othernode) {
+          dist2othernode = dist2node;
+          double xi1_temp, xi2_temp;
+          double dist2 = project(structX[nd2tester[triNodes[trId][repeated]]], trId, xi1_temp, xi2_temp);
+          int type = (dist2>0) ? 1 : 2; //1: dent, 2: hill
+          //Step 2. Check the angles between (ip1->x) and the normal of the two triangles
+          Vec3D ip1_x = x - structX[ip1];
+          double alpha = ip1_x*structNorm[trId];
+          double beta  = ip1_x*structNorm[nd2tri[triNodes[trId][repeated]]];
+          if(type==1) 
+            isPositive = (alpha>=0&&beta>=0) ? true : false;
+          else
+            isPositive = (alpha<0&&beta<0) ? false : true;
+         
+//          hasBeenFixed = true; //the sign is determined.
+        }
+      }
+    }
     return;
   }
   // Compute the distance to the node. Determining the sign of the distance
@@ -201,13 +273,87 @@ void ClosestTriangle::checkVertex(int ip1, int trId, double trDist) {
     n2 = -1;
     nPairs = 1;
     minDist = dist;
+    dist2othernode = 1.0e10; //distance to the other node on the edge that is shared with another triangle
     periTri[0] = trId;
     bestTrId = trId;
+    nd2tri.clear();
+    nd2tester.clear();
+    int repeated1, repeated2;
+    registerNodes(ip1,trId, repeated1, repeated2);
     mode = 2;
-    isConsistant = true;
+    hasBeenFixed = false;
+    isConsistent = true;
     isPositive = trDist >= 0;
   }
 }
+
+//----------------------------------------------------------------------------
+
+int ClosestTriangle::registerNodes(int ip1, int trId, int& repeated1, int& repeated2)
+{
+    map<int,int>::iterator it;
+      
+    unsigned int repeated_node = 0;
+    repeated1 = repeated2 = -1;
+
+    if(ip1==triNodes[trId][0]) {
+        it = nd2tri.find(triNodes[trId][1]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][1]] = trId;
+          nd2tester[triNodes[trId][1]] = triNodes[trId][2];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 1;
+          repeated1 = 1;
+        }
+        it = nd2tri.find(triNodes[trId][2]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][2]] = trId;
+           nd2tester[triNodes[trId][2]] = triNodes[trId][1];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 2;
+          repeated2 = 2;
+        }
+    }
+    else if(ip1==triNodes[trId][1]) {
+        it = nd2tri.find(triNodes[trId][2]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][2]] = trId;
+          nd2tester[triNodes[trId][2]] = triNodes[trId][0];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 2;
+          repeated1 = 2;
+        }
+        it = nd2tri.find(triNodes[trId][0]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][0]] = trId;
+           nd2tester[triNodes[trId][0]] = triNodes[trId][2];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 0;
+          repeated2 = 0;
+        }
+    }
+    else if(ip1==triNodes[trId][2]) {
+        it = nd2tri.find(triNodes[trId][0]);
+        if(it==nd2tri.end()) {
+          nd2tri[triNodes[trId][0]] = trId;
+          nd2tester[triNodes[trId][0]] = triNodes[trId][1];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 0;
+          repeated1 = 0;
+        }
+        it = nd2tri.find(triNodes[trId][1]);
+        if(it==nd2tri.end()) {
+           nd2tri[triNodes[trId][1]] = trId;
+           nd2tester[triNodes[trId][1]] = triNodes[trId][0];
+        } else if(it->second!=trId) {
+          repeated_node |= 1 << 1;
+          repeated2 = 1;
+        }
+    } else
+      fprintf(stderr,"ERROR (for debug): node %d doesn't belong to triangle %d!\n", ip1+1, trId+1);
+
+    return repeated_node;
+} 
 
 //----------------------------------------------------------------------------
 
@@ -221,6 +367,7 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     p1 = ip2;
     p2 = ip1;
   }
+
   if(n1 == p1 && n2 == p2) { //<! If we've already looked at this edge before
     // If we have already examined this edge and the sign opinions disagree, we need to make the right decision
     // Check if the p3 is in the positive or negative side of the other triangle
@@ -232,10 +379,11 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
     double d2 = project(structX[p3], bestTrId, xi1, xi2);
     if(d2*minDist>0)
       minDist = -minDist;
+    return true;
   } else {
     double dist, alpha;
     double sign = trDist >= 0 ? 1 : -1;
-    dist = sign*edgeProject(p1, p2, alpha);
+    dist = sign*edgeProject(x, p1, p2, alpha);
 
     int cn1 = (alpha > 1) ? p2 : p1;
     int cn2 = p2;
@@ -252,28 +400,190 @@ ClosestTriangle::checkEdge(int trId, int ip1, int ip2, int p3, double trDist) {
       n1 = cn1;
       n2 = cn2;
       mode = 1;
+      return true;
     }
   }
+  return false;
 }
 
 //----------------------------------------------------------------------------
 
 double ClosestTriangle::getSignedVertexDistance() const {
-  if(isConsistant)
+
+  return isPositive ? minDist : -minDist;
+
+/*  if(isConsistent)
+    return isPositive ? minDist : -minDist;
+  else if(hasBeenFixed)
     return isPositive ? minDist : -minDist;
   return minDist;
+*/
+}
+
+//----------------------------------------------------------------------------
+
+double ClosestTriangle::findSignedVertexDistance()
+{
+  set<int> &vertices = node2node[n1]; //vertices in the direct neighborhood of n1
+  Vec3D    &xp       = structX[n1];   //coordinate of n1
+
+  //step 1: find a test direction.
+  Vec3D dir(0,0,0); //the test direction (normalized).
+  double rr = 0.0; //distance in the test direction.
+
+  double ry = 0.0;
+  Vec3D npx = x - xp;
+  npx = 1.0/npx.norm()*npx; 
+  for(set<int>::iterator it=vertices.begin(); it!=vertices.end(); it++) {
+    Vec3D xr = structX[*it]; 
+
+    double d_xp_xr = (xp-xr).norm();
+    if(d_xp_xr>=ry)
+      ry = d_xp_xr;
+
+    if(npx*(xp-xr)<1.0e-14) continue;
+    double t = npx*(x-xr)/(npx*(xp-xr)); 
+    Vec3D xt = xr + t*(xp-xr);
+    double d_x_xt = (xt - x).norm();
+    if(d_x_xt>=rr) {
+      dir = xt - x;
+      rr  = d_x_xt;
+    }
+  }
+  if(rr<1.0e-14) {fprintf(stderr,"ERROR: (in IntersectorFRG) distance = %e.\n",rr);exit(-1);}
+  dir *= 1.0/rr; //normalize dir
+  rr = std::min(1.5*rr, std::max((x-xp).norm(), ry)); 
+  rr *= 0.05;
+
+  int nTrial = 50;
+  for(int iTrial=0; iTrial<nTrial; iTrial++) {
+    Vec3D x_trial;
+    if(iTrial%2==1)
+      x_trial = x - (double(iTrial+1.0)*rr)*dir;
+    else
+      x_trial = x + (double(iTrial+1.0)*rr)*dir;
+
+    int sign = findTesterStatus(x_trial); 
+    if(sign!=0) {
+      minDist = (double)sign*std::abs(minDist);
+//      fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). sign = %d, minDist = %e\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], sign, minDist);
+      return minDist;
+    }// else 
+ //     fprintf(stderr,"NOTE: x = (%e, %e, %e), node = %d, x_trial = (%e, %e, %e). I = %d, sign = %d\n", x[0], x[1], x[2], n1+1, x_trial[0], x_trial[1], x_trial[2], iTrial, sign);
+  }
+  
+  fprintf(stderr,"ERROR: (in IntersectorFRG) failed in determining node status! nTrial = %d.\n", nTrial);
+  exit(-1);
+
+  return 0.0;
+}
+
+//----------------------------------------------------------------------------
+
+int ClosestTriangle::findTesterStatus(Vec3D xt) const
+{
+//  Vec3D xdebug(-4.348610e+00, -5.030928e+00, -6.636450e-02);
+//  bool debug = (xt-xdebug).norm()<1.0e-5 ? true : false;
+
+  set<int> &vertices = node2node[n1]; //vertices in the direct neighborhood of n1
+  set<int> &elements = node2elem[n1]; //elements in the direct neighborhood of n1
+  double mindist = 1.0e14;
+  const double eps = 1.0e-14;
+  int nn1,nn2;
+  int myMode = -1;
+  int bestTriangle = -1;
+  nn1 = nn2 = -1;
+
+  for(set<int>::iterator it=elements.begin(); it!=elements.end(); it++) {
+    double xi[3];
+    double dist = project(xt, *it, xi[0], xi[1]); 
+    xi[2] = 1.0 - xi[0] - xi[1]; // project onto the plane determined by this triangle
+
+    if((n1==triNodes[*it][0] || xi[0] >= -eps) && 
+       (n1==triNodes[*it][1] || xi[1] >= -eps) &&
+       (n1==triNodes[*it][2] || xi[2] >= -eps)) { 
+      if(std::abs(mindist) >= std::abs(dist)) {
+        mindist = dist;
+        myMode = 0;
+        nn1 = nn2 = -1;
+        bestTriangle = *it; 
+      }
+    }
+    else { 
+      if(!(n1==triNodes[*it][0] || xi[0] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][1], triNodes[*it][2], triNodes[*it][0], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+      if(!(n1==triNodes[*it][1] || xi[1] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][2], triNodes[*it][0], triNodes[*it][1], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+      if(!(n1==triNodes[*it][2] || xi[2] >= -eps))
+        checkEdgeForTester(xt, *it, triNodes[*it][0], triNodes[*it][1], triNodes[*it][2], dist, nn1, nn2, mindist, myMode, bestTriangle, eps);
+    }
+//    if(debug)
+//      fprintf(stderr,"NOTE (debug): node = %d, trId = %d. | mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
+//              n1+1, *it+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
+  }  
+//  if(debug)
+//    fprintf(stderr,"NOTE (final): node = %d, mode = %d, nn1 = %d, nn2 = %d, bestTriangle = %d, mindist = %e.\n",
+//            n1+1, myMode, nn1+1, nn2+1, bestTriangle+1, mindist);
+
+
+  int sign;
+  if(myMode<0) {
+//    fprintf(stderr,"WARNING: (in IntersectorFRG) Mode = %d!\n", myMode);
+//    fprintf(stderr,"-- x = (%e %e %e), tester = (%e, %e, %e).\n", x[0], x[1], x[2], xt[0], xt[1], xt[2]);
+    sign = 0;
+  } else
+    sign = mindist>=0.0 ? 1 : -1;
+
+  return sign;
+}
+
+//----------------------------------------------------------------------------
+
+void ClosestTriangle::checkEdgeForTester(Vec3D xt, int trId, int ip1, int ip2, int p3, double trDist, int &nn1, int &nn2, 
+                                         double &mindist, int &myMode, int &bestTriangle, const double eps) const
+{
+  int p1, p2;
+  if(ip1 < ip2) {
+    p1 = ip1;  p2 = ip2;
+  } else {
+    p1 = ip2;  p2 = ip1;
+  }
+
+  if(nn1 == p1 && nn2 == p2) { //this edge has been traversed.
+    if(trDist*mindist >= 0)
+      return;
+    double xi1,xi2;
+    double d2 = project(structX[p3], bestTriangle, xi1, xi2);
+    if(d2*mindist>0)
+      mindist = -mindist;
+    return; 
+  } else {
+    double dist, alpha;
+    double sign = trDist >= 0 ? 1 : -1;
+    dist = sign*edgeProject(xt, p1, p2, alpha);
+    if((alpha<-eps && p1==n1) || (alpha>1.0+eps && p2==n1))
+      return;
+    
+    if(std::abs(dist) < std::abs(mindist)) {
+      bestTriangle = trId;
+      nn1 = p1;
+      nn2 = p2;
+      myMode = 1;
+      mindist = dist;
+    }
+  } 
 }
 
 //----------------------------------------------------------------------------
 
 DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNodes,
-                                               double (*xyz)[3], int nElems, int (*abc)[3])
+                                               double *xyz, int nElems, int (*abc)[3])
 {
   this->numFluid = iod.eqs.numPhase;
   twoPhase = false;
 
   com = comm;
-  com->fprintf(stderr,"Using Intersector FRG\n");
+  com->fprintf(stderr,"- Using Intersector: FRG\n");
 
   //get embedded structure surface mesh and restart pos
   char *struct_mesh, *struct_restart_pos;
@@ -306,8 +616,19 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
   //Load files. Compute structure normals. Initialize PhysBAM Interface
   if(nNodes && xyz && nElems && abc)
     init(nNodes, xyz, nElems, abc, struct_restart_pos);
-  else
-    init(struct_mesh, struct_restart_pos);
+  else {
+    double XScale = (iod.problem.mode==ProblemData::NON_DIMENSIONAL) ? 1.0 : iod.ref.rv.length;
+    init(struct_mesh, struct_restart_pos, XScale);
+  }
+
+  if(numStElems<=0||numStNodes<=0) {
+    fprintf(stderr,"ERROR: Found %d nodes and %d elements in the embedded surface!\n", numStNodes, numStElems);
+    exit(-1);
+  }
+
+  node2node = new set<int>[numStNodes];
+  node2elem = new set<int>[numStNodes];
+  buildConnectivity();
 
   delete[] struct_mesh;
   delete[] struct_restart_pos;
@@ -318,6 +639,8 @@ DistIntersectorFRG::DistIntersectorFRG(IoData &iod, Communicator *comm, int nNod
 DistIntersectorFRG::~DistIntersectorFRG() 
 {
   delete [] stElem;
+  delete [] node2node;
+  delete [] node2elem;
   if(Xs)          delete[] Xs;
   if(Xs0)         delete[] Xs0;
   if(Xs_n)        delete[] Xs_n;
@@ -356,7 +679,7 @@ DistIntersectorFRG::operator()(int subNum) const {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
+void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface, double XScale) {
 
   // Read data from the solid surface input file.
   FILE *topFile;
@@ -369,29 +692,42 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   char c1[200], c2[200], c3[200];
   int num0 = 0, num1 = 0, nInputs;
   double x1,x2,x3;
-  fscanf(topFile, "%s %s\n", c1, c2);
+  int toto = fscanf(topFile, "%s %s\n", c1, c2);
   char debug[6]="Nodes";
   for (int i=0; i<5; i++)
-    if(debug[i]!=c1[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
+    if(debug[i]!=c1[i]) {com->fprintf(stderr,"ERROR: The embedded surface file (%s) must begin with keyword `Nodes'!\n", solidSurface); exit(-1);}
 
-  std::list<std::pair<int,Vec3D> > nodeList;
-  std::list<std::pair<int,Vec3D> >::iterator it;
-
-  int ndMax = 0;
+  std::list<Vec3D> nodeList;
+  std::list<int> indexList;
+  std::list<Vec3D>::iterator it1;
+  std::list<int>::iterator it2;
+  int maxIndex = 0;
 
   while(1) {
     nInputs = fscanf(topFile,"%s", c1);
     if(nInputs!=1) break;
-    char *endptr;
-    num1 = strtol(c1, &endptr, 10);
-    if(endptr == c1) break;
+    if(c1[0]=='E') //done with the node set
+      break;
+    num1 = atoi(c1);
+    if(num1<1) {com->fprintf(stderr,"ERROR: detected a node with index %d in the embedded surface file!\n",num1); exit(-1);}
+    indexList.push_back(num1);
+    if(num1>maxIndex)
+      maxIndex = num1;
 
-    fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
-    nodeList.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
-    ndMax = std::max(num1, ndMax);
-    num0 = num1;
+    toto = fscanf(topFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+    x1 /= XScale;
+    x2 /= XScale;
+    x3 /= XScale;
+    nodeList.push_back(Vec3D(x1,x2,x3));
   }
-  numStNodes = ndMax;
+
+  numStNodes = nodeList.size();
+  if(numStNodes != maxIndex) {
+    com->fprintf(stderr,"ERROR: The node set of the embedded surface have gap(s). \n");
+    com->fprintf(stderr,"       Detected max index = %d, number of nodes = %d\n", maxIndex, numStNodes);
+    com->fprintf(stderr,"NOTE: Currently the node set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
+    exit(-1);
+  }
 
   // feed data to Xss. 
   Xs      = new Vec3D[numStNodes];
@@ -402,9 +738,12 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   solidX  = new Vec<Vec3D>(numStNodes, Xs);
   solidX0 = new Vec<Vec3D>(numStNodes, Xs0);
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
-  
-  for (it=nodeList.begin(); it!=nodeList.end(); it++) 
-    Xs[it->first-1] = it->second;
+
+  it2 = indexList.begin();
+  for (it1=nodeList.begin(); it1!=nodeList.end(); it1++) {
+    Xs[(*it2)-1] = *it1;
+    it2++;
+  }
 
   for (int k=0; k<numStNodes; k++) {
     Xs0[k]    = Xs[k];
@@ -415,42 +754,57 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
 
   // load the elements.
   if(nInputs!=1) {
-    fprintf(stderr,"Failed reading elements from file: %s\n", solidSurface); exit(-1);}
-  fscanf(topFile,"%s %s %s\n", c1,c2,c3);
+    com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
+  toto = fscanf(topFile,"%s %s %s\n", c1,c2,c3);
   char debug2[6] = "using";
   for (int i=0; i<5; i++) 
-    if(debug2[i]!=c2[i]) {fprintf(stderr,"Failed in reading file: %s\n", solidSurface); exit(-1);}
-    
+    if(debug2[i]!=c2[i]) {com->fprintf(stderr,"ERROR: Failed reading embedded surface from file: %s\n", solidSurface); exit(-1);}
+
+  std::list<int> elemIdList;    
   std::list<int> elemList1;
   std::list<int> elemList2;
   std::list<int> elemList3;
-  std::list<int>::iterator it1;
-  std::list<int>::iterator it2;
-  std::list<int>::iterator it3;
+  std::list<int>::iterator it_0;
+  std::list<int>::iterator it_1;
+  std::list<int>::iterator it_2;
+  std::list<int>::iterator it_3;
   int node1, node2, node3;
+  maxIndex = -1;
 
   while(1) {
     nInputs = fscanf(topFile,"%d", &num0);
     if(nInputs!=1) break;
-    fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    toto = fscanf(topFile,"%d %d %d %d\n", &num1, &node1, &node2, &node3);
+    if(num0<1) {com->fprintf(stderr,"ERROR: Detected an element with Id %d in the embedded surface (%s)!\n", num0, solidSurface); exit(-1);}
+    elemIdList.push_back(num0-1);  //start from 0.
     elemList1.push_back(node1-1);
     elemList2.push_back(node2-1);
     elemList3.push_back(node3-1);
+    if(num0-1>maxIndex)
+      maxIndex = num0-1;
   }
   numStElems = elemList1.size();
+  if(numStElems != maxIndex+1) {
+    com->fprintf(stderr,"ERROR: The element set of the embedded surface have gap(s). \n");
+    com->fprintf(stderr,"       Detected max index = %d, number of elements = %d\n", maxIndex+1, numStElems);
+    com->fprintf(stderr,"NOTE: Currently the element set of the embedded surface cannot have gaps. Moreover, the index must start from 1.\n");
+    exit(-1);
+  }
 
   stElem = new int[numStElems][3];
   
-  it1 = elemList1.begin();
-  it2 = elemList2.begin();
-  it3 = elemList3.begin();
+  it_0 = elemIdList.begin();
+  it_1 = elemList1.begin();
+  it_2 = elemList2.begin();
+  it_3 = elemList3.begin();
   for (int i=0; i<numStElems; i++) {
-    stElem[i][0] = *it1;
-    stElem[i][1] = *it2;
-    stElem[i][2] = *it3;
-    it1++;
-    it2++;
-    it3++;
+    stElem[*it_0][0] = *it_1;
+    stElem[*it_0][1] = *it_2;
+    stElem[*it_0][2] = *it_3;
+    it_0++;
+    it_1++;
+    it_2++;
+    it_3++;
   } 
 
   fclose(topFile);
@@ -459,7 +813,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   if (restartSolidSurface[0] != 0) {
     FILE* resTopFile = fopen(restartSolidSurface, "r");
     if(resTopFile==NULL) {com->fprintf(stderr, "restart topFile doesn't exist.\n"); exit(1);}
-    int ndMax2 = 0;
+    int ndMax = 0, ndMax2 = 0;
     std::list<std::pair<int,Vec3D> > nodeList2;
     std::list<std::pair<int,Vec3D> >::iterator it2;
 
@@ -470,7 +824,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
@@ -493,11 +847,13 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorFRG: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface()) 
     com->fprintf(stderr,"Ok.\n");
-  else 
+  else {
+    com->fprintf(stderr,"\n");
     exit(-1); 
+  }
 
 //  getBoundingBox();
   initializePhysBAM();
@@ -508,7 +864,7 @@ void DistIntersectorFRG::init(char *solidSurface, char *restartSolidSurface) {
 *
 * \param dataTree the data read from the input file for this intersector.
 */
-void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*abc)[3], char *restartSolidSurface) {
+void DistIntersectorFRG::init(int nNodes, double *xyz, int nElems, int (*abc)[3], char *restartSolidSurface) {
 
   // node set
   numStNodes = nNodes;
@@ -523,7 +879,7 @@ void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*ab
   solidXn = new Vec<Vec3D>(numStNodes, Xs_n);
 
   for (int k=0; k<numStNodes; k++) {
-    Xs[k]     = Vec3D(xyz[k][0], xyz[k][1], xyz[k][2]);
+    Xs[k]     = Vec3D(xyz[3*k], xyz[3*k+1], xyz[3*k+2]);
     Xs0[k]    = Xs[k];
     Xs_n[k]   = Xs[k];
     Xs_np1[k] = Xs[k];
@@ -556,7 +912,7 @@ void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*ab
       num1 = strtol(c1, &endptr, 10);
       if(endptr == c1) break;
 
-      fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
+      int toto = fscanf(resTopFile,"%lf %lf %lf\n", &x1, &x2, &x3);
       nodeList2.push_back(std::pair<int,Vec3D>(num1,Vec3D(x1,x2,x3)));
       ndMax = std::max(num1, ndMax);
     }
@@ -579,11 +935,13 @@ void DistIntersectorFRG::init(int nNodes, double (*xyz)[3], int nElems, int (*ab
   }
 
   // Verify (1)triangulated surface is closed (2) normal's of all triangles point outward.
-  com->fprintf(stderr,"Checking the solid surface...\n");
+  com->fprintf(stderr,"- IntersectorFRG: Checking the embedded structure surface...   ");
   if (checkTriangulatedSurface())
     com->fprintf(stderr,"Ok.\n");
-  else
+  else {
+    com->fprintf(stderr,"\n");
     exit(-1);
+  }
 
 //  getBoundingBox();
   initializePhysBAM();
@@ -619,7 +977,7 @@ DistIntersectorFRG::initializePhysBAM() { //NOTE: In PhysBAM array index starts 
   for (int i=0; i<numStElems; i++) physbam_stElem(i+1) = PhysBAM::VECTOR<int,3>(stElem[i][0]+1,stElem[i][1]+1,stElem[i][2]+1);
 
   // Initialize the mesh.
-  // fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
+//  com->fprintf(stderr,"Initializing the Mesh with %d particles and %d triangles\n",physbam_solids_particle->array_collection.Size(),physbam_stElem.Size());
   PhysBAM::TRIANGLE_MESH *mesh = new PhysBAM::TRIANGLE_MESH(numStNodes,physbam_stElem);
   mesh->Initialize_Adjacent_Elements();mesh->Set_Number_Nodes(numStNodes);
 
@@ -669,8 +1027,18 @@ bool DistIntersectorFRG::checkTriangulatedSurface()
 
 //----------------------------------------------------------------------------
 
-void
-DistIntersectorFRG::buildSolidNormals() {
+void DistIntersectorFRG::buildConnectivity() {
+  for(int i=0; i<numStElems; i++) 
+    for(int j=0; j<3; j++) {// assume triangle elements
+      node2node[stElem[i][j]].insert(stElem[i][(j+1)%3]);
+      node2node[stElem[i][j]].insert(stElem[i][(j+2)%3]);
+      node2elem[stElem[i][j]].insert(i);
+    }
+}
+
+//----------------------------------------------------------------------------
+
+void DistIntersectorFRG::buildSolidNormals() {
   if(!triNorms) triNorms = new Vec3D[numStElems];
   if(interpolatedNormal) {
     if(!nodalNormal)
@@ -780,9 +1148,9 @@ void DistIntersectorFRG::expandScope()
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 void
-DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
+DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id) {
   if(this->numFluid<1) {
-    fprintf(stderr,"ERROR: numFluid = %d!\n", this->numFluid);
+    fprintf(stderr,"ERROR: number of fluid = %d!\n", this->numFluid);
     exit(-1);
   }
   this->X = &X;
@@ -810,7 +1178,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
     intersector[i]->computeFirstLayerNodeStatus((*tId)(i), (*distance)(i));
   }
   findInAndOut();
-  finishStatusByPoints(iod);   
+  finishStatusByPoints(iod, point_based_id);   
  
 #pragma omp parallel for
   for(int i = 0; i < numLocSub; ++i)  
@@ -825,7 +1193,7 @@ DistIntersectorFRG::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod) {
 void 
 DistIntersectorFRG::findPoly() {
   if(!poly) {
-    com->fprintf(stderr,"ERROR: poly not initialized.\n"); 
+//    com->fprintf(stderr,"ERROR: poly not initialized.\n"); 
     exit(-1);
   }
 
@@ -843,7 +1211,7 @@ DistIntersectorFRG::findPoly() {
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes) 
+void DistIntersectorFRG::updateStructure(double *xs, double *Vs, int nNodes, int (*abc)[3]) 
 {
 //  com->fprintf(stderr,"DistIntersectorFRG::updateStructure called!\n");
   if(nNodes!=numStNodes) {
@@ -851,11 +1219,11 @@ void DistIntersectorFRG::updateStructure(Vec3D *xs, Vec3D *Vs, int nNodes)
     exit(-1);
   }
 
-  for (int i=0; i<nNodes; i++) {
-    Xs_n[i] = Xs_np1[i];
-    Xs_np1[i] = xs[i];
-    Xsdot[i] = Vs[i];
-  }
+  for (int i=0; i<nNodes; i++) 
+    for(int j=0; j<3; j++) {
+      Xs_n[i][j] = Xs_np1[i][j];
+      Xs_np1[i][j] = xs[3*i+j];
+      Xsdot[i][j] = Vs[3*i+j];}
 }
 
 //----------------------------------------------------------------------------
@@ -870,10 +1238,11 @@ void DistIntersectorFRG::updatePhysBAMInterface()
 //----------------------------------------------------------------------------
 
 /** compute the intersections, node statuses and normals for the initial geometry */
-void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts) 
+int DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts) 
 {
 
-  updateStructCoords(0.0, 1.0);
+  //updateStructCoords(0.0, 1.0);
+  updateStructCoords(( (dtfLeft-dtf)/dts ), ( 1.0 - (dtfLeft-dtf)/dts ));
   buildSolidNormals();
   expandScope();
 
@@ -887,21 +1256,40 @@ void DistIntersectorFRG::recompute(double dtf, double dtfLeft, double dts)
     subdXing += !(intersector[iSub]->finishStatusByHistory(*(domain->getSubDomain()[iSub])));
     if(twoPhase) {
 //      intersector[iSub]->printFirstLayer(*(domain->getSubDomain()[iSub]), (*X)(iSub), 1);
-      intersector[iSub]->findIntersections((*X)(iSub), true);
+      int error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      int nCalls = 0;
+      while(error && nCalls<100) {
+        nCalls++;
+        com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
+        intersector[iSub]->CrossingEdgeRes.clear();
+        intersector[iSub]->ReverseCrossingEdgeRes.clear();
+        error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      }
+      if(error)
+        return -1;
     }
   }
 
   if(!twoPhase) {
     com->globalMax(1,&subdXing);
     if(subdXing) { //this happens if the structure is entering/leaving a subdomain. Rarely happens but needs to be delt with...
-      com->fprintf(stderr,"FS Interface entering/leaving a subdomain...\n");
+//      com->fprintf(stderr,"FS Interface entering/leaving a subdomain...\n");
       finalizeStatus(); //contains a local communication
     }
 #pragma omp parallel for
-    for(int iSub = 0; iSub < numLocSub; ++iSub)
-      intersector[iSub]->findIntersections((*X)(iSub), true);
+    for(int iSub = 0; iSub < numLocSub; ++iSub) {
+      int error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      while(error) {
+        com->fprintf(stderr,"Recomputing intersections (%d) ...\n", error);
+        intersector[iSub]->CrossingEdgeRes.clear();
+        intersector[iSub]->ReverseCrossingEdgeRes.clear();
+        error = intersector[iSub]->findIntersections((*X)(iSub), true);
+      }
+      if(error)
+        return -1;
+    }
   }
-
+  return 0;
 }
 
 //----------------------------------------------------------------------------
@@ -1030,7 +1418,7 @@ void IntersectorFRG::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int TYPE)
 
 //----------------------------------------------------------------------------
 
-void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
+void DistIntersectorFRG::finishStatusByPoints(IoData &iod, DistVec<int> *point_based_id)
 {
   if((numFluid==1 || numFluid==2) && iod.embed.embedIC.pointMap.dataMap.empty()) {
 #pragma omp parallel for
@@ -1044,14 +1432,23 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   }
 
   list< pair<Vec3D,int> > Points; //pair points with fluid model ID.
+  map<int,int> pid2id;
+
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
+    int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
         pointIt != iod.embed.embedIC.pointMap.dataMap.end();
         pointIt ++){
       int myID = pointIt->second->fluidModelID;
+      int myPID = ++count;
       Vec3D xyz(pointIt->second->x, pointIt->second->y,pointIt->second->z);
-      Points.push_back(pair<Vec3D,int>(xyz, myID));
+
+      if(point_based_id) {
+        Points.push_back(pair<Vec3D,int>(xyz, myPID));
+        pid2id[myPID] = myID;
+      } else
+        Points.push_back(pair<Vec3D,int>(xyz, myID));
 
       if(myID>=numFluid) { //myID should start from 0
         com->fprintf(stderr,"ERROR:FluidModel %d doesn't exist! NumPhase = %d\n", myID, numFluid);
@@ -1064,9 +1461,6 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
   }
 
   list< pair<Vec3D,int> >::iterator iter;
-  for(iter = Points.begin(); iter!=Points.end(); iter++)
-    com->fprintf(stderr,"  - Detected point (%e %e %e) with FluidModel %d\n", (iter->first)[0], (iter->first)[1], (iter->first)[2], iter->second);
-  
 
   int nUndecided[numLocSub], total;
   DistSVec<int,2> status_and_weight(domain->getNodeDistInfo());
@@ -1120,19 +1514,32 @@ void DistIntersectorFRG::finishStatusByPoints(IoData &iod)
     }
   }
 
+  if(point_based_id) {
+    *point_based_id = -999;
+#pragma omp parallel for
+    for(int iSub=0; iSub<numLocSub; iSub++)
+      for(int i=0; i<(*status)(iSub).size(); i++) {
+        int myPID = (*status)(iSub)[i];
+        map<int,int>::iterator pit = pid2id.find(myPID);
+        if(pit!=pid2id.end()) {
+          (*point_based_id)(iSub)[i] = myPID;
+          (*status)(iSub)[i] = pit->second;
+        }
+      }
+  }
+
   if(total) {//still have undecided nodes. They must be ghost nodes (i.e. covered by solid).
+    com->fprintf(stderr,"- IntersectorFRG: Ghost node(s) detected...\n");
     twoPhase = false;
 #pragma omp parallel for
     for(int iSub=0; iSub<numLocSub; iSub++)
       for(int i=0; i<(*status)(iSub).size(); i++) {
         if((*status)(iSub)[i]==IntersectorFRG::UNDECIDED) {
-//          fprintf(stderr,"CPU %d: Node %d is undecided!!!\n", com->cpuNum(), intersector[iSub]->locToGlobNodeMap[i]+1);
           (*status)(iSub)[i] = IntersectorFRG::OUTSIDECOLOR;
         }
       }
   } else 
     twoPhase = (numFluid<3) ? true : false;
-
 }
 
 //----------------------------------------------------------------------------
@@ -1280,7 +1687,8 @@ void DistIntersectorFRG::finalizeStatus()
 //      if(intersector[iSub]->locToGlobNodeMap[i]+1==151870)
 //        fprintf(stderr,"After Assemble: CPU%d: status/weight of 151870 is %d/%d...\n", com->cpuNum(), status_and_weight(iSub)[i][0],status_and_weight(iSub)[i][1]);
       if((*status)(iSub)[i]==IntersectorFRG::OUTSIDE) {
-        (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
+        if(status_and_weight(iSub)[i][1]!=0)
+          (*status)(iSub)[i] = status_and_weight(iSub)[i][0] / status_and_weight(iSub)[i][1];
 
         if((*status)(iSub)[i]<=0 || (*status)(iSub)[i]>numFluid)
           fprintf(stderr,"ERROR: failed at determining status for node %d. Structure may have crossed two or more layers of nodes in one time-step!\n", 
@@ -1330,7 +1738,7 @@ bool IntersectorFRG::finishStatusByHistory(SubDomain& sub)
       if(status0[i]!=UNDECIDED)
         status[i] = status0[i];
       else  
-        fprintf(stderr,"Still have undecided nodes...\n");
+        fprintf(stderr,"ERROR: Unable to determine node status for Node %d\n", locToGlobNodeMap[i]+1);
 
 //    if(locToGlobNodeMap[i]+1==151870)
 //      fprintf(stderr,"CPU%d: status of 151870 is %d...\n", distIntersector.com->cpuNum(), status[i]);
@@ -1632,17 +2040,25 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
   scope.clear();
 
   // find candidates
-  ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms);
+  ClosestTriangle closestTriangle(triNodes, structX, distIntersector.triNorms, distIntersector.node2node, distIntersector.node2elem);
   int nMaxCand = 500;
   MyTriangle *candidates = new MyTriangle[nMaxCand];
   for(int i = 0; i < X.size(); ++i) {
-    int nFound = structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+/*    double bMin[3], bMax[3], expansion_factor = 1.0; //bounding boxes
+    double extra = std::max(std::max(boxMax[i][0]-boxMin[i][0], boxMax[i][1]-boxMin[i][1]), boxMax[i][2]-boxMin[i][2]);
+    extra *= (0.5*expansion_factor);
+    for(int k=0; k<3; k++) {
+      bMin[k] = boxMin[i][k] - extra;
+      bMax[k] = boxMax[i][k] + extra;
+    } 
+*/    
+    int nFound = structureTree.findCandidatesInBox(/*bMin*/boxMin[i], /*bMax*/boxMax[i], candidates, nMaxCand);
     if(nFound > nMaxCand) {
-      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
+//      std::cerr << "For Fluid node " << locToGlobNodeMap[i]+1 << ", number of candidates: " << nFound << std::endl;
       nMaxCand = nFound;
       delete [] candidates;
       candidates = new MyTriangle[nMaxCand];
-      structureTree.findCandidatesInBox(boxMin[i], boxMax[i], candidates, nMaxCand);
+      structureTree.findCandidatesInBox(/*bMin*/boxMin[i], /*bMax*/boxMax[i], candidates, nMaxCand);
     }
     closestTriangle.start(X[i]);
     for(int j = 0; j < nFound; ++j) {
@@ -1650,7 +2066,14 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
       scope.insert(myId);
       addToPackage(i, myId);    
       closestTriangle.checkTriangle(myId);
-    }
+/*      //debug
+      Vec3D Xi(X[i][0], X[i][1], X[i][2]);
+      Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
+      if((Xi-Tester).norm()<1e-5)
+        fprintf(stderr,"debug: fluid node = %d, TrId %d, n1/n2 = %d/%d, mode = %d, minDist = %e.\n", locToGlobNodeMap[i]+1, myId+1, 
+                closestTriangle.n1+1, closestTriangle.n2+1, closestTriangle.mode, closestTriangle.minDist);
+      //end of debug
+*/    }
     
     if(nFound <= 0) {
       tId[i] = -1;
@@ -1661,6 +2084,14 @@ void IntersectorFRG::getClosestTriangles(SVec<double,3> &X, SVec<double,3> &boxM
       if(tId[i] < 0)
         std::cout << "Horror!!!" << std::endl;
       dist[i] = closestTriangle.signedDistance();
+ /*     //debug
+      Vec3D Xi(X[i][0], X[i][1], X[i][2]);
+      Vec3D Tester(-1.333232e+00, 6.207416e-01, 1.327290e-01);
+      if((Xi-Tester).norm()<1e-5)
+        fprintf(stderr,"debug(final): fluid node = %d, n1/n2 = %d/%d, mode = %d.\n", locToGlobNodeMap[i]+1, closestTriangle.n1+1, closestTriangle.n2+1,
+                closestTriangle.mode);
+      //end of debug
+*/
     }
   }
 
@@ -1779,8 +2210,9 @@ void IntersectorFRG::noCheckFloodFill(SubDomain& sub, int& nUndecided)
 
 //----------------------------------------------------------------------------
 
-void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
+int IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
 {
+  int error = 0;
 
   int (*ptr)[2] = edges.getPtr();
   const double TOL = 1.0e-4;
@@ -1827,7 +2259,7 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
       if(!GlobPhysBAMUpdated) {
         distIntersector.updatePhysBAMInterface();
         GlobPhysBAMUpdated = true;
-        fprintf(stderr,"Now using the global intersector...\n");
+//        fprintf(stderr,"Now using the global intersector...\n");
       }
 
       for (int iter=0; iter<MAX_ITER; iter++) {
@@ -1846,11 +2278,20 @@ void IntersectorFRG::findIntersections(SVec<double,3>&X, bool useScope)
         }
       }
  
-      if(res1.triangleID<0)
-         fprintf(stderr,"ERROR: failed to get an intersection between node %d(%d) and %d(%d). \n",
-                        locToGlobNodeMap[p]+1,status[p],locToGlobNodeMap[q]+1,status[q]);
+      if(res1.triangleID<0) {
+         error++;
+//         fprintf(stderr,"WARNING: No intersection between node %d(status = %d, status0 = %d) and %d(status = %d, status0 = %d). \n",
+//                        locToGlobNodeMap[p]+1,status[p], status0[p], locToGlobNodeMap[q]+1,status[q], status0[q]);
+         if(status[p]!=status0[p] || status[q]!=status0[q]) {
+           status[p] = status0[p];
+           status[q] = status0[q];
+         } else
+           status[p] = status[q] = 0; //TODO: this is not a fix!
+      }
     }
   }
+
+  return error;
 }
 
 //----------------------------------------------------------------------------
@@ -1872,7 +2313,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
   int edgeNum = edges.find(ni, nj);
   if (!edgeIntersectsStructure(0.0,ni,nj)) {
     fprintf(stderr,"There is no intersection between node %d(status:%d) and %d(status:%d)! Abort...\n",
-                   ni, status[ni], nj, status[nj]);
+                   locToGlobNodeMap[ni]+1, status[ni], locToGlobNodeMap[nj]+1, status[nj]);
     exit(-1);
   }
 
@@ -1898,7 +2339,7 @@ IntersectorFRG::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
     alpha0 = (ni<nj)? 1.0-result.alpha : result.alpha;
   }
   else //we really have no intersection for this edge!
-    fprintf(stderr,"ERROR: intersection between %d and %d can not be detected.\n", ni, nj);
+    fprintf(stderr,"ERROR: intersection between node %d and node %d can not be detected.\n", locToGlobNodeMap[ni]+1, locToGlobNodeMap[nj]+1);
 
   int trueTriangleID = result.triangleID-1;
 

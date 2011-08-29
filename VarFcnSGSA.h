@@ -47,9 +47,11 @@ public:
   void conservativeToPrimitiveDerivative(double *, double *, double *, double *);
   void primitiveToConservativeDerivative(double *, double *, double *, double *);
   void multiplyBydVdU(double *, double *, double *);
+  void multiplyBydVdU(double *, bcomp *, bcomp *) {fprintf(stderr,"ERROR: multiplyBydVdU needs to be implemented...\n");}
   void preMultiplyBydUdV(double *, double *, double *);
   void postMultiplyBydVdU(double *, double *, double *);
   void postMultiplyBydUdV(double *, double *, double *);
+  void postMultiplyBydUdV(double *, bcomp *, bcomp *) {fprintf(stderr,"ERROR: postMultiplyBydUdV needs to be implemented...\n");}
 
   //----- General Functions -----//
   double checkPressure(double *V) const { 
@@ -242,17 +244,29 @@ void VarFcnSGSA::primitiveToConservativeDerivative(double *V, double *dV, double
 inline
 int VarFcnSGSA::verification(int glob, double *U, double *V)
 {
-//verification of pressure value
-//if pressure < pmin, set pressure to pmin
+//verification of density and pressure value
+//if pressure/density < pmin/rhomin, set pressure/density to pmin/rhomin
 //and rewrite V and U!!
-  if(V[4]<pmin){
-    V[4] = pmin;
-    U[4] = 0.5*V[0]*(V[1]*V[1]+V[2]*V[2]+V[3]*V[3])
-          +pmin/gam1;
-    return 1;
-  }
-  return 0;
+  int count = 0;
 
+  if(V[0]<rhomin){
+    if(verif_clipping)
+      fprintf(stderr,"clip density[%d] in gas(SA) from %e to %e\n", glob, V[0], rhomin);
+    V[0] = rhomin;
+    count++;
+  }
+
+  if(V[4]<pmin){
+    if (verif_clipping)
+      fprintf(stdout, "clip pressure[%d] in gas(SA) from %e to %e\n", glob, V[4], pmin);
+    V[4] = pmin;
+    count++;
+  }
+
+  if(count) //also modify U
+    primitiveToConservative(V,U);
+
+  return count;
 }
 //------------------------------------------------------------------------------
 inline

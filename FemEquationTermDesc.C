@@ -1,7 +1,7 @@
 #include <FemEquationTermDesc.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -10,6 +10,7 @@
 using std::max;
 using std::min;
 #endif
+
 //------------------------------------------------------------------------------
 //CHANGES_FOR_WATER
 // as the Stokes' law for gas does not apply anymore, we have to distinguish
@@ -875,12 +876,12 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
     double ood2wall2 = 1.0 / (d2wall * d2wall);
     double rho = 0.25 * (V[0][0] + V[1][0] + V[2][0] + V[3][0]);
     double oorho = 1.0 / rho;
-    double zz = ooreynolds_mu * oovkcst2 * mutilde * oorho * ood2wall2;
+    double zz = ooreynolds_mu * oovkcst2 * maxmutilde * oorho * ood2wall2;
     double s12 = dudxj[0][1] - dudxj[1][0];
     double s23 = dudxj[1][2] - dudxj[2][1];
     double s31 = dudxj[2][0] - dudxj[0][2];
     double s = sqrt(s12*s12 + s23*s23 + s31*s31);
-    double Stilde = max(s*fv3 + zz*fv2,1.0e-15); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
+    double Stilde = max(s*fv3 + zz*fv2,1.0e-12); // To avoid possible numerical problems, the term \tilde S must never be allowed to reach zero or go negative. 
     double rr = min(zz/Stilde, 2.0);
     double rr2 = rr*rr;
     double gg = rr + cw2 * (rr2*rr2*rr2 - rr);
@@ -902,6 +903,7 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
   }
 
   if(material_id>0) {
+
     map<int,PorousMedia *>::iterator it = volInfo.find(material_id);
     if(it!=  volInfo.end()) {     // if porous media with material_id has been defined in the input file
       porousmedia = true;
@@ -983,9 +985,8 @@ bool FemEquationTermSA::computeVolumeTerm(double dp1dxj[4][3], double d2w[4],
      kappa = ooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut);
      computeVolumeTermNS(mu, lambda, kappa, ucg, dudxj, dTdxj, R);
   }
-                                                                                                                                       
-  return (porousmedia);
 
+  return (porousmedia);
 }
 
 //------------------------------------------------------------------------------
@@ -1227,6 +1228,8 @@ bool FemEquationTermSA::computeDerivativeOfVolumeTerm(double dp1dxj[4][3], doubl
     dkappa = dooreynolds_mu * (thermalCondFcn->compute(Tcg) + alpha * mut) + ooreynolds_mu * (thermalCondFcn->computeDerivative(Tcg, dTcg, dMach) + alpha * dmut);
     computeDerivativeOfVolumeTermNS(mu, dmu, lambda, dlambda, kappa, dkappa, ucg, ducg, dudxj, ddudxj, dTdxj, ddTdxj, dR);
   }
+
+  return (porousmedia);
 
 }
 

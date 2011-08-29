@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 enable_language(Fortran)
 
+IF(USE_OPENMP)
+  FIND_PACKAGE(OpenMP REQUIRED)
+  if(OpenMP_FLAG_DETECTED)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_CXX_FLAGS}")
+    #add_definitions(-D_OPENMP)
+  endif(OpenMP_FLAG_DETECTED)
+ENDIF(USE_OPENMP)
+
 # Code to determine if we should add some link libraries
 IF("${CMAKE_Fortran_COMPILER_ID}" MATCHES GNU)
   EXEC_PROGRAM(${CMAKE_Fortran_COMPILER}
@@ -26,61 +36,78 @@ SET(EXTRALIB ${EXTRALIB} CACHE STRING "Extra link parameters")
 
 SET(CMAKE_DEBUG_POSTFIX "_debug")
 
-FIND_PACKAGE(BLAS)
+if(NOT LAPACK_FOUND)
+ FIND_PACKAGE(LAPACK)
+endif(NOT LAPACK_FOUND)
 IF(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES ${BLAS_LIBRARIES})
 ELSE(BLAS_LIBRARIES)
   SET(EXTRALIBRARIES "")
 ENDIF(BLAS_LIBRARIES)
-FIND_PACKAGE(LAPACK)
+IF(LAPACK_LIBRARIES)
+  SET(EXTRALIBRARIES ${LAPACK_LIBRARIES} ${EXTRALIBRARIES})
+ENDIF(LAPACK_LIBRARIES)
+
 FIND_PACKAGE(MPI)
 
 SET(TARGETS_INST fluid)
 
 IF(UNIX)
-#  MESSAGE(${CMAKE_SYSTEM_NAME})
+  MESSAGE("-- Building for system type: " ${CMAKE_SYSTEM_NAME} ".")
   IF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
 
-    FIND_LIBRARY(ARPACKLIB NAMES arpack 
-       PATHS  . /usr/lib /usr/local/lib)
+    IF(NOT WITH_ARPACK EQUAL 0)
+      FIND_LIBRARY(ARPACKLIB NAMES arpack 
+         PATHS  . /usr/lib /usr/local/lib)
+    ELSE(NOT WITH_ARPACK EQUAL 0)
+      SET(ARPACKLIB "ARPACKLIB-NOTFOUND")
+    ENDIF(NOT WITH_ARPACK EQUAL 0)
 
     SET(DO_MODAL 0)
     IF(ARPACKLIB AND LAPACK_FOUND)
-      MESSAGE("Found ARPACK:    " ${ARPACKLIB})
+      MESSAGE("-- ARPACK library " ${ARPACKLIB} " found.")
       add_definitions(-DDO_MODAL)
       SET(EXTRALIBRARIES 
-          ${ARPACKLIB} ${LAPACK_LIBRARIES}
+          ${ARPACKLIB}
           ${EXTRALIBRARIES})
       SET(DO_MODAL 1)
     ENDIF(ARPACKLIB AND LAPACK_FOUND)
 
     SET(CMAKE_FIND_LIBRARY_PREFIXES "lib" "")
-    FIND_LIBRARY(SCALAPACKLIB NAMES scalapack
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSLIB NAMES blacs
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
-    FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit
-                 PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    IF(NOT WITH_SCALAPACK EQUAL 0)
+      FIND_LIBRARY(SCALAPACKLIB NAMES scalapack scalapack-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    ELSE(NOT WITH_SCALAPACK EQUAL 0)
+      SET(SCALAPACKLIB "SCALAPACKLIB-NOTFOUND")
+    ENDIF(NOT WITH_SCALAPACK EQUAL 0)
+    IF(NOT WITH_BLACS EQUAL 0)
+      FIND_LIBRARY(BLACSLIB NAMES blacs blacs-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+      FIND_LIBRARY(BLACSCLIB NAMES blacsC blacsCinit-openmpi
+                   PATHS  . /usr/lib /usr/local/lib /home/hg/lib/SCALAPACK ${SCALAPACKDIR})
+    ELSE(NOT WITH_BLACS EQUAL 0)
+      SET(BLACSLIB "BLACSLIB-NOTFOUND")
+      SET(BLACSCLIB "BLACSCLIB-NOTFOUND")
+    ENDIF(NOT WITH_BLACS EQUAL 0)
 
     SET(USE_SCALAPACK 1)
-	  IF(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
-			MESSAGE("Found SCALAPACK: " ${SCALAPACKLIB})
-      MESSAGE("Found BLACS:     " ${BLACSLIB})
+    IF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
+      MESSAGE("-- SCALAPACK library " ${SCALAPACKLIB} " found.")
+      MESSAGE("-- BLACS library " ${BLACSLIB},${BLACSCLIB} " found.")    
 	    MESSAGE("Found LAPACK:     " ${LAPACK_LIBRARIES})
 	
 	    add_definitions(-DDO_SCALAPACK)
 	    SET(EXTRALIBRARIES
-			    ${SCALAPACKLIB} ${BLACSLIB} ${BLACSCLIB} ${LAPACK_LIBRARIES}
+          ${SCALAPACKLIB} ${BLACSCLIB} ${BLACSLIB} 
 		      ${EXTRALIBRARIES} ${BLACSLIB} ${BLACSCLIB})
 																	      
 		  SET(USE_SCALAPACK 1)
 		ELSE(USE_SCALAPACK AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
 			SET(USE_SCALAPACK 0)
-		ENDIF(USE_SCALAPACK	AND SCALAPACKLIB AND BLACSLIB AND LAPACK_FOUND)
+    ENDIF(SCALAPACKLIB AND BLACSLIB AND BLACSCLIB)
 
 	ENDIF(${CMAKE_SYSTEM_NAME} STREQUAL Linux)	
 ENDIF(UNIX)
-
 
 
 SET(BINDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -90,6 +117,7 @@ FIND_PROGRAM(MERCURIAL_EXECUTABLE hg)
 SET(MAIN_FILES Main.C)
 
 ADD_LIBRARY(FluidBase
+             FSI/CrackingSurface.cpp
              FSI/DynamicNodalTransfer.cpp
              LevelSet/FluidTypeCriterion.cpp
              NavierStokesSolver.C 
@@ -97,6 +125,8 @@ ADD_LIBRARY(FluidBase
              Solvers/NavierStokesCoupledSolver5.C
              Solvers/NavierStokesEmbedded5.C
              Solvers/NavierStokesEmbedded6.C
+             Solvers/NavierStokesEmbedded7.C
+             Solvers/NavierStokesMultiPhysicsEmbedded5.C
              Solvers/NavierStokesCoupledSolver6.C
              Solvers/NavierStokesCoupledSolver7.C
              Solvers/NavierStokesSegSolver651.C
@@ -125,7 +155,7 @@ ADD_LIBRARY(FluidBase
              GeoSource.C 
              GeoState.C 
              HeatTransferHandlerCore.C 
-						 ImplicitRiemann.C
+             ImplicitRiemann.C
              InletNodeCore.C 
              IoDataCore.C 
              KspConvCriterion.C 
@@ -137,6 +167,7 @@ ADD_LIBRARY(FluidBase
              ModalSolver.C 
              Node.C 
              PostFcn.C 
+             ProgrammedBurnCore.C
              RefVal.C 
              SmagorinskyLESTerm.C 
              WaleLESTerm.C 
@@ -157,8 +188,9 @@ ADD_LIBRARY(FluidBase
 	     BCond.C 
              BlockAlloc.C 
              TriangulatedSurface.C
-             FluidSelector.C
+             FluidSelectorCore.C
              OneDimensionalSolver.C
+	     Multigrid.C
             )
 
 ADD_LIBRARY(Utils utils/Predicate.C utils/Laguerre.C)
@@ -259,7 +291,7 @@ export(TARGETS FluidBase FILE ${CMAKE_CURRENT_BINARY_DIR}/base-exports.cmake)
 	
 IF(MERCURIAL_EXECUTABLE)
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C 
-                   COMMAND echo "const char *THE_VERSION = \\\""
+                   COMMAND echo "const char *THE_VERSION = \\\"" 
                    `${MERCURIAL_EXECUTABLE} identify -in` "\\\"" "\;" > ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C
                  DEPENDS Main.C FluidBase
                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -288,39 +320,92 @@ SET(INC_DIR .)
 ##############################
 # For the embedded framework #
 ##############################
-SET(INC_DIR_TMP ${INC_DIR} ./PhysBAM_Interface)
-FIND_PATH(PHYSBAM_BASE PHYSBAM_INTERFACE.h PATHS ${INC_DIR_TMP}) 
-FIND_LIBRARY(PhysBAM_Base_Lib NAMES physbam PATHS ${PHYSBAM_BASE})
-#MESSAGE("Found PHYSBAM_BASE at: " ${PHYSBAM_BASE})
-IF(PhysBAM_Base_Lib)
-  MESSAGE("-- Found PhysBAM_Base_Lib: " ${PhysBAM_Base_Lib})
-  SET (DO_EMBEDDED 1)
-ELSE(PhysBAM_Base_Lib)
-  MESSAGE("-- Looking for PhysBAM_Base_Lib: not found")
-  SET (DO_EMBEDDED 0)
-ENDIF(PhysBAM_Base_Lib)
+if (NOT WITH_PHYSBAM EQUAL 0)
 
-OPTION (DO_EMBEDDED "Use the Embedded Framework ? " ${DO_EMBEDDED})
+  FIND_PACKAGE(Boost 1.19.0 REQUIRED)
+  if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+  endif(Boost_FOUND)
 
-if (DO_EMBEDDED)
+  SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
+  INCLUDE_DIRECTORIES(${INC_DIR})
+
+  ADD_LIBRARY(physbam SHARED
+  PhysBAM_Interface/PHYSBAM_INTERFACE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Arrays/ARRAY_COLLECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Vectors/VECTOR.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/EXCEPTIONS.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/TIMER.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Utilities/PROCESS_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Read_Write/Utilities/FILE_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Data_Structures/KD_TREE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Parsing/STRING_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/DEBUG_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/LOG.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/LOG_ENTRY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Log/DEBUG_PRINT.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Nonlinear_Equations/ITERATIVE_SOLVER.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_BASE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_3X2.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_3X3.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_MXN.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/ROTATION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/SYMMETRIC_MATRIX_3X3.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Matrices/MATRIX_4X4.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Polynomials/CUBIC.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Random_Numbers/MT19937.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Tools/Random_Numbers/RANDOM_NUMBERS.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/ORIENTED_BOX.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/POLYGON.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/SEGMENT_2D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/SEGMENT_3D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/RAY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/PLANE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/BOX.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Basic_Geometry/TRIANGLE_3D.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Continuous_Collision_Detection/POINT_FACE_COLLISION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Continuous_Collision_Detection/EDGE_EDGE_COLLISION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Level_Sets/LEVELSET_UTILITIES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Spatial_Acceleration/BOX_HIERARCHY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Spatial_Acceleration/TRIANGLE_HIERARCHY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Geometry_Particles/GEOMETRY_PARTICLES.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_LINE_2D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_PLANE_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/BOX_POINT_SIMPLEX_1D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_PLANE_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_BOX_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_ORIENTED_BOX_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_SEGMENT_2D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Intersections/RAY_TRIANGLE_3D_INTERSECTION.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Implicit_Objects/IMPLICIT_OBJECT.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology_Based_Geometry/STRUCTURE.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Registry/STRUCTURE_REGISTRY.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/SIMPLEX_MESH.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/SEGMENT_MESH.cpp
+  PhysBAM_Interface/Public_Library/PhysBAM_Geometry/Topology/TRIANGLE_MESH.cpp
+  )
+  
+  SET_TARGET_PROPERTIES(physbam
+                PROPERTIES COMPILE_FLAGS "-fPIC -DCOMPILE_WITHOUT_READ_WRITE_SUPPORT -IPublic_Library")
+
   SET(INC_DIR_TMP . IntersectorFRG IntersectorPhysBAM LevelSet ${PHYSBAM_BASE} ${PHYSBAM_BASE}/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR_TMP})
 
-#same definitions as AERO-F main code
+  #same definitions as AERO-F main code
   add_definitions(-fPIC -DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
   add_library(Intersector SHARED
               IntersectorFRG/IntersectorFRG.C
               IntersectorPhysBAM/IntersectorPhysBAM.C
               IntersectorPhysBAM/FloodFill.C
               IntersectorPhysBAM/Mpi_Utilities.C)
-  TARGET_LINK_LIBRARIES(Intersector ${PhysBAM_Base_Lib})
+  TARGET_LINK_LIBRARIES(Intersector physbam)
 
-  MESSAGE("PHYSBAM_BASE: " ${PHYSBAM_BASE})
-  MESSAGE("PHYSBAM_BASE: " ${Intersector})
-
+  SET (DO_EMBEDDED 1)
   ADD_DEFINITIONS(-DDO_EMBEDDED)
   SET (EXTRALIBRARIES ${EXTRALIBRARIES} Intersector)
-ENDIF (DO_EMBEDDED)
+ELSE (NOT WITH_PHYSBAM EQUAL 0)
+  SET (DO_EMBEDDED 0)
+ENDIF (NOT WITH_PHYSBAM EQUAL 0)
 ##############################
 
 ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
@@ -328,7 +413,7 @@ ADD_EXECUTABLE(fluid ${MAIN_FILES} ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
 SET_TARGET_PROPERTIES(FluidBase
                 PROPERTIES COMPILE_FLAGS -fPIC)
 
-ADD_LIBRARY(Fortran 
+ADD_LIBRARY(FortranLib 
 f77src/ballvertex.f
 f77src/boundflux5.f
 f77src/boundjac2.f
@@ -344,6 +429,8 @@ f77src/g_roeflux5.f
 f77src/g_roeflux6.f
 f77src/roeflux5jwl.f
 f77src/hllcflux.f
+f77src/hllcflux1.f
+f77src/hllcjac.f
 f77src/hlleflux.f
 f77src/hlleflux1.f
 f77src/hllejac.f
@@ -363,23 +450,27 @@ f77src/torsionspring.f
 f77src/dgecp.f
 f77src/dgers.f)
 
-SET_TARGET_PROPERTIES(Fortran
-                PROPERTIES COMPILE_FLAGS -fPIC)
+SET_TARGET_PROPERTIES(FortranLib
+                      PROPERTIES
+                      COMPILE_FLAGS -fPIC
+                      RELEASE_OUTPUT_NAME Fortran
+                      DEBUG_OUTPUT_NAME Fortran)
 
 IF (USE_SCALAPACK)
-	ADD_LIBRARY(FortranScalapack
-		 f77src/thinsvd.f
-		 f77src/lworksizesvd.f
-		 f77src/globalmatrices.f)
-SET_TARGET_PROPERTIES(FortranScalapack
-                PROPERTIES COMPILE_FLAGS -fPIC)
+  ADD_LIBRARY(FortranScalapackLib
+              f77src/thinsvd.f
+              f77src/lworksizesvd.f
+              f77src/globalmatrices.f)
+  SET_TARGET_PROPERTIES(FortranScalapackLib
+                        PROPERTIES
+                        COMPILE_FLAGS -fPIC
+                        RELEASE_OUTPUT_NAME FortranScalapack
+                        DEBUG_OUTPUT_NAME FortranScalapack)
 ENDIF(USE_SCALAPACK)
 
-#SET_TARGET_PROPERTIES(FortranScalapack
-#                PROPERTIES COMPILE_FLAGS -fPIC)
 
 IF(MPI_FOUND)
-  MESSAGE("Will compile with MPI at: " ${MPI_INCLUDE_PATH})
+  MESSAGE("-- Will compile with MPI API " ${MPI_INCLUDE_PATH} ".")
   SET(INC_DIR ${INC_DIR} ${MPI_INCLUDE_PATH})
   add_definitions(-DUSE_MPI -DMPICH_IGNORE_CXX_SEEK)
   
@@ -387,7 +478,7 @@ IF(MPI_FOUND)
     ADD_LIBRARY(fluidlib SHARED Main.C ${CMAKE_CURRENT_BINARY_DIR}/hgidentity.C)
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES COMPILE_FLAGS -DCREATE_DSO)
-    TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser Fortran Utils 
+    TARGET_LINK_LIBRARIES(fluidlib FluidBase Parser FortranLib Utils 
                           ${EXTRALIBRARIES} ${FORTRAN_HYBRID_LIBRARIES})
     SET_TARGET_PROPERTIES(fluidlib 
                           PROPERTIES 
@@ -400,13 +491,13 @@ IF(MPI_FOUND)
   ENDIF(NOT USE_SCALAPACK)
 
 ELSE(MPI_FOUND)
-  MESSAGE("Only a non-MPI based executable will be compiled")
+  MESSAGE("-- Only a non-MPI based executable will be compiled.")
   SET(MPI_LIBRARIES "")
 ENDIF(MPI_FOUND)
 
 # SET(CMAKE_VERBOSE_MAKEFILE true)
 
-MESSAGE("All include dirs" ${INC_DIR})
+#MESSAGE("All include dirs" ${INC_DIR})
 INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 #add_subdirectory(parser)
@@ -417,11 +508,11 @@ INCLUDE_DIRECTORIES( ${INC_DIR} )
 
 add_definitions(-DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
 
-IF (USE_SCALAPACK)
-  TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran FortranScalapack Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
-ELSE(USE_SCALAPACK)
-  TARGET_LINK_LIBRARIES(fluid FluidBase Parser Fortran Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
-ENDIF(USE_SCALAPACK)
+IF(NOT USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ELSE(NOT USE_SCALAPACK)
+  TARGET_LINK_LIBRARIES(fluid FluidBase Parser FortranLib FortranScalapackLib Utils ${EXTRALIBRARIES} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS} -lpthread)
+ENDIF(NOT USE_SCALAPACK)
 
 SET_TARGET_PROPERTIES(fluid PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${BINDIR}
 	RELEASE_OUTPUT_NAME aerof.opt DEBUG_OUTPUT_NAME aerof.debug)

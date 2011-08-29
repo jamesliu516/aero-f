@@ -42,7 +42,7 @@ public:
   virtual ~MeshMotionHandler() {}
 
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) = 0;
-  virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;} 
+  virtual double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0) {return 0.0;} 
   virtual double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &) {return 0.0;}
 
   template<int dim>
@@ -107,7 +107,7 @@ public:
   ~AccMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -156,7 +156,7 @@ public:
   int getModalMotion(DistSVec<double,3> &);
 
   virtual double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   int getAlgNum(); 
 
@@ -174,7 +174,7 @@ public:
   ~AccAeroMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * =0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -196,7 +196,7 @@ public:
   ~DeformingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -229,7 +229,7 @@ public:
   ~PitchingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -255,7 +255,7 @@ public:
   ~HeavingMeshMotionHandler();
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
   DistSVec<double,3> getModes();
@@ -275,7 +275,7 @@ public:
   ~AccForcedMeshMotionHandler() {}
 
   double update(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
 
 };
@@ -316,13 +316,13 @@ class EmbeddedMeshMotionHandler : public MeshMotionHandler {  //<! For embedded 
 protected:
 
   double dts;            //<! structure time-step.
-  Vec3D *structX0;       //<! initial position of structure nodes.
-  Vec3D *structXn;       //<! position of struct nodes at t^n.
-  Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
-  Vec3D *structVel;      //<! velocity of struct nodes.
+  //Vec3D *structX0;       //<! initial position of structure nodes.
+  //Vec3D *structXn;       //<! position of struct nodes at t^n.
+  //Vec3D *structXnPlus1;  //<! position of struct nodes at t^{n+1}.
+  //Vec3D *structVel;      //<! velocity of struct nodes.
 
   int it0;            //<! restart timestep
-  int structVelocity; //<! 0: use the velocity received by structure;  1: compute by finite-difference.
+  //int structVelocity; //<! 0: use the velocity received by structure;  1: compute by finite-difference.
   
   DynamicNodalTransfer *dynNodalTransfer; 
   DistLevelSetStructure *distLSS; //<! interface finder (not necessarily a levelset solver).
@@ -334,13 +334,15 @@ public:
 
   void setup(double *);
   double update(bool *lastIt, int it, double t, DistSVec<double,3> &Xdot, DistSVec<double,3> &X) {return dts;}
-  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); //<! just get dt.
+  double updateStep1(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &, double * = 0); 
   void step1ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step1ForC0FEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   void step1ForC0XFEM(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
+  void step1ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &);
   double updateStep2(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForA6(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   void step2ForC0(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
+  void step2ForC0XFEM3D(bool *, int, double, DistSVec<double,3> &, DistSVec<double,3> &); 
   /** get displacement and pass it to distLSS.  send force to structure. */
 
   int getAlgNum()  { return 0; }

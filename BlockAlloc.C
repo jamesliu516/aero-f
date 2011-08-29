@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <BlockAlloc.h>
+#include <cstdlib>
 
 void *
 BlockAlloc::getMem(size_t nbyte)
@@ -28,5 +29,11 @@ BlockAlloc::~BlockAlloc()
 void * operator new(size_t nbyte, BlockAlloc &block)
 {
  return block.getMem(nbyte);
+}
+
+void operator delete(void *p, BlockAlloc &block)
+{
+  // this is only used for exception unwinding
+  free(p);
 }
 

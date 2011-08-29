@@ -19,7 +19,7 @@
 #ifndef ARLSSYM_H
 #define ARLSSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arssym.h"
 #include "arlsmat.h"

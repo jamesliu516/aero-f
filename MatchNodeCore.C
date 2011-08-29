@@ -13,8 +13,14 @@ MatchNodeSet::MatchNodeSet(int value)
   // index[][1] -> global match number
   // index[][2] -> position in the MPI buffer
 
-  index = new int[value][3];
-  gap = new double[value][3];
+  if (value > 0) {
+    index = new int[value][3];
+    gap = new double[value][3];
+  } else {
+    index = 0;
+    gap = 0;
+  }
+  totalSize = numNodes;
 
 }
 
@@ -76,6 +82,7 @@ void MatchNodeSet::autoInit(int nNodes)
   numNodes = nNodes;
   index = new int[numNodes][3];
   gap = new double[numNodes][3];
+  totalSize = numNodes; //nNodes may change in a "cracking" simulation. But totalSize should never change!
 
   for(int i=0; i<numNodes; i++) {
     index[i][0] = index[i][1] = i;
@@ -94,8 +101,8 @@ MatchNodeSet::MatchNodeSet(const char *name) {
   }
 
   char line[MAXLINE];
-  fgets(line, MAXLINE, fp);
-  fgets(line, MAXLINE, fp);
+  char *toto = fgets(line, MAXLINE, fp);
+  toto = fgets(line, MAXLINE, fp);
   sscanf(line, "%*s %d", &numNodes);
 
   index = new int[numNodes][3];
@@ -104,7 +111,7 @@ MatchNodeSet::MatchNodeSet(const char *name) {
   // read match points
   int i;
   for (i = 0; i < numNodes; i++) {
-    fgets(line, MAXLINE, fp);
+    toto = fgets(line, MAXLINE, fp);
     sscanf(line, "%d", index[i]);
     index[i][0]--;
     index[i][1] = index[i][0];
@@ -166,6 +173,7 @@ void MatchNodeSet::getDisplacement(int algNum, double dt, double lscale, double 
 
   norms[0] = 0.0;
   norms[1] = 0.0;
+
   for (int i=0; i<numNodes; ++i) {
     for (int k=0; k<3; ++k) {
       if (flag==0||flag[ index[i][0] ]) {

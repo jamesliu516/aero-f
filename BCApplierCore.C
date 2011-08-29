@@ -89,7 +89,7 @@ BCApplier::print()
     if(iCPU==com->cpuNum()) {
       for (int iSub = 0; iSub < numLocSub; ++iSub) {
         if(proj[iSub].size()) { fprintf(stderr," ... BCApplier of subd %4d contains %5d projections\n.",
-                                subD[iSub]->getGlobSubNum(),proj[iSub].size()); fflush(stderr); }
+                                subD[iSub]->getGlobSubNum(),int(proj[iSub].size())); fflush(stderr); }
       }
     }
     com->sync();

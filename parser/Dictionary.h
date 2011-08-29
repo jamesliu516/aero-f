@@ -3,7 +3,7 @@
 
 #ifdef OLD_STL
 #include <map.h>
-#include <string.h>
+#include <cstring>
 #else
 #include <map>
 #include <string>

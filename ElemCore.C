@@ -7,9 +7,9 @@
 #include <BinFileHandler.h>
 #include <IoData.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
 #include <map>
 using std::map;
 
@@ -103,7 +103,6 @@ ElemSet::ElemSet(int value)
 	numSampledElems = value;
   elems = new Elem*[value];
 	sampleMesh = false;
-
 }
 
 //------------------------------------------------------------------------------
@@ -199,7 +198,6 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
 
 }
 
-//------------------------------------------------------------------------------
 
 void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes) 
 {

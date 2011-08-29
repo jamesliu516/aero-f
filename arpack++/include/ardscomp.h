@@ -18,7 +18,7 @@
 #ifndef ARDSCOMP_H
 #define ARDSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arscomp.h"
 #include "ardnsmat.h"

@@ -122,7 +122,7 @@ public:
   virtual void computeScalarQuantity(PostFcn::ScalarType, ElemSet &, PostFcn *, SVec<double,3> &, 
 				     Vec<double> &, double *, SVec<double,dim> &, SVec<double,2> &) = 0;
   virtual void computeGalerkinTerm(ElemSet &, FemEquationTerm *, SVec<double,3> &, 
-				   Vec<double> &, double *, SVec<double,dim> &, SVec<double,dim> &) = 0;
+				   Vec<double> &, double *, SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0) = 0;
   virtual void computeForceDerivs(ElemSet &, VarFcn *, SVec<double,3> &, 
 				  SVec<double,dim> &,SVec<double,dim> &, 
 				  Vec<double> &, SVec<double,3> **) = 0;
@@ -246,8 +246,8 @@ public:
 
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, double *Vwall,
-			   SVec<double,dim> &V, SVec<double,dim> &R) {
-    t->computeGalerkinTerm(elems, fet, X, d2wall, Vwall, V, R);
+			   SVec<double,dim> &V, SVec<double,dim> &R,LevelSetStructure *LSS=0) {
+    t->computeGalerkinTerm(elems, fet, X, d2wall, Vwall, V, R, LSS);
   }
   
   void computeForceDerivs(ElemSet &elems, VarFcn *varFcn, SVec<double,3> &X, 
@@ -602,17 +602,8 @@ public:
   void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
 			       Vec<double> &normalVel, SVec<double,dim> &V,
 			       double *Ub, Vec<int> &fluidId, 
-			       SVec<double,dim> &fluxes, SVec<double,dim> *bcFlux);
-
-  template<int dim>
-  void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
-                               Vec<double> &normalVel, LevelSetStructure &LSS, SVec<double,dim> &V,
-                               double *Ub, SVec<double,dim> &fluxes);
-
-  template<int dim>
-  void computeFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
-			       Vec<double> &normalVel, LevelSetStructure &LSS, SVec<double,dim> &V,
-			       double *Ub, SVec<double,dim> &fluxes, Vec<int> &fluidId);
+			       SVec<double,dim> &fluxes,
+                               LevelSetStructure* = 0);
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -632,7 +623,8 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal, 
 				       Vec<double> &normalVel, SVec<double,dim> &V, 
-				       double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId);
+				       double *Ub, GenMat<Scalar,neq> &A, Vec<int> &fluidId,
+                                       LevelSetStructure* LSS);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **fluxFcn, Vec<Vec3D> &normal,
@@ -648,12 +640,12 @@ public:
   template<int dim>
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, double *Vwall,
-			   SVec<double,dim> &V, SVec<double,dim> &R) {
+			   SVec<double,dim> &V, SVec<double,dim> &R, LevelSetStructure *LSS=0) {
     FaceHelper_dim<dim> h;
     char xx[64];
     GenFaceWrapper_dim<dim> *wrapper=
       (GenFaceWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
-    wrapper->computeGalerkinTerm(elems, fet, X, d2wall, Vwall, V, R);
+    wrapper->computeGalerkinTerm(elems, fet, X, d2wall, Vwall, V, R, LSS);
   }
   
   template<int dim, class Scalar, int neq>
@@ -877,7 +869,7 @@ public:
   template<int dim>
   void computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, SVec<double,3> &X, 
 			   Vec<double> &d2wall, double *Vwall,
-			   SVec<double,dim> &V, SVec<double,dim> &R) {
+			   SVec<double,dim> &V, SVec<double,dim> &R, LevelSetStructure *LSS=0) {
     fprintf(stderr, "Error: undefined function for this face type\n"); exit(1);
   }
   
@@ -1004,15 +996,7 @@ public:
   template<int dim>
   void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 			       SVec<double,dim> &, Vec<int> &, 
-                               SVec<double,dim> &, SVec<double,dim> *);
-
-  template<int dim>
-  void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &, 
-			       SVec<double,dim> &, SVec<double,dim> &);
-
-  template<int dim>
-  void computeFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, LevelSetStructure &,
-			       Vec<int> &, SVec<double,dim> &, SVec<double,dim> &);
+                               SVec<double,dim> &, LevelSetStructure* =0);
 
   template<int dim, int dimLS>
   void computeFiniteVolumeTermLS(FluxFcn **, BcData<dim> &, GeoState &, 
@@ -1034,7 +1018,7 @@ public:
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &, 
 				       SVec<double,dim> &, GenMat<Scalar,neq> &,
-                                       Vec<int> &);
+                                       Vec<int> &,LevelSetStructure* = 0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianFiniteVolumeTerm(FluxFcn **, BcData<dim> &, GeoState &,
@@ -1047,7 +1031,7 @@ public:
 
   template<int dim>
   void computeGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, GeoState &, 
-			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &);
+			   SVec<double,3> &, SVec<double,dim> &, SVec<double,dim> &, LevelSetStructure *LSS=0);
 
   template<int dim, class Scalar, int neq>
   void computeJacobianGalerkinTerm(ElemSet &, FemEquationTerm *, BcData<dim> &, 

@@ -5,10 +5,10 @@
 #include <DistVector.h>
 #include <Vector3D.h>
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 #include <alloca.h>
-#include <assert.h>
+#include <cassert>
 
 //------------------------------------------------------------------------------
 
@@ -592,12 +592,13 @@ template<int dim, class Scalar>
 template<class Scalar2>
 void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
                                  DistVec<double> &ctrlVol, DistVec<int> &fluidId,
-                                 DistSVec<Scalar2, dim> &V, bool linFSI)
+                                 DistSVec<Scalar2, dim> &V, bool linFSI,
+                                 DistLevelSetStructure *distLSS)
 {
   assert(typeGradient == SchemeData::LEAST_SQUARES);
 
-  domain->computeWeightsLeastSquares(X, fluidId, *R);
-  domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI);
+  domain->computeWeightsLeastSquares(X, fluidId, *R, distLSS);
+  domain->computeGradientsLeastSquares(X, fluidId, *R, V, *ddx, *ddy, *ddz, linFSI, distLSS);
 
 }
 

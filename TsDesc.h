@@ -55,6 +55,7 @@ protected:
   TsData::Clipping clippingType;
   BcsWallData::Integration wallType;
   BcsWallData::Reconstruction wallRecType;
+  TsData::TimeStepCalculation timeStepCalculation;
 
 //  TsParameters *data;
   TsInput *input;
@@ -68,6 +69,7 @@ protected:
   RefVal *refVal;
   VarFcn *varFcn;
 
+  DistVec<int> fluidIdDummy;
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;
   DistGeoState *geoState;
@@ -90,6 +92,8 @@ protected:
 
   double forceNorm;
   double *forceNorms;
+
+  bool failSafeFlag;
 
 protected:
 
@@ -119,7 +123,9 @@ public:
   void interpolatePositionVector(double, double);
   void computeMeshMetrics(int it = -1);
   virtual void updateStateVectors(DistSVec<double,dim> &, int = 0);
-  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &);
+  bool checkForLastIteration(int, double, double, DistSVec<double,dim> &); //KW: not used?
+
+  void setFailSafe(bool flag){ failSafeFlag = flag; }
 
 // Modified (MB)
   bool checkForLastIteration(IoData &, int, double, double, DistSVec<double,dim> &);
@@ -151,10 +157,12 @@ public:
 // Included (MB)
   virtual void fixSolution(DistSVec<double,dim> &, DistSVec<double,dim> &);
 
-  void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
+  virtual void setCurrentTime(double t,DistSVec<double,dim>& U) { }
 
   virtual void writeBinaryVectorsToDiskRom(bool, int, double, DistSVec<double,dim> *, DistSVec<double,dim> *, VecSet<DistSVec<double,dim> > *);
+  void updateGhostFluid(DistSVec<double,dim> &, Vec3D&, double);
 
+  void printNodalDebug(int globNodeId, int identifier, DistSVec<double,dim> *U, DistVec<int> *Id=0, DistVec<int> *Id0=0);
 };
 
 //------------------------------------------------------------------------------

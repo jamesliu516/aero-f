@@ -18,7 +18,7 @@
 #ifndef ARUGNSYM_H
 #define ARUGNSYM_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arunsmat.h"
 #include "arunspen.h"

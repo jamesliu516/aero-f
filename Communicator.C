@@ -459,6 +459,7 @@ namespace Communication {
 #else
     data = s;
 #endif
+    length = size;
   }
 
   template <typename Scalar>

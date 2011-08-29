@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <alloca.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -635,7 +635,7 @@ double Timer::addLocalComTime(double t0)
 
   double t = getTime() - t0;
 
-  //counter[localCom]++;
+  counter[localCom]++;
   data[localCom] += t; 
 
   return t;
@@ -649,7 +649,7 @@ double Timer::addGlobalComTime(double t0)
 
   double t = getTime() - t0;
 
-  //counter[globalCom]++;
+  counter[globalCom]++;
   data[globalCom] += t; 
 
   return t;

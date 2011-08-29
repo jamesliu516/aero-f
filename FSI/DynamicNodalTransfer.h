@@ -12,16 +12,15 @@
 #include <DistInfo.h>
 #include <Timer.h>
 #include <map>
-#include <string.h>
+#include <cstring>
 
 using std::pair;
 
 class IoData;
 class StructExc;
+class CrackingSurface;
+class MatchNodeSet;
 
-/** Class to temporarily play the role of a structure codes.
- *
- */
 class EmbeddedStructure {
   friend class DynamicNodalTransfer;
 
@@ -50,27 +49,42 @@ class EmbeddedStructure {
   double t0; // starting time.
   int it;
 
-  int nNodes;
-  int nElems; //activated only if the mesh is provided by FEM
-  double (*X)[3]; //original node coordinates
+  int nNodes, totalNodes;
+  int nElems, totalElems;
+  int elemType;
+  CrackingSurface *cracking; //activated only if cracking is considered in the structure code.
+
+  //NOTE: the following variables should be dimensional!
+  double (*X0)[3]; //original node coordinates
+  double (*X)[3];  //updated node coordinates
   int    (*Tria)[3]; //mesh topology (activated only if the mesh is provided by FEM)
   double (*U)[3]; //displacement
   double (*Udot)[3]; //velocity
-  double (*UandUdot)[3]; //displacement and velocity (TODO: this is redundant)
+  double (*XandUdot)[3]; //displacement and velocity (TODO: this is redundant)
+  double dt_tmax[2];
   double (*F)[3]; //force (received from fluid).
   std::map<int,int> pairing;
 
   DistInfo *di;
+  MatchNodeSet **mns;
   
+  void splitQuads(int*,int); //utility function which split quads into triangles
+  void getInitialCrack();
+  int getNewCracking();
+  void getNewCracking(int,int,int);
+  void clearForceVector(); 
+  pair<double*, int> getTargetData();
+
 public:
   EmbeddedStructure(IoData& iod, Communicator &fc, Communicator &sc, Timer *tim);
   ~EmbeddedStructure();
 
   int getAlgorithmNumber() {return algNum;}
   int numStructNodes() {return nNodes;}
-  pair<double*, int> getTargetData();
   void sendTimeStep(Communication::Window<double> *window);
   void sendMaxTime(Communication::Window<double> *window);
+  void sendInfo(Communication::Window<double> *window);
+  void sendInitialPosition(Communication::Window<double> *window);
   void sendDisplacement(Communication::Window<double> *window);
   void processReceivedForce();
 
@@ -93,9 +107,11 @@ class DynamicNodalTransfer {
         Timer *timer;
         EmbeddedStructure structure;
 
+        Communication::Window<double> *wintime;
         Communication::Window<double> *winForce;
         Communication::Window<double> *winDisp;
-        double *UandUdot;
+        double *XandUdot; //non-dimensionalized
+        double *dt_tmax;
 
         SVec<double,3> F; //TODO: need to be resit by resetOutputToStructure
         double dts;
@@ -108,8 +124,12 @@ public:
 
 	/** routine to send the force to the structure. On output, f has been dimensionalized. */
 	void sendForce();
+        /** routine to receive the new time step and final time from structure. */
+        void updateInfo();
+        /** routine to receive the new cracking of the structure.*/
+	int getNewCracking();
         /** routine to receive the displacement of the structure.*/
-	void getDisplacement(SVec<double,3>& structU, SVec<double,3>& structUdot);
+	void getDisplacement();
 
         double getStructureTimeStep() {return dts;}
         double getStructureMaxTime() {return tMax;}
@@ -118,8 +138,15 @@ public:
         bool embeddedMeshByFEM() {return structure.embeddedMeshByFEM();}
         int  numStNodes() {return structure.nNodes;}
         int  numStElems() {return structure.nElems;}
-        double (*getStNodes())[3] {return structure.X;}
+        int  totStNodes() {return structure.totalNodes;}
+        int  totStElems() {return structure.totalElems;}
+        bool cracking()   {return (structure.cracking) ? true : false;}
+        double *getStNodes() {return XandUdot;}
+        double *getStVelocity() {return XandUdot+structure.nNodes*3;}
         int    (*getStElems())[3] {return structure.Tria;}
+        
+        CrackingSurface* getCrackingSurface() {return structure.cracking;}
+
 //        void getEmbeddedMesh(int &n1, double (**xyz)[3], int &n2, int (**abc)[3]) {
 //          structure.getEmbeddedMesh(n1,xyz,n2,abc); 
 //          fprintf(stderr,"DY %d %e %e %e\n", 2, xyz[1][0], xyz[1][1], xyz[1][2]);

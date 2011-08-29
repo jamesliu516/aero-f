@@ -194,7 +194,7 @@ Compute_Intervals(int& intervals,INTERVAL<T>& interval1,INTERVAL<T>& interval2,I
         case 6:
             {QUADRATIC<T> quadratic(3*c3,2*c2,c1);
             quadratic.Compute_Roots_In_Interval(0,1); // quadratic roots are the extrema of the cubic
-            if(quadratic.roots!=1){LOG::cout << "2/6 more than one root" << std::endl;return;}
+            if(quadratic.roots!=1){/*LOG::cout << "2/6 more than one root" << std::endl;*/return;}
             if((Value(quadratic.root1)>=0)==(g0>=0)) intervals=0;
             else{
                 intervals=2;
@@ -205,7 +205,7 @@ Compute_Intervals(int& intervals,INTERVAL<T>& interval1,INTERVAL<T>& interval2,I
         case 7:
             {QUADRATIC<T> quadratic(3*c3,2*c2,c1);
             quadratic.Compute_Roots_In_Interval(0,1); // quadratic roots are the extrema of the cubic
-            if(quadratic.roots!=1){LOG::cout << "3/7 more than one root" << std::endl;return;}
+            if(quadratic.roots!=1){/*LOG::cout << "3/7 more than one root" << std::endl;*/return;}
             intervals=1;
             if((Value(quadratic.root1)>=0)==(g0>=0)) interval1=INTERVAL<T>(quadratic.root1,1);
             else interval1=INTERVAL<T>(0,quadratic.root1);
@@ -216,7 +216,7 @@ Compute_Intervals(int& intervals,INTERVAL<T>& interval1,INTERVAL<T>& interval2,I
             if((quadratic(inflection_point)>=0)==(g1>=0)) intervals=0;
             else{
                 quadratic.Compute_Roots_In_Interval(0,1); // quadratic roots are the extrema of the cubic
-                if(quadratic.roots!=2){LOG::cout << "4 should be two roots" << std::endl;return;}
+                if(quadratic.roots!=2){/*LOG::cout << "4 should be two roots" << std::endl;*/return;}
                 else if((Value(quadratic.root2)>=0)!=(h0>=0)){
                     intervals=2;
                     interval1=INTERVAL<T>(quadratic.root1,quadratic.root2);

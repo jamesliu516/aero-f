@@ -1,13 +1,14 @@
 #include <EmbeddedTsDesc.h>
 #include <DistExactRiemannSolver.h>
 #include <FSI/DynamicNodalTransfer.h>
+#include <FSI/CrackingSurface.h>
 
 #ifdef DO_EMBEDDED
 #include <IntersectorFRG/IntersectorFRG.h>
 #include <IntersectorPhysBAM/IntersectorPhysBAM.h>
 #endif
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -15,7 +16,6 @@
 #include <algorithm>
 using std::min;
 #endif
-
 
 #ifdef TYPE_MAT
 #define MatScalar TYPE_MAT
@@ -36,23 +36,37 @@ template<int dim>
 EmbeddedTsDesc<dim>::
 EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), nodeTag(this->getVecInfo()), nodeTag0(this->getVecInfo()),
-  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase)
+  Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase), Wtemp(this->getVecInfo())
 {
 
   simType         = (ioData.problem.type[ProblemData::UNSTEADY]) ? 1 : 0;
   orderOfAccuracy = (ioData.schemes.ns.reconstruction == SchemeData::CONSTANT) ? 1 : 2;
 
   this->postOp->setForceGenerator(this);
-  if (numFluid==1) this->com->fprintf(stderr,"-------- EMBEDDED FLUID-STRUCTURE SIMULATION --------\n");
-  if (numFluid>=2) this->com->fprintf(stderr,"-------- EMBEDDED MULTI FLUID-STRUCTURE SIMULATION --------\n");
 
   phaseChangeChoice  = (ioData.embed.eosChange==EmbeddedFramework::RIEMANN_SOLUTION) ? 1 : 0;
   forceApp           = (ioData.embed.forceAlg==EmbeddedFramework::RECONSTRUCTED_SURFACE) ? 3 : 1;
+
+
+  // Debug - To be deleted
+  std::ifstream forceCalculationType("forceCalculationType.txt");
+  if(forceCalculationType) {
+    int newVersion;
+    forceCalculationType>>newVersion;
+    if(newVersion) forceApp++;
+  }
+//  this->com->fprintf(stderr,"*************************************** ForceApproach: %d *************************************\n",forceApp);
+
+
   linRecAtInterface  = (ioData.embed.reconstruct==EmbeddedFramework::LINEAR) ? true : false;
   if (ioData.embed.riemannNormal!=EmbeddedFramework::AUTO)
     riemannNormal = (int)ioData.embed.riemannNormal;
-  else //auto
-    riemannNormal = simType ? 1 : 0;
+  else {//auto
+    if(ioData.problem.type[ProblemData::UNSTEADY] && !ioData.problem.type[ProblemData::FORCED])
+      riemannNormal = 1;
+    else //steady or forced
+      riemannNormal = 0;
+  }
       
   if(orderOfAccuracy==1) //first-order everywhere...
     linRecAtInterface = false; 
@@ -66,9 +80,12 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   VWeights = 0;
 
 //------------- For Fluid-Structure Interaction ---------------
+  withCracking = false;
   if(ioData.problem.type[ProblemData::FORCED] || ioData.problem.type[ProblemData::AERO]) {
     dynNodalTransfer = new DynamicNodalTransfer(ioData, *this->domain->getCommunicator(), *this->domain->getStrCommunicator(),
                                                 this->domain->getTimer());
+    withCracking = dynNodalTransfer->cracking(); 
+
     //for updating phase change
     Weights  = new DistVec<double>(this->getVecInfo());
     VWeights = new DistSVec<double,dim>(this->getVecInfo());
@@ -80,24 +97,37 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   switch (ioData.embed.intersectorName) {
     case EmbeddedFramework::FRG :
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
-        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+
+        if(withCracking) {
+          this->com->fprintf(stderr,"ERROR: IntersectorFRG is not capable of handling cracking structures!\n");
+          this->com->fprintf(stderr,"       Try IntersectorPhysBAM instead!\n");
+          exit(-1);
+        }
+
+        double *xyz = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
         distLSS = new DistIntersectorFRG(ioData, this->com, nNodes, xyz, nElems, abc);
       } else
         distLSS = new DistIntersectorFRG(ioData, this->com);
       break;
+
     case EmbeddedFramework::PHYSBAM : 
-//      this->com->fprintf(stderr,"Doing Embedded Framework PhysBAM\n");
       if(dynNodalTransfer && dynNodalTransfer->embeddedMeshByFEM()) {
-        this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
+        //this->com->fprintf(stderr,"Using dynamic nodal transfer to get embedded surface data.\n");
         int nNodes = dynNodalTransfer->numStNodes();
         int nElems = dynNodalTransfer->numStElems();
-        double (*xyz)[3] = dynNodalTransfer->getStNodes();
+        double *xyz = dynNodalTransfer->getStNodes();
         int (*abc)[3] = dynNodalTransfer->getStElems();
-        distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+
+        if(withCracking) {
+          this->com->fprintf(stderr,"Note: Topology change of the embedded surface will be considered...\n"); 
+          distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc, dynNodalTransfer->getCrackingSurface());
+        } else
+          distLSS = new DistIntersectorPhysBAM(ioData, this->com, nNodes, xyz, nElems, abc);
+
       } else
         distLSS = new DistIntersectorPhysBAM(ioData, this->com);
       break;
@@ -116,6 +146,33 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   *Wstarij = 0.0;
   *Wstarji = 0.0;
 
+  //copies for fail safe
+  WstarijCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  WstarjiCopy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+  *WstarijCopy = 0.0;
+  *WstarjiCopy = 0.0;
+
+
+
+  if (this->timeState->useNm1()) {
+    Wstarij_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1 = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1 = 0.0;
+    *Wstarji_nm1 = 0.0;
+
+    Wstarij_nm1Copy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    Wstarji_nm1Copy = new DistSVec<double,dim>(this->domain->getEdgeDistInfo());
+    *Wstarij_nm1Copy = 0.0;
+    *Wstarji_nm1Copy = 0.0;
+  } else {
+    Wstarij_nm1 = 0;
+    Wstarji_nm1 = 0;
+
+    Wstarij_nm1Copy = 0;
+    Wstarji_nm1Copy = 0;
+  }
+  UCopy = new DistSVec<double,dim>(this->domain->getNodeDistInfo());
+
   //cell-averaged structure normals
   if(riemannNormal==2) {
     Nsbar        = new DistSVec<double,3>(this->domain->getNodeDistInfo());
@@ -127,9 +184,15 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   nodeTag0 = 0;
   nodeTag = 0;
 
+ nodeTagCopy = new DistVec<int>(this->getVecInfo());
+ *nodeTagCopy = 0;
+ nodeTag0Copy = new DistVec<int>(this->getVecInfo());
+ *nodeTag0Copy = 0;
+
+
   //only for IncreasePressure
-  Prate = ioData.mf.Prate;
-  Pinit = ioData.mf.Pinit;
+  Prate = ioData.implosion.Prate;
+  Pinit = ioData.implosion.Pinit;
   Pscale = ioData.ref.rv.pressure;
   tmax = (ioData.bc.inlet.pressure - Pinit)/Prate;
 
@@ -142,13 +205,14 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
     vfar[i] =Vin[i];
 
 //------ load structure mesh information ----------------------
-  numStructNodes = 0;
   Fs = 0;
   numStructNodes = distLSS->getNumStructNodes();
+  totStructNodes = dynNodalTransfer ? dynNodalTransfer->totStNodes() : numStructNodes;
+
   if (numStructNodes>0) {
-    this->com->fprintf(stderr,"# of struct nodes: %d.\n", numStructNodes);
+    this->com->fprintf(stderr,"- Embedded Structure Surface: %d (%d) nodes\n", numStructNodes, totStructNodes);
     // We allocate Fs from memory that allows fast one-sided MPI communication
-    Fs = new (*this->com) double[numStructNodes][3];
+    Fs = new (*this->com) double[totStructNodes][3];
   } else 
     this->com->fprintf(stderr,"Warning: failed loading structure mesh information!\n");
 
@@ -169,6 +233,8 @@ EmbeddedTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
       break;
     }
 
+  increasingPressure = false;
+
 }
 
 
@@ -181,11 +247,18 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
   if (riemann) delete riemann;
   if (Wstarij) delete Wstarij;
   if (Wstarji) delete Wstarji;
+  if (Wstarij_nm1) delete Wstarij_nm1;
+  if (Wstarji_nm1) delete Wstarji_nm1;
+  if (WstarijCopy) delete WstarijCopy;
+  if (WstarjiCopy) delete WstarjiCopy;
+  if (Wstarij_nm1Copy) delete Wstarij_nm1Copy;
+  if (Wstarji_nm1Copy) delete Wstarji_nm1Copy;
+  if (UCopy) delete UCopy;
   if (Weights) delete Weights;
   if (VWeights) delete VWeights;
 
   if (dynNodalTransfer) delete dynNodalTransfer;
-  if (Fs) delete[] Fs;
+  //PJSA if (Fs) delete[] Fs;
   if(ghostPoints) 
     {
       ghostPoints->deletePointers();
@@ -198,17 +271,20 @@ EmbeddedTsDesc<dim>::~EmbeddedTsDesc()
 template<int dim>
 void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioData)
 {
-  distLSS->initialize(this->domain,*this->X, ioData);
+  // Setup fluid mesh geometry
+  this->geoState->setup2(this->timeState->getData());
+  // Initialize intersector and compute intersections
+  DistVec<int> point_based_id(this->domain->getNodeDistInfo());
+  distLSS->initialize(this->domain,*this->X, ioData, &point_based_id);
   if(riemannNormal==2){
     this->spaceOp->computeCellAveragedStructNormal(*Nsbar, distLSS);
   }
-  // Adam and Kevin 2010.08.04 Node Tag needed for FS interaction
-  // if(this->numFluid>1) //initialize nodeTags for multi-phase flow
+  // Initialize fluid state vector
+  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
+                         *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+  // Initialize fluid Ids
   nodeTag0 = nodeTag = distLSS->getStatus();
-
-  this->geoState->setup2(this->timeState->getData());
-  this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(), 
-                         *U, ioData, &nodeTag); //populate U by i.c. or restart data.
+  // Initialize the embedded FSI handler
   EmbeddedMeshMotionHandler* _mmh = dynamic_cast<EmbeddedMeshMotionHandler*>(this->mmh);
   if(_mmh) {
     double *tMax = &(this->data)->maxTime;
@@ -224,6 +300,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   *Wji = 0.0;
   this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
   SubDomain **subD = this->domain->getSubDomain();
+
 
 #pragma omp parallel for
   for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
@@ -243,13 +320,26 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
     }
   }
 
+
+  // Ghost-Points Population
+  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
+    {
+      this->ghostPoints->deletePointers(); // Not needed cause it has already been done in the constructor.
+      this->spaceOp->populateGhostPoints(this->ghostPoints,*U,this->varFcn,this->distLSS,this->nodeTag);
+    }
+  // Population of spaceOp->V for the force computation
+  this->spaceOp->conservativeToPrimitive(*U);
+
+
   computeForceLoad(Wij, Wji);
   delete Wij;
   delete Wji;
 
+
   FsComputed = true;
   // Now "accumulate" the force for the embedded structure
   if(dynNodalTransfer){
+    numStructNodes = dynNodalTransfer->numStNodes();
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(0.0, 0.0, v); //dt=dtLeft=0.0-->They are not used!
   }
@@ -259,7 +349,7 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
 
 template<int dim>
 double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
-                                                  DistSVec<double,dim> &U)
+                                             DistSVec<double,dim> &U)
 {
   if(!FsComputed&&dynNodalTransfer) this->com->fprintf(stderr,"WARNING: FSI force not computed!\n");
   FsComputed = false; //reset FsComputed at the beginning of a fluid iteration
@@ -272,18 +362,31 @@ double EmbeddedTsDesc<dim>::computeTimeStep(int it, double *dtLeft,
     inSubCycling = false;
   }
 
+  this->com->barrier();
   double t0 = this->timer->getTime();
-  this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
   int numSubCycles = 1;
+  double dt=0.0;
 
-  double dt;
-  if(numFluid==1)
-    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->X, *this->A, U);
-  else {//numFLuid>1
-    dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
-                            &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+  if(TsDesc<dim>::failSafeFlag == false){
+    if(TsDesc<dim>::timeStepCalculation == TsData::CFL || it==1){
+      this->data->computeCflNumber(it - 1, this->data->residual / this->restart->residual);
+      if(numFluid==1)
+        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                                &numSubCycles, *this->geoState, *this->X, *this->A, U);
+      else {//numFLuid>1
+        dt = this->timeState->computeTimeStep(this->data->cfl, dtLeft,
+                                &numSubCycles, *this->geoState, *this->A, U, nodeTag);
+      }
+    }
+    else  //time step size with error estimation
+      dt = this->timeState->computeTimeStep(it, dtLeft, &numSubCycles);
   }
+  else    //if time step is repeated
+    dt = this->timeState->computeTimeStepFailSafe(dtLeft, &numSubCycles);
+
+  if(TsDesc<dim>::timeStepCalculation == TsData::ERRORESTIMATION && it == 1)
+    this->timeState->setDtMin(dt * TsDesc<dim>::data->getCflMinOverCfl0());
+
 
   if (this->problemType[ProblemData::UNSTEADY])
     this->com->printf(5, "Global dt: %g (remaining subcycles = %d)\n",
@@ -304,7 +407,7 @@ template<int dim>
 void EmbeddedTsDesc<dim>::updateStateVectors(DistSVec<double,dim> &U, int it)
 {
   this->geoState->update(*this->X, *this->A);
-  this->timeState->update(U); 
+  this->timeState->update(U,increasingPressure); 
 }
 
 //-----------------------------------------------------------------------------
@@ -334,31 +437,18 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
+  this->output->cleanProbesFile();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
     this->spaceOp->computeGradP(*this->X, *this->A, U);
-    /*    if (numFluid>=2) {*/
     this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
     this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U, &nodeTag);
-      /*    } else {
-      this->output->writeForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeHydroForcesToDisk(*lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, 0, 0, t, 0.0, this->restart->energy, *this->X, U);
-      }*/
     this->output->writeResidualsToDisk(it, 0.0, 1.0, this->data->cfl);
-    /*
-    if (numFluid>=2){
-      //   DistSVec<double,1> tempPhi(this->domain->getNodeDistInfo());
-      //      tempPhi = distLSS->getPhi();
-      this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
-    }
-    else
-    */ 
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
+    this->output->writeMaterialVolumesToDisk(it, 0.0, *this->A, &nodeTag);
+    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
     this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
   }
 
@@ -378,37 +468,29 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   double cpu = this->timer->getRunTime();
   double res = this->data->residual / this->restart->residual;
 
-  /*  if (numFluid>=2) {*/
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
-    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);// 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
-    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-    /*
-  } 
-    else { //numFluid == 1
-
-    this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U);
-    this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
-    this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,0,nodeTag); // 0 for tempPhi because it is not needed anymore. To Be Removed !!!!!
-    this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
-  }
-  */
+  this->output->writeLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeHydroForcesToDisk(*lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeHydroLiftsToDisk(ioData, *lastIt, it, itSc, itNl, t, cpu, this->restart->energy, *this->X, U, &nodeTag);
+  this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
+  this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
+  this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag);
+  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
                                        //      it does not seem to understand the template
   restart2->template writeToDisk<dim,1>(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState);
-  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n());
+  this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, this->distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
+  this->output->updatePrtout(t);
+  this->restart->updatePrtout(t);
   if (*lastIt) {
     this->timer->setRunTime();
     if (this->com->getMaxVerbose() >= 2)
       this->timer->print(this->domain->getStrTimer());
     this->output->closeAsciiFiles();
   }
+
 }
 
 //------------------------------------------------------------------------------
@@ -442,15 +524,12 @@ template<int dim>
 double EmbeddedTsDesc<dim>::computeResidualNorm(DistSVec<double,dim>& U)
 {  
   // Ghost-Points Population
-  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES)
-    {
-      this->ghostPoints->deletePointers();
-      this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
-    }
-  if(this->numFluid==1)
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
-  else //numFluid>1
-    this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0);
+  if(this->eqsType == EmbeddedTsDesc<dim>::NAVIER_STOKES) {
+    this->ghostPoints->deletePointers();
+    this->spaceOp->populateGhostPoints(this->ghostPoints,U,this->varFcn,this->distLSS,this->nodeTag);
+  }
+
+  this->spaceOp->computeResidual(*this->X, *this->A, U, *Wstarij, *Wstarji, distLSS, linRecAtInterface,  nodeTag, *this->R, this->riemann, riemannNormal, Nsbar, 0, ghostPoints);
 
   this->spaceOp->applyBCsToResidual(U, *this->R);
 
@@ -468,10 +547,8 @@ void EmbeddedTsDesc<dim>::monitorInitialState(int it, DistSVec<double,dim> &U)
 {
 
   this->com->printf(2, "State vector norm = %.12e\n", sqrt(U*U));
-
   if (!this->problemType[ProblemData::UNSTEADY]) {
     double trhs = this->timer->getTimeSyncro();
-    this->com->printf(2, "Getting residual norm\n");
     this->data->residual = computeResidualNorm(U);
     trhs = this->timer->getTimeSyncro() - trhs;
     if (it == 0)
@@ -494,9 +571,12 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
 {
   if (!Fs) {fprintf(stderr,"computeForceLoad: Fs not initialized! Cannot compute the load!\n"); return;}
   double t0 = this->timer->getTime();
+  if(dynNodalTransfer)
+    numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, Fs, numStructNodes, distLSS, *Wij, *Wji);
+  this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
+				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
@@ -511,12 +591,14 @@ void EmbeddedTsDesc<dim>::getForcesAndMoments(DistSVec<double,dim> &U, DistSVec<
     computeForceLoad(this->Wstarij, this->Wstarji);
 
   F[0] = F[1] = F[2] = 0.0;
+  if(dynNodalTransfer)
+    numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++) {
     F[0]+=Fs[i][0]; F[1]+=Fs[i][1]; F[2]+=Fs[i][2];}
 
   M[0] = M[1] = M[2] = 0;
   Vec<Vec3D>& Xstruc = distLSS->getStructPosition();
-  for (int i = 0; i < Xstruc.size(); ++i) {
+  for (int i = 0; i < numStructNodes; ++i) {
      M[0] += Xstruc[i][1]*Fs[i][2]-Xstruc[i][2]*Fs[i][1];
      M[1] += Xstruc[i][2]*Fs[i][0]-Xstruc[i][0]*Fs[i][2];
      M[2] += Xstruc[i][0]*Fs[i][1]-Xstruc[i][1]*Fs[i][0];
@@ -533,6 +615,7 @@ void EmbeddedTsDesc<dim>::updateOutputToStructure(double dt, double dtLeft, Dist
     FsComputed = true; //to avoid redundant computation of Fs.
 
     // Now "accumulate" the force for the embedded structure
+    numStructNodes = dynNodalTransfer->numStNodes();
     SVec<double,3> v(numStructNodes, Fs);
     dynNodalTransfer->updateOutputToStructure(dt, dtLeft, v);
   }
@@ -544,12 +627,15 @@ template<int dim>
 bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,dim> &U)
 {
 
+  increasingPressure = false;
   if(Pinit<0.0 || Prate<0.0) return true; // no setup for increasing pressure
 
   if(t>tmax && t-dt>tmax) {// max pressure was reached, so now we solve
 //    this->com->fprintf(stdout, "max pressure reached\n"); 
     return true;
   } 
+
+  increasingPressure = true;
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
   
@@ -619,6 +705,13 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 }
 
 //------------------------------------------------------------------------------
+
+template<int dim>
+void EmbeddedTsDesc<dim>::fixSolution(DistSVec<double,dim>& U,DistSVec<double,dim>& dU) {
+
+  if (this->fixSol == 1)
+    this->domain->fixSolution(this->varFcn,U,dU,&this->nodeTag);
+}
 
 
 

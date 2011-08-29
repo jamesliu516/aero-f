@@ -11,7 +11,7 @@
 #include <Timer.h>
 #include <BCApplier.h> 
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef TYPE_PREC_MESH
 #define PrecScalar TYPE_PREC_MESH
@@ -120,9 +120,11 @@ int TetMeshMotionSolver::solve(DistSVec<double,3> &dX, DistSVec<double,3> &X)  {
 
   // HB: dX <- P.dX where P is the projector onto  the sliding type of constraints
   // WARNING: assume the homogeneous Dirichlet BCs have already been applied to dX
+  //com->fprintf(stdout, "Received 'unprojected' incr disp = %e\n",dX.norm());
+
   applyProjector(dX); 
 
-  com->fprintf(stdout, "Received 'projected' incr disp = %e\n",dX.norm());
+  //com->fprintf(stdout, "Received 'projected' incr disp = %e\n",dX.norm());
 
   dX0 = &dX;
 

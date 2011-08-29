@@ -1,10 +1,14 @@
 #include <LevelSet.h>
-
-#include <math.h>
+#include <fstream>
+#include <cmath>
 
 #include "IoData.h"
 #include "Domain.h"
 #include "TimeData.h"
+
+#include <OneDimensionalSolver.h>
+
+using namespace std;
 
 //-------------------------------------------------------------------------
 template<int dimLS>
@@ -47,7 +51,8 @@ LevelSet<dimLS>::~LevelSet()
 template<int dimLS>
 template<int dim>
 void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<double,dim> &U,
-                     DistSVec<double,dimLS> &Phi, IoData &iod)
+			    DistSVec<double,dimLS> &Phi, IoData &iod, FluidSelector* fs,
+			    VarFcn* vf)
 {
 
   map<int, FluidModelData *>::iterator it = iod.eqs.fluidModelMap.dataMap.find(1);
@@ -67,8 +72,7 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
 
   Phi0 = -1.0;
   setupPhiVolumesInitialConditions(iod, Phi0);
-  if(iod.input.oneDimensionalSolution[0] != 0)
-    setupPhiOneDimensionalSolution(iod,X,Phi0);
+  setupPhiOneDimensionalSolution(iod,X,U,Phi0,fs,vf);
   setupPhiMultiFluidInitialConditions(iod,X, Phi0);
   primitiveToConservative(Phi0, Phi, U);
 
@@ -103,7 +107,9 @@ void LevelSet<dimLS>::setup(const char *name, DistSVec<double,3> &X, DistSVec<do
   }
 
   // determine which level-sets must be updated and reinitialized
+  //exit(-1);
   conservativeToPrimitive(Phi,Phi0,U);
+
   double minDist[dimLS];
   double maxDist[dimLS];
   Phi0.min(minDist);
@@ -142,71 +148,40 @@ void LevelSet<dimLS>::setupPhiVolumesInitialConditions(IoData &iod, DistSVec<dou
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
-void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi){
+template<int dim>
+void LevelSet<dimLS>::setupPhiOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dimLS> &Phi, FluidSelector* fs, VarFcn* vf){
 
-  // read 1D solution
-  fstream input;
-  int sp = strlen(iod.input.prefix) + 1;
-  char *filename = new char[sp + strlen(iod.input.oneDimensionalSolution)];
-  sprintf(filename, "%s%s", iod.input.prefix, iod.input.oneDimensionalSolution);
-  input.open(filename, fstream::in);
-  if (!input.is_open()) {
-    cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
-    exit(1);
-  }
-
-  input.ignore(256,'\n');
-  input.ignore(2,' ');
-  int numPoints = 0;
-  input >> numPoints;
-  cout <<"number of points in 1D solution is " << numPoints <<endl;
-  double x_1D[numPoints];
-  double v_1D[numPoints][4];/* rho, u, p, phi*/
-
-  for(int i=0; i<numPoints; i++) {
-    input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
-    x_1D[i]    /= iod.ref.rv.length;
-    v_1D[i][0] /= iod.ref.rv.density;
-    v_1D[i][1] /= iod.ref.rv.velocity;
-    v_1D[i][2] /= iod.ref.rv.pressure;
-    v_1D[i][3] /= iod.ref.rv.length;
-  }
-
-  input.close();
-
-  // interpolation assuming 1D solution is centered on bubble_coord0
-  double bubble_x0 = 0.0;
-  double bubble_y0 = 0.0;
-  double bubble_z0 = 0.0;
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    SVec<double,dimLS> &phi(Phi(iSub));
-    SVec<double, 3> &x(X(iSub));
-
-    double localRadius; int np;
-    double localAlpha;
-    for(int i=0; i<phi.size(); i++) {
-      localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
-      np = static_cast<int>(floor(localRadius/x_1D[numPoints-1]*(numPoints-1)));
-
-      if(np>numPoints-1){
-      //further away from the max radius of the 1D simulation, take last value
-      //<==> constant extrapolation
-        np = numPoints-1;
-        phi[i][0] = v_1D[np][3];
-      }else{
-      //linear interpolation
-        localAlpha = (localRadius-x_1D[np])/(x_1D[np+1]-x_1D[np]);
-        phi[i][0]  = localAlpha*v_1D[np][3] + (1.0-localAlpha)*v_1D[np+1][3];
-      }
-      // assumes that the fluidTag==0 is outside flow
-      // and that the fluidTag==1 is the inside flow!!!
-      
-    }
-  }
-
+  OneDimensional::read1DSolution(iod, U, 
+				 &Phi, fs,
+				 vf, X,*domain,
+				 OneDimensional::ModePhi);
 }
 
+static inline double min(double a,double b, double c, double d, double e, double f) {
+
+  if (a <= b && a <= c && a <= d && a <= e && a <= f)
+    return a;
+  else if (b <= c && b <= d && b <= e && b <= f)
+    return b;
+  else if (c <= d && c <= e && c <= f)
+    return c;
+  else if (d <= e && d <= f)
+    return d;
+  else if (e <= f)
+    return e;
+  else
+    return f;  
+}
+
+static inline double maxp(double a,double b, double c,double as,double bs,double cs) {
+
+  if (a >= b && a >= c)
+    return a*as;
+  else if (b >= c)
+    return b*bs;
+  else
+    return c*cs;
+}
 //---------------------------------------------------------------------------------------
 
 template<int dimLS>
@@ -294,6 +269,42 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
     }
   }
 
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+      //com->fprintf(stdout, "Processing initialization of LevelSet for sphere %d paired with EOS %d\n", sphereIt->first, sphereIt->second->fluidModelID);
+      double x0 = prismIt->second->cen_x;
+      double y0 = prismIt->second->cen_y;
+      double z0 = prismIt->second->cen_z;
+      double w_x = prismIt->second->w_x;
+      double w_y = prismIt->second->w_y;
+      double w_z = prismIt->second->w_z;
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+
+        SVec<double,dimLS> &phi(Phi(iSub));
+        SVec<double,dimLS> &distance(Distance(iSub));
+        SVec<double,3>     &x  (X(iSub));
+
+        for (int i=0; i<x.size(); i++){
+          double s[3] = {(x[i][0]-x0)/w_x*0.5,(x[i][1]-y0)/w_y*0.5,(x[i][2]-z0)/w_z*0.5};
+	  double scalar = maxp(fabs(s[0]),fabs(s[1]),fabs(s[2]),1.0,1.0,1.0);
+          if(prismIt->second->fluidModelID > 0){
+            int fluidId = prismIt->second->fluidModelID-1;
+            if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) 
+	      phi[i][fluidId] = 1.0;
+	    if(distance[i][fluidId]<0.0)
+	      distance[i][fluidId] = scalar;
+	    else
+	      distance[i][fluidId] = fmin( scalar, distance[i][fluidId]);
+          }
+        }
+      }
+    }
+  }
+
   // phi[fluidId] is initialized with -1 and +1 giving the location of fluid fluidId
   // distance[fluidId] is the positive distance to the closest interface between fluid fluidId and fluid 0.
   double minDist[dimLS];
@@ -321,18 +332,14 @@ void LevelSet<dimLS>::setupPhiMultiFluidInitialConditions(IoData &iod, DistSVec<
 template<int dimLS>
 void LevelSet<dimLS>::checkTrueLevelSetUpdate(DistSVec<double,dimLS> &dPhi)
 {
-
-  for(int idim=0; idim<dimLS; idim++)
-    if(!trueLevelSet[idim]){
-      //fprintf(stdout, "setting dphi[%d] to zero\n", idim);
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
-        SVec<double,dimLS> &dphi(dPhi(iSub));
-        for(int i=0; i<dphi.size(); i++)
-          dphi[i][idim] = 0.0;
-      }
+    for (int iSub=0; iSub<numLocSub; ++iSub) {
+      SVec<double,dimLS> &dphi(dPhi(iSub));
+      for(int i=0; i<dphi.size(); i++)
+        for(int idim=0; idim<dimLS; idim++)
+          if(!trueLevelSet[idim])
+            dphi[i][idim] = 0.0;
     }
-
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -432,7 +439,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
       for (int i=0; i<Phi.subSize(iSub); i++)
         psi[i][0] = phi[i][idim];
     }
-    com->fprintf(stdout, "reinitializing phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
+    //com->fprintf(stdout, "reinitializing phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // initialize Psi
     Psi = 1.0;
@@ -453,7 +460,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     double eps = conv_eps;
     int it=0;
     for (level=2; level<bandlevel; level++){
-      com->fprintf(stdout, "*** level = %d\n", level);
+   //   com->fprintf(stdout, "*** level = %d\n", level);
       res = 1.0;
       resn = 1.0; resnm1 = 1.0;
       it = 0;
@@ -466,7 +473,7 @@ void LevelSet<dimLS>::reinitializeLevelSetFM(DistGeoState &geoState,
     }
 
     domain->getSignedDistance(idim,Psi,Phi);
-    com->fprintf(stdout, "after reinitialization of phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
+    //com->fprintf(stdout, "after reinitialization of phi[%d] to distance (phi[%d].norm = %e)\n", idim, idim, Psi.norm());
 
     // set Phi to the new distance function
 #pragma omp parallel for

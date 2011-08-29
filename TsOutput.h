@@ -4,7 +4,7 @@
 #include <PostFcn.h>
 #include <Vector3D.h>
 
-#include <stdio.h>
+#include <cstdio>
 
 class IoData;
 class RefVal;
@@ -17,6 +17,7 @@ class DeformingMeshMotionHandler;
 class AccMeshMotionHandler;
 class Communicator;
 
+template<int dimLS> class LevelSet;
 template<int dim> class PostOperator;
 template<class Scalar, int dim> class DistSVec;
 template<int dim> class DistTimeState;
@@ -42,6 +43,8 @@ private:
   bool steady;
   int it0;
   int frequency;
+  double frequency_dt, prtout;
+  int numFluidPhases; //excludes "ghost" solids
   double length;
   double surface;
   static int counter;
@@ -68,6 +71,7 @@ private:
   char *hydrodynamiclift;
   char *generalizedforces;
   char *residuals;
+  char *material_volumes;
   char *conservation;
   char *modeFile;
   Vec3D *TavF, *TavM; 
@@ -93,6 +97,7 @@ private:
   FILE **fpHydroStaticLift;
   FILE **fpHydroDynamicLift;
   FILE *fpResiduals;
+  FILE *fpMatVolumes;
   FILE *fpConservationErr;
   FILE *fpGnForces;
   FILE *fpStateRom;
@@ -120,16 +125,32 @@ private:
 
   char *heatfluxes;
   FILE **fpHeatFluxes;
+
+  struct {
+
+    double* results;
+    int numNodes;
+    int* subId;
+    int* locNodeId;
+    int* last;
+    int step;
+    std::vector<Vec3D> locations;
+  } nodal_output;
+
+  char *nodal_scalars[PostFcn::SSIZE];
+  char *nodal_vectors[PostFcn::VSIZE];
   
   
-
-
+private:
+  bool toWrite(int it, bool lastIt, double t);
+  int getStep(int it, bool lastIt, double t);
 
 public:
 
   TsOutput(IoData &, RefVal *, Domain *, PostOperator<dim> *);
   ~TsOutput();
 
+  void updatePrtout(double t);
   void setMeshMotionHandler(IoData&, MeshMotionHandler*);
   FILE *backupAsciiFile(char *);
   void openAsciiFiles();
@@ -153,6 +174,7 @@ public:
                              double* , DistSVec<double,3> &, DistSVec<double,dim> &,
                              DistVec<int> * = 0);
   void writeResidualsToDisk(int, double, double, double);
+  void writeMaterialVolumesToDisk(int, double, DistVec<double>&, DistVec<int>* = 0);
   void writeStateRomToDisk(int, double, int, const Vec<double> &);
   void writeErrorToDisk(const int, const double, const int, const double *);
   void writeConservationErrors(IoData &iod, int it, double t, int numPhases,
@@ -164,12 +186,30 @@ public:
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &, 
 				DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 
+  void cleanProbesFile();
+  
+  void writeProbesToDisk(bool, int, double, DistSVec<double,3> &, 
+			 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
+  
+  template<int dimLS>
+  void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
+                                DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+                                DistVec<int> &,DistSVec<double,dimLS>* = NULL);
+  
+  template<int dimLS>
+    void writeProbesToDisk(bool, int, double, DistSVec<double,3> &,
+			   DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
+			   DistVec<int> &,DistSVec<double,dimLS>* = NULL);
+  
   void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
                                 DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *,
                                 DistVec<int> &);
-  //void writeBinaryVectorsToDisk(bool, int, double, DistSVec<double,3> &,
-  //                              DistVec<double> &, DistSVec<double,dim> &,
-  //                              DistSVec<double,1> &, DistVec<int> &);
+
+  void writeProbesToDisk(bool lastIt, int it, double t, DistSVec<double,3> &X,
+			 DistVec<double> &A, DistSVec<double,dim> &U, 
+			 DistTimeState<dim> *timeState,
+			 DistVec<int> &fluidId);
+  
   void writeAvgVectorsToDisk(bool,int,double,DistSVec<double,3> &,
                              DistVec<double> &, DistSVec<double,dim> &, DistTimeState<dim> *);
 

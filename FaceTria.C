@@ -11,7 +11,7 @@
 #include <GenMatrix.h>
 #include <VectorSet.h>
 
-#include <math.h>
+#include <cmath>
 
 #ifdef OLD_STL
 #include <algo.h>
@@ -617,8 +617,15 @@ template<int dim>
 //inline
 void FaceTria::computeGalerkinTerm(ElemSet &elems, FemEquationTerm *fet, 
 				   SVec<double,3> &X, Vec<double> &d2wall, double *Vwall,
-				   SVec<double,dim> &V, SVec<double,dim> &R)
-{
+				   SVec<double,dim> &V, SVec<double,dim> &R,LevelSetStructure *LSS)
+{ 
+  // In the case of an embedded simulation, check if the face is actually active
+  bool isFaceInactive=true;
+  if(LSS) 
+    {
+      for(int i=0;i<3;++i)  isFaceInactive    = (isFaceInactive && !(LSS->isActive(0,nodeNum(i))));
+      if(isFaceInactive) return;
+    }
   if (!fet->doesFaceTermExist(code)) return;
 
   Vec3D n;

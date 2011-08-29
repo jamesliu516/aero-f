@@ -6,9 +6,10 @@
 #include <Domain.h>
 #include <DistGeoState.h>
 #include <DistMatrix.h>
-
-#include <math.h>
+#include <DistVectorOp.h>
+#include <cmath>
 #include <fstream>
+#include <OneDimensionalSolver.h>
 using namespace std;
 //------------------------------------------------------------------------------
 
@@ -71,6 +72,9 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
   else
     Rn = Un->alias();
 
+  errorEstiNorm = 0.0;
+  dtMin = 1.e-10;
+
   gam = ioData.eqs.fluidModel.gasModel.specificHeatRatio;
   pstiff = ioData.eqs.fluidModel.gasModel.pressureConstant;
 
@@ -98,11 +102,16 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
     dIdti = 0; 
     dIdtv = 0; 
     dIrey = 0;
+        //each volume (volIt->first) is setup using
   }
 
 	int *output_newton_step = domain->getOutputNewtonStep();
 	*output_newton_step = data->getOutputNewtonStep();
 
+  isGFMPAR = (ioData.eqs.numPhase > 1 &&
+              ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
+  
+  fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 }
 
 //------------------------------------------------------------------------------
@@ -194,7 +203,7 @@ template<int dim>
 void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
                                DistSVec<double,dim> &Ufar,
                                DistSVec<double,dim> &U, IoData &iod,
-                               DistVec<int> *fluidId)
+                               DistVec<int> *point_based_id)
 {
   *Un = Ufar;
  
@@ -206,16 +215,23 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
-  if(iod.input.oneDimensionalSolution[0] != 0) setupUOneDimensionalSolution(iod,X);
+  
   setupUMultiFluidInitialConditions(iod,X);
+  
+  setupUOneDimensionalSolution(iod,X);
 
-  if(fluidId && iod.eqs.numPhase>=2) 
-    setupUFluidIdInitialConditions(iod, *fluidId);
+  if(point_based_id && iod.eqs.numPhase>=2) 
+    setupUFluidIdInitialConditions(iod, *point_based_id);
 
   if (name[0] != 0) {
     domain->readVectorFromFile(name, 0, 0, *Un);
-    if (data->use_nm1)
+    if (data->use_nm1) {
       data->exist_nm1 = domain->readVectorFromFile(name, 1, 0, *Unm1);
+      if (isGFMPAR || iod.problem.framework == ProblemData::EMBEDDED) {
+        //domain->getCommunicator()->fprintf(stderr,"*** Warning: Backward Euler being used instead of 3BDF for multiphase flows on first step after restart\n");
+        data->exist_nm1 = false;
+      }
+    }
     if (data->use_nm2)
       data->exist_nm2 = domain->readVectorFromFile(name, 2, 0, *Unm2);
   }
@@ -232,6 +248,7 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
     if (!subTimeState[iSub])
       subTimeState[iSub] = new TimeState<dim>(*data, (*dt)(iSub), (*idti)(iSub), (*idtv)(iSub),
                                               (*Un)(iSub), (*Unm1)(iSub), (*Unm2)(iSub), (*Rn)(iSub));
+
 }
 
 //------------------------------------------------------------------------------
@@ -311,7 +328,7 @@ void DistTimeState<dim>::computeInitialState(InitialConditions &ic,
     UU[4] = rho*(cv*temperature + 0.5*vel*vel);
 
   }else{
-    fprintf(stdout, "*** Error: no initial state could be computed\n");
+    fprintf(stderr, "*** Error: no initial state could be computed\n");
     exit(1);
   }
 
@@ -337,7 +354,8 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
         }
         double UU[dim];
         computeInitialState(volIt->second->initialConditions, *fluidIt->second, UU);
-        domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g) for volume %d paired with EOS %d\n", UU[0],UU[1],UU[2],UU[3],UU[4],volIt->first, volIt->second->fluidModelID);
+        domain->getCommunicator()->fprintf(stdout, "- Initializing volume %d(EOS=%d) with \n", volIt->first, volIt->second->fluidModelID);
+        domain->getCommunicator()->fprintf(stdout, "    non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
         domain->setupUVolumesInitialConditions(volIt->first, UU, *Un);
       }
   }
@@ -347,81 +365,10 @@ void DistTimeState<dim>::setupUVolumesInitialConditions(IoData &iod)
 template<int dim>
 void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<double,3> &X)
 {
-  // read 1D solution
-  fstream input;
-  int sp = strlen(iod.input.prefix) + 1;
-  char *filename = new char[sp + strlen(iod.input.oneDimensionalSolution)];
-  sprintf(filename, "%s%s", iod.input.prefix, iod.input.oneDimensionalSolution);
-  input.open(filename, fstream::in);
-  if (!input.is_open()) {
-    cout<<"*** Error: could not open 1D solution file "<<filename<<endl;
-    exit(1);
-  }
-
-  input.ignore(256,'\n');
-  input.ignore(2,' ');
-  int numPoints = 0;
-  input >> numPoints;
-  cout <<"number of points in 1D solution is " << numPoints <<endl;
-  double x_1D[numPoints];
-  double v_1D[numPoints][4];/* rho, u, p, phi*/
-
-  for(int i=0; i<numPoints; i++){
-    input >> x_1D[i] >> v_1D[i][0] >> v_1D[i][1] >> v_1D[i][2] >> v_1D[i][3];
-    x_1D[i]    /= iod.ref.rv.length;
-    v_1D[i][0] /= iod.ref.rv.density;
-    v_1D[i][1] /= iod.ref.rv.velocity;
-    v_1D[i][2] /= iod.ref.rv.pressure;
-    v_1D[i][3] /= iod.ref.rv.length;
-  }
-
-  input.close();
-
-  // interpolation assuming 1D solution is centered on bubble_coord0
-  double bubble_x0 = 0.0;
-  double bubble_y0 = 0.0;
-  double bubble_z0 = 0.0;
-#pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; ++iSub) {
-    SVec<double,dim> &u((*Un)(iSub));
-    SVec<double, 3> &x(X(iSub));
-
-    double localRadius; int np;
-    double localAlpha, velocity_r;
-    double localV[5]; double localPhi;
-    for(int i=0; i<u.size(); i++) {
-      localRadius = sqrt((x[i][0]-bubble_x0)*(x[i][0]-bubble_x0)+(x[i][1]-bubble_y0)*(x[i][1]-bubble_y0)+(x[i][2]-bubble_z0)*(x[i][2]-bubble_z0));
-      np = static_cast<int>(floor(localRadius/x_1D[numPoints-1]*(numPoints-1)));
-      //cout<<"coord is between point "<<np<<" and "<<np+1<<endl;
-
-      if(np>numPoints-1){
-      //further away from the max radius of the 1D simulation, take last value
-      //<==> constant extrapolation
-        np = numPoints-1;
-        localV[0] = v_1D[np][0];
-        localV[1] = v_1D[np][1]*x[i][0]/localRadius;
-        localV[2] = v_1D[np][1]*x[i][1]/localRadius;
-        localV[3] = v_1D[np][1]*x[i][2]/localRadius;
-        localV[4] = v_1D[np][2];
-        localPhi  = v_1D[np][3];
-      }else{
-      //linear interpolation
-        localAlpha = (localRadius-x_1D[np])/(x_1D[np+1]-x_1D[np]);
-        velocity_r = localAlpha*v_1D[np][1] + (1.0-localAlpha)*v_1D[np+1][1];
-        localV[0] = localAlpha*v_1D[np][0] + (1.0-localAlpha)*v_1D[np+1][0];
-        localV[1] = u[i][0]*velocity_r*x[i][0]/localRadius;
-        localV[2] = u[i][0]*velocity_r*x[i][1]/localRadius;
-        localV[3] = u[i][0]*velocity_r*x[i][2]/localRadius;
-        localV[4] = localAlpha*v_1D[np][2] + (1.0-localAlpha)*v_1D[np+1][2];
-        localPhi  = localAlpha*v_1D[np][3] + (1.0-localAlpha)*v_1D[np+1][3];
-      }
-      varFcn->primitiveToConservative(localV,u[i],localPhi>0.0 ? 1 : 0);
-      // assumes that the fluidTag==0 is outside flow
-      // and that the fluidTag==1 is the inside flow!!!
-      
-    }
-  }
-
+  OneDimensional::read1DSolution(iod, *Un, 
+				 (DistSVec<double,1>*)NULL,NULL,
+				 varFcn, X,*domain,
+				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -445,8 +392,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(planeIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-      domain->getCommunicator()->fprintf(stdout, "           for PlaneData[%d] = (%g %g %g), (%g %g %g) with EOS %d\n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz, planeIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing PlaneData[%d] = (%g %g %g), (%g %g %g) with \n", planeIt->first, planeIt->second->cen_x, planeIt->second->cen_y,planeIt->second->cen_z,planeIt->second->nx,planeIt->second->ny,planeIt->second->nz);
+      domain->getCommunicator()->fprintf(stdout, "    EOS %d and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n",  planeIt->second->fluidModelID, UU[0],UU[1],UU[2],UU[3],UU[4]);
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -475,8 +422,8 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
       }
       double UU[dim];
       computeInitialState(sphereIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-      domain->getCommunicator()->fprintf(stdout, "           for SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing SphereData[%d] = (%g %g %g), %g with EOS %d\n", sphereIt->first, sphereIt->second->cen_x, sphereIt->second->cen_y,sphereIt->second->cen_z,sphereIt->second->radius, sphereIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &u((*Un)(iSub));
@@ -496,20 +443,52 @@ void DistTimeState<dim>::setupUMultiFluidInitialConditions(IoData &iod, DistSVec
     }
   }
 
+  if(!iod.mf.multiInitialConditions.prismMap.dataMap.empty()){
+    map<int, PrismData *>::iterator prismIt;
+    for(prismIt  = iod.mf.multiInitialConditions.prismMap.dataMap.begin();
+        prismIt != iod.mf.multiInitialConditions.prismMap.dataMap.end();
+        prismIt++){
+      fluidIt = iod.eqs.fluidModelMap.dataMap.find(prismIt->second->fluidModelID);
+      if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
+        fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", prismIt->second->fluidModelID);
+        exit(1);
+      }
+      double UU[dim];
+      computeInitialState(prismIt->second->initialConditions, *fluidIt->second, UU);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing PrismData[%d] = (%g %g %g with EOS %d\n", prismIt->first, prismIt->second->cen_x, prismIt->second->cen_y,prismIt->second->cen_z, prismIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stderr, "    and non-dimensionalized primitive state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
+#pragma omp parallel for
+      for (int iSub=0; iSub<numLocSub; ++iSub) {
+        SVec<double,dim> &u((*Un)(iSub));
+        SVec<double, 3> &x(X(iSub));
+
+        double dist = 0.0;
+        for(int i=0; i<X.subSize(iSub); i++) {
+          if(prismIt->second->inside(x[i][0],x[i][1],x[i][2])) { //node is inside the sphere
+	    for (int idim=0; idim<dim; idim++)
+	      u[i][idim] = UU[idim];
+	  }
+        }
+      }
+    }
+  }
+
 }
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId)
+void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &pointId)
 {
   map<int, FluidModelData *>::iterator fluidIt;
 
   if(!iod.embed.embedIC.pointMap.dataMap.empty()){
     map<int, PointData *>::iterator pointIt;
+    int count = 0;
     for(pointIt  = iod.embed.embedIC.pointMap.dataMap.begin();
         pointIt != iod.embed.embedIC.pointMap.dataMap.end();
         pointIt ++){
 
+      count++;
       fluidIt = iod.eqs.fluidModelMap.dataMap.find(pointIt->second->fluidModelID);
       if(fluidIt == iod.eqs.fluidModelMap.dataMap.end()){
         fprintf(stderr, "*** Error: fluidModelData[%d] could not be found\n", pointIt->second->fluidModelID);
@@ -518,16 +497,16 @@ void DistTimeState<dim>::setupUFluidIdInitialConditions(IoData &iod, DistVec<int
 
       double UU[dim];
       computeInitialState(pointIt->second->initialConditions, *fluidIt->second, UU);
-      domain->getCommunicator()->fprintf(stdout, "Processing initialization of state variables(%g %g %g %g %g)\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
-      domain->getCommunicator()->fprintf(stdout, "  for PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "- Initializing PointData[%d] = (%g %g %g), with EOS %d\n", pointIt->first, pointIt->second->x, pointIt->second->y,pointIt->second->z, pointIt->second->fluidModelID);
+      domain->getCommunicator()->fprintf(stdout, "    and non-dimensionalized conservative state vector: (%g %g %g %g %g).\n", UU[0],UU[1],UU[2],UU[3],UU[4]);
 
 #pragma omp parallel for
       for (int iSub=0; iSub<numLocSub; ++iSub) {
         SVec<double,dim> &subUn((*Un)(iSub));
-        Vec<int> &subId(fluidId(iSub));
+        Vec<int> &subId(pointId(iSub));
 
         for(int i=0; i<subUn.size(); i++)
-          if(subId[i]==fluidIt->first)
+          if(subId[i]==count)
             for(int iDim=0; iDim<dim; iDim++)
               subUn[i][iDim] = UU[iDim];
       }
@@ -589,15 +568,95 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
 }
 
 //------------------------------------------------------------------------------
-                                                                                                         
+
+template<int dim>
+double DistTimeState<dim>::computeTimeStepFailSafe(double* dtLeft, int* numSubCycles)
+{
+  // time step is repeated with half the time step size
+  double dt_glob;
+  *dtLeft += dt->min();
+  dt_glob = dt->min() / 2.0;
+
+  *dtLeft -= dt_glob;
+
+  data->computeCoefficients(*dt, dt_glob);
+
+  return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim> 
+double DistTimeState<dim>::computeTimeStep(int it, double* dtLeft, int* numSubCycles)
+{
+  double incfac = 1.25 + (1.15 * pow((2.71828),(- double(it-2) / 3.0)));
+  double decfac = max(0.2 , (0.75 + (-1.25 * pow((2.71828),(- double(it-2) / 3.0)))));
+
+  double factor;
+  if (errorEstiNorm == 0.0)
+    printf("Error: errorEstiNorm equals zero! Division by zero! \n");
+  else   
+    factor = min( max( pow((data->errorTol / errorEstiNorm),(1.0 / 2.0)) , decfac ), incfac );
+
+  if(factor==decfac && it==2)
+    printf("WARNING: Cfl0 is chosen too big!! \n");
+
+  double dt_glob;
+  if (data->dt_imposed > 0.0) 
+    dt_glob = data->dt_imposed;
+  else 
+    dt_glob = max ( dtMin, (factor * data->dt_nm1));
+
+  if (data->typeStartup == ImplicitData::MODIFIED && 
+      ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
+       (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
+    if (*dtLeft != 0.0 && dt_glob > *dtLeft)
+      dt_glob = *dtLeft / 1000.0;
+    else 
+      dt_glob /= 1000.0;
+  }
+
+  if (*dtLeft != 0.0) {
+    *numSubCycles = int(*dtLeft / dt_glob);
+    if (*numSubCycles == 0 || (*numSubCycles)*dt_glob != *dtLeft) ++(*numSubCycles);
+    dt_glob = *dtLeft / double(*numSubCycles);
+    *dtLeft -= dt_glob;
+  }
+  data->computeCoefficients(*dt, dt_glob);
+
+  return dt_glob;
+
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim>
+void DistTimeState<dim>::calculateErrorEstiNorm(DistSVec<double,dim> &U, DistSVec<double,dim> &F)
+{
+  //linear extrapolation for error estimation
+  //F = *Un + ( data->dt_n / data->dt_nm1 )*( *Un-*Unm1 );
+
+  //Forward Euler step for error estimation
+  F = *Un - ( data->dt_n * F);
+
+  //common for both approaches
+  F -= U;
+  errorEstiNorm = F.norm() / U.norm();
+}
+
+//------------------------------------------------------------------------------
+                                                                
 template<int dim>
 double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numSubCycles,
                                            DistGeoState &geoState, DistVec<double> &ctrlVol,
-                                           DistSVec<double,dim> &U, DistVec<int> &fluidId)
+                                           DistSVec<double,dim> &U, DistVec<int> &fluidId,
+					   DistVec<double>* umax)
 {
   varFcn->conservativeToPrimitive(U, *V, &fluidId);
 
-  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId);
+  domain->computeTimeStep(cfl, viscousCst, fet, varFcn, geoState, ctrlVol, *V, *dt, *idti, *idtv, tprec, fluidId,
+			  umax);
                                                                                                          
   double dt_glob;
   if (data->dt_imposed > 0.0)
@@ -605,6 +664,16 @@ double DistTimeState<dim>::computeTimeStep(double cfl, double* dtLeft, int* numS
   else
     dt_glob = dt->min();
                                                                                                          
+  if (umax && isGFMPAR) {
+    double udt = umax->min();
+    if (udt < dt_glob) {
+      //dt_glob = udt;
+      //domain->getCommunicator()->fprintf(stdout, "Clamped new dt %lf (old = %lf)", udt, dt_glob);
+      //domain->getCommunicator()->fprintf(stdout, "*** Warning: Cfl for this multi-phase algorithm has been clamped to %lf (user specified %lf)\n", udt/dt_glob*cfl,cfl);
+      dt_glob = udt;
+    }
+  }
+                                                                           
   if (data->typeStartup == ImplicitData::MODIFIED &&
       ((data->typeIntegrator == ImplicitData::THREE_POINT_BDF && !data->exist_nm1) ||
        (data->typeIntegrator == ImplicitData::FOUR_POINT_BDF && (!data->exist_nm2 || !data->exist_nm1)))) {
@@ -640,17 +709,20 @@ void DistTimeState<dim>::computeCoefficients(double dt_glob)
 
 template<int dim>
 void DistTimeState<dim>::add_dAW_dt(int it, DistGeoState &geoState, 
-					    DistVec<double> &ctrlVol,
-					    DistSVec<double,dim> &Q, 
-					    DistSVec<double,dim> &R)
+				    DistVec<double> &ctrlVol,
+				    DistSVec<double,dim> &Q, 
+				    DistSVec<double,dim> &R, DistLevelSetStructure *distLSS)
 {
 
   if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
 
 #pragma omp parallel for
   for (int iSub = 0; iSub < numLocSub; ++iSub)
-    subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), 
-				   ctrlVol(iSub), Q(iSub), R(iSub));
+    {
+      LevelSetStructure *LSS = distLSS ? &((*distLSS)(iSub)) : 0;
+      subTimeState[iSub]->add_dAW_dt(Q.getMasterFlag(iSub), geoState(iSub), 
+				     ctrlVol(iSub), Q(iSub), R(iSub), LSS);
+    }
 
 }
                                                                                                                       
@@ -680,7 +752,7 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
                                       DistSVec<double,dimLS> &Qn,
                                       DistSVec<double,dimLS> &Qnm1,
                                       DistSVec<double,dimLS> &Qnm2,
-                                      DistSVec<double,dimLS> &R)
+                                      DistSVec<double,dimLS> &R,bool requireSpecialBDF)
 {
 
   //if (data->typeIntegrator == ImplicitData::CRANK_NICOLSON && it == 0) *Rn = R;
@@ -689,7 +761,7 @@ void DistTimeState<dim>::add_dAW_dtLS(int it, DistGeoState &geoState,
   for (int iSub = 0; iSub < numLocSub; ++iSub)
     subTimeState[iSub]->add_dAW_dtLS(Q.getMasterFlag(iSub), geoState(iSub),
                                      ctrlVol(iSub), Q(iSub), Qn(iSub), Qnm1(iSub),
-				                             Qnm2(iSub), R(iSub));
+				                             Qnm2(iSub), R(iSub),requireSpecialBDF);
 }
 
 //------------------------------------------------------------------------------
@@ -705,13 +777,24 @@ void DistTimeState<dim>::addToJacobian(DistVec<double> &ctrlVol, DistMat<Scalar,
     else if(varFcn->getType() == VarFcnBase::TAIT)
       addToJacobianLiquidPrec(ctrlVol, A, U);
     else{
-      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
+      fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }else{
      addToJacobianNoPrec(ctrlVol, A, U);
   }
 
+}
+
+template<int dim>
+template<class Scalar, int neq>
+void DistTimeState<dim>::addToJacobianLS(DistVec<double> &ctrlVol, DistMat<Scalar,neq> &A,
+                                       DistSVec<double,dim> &U,bool requireSpecialBDF)
+{
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subTimeState[iSub]->addToJacobianLS(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
+                              requireSpecialBDF);
 }
 
 //------------------------------------------------------------------------------
@@ -731,7 +814,7 @@ void DistTimeState<dim>::addToJacobianNoPrec(DistVec<double> &ctrlVol, DistMat<S
     #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub)
       subTimeState[iSub]->addToJacobianNoPrec(V->getMasterFlag(iSub), ctrlVol(iSub), A(iSub), U(iSub),
-                                varFcn, empty);
+                                varFcn,empty);
   }
 }
 
@@ -929,7 +1012,7 @@ void DistTimeState<dim>::multiplyByPreconditioner(DistSVec<double,dim>& U0, Dist
     else if (varFcn->getType() == VarFcnBase::TAIT)
       multiplyByPreconditionerLiquid(U0,dU);
     else{
-      fprintf(stdout, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
+      fprintf(stderr, "*** Error: no time preconditioner for this EOS  *** EXITING\n");
       exit(1);
     }
   }
@@ -1082,7 +1165,7 @@ void DistTimeState<dim>::multiplyByPreconditionerLiquid(DistSVec<double,dim> &U,
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q,bool increasingPressure)
 {
 
   data->update();
@@ -1091,7 +1174,11 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
     *Unm2 = *Unm1;
     data->exist_nm2 = true;
   }
-  if (data->use_nm1) {
+  // If we are increasing the fluid pressure there is
+  // no relation between Un and Unm1; thus data->exist_nm1
+  // should still be false.  This way when we start the fluid
+  // solution startup will be done as necessary.
+  if (data->use_nm1 && !increasingPressure) {
     *Unm1 = *Un;
     data->exist_nm1 = true;
   }
@@ -1100,11 +1187,25 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q)
 
 //------------------------------------------------------------------------------
 
+struct MultiphaseRiemannCopy {
+  int dim;
+  MultiphaseRiemannCopy(int _dim) : dim(_dim) { }
+  void Perform(double* vin, double* vout,int id1,int id2,int swept) const  {
+
+    if (id1 != id2 && !swept) {
+      for (int i = 0; i < dim; ++i) vout[i] = vin[i];
+    }
+  }
+};
+
+//------------------------------------------------------------------------------
+
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Qtilde,
+				DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
-                                //DistSVec<double,dim> *Vgf, DistVec<double> *Vgfweight,
-                                DistExactRiemannSolver<dim> *riemann)
+                                DistExactRiemannSolver<dim> *riemann,
+                                DistLevelSetStructure* distLSS,bool increasingPressure)
 {
   data->update();
 
@@ -1112,24 +1213,34 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     fprintf(stdout, "4pt-BDF has not been studied for 2-phase flow\n");
     exit(1);
   }
-  if (data->use_nm1) {
-    double tau_n = data->getTauN();
-    *Unm1 = *Vn;
-    *Vn = Q;
-    double f1 = (1.0+tau_n)*(1.0+tau_n);
-    *Un = (1.0+2.0*tau_n)/f1*Q+tau_n*tau_n/f1*(*riemann->getOldV());
-    //*Un = (1.0+2.0*tau_n)/f1*(*riemann->getOldV())+tau_n*tau_n/f1*Q;
-    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
-    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
-    //domain->extrapolateGhost(*riemann,*V, *Vn,fluidId,
-    //			     *fluidIdnm1,varFcn);
-    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
-    //varFcn->conservativeToPrimitive(Q, *V, &fluidId);
-    //varFcn->conservativeToPrimitive(*Un, *Vn, fluidIdnm1);
-    //domain->extrapolateGhost(*V, *Vn,fluidId,
-    //			     *fluidIdnm1,varFcn);
-    //varFcn->primitiveToConservative(*Vn,*Unm1,&fluidId);
+  if (data->use_nm1 && !increasingPressure) {
+    if (fvmers_3pbdf == ImplicitData::BDF_SCHEME2) {
+      DistVec<int> tempInt(fluidId);
+      tempInt = 0;
+      if (distLSS) {
+	distLSS->getSwept(tempInt);
+      }    
+      DistVec<int> minus1(fluidId);
+      minus1 = -1;
+      if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      
+      varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+      DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
+      varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
+      *Unm1 = *Vn;
+      
+      riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      *Un = Q;
+    } else {
+      *Unm1 = *Vn;
+      *Vn = Q;
+      double tau = data->getTauN();
+      double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
+      *Un = beta*Q+(1.0-beta)*Qtilde;
+    }
+
     data->exist_nm1 = true;
+      
   } else {
     *Vn = *Un = Q;
   }

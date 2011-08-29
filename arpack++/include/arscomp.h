@@ -17,7 +17,7 @@
 #ifndef ARSCOMP_H
 #define ARSCOMP_H
 
-#include <stddef.h>
+#include <cstddef>
 #include "arch.h"
 #include "arseig.h"
 #include "arrscomp.h"

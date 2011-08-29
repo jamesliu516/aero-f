@@ -40,7 +40,7 @@ struct LevelSetResult {
 	   int *nodep;
    public:
 	   iterator(double *x, int *n) : xip(x), nodep(n) { }
-	   iterator & operator++() { xip++; nodep++; }
+	   iterator & operator++() { xip++; nodep++; return (*this); }
 	   bool operator !=(const iterator &it) const {
 		   return xip != it.xip || nodep != it.nodep;
 	   }
@@ -73,6 +73,10 @@ class LevelSetStructure {
         for(int i = 0; i < phi.size(); ++i)
             phi[i] = isActive(0,i) ? 1 : -1;}
 
+    virtual void computeSwept(Vec<int> &swept){
+        for(int i = 0; i < swept.size(); ++i)
+            swept[i] = isSwept(0,i) ? 1 : 0;
+    }
 
     virtual double isPointOnSurface(Vec3D, int, int, int) = 0;
 
@@ -92,18 +96,24 @@ class DistLevelSetStructure {
 
     int numOfFluids() {return numFluid;}
     void setNumOfFluids(int nf) {numFluid = nf;}
-    virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod) = 0;
+    virtual void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0) = 0;
     virtual LevelSetStructure & operator()(int subNum) const = 0;
 
     virtual DistVec<double> &getPhi(){
         for (int iSub=0; iSub<numLocSub; iSub++)
             (*this)(iSub).computePhi((*pseudoPhi)(iSub));
         return *pseudoPhi;}
+    
+    virtual void getSwept(DistVec<int>& swept){
+        for (int iSub=0; iSub<numLocSub; iSub++)
+            (*this)(iSub).computeSwept((swept)(iSub));
+    }
 
-    virtual DistVec<int> &getStatus() {fprintf(stderr,"Not implemented yet!\n");} //TODO: to be fixed 
+    virtual DistVec<int> &getStatus() = 0;
+    virtual void setStatus(DistVec<int> nodeTag) = 0;                                
 
-    virtual void updateStructure(Vec3D *Xs, Vec3D *Vs, int nNodes) = 0;
-    virtual void recompute(double dtf, double dtfLeft, double dts) = 0;
+    virtual void updateStructure(double *Xs, double *Vs, int nNodes, int(*abc)[3]=0) = 0;
+    virtual int recompute(double dtf, double dtfLeft, double dts) = 0;
     virtual Vec<Vec3D> &getStructPosition() = 0;
     virtual Vec<Vec3D> &getStructPosition_0() = 0;
     virtual Vec<Vec3D> &getStructPosition_n() = 0;

@@ -27,7 +27,7 @@ class MatVecProd {
 
 public:
 
-  MatVecProd() {}
+  MatVecProd() : isFSI(false) {}
   virtual ~MatVecProd() {}
 
   virtual void exportMemory(MemoryPool *mp) {}
@@ -39,6 +39,8 @@ public:
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
   virtual void apply(DistVec<double> &, DistVec<double> &) { };
 
+  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
@@ -54,6 +56,29 @@ public:
   virtual void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0){
     std::cout<<"*** Error: function rstSpaceOp not implemented"<<std::endl;}
 
+  // Structure to enable fluid-structure interaction computations
+  struct _fsi {
+
+    DistLevelSetStructure* LSS;
+    DistVec<int>* fluidId;
+    DistExactRiemannSolver<dim>* riemann;
+    bool linRecAtInterface;
+    DistSVec<double,3>* Nsbar;
+    DistSVec<double,dim>* Wtemp;
+    int Nriemann;
+    DistVec<GhostPoint<dim>*>* ghostPoints;
+  };
+
+  void AttachStructure(const _fsi& f) {
+    isFSI = true;
+    fsi = f;
+  }
+ 
+protected:
+  
+  // Boolean; set to true if we are using a structure
+  bool isFSI;
+  _fsi fsi;
 };
 
 //------------------------------------------------------------------------------
@@ -85,6 +110,9 @@ class MatVecProdFD : public MatVecProd<dim,neq> {
   int fdOrder;
   double fdeps;
 
+ 
+public:
+
 private:
 
   double computeEpsilon(DistSVec<double,neq> &, DistSVec<double,neq> &);
@@ -94,7 +122,7 @@ public:
 // Included (MB)
   MatVecProdFD(ImplicitData &, DistTimeState<dim> *, DistGeoState *, 
 	       SpaceOperator<dim> *, Domain *, IoData &);
-
+  
   ~MatVecProdFD();
 
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
@@ -169,6 +197,8 @@ public:
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
 
+  void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
+
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
     std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; } 
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y) { 
@@ -176,6 +206,8 @@ public:
  endl; }
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+ 
+  void clearGhost();
 };
 
 //------------------------------------------------------------------------------
@@ -372,7 +404,7 @@ public:
 
   MatVecProdMultiPhase(DistTimeState<dim> *ts, MultiPhaseSpaceOperator<dim,dimLS> *spo,
                        DistExactRiemannSolver<dim> *rsolver, FluidSelector *fs) : 
-                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs) {}
+                       timeState(ts), spaceOp(spo), riemann(rsolver), fluidSelector(fs), isFSI(false) {}
   virtual ~MatVecProdMultiPhase() { timeState=0; spaceOp = 0; riemann = 0; fluidSelector = 0; }
 
   virtual void exportMemory(MemoryPool *mp) {}
@@ -382,6 +414,30 @@ public:
                         DistSVec<double,dim> &) = 0;
 
   virtual void apply(DistSVec<double,dim> &, DistSVec<double,dim> &) = 0;
+
+  // Structure to enable fluid-structure interaction computations
+  struct _fsi {
+
+    DistLevelSetStructure* LSS;
+    DistVec<int>* fluidId;
+    DistExactRiemannSolver<dim>* riemann;
+    bool linRecAtInterface;
+    DistSVec<double,3>* Nsbar;
+    DistSVec<double,dim>* Wtemp;
+    int Nriemann;
+    DistVec<GhostPoint<dim>*>* ghostPoints;
+  };
+
+  void AttachStructure(const _fsi& f) {
+    isFSI = true;
+    fsi = f;
+  }
+ 
+protected:
+  
+  // Boolean; set to true if we are using a structure
+  bool isFSI;
+  _fsi fsi;
 
 };
 
@@ -487,7 +543,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &,
                 DistSVec<double,dimLS> &, DistSVec<double,dim> &,
 		DistSVec<double,dim> &,
-                DistSVec<double,dimLS> &, DistVec<int> &);
+                DistSVec<double,dimLS> &, DistVec<int> &,bool = false,DistLevelSetStructure* = NULL);
 
   void apply(DistSVec<double,dimLS> &, DistSVec<double,dimLS> &);
 

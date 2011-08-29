@@ -52,6 +52,7 @@ Domain::Domain()
   levelPat = 0;
   weightPat = 0;
   edgePat = 0;
+  scalarEdgePat = 0;
   momPat = 0;
   csPat = 0;
   engPat = 0;
@@ -78,6 +79,14 @@ Domain::Domain()
   com = allCom[FLUID_ID];
   timer = new Timer(com);
   com->setTimer(timer);
+
+  com->fprintf(stdout,"\n");  
+  com->fprintf(stdout,"  _______                              __________\n");
+  com->fprintf(stdout,"  ___    |_____ ______________         ___  ____/\n");
+  com->fprintf(stdout,"  __  /| |_  _ \\__  ___/_  __ \\__________  /_  \n");
+  com->fprintf(stdout,"  _  ___ |/  __/_  /    / /_/ /_/_____/_  __/    \n");
+  com->fprintf(stdout,"  /_/  |_|\\___/ /_/     \\____/         /_/     \n");
+  com->fprintf(stdout,"\n");
 
   strCom = allCom[STRUC_ID];
   if (strCom) {
@@ -1150,7 +1159,7 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, DistSVec<double,6
 //------------------------------------------------------------------------------
 //  least square gradient involving only nodes of same fluid (multiphase flow)
 void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int> &fluidId,
-                                        DistSVec<double,6> &R)
+                                        DistSVec<double,6> &R, DistLevelSetStructure *distLSS)
 {
 
   int iSub;
@@ -1158,8 +1167,8 @@ void Domain::computeWeightsLeastSquares(DistSVec<double,3> &X, const DistVec<int
   DistSVec<int,1> *count = new DistSVec<int,1>(getNodeDistInfo());
 
 #pragma omp parallel for
-  for (iSub=0; iSub<numLocSub; ++iSub) {
-    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub));
+  for (iSub=0; iSub<numLocSub; ++iSub) { 
+    subDomain[iSub]->computeWeightsLeastSquaresEdgePart(X(iSub), fluidId(iSub), (*count)(iSub), R(iSub), distLSS ? &((*distLSS)(iSub)) : 0);
     subDomain[iSub]->sndData(*weightPat, R.subData(iSub));
     subDomain[iSub]->sndData(*levelPat, (*count).subData(iSub));
   }
@@ -1463,6 +1472,53 @@ void Domain::findNodeBoundingBoxes(DistSVec<double,3> &X, DistSVec<double,3> &Xm
   assemble(Xmin, minOp);
   operMax<double> maxOp;
   assemble(Xmax, maxOp);
+}
+
+//-------------------------------------------------------------------------------
+
+void Domain::setupFluidIdVolumesInitialConditions(const int volid, const int myId, DistVec<int> &fluidId)
+{
+  // It is assumed that the initialization using volumes is only
+  // called to distinguish nodes that are separated by a material
+  // interface (structure). Thus one node cannot be at
+  // the boundary of two fluids. A fluid node then gets its
+  // id from the element id and there cannot be any problem
+  // for parallelization.
+#pragma omp parallel for
+  for (int iSub = 0; iSub < numLocSub; ++iSub)
+    subDomain[iSub]->setupFluidIdVolumesInitialConditions(volid, myId, fluidId(iSub));
+}
+
+//-------------------------------------------------------------------------------
+
+void Domain::computeMaterialVolumes(double *Vol, int size, DistVec<double> &A, DistVec<int> *fluidId)
+{
+  double subVol[numLocSub][size];
+#pragma omp parallel for
+  for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for(int i=0; i<size; i++)
+      subVol[iSub][i] = 0.0;
+    double *subA = A.subData(iSub);
+    int *subId = fluidId ? fluidId->subData(iSub) : 0;
+    bool *subMasterFlag = A.getMasterFlag(iSub);
+
+    for(int i=0; i<A.subSize(iSub); i++) {
+      if(!subMasterFlag[i])
+        continue;
+      int myId = subId ? subId[i] : 0;
+      if(myId>=size) {
+        fprintf(stderr,"ERROR: Detected FluidId = %d. Maximum should be %d (or less). \n", myId, size-1);
+        exit(-1);
+      }
+      subVol[iSub][myId] += subA[i];
+    }
+  }
+
+  for(int iSub=0; iSub<numLocSub; ++iSub)
+    for(int i=0; i<size; i++)
+      Vol[i] += subVol[iSub][i];
+
+  com->globalSum(size, Vol);
 }
 
 //-------------------------------------------------------------------------------

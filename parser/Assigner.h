@@ -1,11 +1,11 @@
 #ifndef _ASSIGNER_H_
 #define _ASSIGNER_H_
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef OLD_STL
 #include <vector.h>
-#include <string.h>
+#include <cstring>
 #include <map.h>
 #else
 #include <vector>
@@ -16,7 +16,7 @@ using std::vector;
 using std::map;
 #endif
 
-#include <stdlib.h>
+#include <cstdlib>
 
 class Assigner {
  public:

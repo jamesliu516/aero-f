@@ -2,8 +2,8 @@
 
 #include <LinkF77.h>
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <iostream>
 
 
@@ -61,11 +61,17 @@ extern "C" {
                          const double&, double*, double*, double*, double*, double*, 
                          const double&, const double&, const double&, const double&, 
                          const double&, const double&, const int&);
-
   void F77NAME(hllcflux)(const int&, const double&, const double&, const double&, double*,
                          const double&, double*, double*, double*, double*, double*,
                          const double&, const double&, const double&, const double&,
                          const double&, const double&, const int&);
+  void F77NAME(hllcflux1)(const double&, const double&, const double&, double*, 
+			  const double&, double*, double*, double*,
+			  const double&, const double&, const double&,
+			  const double&, const int&);
+  void F77NAME(hllcjac)(const int&, const double&, const double&, const double&, double*,
+			const double&, double*, double*, double*, double*, const double&,
+			const double&, const double&, const double&, const int&);
 
 
 // Included (MB)
@@ -496,6 +502,106 @@ void FluxFcnSGApprJacHLLEEuler3D::computeJacobians(double length, double irey, d
 
 //------------------------------------------------------------------------------
 
+template<int dim>
+inline
+void hllcjacappr3Dgas(int type, double gamma, VarFcnBase *vf, double vfgam, double vfp, 
+                  FluxFcnBase::Type localTypeJac, double* normal, double normalVel, double* VL, 
+		  double* VR, double* jacL, double* jacR, double irey, double betaRef, 
+		  double k1, double cmach, int prec)
+{
+  const int dimm1 = dim-1;
+  const int dimm2 = dim-2;
+  const int dim2 = dim*dim;
+
+  double dfdVL[dim2], dfdVR[dim2];
+  double dfdUL[dim2], dfdUR[dim2];
+  double n[3] = {normal[0], normal[1], normal[2]};
+
+  F77NAME(hllcjac)(type, gamma, vfgam, vfp, n, normalVel, VL, VR, dfdUL, dfdUR, betaRef, k1, cmach, irey, prec);
+
+  if (type == 1 || type == 2) {
+    vf->postMultiplyBydUdV(VL, dfdUL, dfdVL);
+    vf->postMultiplyBydUdV(VR, dfdUR, dfdVR);
+
+    double f1;
+    F77NAME(hllcflux1)(gamma, vfgam, vfp, n, normalVel, VL, VR, &f1, betaRef,k1,cmach,irey,prec);
+
+
+    if (type == 1) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-6] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-6] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-2] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-2] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    else if (type == 2) {
+      if (f1 >= 0.0) {
+        dfdVL[dim2-14] = dfdVL[0]*VL[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VL[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VL[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VL[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VL[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VL[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VL[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VL[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VL[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VL[dimm2];
+        dfdVL[dim2-9] = f1;                  dfdVR[dim2-9] = 0.0;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VL[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VL[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VL[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VL[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VL[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VL[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VL[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VL[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VL[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VL[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = f1;                 dfdVR[dim2-1] = 0.0;
+      }
+      else {
+        dfdVL[dim2-14] = dfdVL[0]*VR[dimm2]; dfdVR[dim2-14] = dfdVR[0]*VR[dimm2];
+        dfdVL[dim2-13] = dfdVL[1]*VR[dimm2]; dfdVR[dim2-13] = dfdVR[1]*VR[dimm2];
+        dfdVL[dim2-12] = dfdVL[2]*VR[dimm2]; dfdVR[dim2-12] = dfdVR[2]*VR[dimm2];
+        dfdVL[dim2-11] = dfdVL[3]*VR[dimm2]; dfdVR[dim2-11] = dfdVR[3]*VR[dimm2];
+        dfdVL[dim2-10] = dfdVL[4]*VR[dimm2]; dfdVR[dim2-10] = dfdVR[4]*VR[dimm2];
+        dfdVL[dim2-9] = 0.0;                 dfdVR[dim2-9] = f1;
+        dfdVL[dim2-8] = 0.0;                 dfdVR[dim2-8] = 0.0;
+
+        dfdVL[dim2-7] = dfdVL[0]*VR[dimm1]; dfdVR[dim2-7] = dfdVR[0]*VR[dimm1];
+        dfdVL[dim2-6] = dfdVL[1]*VR[dimm1]; dfdVR[dim2-6] = dfdVR[1]*VR[dimm1];
+        dfdVL[dim2-5] = dfdVL[2]*VR[dimm1]; dfdVR[dim2-5] = dfdVR[2]*VR[dimm1];
+        dfdVL[dim2-4] = dfdVL[3]*VR[dimm1]; dfdVR[dim2-4] = dfdVR[3]*VR[dimm1];
+        dfdVL[dim2-3] = dfdVL[4]*VR[dimm1]; dfdVR[dim2-3] = dfdVR[4]*VR[dimm1];
+        dfdVL[dim2-2] = 0.0;                dfdVR[dim2-2] = 0.0;
+        dfdVL[dim2-1] = 0.0;                dfdVR[dim2-1] = f1;
+      }
+    }
+    vf->postMultiplyBydVdU(VL, dfdVL, dfdUL);
+    vf->postMultiplyBydVdU(VR, dfdVR, dfdUR);
+  }
+
+  int k;
+
+  if (localTypeJac == FluxFcnBase::CONSERVATIVE) {
+    for (k=0; k<dim2; ++k) {
+      jacL[k] = dfdUL[k];
+      jacR[k] = dfdUR[k];
+    }
+  }
+  else {
+    vf->postMultiplyBydUdV(VL, dfdUL, jacL);
+    vf->postMultiplyBydUdV(VR, dfdUR, jacR);
+  }
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGFDJacHLLCEuler3D::compute(double length, double irey, double *normal, double normalVel,
                                      double *VL, double *VR, double *flux, bool useLimiter)
 {
@@ -511,6 +617,16 @@ void FluxFcnSGApprJacHLLCEuler3D::compute(double length, double irey, double *no
 {
 
   F77NAME(hllcflux)(0, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGApprJacHLLCEuler3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+                                                double *VL, double *VR, double *jacL, double *jacR, bool useLimiter)
+{
+  
+  hllcjacappr3Dgas<5>(0, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), useLimiter ? sprec.getPrecTag() : 0);
 
 }
 
@@ -1222,6 +1338,37 @@ void FluxFcnSGApprJacHLLESA3D::computeJacobians(double length, double irey, doub
 
 //------------------------------------------------------------------------------
 
+void FluxFcnSGFDJacHLLCSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGApprJacHLLCSA3D::compute(double length, double irey, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(1, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGApprJacHLLCSA3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+                                             double *VL, double *VR,
+                                             double *jacL, double *jacR, bool useLimiter)
+{
+
+  hllcjacappr3Dgas<6>(1, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
 void FluxFcnSGWallSA3D::compute(double length, double irey, double *normal, double normalVel,
                               double *V, double *Ub, double *flux, bool useLimiter)
 {
@@ -1597,6 +1744,37 @@ void FluxFcnSGApprJacHLLEKE3D::computeJacobians(double length, double irey, doub
 {
 
   hllejacappr3Dgas<7>(2, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGFDJacHLLCKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                  double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL, VR, VR, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGApprJacHLLCKE3D::compute(double length, double irey, double *normal, double normalVel,
+                                    double *VL, double *VR, double *flux, bool useLimiter)
+{
+
+  F77NAME(hllcflux)(2, gamma, vf->getGamma(), vf->getPressureConstant(), normal, normalVel, VL, VL+rshift, VR, VR+rshift, flux, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), sprec.getShockParameter(), irey, length, useLimiter ? sprec.getPrecTag() : 0);
+
+}
+
+//------------------------------------------------------------------------------
+
+void FluxFcnSGApprJacHLLCKE3D::computeJacobians(double length, double irey, double *normal, double normalVel,
+                                             double *VL, double *VR,
+                                             double *jacL, double *jacR, bool useLimiter)
+{
+
+  hllcjacappr3Dgas<7>(2, gamma, vf, vf->getGamma(), vf->getPressureConstant(), typeJac, normal, normalVel, VL, VR, jacL, jacR, irey, sprec.getMinMach(), sprec.getSlope(), sprec.getCutOffMach(), useLimiter ? sprec.getPrecTag() : 0);
 
 }
 

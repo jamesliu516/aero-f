@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <set>
 #include <map>
@@ -78,15 +78,15 @@ void FloodFill::dumpColorsToFile(const std::string& prefix,SubDomain& subDomain,
 
         std::string fileName = PhysBAM::STRING_UTILITIES::string_sprintf("%s/subD-%d_color-%d",prefix.c_str(),gSub.Value(),current_color);
         FILE* tet_volume = fopen(fileName.c_str(),"w"); if(!tet_volume){fprintf(stderr,"SubD %d unable to write to '%s', exiting early\n",subDomain.getGlobSubNum(),fileName.c_str());return;}
-        fprintf(tet_volume, "%d\n",number_of_nodes);
+        fprintf(tet_volume, "Nodes Nodes%d\n",number_of_nodes);
         for(int i=0;i<color.size();++i) if(color[i] == current_color)
             fprintf(tet_volume,"%d %e %e %e\n",mapping[i],X[i][0],X[i][1],X[i][2]);
 
-        fprintf(tet_volume, "%d\n",number_of_elements);int element=0;
+        fprintf(tet_volume, "Elements Tets%d Using Nodes%d\n",number_of_elements,number_of_nodes);int element=0;
         for(int i=0;i<subDomain.numElems();++i){int* nodes=subDomain.getElemNodeNum(i);
             if(color[nodes[0]] == current_color && color[nodes[1]] == current_color &&
                color[nodes[2]] == current_color && color[nodes[3]] == current_color)
-                fprintf(tet_volume,"%d %d %d %d %d\n",++element,mapping[nodes[0]],mapping[nodes[1]],mapping[nodes[2]],mapping[nodes[3]]);}
+                fprintf(tet_volume,"%d 5 %d %d %d %d\n",++element,mapping[nodes[0]],mapping[nodes[1]],mapping[nodes[2]],mapping[nodes[3]]);}
         fclose(tet_volume);
     }
 }
@@ -145,10 +145,10 @@ void FloodFill::generateSubDToProcessorMap(Domain& domain,Communicator& com)
     int number_global_sub=-1;
 #pragma omp parallel for
     for(int iSub=0;iSub<domain.getNumLocSub();++iSub)
-	number_global_sub=std::max(number_global_sub,(domain.getSubDomain())[iSub]->getGlobSubNum());
+	number_global_sub=std::max(number_global_sub,(domain.getSubDomain())[iSub]->getGlobSubNum()+1);
 
     PHYSBAM_MPI_UTILITIES::synchronizeMaxNumber(com,number_global_sub);
-    nGlobalSubDomains=GLOBAL_SUBD_ID(number_global_sub+1);
+    nGlobalSubDomains=GLOBAL_SUBD_ID(number_global_sub);
 
     SubDomain **subD = domain.getSubDomain();
     subDomainToProcessorMap = new int[number_global_sub];
