@@ -866,7 +866,7 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
-	void computeConnectedElems(std::vector<int> &);
+	void computeConnectedElems(const std::vector<int> &);
 
 };
 

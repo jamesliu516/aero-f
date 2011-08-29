@@ -175,7 +175,7 @@ void computeDerivativeOfLocalWeightsLeastSquares(double dx[3], double ddx[3], do
 template<int dim, class Scalar>
 void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &R,
 	        SVec<Scalar,dim> &var, SVec<Scalar,dim> &ddx,
-	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {
+	        SVec<Scalar,dim> &ddy, SVec<Scalar,dim> &ddz)  {	//KTC: CANNOT MODIFY
 
   ddx = (Scalar) 0.0;
   ddy = (Scalar) 0.0;
@@ -184,34 +184,71 @@ void SubDomain::computeGradientsLeastSquares(SVec<double,3> &X, SVec<double,6> &
   bool *edgeFlag = edges.getMasterFlag();
   int (*edgePtr)[2] = edges.getPtr();
 
-  for (int l=0; l<edges.size(); ++l) {
+	if (sampleMesh) {
 
-    if (!edgeFlag[l])
-      continue;
+		for (int iEdge=0; iEdge<edges.getNumTwoLayersEdges(); ++iEdge) {
 
-    int i = edgePtr[l][0];
-    int j = edgePtr[l][1];
+			int l = edges.edgesTwoLayersSampleNode[iEdge];
 
-    double Wi[3], Wj[3];
-    Scalar deltaVar;
+			if (!edgeFlag[l])
+				continue;
 
-    double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
-    computeLocalWeightsLeastSquares(dx, R[i], Wi);
+			int i = edgePtr[l][0];
+			int j = edgePtr[l][1];
 
-    dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
-    computeLocalWeightsLeastSquares(dx, R[j], Wj);
+			double Wi[3], Wj[3];
+			Scalar deltaVar;
 
-    for (int k=0; k<dim; ++k) {
-      deltaVar = var[j][k] - var[i][k];
+			double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+			computeLocalWeightsLeastSquares(dx, R[i], Wi);
 
-      ddx[i][k] += Wi[0] * deltaVar;
-      ddy[i][k] += Wi[1] * deltaVar;
-      ddz[i][k] += Wi[2] * deltaVar;
-      ddx[j][k] -= Wj[0] * deltaVar;
-      ddy[j][k] -= Wj[1] * deltaVar;
-      ddz[j][k] -= Wj[2] * deltaVar;
-    }
-  }
+			dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+			computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+			for (int k=0; k<dim; ++k) {
+				deltaVar = var[j][k] - var[i][k];
+
+				ddx[i][k] += Wi[0] * deltaVar;
+				ddy[i][k] += Wi[1] * deltaVar;
+				ddz[i][k] += Wi[2] * deltaVar;
+				ddx[j][k] -= Wj[0] * deltaVar;
+				ddy[j][k] -= Wj[1] * deltaVar;
+				ddz[j][k] -= Wj[2] * deltaVar;
+			}
+		}
+
+	}
+
+	else {
+		for (int l=0; l<edges.size(); ++l) {
+
+			if (!edgeFlag[l])
+				continue;
+
+			int i = edgePtr[l][0];
+			int j = edgePtr[l][1];
+
+			double Wi[3], Wj[3];
+			Scalar deltaVar;
+
+			double dx[3] = {X[j][0] - X[i][0], X[j][1] - X[i][1], X[j][2] - X[i][2]};
+			computeLocalWeightsLeastSquares(dx, R[i], Wi);
+
+			dx[0] = -dx[0]; dx[1] = -dx[1]; dx[2] = -dx[2];
+			computeLocalWeightsLeastSquares(dx, R[j], Wj);
+
+			for (int k=0; k<dim; ++k) {
+				deltaVar = var[j][k] - var[i][k];
+
+				ddx[i][k] += Wi[0] * deltaVar;
+				ddy[i][k] += Wi[1] * deltaVar;
+				ddz[i][k] += Wi[2] * deltaVar;
+				ddx[j][k] -= Wj[0] * deltaVar;
+				ddy[j][k] -= Wj[1] * deltaVar;
+				ddz[j][k] -= Wj[2] * deltaVar;
+			}
+		}
+	}
 
 }
 
@@ -2635,7 +2672,7 @@ void SubDomain::addRcvData(CommPattern<Scalar> &sp, Scalar (*w)[dim])
     Scalar (*buffer)[dim] = reinterpret_cast<Scalar (*)[dim]>(sInfo.data);
 
     for (int iNode = 0; iNode < sharedNodes->num(iSub); ++iNode)
-      for (int j = 0; j < dim; ++j)  {
+      for (int j = 0; j < dim; ++j)  {	// KTC: COULD DO ONLY FOR ONE LAYER OF NODES AWAY
 	w[ (*sharedNodes)[iSub][iNode] ][j] += buffer[iNode][j];
       }
   }

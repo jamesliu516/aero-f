@@ -201,7 +201,7 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
 
 //------------------------------------------------------------------------------
 
-void ElemSet::computeConnectedElems(std::vector<int> &locSampleNodes) 
+void ElemSet::computeConnectedElems(const std::vector<int> &locSampleNodes) 
 {
 
 	sampleMesh = true;

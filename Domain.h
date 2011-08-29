@@ -678,6 +678,14 @@ public:
 	template<int dim>
 	void readMultiPodBasis(const char *, VecSet< DistSVec<double, dim> > **, int *, int, int *); 	//KTC
 
+	void computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes);
+	void computeConnectedNodes(const std::vector<std::vector<int> > &,
+			std::vector<int> &);
+
+	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
+
+	template<typename Scalar> void makeUnique( std::vector <Scalar> *nodeOrEle, int length);
+
   template<int dim>
   void readPodBasis(const char *, int &nPod, VecSet<DistSVec<double ,dim> > &, bool snaps);
 

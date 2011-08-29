@@ -212,11 +212,9 @@ protected:
 			const int iSub, const int *locToGlobNodeMap, const int *globalNodeNums);
 	virtual void addSampleNodesAndNeighbors();
 	void addNeighbors(int iSampleNodes, int startingNodeWithNeigh);
-	template<typename Scalar> void communicateMesh( std::vector <Scalar> *nodeOrEle , int arraySize, int *alreadyCommunicated);
 	void communicateAll();
 	void defineMaps();
 	void communicateBCFaces();
-	void makeUnique( std::vector <int>  *nodeOrEle, int length);
 	virtual void outputTopFile();
 	virtual void outputSampleNodes();
 	void outputSampleNodesGeneral(const std::vector<int> &sampleNodes, const

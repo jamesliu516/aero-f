@@ -28,7 +28,7 @@ public:
   double dotProduct(const DistSVec<double, dim> & originVec, const DistSVec<double, dim> & restrictedVec) const;
 
   template <typename InputIterator>
-  RestrictionMapping(const Domain * domain, InputIterator globalIndexBegin, InputIterator globalIndexEnd);
+  RestrictionMapping(Domain * domain, InputIterator globalIndexBegin, InputIterator globalIndexEnd);
 
 private:
   typedef std::map<int, int> NumberingMap;
@@ -40,8 +40,6 @@ private:
   std::set<int> sampleNodes_;
   std::vector<NumberingMap> originToRestricted_;
   std::vector<std::vector<int> > restrictedToOrigin_;	// local node number in original
-
-	void determineConnectedElementsEdges(const Domain *);
 
   // Disallow copy and assignment
   RestrictionMapping(const RestrictionMapping &); // = delete;

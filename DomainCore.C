@@ -1576,3 +1576,55 @@ void Domain::readSampleNodes(std::vector<int> &sampleNodes, int &nSampleNodes,
 		sampleNodes.push_back(currentSampleNode-1);	// reads in the sample node plus one
 	}
 }
+
+void Domain::computeConnectedTopology(const std::vector<std::vector<int> > & locSampleNodes) {
+
+	// compute global node numbers for neighbors
+
+	std::vector <int> globalNeighborNodes;
+
+	// INPUT: locSampleNodes, OUTPUT: globalNeighborNodes
+  computeConnectedNodes(locSampleNodes,globalNeighborNodes);
+
+  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+		subDomain[iSub]->computeConnectedTopology(locSampleNodes[iSub],globalNeighborNodes);
+	}
+
+}
+
+void Domain::computeConnectedNodes(const std::vector<std::vector<int> > &locSampleNodes_,
+		std::vector<int> &globalNeighborNodes) 
+{
+
+	int iLocNode, nNodesToAdd, locNodeNum;
+	int *nToNpointer;
+	Connectivity *nodeToNode;
+	int *locToGlobNodeMap;
+
+	for (int iSub = 0; iSub < numLocSub; ++iSub) {
+		int *locToGlobNodeMap = subDomain[iSub]->getNodeMap();
+		nodeToNode = subDomain[iSub]->createElemBasedConnectivity();
+		nToNpointer = nodeToNode->ptr();
+
+		for (int iSampleNodes = 0; iSampleNodes < locSampleNodes_[iSub].size() ; ++iSampleNodes) {
+
+			iLocNode = locSampleNodes_[iSub][iSampleNodes];
+			nNodesToAdd = nToNpointer[iLocNode+1] - nToNpointer[iLocNode];  // number of neighbors this node has
+
+			// figure out neighbors
+			for (int iNodeToAdd = 0; iNodeToAdd < nNodesToAdd; ++iNodeToAdd) {
+				locNodeNum = *((*nodeToNode)[iLocNode]+iNodeToAdd);
+
+				// local to global node numbers
+				globalNeighborNodes.push_back(locToGlobNodeMap[locNodeNum]);
+			}
+		}
+	}
+
+	// communicate mesh
+
+	communicateMesh(&globalNeighborNodes, 1, NULL);
+	//makeUnique(&globalNeighborNodes, 1);	// KTC remove?
+
+}
+

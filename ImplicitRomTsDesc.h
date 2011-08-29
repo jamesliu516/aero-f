@@ -68,6 +68,8 @@ protected:
 	void savedUnormAccum();
 	virtual void writeStateRomToDisk(int it, double cpu);
 	virtual void postProStep(DistSVec<double,dim> &, int) {};	// by default, do not do post processing
+	virtual bool breakloop1(const bool);
+	virtual bool breakloop2(const bool);
 
 public:
   

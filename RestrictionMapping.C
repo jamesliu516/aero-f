@@ -7,7 +7,7 @@
 
 template <int dim>
 template <typename InputIterator>
-RestrictionMapping<dim>::RestrictionMapping(const Domain * domain, InputIterator globalIndexBegin, InputIterator globalIndexEnd) :
+RestrictionMapping<dim>::RestrictionMapping(Domain * domain, InputIterator globalIndexBegin, InputIterator globalIndexEnd) :
   localSubdomainCount_(domain->getNumLocSub()),
   originDistInfo_(domain->getNodeDistInfo()),
   restrictedDistInfo_(originDistInfo().numLocThreads,
@@ -47,7 +47,7 @@ RestrictionMapping<dim>::RestrictionMapping(const Domain * domain, InputIterator
     }
   }
 
-	determineConnectedElementsEdges(domain);
+	domain->computeConnectedTopology(restrictedToOrigin_);
 	
 }
 
@@ -182,13 +182,4 @@ RestrictionMapping<dim>::dotProduct(const DistSVec<double, dim> & originVec, con
 #endif
 
   return result;
-}
-
-template <int dim>
-void RestrictionMapping<dim>::determineConnectedElementsEdges(const Domain * domain) {
-
-	SubDomain** subD = domain->getSubDomain();
-  for (int iSub = 0; iSub < localSubdomainCount(); ++iSub) {
-		subD[iSub]->computeConnectedTopology(restrictedToOrigin_[iSub]);
-	}
 }

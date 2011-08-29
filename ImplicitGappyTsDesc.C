@@ -177,3 +177,18 @@ void ImplicitGappyTsDesc<dim>::solveNewtonSystem(const int &it, double &res, boo
   breakloop = (res == 0.0) || (res <= this->target);
 	this->timer->addCheckConvergenceTime(t0);
 }
+
+template<int dim>
+bool ImplicitGappyTsDesc<dim>::breakloop1(const bool breakloop) {
+
+	return false;
+	
+}
+
+template<int dim>
+bool ImplicitGappyTsDesc<dim>::breakloop2(const bool breakloop) {
+
+	return breakloop;
+
+}
+

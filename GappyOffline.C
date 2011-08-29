@@ -20,6 +20,7 @@ GappyOffline<dim>::GappyOffline(Communicator *_com, IoData &_ioData, Domain
 	geoState(_geoState), X(_geoState->getXn()),
 	residual(0), jacobian(1)
 {
+	//TODO: FIGURE OUT WHICH ONE IS RESIDUAL!!!
 	// create temporary objects to build postOp, which is needed for lift
 	// surfaces
 	twoLayers = ioData->Rob.layers == 2;
@@ -779,8 +780,8 @@ void GappyOffline<dim>::buildRemainingMesh() {
 
 	// remove redundant entries from the globalNodes and elements
 
-	makeUnique(globalNodes);
-	makeUnique(elements);
+	domain.makeUnique(globalNodes, nSampleNodes);
+	domain.makeUnique(elements, nSampleNodes);
 
 	computeBCFaces(false);	// compute BC faces already in mesh
 	communicateBCFaces();
@@ -949,66 +950,18 @@ void GappyOffline<dim>::computeBCFaces(bool liftContribution) {
 }
 
 template<int dim>
-template<typename Scalar>
-void GappyOffline<dim>::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize, int *alreadyCommunicatedArray = NULL){	
-	
-	// loop over iIslands
-		// figure out how many total entries each cpu has for the iIsland
-		// 	numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
-		// initiate memory for the total number of globalNodes (using last entry in above vector)
-		// fill out entries [iCpu] to [iCpu+1] in above array using vector
-		// do a global sum
-		// overwrite node and element vectors with this global data (for each cpu)
-
-	int* numNeigh = new int [nTotCpus + 1];
-	int offset;	// initial values to not communicate (if already communicated some)
-	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
-		if (thisCPU > 0 && alreadyCommunicatedArray != NULL)
-			offset = alreadyCommunicatedArray[iArraySize];
-		else
-			offset = 0;
-		for (int i = 0; i <=nTotCpus; ++i)	// initialize
-			numNeigh[i] = 0;
-		numNeigh[thisCPU+1] = nodeOrEle[iArraySize].size() - offset;	// number of entries on this cpu
-		com->globalSum(nTotCpus+1,numNeigh);
-		for (int i = 1; i <=nTotCpus; ++i)	// accumulate
-			numNeigh[i] += numNeigh[i-1];
-		int totalNodeOrEle = numNeigh[nTotCpus];	// total across all processors
-
-		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
-		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
-			if (iNeighbor >= numNeigh[thisCPU] && iNeighbor < numNeigh[thisCPU+1]) 
-				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[thisCPU] + offset];	// fill in this cpu's contribution
-			else
-				nodeOrEleArray[iNeighbor] = 0;
-		}
-
-		com->globalSum(totalNodeOrEle,nodeOrEleArray);
-
-		// fill in the array with all global entries
-		nodeOrEle[iArraySize].clear();
-		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
-			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
-
-		delete [] nodeOrEleArray;
-		
-	}
-	delete [] numNeigh;
-}
-
-template<int dim>
 void GappyOffline<dim>::communicateAll() {
 
-	communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
-	communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
-	communicateMesh(locSubDomains, nSampleNodes, totalNodesCommunicated);
-	communicateMesh(localNodes, nSampleNodes, totalNodesCommunicated);
+	domain.communicateMesh(globalNodes, nSampleNodes, totalNodesCommunicated);
+	domain.communicateMesh(cpus, nSampleNodes, totalNodesCommunicated);
+	domain.communicateMesh(locSubDomains, nSampleNodes, totalNodesCommunicated);
+	domain.communicateMesh(localNodes, nSampleNodes, totalNodesCommunicated);
 	for (int i = 0; i < 3; ++i)
-		communicateMesh(nodesXYZ[i], nSampleNodes, totalNodesCommunicated);
+		domain.communicateMesh(nodesXYZ[i], nSampleNodes, totalNodesCommunicated);
 
-	communicateMesh(elements, nSampleNodes, totalEleCommunicated);
+	domain.communicateMesh(elements, nSampleNodes, totalEleCommunicated);
 	for (int i = 0; i < 4; ++i)
-		communicateMesh(elemToNode[i], nSampleNodes, totalEleCommunicated);
+		domain.communicateMesh(elemToNode[i], nSampleNodes, totalEleCommunicated);
 
 	for (int i = 0; i < nSampleNodes; ++i) { 
 		totalNodesCommunicated[i] = globalNodes[i].size();
@@ -1076,36 +1029,15 @@ for (int i = 0; i < 3; ++i)
 }
 
 template<int dim>
-void GappyOffline<dim>::makeUnique( std::vector <int> * nodeOrEle, int length = -1) {
-	// remove redundant entries from a vector <int> nodeOrEle *
-	// apply to nodeOrEle and elements
-
-	if (length == -1) length = nSampleNodes;
-	vector<int>::iterator it;
-
-	// put all on one vector
-	for (int iIsland = 1; iIsland < length; ++iIsland) {
-		for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
-			nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
-		}
-		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longer need that vector
-	}
-
-	sort(nodeOrEle[0].begin(), nodeOrEle[0].end());	// sort: puts in order
-	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
-	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
-}
-
-template<int dim>
 void GappyOffline<dim>::communicateBCFaces(){
 	
 	int BC_CODE_EXTREME = max(BC_MAX_CODE, -BC_MIN_CODE)+1;
 
 	for (int i = 0; i < 2; ++i) {
 		for (int j = 0; j < 3; ++j) {
-			communicateMesh(bcFaces[i][j], BC_CODE_EXTREME);
+			domain.communicateMesh(bcFaces[i][j], BC_CODE_EXTREME, NULL);
 		}
-		communicateMesh(bcFaceSurfID[i], BC_CODE_EXTREME);
+		domain.communicateMesh(bcFaceSurfID[i], BC_CODE_EXTREME, NULL);
 	}
 }
 

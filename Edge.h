@@ -58,9 +58,8 @@ class EdgeSet {
   MapPair *mp;
 
   int numEdges;
-	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
 	bool sampleMesh;
-	int numSampledEdges;
+	int numSampledEdges, numTwoLayerEdges;
 
   int (*ptr)[2];
   bool *masterFlag;
@@ -199,7 +198,13 @@ public:
 
   void computeCellAveragedStructNormal(SVec<double,3> &, Vec<double> &, LevelSetStructure &);
 
-	void computeConnectedEdges(std::vector<int> &);
+	void computeConnectedEdges(const std::vector<int> &);
+	std::vector<int> edgesConnectedToSampleNode;	// for Gappy ROM
+	std::vector<int> edgesTwoLayersSampleNode;	// for Gappy ROM
+	const int getNumSampledEdges() {return numSampledEdges;}
+	const int getNumTwoLayersEdges() {return numTwoLayerEdges;}
+	void computeGlobalConnectedEdges(const std::vector<int> &globalNeighborNodes,
+			const int *locToGlobNodeMap) ;
 };
 
 //------------------------------------------------------------------------------

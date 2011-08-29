@@ -544,9 +544,9 @@ void DistNodalGrad<dim, Scalar>::compute(int config, DistSVec<double,3> &X,
   }
 
   if (typeGradient == SchemeData::LEAST_SQUARES)
-    domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);
+    domain->computeGradientsLeastSquares(X, *R, V, *ddx, *ddy, *ddz);	// KTC fix
   else if (typeGradient == SchemeData::GALERKIN || typeGradient == SchemeData::NON_NODAL)
-    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);
+    domain->computeGradientsGalerkin(ctrlVol, *wii, *wij, *wji, V, *ddx, *ddy, *ddz);	// KTC fix
 
 }
 
@@ -678,19 +678,19 @@ void DistNodalGrad<dim, Scalar>::limit(RecFcn *recFcn, DistSVec<double,3> &X,
   if (tag) {
 #pragma omp parallel for
     for (int iSub = 0; iSub < numLocSub; ++iSub) {
-      bool *loctag = tag->subData(iSub);
-      Scalar (*locddx)[dim] = ddx->subData(iSub);
-      Scalar (*locddy)[dim] = ddy->subData(iSub);
-      Scalar (*locddz)[dim] = ddz->subData(iSub);
-      for (int i=0; i<tag->subSize(iSub); ++i) {
-	if (loctag[i]) {
-	  for (int j=0; j<dim; ++j) {
-	    locddx[i][j] = 0.0;
-	    locddy[i][j] = 0.0;
-	    locddz[i][j] = 0.0;
-	  }
-	}
-      }
+			bool *loctag = tag->subData(iSub);
+			Scalar (*locddx)[dim] = ddx->subData(iSub);
+			Scalar (*locddy)[dim] = ddy->subData(iSub);
+			Scalar (*locddz)[dim] = ddz->subData(iSub);
+			for (int i=0; i<tag->subSize(iSub); ++i) {
+				if (loctag[i]) {
+					for (int j=0; j<dim; ++j) {
+						locddx[i][j] = 0.0;
+						locddy[i][j] = 0.0;
+						locddz[i][j] = 0.0;
+					}
+				}
+			}
     }
   }
 }

@@ -6,6 +6,7 @@
 template <int dim>
 class GappyOfflineNoPseudo : public GappyOffline<dim> {
 
+	int computeAMat;
 	virtual void computePseudoInverse();	// do nothing
 	virtual void assembleOnlineMatrices();	// do nothing
 	virtual void computePodTPod();

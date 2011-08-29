@@ -40,6 +40,8 @@ protected:
 
 	virtual void computeFullResidual(int it, DistSVec<double, dim> &Q);
 	virtual void computeAJ(int it, DistSVec<double, dim> &Q);
+	virtual bool breakloop1(const bool);
+	virtual bool breakloop2(const bool);
 
 	double *jactmp, *column;
 public:

@@ -587,7 +587,8 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0) {
     double t0 = timer->getTime();
     ngrad->compute(geoState->getConfig(), X, ctrlVol, *V);
-    timer->addNodalGradTime(t0); }
+    timer->addNodalGradTime(t0); 
+	}
 
   if (egrad)
     egrad->compute(geoState->getConfig(), X);
@@ -625,7 +626,7 @@ void SpaceOperator<dim>::computeResidualRestrict(DistSVec<double,3> &X, DistVec<
   //domain->computePointWiseSourceTerm(*geoState, ctrlVol, *ngrad, *V, R);
 
   if (dynamic_cast<RecFcnConstant<dim> *>(recFcn) == 0)
-    ngrad->limit(recFcn, X, ctrlVol, *V);
+    ngrad->limit(recFcn, X, ctrlVol, *V);	// MORE EFF??
 
 	// KTC: made efficient
 	domain->computeFiniteVolumeTerm(ctrlVol, *irey, fluxFcn, recFcn,

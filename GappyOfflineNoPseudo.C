@@ -5,6 +5,7 @@ GappyOfflineNoPseudo<dim>::GappyOfflineNoPseudo(Communicator *_com, IoData
 		&_ioData, Domain &dom, DistGeoState *_geoState) : GappyOffline<dim>(_com,
 			_ioData, dom, _geoState) {
 
+	computeAMat = this->ioData->Rob.computeAMat;
 }
 
 template<int dim>
@@ -23,6 +24,9 @@ void GappyOfflineNoPseudo<dim>::assembleOnlineMatrices() {
 
 template<int dim>
 void GappyOfflineNoPseudo<dim>::computePodTPod() {
+
+	if (computeAMat==0)
+		return;
 
 	GappyOffline<dim>::computePodTPod();
 
@@ -65,9 +69,14 @@ void GappyOfflineNoPseudo<dim>::outputOnlineMatricesGeneral(const
 	char *onlineMatrixFile;
 	FILE *onlineMatrix;
 	int sp = strlen(this->ioData->output.transient.prefix);
-	const char *(onlineMatExtension [2]) = {".PodJacHat",".PodResHat"};
+	const char *(onlineMatExtension [2]) = {".PodResHat",".PodJacHat"};
 
-	for (int iPodBasis = 0; iPodBasis < this->nPodBasis; ++iPodBasis) {	
+
+	int nPodBasisMax = this->nPodBasis;
+	if (computeAMat==0)
+		nPodBasisMax = 1;	// only output one of the matrices
+
+	for (int iPodBasis = 0; iPodBasis < nPodBasisMax; ++iPodBasis) {	
 
 		onlineMatrixFile = new char[sp +
 			strlen(onlineMatricesName)+strlen(onlineMatExtension[iPodBasis])+1];
