@@ -105,6 +105,7 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 
   double res;
   bool breakloop = false;
+  bool breakloopNow = false;
 
 	// line search variables
   double alpha;
@@ -122,7 +123,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
 		solveNewtonSystem(it, res, breakloop);	// 1) check if residual small enough, 2) solve 
 			// INPUTS: AJ, F
 			// OUTPUTS: dUrom, res, breakloop
-		if (breakloop) break;
+		breakloopNow = breakloop1(breakloop);
+		if (breakloopNow) break;
 
 // LINE SEARCH
 //    // do line search (linesearch exits with alpha=0 and convergenceFlag if convergence criteria is satisfied)
@@ -154,6 +156,8 @@ int ImplicitRomTsDesc<dim>::solveNonLinearSystem(DistSVec<double, dim> &U, const
         exit(1);
       }
     }
+		breakloopNow = breakloop2(breakloop);
+		if (breakloopNow) break;
    }	// end Newton loop
 
 	savedUnormAccum();
@@ -724,3 +728,18 @@ void ImplicitRomTsDesc<dim>::readPodBasis() {
   this->domain->readPodBasis(this->input->podFile, nPod, pod,this->ioData->Rob.basisType == 0);
 	
 }
+
+template<int dim>
+bool ImplicitRomTsDesc<dim>::breakloop1(const bool breakloop) {
+
+	return breakloop;
+	
+}
+
+template<int dim>
+bool ImplicitRomTsDesc<dim>::breakloop2(const bool breakloop) {
+
+	return false;
+
+}
+

@@ -1072,7 +1072,7 @@ public:
 			      Vec<double> &, Vec<double> &, double, 
                               TimeLowMachPrec &);
 
-	void computeConnectedFaces(std::vector<int> &);
+	void computeConnectedFaces(const std::vector<int> &);
 	std::vector<int> facesConnectedToSampleNode;	// for Gappy ROM
 
 	const int getNumSampledFaces() {return numSampledFaces;}

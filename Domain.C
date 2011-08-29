@@ -2794,8 +2794,8 @@ void Domain::scaleSolution(DistSVec<Scalar,dim> &data, RefVal* refVal)  {
 
     SVec<Scalar, dim> &subData = data(iSub);
 
-    for (int i = 0; i < data.size(); ++i)
-      for (int j = 0; i < dim; ++i)
+    for (int i = 0; i < subData.size(); ++i)
+      for (int j = 0; j < dim; ++j)
         subData[i][j] *= scale[j];
   }
 
@@ -3770,3 +3770,71 @@ void Domain::readPodBasis(const char *podFile, int &nPod,
   com->fprintf(stderr, " ... Eigenvalue Ratio: (%e/%e) = %e\n", eigValue, firstEigDisplayed, eigValue/firstEigDisplayed);
 }
 
+template<typename Scalar>
+void Domain::communicateMesh(std::vector <Scalar> * nodeOrEle, int arraySize,
+		int *alreadyCommunicatedArray = NULL){	
+	
+	// loop over iIslands
+		// figure out how many total entries each cpu has for the iIsland
+		// 	numNeigh = {0 9 15 58} means that the first cpu has 9, second has 6, etc.
+		// initiate memory for the total number of globalNodes (using last entry in above vector)
+		// fill out entries [iCpu] to [iCpu+1] in above array using vector
+		// do a global sum
+		// overwrite node and element vectors with this global data (for each cpu)
+	
+	int* numNeigh = new int [com->size() + 1];
+	int offset;	// initial values to not communicate (if already communicated some)
+	for (int iArraySize = 0; iArraySize < arraySize; ++iArraySize) {
+		if (com->cpuNum() > 0 && alreadyCommunicatedArray != NULL)
+			offset = alreadyCommunicatedArray[iArraySize];
+		else
+			offset = 0;
+		for (int i = 0; i <=com->size(); ++i)	// initialize
+			numNeigh[i] = 0;
+		numNeigh[com->cpuNum()+1] = nodeOrEle[iArraySize].size() - offset;	// number of entries on this cpu
+		com->globalSum(com->size()+1,numNeigh);
+		for (int i = 1; i <=com->size(); ++i)	// accumulate
+			numNeigh[i] += numNeigh[i-1];
+		int totalNodeOrEle = numNeigh[com->size()];	// total across all processors
+
+		Scalar *nodeOrEleArray = new Scalar [totalNodeOrEle];
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) {
+			if (iNeighbor >= numNeigh[com->cpuNum()] && iNeighbor < numNeigh[com->cpuNum()+1]) 
+				nodeOrEleArray[iNeighbor] = nodeOrEle[iArraySize][iNeighbor - numNeigh[com->cpuNum()] + offset];	// fill in this cpu's contribution
+			else
+				nodeOrEleArray[iNeighbor] = 0;
+		}
+
+		com->globalSum(totalNodeOrEle,nodeOrEleArray);
+
+		// fill in the array with all global entries
+		nodeOrEle[iArraySize].clear();
+		for (int iNeighbor = 0; iNeighbor < totalNodeOrEle; ++iNeighbor) 
+			nodeOrEle[iArraySize].push_back(nodeOrEleArray[iNeighbor]);
+
+		delete [] nodeOrEleArray;
+		
+	}
+	delete [] numNeigh;
+}
+
+template<typename Scalar>
+void Domain::makeUnique( std::vector <Scalar> * nodeOrEle, int length = 1) {
+
+	// remove redundant entries from a vector <int> nodeOrEle *
+	// apply to nodeOrEle and elements
+
+	vector<int>::iterator it;
+
+	// put all on one vector
+	for (int iIsland = 1; iIsland < length; ++iIsland) {
+		for (int iEntry = 0; iEntry < nodeOrEle[iIsland].size(); ++iEntry) {
+			nodeOrEle[0].push_back(nodeOrEle[iIsland][iEntry]);
+		}
+		nodeOrEle[iIsland].erase(nodeOrEle[iIsland].begin(),nodeOrEle[iIsland].end());	// no longer need that vector
+	}
+
+	sort(nodeOrEle[0].begin(), nodeOrEle[0].end());	// sort: puts in order
+	it = unique(nodeOrEle[0].begin(), nodeOrEle[0].end()); // remove duplicate consecutive elements (reason for sort)
+	nodeOrEle[0].resize(it - nodeOrEle[0].begin());	// remove extra entries
+}

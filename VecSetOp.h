@@ -336,8 +336,6 @@ void transMatMatProdRestrict(const VecSet< DistSVec<double, dim> > &matrix1,
 
 	const int numGlobSub1 = distInfo1.numGlobSub;
 	const int numGlobSub = distInfo.numGlobSub;
-	//KTC REMOVE
-	assert(numGlobSub1 == numGlobSub);
 
 	int iSub;
 

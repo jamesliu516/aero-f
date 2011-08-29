@@ -2718,6 +2718,7 @@ ROB::ROB()
 	basisType = 1;	// use pod by default
 	notRestricted = 0;	// already restricted by default
 	errorBasis = -1;
+	computeAMat = 1;	// if 0, only output things corresponding to the residual (first pod basis), and assume podTpod = I. Useful when you want to use another basis for determining sample nodes
 
 }
 
@@ -2749,6 +2750,7 @@ void ROB::setup(const char *name, ClassAssigner *father)
   new ClassToken<ROB> (ca, "BasisType", this, reinterpret_cast<int ROB::*>(&ROB::basisType), 3, "Snaps", 0, "POD", 1, "None", 2);
   new ClassInt<ROB>(ca, "NotRestricted", this, &ROB::notRestricted);
   new ClassInt<ROB>(ca, "ErrorBasis", this, &ROB::errorBasis);
+  new ClassInt<ROB>(ca, "ComputeAMat", this, &ROB::computeAMat);
 
 }
 

@@ -177,7 +177,7 @@ public:
   Connectivity* getSharedNodes() {return sharedNodes;}
   int numberEdges();
 
-	void computeConnectedTopology(std::vector<int> &);
+	void computeConnectedTopology(const std::vector<int> &locSampleNodes, const std::vector<int> &globalNeighborNodes_);
 
   Connectivity *createElemBasedConnectivity();
   Connectivity *createNodeToElementConnectivity();

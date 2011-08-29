@@ -214,6 +214,7 @@ FaceSet::FaceSet(int value)
 {
   numFaces = value;
   faces = new Face*[value];
+	sampleMesh = false;
 
   // Set total number of face normals to 0: 
   // it will be incremented when reading faces
@@ -314,7 +315,7 @@ int FaceSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *ma
 
 //------------------------------------------------------------------------------
 
-void FaceSet::computeConnectedFaces(std::vector<int> &locSampleNodes) 
+void FaceSet::computeConnectedFaces(const std::vector<int> &locSampleNodes) 
 {
 
 	sampleMesh = true;
