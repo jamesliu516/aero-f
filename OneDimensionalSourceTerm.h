@@ -111,7 +111,8 @@ public:
       else {
         res[0] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1],Vm[0]*Vm[1],x);
         res[1] = sph_int_oned(2.0,Ym[0],Yp[0],Vm[0]*Vm[1]*Vm[1],Vm[0]*Vm[1]*Vm[1],x);
-        res[4] = sph_int_oned(2.0,Ym[0],Yp[0],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],x);      } 
+        res[4] = sph_int_oned(2.0,Ym[0],Yp[0],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],(this->varFcn->computeRhoEnergy(Vm,fluidId)+this->varFcn->getPressure(Vm,fluidId))*Vm[1],x);      
+      } 
     }else{ //at center, assuming a linear variation of velocity from 0 to XXX while maintaining conservation
       res[0] = 2.0*Vp[0]*Vp[1]*(-x)/Yp[0];
       res[1] = 2.0*Vp[0]*Vp[1]*Vp[1]*(-x)/Yp[0];//.0*Vm[0]*velocityGrad*velocityGrad/2.0;
