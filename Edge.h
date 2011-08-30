@@ -73,6 +73,7 @@ public:
   ~EdgeSet();
 
   int find(int, int);
+  int findOnly(int, int);
 
   void createPointers(Vec<int> &);
 

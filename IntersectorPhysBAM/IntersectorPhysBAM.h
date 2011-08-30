@@ -31,6 +31,7 @@ class EdgeSet;
 class Timer;
 class IoData;
 class CrackingSurface;
+
 template<class Scalar, int dim> class SVec;
 
 class DistIntersectorPhysBAM : public DistLevelSetStructure {
@@ -49,6 +50,9 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     DistSVec<double,3> *boxMax, *boxMin; //fluid node bounding boxes
 
     FloodFill* floodFill;
+
+    // closest point to CFD grid-points
+    DistVec<ClosestPoint> *closest;
 
     // struct node coords
     Vec3D *Xs;
@@ -108,7 +112,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     void updateCracking(int (*abc)[3]);
     void expandScope();
     void updatePhysBAMInterface(Vec3D *particles, int size,const DistSVec<double,3>& fluid_nodes,const bool fill_scope=false);
-    int recompute(double dtf, double dtfLeft, double dts);
+    int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -120,6 +124,7 @@ class DistIntersectorPhysBAM : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
+    DistVec<ClosestPoint> &getClosestPoints() {return *closest;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; }
     int getNumStructNodes () { return numStNodes; }
     int getNumStructElems () { return numStElems; }
@@ -150,6 +155,7 @@ class IntersectorPhysBAM : public LevelSetStructure {
 
     Vec<int> &status; //<! Whether a node is inside the fluid domain or not
     Vec<int> &status0; //<! status at the previous time-step.
+    Vec<ClosestPoint> &closest;
     Vec<bool> &occluded_node; //<! Whether a node is occluded by the solid surface.
     Vec<bool> &swept_node; //<! Whether a node is swept by the solid surface, over the present time-step.
     int nFirstLayer;
@@ -161,7 +167,8 @@ class IntersectorPhysBAM : public LevelSetStructure {
     int computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Communicator&);
 
   public:
-    IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, Vec<bool>& occluded_node,Vec<bool>& swept_node, DistIntersectorPhysBAM &);
+    IntersectorPhysBAM(SubDomain &, SVec<double, 3> &X, Vec<int> &status, Vec<int> &status0, Vec<ClosestPoint> &closest,
+                       Vec<bool>& occluded_node,Vec<bool>& swept_node, DistIntersectorPhysBAM &);
     ~IntersectorPhysBAM();
     int numOfFluids() {return distIntersector.numOfFluids();}
 
@@ -177,13 +184,20 @@ class IntersectorPhysBAM : public LevelSetStructure {
     bool edgeIntersectsStructure(double t, int edge_num) const;
     void findNodesNearInterface(SVec<double, 3>&, SVec<double, 3>&, SVec<double, 3>&) {}
 
+    bool isNearInterface(double t, int n) const {return closest[n].nearInterface();}
+    double distToInterface(double t, int n) const {return closest[n].nearInterface() ? closest[n].dist : -1;} 
     bool isActive(double t, int n) const {return (status[n] >= 0 && status[n]!=OUTSIDECOLOR);}
     bool isOccluded(double t, int n) const {return occluded_node[n];}
     bool isSwept(double t, int n) const {return swept_node[n];}
     int fluidModel(double t, int n) const {return status[n];}
+    bool withCracking() const {return distIntersector.cracking ? true : false;}
 
   private:
     void addToPackage(const int i,const int candidate);
+    void findNodeClosestPoint(const int nodeId, Vec3D &x0, ARRAY<int> &cand);
+    double project(Vec3D x0, int tria, double& xi1, double& xi2) const;
+    double edgeProject(Vec3D x0, Vec3D &xA, Vec3D &xB, double &alpha) const;
+    double edgeProject(Vec3D x0, int n1, int n2, double &alpha) const;
 };
 
 #endif

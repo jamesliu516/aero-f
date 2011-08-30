@@ -3228,6 +3228,7 @@ EmbeddedFramework::EmbeddedFramework() {
   nLevelset = 0;
 
   //debug variables
+  crackingWithLevelset = OFF;
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
@@ -3253,13 +3254,15 @@ void EmbeddedFramework::setup(const char *name) {
 
 
   //debug variables
+  new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
+                                      "Off", 0, "On", 1);
   new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
                                       "TwoWay", 0, "OneWay", 1);
   new ClassToken<EmbeddedFramework> (ca, "TwoDimension", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::dim2Treatment), 2,
                                       "No", 0, "Yes", 1);
   new ClassToken<EmbeddedFramework> (ca, "Reconstruction", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::reconstruct), 2,
                                       "Constant", 0, "Linear", 1);
-  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 3,
+  new ClassToken<EmbeddedFramework> (ca, "RiemannNormal", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::riemannNormal), 4,
                                       "Structure", 0, "Fluid", 1, "AveragedStructure", 2, "Auto", 3);
 }
 
@@ -4073,9 +4076,9 @@ int IoData::checkInputValuesAllInitialConditions(){
     }
   }
 
-  embed.nLevelset = 0;
+  embed.nLevelset = (embed.crackingWithLevelset==EmbeddedFramework::ON) ? 1 : 0;
 
-  // count number levelsets (consider only bubbles!) for the Embedded Framework.
+  // count number of levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
   for (map<int, SphereData *>::iterator it=mf.multiInitialConditions.sphereMap.dataMap.begin();
        it!=mf.multiInitialConditions.sphereMap.dataMap.end();
@@ -4099,7 +4102,7 @@ int IoData::checkInputValuesAllInitialConditions(){
       com->fprintf(stderr,"*** Re-order the fluid models to satisfy this constraint, then re-run this simulation!\n");
       error++;
     } else 
-      embed.nLevelset = nModels;
+      embed.nLevelset += nModels;
   }
 
   return error;

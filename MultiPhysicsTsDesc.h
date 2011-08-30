@@ -62,7 +62,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   bool existsWstarnm1;
 
   // EulerFSI: interface tracking
-  DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily a  "levelset solver".)
+  DistLevelSetStructure *distLSS; //<! tool for FS tracking (not necessarily using level-sets) 
 
   DistSVec<double,dim> *Wstarij,*Wstarij_nm1;  //<! stores the FS Riemann solution (i->j) along edges
   DistSVec<double,dim> *Wstarji,*Wstarji_nm1;  //<! stores the FS Riemann solution (j->i) along edges
@@ -81,6 +81,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
 
   //------------------------------------------------------------------------
   // MultiPhaseFlow: basics
+  bool withMixedLS;
   MultiPhaseSpaceOperator<dim,dimLS> *multiPhaseSpaceOp;
   int frequencyLS; // frequency for reinitialization of level set
 
@@ -91,6 +92,7 @@ class MultiPhysicsTsDesc : public TsDesc<dim> , ForceGenerator<dim> {
   DistSVec<double,dimLS> PhiWeights;    //<! stores Phi*Weights for each ndoe. Used in updating phase change
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
+  DistSVec<bool,2> InterfaceTag;
 
   //------------------------------------------------------------------------
   // buckling cylinder parameters

@@ -547,8 +547,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
+      int iSub;
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
+      for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -643,8 +644,9 @@ void SpaceOperator<dim>::computeResidual(DistExactRiemannSolver<dim> *riemann,
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
+      int iSub;
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
+      for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -775,8 +777,9 @@ void SpaceOperator<dim>::computeDerivativeOfResidual
 
   if (use_modal == false)  {
     int numLocSub = dR.numLocSub();
+    int iSub;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double *dcv = dCtrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
@@ -862,8 +865,9 @@ void SpaceOperator<dim>::computeInviscidResidual(DistSVec<double,3> &X, DistVec<
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
+      int iSub;
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
+      for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -936,8 +940,9 @@ void SpaceOperator<dim>::computeViscousResidual(DistSVec<double,3> &X, DistVec<d
   if (compatF3D) {
     if (use_modal == false)  {
       int numLocSub = R.numLocSub();
+      int iSub;
 #pragma omp parallel for
-      for (int iSub=0; iSub<numLocSub; ++iSub) {
+      for (iSub=0; iSub<numLocSub; ++iSub) {
         double *cv = ctrlVol.subData(iSub);
         double (*r)[dim] = R.subData(iSub);
         for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -996,8 +1001,9 @@ void SpaceOperator<dim>::computeResidual(DistSVec<double,3> &X, DistVec<double> 
                                   Nsbar, *ngrad, egrad, R, it, failsafe,rshift);
   if (use_modal == false)  {
     int numLocSub = R.numLocSub();
+    int iSub;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -1110,8 +1116,9 @@ int SpaceOperator<dim>::updatePhaseChange(DistSVec<double,dim> &V,
 {
   SubDomain **subD = domain->getSubDomain();
 
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<domain->getNumLocSub(); iSub++) {
+  for (iSub=0; iSub<domain->getNumLocSub(); iSub++) {
     int* locToGlobNodeMap = subD[iSub]->getNodeMap();
     LevelSetStructure& LSS((*distLSS)(iSub));
     SVec<double,dim> &subV(V(iSub));
@@ -1528,8 +1535,9 @@ void SpaceOperator<dim>::applyH2(DistSVec<double,3> &X, DistVec<double> &ctrlVol
 
   DistSVec<Scalar2, dim> V2(domain->getNodeDistInfo());
   DistNodalGrad<dim, Scalar2> *distNodalGrad = getDistNodalGrad(p);
+  int iSub;
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
     double (*locU)[dim] = U.subData(iSub);
     double (*locV)[dim] = V->subData(iSub);
     Scalar2 (*locp)[dim] = p.subData(iSub);
@@ -1591,8 +1599,9 @@ void SpaceOperator<dim>::applyH2T(DistSVec<double,3> &X,
   domain->computeMatVecProdH2Tb(recFcn, X, ctrlVol, H2, *distNodalGrad, p, prod, prod2);
   
 
+  int iSub;
 #pragma omp parallel for
-  for (int iSub = 0; iSub < numLocSub; ++iSub) {
+  for (iSub = 0; iSub < numLocSub; ++iSub) {
 
     double (*locV)[dim] = V->subData(iSub);
     Scalar2 (*locp)[dim] = prod.subData(iSub);
@@ -1906,8 +1915,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (this->use_modal == false)  {
     int numLocSub = R.numLocSub();
+    int iSub;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -1938,7 +1948,7 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
   }
 
   if (dynamic_cast<RecFcnConstant<dimLS> *>(recFcnLS) == 0) {
-    if(distLSS)
+    if(distLSS && !((*distLSS)(0).withCracking()))
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, distLSS->getStatus(), Phi, linRecAtFSInterface);
     else
       ngradLS->compute(this->geoState->getConfig(), X, ctrlVol, Phi);
@@ -1959,8 +1969,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidualLS(DistSVec<double,3> &X
 
   if (this->use_modal == false)  {
     int numLocSub = PhiF.numLocSub();
+    int iSub;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dimLS] = PhiF.subData(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -2026,8 +2037,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::computeResidual(DistSVec<double,3> &X, 
 
   if (this->use_modal == false)  {
     int numLocSub = R.numLocSub();
+    int iSub;
 #pragma omp parallel for
-    for (int iSub=0; iSub<numLocSub; ++iSub) {
+    for (iSub=0; iSub<numLocSub; ++iSub) {
       double *cv = ctrlVol.subData(iSub);
       double (*r)[dim] = R.subData(iSub);
       for (int i=0; i<ctrlVol.subSize(iSub); ++i) {
@@ -2156,8 +2168,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV(DistLevelSetStructure *
 
 // set PhiV = 0 for 1) isolated regions, and 2) nodes under phase-change, because they will not be used.
 // this might be redundant. but it's safer to do it.
+  int iSub;
 #pragma omp parallel for
-  for(int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+  for(iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     LevelSetStructure& LSS((*distLSS)(iSub));
     SVec<double,dimLS>& subPhiV(PhiV(iSub));
     Vec<int>& subId(fsId(iSub));
@@ -2168,6 +2181,14 @@ void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV(DistLevelSetStructure *
           subPhiV[i][k] = 0.0;
   }
 
+  this->domain->extrapolatePhiV(distLSS,PhiV);
+}
+
+//------------------------------------------------------------------------------
+
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV)
+{
   this->domain->extrapolatePhiV(distLSS,PhiV);
 }
 
@@ -2213,8 +2234,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange(DistSVec<double,dim> 
 {
   SubDomain **subD = this->domain->getSubDomain();
 
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     int* locToGlobNodeMap = subD[iSub]->getNodeMap();
     LevelSetStructure& LSS((*distLSS)(iSub));
     SVec<double,dim> &subV(V(iSub));
@@ -2250,26 +2272,121 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange(DistSVec<double,dim> 
 
 //-----------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange2(DistSVec<double,dim> &V,
+                             DistSVec<double,dim> &U,
+                             DistVec<double> *Weights, DistSVec<double,dim> *VWeights,
+                             DistSVec<double,dimLS> *Phi, DistSVec<double,dimLS> *PhiWeights,
+                             DistLevelSetStructure *distLSS, double* vfar,
+                             DistVec<int> *fluidId)
+{
+  SubDomain **subD = this->domain->getSubDomain();
 
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<double,dim> &subV(V(iSub));
+    Vec<double> &subWeights((*Weights)(iSub));
+    SVec<double,dim> &subVWeights((*VWeights)(iSub));
+    SVec<double,dimLS> &subPhi((*Phi)(iSub));
+    SVec<double,dimLS> &subPhiWeights((*PhiWeights)(iSub));
+    Vec<int> &subId((*fluidId)(iSub));
 
+    for(int i=0;i<subV.size();++i){
+      if(!LSS.isSwept(0.0,i))
+        continue;
+      if(subId[i]==LSS.numOfFluids()) { 
+        if(!LSS.isOccluded(0.0,i)) {fprintf(stderr,"BUG!\n");exit(-1);} //just debug
+        for(int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = vfar[iDim];
+        for(int iDim=0; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = 0.0; 
+        continue;
+      }
 
+      if(subWeights[i] <= 0.0){
+        fprintf(stderr,"Failed at phase-change at node %d in SubD %d (status: xx->%d) (weight = %e).\n", locToGlobNodeMap[i]+1, 
+                       subD[iSub]->getGlobSubNum(), subId[i], subWeights[i]);
+        fprintf(stderr,"  Phi = %e, V = %e %e %e %e %e\n", subPhi[i][0], subV[i][0], subV[i][1], subV[i][2], subV[i][3], subV[i][4]);
+        exit(-1);
+      } else {
+        for (int iDim=0; iDim<dim; iDim++)
+          subV[i][iDim] = subVWeights[i][iDim] / subWeights[i];
 
+        subPhi[i][0] = LSS.distToInterface(0.0,i); //this is the UNSIGNED distance
+        if(subPhi[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
+        if(subId[i]==0) subPhi[i][0] *= -1.0;
 
+        for (int iDim=1; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = subPhiWeights[i][iDim] / subWeights[i];
+      }
+    }
+  }
+  this->varFcn->primitiveToConservative(V, U, fluidId);
+}
 
+//-----------------------------------------------------------------------------
 
+template<int dim, int dimLS>
+void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS,
+                                           DistVec<int> &fluidId, DistSVec<bool,2> &Tag)
+{
+  /* -------------------------------------------------------------
+      Reset PhiV for the first layer of nodes near the interface
+      Rule #1. If it is occluded, set PhiV to 0.
+      Rule #2. If it is near the FS interface but not FF interface, set PhiV to its dist to wall.
+      Rule #3. If it is near both FS and FF interface, set PhiV to min(PhiV, d2wall).
+      Rule #4. Otherwise, do nothing.
+     -------------------------------------------------------------- */
 
+  this->domain->TagInterfaceNodes(0,Tag,PhiV,distLSS);
 
+  SubDomain **subD = this->domain->getSubDomain();
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    int* locToGlobNodeMap = subD[iSub]->getNodeMap();
+    LevelSetStructure& LSS((*distLSS)(iSub));
+    SVec<bool,2> &tag(Tag(iSub));
+    Vec<int> &id(fluidId(iSub));
+    SVec<double,dimLS> &phiv(PhiV(iSub));
 
+    for(int i=0; i<tag.size(); i++) {
+      // Rule #1.
+      if(LSS.isOccluded(0.0,i)) {
+        phiv[i][0] = 0.0;
+        if(id[i]!=LSS.numOfFluids()) {//just for debug
+          fprintf(stderr,"BUG: Node %d is occluded but its status is %d. numOfFluids = %d.\n", locToGlobNodeMap[i]+1, id[i], LSS.numOfFluids());
+          exit(-1);
+        }
+        continue;
+      }
+      // Rule #2.
+      if(tag[i][0] && !tag[i][1]) {
+        double dist = LSS.distToInterface(0.0,i);
+        if(dist<0) {//just for debug
+          fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
+          exit(-1);
+        }
+        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        continue;
+      }
+      // Rule #3.
+      if(tag[i][0] && tag[i][1]) {
+        double dist = LSS.distToInterface(0.0,i);
+        if(dist<0) {//just for debug
+          fprintf(stderr,"BUG: Node %d is near FS interface but its wall distance (%e) is invalid.\n", locToGlobNodeMap[i]+1, dist);
+          exit(-1);
+        }
+        dist = min(dist, fabs(phiv[i][0]));
+        phiv[i][0] = (phiv[i][0]>0.0) ? dist : -1.0*dist;
+        continue;
+      }
+    }
+  }
+}
 
-
-
-
-
-
-
-
-
-
-
-
+//-----------------------------------------------------------------------------
 

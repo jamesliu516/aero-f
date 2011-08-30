@@ -103,7 +103,7 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     void initialize(Domain *, DistSVec<double,3> &X, IoData &iod, DistVec<int> *point_based_id = 0);
     void updateStructure(double* xs, double *Vs, int nNodes, int(*abc)[3]=0);
     void updatePhysBAMInterface();
-    int recompute(double dtf, double dtfLeft, double dts);
+    int recompute(double dtf, double dtfLeft, double dts, bool findStatus = true);
 
     LevelSetStructure & operator()(int subNum) const;
 
@@ -115,6 +115,9 @@ class DistIntersectorFRG : public DistLevelSetStructure {
     Vec<Vec3D> &getStructPosition_0() { return *solidX0; }
     Vec<Vec3D> &getStructPosition_n() { return *solidXn; }
     DistVec<int> &getStatus() { return *status; }
+    DistVec<ClosestPoint> &getClosestPoints() {
+      fprintf(stderr,"ERROR: closest point not stored in IntersectorFRG.\n");exit(-1);
+      DistVec<ClosestPoint> *toto = new DistVec<ClosestPoint>(status->info()); return *toto;}
     void setStatus(DistVec<int> nodeTag) { *status = nodeTag; } //for reset after failSafe
 
     int getNumStructNodes () { return numStNodes; }
@@ -183,8 +186,11 @@ class IntersectorFRG : public LevelSetStructure {
     bool isActive(double t, int n) const                         {return (status[n]>=0 && status[n]!=OUTSIDECOLOR);}
     bool isOccluded(double t, int n) const                       {return false;} /* no occluded nodes */
     bool isSwept(double t, int n) const                          {return status[n] != status0[n];}
-    bool edgeIntersectsStructure(double t, int ni, int nj) const {return status[ni]!=status[nj];}
+    bool edgeIntersectsStructure(double t, int ni, int nj) const; 
     bool edgeIntersectsStructure(double t, int eij) const;
+    double distToInterface(double t, int n) const                {return -1;}
+    bool isNearInterface(double t, int n) const                  {return false;}
+    bool withCracking() const                                    {return false;}
 
 //    bool isActive(double t, int n, int phase = 0) const          {return status[n]==phase;}
 //    bool wasActive(double t, int n, int phase = 0) const         {return status0[n]==phase;}
