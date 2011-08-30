@@ -238,11 +238,6 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 template<int dim> /*this dim is actually dimLS*/
 void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<double,dim> &Phi)
 {
-  
-  if(dim!=1) {
-    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'multiple level-set's and 'cracking' at the same time!\n");
-    exit(-1);
-  }
   if(programmedBurn) {
     fprintf(stderr,"ERROR: Currently AERO-F does not handle 'programmed burn' and 'cracking' at the same time!\n");
     exit(-1);
@@ -262,7 +257,10 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
         tag[iNode] = LSS.numOfFluids();
         continue;
       }
-      tag[iNode] = (phi[iNode][0]>0.0) ? 1 : 0;
+      tag[iNode] = 0;
+      for(int i=0; i<dim; i++)
+        if(phi[iNode][i]>0.0) {
+          tag[iNode] = i+1; break;}
     }
   }
 }
@@ -272,10 +270,6 @@ void FluidSelector::updateFluidIdFF2(DistLevelSetStructure *distLSS, DistSVec<do
 template<int dim> /*this dim is actually dimLS*/
 void FluidSelector::checkLSConsistency(DistSVec<double,dim> &Phi)
 {
-  if(dim!=1) {
-    fprintf(stderr,"ERROR: Currently AERO-F does not handle 'multiple level-set's and 'cracking' at the same time!\n");
-    exit(-1);
-  }
   int numLocSub = Phi.numLocSub();
   int iSub;
 #pragma omp parallel for

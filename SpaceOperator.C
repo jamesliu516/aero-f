@@ -2280,7 +2280,6 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange2(DistSVec<double,dim>
                              DistVec<int> *fluidId)
 {
   SubDomain **subD = this->domain->getSubDomain();
-  if(dimLS!=1) {fprintf(stderr,"ERROR: Currently dimLS must be 1 for multi-phase cracking! Now it's %d.\n",dimLS);exit(-1);}
 
   int iSub;
 #pragma omp parallel for
@@ -2318,6 +2317,9 @@ void MultiPhaseSpaceOperator<dim,dimLS>::updatePhaseChange2(DistSVec<double,dim>
         subPhi[i][0] = LSS.distToInterface(0.0,i); //this is the UNSIGNED distance
         if(subPhi[i][0]<0) {fprintf(stderr,"ERROR: got a swept node is far from the interface!\n");exit(-1);}
         if(subId[i]==0) subPhi[i][0] *= -1.0;
+
+        for (int iDim=1; iDim<dimLS; iDim++)
+          subPhi[i][iDim] = subPhiWeights[i][iDim] / subWeights[i];
       }
     }
   }
@@ -2338,7 +2340,6 @@ void MultiPhaseSpaceOperator<dim,dimLS>::resetFirstLayerLevelSetFS(DistSVec<doub
       Rule #4. Otherwise, do nothing.
      -------------------------------------------------------------- */
 
-  if(dimLS!=1) {fprintf(stderr,"ERROR: Currently dimLS must be 1 for multi-phase cracking! Now it's %d.\n",dimLS);exit(-1);}
   this->domain->TagInterfaceNodes(0,Tag,PhiV,distLSS);
 
   SubDomain **subD = this->domain->getSubDomain();

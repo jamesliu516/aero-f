@@ -218,7 +218,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupMultiPhaseFlowSolver(IoData &ioData)
 {
   LS = new LevelSet<dimLS>(ioData, this->domain);
   frequencyLS = ioData.mf.frequency;
-  withMixedLS = (ioData.embed.mixedLevelset==EmbeddedFramework::ON);
+  withMixedLS = (ioData.embed.crackingWithLevelset==EmbeddedFramework::ON);
 }
 
 //------------------------------------------------------------------------------
