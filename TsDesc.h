@@ -69,6 +69,7 @@ protected:
   RefVal *refVal;
   VarFcn *varFcn;
 
+  DistVec<int> fluidIdDummy;
 
   DistTimeState<dim> *timeState;
   DistBcData<dim> *bcData;

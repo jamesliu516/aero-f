@@ -107,6 +107,8 @@ DistTimeState<dim>::DistTimeState(IoData &ioData, SpaceOperator<dim> *spo, VarFc
 
   isGFMPAR = (ioData.eqs.numPhase > 1 &&
               ioData.mf.method == MultiFluidData::GHOSTFLUID_WITH_RIEMANN);
+  
+  fvmers_3pbdf = ioData.ts.implicit.fvmers_3pbdf;
 }
 
 //------------------------------------------------------------------------------
@@ -210,12 +212,8 @@ void DistTimeState<dim>::setup(const char *name, DistSVec<double,3> &X,
   // third,  setup U for embedded structures (points)
   // NOTE: each new setup overwrites the previous ones.
   setupUVolumesInitialConditions(iod);
-  
-  setupUOneDimensionalSolution(iod,X);
-
   setupUMultiFluidInitialConditions(iod,X);
-
-  //if(point_based_id && iod.eqs.numPhase>=2)
+  setupUOneDimensionalSolution(iod,X);
   if(point_based_id) //KW: used to be the line above
     setupUFluidIdInitialConditions(iod, *point_based_id);
 
@@ -363,7 +361,7 @@ void DistTimeState<dim>::setupUOneDimensionalSolution(IoData &iod, DistSVec<doub
 {
   OneDimensional::read1DSolution(iod, *Un, 
 				 (DistSVec<double,1>*)NULL,NULL,
-				 varFcn, X,
+				 varFcn, X,*domain,
 				 OneDimensional::ModeU);
 }
 //------------------------------------------------------------------------------
@@ -1180,7 +1178,8 @@ struct MultiphaseRiemannCopy {
 //------------------------------------------------------------------------------
 
 template<int dim>
-void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
+void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistSVec<double,dim> &Qtilde,
+				DistVec<int> &fluidId,
                                 DistVec<int> *fluidIdnm1,
                                 DistExactRiemannSolver<dim> *riemann,
                                 DistLevelSetStructure* distLSS,bool increasingPressure)
@@ -1192,23 +1191,33 @@ void DistTimeState<dim>::update(DistSVec<double,dim> &Q, DistVec<int> &fluidId,
     exit(1);
   }
   if (data->use_nm1 && !increasingPressure) {
-    DistVec<int> tempInt(fluidId);
-    tempInt = 0;
-    if (distLSS) {
-      distLSS->getSwept(tempInt);
-    }    
-    DistVec<int> minus1(fluidId);
-    minus1 = -1;
-    if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
+    if (fvmers_3pbdf == ImplicitData::BDF_SCHEME2) {
+      DistVec<int> tempInt(fluidId);
+      tempInt = 0;
+      if (distLSS) {
+	distLSS->getSwept(tempInt);
+      }    
+      DistVec<int> minus1(fluidId);
+      minus1 = -1;
+      if(!data->exist_nm1) riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      
+      varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
+      DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
+      varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
+      *Unm1 = *Vn;
+      
+      riemann->updatePhaseChange(*Vn,fluidId,minus1);
+      *Un = Q;
+    } else {
+      *Unm1 = *Vn;
+      *Vn = Q;
+      double tau = data->getTauN();
+      double beta = (1.0+2.0*tau)/((1.0+tau)*(1.0+tau));
+      *Un = beta*Q+(1.0-beta)*Qtilde;
+    }
 
-    varFcn->conservativeToPrimitive(*Un, *Unm1, fluidIdnm1);
-    DistVectorOp::Op(*Vn,*Unm1, fluidId, *fluidIdnm1, tempInt,MultiphaseRiemannCopy(dim) );
-    varFcn->primitiveToConservative(*Unm1,*Vn,&fluidId);
-    *Unm1 = *Vn;
-
-    riemann->updatePhaseChange(*Vn,fluidId,minus1);
-    *Un = Q;
     data->exist_nm1 = true;
+      
   } else {
     *Vn = *Un = Q;
   }

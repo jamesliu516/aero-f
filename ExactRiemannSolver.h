@@ -27,6 +27,7 @@ class ExactRiemannSolver{
   int getRiemannSolverId(int i,int j) const;
 
   int levelSetMap[10][10];
+  double levelSetSign[10][10];
 
   public:
 

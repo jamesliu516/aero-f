@@ -539,6 +539,18 @@ void SubDomain::getElementStatistics(int &numNodes, int &numEdges,
 
 }
 
+// Get the local node number in the subdomain of the global node <id>
+// Returns -1 if it does not exist.  Warning: This method is O(N)
+int SubDomain::getLocalNodeNum(int globNodeNum) const {
+
+  for (int i = 0; i < nodes.size(); ++i) {
+    if (locToGlobNodeMap[i] == globNodeNum)
+      return i;
+  }
+  
+  return -1;
+}
+
 //------------------------------------------------------------------------------
 
 int SubDomain::computeControlVolumes(int numInvElem, double lscale,
@@ -560,7 +572,7 @@ int SubDomain::computeControlVolumes(int numInvElem, double lscale,
 				     locToGlobElemMap, nodes, X);
     }
   }
-
+  
   return ierr;
 
 }
@@ -2551,6 +2563,16 @@ void SubDomain::computeDisplacement(SVec<double,3> &X, SVec<double,3> &dX)
 
 //------------------------------------------------------------------------------
 
+void SubDomain::computeDisplacement(SVec<double,3> &X, double* dX,int node)
+{
+
+  for (int k = 0; k < 3; ++k)
+    dX[k] = X[node][k] - nodes[node][k];
+
+}
+
+//------------------------------------------------------------------------------
+
 void SubDomain::makeMasterFlag(DistInfo &distInfo)
 {
 
@@ -4355,8 +4377,6 @@ void SubDomain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, 
   int CODE;
   if (forceApp==3 && orderOfAccuracy==1)  CODE = 1;
   else if (forceApp==3 && orderOfAccuracy==2)  CODE = 3;
-  else if (forceApp==4 && orderOfAccuracy==1)  CODE = 2;
-  else if (forceApp==4 && orderOfAccuracy==2)  CODE = 2;
   else {fprintf(stderr,"ERROR: force method not recognized! Abort...\n"); exit(-1);}
 
   // for debugging: output the reconstructed surface.

@@ -6,10 +6,14 @@
 #include <BlockAlloc.h>
 #include <GhostPoint.h>
 
+#include <PhysBAM_Geometry/Spatial_Acceleration/BOX_HIERARCHY.h>
+
 #ifdef OLD_STL
 #include <map.h>
+#include <vector.h>
 #else
 #include <map>
+#include <vector>
 using std::map;
 #endif
 
@@ -97,6 +101,10 @@ public:
   virtual void *forClassTet(ElemTet *, int size, char *memorySpace) = 0;
 };
 
+class GenElemHelper_dim_obj {
+public:
+  virtual void *forClassTet(ElemTet *, int size, char *memorySpace) = 0;
+};
 
 //-------------- GENERAL WRAPPERS ----------------------------------------------
 template<int dim>
@@ -171,6 +179,10 @@ public:
   void computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi) = 0;
 
+  // X is the deformed nodal location vector
+  virtual
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) = 0;
+
 };
 
 template<class Scalar, int dim, int neq>
@@ -187,6 +199,13 @@ public:
 				       SVec<double,3> &, Vec<double> &, Vec<double> &, 
 				       double *, SVec<double,dim> &, GenMat<Scalar,neq> &) = 0;
 
+};
+
+template<int dim, class Obj>
+class GenElemWrapper_dim_obj {
+public:
+  virtual void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) = 0; 
+  
 };
 
 
@@ -289,6 +308,11 @@ public:
     t->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
   }
 
+  // X is the deformed nodal location vector
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+    return t->interpolateSolution(X,U,loc,sol);
+  }
+
 };
 
 template<class Target, class Scalar, int dim, int neq>
@@ -317,6 +341,19 @@ public:
   
 };
 
+template<class Target,int dim, class Obj>
+class  ElemWrapper_dim_obj : public 
+GenElemWrapper_dim_obj<dim,Obj> {
+  
+  Target *t;
+  
+public:
+  ElemWrapper_dim_obj(Target *tt) : t(tt) { };
+  
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) {
+      t->integrateFunction(obj,X,V,F,npt);
+  }
+};
 
 //-------------- REAL HELPERS --------------------------------------------------
 template<int dim>
@@ -344,7 +381,20 @@ public:
     }
     return new (memorySpace) ElemWrapper_Scalar_dim_neq<ElemTet, Scalar, dim, neq>(tet);
   }
-  
+
+};
+
+  template<int dim, class Obj>
+class ElemHelper_dim_obj : public GenElemHelper_dim_obj {
+public:
+
+  void *forClassTet(ElemTet *tet, int size, char *memorySpace) {
+    if(size < sizeof(ElemWrapper_dim_obj<ElemTet, dim, Obj>) ) {
+      fprintf(stderr, "Error: programming error in ElemHelper");
+      exit(1);
+    }
+    return new (memorySpace) ElemWrapper_dim_obj<ElemTet, dim, Obj>(tet);
+  }
 };
 
 
@@ -362,6 +412,8 @@ protected:
 			       int size, char *memorySpace) = 0;
   virtual void *getWrapper_Scalar_dim_neq(GenElemHelper_Scalar_dim_neq *, 
 					  int size, char *memorySpace) = 0;  
+  virtual void *getWrapper_dim_obj(GenElemHelper_dim_obj *, 
+				   int size, char *memorySpace) = 0;
   int volume_id;
 
 public:
@@ -607,7 +659,18 @@ public:
       (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
     wrapper->computeDerivativeOfFaceGalerkinTerm(fet, face, code, n, dn, X, dX, d2wall, Vwall, dVwall, V, dV, dMach, dR);
   }
+  
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
 
+    ElemHelper_dim<dim> h;
+    char xx[64];
+    GenElemWrapper_dim<dim> *wrapper=
+      (GenElemWrapper_dim<dim> *)getWrapper_dim(&h, 64, xx);
+    return wrapper->interpolateSolution(X,U,loc,sol);
+  }
+  
 // Level Set Reinitialization
 
   template<int dimLS>
@@ -644,6 +707,14 @@ public:
     wrapper->computeDistanceLevelNodes(lsdim,Tag,level,X,Psi,Phi);
   }
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) { 
+    ElemHelper_dim_obj<dim,Obj> h;
+    char xx[64];
+    GenElemWrapper_dim_obj<dim,Obj> *wrapper=
+      (GenElemWrapper_dim_obj<dim,Obj> *)getWrapper_dim_obj(&h, 64, xx);
+    wrapper->integrateFunction(obj,X,V,F,npt);
+  }
 };
 
 //--------------- DUMMY ELEM CLASS ---------------------------------------------
@@ -749,6 +820,14 @@ public:
 				  SVec<double,dim> &V, SVec<double,dim> &dV, double dMach, SVec<double,dim> &dR) {
     fprintf(stderr, "Error: undefined function (computeDerivativeOfFaceGalerkinTerm) for this elem type\n"); exit(1);
   }
+  
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+
+    fprintf(stderr, "Error: undefined function (interpolateSolution0 for this elem type\n"); exit(1);
+    return -1;
+  }
 
 // Level Set Reinitialization
 
@@ -774,6 +853,10 @@ public:
     fprintf(stderr, "Error: undefined function (computeDistanceLevelNodes) for this elem type\n"); exit(1);
   }
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int) {
+    fprintf(stderr, "Error: undefined function (integrateFunction) for this elem type\n"); exit(1);
+  }
 
 };
 
@@ -785,7 +868,7 @@ class ElemSet {
 
   Elem **elems;
   BlockAlloc memElems;
-  
+
 public:
 
   ElemSet(int);
@@ -864,6 +947,13 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dimLS> &Phi);
 
 
+  template<int dim, class Obj>
+  void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int);
+
+  // X is the deformed nodal location vector
+  template<int dim> 
+  void interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const std::vector<Vec3D>& locs,
+                           double (*sol)[dim], int* status,int* last);
 };
 
 #ifdef TEMPLATE_FIX

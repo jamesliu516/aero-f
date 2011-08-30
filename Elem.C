@@ -11,6 +11,7 @@
 #include <GenMatrix.h>
 #include <cmath>
 #include <GeoState.h>
+#include <limits>
 #include "LevelSet/LevelSetStructure.h"
 
 
@@ -241,3 +242,56 @@ void ElemSet::computeDistanceLevelNodes(int lsdim, Vec<int> &Tag, int level,
 // End of Level Set Reinitialization functions
 //-------------------------------------------------------------------------------
 
+template<int dim, class Obj>
+void ElemSet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt) {
+
+  for (int i=0; i<numElems; ++i)
+    elems[i]->integrateFunction(obj, X,V,F,npt);
+}
+
+template<int dim> 
+void ElemSet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, 
+                                  const std::vector<Vec3D>& locs, double (*sol)[dim],
+                                  int* status,int* last) {
+  
+  int nn;
+  Vec3D bbox[2];
+  memset(status, 0, sizeof(int)*locs.size());
+ 
+  bool found_all = true; 
+  for (int j = 0; j < locs.size(); ++j) {
+    Elem& E = *elems[last[j]];
+    status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
+    if (!status[j]) found_all = false;
+  }
+
+  if (found_all) 
+    return;
+
+  for (int i = 0; i < numElems; ++i)  {
+    
+    Elem& E = *elems[i];
+    nn = E.numNodes(); 
+    bbox[0] = Vec3D( std::numeric_limits<double>::max() ); 
+    bbox[1] = Vec3D( -std::numeric_limits<double>::max() );
+    for (int j = 0; j < nn; ++j) {
+      const Vec3D& x = X[ E[j] ];
+      bbox[0] = min( bbox[0], x );
+      bbox[1] = max( bbox[1], x );
+    }
+    for (int j = 0; j < locs.size(); ++j) {
+      if (!status[j]) { 
+        if (bbox[0][0] <= locs[j][0] && bbox[1][0] >= locs[j][0] &&
+            bbox[0][1] <= locs[j][1] && bbox[1][1] >= locs[j][1] &&
+            bbox[0][2] <= locs[j][2] && bbox[1][2] >= locs[j][2]) {
+          
+          status[j] = E.interpolateSolution(X, U, locs[j], sol[j]);
+          if (status[j]) 
+            last[j] = i;
+        }
+      }
+    }
+  } 
+}
+
+//------------------------------------------------------------------------------

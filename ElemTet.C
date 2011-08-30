@@ -648,7 +648,8 @@ template<int dim, class Scalar, int neq>
 void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &X, 
 					  Vec<double> &ctrlVol, Vec<double> &d2wall, 
 					  SVec<double,dim> &V, GenMat<Scalar,neq> &A,
-                                          Vec<GhostPoint<dim> *> *ghostPoints, LevelSetStructure *LSS)
+                                          Vec<GhostPoint<dim>*>* ghostPoints,LevelSetStructure *LSS)
+	//				  VarFcn* vf)
 {
   // In the case of an embedded simulation, check if the tetrahedra is actually active
   bool isTetInactive=true,isAtTheInterface=true;
@@ -677,8 +678,18 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
    GhostPoint<dim> *gp;
    for(int i=0;i<4;++i)
    {
-    gp = ghostPoints->operator[](nodeNum(i)); 
-    if(gp) v[i] = gp->getPrimitiveState();
+     gp = ghostPoints->operator[](nodeNum(i)); 
+     /*if (gpJacobians && isAtTheInterface) {
+       double* & ptr = (*gpJacobians)[ nodeNum(i) ];
+       if (!ptr) {
+         ptr = new double[neq*neq*2];
+         vf->computedVdU(v[i], ptr);
+         if (gp)
+           vf->computedUdV(gp->getPrimitiveState(), ptr+neq*neq);
+       }
+    }  */    
+    if(gp) 
+      v[i] = gp->getPrimitiveState();
    }
   }
 
@@ -739,38 +750,67 @@ void ElemTet::computeJacobianGalerkinTerm(FemEquationTerm *fet, SVec<double,3> &
       i = edgeEnd(l,1);
       j = edgeEnd(l,0);
     }
+    
+    bool iactive = true,jactive=true;
+    if (LSS) {
+      iactive = LSS->isActive(0,nodeNum(i));
+      jactive = LSS->isActive(0,nodeNum(j));
+    }
 
-    Scalar *Aij = A.getElem_ij(edgeNum(l));
-    Scalar *Aji = A.getElem_ji(edgeNum(l));
-
-    if (Aij && Aji) {
-      double cij = 1.0 / ctrlVol[ nodeNum(i) ];
-      double cji = 1.0 / ctrlVol[ nodeNum(j) ];
-      int m;
-
-      for (m=0; m<neq*neq; ++m) {
-        Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
-                         dRdU[j][2][m] * dp1dxj[i][2]);
-        Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
-                         dRdU[i][2][m] * dp1dxj[j][2]);
+    if (iactive || jactive) {
+      Scalar *Aij = 0;
+      Scalar *Aji = 0;
+      if (iactive && jactive) {
+        Aij = A.getElem_ij(edgeNum(l));
+        Aji = A.getElem_ji(edgeNum(l));
+      } else if (iactive) {
+        Aij = A.getRealNodeElem_ij(i,j);
+        //Aji = A.getGhostNodeElem_ij(i,j);
+      } else { // if (LSS->isActive(0,nodeNum(j))) {
+        //Aij = A.getGhostNodeElem_ij(i,j);
+        Aji = A.getRealNodeElem_ij(j,i);
       }
 
-      if (sourceTermExists) {
-        double cij4 = cij * vol4;
-        double cji4 = cji * vol4;
-        for (m=0; m<neq*neq; ++m) {
-          Aij[m] -= cij4 * dSdU[j][m];
-          Aji[m] -= cji4 * dSdU[i][m];
+      if (Aij && Aji) {
+	double cij = 1.0 / ctrlVol[ nodeNum(i) ];
+	double cji = 1.0 / ctrlVol[ nodeNum(j) ];
+	int m;
+
+        if (iactive) {	
+	  for (m=0; m<neq*neq; ++m) {
+	    Aij[m] += cij * (dRdU[j][0][m] * dp1dxj[i][0] + dRdU[j][1][m] * dp1dxj[i][1] +
+	  		     dRdU[j][2][m] * dp1dxj[i][2]);
+          }
+        } 
+        if (jactive) {
+	  for (m=0; m<neq*neq; ++m) {
+	    Aji[m] += cji * (dRdU[i][0][m] * dp1dxj[j][0] + dRdU[i][1][m] * dp1dxj[j][1] +
+	  		     dRdU[i][2][m] * dp1dxj[j][2]);
+	  }
         }
-      }
+	
+	if (sourceTermExists) {
+	  double cij4 = cij * vol4;
+	  double cji4 = cji * vol4;
+          if (iactive)
+	    for (m=0; m<neq*neq; ++m)
+	      Aij[m] -= cij4 * dSdU[j][m];
 
-      if (porousTermExists) {
-        for (m=1;m<neq*neq;++m) {
-           Aij[m] += cij * dPdU[i][j][m];
-           Aji[m] += cji * dPdU[j][i][m];
-        }
+          if (jactive)
+	    for (m=0; m<neq*neq; ++m) 
+	      Aji[m] -= cji4 * dSdU[i][m];
+	 
+	}
+	
+	if (porousTermExists) {
+          if (iactive)
+	    for (m=1;m<neq*neq;++m)
+	      Aij[m] += cij * dPdU[i][j][m];
+          if (jactive)
+	    for (m=1;m<neq*neq;++m) 
+	      Aji[m] += cji * dPdU[j][i][m];
+	}
       }
-
     }
   }
 
@@ -1966,4 +2006,153 @@ double ElemTet::computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim
 
   return minimum;
 
+}
+
+template<int dim, class Obj>
+void ElemTet::integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+				int npt) {
+
+  double vol = computeVolume(X);
+  const double locs[5][5] = { {0.0, 0.0,0.0,0.0,0.0},
+			      {0.5773502691896257645091488, -0.5773502691896257645091488, 0.0, 0.0, 0.0},
+			      {0.7745966692414833770358531, 0.0, -0.7745966692414833770358531, 0.0, 0.0},
+			      {0.8611363115940525752239465,0.3399810435848562648026658,-0.3399810435848562648026658,-0.8611363115940525752239465,0.0},
+			      {0.9061798459386639927976269,0.5384693101056830910363144,0.0,-0.5384693101056830910363144,-0.9061798459386639927976269} };
+  
+  const double wgts[5][5] = { { 2.0, 0.0,0.0,0.0,0.0},
+			      {1.0,1.0,0.0,0.0,0.0},
+			      {0.5555555555555555555555556,0.8888888888888888888888889,0.5555555555555555555555556,0.0,0.0},
+			      {0.3478548451374538573730639,0.6521451548625461426269361,0.6521451548625461426269361,0.3478548451374538573730639,0.0},
+			      {0.2369268850561890875142640,0.4786286704993664680412915,0.5688888888888888888888889,0.4786286704993664680412915,0.2369268850561890875142640} };
+
+  // First loop through the nodes of the tet
+  Vec3D centroid;
+  for (int k = 0; k < 3; ++k)
+    centroid[k] = 0.25*(X[nodeNum(0)][k]+X[nodeNum(1)][k]+X[nodeNum(2)][k]+X[nodeNum(3)][k]);
+  Vec3D faceCnt[4];
+  Vec3D edgeCnt[6];
+  
+  for (int k = 0; k < 3; ++k) {
+    edgeCnt[0][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(1)][k]);
+    edgeCnt[1][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(2)][k]);
+    edgeCnt[2][k] = 0.5*(X[nodeNum(0)][k]+X[nodeNum(3)][k]);
+    edgeCnt[3][k] = 0.5*(X[nodeNum(1)][k]+X[nodeNum(2)][k]);
+    edgeCnt[4][k] = 0.5*(X[nodeNum(1)][k]+X[nodeNum(3)][k]);
+    edgeCnt[5][k] = 0.5*(X[nodeNum(2)][k]+X[nodeNum(3)][k]);
+  }
+
+  for (int i = 0; i < 4; ++i) {
+    int oppi = 3 - i;
+    int oppn[3]  = {faceDefTet[oppi][0],faceDefTet[oppi][1],faceDefTet[oppi][2]};
+    oppn[0]=nodeNum(oppn[0]); oppn[1]=nodeNum(oppn[1]); oppn[2]=nodeNum(oppn[2]);
+    for (int k = 0; k < 3; ++k)
+      faceCnt[i][k] = 1.0/3.0*(X[ oppn[0] ][k] + X[ oppn[1] ][k]+X[ oppn[2] ][k]);
+  }
+
+  Vec3D hexNodes[8];
+  int map1[4] = {0,3,1,2};
+  int map2[4] = {3, 3, 3, 1};
+  int map3[4] = {1, 0, 3, 5};
+  int map4[4] = {2, 4, 5, 4};
+  int map5[4] = {2, 0, 1, 2};
+  int map6[4] = {1, 2, 0, 0};
+  double res[dim];
+  
+  for (int i = 0; i < 4; ++i) {
+
+    hexNodes[0] = X[ nodeNum(i) ];
+    hexNodes[1] = edgeCnt[ map1[i] ];
+    hexNodes[2] = faceCnt[ map2[i] ];
+    hexNodes[3] = edgeCnt[ map3[i] ];
+
+    
+    hexNodes[4] = edgeCnt[ map4[i] ];
+    hexNodes[5] = faceCnt[ map5[i] ];
+    hexNodes[6] = centroid;
+    hexNodes[7] = faceCnt[ map6[i] ];
+    
+    double eta[3];
+    double det;
+    Vec3D xyz;
+    Vec3D jac[3];
+    for (int j = 0; j < npt; ++j) {
+      eta[0] = locs[npt-1][j]*0.5+0.5;
+      for (int k = 0; k < npt; ++k) {
+	eta[1] = locs[npt-1][k]*0.5+0.5;
+	for (int l = 0; l < npt; ++l) {
+	  eta[2] = locs[npt-1][l]*0.5+0.5;
+	  xyz = hexNodes[0]*(1.0-eta[0])*(1.0-eta[1])*(1.0-eta[2]) +  
+	    hexNodes[1]*eta[0]*(1.0-eta[1])*(1.0-eta[2]) +
+	    hexNodes[2]*eta[0]*eta[1]*(1.0-eta[2]) +
+	    hexNodes[3]*(1.0-eta[0])*eta[1]*(1.0-eta[2]) +
+
+	    hexNodes[4]*(1.0-eta[0])*(1.0-eta[1])*eta[2] +  
+	    hexNodes[5]*eta[0]*(1.0-eta[1])*eta[2] +
+	    hexNodes[6]*eta[0]*eta[1]*eta[2] +
+	    hexNodes[7]*(1.0-eta[0])*eta[1]*eta[2];
+
+	  jac[0] = -hexNodes[0]*(1.0-eta[1])*(1.0-eta[2]) +  
+	    hexNodes[1]*(1.0-eta[1])*(1.0-eta[2]) +
+	    hexNodes[2]*eta[1]*(1.0-eta[2]) 
+	    -hexNodes[3]*eta[1]*(1.0-eta[2])
+
+	    -hexNodes[4]*(1.0-eta[1])*eta[2] +  
+	    hexNodes[5]*(1.0-eta[1])*eta[2] +
+	    hexNodes[6]*eta[1]*eta[2]
+	    -hexNodes[7]*eta[1]*eta[2];
+
+	  jac[1] = -hexNodes[0]*(1.0-eta[0])*(1.0-eta[2]) 
+	    -hexNodes[1]*eta[0]*(1.0-eta[2]) +
+	    hexNodes[2]*eta[0]*(1.0-eta[2]) +
+	    hexNodes[3]*(1.0-eta[0])*(1.0-eta[2]) 
+
+	    -hexNodes[4]*(1.0-eta[0])*eta[2] 
+	    -hexNodes[5]*eta[0]*eta[2] +
+	    hexNodes[6]*eta[0]*eta[2] +
+	    hexNodes[7]*(1.0-eta[0])*eta[2];
+
+	  jac[2] = -hexNodes[0]*(1.0-eta[0])*(1.0-eta[1])   
+	    -hexNodes[1]*eta[0]*(1.0-eta[1])
+	    -hexNodes[2]*eta[0]*eta[1]
+	    -hexNodes[3]*(1.0-eta[0])*eta[1]+
+
+	    hexNodes[4]*(1.0-eta[0])*(1.0-eta[1]) +  
+	    hexNodes[5]*eta[0]*(1.0-eta[1]) +
+	    hexNodes[6]*eta[0]*eta[1]+
+	    hexNodes[7]*(1.0-eta[0])*eta[1];
+
+	  det = jac[0][0]*(jac[1][1]*jac[2][2]-jac[1][2]*jac[2][1]) - 
+	    jac[1][0]*(jac[0][1]*jac[2][2]-jac[0][2]*jac[2][1]) + 
+	    jac[2][0]*(jac[0][1]*jac[1][2]-jac[0][2]*jac[1][1]);
+	  
+	  (obj->*F)( nodeNum(i), xyz, res);
+	  for (int m = 0; m < dim; ++m) {
+	    V[ nodeNum(i) ][m] += det*wgts[npt-1][j]*wgts[npt-1][k]*wgts[npt-1][l]/8.0*res[m];
+	  }
+	}
+      }
+    }
+  }
+}
+
+
+// X is the deformed nodal location vector
+template<int dim> 
+int ElemTet::interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]) {
+
+  double bary[4];
+  computeBarycentricCoordinates(X, loc, bary);
+
+  if (bary[0] < 0.0 || bary[1] < 0.0 || bary[2] < 0.0 ||
+      bary[0]+bary[1]+bary[2] > 1.0)
+    return 0;
+
+  bary[3] = 1.0-bary[0]-bary[1]-bary[2];
+
+  for (int i = 0; i < dim; ++i) {
+    sol[i] = 0.0;
+    for (int j = 0; j < 4; ++j)
+      sol[i] += U[ nodeNum(j) ][i]*bary[j];
+  }
+  return 1;
 }

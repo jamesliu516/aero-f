@@ -27,6 +27,12 @@ protected:
     return h->forClassTet(this,size,memorySpace);
   }
 
+  void *getWrapper_dim_obj(GenElemHelper_dim_obj *h, 
+				  int size, char *memorySpace) {
+
+    return h->forClassTet(this,size,memorySpace);
+  }
+
 public:
 
   ElemTet() { volume_id = 0; }
@@ -176,10 +182,18 @@ public:
                                  SVec<double,3> &X, SVec<double,1> &Psi, SVec<double,dim> &Phi);
 
 
+  template<int dim, class Obj>
+    void integrateFunction(Obj* obj,SVec<double,3> &X,SVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),int npt);
+
+  // X is the deformed nodal location vector
+  template<int dim> 
+  int interpolateSolution(SVec<double,3>& X, SVec<double,dim>& U, const Vec3D& loc, double sol[dim]);
 
 private:
 
   //--------------functions in ElemTetCore.C
+
+  void computeBarycentricCoordinates(SVec<double,3>&X, const Vec3D& loc, double bary[3]);
 
 //Level Set Reinitialization
   double findRootPolynomialNewtonRaphson(double f1, double f2, double fp1, double fp2);
@@ -227,8 +241,6 @@ private:
 
   template<int dim>
   double computeDistancePlusPhi(int i, SVec<double,3> &X, SVec<double,dim> &Psi);
-
-
 
 };
 

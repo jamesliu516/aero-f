@@ -78,6 +78,7 @@ private:
   DistVec<double> *dIdtv;
 
   bool isGFMPAR;
+  int fvmers_3pbdf ;
 
 private:
   void computeInitialState(InitialConditions &ic, FluidModelData &fm, double UU[dim]);
@@ -100,7 +101,7 @@ public:
   void setupUMultiFluidInitialConditions(IoData &iod, DistSVec<double,3> &X);
   void setupUFluidIdInitialConditions(IoData &iod, DistVec<int> &fluidId);
   void update(DistSVec<double,dim> &,bool increasingPressure = false);
-  void update(DistSVec<double,dim> &Q, DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
+  void update(DistSVec<double,dim> &Q,  DistSVec<double,dim> &Qtilde,DistVec<int> &fluidId, DistVec<int> *fluidIdnm1, 
               DistExactRiemannSolver<dim> *riemann,class DistLevelSetStructure* = 0, bool increasingPressure = false);
 
   void writeToDisk(char *);

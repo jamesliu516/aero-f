@@ -101,7 +101,6 @@ ElemSet::ElemSet(int value)
 
   numElems = value;
   elems = new Elem*[value];
-
 }
 
 //------------------------------------------------------------------------------
@@ -196,5 +195,3 @@ int ElemSet::read(BinFileHandler &file, int numRanges, int (*ranges)[2], int *el
   return numClusElems;
 
 }
-
-//------------------------------------------------------------------------------

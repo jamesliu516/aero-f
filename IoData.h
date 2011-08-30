@@ -92,6 +92,37 @@ struct InputData {
 
 //------------------------------------------------------------------------------
 
+struct Probes {
+
+  const static int MAXNODES = 50;
+  struct Node { 
+    Node() { id = -1; locationX = locationY = locationZ = -1.0e20; subId = localNodeId = -1;
+             isLocationBased = false; }
+    int id;
+    int subId;
+    int localNodeId;
+    double locationX,locationY,locationZ;
+    bool isLocationBased;  
+    void setup(const char *, ClassAssigner * = 0);
+  };
+
+  Node myNodes[MAXNODES];
+
+  const char *prefix;
+  const char *density;
+  const char *pressure;
+  const char *temperature;
+  const char *velocity;
+  const char *displacement;
+
+  Probes();
+  ~Probes() {}
+
+  void setup(const char *, ClassAssigner * = 0);
+};
+
+//------------------------------------------------------------------------------
+
 struct TransientData {
 
   const char *prefix;
@@ -173,11 +204,16 @@ struct TransientData {
 
   const char *sparseGrid;
 
+  // For 1D solver
+  const char* bubbleRadius;
+
   int frequency;
   double x0, y0, z0;
   double length;
   double surface;
   double frequency_dt; //set to -1.0 by default. Used iff it is activated (>0.0) by user. 
+
+  Probes probes;
 
   TransientData();
   ~TransientData() {}
@@ -1254,6 +1290,7 @@ struct ImplicitData {
   enum TurbulenceModelCoupling {WEAK = 0, STRONG = 1} tmcoupling;
   enum Mvp {FD = 0, H1 = 1, H2 = 2, H1FD = 3} mvp;
   enum FiniteDifferenceOrder {FIRST_ORDER = 1, SECOND_ORDER = 2} fdOrder; 
+  enum FVMERS3PBDFSchme { BDF_SCHEME1 = 1, BDF_SCHEME2 = 0 } fvmers_3pbdf;
   NewtonData<KspFluidData> newton;
 
   /// UH (09/10)

@@ -28,6 +28,7 @@ class LevelSetTsDesc : public TsDesc<dim> {
   DistSVec<double,dimLS> Phi;           //conservative variables
   DistSVec<double,dimLS> PhiV;          //primitive variables
   DistSVec<double,dim> V0;
+  DistSVec<double,dim> Utilde;
 
   DistVec<double> umax;
 

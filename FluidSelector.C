@@ -45,7 +45,8 @@ void FluidSelector::getFluidId(DistSVec<double,dim> &Phi){
         if(phi[iNode][i]>0.0) {
 	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
-	    if (programmedBurn->nodeInside(burnTag,iSub,iNode))
+	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) || 
+                programmedBurn->isFinished(burnTag))
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
 	    else
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
@@ -81,7 +82,8 @@ void FluidSelector::getFluidId(Vec<int> &tag, SVec<double,dim> &phi){
       if(phi[iNode][i]>0.0) {
 	if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 			       programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
-	  if (programmedBurn->nodeInside(burnTag,iNode))
+	  if (programmedBurn->nodeInside(burnTag,iNode) ||
+              programmedBurn->isFinished(burnTag))
 	    tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
 	  else
 	    tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
@@ -121,7 +123,8 @@ void FluidSelector::getFluidId(DistVec<int> &Tag, DistSVec<double,dim> &Phi, Dis
 	if(phi[iNode][i]>0.0) { 
 	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
-	    if (programmedBurn->nodeInside(burnTag,iSub,iNode))
+	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) ||
+                programmedBurn->isFinished(burnTag))
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
 	    else
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);
@@ -164,7 +167,8 @@ void FluidSelector::updateFluidIdFS(DistLevelSetStructure *distLSS, DistSVec<dou
             if(subPhiV[i][k]>0.0) {
 	      if (programmedBurn && (programmedBurn->isUnburnedEOS(k+1,burnTag) ||
 				     programmedBurn->isBurnedEOS(k+1,burnTag)) ) {
-		if (programmedBurn->nodeInside(burnTag,iSub,i))
+		if (programmedBurn->nodeInside(burnTag,iSub,i) ||
+                    programmedBurn->isFinished(burnTag))
 		  subId[i] = programmedBurn->getBurnedEOS(burnTag);
 		else
 		  subId[i] = programmedBurn->getUnburnedEOS(burnTag);
@@ -218,7 +222,8 @@ void FluidSelector::updateFluidIdFF(DistLevelSetStructure *distLSS, DistSVec<dou
 	if(phi[iNode][i]>0.0) {
 	  if (programmedBurn && (programmedBurn->isUnburnedEOS(i+1,burnTag) ||
 				 programmedBurn->isBurnedEOS(i+1,burnTag)) ) {
-	    if (programmedBurn->nodeInside(burnTag,iSub,iNode))
+	    if (programmedBurn->nodeInside(burnTag,iSub,iNode) ||
+                programmedBurn->isFinished(burnTag))
 	      tag[iNode] = programmedBurn->getBurnedEOS(burnTag);
 	    else
 	      tag[iNode] = programmedBurn->getUnburnedEOS(burnTag);

@@ -21,7 +21,7 @@ extern int interruptCode;
 //------------------------------------------------------------------------------
 
 template<int dim>
-TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom)
+TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(dom),fluidIdDummy(dom->getNodeDistInfo())
 {
   X = new DistSVec<double,3>(getVecInfo());
   A = new DistVec<double>(getVecInfo());
@@ -31,6 +31,8 @@ TsDesc<dim>::TsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom) : domain(
   *X = 0.0;
   *A = 0.0;
   *Xs = 0.0;
+
+  fluidIdDummy = 0;
  
   V = new DistSVec<double,dim>(getVecInfo());
   R = new DistSVec<double,dim>(getVecInfo());
@@ -485,6 +487,7 @@ void TsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it, double
   output->setMeshMotionHandler(ioData, mmh);
   output->openAsciiFiles();
   timer->setSetupTime();
+  output->cleanProbesFile();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
@@ -527,6 +530,7 @@ void TsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int itSc, i
   output->writeMaterialVolumesToDisk(it, t, *A);
   output->writeBinaryVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
   output->writeAvgVectorsToDisk(*lastIt, it, t, *X, *A, U, timeState);
+  output->writeProbesToDisk(*lastIt, it, t, *X, *A, U, timeState,fluidIdDummy);
   restart->writeToDisk<dim,1>(com->cpuNum(), *lastIt, it, t, dt, *timeState, *geoState);
   output->writeHeatFluxesToDisk(*lastIt, it, itSc, itNl, t, cpu, restart->energy, *X, U);
 

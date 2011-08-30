@@ -39,6 +39,8 @@ public:
   virtual void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
   virtual void apply(DistVec<double> &, DistVec<double> &) { };
 
+  virtual void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) { }
+  
   virtual void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &) = 0;
   virtual void applyT(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &) = 0;
 
@@ -126,6 +128,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
+  //void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) = 0;
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
 
@@ -192,6 +195,8 @@ public:
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdH1 with complex arguments" << endl; }
 
+  void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
+
   void applyT(DistSVec<double,neq> &, DistSVec<double,neq> &)  {
     std::cout << "... ERROR: ::applyT function not implemented for class MatVecProdH1" << endl; } 
   void applyT(DistSVec<bcomp,neq> &x, DistSVec<bcomp,neq> &y) { 
@@ -199,6 +204,8 @@ public:
  endl; }
 
   void rstSpaceOp(IoData &, VarFcn *, SpaceOperator<dim> *, bool, SpaceOperator<dim> * = 0);
+ 
+  void clearGhost();
 };
 
 //------------------------------------------------------------------------------

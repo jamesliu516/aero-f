@@ -438,6 +438,7 @@ void EmbeddedTsDesc<dim>::setupOutputToDisk(IoData &ioData, bool *lastIt, int it
 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
+  this->output->cleanProbesFile();
 
   if (it == 0) {
     // First time step: compute GradP before computing forces
@@ -474,6 +475,7 @@ void EmbeddedTsDesc<dim>::outputToDisk(IoData &ioData, bool* lastIt, int it, int
   this->output->writeResidualsToDisk(it, cpu, res, this->data->cfl);
   this->output->writeMaterialVolumesToDisk(it, t, *this->A, &nodeTag);
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, nodeTag);
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,nodeTag);
   this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
   TsRestart *restart2 = this->restart; // Bug: compiler does not accept this->restart->writeToDisk<dim,1>(...)
@@ -575,7 +577,7 @@ void EmbeddedTsDesc<dim>::computeForceLoad(DistSVec<double,dim> *Wij, DistSVec<d
   for (int i=0; i<numStructNodes; i++) 
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
   this->spaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X,*this->A, Fs, numStructNodes, distLSS, *Wij, *Wji, 
-				  ghostPoints, this->postOp->getPostFcn());
+				  ghostPoints, this->postOp->getPostFcn(), &nodeTag);
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }

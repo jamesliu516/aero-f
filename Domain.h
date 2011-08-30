@@ -367,6 +367,9 @@ public:
   template<int dim>
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
 
+  template<int dim,int neq>
+  void populateGhostJacobian(DistVec<GhostPoint<dim>*> &ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure &LSS,DistVec<int> &tag, DistMat<double,neq>& A);
+
   template<int dim>
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &V,
                DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji,
@@ -504,7 +507,7 @@ public:
 					   DistEdgeGrad<dim>* egrad,
 					   DistVec<double> &ctrlVol,DistSVec<double,dimLS>& Phi,
 					   DistMat<Scalar,dimLS> &A,DistLevelSetStructure* distLSS);
-  
+ 
   template<int dim>
   void recomputeRHS(VarFcn*, DistSVec<double,dim> &, DistSVec<double,dim> &, DistExtrapolation<dim>*,
                    DistBcData<dim>&, DistGeoState&, DistSVec<double,3> &);
@@ -891,21 +894,23 @@ public:
                          DistVec<int> &, DistVec<int> &);
   template<int dim>
   void computeCVBasedForceLoad(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int,
-                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
+                               DistLevelSetStructure*, DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty,
+			       VarFcn* vf, DistVec<int>* fid);
   template<int dim>
   void computeCVBasedForceLoadViscous(int, int, DistGeoState&, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, 
 				      double, DistSVec<double,dim> &, DistSVec<double,dim> &, DistSVec<double,dim> &V, 
 				      DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistNodalGrad<dim, double> *ngrad);
   template<int dim>
   void computeRecSurfBasedForceLoad(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
-                                    DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty);
+                                    DistSVec<double,dim> &, DistSVec<double,dim> &, double pInfty,
+				    VarFcn* vf, DistVec<int>* fid);
   template<int dim>
   void computeRecSurfBasedForceLoadViscous(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*,
 					   double, DistSVec<double,dim> &V, DistVec<GhostPoint<dim>*> *ghostPoints,
 					   PostFcn *postFcn);
   template<int dim>
     void computeRecSurfBasedForceLoadNew(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
-					DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
+					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
 					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
   template<int dim>
   void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
@@ -921,6 +926,11 @@ public:
 
   template<int dim, int dimLS>
   void debugMultiPhysics(DistLevelSetStructure &distLSS, DistSVec<double,dimLS> &PhiV, DistVec<int> &fluidId, DistSVec<double,dim> &U);
+
+  template<int dim, class Obj>
+  void integrateFunction(Obj* obj,DistSVec<double,3> &X,DistSVec<double,dim>& V, void (Obj::*F)(int node, const double* loc,double* f),
+                         int npt);
+ 
  };
 
 //------------------------------------------------------------------------------

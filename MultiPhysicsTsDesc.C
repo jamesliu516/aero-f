@@ -404,7 +404,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 
   fluidSelector.update();
 
-  this->timeState->update(U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
+  this->timeState->update(U, U, *(fluidSelector.fluidIdn), fluidSelector.fluidIdnm1, riemann,distLSS,increasingPressure);
                             //fluidIdn, fluidIdnm1 and riemann are used only for implicit time-integrators
 }
 
@@ -435,6 +435,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupOutputToDisk(IoData &ioData, bool *last
 
   this->output->openAsciiFiles();
   this->timer->setSetupTime();
+  this->output->cleanProbesFile();
 
   if (it == 0) {
     this->multiPhaseSpaceOp->computeGradP(*this->X, *this->A, U); /*really used???*/
@@ -472,6 +473,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::outputToDisk(IoData &ioData, bool* lastIt, i
   this->output->writeBinaryVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState, *fluidSelector.fluidId, &Phi);
 //  this->output->writeAvgVectorsToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState);
 
+  this->output->writeProbesToDisk(*lastIt, it, t, *this->X, *this->A, U, this->timeState,*fluidSelector.fluidId,&Phi);
   this->restart->writeToDisk(this->com->cpuNum(), *lastIt, it, t, dt, *this->timeState, *this->geoState, LS);
   this->restart->writeStructPosToDisk(this->com->cpuNum(), *lastIt, distLSS->getStructPosition_n()); //KW: must be after writeToDisk
 
@@ -597,7 +599,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::computeForceLoad(DistSVec<double,dim> *Wij, 
     numStructNodes = dynNodalTransfer->numStNodes();
   for (int i=0; i<numStructNodes; i++)
     Fs[i][0] = Fs[i][1] = Fs[i][2] = 0.0;
-  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn()); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
+  this->multiPhaseSpaceOp->computeForceLoad(forceApp, orderOfAccuracy, *this->X, *this->A, Fs, numStructNodes, distLSS, *Wij, *Wji,0,this->postOp->getPostFcn(),fluidSelector.fluidId); // 0 is the pointer to the GhostPoint structure. May be needed in the future. 
   this->timer->addEmbeddedForceTime(t0);
   //at this stage Fs is NOT globally assembled!
 }
