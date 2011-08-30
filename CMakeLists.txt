@@ -324,7 +324,7 @@ if (NOT WITH_PHYSBAM EQUAL 0)
   SET(INC_DIR PhysBAM_Interface PhysBAM_Interface/Public_Library)
   INCLUDE_DIRECTORIES(${INC_DIR})
 
-  ADD_LIBRARY(physbam SHARED
+  ADD_LIBRARY(physbam
   PhysBAM_Interface/PHYSBAM_INTERFACE.cpp
   PhysBAM_Interface/Public_Library/PhysBAM_Tools/Arrays/ARRAY_COLLECTION.cpp
   PhysBAM_Interface/Public_Library/PhysBAM_Tools/Vectors/VECTOR.cpp
@@ -387,7 +387,7 @@ if (NOT WITH_PHYSBAM EQUAL 0)
 
   #same definitions as AERO-F main code
   add_definitions(-fPIC -DTEMPLATE_FIX -D__LINUX -DF_NEEDS_UNDSC -DTYPE_PREC=float)
-  add_library(Intersector SHARED
+  add_library(Intersector
               IntersectorFRG/IntersectorFRG.C
               IntersectorPhysBAM/IntersectorPhysBAM.C
               IntersectorPhysBAM/FloodFill.C
