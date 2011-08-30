@@ -339,9 +339,7 @@ template<int dimLS>
 void LevelSet<dimLS>::setupPhiFluidStructureInitialConditions(IoData &iod, DistSVec<double,3> &X, DistSVec<double,dimLS> &Phi, 
                                                               DistVec<ClosestPoint> &closest, DistVec<int> &status)
 {
-  if(dimLS>1) {com->fprintf(stderr,"ERROR: Currently Multi-Phase Cracking only works with one level-set! Got %d here.\n", dimLS);exit(-1);}
   trueLevelSet[0] = true; //this is a 'true' level-set.
-
   //initialize the level-set near FS interface  
 #pragma omp parallel for
     for (int iSub=0; iSub<numLocSub; ++iSub) {

@@ -3178,7 +3178,7 @@ EmbeddedFramework::EmbeddedFramework() {
   nLevelset = 0;
 
   //debug variables
-  mixedLevelset = OFF;
+  crackingWithLevelset = OFF;
   coupling = TWOWAY;
   dim2Treatment = NO;    
   reconstruct = CONSTANT;
@@ -3204,7 +3204,7 @@ void EmbeddedFramework::setup(const char *name) {
 
 
   //debug variables
-  new ClassToken<EmbeddedFramework> (ca, "MixedLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::mixedLevelset), 2,
+  new ClassToken<EmbeddedFramework> (ca, "CrackingWithLevelSet", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::crackingWithLevelset), 2,
                                       "Off", 0, "On", 1);
   new ClassToken<EmbeddedFramework> (ca, "Coupling", this, reinterpret_cast<int EmbeddedFramework::*>(&EmbeddedFramework::coupling), 2,
                                       "TwoWay", 0, "OneWay", 1);
@@ -4025,7 +4025,7 @@ int IoData::checkInputValuesAllInitialConditions(){
     }
   }
 
-  embed.nLevelset = 0;
+  embed.nLevelset = (embed.crackingWithLevelset==EmbeddedFramework::ON) ? 1 : 0;
 
   // count number of levelsets (consider only bubbles!) for the Embedded Framework.
   set<int> usedModels; 
@@ -4051,7 +4051,7 @@ int IoData::checkInputValuesAllInitialConditions(){
       com->fprintf(stderr,"*** Re-order the fluid models to satisfy this constraint, then re-run this simulation!\n");
       error++;
     } else 
-      embed.nLevelset = nModels;
+      embed.nLevelset += nModels;
   }
 
   return error;
