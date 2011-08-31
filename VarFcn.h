@@ -268,7 +268,7 @@ VarFcn::VarFcn(IoData &iod)
     varFcn[iPhase] = createVarFcnBase(iod, *it->second);
   }
 
-  // In the case of a Embedded Simulation, Structure VarFcn points on VarFcn[0]
+  // In the case of an Embedded Simulation, Structure VarFcn points on VarFcn[0]
   // by default. It is just convienient. This can be changed eventually.
   if(iod.problem.framework == ProblemData::EMBEDDED) {
     ghostId = numPhases - 1;
