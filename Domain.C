@@ -3592,11 +3592,17 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    int (*ptr)[2] = subDomain[iSub]->getEdges().getPtr();
     for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[i]:0);
-      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[i]:0);
+      int Ni = ptr[i][0];
+      int Nj = ptr[i][1];
+      int Idi = fid ? (*fid)(iSub)[Ni] : 0;
+      int Idj = fid ? (*fid)(iSub)[Nj] : 0;
+      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],Idi);
+      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],Idj);
     }
+  }
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
