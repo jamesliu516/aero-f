@@ -167,13 +167,20 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   Qepstmp = Q + eps * p;
 
   Qepstmp.pad(Qeps);
+  
+  // Ghost-Points Population
+  if(this->isFSI && this->fsi.ghostPoints)
+    {
+      this->fsi.ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+    }
 
   if (!this->isFSI)
     spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
   else
     spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                              this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
-                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+                             Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
 
   if (timeState)
     timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -192,13 +199,19 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
     Qepstmp = Q - eps * p;
     
     Qepstmp.pad(Qeps);
+  
+    if(this->isFSI && this->fsi.ghostPoints)
+    {
+      this->fsi.ghostPoints->deletePointers();
+      this->spaceOp->populateGhostPoints(this->fsi.ghostPoints,Qepstmp,this->spaceOp->getVarFcn(),this->fsi.LSS,*this->fsi.fluidId);
+    }
 
     if (!this->isFSI)
       spaceOp->computeResidual(*X, *ctrlVol, Qeps, Feps, timeState);
     else
       spaceOp->computeResidual(*X,*ctrlVol, Qeps, *(this->fsi.Wtemp),*(this->fsi.Wtemp),
                                this->fsi.LSS, this->fsi.linRecAtInterface, *(this->fsi.fluidId),
-                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, 0);
+                               Feps, this->fsi.riemann, this->fsi.Nriemann, this->fsi.Nsbar, 0, this->fsi.ghostPoints);
  
     if (timeState)
       timeState->add_dAW_dt(-1, *geoState, *ctrlVol, Qeps, Feps);
@@ -249,6 +262,12 @@ void MatVecProdFD<dim, neq>::apply(DistSVec<double,neq> &p, DistSVec<double,neq>
   prod = (1.0/eps) * (Fepstmp - F);
 */
 
+}
+
+template<int dim, int neq>
+void MatVecProdFD<dim,neq>::apply(DistEmbeddedVec<double,neq> & p, DistEmbeddedVec<double,neq> & prod) {
+
+  apply(p.real(), prod.real());
 }
 
 //------------------------------------------------------------------------------

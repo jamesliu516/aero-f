@@ -128,7 +128,7 @@ public:
   void evaluate(int, DistSVec<double,3> &, DistVec<double> &, 
 		DistSVec<double,dim> &, DistSVec<double,dim> &);
   void apply(DistSVec<double,neq> &, DistSVec<double,neq> &);
-  //void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &) = 0;
+  void apply(DistEmbeddedVec<double,neq> &, DistEmbeddedVec<double,neq> &);
   void apply(DistSVec<bcomp,neq> &, DistSVec<bcomp,neq> &)  {
     std::cout << "... ERROR: ::apply function not implemented for class MatVecProdFD with complex arguments" << endl; }
 

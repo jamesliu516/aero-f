@@ -3592,11 +3592,14 @@ void Domain::computeCVBasedForceLoad(int forceApp, int orderOfAccuracy, DistGeoS
   DistVec<double> pstarij(Wstarij.info());
   DistVec<double> pstarji(Wstarji.info()); //extract p from Wstar
 #pragma omp parallel for
-  for (int iSub=0; iSub<numLocSub; iSub++)
+  for (int iSub=0; iSub<numLocSub; iSub++) {
+    int (*ptr)[2] = subDomain[iSub]->getEdges().getPtr();
     for (int i=0; i<Wstarij(iSub).size(); i++) {
-      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[i]:0);
-      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[i]:0);
+      pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],fid?(*fid)(iSub)[ptr[i][0]]:0);
+      pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],fid?(*fid)(iSub)[ptr[i][1]]:0);
     }
+  }
+ 
 #pragma omp parallel for
   for (int iSub=0; iSub<numLocSub; iSub++) {
     for (int is=0; is<sizeFs; is++) subFs[iSub][is][0] = subFs[iSub][is][1] = subFs[iSub][is][2] = 0.0;
@@ -3686,8 +3689,8 @@ void Domain::computeRecSurfBasedForceLoad(int forceApp, int orderOfAccuracy, Dis
       }
     } else {
       for (int i=0; i<Wstarij(iSub).size(); i++) {
-	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],ptr[i][0]);//Wstarij(iSub)[i][4];
-	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],ptr[i][1]);//Wstarji(iSub)[i][4];
+	pstarij(iSub)[i] = vf->getPressure(Wstarij(iSub)[i],0);//Wstarij(iSub)[i][4];
+	pstarji(iSub)[i] = vf->getPressure(Wstarji(iSub)[i],0);//Wstarji(iSub)[i][4];
       }
 
     }
@@ -3761,7 +3764,7 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
 					     double (*Fs)[3], int sizeFs, DistLevelSetStructure *distLSS, double pInfty, 
 					     DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, 
 					     DistSVec<double,dim> &V, 
-					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+					     DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistVec<int>* fid)
 {
   //PJSA double subFs[numLocSub][sizeFs][3];
   typedef double array3d[3];
@@ -3775,7 +3778,7 @@ void Domain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, 
     if(ghostPoints) gp = ghostPoints->operator[](iSub);
     subDomain[iSub]->computeRecSurfBasedForceLoadNew(forceApp, orderOfAccuracy, X(iSub), subFs[iSub], sizeFs,
 						     (*distLSS)(iSub), pInfty, 
-						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn);
+						     Wstarij(iSub), Wstarji(iSub), V(iSub), gp, postFcn,fid?&((*fid)(iSub)):0);
   }
   for (int is=0; is<sizeFs; is++) {
     Fs[is][0] = subFs[0][is][0];
