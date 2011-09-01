@@ -907,7 +907,7 @@ public:
   template<int dim>
     void computeRecSurfBasedForceLoadNew(int, int, DistSVec<double,3>&, double (*)[3], int, DistLevelSetStructure*, double, 
 					 DistSVec<double,dim> &Wstarij, DistSVec<double,dim> &Wstarji, DistSVec<double,dim> &V, 
-					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+					 DistVec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,DistVec<int>* fid);
   template<int dim>
   void computePrdtWCtrlVolRatio(DistSVec<double,dim> &, DistSVec<double,dim> &, DistVec<double> &, DistGeoState &);
 

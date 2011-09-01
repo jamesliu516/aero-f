@@ -799,7 +799,7 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
   SVec<double,dim>& dVdz = ngrad.getZ();
 
   double ddVij[dim], ddVji[dim], Vi[2*dim], Vj[2*dim], flux[dim];
-  double Wstar[2*dim];
+  double Wstar[2*dim],Udummy[dim];
   double fluxi[dim], fluxj[dim];  for (int i=0; i<dim; i++) fluxi[i] = fluxj[i] = 0.0;
   VarFcn *varFcn = fluxFcn[BC_INTERNAL]->getVarFcn();
   double length;
@@ -868,6 +868,9 @@ int EdgeSet::computeFiniteVolumeTerm(ExactRiemannSolver<dim>& riemann, int* locT
           } else recFcn->compute(Wstarji[l], ddVij, V[j], ddVji, Vi, Vj);
       }
     } 
+      
+    varFcn->getVarFcnBase(fluidId[i])->verification(0,Udummy,Vi);
+    varFcn->getVarFcnBase(fluidId[j])->verification(0,Udummy,Vj);
 
     if(it>0)
       for(int k=0;k<dim;k++)

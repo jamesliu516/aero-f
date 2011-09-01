@@ -1137,7 +1137,7 @@ public:
   template<int dim>
     void computeRecSurfBasedForceLoadNew(int, int, SVec<double,3>&, double (*)[3], int, LevelSetStructure&, double pInfty, 
 					 SVec<double,dim> &Wstarij,SVec<double,dim> &Wstarji,SVec<double,dim> &V, 
-					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn);
+					 Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,Vec<int>* fid);
   int getPolygon(int, LevelSetStructure&, int[4][2]);
   int getPolygons(int, LevelSetStructure&, PolygonReconstructionData*);
   void addLocalForce(int, Vec3D, double, double, double, LevelSetResult&, LevelSetResult&,
