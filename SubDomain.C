@@ -5774,7 +5774,7 @@ template<int dim>
 void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccuracy, SVec<double,3> &X,
 						double (*Fs)[3], int sizeFs, LevelSetStructure &LSS, double pInfty, 
 						SVec<double,dim> &Wstarij, SVec<double,dim> &Wstarji, SVec<double,dim> &V, 
-						Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn)
+						Vec<GhostPoint<dim>*> *ghostPoints, PostFcn *postFcn,Vec<int>* fid)
 {
   double oneThird = 1.0/3.0;
   int T[4];          // nodes in a tet.
@@ -5784,6 +5784,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 
   // not used, but required by postFcn->computeForces(...). May be useful in the future.
   double d2w[3];
+  int fid_local[4];
   d2w[0] = 0.0;d2w[1] = 0.0;d2w[2] = 0.0;
   double dPdx[3][3];
   for(int i=0;i<3;++i) {for(int j=0;j<3;++j) dPdx[i][j] = 0.0;}
@@ -5856,6 +5857,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int localI=0, localJ=0;
 	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
 	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
+              fid_local[k] = (fid?(*fid)[i]:0);
 	      double alpha = lsRes[k].alpha;
 	      for(int m=0;m<3;++m)   Xinter3[k][m] = (1.0-alpha)*X[j][m] + alpha*X[i][m];
 	      if(ghostPoints) // Interpolation at the intersection Points, possibly using the ghost States
@@ -5900,7 +5902,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	  // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	  // That is why we pass -nf, so the force on the face is -p.nf + D.n
 	  for(int i=0;i<3;++i) {Xface[i] = &Xinter3[i][0];Vface[i] = &Vinter3[i][0];}
-	  postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	  postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	  if(ghostPoints)
 	    {
 	      fv *= oneThird;
@@ -5932,6 +5934,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int i = polygon[k][0];
 	      int j = polygon[k][1];
 	      int localI=0, localJ=0;
+              fid_local[k] = (fid?(*fid)[i]:0);
 	      while(i!=T[localI]) {localI++;if(localI>3) fprintf(stderr,"Node i=%d is not part of the Tet\n",i);}
 	      while(j!=T[localJ]) {localJ++;if(localJ>3) fprintf(stderr,"Node j=%d is not part of the Tet\n",j);}
 	      double alpha = lsRes[k].alpha;
@@ -5980,7 +5983,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
 	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i][0];Vface[i] = &Vinter4[i][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -5996,7 +5999,10 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // Xface[0] points on Xinter4[0][0]. No nead to be changed. Same for Vface.
 	      Xface[1] = &Xinter4[2][0];Vface[1] = &Vinter4[2][0]; 
 	      Xface[2] = &Xinter4[3][0];Vface[2] = &Vinter4[3][0];
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+ 
+              fid_local[1] = fid_local[2];
+              fid_local[2] = fid_local[3];
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6015,7 +6021,7 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      // the stress tensor. The first one returns p.n, when the second one returns D.(-n).
 	      // That is why we pass -nf, so the force on the face is -p.nf + D.nf
 	      for(int i=0;i<3;++i) {Xface[i] = &Xinter4[i+1][0];Vface[i] = &Vinter4[i+1][0];}
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local+1);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;
@@ -6031,7 +6037,8 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      Xface[0] = &Xinter4[0][0];Vface[0] = &Vinter4[0][0]; 
 	      Xface[1] = &Xinter4[1][0];Vface[1] = &Vinter4[1][0];
 	      // Xface[2] points on Xinter4[3][0]. No nead to be changed. Same for Vface.
-	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0);
+              fid_local[2] = fid_local[3];
+	      postFcn->computeForceEmbedded(orderOfAccuracy,dp1dxj,Xface,nf,d2w,0,Vface,v,&pInfty,fi0,fi1,fi2,fv,dPdx,0,fid_local);
 	      if(ghostPoints)
 		{
 		  fv *= oneThird;

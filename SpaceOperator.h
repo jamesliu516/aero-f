@@ -151,6 +151,12 @@ public:
                                        DistLevelSetStructure *distLSS, DistVec<int> *fluidId = 0);
 
   void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,dim> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag);
+  
+  template <int neq>
+  void populateGhostPoints(DistVec<GhostPoint<dim>*> *ghostPoints,DistSVec<double,neq> &U,VarFcn *varFcn,DistLevelSetStructure *distLSS,DistVec<int> &tag) {
+    fprintf(stderr,"PopulateGhostPoints<%d> not implemented!\n",neq);
+    exit(-1);
+  }
 
   void computeRiemannWeightsForEmbeddedStruct(DistSVec<double,3> &X,
                            DistSVec<double,dim> &U, DistSVec<double,dim> &V,

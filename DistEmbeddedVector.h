@@ -1422,11 +1422,11 @@ void DistEmbeddedVec<Scalar,dim>::getGhost(DistVec<GhostPoint<dim>*>& gp,VarFcn*
   GhostPoint<dim>* gpi;
 #pragma omp parallel for
   for (iSub = 0; iSub < distInfo.numLocSub; ++iSub) {
-    ghostNodes[iSub].clear();
+    //ghostNodes[iSub].clear();
     for (int i = 0; i < distInfo.subLen[iSub]; ++i) {
       gpi = gp.subData(iSub)[i];
       if (gpi) {
-        ghostNodes[iSub].insert(i);
+        //ghostNodes[iSub].insert(i);
         vf->conservativeToPrimitive(ghostVec.subData(iSub)[i],gpi->getPrimitiveState());
       } 
     }

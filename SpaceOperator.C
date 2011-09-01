@@ -1759,7 +1759,7 @@ void SpaceOperator<dim>::computeForceLoad(int forceApp, int orderOfAccuracy, Dis
       //						  distLSS,pinternal,*V,ghostPoints,postFcn); 
       // ghostPoints should be a null pointer when not used
       domain->computeRecSurfBasedForceLoadNew(forceApp,orderOfAccuracy,X,Fs,sizeFs,
-					      distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn);
+					      distLSS,pinternal,Wstarij,Wstarji,*V,ghostPoints,postFcn,fid);
       break;
     default:
       fprintf(stderr,"ERROR: force approach not specified correctly! Abort...\n"); 
