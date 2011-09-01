@@ -57,8 +57,6 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   interpolatedNormal = (iod.embed.structNormal==EmbeddedFramework::NODE_BASED) ? 
                         true : false;
   
-  //nodal or facet normal?
-
   //initialize the following to 0(NULL)
   physInterface = 0;
   triNorms = 0;
@@ -66,6 +64,7 @@ DistIntersectorPhysBAM::DistIntersectorPhysBAM(IoData &iod, Communicator *comm, 
   nodalNormal = 0;
   status = 0;
   status0 = 0;
+  closest = 0;
   occluded_node = 0;
   swept_node = 0;
   boxMin = 0;
@@ -98,6 +97,7 @@ DistIntersectorPhysBAM::~DistIntersectorPhysBAM()
   if(Xsdot)       delete[] Xsdot;
   if(status)      delete   status;
   if(status0)     delete   status0;
+  if(closest)     delete   closest;
   if(triSize)     delete[] triSize;
   if(triNorms)    delete[] triNorms;
   if(nodalNormal) delete[] nodalNormal;
@@ -563,13 +563,15 @@ DistIntersectorPhysBAM::initialize(Domain *d, DistSVec<double,3> &X, IoData &iod
   swept_node = new DistVec<bool>(domain->getNodeDistInfo());  
   boxMin = new DistSVec<double,3>(domain->getNodeDistInfo());
   boxMax = new DistSVec<double,3>(domain->getNodeDistInfo());
+  closest = new DistVec<ClosestPoint>(domain->getNodeDistInfo()); //needed only for multi-phase cracking.
 
   // for hasCloseTriangle
   DistVec<bool> tId(domain->getNodeDistInfo());
 
 #pragma omp parallel for
-  for(int i = 0; i < numLocSub; ++i){
-    intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*occluded_node)(i), (*swept_node)(i), *this);}
+  for(int i = 0; i < numLocSub; ++i)
+    intersector[i] = new IntersectorPhysBAM(*(d->getSubDomain()[i]), X(i), (*status)(i), (*status0)(i), (*closest)(i),
+                                            (*occluded_node)(i), (*swept_node)(i), *this);
 
   updatePhysBAMInterface(Xs, numStNodes,X,true);
 
@@ -879,7 +881,7 @@ DistIntersectorPhysBAM::updatePhysBAMInterface(Vec3D *particles, int size, const
 
 /** compute the intersections, node statuses and normals for the initial geometry */
 int
-DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
+DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts, bool findStatus) {
 
   if (dtfLeft<-1.0e-6) {
     fprintf(stderr,"There is a bug in time-step!\n");
@@ -917,7 +919,9 @@ DistIntersectorPhysBAM::recompute(double dtf, double dtfLeft, double dts) {
       intersector[iSub]->findIntersections((*X)(iSub),tId(iSub),*com);
       intersector[iSub]->computeSweptNodes((*X)(iSub),tId(iSub),*com);}
 
-  findActiveNodes(tId);
+  if(findStatus)
+    findActiveNodes(tId);
+
   return 0;
 }
 
@@ -944,10 +948,11 @@ void IntersectorPhysBAM::printFirstLayer(SubDomain& sub, SVec<double,3>&X, int T
 
 //----------------------------------------------------------------------------
 
-IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X,
-                    Vec<int> &stat, Vec<int> &stat0, Vec<bool>& occ_node, Vec<bool>& swe_node, DistIntersectorPhysBAM &distInt) :
-                      edgeIntersections(sub.numEdges()),subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),nodeToSubD(*sub.getNodeToSubD()),
-                      status(stat),status0(stat0),occluded_node(occ_node),swept_node(swe_node),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
+IntersectorPhysBAM::IntersectorPhysBAM(SubDomain &sub, SVec<double,3> &X, Vec<int> &stat, Vec<int> &stat0, Vec<ClosestPoint> &clo,
+                      Vec<bool>& occ_node, Vec<bool>& swe_node, DistIntersectorPhysBAM &distInt) :
+                      edgeIntersections(sub.numEdges()),subD(sub),edges(sub.getEdges()),distIntersector(distInt),package(0),
+                      nodeToSubD(*sub.getNodeToSubD()), status(stat), status0(stat0), closest(clo), occluded_node(occ_node),
+                      swept_node(swe_node),locIndex(sub.getLocSubNum()),globIndex(sub.getGlobSubNum())
 {
   int numEdges = edges.size();
 
@@ -1009,14 +1014,23 @@ int IntersectorPhysBAM::hasCloseTriangle(SVec<double,3> &X,SVec<double,3> &boxMi
     VECTOR<double,3> min_corner(boxMin[i][0],boxMin[i][1],boxMin[i][2]), max_corner(boxMax[i][0],boxMax[i][1],boxMax[i][2]);
     int shrunk_index;bool is_occluded;
     tId[i]=physbam_interface.HasCloseTriangle(locIndex+1,VECTOR<double,3>(X[i][0],X[i][1],X[i][2]),min_corner,max_corner,&shrunk_index,&is_occluded,&candidates);
+    closest[i].mode = -2; //set to "unknown"
     if(tId[i]){
-        forward_mapping(i+1)=shrunk_index;
-        occluded_node[i]=is_occluded;
-        xyz(forward_mapping(i+1))=VECTOR<double,3>(X[i][0],X[i][1],X[i][2]);
-        reverse_mapping(forward_mapping(i+1))=i;
-        ++numCloseNodes;
-        for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));}
-    else{occluded_node[i]=false;}}
+      forward_mapping(i+1)=shrunk_index;
+      occluded_node[i]=is_occluded;
+      xyz(forward_mapping(i+1))=VECTOR<double,3>(X[i][0],X[i][1],X[i][2]);
+      reverse_mapping(forward_mapping(i+1))=i;
+      ++numCloseNodes;
+      for(int j=1;j<=candidates.Size();++j) addToPackage(i,candidates(j));
+      Vec3D x0(X[i][0], X[i][1], X[i][2]);
+      if(distIntersector.cracking && 1 /*need a flag for 'multi-phase'*/)
+        findNodeClosestPoint(i,x0,candidates); //fill closest[i]
+    } else {
+      occluded_node[i]=false;
+      closest[i].mode = -1; // set to "far"
+    }
+  }
+
   nFirstLayer += numCloseNodes;
   reverse_mapping.Resize(nFirstLayer); xyz.Resize(nFirstLayer); // Trim the fat.
 
@@ -1119,7 +1133,7 @@ int IntersectorPhysBAM::computeSweptNodes(SVec<double,3>& X, Vec<bool>& tId,Comm
 
 LevelSetResult
 IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
-  int edgeNum = edges.find(ni, nj);
+  int edgeNum = edges.findOnly(ni, nj);
   if (!edgeIntersectsStructure(0.0,edgeNum)) {
     fprintf(stderr,"%02d There is no intersection between node %d(status:%d,occluded=%d) and %d(status:%d,occluded=%d) along edge %d! Abort...\n",
                    globIndex,locToGlobNodeMap[ni]+1, status[ni],occluded_node[ni], locToGlobNodeMap[nj]+1, status[nj],occluded_node[nj],edgeNum);
@@ -1164,7 +1178,7 @@ IntersectorPhysBAM::getLevelSetDataAtEdgeCenter(double t, int ni, int nj) {
 //----------------------------------------------------------------------------
 
 bool IntersectorPhysBAM::edgeIntersectsStructure(double t, int ni, int nj) const {
-  return edgeIntersections[edges.find(ni,nj)];
+  return edgeIntersections[edges.findOnly(ni,nj)];
 }
 
 //----------------------------------------------------------------------------
@@ -1197,3 +1211,142 @@ void IntersectorPhysBAM::addToPackage(const int i, const int candidate)
     if(nodeToSubD[i][n]==globIndex) continue;
     package[sub2pack[nodeToSubD[i][n]]].insert(candidate);}
 }
+
+//----------------------------------------------------------------------------
+
+void IntersectorPhysBAM::findNodeClosestPoint(const int nodeId, Vec3D& x0, ARRAY<int> &cand)
+{
+  int (*triNodes)[3] = distIntersector.stElem;
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
+  double dist, xi[3];
+  int trId, n1, n2; 
+  int mod = -2;
+  const double eps = 0;
+
+  for(int iArray=1; iArray<=cand.Size(); iArray++) {
+    trId = cand(iArray)-1;
+
+    dist = std::abs(project(x0, trId, xi[0], xi[1])); // project on plane
+    xi[2] = 1.0-xi[0]-xi[1];
+    if(xi[0] >= -eps && xi[1] >= -eps && xi[2] >= -eps) 
+      mod = 0;
+    else { 
+      dist = 1.0e16;
+      for (int i=0; i<3; i++) {
+        if(xi[i]<-eps) {
+          int p1 = triNodes[trId][(i+1)%3], p2 = triNodes[trId][(i+2)%3];
+          double alpha;
+          double d2l = std::abs(edgeProject(x0, p1, p2, alpha)); // project on line
+          if(alpha>=-eps && alpha<=1.0+eps) {
+            if(dist>d2l) {dist = d2l; mod = 1; n1 = p1; n2 = p2; xi[i] = 0.0; xi[(i+1)%3] = 1.0-alpha; xi[(i+2)%3] = alpha;}
+          } else {
+            if(alpha<-eps) {
+              double d2p = (x0-structX[p1]).norm();
+              if(dist>d2p) {dist = d2p; mod = 2; n1 = n2 = p1; xi[i] = xi[(i+2)%3] = 0.0; xi[(i+1)%3] = 1.0;}
+            }
+            if(alpha>1.0+eps) {
+              double d2p = (x0-structX[p2]).norm();
+              if(dist>d2p) {dist = d2p; mod = 2; n1 = n2 = p2; xi[i] = xi[(i+1)%3] = 0.0; xi[(i+2)%3] = 1.0;}
+            }
+          }
+        }
+      }
+    }
+
+    // if the point is in the "phantom" region...
+    if(distIntersector.cracking && distIntersector.cracking->getPhi(trId, xi[0], xi[1])<0.0) {
+      double phi[3];
+      phi[0] = distIntersector.cracking->getPhi(trId, 1.0, 0.0);
+      phi[1] = distIntersector.cracking->getPhi(trId, 0.0, 1.0);
+      phi[2] = distIntersector.cracking->getPhi(trId, 0.0, 0.0);
+      if(phi[0]<0.0 && phi[1]<0.0 && phi[2]<0.0)
+        continue; //this is purely a phantom...
+
+      Vec3D p[2];
+      int edgeNo[2];
+      int count = 0;
+      for(int i=0; i<3; i++) 
+        if(phi[i]*phi[(i+1)%3]<0.0) {
+          p[count] = std::abs(phi[(i+1)%3])/(std::abs(phi[i])+std::abs(phi[(i+1)%3]))*structX[triNodes[trId][i]] +
+                       std::abs(phi[i])/(std::abs(phi[i])+std::abs(phi[(i+1)%3]))*structX[triNodes[trId][(i+1)%3]];
+          edgeNo[count++] = i;
+        }
+
+      if(count!=2) {fprintf(stderr,"Debug: this is not right! count = %d.\n", count); exit(-1);}
+      double a0;
+      double d2l = edgeProject(x0, p[0], p[1], a0); 
+      if(a0>=-eps && a0<=1.0+eps) {dist = std::abs(d2l); mod = 0;}
+      else if(a0<-eps) {a0 = 0.0; dist = (x0-p[0]).norm(); mod = 1; n1 = triNodes[trId][edgeNo[0]]; n2 = triNodes[trId][(edgeNo[0]+1)%3];}
+      else {a0 = 1.0; dist = (x0-p[1]).norm(); mod = 1; n1 = triNodes[trId][edgeNo[1]]; n2 = triNodes[trId][(edgeNo[1]+1)%3];} 
+      double dd = project((1.0-a0)*p[0]+a0*p[1], trId, xi[0], xi[1]);
+      if(std::abs(dd)>1.0e-6) {fprintf(stderr,"Debug: interpolation error in IntersectorPhysBAM... dd = %e\n", dd);exit(-1);}
+      xi[2] = 1.0-xi[0]-xi[1];
+    }
+
+    // Now we got for this triangle: trId, dist, mod, xi[0,1,2], n1, n2.
+    if(closest[nodeId].mode==-2 || closest[nodeId].dist>dist) {
+      closest[nodeId].mode = mod;
+      closest[nodeId].dist = dist;
+      closest[nodeId].xi1 = xi[0]; 
+      closest[nodeId].xi2 = xi[1]; 
+      if(mod==0) {closest[nodeId].tracker[0] = trId;}
+      else if(mod==1) {closest[nodeId].tracker[0] = n1; closest[nodeId].tracker[1] = n2;}
+      else if(mod==2) {closest[nodeId].tracker[0] = n1;}
+      else {fprintf(stderr,"Debug: error in mode! mod = %d. Should be 0, 1, or 2.\n", mod); exit(-1);}
+    }
+  }
+}
+
+//----------------------------------------------------------------------------
+
+double IntersectorPhysBAM::edgeProject(Vec3D x0, Vec3D& xA, Vec3D& xB, double &alpha) const
+{
+  Vec3D AB= xB-xA;
+  Vec3D AX = x0-xA;
+  alpha = AB*AX/(AB*AB);
+  Vec3D P = xA + alpha*AB;
+  return (P-x0).norm();
+}
+
+//----------------------------------------------------------------------------
+
+double IntersectorPhysBAM::edgeProject(Vec3D x0, int n1, int n2, double &alpha) const
+{
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
+
+  Vec3D xA = structX[n1];
+  Vec3D xB = structX[n2];
+  return edgeProject(x0, xA, xB, alpha);
+}
+//----------------------------------------------------------------------------
+
+double IntersectorPhysBAM::project(Vec3D x0, int tria, double& xi1, double& xi2) const
+{
+  int (*triNodes)[3] = distIntersector.stElem;
+  Vec3D *structX = (distIntersector.getStructPosition()).data();
+
+  int iA = triNodes[tria][0];
+  int iB = triNodes[tria][1];
+  int iC = triNodes[tria][2];
+  Vec3D xA = structX[iA];
+  Vec3D xB = structX[iB];
+  Vec3D xC = structX[iC];
+
+  Vec3D ABC = (xB-xA)^(xC-xA);
+  double areaABC = ABC.norm();
+  Vec3D dir = 1.0/areaABC*ABC;
+
+  //calculate the projection.
+  double dist = (x0-xA)*dir;
+  Vec3D xp = x0 - dist*dir;
+
+  //calculate barycentric coords.
+  double areaPBC = (((xB-xp)^(xC-xp))*dir);
+  double areaPCA = (((xC-xp)^(xA-xp))*dir);
+  xi1 = areaPBC/areaABC;
+  xi2 = areaPCA/areaABC;
+
+  return dist;
+}
+
+//----------------------------------------------------------------------------

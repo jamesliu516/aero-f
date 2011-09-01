@@ -5,7 +5,6 @@
 
 class IoData;
 
-
 //------------------------------------------------------------------------------
 /** Class which handles the algorithmic organization of the solution for all problems */
 template<class ProblemDescriptor>

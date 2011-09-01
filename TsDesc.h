@@ -6,7 +6,7 @@
 #include <TsOutput.h>
 #include <TsRestart.h>
 #include <TsParameters.h>
-#include <Domain.h>
+//#include <Domain.h>
 #include <DistVector.h>
 //#include <DistEulerStructGhostFluid.h>
 

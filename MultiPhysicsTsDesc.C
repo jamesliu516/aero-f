@@ -26,7 +26,7 @@ template<int dim, int dimLS>
 MultiPhysicsTsDesc<dim,dimLS>::
 MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   TsDesc<dim>(ioData, geoSource, dom), Phi(this->getVecInfo()), V0(this->getVecInfo()),
-  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), 
+  PhiV(this->getVecInfo()), PhiWeights(this->getVecInfo()), InterfaceTag(this->getVecInfo()), 
   fluidSelector(ioData.eqs.numPhase, ioData, dom), //memory allocated for fluidIds
   Vtemp(this->getVecInfo()), numFluid(ioData.eqs.numPhase),Wtemp(this->getVecInfo()),umax(this->getVecInfo()), programmedBurn(NULL)
 {
@@ -39,8 +39,8 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   riemann = new DistExactRiemannSolver<dim>(ioData,this->domain,this->varFcn);
 
   int numBurnableFluids = ProgrammedBurn::countBurnableFluids(ioData);
-  this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
   if (numBurnableFluids > 0) {
+    this->com->fprintf(stderr,"Num burnable fluids = %d\n",numBurnableFluids);
     programmedBurn = new ProgrammedBurn(ioData,this->X);
     this->fluidSelector.attachProgrammedBurn(programmedBurn);
   }
@@ -64,7 +64,7 @@ MultiPhysicsTsDesc(IoData &ioData, GeoSource &geoSource, Domain *dom):
   requireSpecialBDF = false;
   increasingPressure = false;
 
-  ioData.printDebug();
+//  ioData.printDebug();
 }
 
 //------------------------------------------------------------------------------
@@ -218,6 +218,7 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupMultiPhaseFlowSolver(IoData &ioData)
 {
   LS = new LevelSet<dimLS>(ioData, this->domain);
   frequencyLS = ioData.mf.frequency;
+  withMixedLS = (ioData.embed.crackingWithLevelset==EmbeddedFramework::ON);
 }
 
 //------------------------------------------------------------------------------
@@ -262,8 +263,13 @@ void MultiPhysicsTsDesc<dim,dimLS>::setupTimeStepping(DistSVec<double,dim> *U, I
   // Initialize fluid state vector
   this->timeState->setup(this->input->solutions, *this->X, this->bcData->getInletBoundaryVector(),
                          *U, ioData, &point_based_id); //populate U by i.c. or restart data.
+
   // Initialize level-sets 
-  LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn);
+  if(withCracking && withMixedLS) 
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 
+              &(distLSS->getClosestPoints()), &(distLSS->getStatus()));
+  else
+    LS->setup(this->input->levelsets, *this->X, *U, Phi, ioData, &fluidSelector, this->varFcn, 0, 0);
 
   if (programmedBurn)
     programmedBurn->setFluidIds(this->getInitialTime(), *(fluidSelector.fluidId), *U);
@@ -368,9 +374,16 @@ void MultiPhysicsTsDesc<dim,dimLS>::updateStateVectors(DistSVec<double,dim> &U, 
 {
   this->geoState->update(*this->X, *this->A);
   
+  if(withCracking && withMixedLS)
+    fluidSelector.checkLSConsistency(Phi);
+
   if(frequencyLS > 0 && it%frequencyLS == 0){
     LS->conservativeToPrimitive(Phi,PhiV,U);
-    LS->reinitializeLevelSet(*this->geoState,*this->X, *this->A, U, PhiV);
+    if(withCracking && withMixedLS) {
+      this->multiPhaseSpaceOp->resetFirstLayerLevelSetFS(PhiV, this->distLSS, *fluidSelector.fluidId, InterfaceTag);
+      LS->reinitializeLevelSet(*this->X, PhiV, false);
+    } else
+      LS->reinitializeLevelSet(*this->X, PhiV);
     LS->primitiveToConservative(PhiV,Phi,U);
     LS->update(Phi);
     if (this->timeState->useNm1()) {

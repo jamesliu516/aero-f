@@ -394,6 +394,7 @@ public:
 
   // for phase-change update
   void extrapolatePhiV(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
+  void extrapolatePhiV2(DistLevelSetStructure *distLSS, DistSVec<double,dimLS> &PhiV);
   void computeWeightsForEmbeddedStruct(DistSVec<double,3> &X, DistSVec<double,dim> &U, DistSVec<double,dim> &V,
                                        DistVec<double> &Weights, DistSVec<double,dim> &VWeights,
                                        DistSVec<double,dimLS> &Phi, DistSVec<double,dimLS> &PhiWeights, 
@@ -409,7 +410,12 @@ public:
                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
                          DistSVec<double,dimLS> *PhiWeights,
                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
-
+  void updatePhaseChange2(DistSVec<double,dim> &V, DistSVec<double,dim> &U, DistVec<double> *Weights, 
+                          DistSVec<double,dim> *VWeights, DistSVec<double,dimLS> *Phi, 
+                          DistSVec<double,dimLS> *PhiWeights,
+                          DistLevelSetStructure *distLSS, double* vfar, DistVec<int> *fluidId);
+  void resetFirstLayerLevelSetFS(DistSVec<double,dimLS> &PhiV, DistLevelSetStructure *distLSS, DistVec<int> &fluidId, 
+                                 DistSVec<bool,2> &Tag);
 };
 //------------------------------------------------------------------------------
 

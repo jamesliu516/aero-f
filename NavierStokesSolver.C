@@ -19,7 +19,8 @@ void startNavierStokesSolver(IoData &ioData, GeoSource &geoSource, Domain &domai
         case 3 : NavierStokesMultiPhysicsEmbedded<5,3>::solve(ioData,geoSource,domain); break;
         // Feel free to add more here. e.g. case 4 : NavierStokesMultiPhysicsEmbedded<5,4>::solve(ioData,geoSource,domain); break;
         default: 
-          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", ioData.embed.nLevelset); 
+          com->fprintf(stderr,"*** Error: %d level-sets detected. Only support 0 ~ 3 for now although it can be extended quickly.\n", 
+                       ioData.embed.nLevelset); 
           exit(-1);
       }
     }
