@@ -4995,14 +4995,29 @@ void SubDomain::storePreviousPrimitive(SVec<double,dim> &V, Vec<int> &fluidId,
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
+// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
+// are updated. It is assumed that the input and output states are uniform!
 
-  double V[dim];
+  bool found = false;
+  double Uc[dim];
+
+  for(int i=0; i<nodes.size(); i++) {
+    if(!found) {//fill Uc[dim]
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V);
+      vf->setPressure(p,V); //for Tait it actually modifies density.
+      vf->primitiveToConservative(V,Uc);
+      found = true;
+    }
+    for(int k=0; k<dim; k++)
+      U[i][k] = Uc[k];
+  }
+
+/*  double V[dim];
   vf->conservativeToPrimitive(U[0],V);
   vf->setPressure(p,V);
   double rhoe = vf->computeRhoEnergy(V);
 
-// only the pressure in the volumes that have an id=0 (outside part of a cylinder phi>0)
-// are updated. It is assumed that the input and output states are uniform!
 
   for (int iElem = 0; iElem < elems.size(); iElem++)  {
     if (elems[iElem].getVolumeID() == 0)  {
@@ -5011,12 +5026,31 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U){
         U[nodeNums[iNode]][4] = rhoe;
     }
   }
-
+*/
 }
 //------------------------------------------------------------------------------
 template<int dim>
 void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<int> &fluidId){
+// only the pressure with fluidId = 0 (outside part)
+// are updated. It is assumed that the input and output states are uniform!
 
+  bool found = false;
+  double Uc[dim];
+
+  for(int i=0; i<nodes.size(); i++) {
+    if(fluidId[i]!=0)
+      continue;
+    if(!found) {//fill Uc[dim]
+      double V[dim];
+      vf->conservativeToPrimitive(U[i],V,fluidId[i]);
+      vf->setPressure(p,V,fluidId[i]); //for Tait it actually modifies density.
+      vf->primitiveToConservative(V,Uc,fluidId[i]);
+      found = true;
+    }
+    for(int k=0; k<dim; k++)
+      U[i][k] = Uc[k];
+  }
+/*
   bool found = false;
   double rhoe = -1.0; 
 
@@ -5034,6 +5068,7 @@ void SubDomain::IncreasePressure(double p, VarFcn *vf, SVec<double,dim> &U, Vec<
     }    
     U[i][4] = rhoe;
   }
+*/
 }
 //------------------------------------------------------------------------------
 template<int dim>
@@ -5890,7 +5925,6 @@ void SubDomain::computeRecSurfBasedForceLoadNew(int forceApp, int orderOfAccurac
 	      int N1 = lsRes[k].trNodes[0];
 	      int N2 = lsRes[k].trNodes[1];
 	      int N3 = lsRes[k].trNodes[2];
-	      LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
 	      double dist = LSS.isPointOnSurface(Xinter3[k], N1, N2, N3);
 	      if (dist>1e-2) {
 		fprintf(stderr,"WARNING: Node on reconstructed surface is NOT on the surface (%d %d %d)! dist = %e.\n",N1+1, N2+1, N3+1, dist); 
