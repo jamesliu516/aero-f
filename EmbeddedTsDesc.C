@@ -302,9 +302,9 @@ void EmbeddedTsDesc<dim>::setupTimeStepping(DistSVec<double,dim> *U, IoData &ioD
   this->varFcn->conservativeToPrimitive(*U,VV,&nodeTag);
   SubDomain **subD = this->domain->getSubDomain();
 
-
+  int iSub;
 #pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
     SVec<double,dim> &subWij = (*Wij)(iSub);
     SVec<double,dim> &subWji = (*Wji)(iSub);
     SVec<double,dim> &subVV = VV(iSub);
@@ -640,28 +640,6 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
 
   // max pressure not reached, so we do not solve and we increase pressure and let structure react
   
-  // construct Wij, Wji from U. 
-  DistSVec<double,dim> VV(this->getVecInfo());
-  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
-  SubDomain **subD = this->domain->getSubDomain();
-
-#pragma omp parallel for
-  for (int iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
-    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
-    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
-    SVec<double,dim> &subVV = VV(iSub);
-    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
-
-    for (int l=0; l<subWstarij.size(); l++) {
-      int i = ptr[l][0];
-      int j = ptr[l][1];
-      for (int k=0; k<dim; k++) {
-        subWstarij[l][k] = subVV[i][k];
-        subWstarji[l][k] = subVV[j][k];
-      }
-    }
-  }
-
   if(this->mmh && !inSubCycling) {
     //get structure timestep dts
     this->dts = this->mmh->update(0, 0, 0, this->bcData->getVelocityVector(), *this->Xs);
@@ -698,6 +676,29 @@ bool EmbeddedTsDesc<dim>::IncreasePressure(double dt, double t, DistSVec<double,
     this->timer->removeIntersAndPhaseChange(tw);
   } 
   
+  // construct Wij, Wji from U. 
+  DistSVec<double,dim> VV(this->getVecInfo());
+  this->varFcn->conservativeToPrimitive(U,VV,&nodeTag);
+  SubDomain **subD = this->domain->getSubDomain();
+
+  int iSub;
+#pragma omp parallel for
+  for (iSub=0; iSub<this->domain->getNumLocSub(); iSub++) {
+    SVec<double,dim> &subWstarij = (*Wstarij)(iSub);
+    SVec<double,dim> &subWstarji = (*Wstarji)(iSub);
+    SVec<double,dim> &subVV = VV(iSub);
+    int (*ptr)[2] =  (subD[iSub]->getEdges()).getPtr();
+
+    for (int l=0; l<subWstarij.size(); l++) {
+      int i = ptr[l][0];
+      int j = ptr[l][1];
+      for (int k=0; k<dim; k++) {
+        subWstarij[l][k] = subVV[i][k];
+        subWstarji[l][k] = subVV[j][k];
+      }
+    }
+  }
+
   this->com->fprintf(stdout, "about to increase pressure to %e\n", (Pinit+t*Prate)*Pscale);
   this->domain->IncreasePressure(Pinit+t*Prate, this->varFcn, U, nodeTag);
 
